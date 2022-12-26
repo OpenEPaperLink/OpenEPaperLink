@@ -1,0 +1,76 @@
+# solum-esl-alternative-proto
+
+## ⚠️⚠️⚠️THIS IS NOT PRODUCTION READY!⚠️⚠️⚠️
+This is not a final, polished codebase. Not by a long shot. It's a complicated system, and it is not unlikely to be a dead end. There are drawbacks to a slotted protocol, it's hard to debug, and it might not work all that well in unfavourable RF conditions. You'll need some knowledge on the use of these tags. A very good place to start is here: https://github.com/atc1441/ZBS_Flasher. You'll need to fix issues yourself, troubleshoot stuff. Once again: this is not for everyone.
+
+This is an alternative protocol for the ZBS243-based Electronic Shelf Labels - ESL / price tags by Solum / Samsung.
+
+### Compatibility
+It is currently compatible with the following tags:
+* 4.2"
+* 2.9"
+* 1.54"
+
+### Aims
+- Low power (currently around 8µA with 30 second latency)
+- Low latency (tags can check for new data every 30 seconds)
+- High transfer speeds - It can do about 5kbyte/s in favorable RF conditions. This allows for lower power
+- RF-spectrum friendly - We don't need to acknowledge EVERY packet, and we don't need to transfer data we already have
+
+The entire setup requires a few tags, and an ESP32. A (preferably, but not necessarily) broken tag is used as an 802.15.4 radio for the ESP32. You'll need a ZBS_Flasher in order to flash both the AP with its firmware, and the tags. Using the 'mac' option on ZBS_Flasher makes sure a tag flashed with a custom firmware has a valid mac address; it used the stock mac address assigned to the tag if it hasn't been flashed before. If you want to set it yourself, you can edit the mac address in the infopage. The AP expects a tag with a mac that starts with 00:00, followed by 6 bytes. The MAC-address also needs to be set on the AP-tag.
+
+Once flashed, you can hook the AP tag up to the ESP32 by connecting the tags serial lines to some free pins. Make sure you set the pins in settings.h, so that the ESP32 can communicate with it. This can be validated by checking the ESP32 debug output; you should see 'sync burst' displayed every 30 seconds
+
+You can access the ESP32 with any web browser after connecting it to your WiFi Network. The file browser is located at <ip>/edit. For sending data to tags, you'll need to upload the information in 'data' to the ESP32's filesystem. After uploading, you can access the status screen at <ip>/index.html. If everything is working, you should be able to see tags synchronising to the network. After uploading a suitable .bmp file to the filesystem, this file can be sent to the tag by entering it's 6-byte mac address and filename.
+
+## The synchronized/slotted protocol explained, kinda. This is simplified, the reality is even more convoluted
+
+- Every 30 seconds, the AP sends a 250ms long 'burst' of packets, each marked with a sequential 802.15.4 sequence number. The tag, when synchronized to the network, listens for a short while every 30 seconds, to receive exactly one packet. Based on the sequence number received by the tag, the tag can calculate clock drift and window-offset to the 30 seconds interval, in order to remain synchronized.
+- At bootup, the tag will try to find an access point, and get timing information. It will start a calibration cycle in order to characterize the difference between the AP's clock and the internal (RC) oscillator. This allows for a fairly precise reception of the sync burst. After initial calibration, the tag will slowly adjust its calibration value to compensate for drift in the RC oscillator frequency. 
+- When synced, the tag only listens for a -very- short period of time, which allows for both low power use and low latency.
+- The ESP32 can send a 'pendingData' message to the AP, indicating it wants a specific tag to check-in to the AP.
+- AP adds this pendingData struc to a queue, and adds these tags to the sync-burst
+- The sync-burst packets contain up to (currently) 2 mac addresses of tags that the AP wants to talk to, and an 'offset'. Tag receives a MAC address, see if it matches its own, and when it does, it sleeps for [offset] ms. This allows for minimal power consumption and maximum throughput, as the AP determines which tags are allowed to talk.
+- When addressed by AP in the sync-burst, the tag wakes up after the offset period, and requests information from the AP. The AP responds with some metadata, such as size, MD5 checksum, and data type.
+- The tag checks if this information is already downloaded to EEPROM, or is already displayed. If this is the case, the transfer is immediately cancelled by issuing a 'transfer complete' packet to the AP.
+- The tag then proceeds to request data in 'blocks' of 4096 bytes. The AP responds with an ACK on the request, and specifies how long it will spend to gather the data. The tag sleeps until the AP will send the data
+- The AP requests its block-buffer to be filled by the ESP32, specifying MD5 and blockID
+- Datablock is sent by the AP, which will take about 42 packets for a full block. The tag will keep track of which blocks it has seen
+- After a block has been received with missing parts, the tag will request the same block, with a bitmask of blocks that are missing
+- The AP responds with the parts as requested by the tag. If there aren't too many blocks requested, the AP will fill the block with duplicate parts, to increase the chance of a successful transmission
+- After a full block has been received, the tag will do a simple checksum over all received data. If the checksum matches, the 4K of data is stored in EEPROM storage for later use
+- The tag will now either request the next block, or do a full re-request if the checksum failed
+- If all blocks are received, the tag will send a 'transfer complete'. 
+- The AP will report the completed transfer to the ESP32, and removes the pendingData for this transfer from the queue
+
+## Todo:
+- Code cleanup... Splitting into different files, for instance. It's a mess.
+### Tags:
+- Implement NFC for URL's
+- Implement battery reading
+- Implement RSSI/LQI to be sent to the AP
+### AP:
+- More reliable serial comms (sometimes bytes are dropped)
+- Include source mac with blockrequest struct 
+### ESP32:
+- Do more with status info as sent by the tags
+
+## Known issues:
+- The RC oscillator has some jitter, especially on longer sleep times. I find it difficult to have the tag sleep for much longer than 30s without losing synchronization to the network
+- For some reason, the screen needs to be reset and put to sleep -EVERY TIME- the tag wakes up. This is a relatively slow process; it would really help if we could find out what causes this. Some glitch on the reset line of the EPD would be my guess...
+- The ZBS CPU should be able to sleep during the EPD-draw command; however, this currently (for some reason) increases the sleep-current-draw
+- Some tags work better as AP's than others. Your range may suck. The boards on these tags are tiny and fragile. For instance, a dab of hot-glue on a board is enough to warp it pretty severely, and will damage the components that are soldered on there. Reportedly, segmented-display solum tags work well. 
+
+## Hints and excuses:
+- I'm sorry if reading this spaghetti code makes you lose your mind. <sub>'Of all the things I've lost, I miss my mind the most'</sub> I know it is pretty unreadable. I could blame SDCC for a lot of things, but it's mostly me.
+- There is no warranty whatsoever. Nothing. Not implied or otherwise suggested. This code isn't fit for anything. Please don't use this code to do nasty things.
+- Do a ```make clean``` between building for different boards. It really helps!
+- This repo builds on SDCC 4.2.0 for Linux. Different SDCC versions can behave VERY differently.
+- I am happy and honored to accept pull requests! But please, no code/indent style changes :)
+
+## Credits
+### Large parts of this repo are based on code written by, and wouldn't be possible without the hard work of:
+- dmitry.gr
+- atc1441
+
+Hats off to these legends!
