@@ -135,7 +135,7 @@ struct blockRequestAck {
 
 #define TIMER_TICKS_PER_MS 1333UL
 #define RX_WINDOW_SIZE 10UL  // ms
-//#define DEBUGBLOCKS
+// #define DEBUGBLOCKS
 
 // download-stuff
 bool __xdata dataPending = true;
@@ -396,9 +396,9 @@ void sendAvailDataReq() {
 }
 struct AvailDataInfo *__xdata getAvailDataInfo() {
     uint32_t __xdata t;
-    for (uint8_t c = 0; c < 4; c++) {
+    for (uint8_t c = 0; c < 15; c++) {
         sendAvailDataReq();
-        t = timerGet() + (TIMER_TICKS_PER_MS * 15UL);
+        t = timerGet() + (TIMER_TICKS_PER_MS * 10UL);
         while (timerGet() < t) {
             int8_t __xdata ret = commsRxUnencrypted(inBuffer);
             if (ret > 1) {
@@ -455,8 +455,8 @@ bool blockRxLoop(uint32_t timeout) {
 }
 struct blockRequestAck *__xdata continueToRX() {
     struct blockRequestAck *ack = (struct blockRequestAck *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
-    ack->pleaseWaitMs = 0;
-    ack->blockSizeMs = 100;
+    ack->pleaseWaitMs = 1;
+    ack->blockSizeMs = 250;
     return ack;
 }
 void sendBlockRequest() {
@@ -493,9 +493,9 @@ void sendBlockRequest() {
 struct blockRequestAck *__xdata performBlockRequest() {
     uint32_t __xdata t;
     radioRxEnable(true, true);
-    for (uint8_t c = 0; c < 5; c++) {
+    for (uint8_t c = 0; c < 10; c++) {
         sendBlockRequest();
-        t = timerGet() + (TIMER_TICKS_PER_MS * 10UL);
+        t = timerGet() + (TIMER_TICKS_PER_MS * 5UL);
         do {
             int8_t __xdata ret = commsRxUnencrypted(inBuffer);
             if (ret > 1) {
@@ -504,12 +504,13 @@ struct blockRequestAck *__xdata performBlockRequest() {
                         if (checkCRC((inBuffer + sizeof(struct MacFrameNormal) + 1), sizeof(struct blockRequestAck)))
                             return (struct blockRequestAck *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
                         break;
-                    case PKT_BLOCK_PART:
+                    /* case PKT_BLOCK_PART:
                         // pr("packet instead of ack");
                         processBlockPart((struct blockPart *)(inBuffer + sizeof(struct MacFrameNormal) + 1));
                         return continueToRX();
+                        */
                     default:
-                        pr("got a packet w/ type %02X during block download?\n", getPacketType(inBuffer));
+                        pr("pkt w/type %02X\n", getPacketType(inBuffer));
                 }
             }
 
@@ -613,7 +614,7 @@ void getNumSlots() {
         imgSlots = nSlots;
 }
 uint8_t findSlot(uint8_t *__xdata ver) {
-    //return 0xFF;  // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
+    // return 0xFF;  // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
     uint32_t __xdata markerValid = EEPROM_IMG_VALID;
     for (uint8_t __xdata c = 0; c < imgSlots; c++) {
         struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)mScreenRow;
@@ -642,7 +643,6 @@ void saveImgBlockData(uint8_t blockId) {
         pr("EEPROM write failed\n");
 }
 void drawImageFromEeprom() {
-
     // enable WDT, to make sure de tag resets if it's for some reason unable to draw the image
     wdtSetResetVal(0xFFFFFFFF - 0x38C340);
     wdtOn();
@@ -802,12 +802,14 @@ void doDataDownload() {
         }
 
         // SLEEP - until the AP is ready with the data
-
+        uint32_t temp1 = ack->pleaseWaitMs * 1UL;
         if (ack->pleaseWaitMs) {
-            if (ack->pleaseWaitMs < 35)
-                ack->pleaseWaitMs = 35;
-            doSleep(ack->pleaseWaitMs - 30);
-            radioRxEnable(true, true);
+            if (ack->pleaseWaitMs < 35) {
+                timerDelay(ack->pleaseWaitMs * TIMER_TICKS_PER_MS);
+            } else {
+                doSleep(ack->pleaseWaitMs - 30);
+                radioRxEnable(true, true);
+            }
         }
 
         // BLOCK RX LOOP - receive a block, until the timeout has passed
@@ -818,6 +820,7 @@ void doDataDownload() {
                 pr("bailing on download, 0 blockparts rx'd\n");
                 return;
             } else {
+                pr("0 packets...\n");
                 goto startdownload;
             }
         } else {
@@ -915,7 +918,9 @@ void doDataDownload() {
                         sendXferComplete();
                         killRadio();
                         eepromReadStart(EEPROM_UPDATA_AREA_START);
-                        selfUpdate();
+                        wdtDeviceReset();
+                        // selfUpdate();
+
                         break;
                 }
             }

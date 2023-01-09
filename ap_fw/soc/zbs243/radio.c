@@ -57,6 +57,7 @@ void RF_IRQ1(void) __interrupt(4) {
             CFGPAGE = bkp;
         }
     }
+    /*
     if ((cause & 0x10) && !(RADIO_curRfState & 0x20)) {  // radio got a valid preamble and is RXing a packet. this is our chance to sample some RSSI
         uint8_t i;
 
@@ -65,6 +66,7 @@ void RF_IRQ1(void) __interrupt(4) {
         for (i = 0; i < 0x3c; i++)
             mLastRSSI = RADIO_currentRSSI;
     }
+    */
 }
 
 void RF_IRQ2(void) __interrupt(5) {
