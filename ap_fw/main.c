@@ -133,7 +133,6 @@ struct blockRequest {
 
 struct blockRequestAck {
     uint8_t checksum;
-    uint16_t blockSizeMs;
     uint16_t pleaseWaitMs;
     uint8_t cancelXfer;
 } __packed;
@@ -167,7 +166,7 @@ struct espSaveUpdateBlock {
 } __packed;
 
 #define TIMER_TICKS_PER_MS 1333UL
-uint16_t __xdata version = 0x001D;
+uint16_t __xdata version = 0x0006;
 #define RAW_PKT_PADDING 2
 
 static uint8_t __xdata mRxBuf[COMMS_MAX_PACKET_SZ];
@@ -242,22 +241,6 @@ void dump(uint8_t *__xdata a, uint16_t __xdata l) {
         timerDelay(1333);
     }
     pr("\n");
-}
-uint8_t getBlockDataLength() {
-    uint8_t partNo = 0;
-    uint8_t rounds = 0;
-    while (partNo < BLOCK_MAX_PARTS) {
-        for (uint8_t c = 0; (c < BLOCK_MAX_PARTS) && (partNo < BLOCK_MAX_PARTS); c++) {
-            if (requestedData.requestedParts[c / 8] & (1 << (c % 8))) {
-                partNo++;
-            }
-        }
-        rounds++;
-        if (rounds == 4) {
-            // return partNo; // REMOVE ME
-        }
-    }
-    return partNo;
 }
 uint8_t __xdata getPacketType(void *__xdata buffer) {
     struct MacFcs *__xdata fcs = buffer;
@@ -411,22 +394,20 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     struct blockRequest *__xdata blockReq = (struct blockRequest *)(buffer + sizeof(struct MacFrameNormal) + 1);
     if (!checkCRC(blockReq, sizeof(struct blockRequest))) return;
     // todo: actually do something with the block request
-    // uint32_t __xdata curTimerValue = *t;
     bool __xdata requestDataDownload = false;
-    // if ((blockReq->blockId != requestedData.blockId) || (blockReq->ver != requestedData.ver)) {
     if ((blockReq->blockId != requestedData.blockId) || (!u64_isEq((const uint64_t __xdata *)&blockReq->ver, (const uint64_t __xdata *)&requestedData.ver))) {
         // requested block isn't already in the buffer
         requestDataDownload = true;
     } else {
         // requested block is already in the buffer
-        //if (forceBlockDownload) {
-            if ((timerGet() - nextBlockAttempt) > (200 * TIMER_TICKS_PER_MS)) {
+        if (forceBlockDownload) {
+            if ((timerGet() - nextBlockAttempt) > (380 * TIMER_TICKS_PER_MS)) {
                 requestDataDownload = true;
-                serialBypassActive = false;
+                pr("FORCED\n");
             } else {
-                pr("NOT DOWNLOADING THIS BLOCK AGAIN\n");
+                pr("IGNORED\n");
             }
-        //}
+        }
     }
 
     // copy blockrequest into requested data
@@ -437,37 +418,23 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + sizeof(struct blockRequestAck) + RAW_PKT_PADDING;
     radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_BLOCK_REQUEST_ACK;
 
-    /* // REMOVE ME!
-        if (blockStartTimer == 0) {
-            if (requestDataDownload) {
-                // check if we need to download the first block; we need to give the ESP32 some additional time to cache the file
-                if (blockReq->blockId == 0) {
-                    blockRequestAck->pleaseWaitMs = 200;
-                } else {
-                    blockRequestAck->pleaseWaitMs = 100;
-                }
-                blockStartTimer = timerGet() + blockRequestAck->pleaseWaitMs * TIMER_TICKS_PER_MS;
+    if (blockStartTimer == 0) {
+        if (requestDataDownload) {
+            // check if we need to download the first block; we need to give the ESP32 some additional time to cache the file
+            if (blockReq->blockId == 0) {
+                blockRequestAck->pleaseWaitMs = 200;
             } else {
-                // block is already in buffer
-                blockRequestAck->pleaseWaitMs = 50;
-                blockStartTimer = timerGet() + blockRequestAck->pleaseWaitMs * TIMER_TICKS_PER_MS;
+                blockRequestAck->pleaseWaitMs = 100;
             }
         } else {
-            blockRequestAck->pleaseWaitMs = (blockStartTimer - timerGet()) / TIMER_TICKS_PER_MS;
-            if (blockRequestAck->pleaseWaitMs < 50) {
-                blockRequestAck->pleaseWaitMs = 50;
-                blockStartTimer = timerGet() + blockRequestAck->pleaseWaitMs * TIMER_TICKS_PER_MS;
-            }
+            // block is already in buffer
+            blockRequestAck->pleaseWaitMs = 50;
         }
-        */
-
-    // REMOVE THIS BLOCK
-    blockRequestAck->pleaseWaitMs = 100;
+    } else {
+        blockRequestAck->pleaseWaitMs = 50;
+    }
     blockStartTimer = timerGet() + blockRequestAck->pleaseWaitMs * TIMER_TICKS_PER_MS;
-    blockRequestAck->blockSizeMs = 500;
-    // REMOVE ME!
 
-    // blockRequestAck->blockSizeMs = 15 + 15 + (getBlockDataLength() * 245) / BLOCK_MAX_PARTS; // uncomment me!
     blockRequestAck->cancelXfer = 0;
 
     memcpy(txHeader->src, mSelfMac, 8);
@@ -486,11 +453,11 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
 
     radioTx(radiotxbuffer);
     // radioTx(radiotxbuffer);
-    // radioTx(radiotxbuffer);
 
     // pr("req blockreq: %02X%02X%02X%02X%02X%02X%02X%02X\n", ((uint8_t *)&(blockReq->ver))[0], ((uint8_t *)&(blockReq->ver))[1], ((uint8_t *)&(blockReq->ver))[2], ((uint8_t *)&(blockReq->ver))[3], ((uint8_t *)&(blockReq->ver))[4], ((uint8_t *)&(blockReq->ver))[5], ((uint8_t *)&(blockReq->ver))[6], ((uint8_t *)&(blockReq->ver))[7]);
 
     if (requestDataDownload) {
+        serialBypassActive = false;
         espBlockRequest(&requestedData);
         nextBlockAttempt = timerGet();
     }
@@ -547,6 +514,7 @@ void processAvailDataReq(uint8_t *buffer) {
     txHeader->seq = seq++;
     addCRC(availDataInfo, sizeof(struct AvailDataInfo));
     radioTx(radiotxbuffer);
+
     espNotifyAvailDataReq(availDataReq);
 }
 void processXferComplete(uint8_t *buffer) {
@@ -656,8 +624,6 @@ void sendTimingReply(void *__xdata buf) {
     frameHeader->pan = rxframe->srcPan;
     addCRC(response, sizeof(struct timingResponse));
     radioTx(radiotxbuffer);
-    radioTx(radiotxbuffer);
-    radioTx(radiotxbuffer);
     espNotifyJoinNetwork(rxframe->src);
 }
 void sendPart(uint8_t partNo) {
@@ -682,29 +648,15 @@ void sendPart(uint8_t partNo) {
 }
 void sendBlockData() {
     uint8_t partNo = 0;
-    uint8_t rounds = 0;
     while (partNo < BLOCK_MAX_PARTS) {
         for (uint8_t c = 0; (c < BLOCK_MAX_PARTS) && (partNo < BLOCK_MAX_PARTS); c++) {
             if (requestedData.requestedParts[c / 8] & (1 << (c % 8))) {
                 sendPart(c);
-                timerDelay(TIMER_TICKS_PER_MS);
+                // timerDelay(TIMER_TICKS_PER_MS);
                 partNo++;
             }
         }
-        rounds++;
-        if (rounds == 4) {
-            // return;
-        }
     }
-    // TODO: not sure if we need this, probably not. Not sure why I added it in the first place
-    /*
-        commsRxUnencrypted(radiorxbuffer);
-        commsRxUnencrypted(radiorxbuffer);
-        commsRxUnencrypted(radiorxbuffer);
-        commsRxUnencrypted(radiorxbuffer);
-        commsRxUnencrypted(radiorxbuffer);
-        commsRxUnencrypted(radiorxbuffer);
-        */
 }
 void sendXferCompleteAck(uint8_t *dst) {
     struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
@@ -813,6 +765,7 @@ void main(void) {
                 if (timerGet() > blockStartTimer) {
                     sendBlockData();
                     blockStartTimer = 0;
+                    radioRxFlush();
                 }
             }
         }
