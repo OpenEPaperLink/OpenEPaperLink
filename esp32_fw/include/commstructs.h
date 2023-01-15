@@ -12,17 +12,6 @@ struct espXferComplete {
     uint8_t src[8];
 } __packed;
 
-struct espJoinNetwork {
-    uint8_t checksum;
-    uint8_t src[8];
-} __packed;
-
-struct espSaveUpdateBlock {
-    uint8_t checksum;
-    uint8_t blockId;
-    uint16_t blockChecksum;
-} __packed;
-
 struct blockData {
     uint16_t size;
     uint16_t checksum;
@@ -38,6 +27,12 @@ struct AvailDataReq {
     uint8_t softVer;
     uint8_t hwType;
     uint8_t protoVer;
+} __packed;
+
+struct espAvailDataReq {
+    uint8_t checksum;
+    uint8_t src[8];
+    struct AvailDataReq adr;
 } __packed;
 
 #define DATATYPE_NOUPDATE 0
@@ -56,7 +51,6 @@ struct pendingData {
     struct AvailDataInfo availdatainfo;
     uint8_t attemptsLeft;
     uint8_t targetMac[8];
-    uint8_t includedThisBurst : 1;
 } __packed;
 
 

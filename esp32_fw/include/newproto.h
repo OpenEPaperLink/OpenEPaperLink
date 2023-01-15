@@ -7,4 +7,4 @@ extern void processBlockRequest(struct espBlockRequest* br);
 extern bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst);
 extern void processJoinNetwork(struct espJoinNetwork* xjn);
 extern void processXferComplete(struct espXferComplete* xfc);
-extern void processDataReq(struct AvailDataReq* adr);
+extern void processDataReq(struct espAvailDataReq* adr);
