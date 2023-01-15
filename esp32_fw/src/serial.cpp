@@ -118,30 +118,11 @@ void SerialRXLoop() {
                     memset(cmdbuffer, 0x00, 4);
                     restartBlockRequest = 0;
                 }
-                if (strncmp(cmdbuffer, "RQQ>", 4) == 0) {
-                    /*
-                    Serial.print("BYTES REQUESTED!\n");
-                    for (uint8_t c = 0; c < 50; c++) {
-                        Serial1.write(0x00);
-                    }
-                    restartBlockRequest++;
-                    if (restartBlockRequest > 10) {
-                        restartBlockRequest = 0;
-                        for (uint8_t c = 0; c < 200; c++) {
-                            Serial1.write(0x00);
-                            Serial1.write(0x00);
-                            Serial1.write(0x00);
-                            Serial1.write(0x00);
-                        }
-                    }
-                    RXState = ZBS_RX_WAIT_HEADER;
-                    */
-                }
                 if (strncmp(cmdbuffer, "ADR>", 4) == 0) {
                     RXState = ZBS_RX_WAIT_DATA_REQ;
                     charindex = 0;
                     pktindex = 0;
-                    packetp = (uint8_t*)calloc(sizeof(struct espBlockRequest) + 8, 1);
+                    packetp = (uint8_t*)calloc(sizeof(struct espAvailDataReq) + 8, 1);
                     memset(cmdbuffer, 0x00, 4);
                 }
                 if (strncmp(cmdbuffer, "BST>", 4) == 0) {
@@ -155,13 +136,6 @@ void SerialRXLoop() {
                     packetp = (uint8_t*)calloc(sizeof(struct espXferComplete) + 8, 1);
                     memset(cmdbuffer, 0x00, 4);
                 }
-                if (strncmp(cmdbuffer, "TJN>", 4) == 0) {
-                    RXState = ZBS_RX_WAIT_JOINNETWORK;
-                    pktindex = 0;
-                    packetp = (uint8_t*)calloc(sizeof(struct espJoinNetwork) + 8, 1);
-                    memset(cmdbuffer, 0x00, 4);
-                }
-
                 break;
             case ZBS_RX_BLOCK_REQUEST:
                 packetp[pktindex] = lastchar;
@@ -182,21 +156,11 @@ void SerialRXLoop() {
                     RXState = ZBS_RX_WAIT_HEADER;
                 }
                 break;
-            case ZBS_RX_WAIT_JOINNETWORK:
-                packetp[pktindex] = lastchar;
-                pktindex++;
-                if (pktindex == sizeof(struct espJoinNetwork)) {
-                    struct espJoinNetwork* ejn = (struct espJoinNetwork*)packetp;
-                    processJoinNetwork(ejn);
-                    free(packetp);
-                    RXState = ZBS_RX_WAIT_HEADER;
-                }
-                break;
             case ZBS_RX_WAIT_DATA_REQ:
                 packetp[pktindex] = lastchar;
                 pktindex++;
-                if (pktindex == sizeof(struct AvailDataReq)) {
-                    struct AvailDataReq* adr = (struct AvailDataReq*)packetp;
+                if (pktindex == sizeof(struct espAvailDataReq)) {
+                    struct espAvailDataReq* adr = (struct espAvailDataReq*)packetp;
                     processDataReq(adr);
                     free(packetp);
                     RXState = ZBS_RX_WAIT_HEADER;
@@ -227,111 +191,13 @@ void SerialRXLoop() {
     }
 }
 
-void sendSaveUpdateBlock(struct espSaveUpdateBlock* esub) {
-    addCRC(esub, sizeof(struct espSaveUpdateBlock));
-    Serial1.print("SUBL");
-    for (uint8_t c = 0; c < sizeof(struct espSaveUpdateBlock); c++) {
-        Serial1.write(((uint8_t*)esub)[c]);
-    }
-    Serial1.write(0x00);
-    Serial1.write(0x00);
-    Serial1.write(0x00);
-    Serial1.write(0x00);
-}
-
 extern uint8_t* getDataForFile(File* file);
-
-#define STATE_TIMEOUT 0
-#define STATE_PASS 1
-#define STATE_FAIL 2
-void doAPUpdate() {
-    uint8_t curBlockId = 0;
-    uint8_t maxBlocks = 16;
-    uint16_t len = 0;
-    uint16_t lenRemaining = 65535;
-    uint8_t state = true;
-    uint8_t* updateData = nullptr;
-    // open firmware file
-    // do AP update block erase
-    //  1
-
-    // TODO: some other source for the updates
-    File file = LittleFS.open("/main.bin");
-    lenRemaining = file.size();
-    updateData = getDataForFile(&file);
-
-    // determine how many blocks we're gonna use for this update
-    maxBlocks = lenRemaining / BLOCK_DATA_SIZE;
-    if (lenRemaining % BLOCK_DATA_SIZE) maxBlocks++;
-
-    uint32_t masterTimeout = millis();
-    uint32_t timeout = millis();
-
-    // begin with the process by erasing the update block on the AP's EEPROM
-    state = STATE_TIMEOUT;
-    Serial1.print("ERAS\n");
-    while (millis() - timeout < 5000UL) {
-        ShortRXWaitLoop();
-        // wait for 'erase okay'
-        if (strncmp(cmdbuffer, "EROK", 4) == 0) {
-            state = STATE_PASS;
-            break;
-        }
-    }
-
-    if (state == STATE_TIMEOUT) {
-        // Tag didn't respond properly to the 'erase' command, bail out
-        Serial.print("Failed to erase AP EEPROM data in preparation of FW update, bailing\n");
-        return;
-    }
-
-    // Begin transmitting AP update block data
-    state = STATE_TIMEOUT;
-    while (curBlockId < maxBlocks && (millis() - masterTimeout < 30000UL)) {
-        Serial.printf("Now doing block %d\n", curBlockId);
-        len = lenRemaining;
-        if (len > BLOCK_DATA_SIZE) len = BLOCK_DATA_SIZE;
-
-        struct espSaveUpdateBlock esub;
-        esub.blockId = curBlockId;
-        // send the block data (to the raw buffer)
-        esub.blockChecksum = sendBlock(updateData + (curBlockId * BLOCK_DATA_SIZE), len);
-
-        // send the update block-struct; This tells the AP which block it is and double-checks the checksum.
-        sendSaveUpdateBlock(&esub);
-
-        uint32_t timeout = millis();
-        state = STATE_TIMEOUT;
-        // we told the AP to save the block in a specific spot, now wait for the reply
-        while (millis() - timeout < 5000UL) {
-            ShortRXWaitLoop();
-            if (strncmp(cmdbuffer, "BLOK", 4) == 0) {
-                // all good, next block please
-                state = STATE_PASS;
-                curBlockId++;
-                lenRemaining -= BLOCK_DATA_SIZE;
-                break;
-            }
-            if (strncmp(cmdbuffer, "BLFL", 4) == 0) {
-                state = STATE_FAIL;
-                break;
-            }
-        }
-    }
-    if (curBlockId == maxBlocks) {
-        // update complete! (in theory) - Kick the tag to start the update process
-        Serial1.print("UPDA\n");
-        Serial1.print("UPDA\n");
-        Serial1.print("UPDA\n");
-    }
-    // parts left?
-}
 
 void zbsRxTask(void* parameter) {
     Serial1.begin(230400, SERIAL_8N1, RXD1, TXD1);
 
     simplePowerOn();
-
+    Serial1.print("VER?");
     while (1) {
         SerialRXLoop();
 
@@ -342,10 +208,11 @@ void zbsRxTask(void* parameter) {
         if (waitingForVersion) {
             if (millis() > 30000) {
                 waitingForVersion = false;
-                Serial.printf("We've been waiting for communication from the tag, but got nothing. This is expected if this tag hasn't been flashed yet. We'll try to flash it.\n");
+                performDeviceFlash();
+                // Serial.printf("We've been waiting for communication from the tag, but got nothing. This is expected if this tag hasn't been flashed yet. We'll try to flash it.\n");
                 // doAPUpdate();
-                //  performDeviceFlash();
-                //   SDAtest();
+                //performDeviceFlash();
+                // SDAtest();
             }
         }
     }

@@ -125,15 +125,6 @@ void processBlockRequest(struct espBlockRequest* br) {
     Serial.printf("<BlockId=%d\n", br->blockId);
 }
 
-void processJoinNetwork(struct espJoinNetwork* xjn) {
-    char buffer[64];
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)xjn->src));
-    sprintf(buffer, "< %02X%02X%02X%02X%02X%02X joined the network\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
-    wsString((String)buffer);
-    Serial.print(buffer);
-}
-
 void processXferComplete(struct espXferComplete* xfc) {
     char buffer[64];
     uint8_t src[8];
@@ -143,12 +134,12 @@ void processXferComplete(struct espXferComplete* xfc) {
     Serial.print(buffer);
 }
 
-void processDataReq(struct AvailDataReq* adr) {
+void processDataReq(struct espAvailDataReq* eadr) {
     char buffer[64];
     uint8_t src[8];
     //    *((uint64_t*)src) = swap64(*((uint64_t*)adr->));
-    //   sprintf(buffer, "< %02X%02X%02X%02X%02X%02X reports xfer complete\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
-    sprintf(buffer, "<DATA REQ - version=%d, voltage=%d\n", adr->softVer, adr->batteryMv);
+    sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
+    //sprintf(buffer, "<DATA REQ - version=%d, voltage=%d\n", adr->softVer, adr->batteryMv);
     wsString((String)buffer);
     Serial.print(buffer);
 }
