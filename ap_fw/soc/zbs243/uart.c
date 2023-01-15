@@ -59,7 +59,7 @@ uint8_t uartBytesAvail() {
 
 uint8_t* __idata blockp;
 uint8_t __idata cmd[3];
-bool __idata bypass = false;
+volatile bool __idata serialBypassActive = false;
 
 void checkcommand(uint8_t rx) {
     for (uint8_t c = 0; c < 2; c++) {
@@ -68,17 +68,17 @@ void checkcommand(uint8_t rx) {
     cmd[2] = rx;
     if (strncmp(cmd, ">D>", 3) == 0) {
         blockp = blockbuffer;
-        bypass = true;
+        serialBypassActive = true;
     }
 }
 
 void UART_IRQ1(void) __interrupt(0) {
     if (UARTSTA & 1) {  // RXC
         UARTSTA &= 0xfe;
-        if (bypass) {
+        if (serialBypassActive) {
             *blockp++ = UARTBUF;
             if (blockp == (blockbuffer+4100)) {
-                bypass = false;
+                serialBypassActive = false;
                 blockRequestInProgress = false;
             }
         } else {

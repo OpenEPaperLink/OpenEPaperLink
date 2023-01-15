@@ -128,14 +128,13 @@ struct blockRequest {
 
 struct blockRequestAck {
     uint8_t checksum;
-    uint16_t blockSizeMs;
     uint16_t pleaseWaitMs;
     uint8_t cancelXfer;
 } __packed;
 
 #define TIMER_TICKS_PER_MS 1333UL
 #define RX_WINDOW_SIZE 10UL  // ms
-//#define DEBUGBLOCKS
+// #define DEBUGBLOCKS
 
 // download-stuff
 bool __xdata dataPending = true;
@@ -288,9 +287,9 @@ const struct timingResponse *__xdata getTimingInfo() {
     radioRxFlush();
     uint32_t __xdata mTimerWaitStart;
     radioRxEnable(true, true);
-    for (uint8_t c = 0; c < 3; c++) {
+    for (uint8_t c = 0; c < 5; c++) {
         sendTimingInfoReq();
-        mTimerWaitStart = timerGet() + TIMER_TICKS_PER_MS * 3;
+        mTimerWaitStart = timerGet() + TIMER_TICKS_PER_MS * 4;
         while (timerGet() < mTimerWaitStart) {
             int8_t ret = commsRxUnencrypted(inBuffer);
             if (ret > 1) {
@@ -396,9 +395,9 @@ void sendAvailDataReq() {
 }
 struct AvailDataInfo *__xdata getAvailDataInfo() {
     uint32_t __xdata t;
-    for (uint8_t c = 0; c < 4; c++) {
+    for (uint8_t c = 0; c < 15; c++) {
         sendAvailDataReq();
-        t = timerGet() + (TIMER_TICKS_PER_MS * 15UL);
+        t = timerGet() + (TIMER_TICKS_PER_MS * 10UL);
         while (timerGet() < t) {
             int8_t __xdata ret = commsRxUnencrypted(inBuffer);
             if (ret > 1) {
@@ -425,9 +424,7 @@ void processBlockPart(struct blockPart *bp) {
     if ((start + size) > sizeof(blockXferBuffer)) {
         size = sizeof(blockXferBuffer) - start;
     }
-    if (!checkCRC(bp, sizeof(struct blockPart) + BLOCK_PART_DATA_SIZE)) {
-        pr("CHKSUM FAILED!\n");
-    } else {
+    if (checkCRC(bp, sizeof(struct blockPart) + BLOCK_PART_DATA_SIZE)) {
         //  copy block data to buffer
         xMemCopy((void *)(blockXferBuffer + start), (const void *)bp->data, size);
         // we don't need this block anymore, set bit to 0 so we don't request it again
@@ -456,19 +453,15 @@ bool blockRxLoop(uint32_t timeout) {
 struct blockRequestAck *__xdata continueToRX() {
     struct blockRequestAck *ack = (struct blockRequestAck *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
     ack->pleaseWaitMs = 0;
-    ack->blockSizeMs = 100;
+    ack->cancelXfer = 0;
     return ack;
 }
 void sendBlockRequest() {
-    /*  commsRxUnencrypted(mRxBuf);
-      commsRxUnencrypted(mRxBuf);
-      commsRxUnencrypted(mRxBuf);
-      commsRxUnencrypted(mRxBuf);*/
     memset(outBuffer, 0, sizeof(struct MacFrameNormal) + sizeof(struct blockRequest) + 2 + 2);
     struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)(outBuffer + 1);
     struct blockRequest *__xdata blockreq = (struct blockRequest *)(outBuffer + 2 + sizeof(struct MacFrameNormal));
     outBuffer[0] = sizeof(struct MacFrameNormal) + sizeof(struct blockRequest) + 2 + 2;
-    if (requestPartialBlock) {
+    if (requestPartialBlock) {;
         outBuffer[sizeof(struct MacFrameNormal) + 1] = PKT_BLOCK_PARTIAL_REQUEST;
     } else {
         outBuffer[sizeof(struct MacFrameNormal) + 1] = PKT_BLOCK_REQUEST;
@@ -493,9 +486,10 @@ void sendBlockRequest() {
 struct blockRequestAck *__xdata performBlockRequest() {
     uint32_t __xdata t;
     radioRxEnable(true, true);
-    for (uint8_t c = 0; c < 5; c++) {
+    radioRxFlush();
+    for (uint8_t c = 0; c < 30; c++) {
         sendBlockRequest();
-        t = timerGet() + (TIMER_TICKS_PER_MS * 10UL);
+        t = timerGet() + (TIMER_TICKS_PER_MS * (7UL + c / 10));
         do {
             int8_t __xdata ret = commsRxUnencrypted(inBuffer);
             if (ret > 1) {
@@ -505,17 +499,21 @@ struct blockRequestAck *__xdata performBlockRequest() {
                             return (struct blockRequestAck *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
                         break;
                     case PKT_BLOCK_PART:
-                        // pr("packet instead of ack");
-                        processBlockPart((struct blockPart *)(inBuffer + sizeof(struct MacFrameNormal) + 1));
+                        // block already started while we were waiting for a get block reply
+                        //pr("!");
+                        //processBlockPart((struct blockPart *)(inBuffer + sizeof(struct MacFrameNormal) + 1));
                         return continueToRX();
+                        break;
                     default:
-                        pr("got a packet w/ type %02X during block download?\n", getPacketType(inBuffer));
+                        pr("pkt w/type %02X\n", getPacketType(inBuffer));
+                        break;
                 }
             }
 
         } while (timerGet() < t);
     }
-    return NULL;
+    return continueToRX();
+    //return NULL;
 }
 void sendXferCompletePacket() {
     memset(outBuffer, 0, sizeof(struct MacFrameNormal) + 2 + 4);
@@ -613,7 +611,7 @@ void getNumSlots() {
         imgSlots = nSlots;
 }
 uint8_t findSlot(uint8_t *__xdata ver) {
-    //return 0xFF;  // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
+    // return 0xFF;  // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
     uint32_t __xdata markerValid = EEPROM_IMG_VALID;
     for (uint8_t __xdata c = 0; c < imgSlots; c++) {
         struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)mScreenRow;
@@ -642,7 +640,6 @@ void saveImgBlockData(uint8_t blockId) {
         pr("EEPROM write failed\n");
 }
 void drawImageFromEeprom() {
-
     // enable WDT, to make sure de tag resets if it's for some reason unable to draw the image
     wdtSetResetVal(0xFFFFFFFF - 0x38C340);
     wdtOn();
@@ -787,6 +784,9 @@ void doDataDownload() {
         }
         pr("]\n");
 #endif
+
+        //timerDelay(TIMER_TICKS_PER_MS*100);
+
         // DO BLOCK REQUEST - request a block, get an ack with timing info (hopefully)
         struct blockRequestAck *__xdata ack = performBlockRequest();
         if (ack == NULL) {
@@ -802,23 +802,27 @@ void doDataDownload() {
         }
 
         // SLEEP - until the AP is ready with the data
-
         if (ack->pleaseWaitMs) {
-            if (ack->pleaseWaitMs < 35)
-                ack->pleaseWaitMs = 35;
-            doSleep(ack->pleaseWaitMs - 30);
-            radioRxEnable(true, true);
+            ack->pleaseWaitMs -= 10;
+            if (ack->pleaseWaitMs < 35) {
+                timerDelay(ack->pleaseWaitMs * TIMER_TICKS_PER_MS);
+            } else {
+                doSleep(ack->pleaseWaitMs - 30);
+                radioRxEnable(true, true);
+            }
+        } else {
+            // immediately start with the reception of the block data
         }
 
         // BLOCK RX LOOP - receive a block, until the timeout has passed
-        if (!blockRxLoop(ack->blockSizeMs)) {
+        if (!blockRxLoop(440)) { // was 340
             // didn't receive packets
             blockRequestAttempt++;
-            if (blockRequestAttempt > 4) {
+            if (blockRequestAttempt > 5) {
                 pr("bailing on download, 0 blockparts rx'd\n");
                 return;
             } else {
-                goto startdownload;
+                //goto startdownload;
             }
         } else {
             // successfull block RX loop
@@ -915,7 +919,9 @@ void doDataDownload() {
                         sendXferComplete();
                         killRadio();
                         eepromReadStart(EEPROM_UPDATA_AREA_START);
+                        //wdtDeviceReset();
                         selfUpdate();
+
                         break;
                 }
             }
