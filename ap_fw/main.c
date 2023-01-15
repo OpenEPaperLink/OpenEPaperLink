@@ -41,8 +41,6 @@ struct MacFrameBcast {
     uint8_t src[8];
 } __packed;
 
-#define PKT_TIMING_REQ 0xE0
-#define PKT_TIMING_RESPONSE 0xE1
 #define PKT_AVAIL_DATA_REQ 0xE5
 #define PKT_AVAIL_DATA_INFO 0xE6
 #define PKT_BLOCK_PARTIAL_REQUEST 0xE7
@@ -51,17 +49,6 @@ struct MacFrameBcast {
 #define PKT_BLOCK_PART 0xE8
 #define PKT_XFER_COMPLETE 0xEA
 #define PKT_XFER_COMPLETE_ACK 0xEB
-#define PKT_SYNC_BURST 0xEF
-
-struct timingResponse {
-    uint8_t checksum;
-    uint32_t burstInterval;           // time between burst-start
-    uint8_t burstLength;              // in packets; due to use of sequence field, limited to a 256-packet burst
-    uint16_t burstLengthMs;           // burst length in ms
-    uint32_t timerValue;              // current timer value (used to sync up other RC timers/oscillators)
-    uint32_t burstIntervalRemaining;  // time until the next sync burst
-    uint8_t dataAvailable;
-} __packed;
 
 struct AvailDataReq {
     uint8_t checksum;
@@ -103,23 +90,15 @@ struct pendingData {
     struct AvailDataInfo availdatainfo;
     uint8_t attemptsLeft;
     uint8_t targetMac[8];
-    uint8_t includedThisBurst : 1;
-} __packed;
-
-struct burstMacData {
-    uint16_t offset;
-    uint8_t targetMac[8];
 } __packed;
 
 #define BLOCK_PART_DATA_SIZE 99
 #define BLOCK_MAX_PARTS 42
 #define BLOCK_DATA_SIZE 4096
 #define BLOCK_XFER_BUFFER_SIZE BLOCK_DATA_SIZE + sizeof(struct blockData)
-// #define BLOCK_XFER_BUFFER_SIZE 4096 + 4
 #define BLOCK_REQ_PARTS_BYTES 6  // BLOCK_MAX_PARTS / 8 + 1
-#define MAX_MACS_PER_SYNC 2
 #define MAX_PENDING_MACS 10
-#define SYNC_BURST_INTERVAL 30UL
+#define HOUSEKEEPING_INTERVAL 60UL
 
 struct pendingData __xdata pendingDataArr[MAX_PENDING_MACS];
 
@@ -153,16 +132,10 @@ struct espXferComplete {
     uint8_t src[8];
 } __packed;
 
-struct espJoinNetwork {
+struct espAvailDataReq {
     uint8_t checksum;
     uint8_t src[8];
-} __packed;
-
-// used to transmit AP update information - flashing the firmware
-struct espSaveUpdateBlock {
-    uint8_t checksum;
-    uint8_t blockId;
-    uint16_t blockChecksum;
+    struct AvailDataReq adr;
 } __packed;
 
 #define TIMER_TICKS_PER_MS 1333UL
@@ -174,7 +147,6 @@ static uint8_t __xdata mRxBuf[COMMS_MAX_PACKET_SZ];
 uint8_t __xdata radiotxbuffer[128];
 uint8_t __xdata radiorxbuffer[128];
 
-uint32_t __xdata burstLengthMs;  // stores how fast we were able to send a syncburst
 uint8_t __xdata mSelfMac[8];
 
 // serial stuff
@@ -184,19 +156,18 @@ uint8_t __xdata serialbuffer[48];
 uint8_t *__xdata serialbufferp;
 uint8_t __xdata bytesRemain = 0;
 
-static uint32_t __xdata burstIntervalTimer;
-bool __xdata blockRequestInProgress = false;  // set if we get a CRC error, or should do a full request for other reasons
+static uint32_t __xdata housekeepingTimer;
 
-struct blockRequest __xdata requestedData = {0};
-uint8_t __xdata dstMac[8];
-uint16_t __xdata dstPan;
-static uint32_t __xdata blockStartTimer = 0;
+struct blockRequest __xdata requestedData = {0};  // holds which data was requested by the tag
 
-uint8_t seq = 0;  // holds current sequence number for transmission
+uint8_t __xdata dstMac[8];  // target for the block transfer
+uint16_t __xdata dstPan;    //
 
-uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];
-
-#define SYNC_BURST_LENGTH 142  //(about 250ms)
+static uint32_t __xdata blockStartTimer = 0;          // reference that holds when the AP sends the next block
+extern bool __idata serialBypassActive;               // if the serial bypass is disabled, saves bytes straight to the block buffer
+uint32_t __xdata nextBlockAttempt = 0;                // reference time for when the AP can request a new block from the ESP32
+uint8_t seq = 0;                                      // holds current sequence number for transmission
+uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];  // block transfer buffer
 
 void sendXferCompleteAck(uint8_t *dst);
 
@@ -255,11 +226,6 @@ uint8_t __xdata getPacketType(void *__xdata buffer) {
     }
     return 0;
 }
-uint16_t averageXmitDelay(uint16_t xfersize) {
-    // returns the about maximum time the base should spend on the transfer; about 6 seconds (6000ms) for a 8000 byte transfer. This is * 3 / 4, pretty conservative
-    // this includes a lot of retransmissions.
-    return (xfersize * 3) / 5;
-}
 
 // pendingdata slot stuff
 int8_t findSlotForMac(const uint8_t *mac) {
@@ -282,7 +248,6 @@ int8_t findFreeSlot() {
 // processing serial data
 #define ZBS_RX_WAIT_HEADER 0
 #define ZBS_RX_WAIT_SDA 1
-#define ZBS_RX_WAIT_UPDBLOCK 2
 void processSerial(uint8_t lastchar) {
     // uartTx(lastchar); echo
     switch (RXState) {
@@ -349,13 +314,18 @@ void espBlockRequest(const struct blockRequest *br) {
     // pr("req ebr ver: %02X%02X%02X%02X%02X%02X%02X%02X\n", ((uint8_t *)&(ebr->ver))[0], ((uint8_t *)&(ebr->ver))[1], ((uint8_t *)&(ebr->ver))[2], ((uint8_t *)&(ebr->ver))[3], ((uint8_t *)&(ebr->ver))[4], ((uint8_t *)&(ebr->ver))[5], ((uint8_t *)&(ebr->ver))[6], ((uint8_t *)&(ebr->ver))[7]);
     // pr("req br ver: %02X%02X%02X%02X%02X%02X%02X%02X\n", ((uint8_t *)&(br->ver))[0], ((uint8_t *)&(br->ver))[1], ((uint8_t *)&(br->ver))[2], ((uint8_t *)&(br->ver))[3], ((uint8_t *)&(br->ver))[4], ((uint8_t *)&(br->ver))[5], ((uint8_t *)&(br->ver))[6], ((uint8_t *)&(br->ver))[7]);
 }
-void espNotifyAvailDataReq(const struct AvailDataReq *adr) {
+void espNotifyAvailDataReq(const struct AvailDataReq *adr, const uint8_t *src) {
     uartTx('A');
     uartTx('D');
     uartTx('R');
     uartTx('>');
-    for (uint8_t c = 0; c < sizeof(struct AvailDataReq); c++) {
-        uartTx(((uint8_t *)adr)[c]);
+
+    struct espAvailDataReq __xdata eadr = {0};
+    xMemCopyShort((void *__xdata)eadr.src, (void *__xdata)src, 8);
+    xMemCopyShort((void *__xdata) & eadr.adr, (void *__xdata)adr, sizeof(struct AvailDataReq));
+    addCRC(&eadr, sizeof(struct espAvailDataReq));
+    for (uint8_t c = 0; c < sizeof(struct espAvailDataReq); c++) {
+        uartTx(((uint8_t *)eadr)[c]);
     }
 }
 void espNotifyXferComplete(const uint8_t *src) {
@@ -372,23 +342,8 @@ void espNotifyXferComplete(const uint8_t *src) {
 }
 void espNotifyTimeOut() {
 }
-void espNotifyJoinNetwork(const uint8_t *src) {
-    struct espJoinNetwork ejn;
-    xMemCopy8(&ejn.src, src);
-    uartTx('T');
-    uartTx('J');
-    uartTx('N');
-    uartTx('>');
-    addCRC(&ejn, sizeof(ejn));
-    for (uint8_t c = 0; c < sizeof(ejn); c++) {
-        uartTx(((uint8_t *)ejn)[c]);
-    }
-}
 
 // process data from tag
-uint8_t __xdata blockReqFailcount = 0;
-extern bool __idata serialBypassActive;
-uint32_t __xdata nextBlockAttempt = 0;
 void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     struct MacFrameNormal *__xdata rxHeader = (struct MacFrameNormal *)buffer;
     struct blockRequest *__xdata blockReq = (struct blockRequest *)(buffer + sizeof(struct MacFrameNormal) + 1);
@@ -439,8 +394,6 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
 
     memcpy(txHeader->src, mSelfMac, 8);
     memcpy(txHeader->dst, rxHeader->src, 8);
-    memcpy(dstMac, rxHeader->src, 8);
-    dstPan = rxHeader->pan;
 
     txHeader->pan = rxHeader->pan;
     txHeader->fcs.frameType = 1;
@@ -452,9 +405,10 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     addCRC((void *)blockRequestAck, sizeof(struct blockRequestAck));
 
     radioTx(radiotxbuffer);
-    // radioTx(radiotxbuffer);
 
-    // pr("req blockreq: %02X%02X%02X%02X%02X%02X%02X%02X\n", ((uint8_t *)&(blockReq->ver))[0], ((uint8_t *)&(blockReq->ver))[1], ((uint8_t *)&(blockReq->ver))[2], ((uint8_t *)&(blockReq->ver))[3], ((uint8_t *)&(blockReq->ver))[4], ((uint8_t *)&(blockReq->ver))[5], ((uint8_t *)&(blockReq->ver))[6], ((uint8_t *)&(blockReq->ver))[7]);
+    // save the target for the blockdata
+    memcpy(dstMac, rxHeader->src, 8);
+    dstPan = rxHeader->pan;
 
     if (requestDataDownload) {
         serialBypassActive = false;
@@ -476,22 +430,23 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
         */
 }
 void processAvailDataReq(uint8_t *buffer) {
-    struct MacFrameNormal *rxHeader = (struct MacFrameNormal *)buffer;
-    struct AvailDataReq *availDataReq = (struct AvailDataReq *)(buffer + sizeof(struct MacFrameNormal) + 1);
+    struct MacFrameBcast *rxHeader = (struct MacFrameBcast *)buffer;
+    struct AvailDataReq *availDataReq = (struct AvailDataReq *)(buffer + sizeof(struct MacFrameBcast) + 1);
 
-    if (!checkCRC(availDataReq, sizeof(struct AvailDataReq))) return;
+    if (!checkCRC(availDataReq, sizeof(struct AvailDataReq)))
+        return;
 
     // prepare tx buffer to send a response
-    memset(radiotxbuffer, 0, 120);
+    memset(radiotxbuffer, 0, sizeof(struct MacFrameNormal)+sizeof(struct AvailDataInfo)+2);//120);
     struct MacFrameNormal *txHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
     struct AvailDataInfo *availDataInfo = (struct AvailDataInfo *)(radiotxbuffer + sizeof(struct MacFrameNormal) + 2);
     radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + sizeof(struct AvailDataInfo) + RAW_PKT_PADDING;
     radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_AVAIL_DATA_INFO;
 
-    // check to see if we were addressing this mac in this burst, and if yes, copy availdatainfo to the tx buffer
+    // check to see if we have data available for this mac
     bool haveData = false;
     for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
-        if (pendingDataArr[c].includedThisBurst == 1) {
+        if (pendingDataArr[c].attemptsLeft) {
             if (memcmp(pendingDataArr[c].targetMac, rxHeader->src, 8) == 0) {
                 haveData = true;
                 xMemCopyShort((void *__xdata)availDataInfo, &(pendingDataArr[c].availdatainfo), sizeof(struct AvailDataInfo));
@@ -499,14 +454,13 @@ void processAvailDataReq(uint8_t *buffer) {
             }
         }
     }
-    if (!haveData) return;
+
+    // couldn't find data for this mac
+    if (!haveData) availDataInfo->dataType = DATATYPE_NOUPDATE;
 
     xMemCopy8(txHeader->src, mSelfMac);
     xMemCopy8(txHeader->dst, rxHeader->src);
-
-    // memcpy(txHeader->src, mSelfMac, 8);
-    // memcpy(txHeader->dst, rxHeader->src, 8);
-    txHeader->pan = rxHeader->pan;
+    txHeader->pan = rxHeader->dstPan;
     txHeader->fcs.frameType = 1;
     txHeader->fcs.panIdCompressed = 1;
     txHeader->fcs.destAddrType = 3;
@@ -514,118 +468,17 @@ void processAvailDataReq(uint8_t *buffer) {
     txHeader->seq = seq++;
     addCRC(availDataInfo, sizeof(struct AvailDataInfo));
     radioTx(radiotxbuffer);
-
-    espNotifyAvailDataReq(availDataReq);
+    espNotifyAvailDataReq(availDataReq, rxHeader->src);
 }
 void processXferComplete(uint8_t *buffer) {
     struct MacFrameNormal *rxHeader = (struct MacFrameNormal *)buffer;
     sendXferCompleteAck(rxHeader->src);
     espNotifyXferComplete(rxHeader->src);
-    uint8_t slot = findSlotForMac(rxHeader->src);
-    pendingDataArr[slot].attemptsLeft = 0;
+    int8_t slot = findSlotForMac(rxHeader->src);
+    if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
 }
 
-// send crap to the tag
-void prepareMacForSyncBurst() {
-    // mark all pending macs as 'not included'
-    for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
-        pendingDataArr[c].includedThisBurst = 0;
-    }
-
-    memset(radiotxbuffer, 0, sizeof(struct MacFrameBcast) + 1 + 20 + 2);  // TODO, optimize
-
-    struct burstMacData *__xdata macdata = (struct burstMacData * __xdata)(((uint8_t *)radiotxbuffer) + sizeof(struct MacFrameBcast) + 3);  // total len, pkt type sync, mac-count
-
-    uint8_t __xdata count = 0;
-    uint16_t __xdata currOffset = 500;
-    while (count < MAX_MACS_PER_SYNC) {
-        uint8_t __xdata tempmax = 0;
-        int8_t __xdata maxid = -1;
-        for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
-            // check if this mac is already included in the planned sync burst
-            if (pendingDataArr[c].includedThisBurst == 0) {
-                // check if this current amount of 'attemptsleft' is the current maximum
-                if (pendingDataArr[c].attemptsLeft && (pendingDataArr[c].attemptsLeft > tempmax)) {
-                    uint16_t timeoffset = SYNC_BURST_INTERVAL * 1000;
-                    timeoffset -= 1000;
-                    // check if the estimated transmission would fit in the remaining time
-                    if (currOffset + averageXmitDelay(pendingDataArr[c].availdatainfo.dataSize) < timeoffset) {
-                        tempmax = pendingDataArr[c].attemptsLeft;
-                        maxid = c;
-                    }
-                }
-            }
-        }
-        if (maxid == -1) {
-            // didn't find any valid mac's to add to the syncburst
-            return;
-        } else {
-            // found a pending-data info struct with the highest amount of attemptsLeft. Add this to the sync burst
-            // make sure we don't add this pending data mac twice
-            pendingDataArr[maxid].includedThisBurst = 1;
-            pendingDataArr[maxid].attemptsLeft--;
-            xMemCopyShort(macdata[count].targetMac, pendingDataArr[maxid].targetMac, 8);
-            macdata[count].offset = currOffset;
-            currOffset += averageXmitDelay(pendingDataArr[maxid].availdatainfo.dataSize);
-            count++;
-            *((uint8_t *)radiotxbuffer + sizeof(struct MacFrameBcast) + 2) = count;
-        }
-    }
-}
-void sendSyncBurst() {
-    struct MacFrameBcast *txframe = (struct MacFrameBcast *)(radiotxbuffer + 1);
-    memcpy(txframe->src, mSelfMac, 8);
-    *((uint8_t *)txframe + sizeof(struct MacFrameBcast)) = PKT_SYNC_BURST;
-    txframe->fcs.frameType = 1;
-    txframe->fcs.secure = 0;
-    txframe->fcs.framePending = 0;
-    txframe->fcs.ackReqd = 0;
-    txframe->fcs.panIdCompressed = 0;
-    txframe->fcs.destAddrType = 2;
-    txframe->fcs.frameVer = 0;
-    txframe->fcs.srcAddrType = 3;
-    txframe->seq = 0;
-    txframe->dstPan = 0xFFFF;
-    txframe->dstAddr = 0xFFFF;
-    txframe->srcPan = 0x4447;
-
-    radiotxbuffer[0] = sizeof(struct MacFrameBcast) + 1 + (MAX_MACS_PER_SYNC * sizeof(struct burstMacData)) + 2;
-    pr("BST>\n");
-    burstLengthMs = timerGet();
-    for (uint16_t c = 0; c < SYNC_BURST_LENGTH; c++) {
-        radioTx(radiotxbuffer);
-        txframe->seq++;
-    }
-    burstLengthMs = (timerGet() - burstLengthMs) / 1333;
-    // pr("atxc in %lu,\n", burstLengthMs);
-}
-void sendTimingReply(void *__xdata buf) {
-    struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
-
-    struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
-    struct timingResponse *response = (struct timingResponse *)(radiotxbuffer + sizeof(struct MacFrameNormal) + 2);
-    radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_TIMING_RESPONSE;
-    radiotxbuffer[0] = sizeof(struct MacFrameNormal) + sizeof(struct timingResponse) + 1 + RAW_PKT_PADDING;
-    memset(response, 0, sizeof(struct timingResponse) + sizeof(struct MacFrameNormal) + 1);
-    memcpy(frameHeader->src, mSelfMac, 8);
-    memcpy(frameHeader->dst, rxframe->src, 8);
-
-    response->timerValue = timerGet();
-    response->burstInterval = SYNC_BURST_INTERVAL * 1000;
-    response->burstLength = SYNC_BURST_LENGTH;  // in packets; due to use of sequence field, limited to a 256-packet burst
-    response->burstLengthMs = burstLengthMs;    // burst length in ms
-    response->burstIntervalRemaining = (TIMER_TICKS_PER_SECOND * SYNC_BURST_INTERVAL) - (timerGet() - burstIntervalTimer);
-
-    frameHeader->fcs.frameType = 1;
-    frameHeader->fcs.panIdCompressed = 1;
-    frameHeader->fcs.destAddrType = 3;
-    frameHeader->fcs.srcAddrType = 3;
-    frameHeader->seq = seq++;
-    frameHeader->pan = rxframe->srcPan;
-    addCRC(response, sizeof(struct timingResponse));
-    radioTx(radiotxbuffer);
-    espNotifyJoinNetwork(rxframe->src);
-}
+// send block data to the tag
 void sendPart(uint8_t partNo) {
     struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
     struct blockPart *blockPart = (struct blockPart *)(radiotxbuffer + sizeof(struct MacFrameNormal) + 2);
@@ -652,7 +505,6 @@ void sendBlockData() {
         for (uint8_t c = 0; (c < BLOCK_MAX_PARTS) && (partNo < BLOCK_MAX_PARTS); c++) {
             if (requestedData.requestedParts[c / 8] & (1 << (c % 8))) {
                 sendPart(c);
-                // timerDelay(TIMER_TICKS_PER_MS);
                 partNo++;
             }
         }
@@ -692,11 +544,6 @@ void main(void) {
         mSelfMac[c] = c;
     }
 
-    // if (!eepromInit()) {  // we'll need the eeprom here, init it.
-    //     pr("failed to init eeprom\n");
-    //     return;
-    // }
-
     // clear the array with pending information
     memset(pendingDataArr, 0, sizeof(pendingDataArr));
 
@@ -714,9 +561,7 @@ void main(void) {
     // uint8_t __xdata fromMac[8];
     pr("RDY>\n");
 
-    // send first burst, used to characterize the packet TX speed
-    burstIntervalTimer = timerGet();  // + (TIMER_TICKS_PER_SECOND * SYNC_BURST_INTERVAL);
-    sendSyncBurst();
+    housekeepingTimer = timerGet();
 
     // really... if I do the call below, it'll cost me 8 bytes IRAM. Not the kind of 'optimization' I ever dreamed of doing
     // pr("MAC>%02X%02X%02X%02X%02X%02X%02X%02X\n", mSelfMac[0], mSelfMac[1], mSelfMac[2], mSelfMac[3], mSelfMac[4], mSelfMac[5], mSelfMac[6], mSelfMac[7]);
@@ -727,17 +572,12 @@ void main(void) {
 
     pr("VER>%04X\n", version);
     while (1) {
-        radioRxFlush();
-
         // spend about 30 seconds - 100ms in this while loop. The last 100ms are for preparing the sync burst
-        while ((timerGet() - burstIntervalTimer) < ((TIMER_TICKS_PER_SECOND * SYNC_BURST_INTERVAL) - 100 * TIMER_TICKS_PER_MS)) {
+        while ((timerGet() - housekeepingTimer) < ((TIMER_TICKS_PER_SECOND * HOUSEKEEPING_INTERVAL) - 100 * TIMER_TICKS_PER_MS)) {
             int8_t ret = commsRxUnencrypted(radiorxbuffer);
             if (ret > 1) {
                 // received a packet, lets see what it is
                 switch (getPacketType(radiorxbuffer)) {
-                    case PKT_TIMING_REQ:
-                        sendTimingReply(radiorxbuffer);
-                        break;
                     case PKT_AVAIL_DATA_REQ:
                         processAvailDataReq(radiorxbuffer);
                         break;
@@ -752,7 +592,7 @@ void main(void) {
                         break;
                         //
                     default:
-                        // pr("other packet...type = %02X\n", getPacketType(radiorxbuffer));
+                        pr("type = %02X\n", getPacketType(radiorxbuffer));
                         // dump(radiorxbuffer, 128);
                         break;
                 }
@@ -765,7 +605,6 @@ void main(void) {
                 if (timerGet() > blockStartTimer) {
                     sendBlockData();
                     blockStartTimer = 0;
-                    radioRxFlush();
                 }
             }
         }
@@ -774,14 +613,10 @@ void main(void) {
             if (pendingDataArr[c].attemptsLeft == 1) {
                 espNotifyTimeOut();
                 pendingDataArr[c].attemptsLeft = 0;
+            } else if (pendingDataArr[c].attemptsLeft > 1) {
+                pendingDataArr[c].attemptsLeft--;
             }
         }
-        prepareMacForSyncBurst();
-
-        while ((timerGet() - burstIntervalTimer) < (TIMER_TICKS_PER_SECOND * SYNC_BURST_INTERVAL)) {
-            // wait here for maximum burst-start accuracy
-        }
-        burstIntervalTimer = timerGet();
-        sendSyncBurst();
+        housekeepingTimer = timerGet();
     }
 }

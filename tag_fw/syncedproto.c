@@ -267,10 +267,13 @@ void doSleep(uint32_t __xdata t) {
     initAfterWake();
 }
 
-// timing
-void sendTimingInfoReq() {
-    struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)outBuffer;
-    memset(txframe, 0, sizeof(struct MacFrameBcast) + 2);
+// data xfer stuff
+void sendAvailDataReq() {
+    struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer+1);
+    memset(outBuffer, 0, sizeof(struct MacFrameBcast) + sizeof(struct AvailDataReq) + 2 + 4);
+    struct AvailDataReq *__xdata availreq = (struct AvailDataReq *)(outBuffer + 2 + sizeof(struct MacFrameBcast));
+    outBuffer[0] = sizeof(struct MacFrameBcast) + sizeof(struct AvailDataReq) + 2 + 2;
+    outBuffer[sizeof(struct MacFrameBcast) + 1] = PKT_AVAIL_DATA_REQ;
     memcpy(txframe->src, mSelfMac, 8);
     txframe->fcs.frameType = 1;
     txframe->fcs.ackReqd = 1;
@@ -280,114 +283,6 @@ void sendTimingInfoReq() {
     txframe->dstPan = 0xFFFF;
     txframe->dstAddr = 0xFFFF;
     txframe->srcPan = 0x4447;
-    outBuffer[sizeof(struct MacFrameBcast)] = PKT_TIMING_REQ;
-    commsTxUnencrypted(outBuffer, sizeof(struct MacFrameBcast) + 1);
-}
-const struct timingResponse *__xdata getTimingInfo() {
-    radioRxFlush();
-    uint32_t __xdata mTimerWaitStart;
-    radioRxEnable(true, true);
-    for (uint8_t c = 0; c < 5; c++) {
-        sendTimingInfoReq();
-        mTimerWaitStart = timerGet() + TIMER_TICKS_PER_MS * 4;
-        while (timerGet() < mTimerWaitStart) {
-            int8_t ret = commsRxUnencrypted(inBuffer);
-            if (ret > 1) {
-                // radioRxEnable(false, true);
-                // radioRxFlush();
-                if (getPacketType(inBuffer) == PKT_TIMING_RESPONSE) {
-                    struct timingResponse __xdata *tresponse = (struct timingResponse *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
-                    if (!checkCRC(tresponse, sizeof(struct timingResponse))) {
-                        pr("Invalid CRC in timing info!\n");
-                        dump((uint8_t *)tresponse, 16);
-                        return NULL;
-                    } else {
-                        APburstInterval = tresponse->burstInterval;  // time between burst-start
-                        APburstLength = tresponse->burstLength;      // in packets; due to use of sequence field, limited to a 256-packet burst
-                        APburstLengthMs = tresponse->burstLengthMs;
-                        return tresponse;
-                    }
-                } else {
-                    // pr("wrong packet type in getTimingInfo! %02X\n", getPacketType(inBuffer));
-                    // return NULL;
-                }
-            }
-        }
-    }
-    radioRxEnable(false, true);
-    radioRxFlush();
-    return NULL;
-}
-const struct timingResponse *__xdata getCalibration() {
-    calib = SYNC_CALIB_TIME;
-    const struct timingResponse *__xdata r = getTimingInfo();
-    if (r == NULL) {
-        return NULL;
-    }
-    uint32_t __xdata timerBegin = r->timerValue;
-    doSleep(SYNC_CALIB_TIME);
-    r = getTimingInfo();
-    if (r != NULL) {
-        timerBegin = r->timerValue - timerBegin;
-        timerBegin *= 3UL;
-        timerBegin /= 4000UL;
-        calib = timerBegin;
-    } else {
-        return NULL;
-    }
-    return r;
-}
-uint32_t __xdata doResync() {
-    // resync to the network; try to find out when the next sync burst is going to be
-    const struct timingResponse *__xdata r = getTimingInfo();
-    killRadio();
-    uint32_t __xdata sleep;
-    if (r == NULL) {
-        // we didn't get anything from the AP
-        sleep = getNextAttemptDelay();
-        pr("NO_RESYNC, sleeping for %lu ms\n", sleep);
-    } else {
-        sleep = r->burstIntervalRemaining / TIMER_TICKS_PER_MS;
-        pr("RESYNC, sleeping for %lu ms\n", sleep);
-        isSynced = true;
-        nextAttempt = MIN_NEXT_ATTEMPT_DELAY_MS;
-    }
-    sleep += APburstLengthMs / 2;
-    return sleep;
-}
-struct MacFrameBcast *__xdata getSyncFrame() {
-    uint32_t __xdata t;
-    radioRxEnable(true, true);
-    t = timerGet() + (TIMER_TICKS_PER_MS * RX_WINDOW_SIZE);
-    do {
-        int8_t __xdata ret = commsRxUnencrypted(inBuffer);
-        if (ret > 1) {
-            killRadio();
-            return (struct MacFrameBcast *)inBuffer;
-        }
-    } while (timerGet() < t);
-    return NULL;
-}
-
-// data xfer stuff
-void sendAvailDataReq() {
-    memset(outBuffer, 0, sizeof(struct MacFrameNormal) + sizeof(struct AvailDataReq) + 2 + 4);
-    struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)(outBuffer + 1);
-    struct AvailDataReq *__xdata availreq = (struct AvailDataReq *)(outBuffer + 2 + sizeof(struct MacFrameNormal));
-    outBuffer[0] = sizeof(struct MacFrameNormal) + sizeof(struct AvailDataReq) + 2 + 2;
-    outBuffer[sizeof(struct MacFrameNormal) + 1] = PKT_AVAIL_DATA_REQ;
-    memcpy(f->src, mSelfMac, 8);
-    memcpy(f->dst, APmac, 8);
-    f->fcs.frameType = 1;
-    f->fcs.secure = 0;
-    f->fcs.framePending = 0;
-    f->fcs.ackReqd = 0;
-    f->fcs.panIdCompressed = 1;
-    f->fcs.destAddrType = 3;
-    f->fcs.frameVer = 0;
-    f->fcs.srcAddrType = 3;
-    f->seq = seq++;
-    f->pan = APsrcPan;
     // TODO: send some meaningful data
     availreq->softVer = 1;
     addCRC(availreq, sizeof(struct AvailDataReq));
@@ -403,6 +298,9 @@ struct AvailDataInfo *__xdata getAvailDataInfo() {
             if (ret > 1) {
                 if (getPacketType(inBuffer) == PKT_AVAIL_DATA_INFO) {
                     if (checkCRC(inBuffer + sizeof(struct MacFrameNormal) + 1, sizeof(struct AvailDataInfo))) {
+                        struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)inBuffer;
+                        memcpy(APmac, f->src, 8);
+                        APsrcPan = f->pan;
                         return (struct AvailDataInfo *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
                     }
                 }
@@ -676,7 +574,7 @@ bool validateBlockData() {
 
 #define DEBUGBLOCKS
 // Main download function
-void doDataDownload() {
+void doDataDownload(struct AvailDataInfo* __xdata avail){
     // this is the main function for the download process
 
     if (!eepromInit()) {  // we'll need the eeprom here, init it.
@@ -685,8 +583,6 @@ void doDataDownload() {
     }
 
     // GET AVAIL DATA INFO - enable the radio and get data
-    radioRxEnable(true, true);
-    struct AvailDataInfo *__xdata avail = getAvailDataInfo();
     if (avail == NULL) {  // didn't receive a reply to get info about the data, we'll resync and try again later
 #ifdef DEBUGBLOCKS
         pr("didn't receive getavaildatainfo");
@@ -980,81 +876,13 @@ void mainProtocolLoop(void) {
     // i2ctest();
 
     while (1) {
-        uint8_t frameseq = 0;
-        dataPending = false;
-
-        // If synced to a network, try to see if we can receive a sync frame;
-        if (isSynced) {
-            struct MacFrameBcast *__xdata f = getSyncFrame();
-            struct burstMacData *__xdata macdata = (struct burstMacData * __xdata)(((uint8_t *)f) + sizeof(struct MacFrameBcast) + 2);
-            if (f != NULL) {
-                frameseq = f->seq + 1;
-                memcpy(APmac, f->src, 8);
-                APsrcPan = f->srcPan;
-                uint8_t totalmacs = *(((uint8_t *)f) + sizeof(struct MacFrameBcast) + 1);
-                for (uint8_t c = 0; c < totalmacs; c++) {
-                    if (memcmp(mSelfMac, macdata[c].targetMac, 8) == 0) {
-                        // we matched our MAC, prepare to start a download
-                        // save AP mac and srcPan in order to send a AvailDataReq packet later on
-                        dataPending = true;
-                        // sleep until we can start our transaction with the AP
-                        doSleep(macdata[c].offset);
-                        break;
-                    }
-                }
-            }
-        }
-
-        uint32_t __xdata sleep = 0;
-        if (frameseq != 0) {
-            // received a frame;
-            // math here can be optimized heavily!
-            int16_t __xdata packet_offset = (frameseq - (APburstLength / 2)) * APburstLengthMs;
-            packet_offset /= APburstLength;
-            calib += (packet_offset / 12);
-            if (dataPending) {
-                pr("OK f=%d DL!\n", frameseq);
-                doDataDownload();
-                eepromDeepPowerDown();
-                // wdtDeviceReset();
-                isSynced = false;
-                radioRxEnable(true, true);  // probably not needed
-                sleep = doResync();
-            } else {
-                sleep = (uint32_t)(APburstInterval - packet_offset);
-                pr("OK f=%d\n", frameseq, sleep);
-            }
-
-        } else if (!isCalibrated) {
-            // uncalibrated; try to get two packages in order to calibrate
-            pr("\nDoing calibration... ");
-            const struct timingResponse *__xdata r;
-            r = getCalibration();
-            if (r != NULL) {
-                // calibration data received
-                pr("OK!\n");
-                sleep = r->burstIntervalRemaining / TIMER_TICKS_PER_MS;
-                sleep += (APburstLengthMs / 2);
-                isSynced = true;
-                isCalibrated = true;
-                // dataPending = r->dataAvailable;
-            } else {
-                // calibration failed...
-                sleep = getNextAttemptDelay();
-                pr("FAILED!\n");
-            }
+        radioRxEnable(true, true);
+        struct AvailDataInfo *__xdata avail = getAvailDataInfo();
+        if(avail->dataType!=DATATYPE_NOUPDATE){
+            doDataDownload(avail);
         } else {
-            // we didn't receive anything... Ask for the next burst position
-            if (isSynced) {
-                // we were previously synced, we'll wait until we're 1 second away from (estimated) burst time
-                isSynced = false;
-                sleep = 2 * APburstInterval - 1000;
-                pr("NO JOY! sleeping for %lums\n", sleep);
-            } else {
-                // check when the next burst location is
-                sleep = doResync();
-            }
+            pr("nothing.\n");
         }
-        doSleep(sleep);
+        doSleep(10000);
     }
 }
