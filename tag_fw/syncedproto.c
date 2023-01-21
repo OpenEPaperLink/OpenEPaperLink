@@ -49,8 +49,7 @@ struct MacFrameBcast {
     uint8_t src[8];
 } __packed;
 
-#define PKT_TIMING_REQ 0xE0
-#define PKT_TIMING_RESPONSE 0xE1
+
 #define PKT_AVAIL_DATA_REQ 0xE5
 #define PKT_AVAIL_DATA_INFO 0xE6
 #define PKT_BLOCK_PARTIAL_REQUEST 0xE7
@@ -59,17 +58,7 @@ struct MacFrameBcast {
 #define PKT_BLOCK_PART 0xE8
 #define PKT_XFER_COMPLETE 0xEA
 #define PKT_XFER_COMPLETE_ACK 0xEB
-#define PKT_SYNC_BURST 0xEF
-
-struct timingResponse {
-    uint8_t checksum;
-    uint32_t burstInterval;           // time between burst-start
-    uint8_t burstLength;              // in packets; due to use of sequence field, limited to a 256-packet burst
-    uint16_t burstLengthMs;           // burst length in ms
-    uint32_t timerValue;              // current timer value (used to sync up other RC timers/oscillators)
-    uint32_t burstIntervalRemaining;  // time until the next sync burst
-    uint8_t dataAvailable;
-} __packed;
+#define PKT_CANCEL_XFER 0xEC
 
 struct AvailDataReq {
     uint8_t checksum;
@@ -129,7 +118,6 @@ struct blockRequest {
 struct blockRequestAck {
     uint8_t checksum;
     uint16_t pleaseWaitMs;
-    uint8_t cancelXfer;
 } __packed;
 
 #define TIMER_TICKS_PER_MS 1333UL
@@ -254,7 +242,7 @@ void initAfterWake() {
     initRadio();
 }
 void doSleep(uint32_t __xdata t) {
-    pr("s=%lu\n ", t/1000);
+    pr("s=%lu\n ", t / 1000);
     powerPortsDownForSleep();
     // sleepy
     sleepForMsec(t);
@@ -327,16 +315,16 @@ struct AvailDataInfo *__xdata getAvailDataInfo() {
     dataReqLastAttempt = DATA_REQ_MAX_ATTEMPTS;
     return NULL;
 }
-void processBlockPart(struct blockPart *bp) {
+bool processBlockPart(struct blockPart *bp) {
     uint16_t __xdata start = bp->blockPart * BLOCK_PART_DATA_SIZE;
     uint16_t __xdata size = BLOCK_PART_DATA_SIZE;
     // validate if it's okay to copy data
     if (bp->blockId != curBlock.blockId) {
         // pr("got a packet for block %02X\n", bp->blockId);
-        return;
+        return false;
     }
-    if (start >= (sizeof(blockXferBuffer) - 1)) return;
-    if (bp->blockPart > BLOCK_MAX_PARTS) return;
+    if (start >= (sizeof(blockXferBuffer) - 1)) return false;
+    if (bp->blockPart > BLOCK_MAX_PARTS) return false;
     if ((start + size) > sizeof(blockXferBuffer)) {
         size = sizeof(blockXferBuffer) - start;
     }
@@ -345,6 +333,9 @@ void processBlockPart(struct blockPart *bp) {
         xMemCopy((void *)(blockXferBuffer + start), (const void *)bp->data, size);
         // we don't need this block anymore, set bit to 0 so we don't request it again
         curBlock.requestedParts[bp->blockPart / 8] &= ~(1 << (bp->blockPart % 8));
+        return true;
+    } else {
+        return false;
     }
 }
 bool blockRxLoop(uint32_t timeout) {
@@ -356,9 +347,8 @@ bool blockRxLoop(uint32_t timeout) {
         int8_t __xdata ret = commsRxUnencrypted(inBuffer);
         if (ret > 1) {
             if (getPacketType(inBuffer) == PKT_BLOCK_PART) {
-                success = true;
                 struct blockPart *bp = (struct blockPart *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
-                processBlockPart(bp);
+                success = processBlockPart(bp);
             }
         }
     }
@@ -369,7 +359,6 @@ bool blockRxLoop(uint32_t timeout) {
 struct blockRequestAck *__xdata continueToRX() {
     struct blockRequestAck *ack = (struct blockRequestAck *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
     ack->pleaseWaitMs = 0;
-    ack->cancelXfer = 0;
     return ack;
 }
 void sendBlockRequest() {
@@ -421,6 +410,8 @@ struct blockRequestAck *__xdata performBlockRequest() {
                         // processBlockPart((struct blockPart *)(inBuffer + sizeof(struct MacFrameNormal) + 1));
                         return continueToRX();
                         break;
+                    case PKT_CANCEL_XFER:
+                        return NULL;
                     default:
                         pr("pkt w/type %02X\n", getPacketType(inBuffer));
                         break;
@@ -681,9 +672,9 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
 
     // do transfer!
     uint8_t __xdata blockRequestAttempt = 0;
+    uint8_t __xdata blockValidateAttempt = 0;
     while (!curXferComplete) {
         // this while loop loops until the transfer has been completed, or we get tired for other reasons
-        blockRequestAttempt = 0;
     startdownload:;
 #ifdef DEBUGBLOCKS
         pr("REQ %d[", curBlock.blockId);
@@ -703,15 +694,10 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
         // DO BLOCK REQUEST - request a block, get an ack with timing info (hopefully)
         struct blockRequestAck *__xdata ack = performBlockRequest();
         if (ack == NULL) {
-            pr("no reply on gblockrequest\n");
-            // didn't get an ack :( we'll probably try again later
-            return;
-        } else if (ack->cancelXfer == 1) {
-            // we were asked to cancel the transfer by the AP
-            pr("transfer cancelled by AP\n");
+            pr("Cancelled request\n");
             return;
         } else {
-            // got an ack
+            // got an ack!
         }
 
         // SLEEP - until the AP is ready with the data
@@ -764,7 +750,8 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
         if (blockComplete) {
             if (validateBlockData()) {
                 // checked and found okay
-                requestPartialBlock = false;
+                requestPartialBlock = false; // next block is going to be requested from the ESP32 by the AP
+                blockValidateAttempt = 0;
                 switch (curBlock.type) {
                     case DATATYPE_IMG:
                     case DATATYPE_IMGRAW:
@@ -776,6 +763,11 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
                 }
             } else {
                 // block checked, but failed validation. Mark all parts for this block as 'request'
+                blockValidateAttempt++;
+                if (blockValidateAttempt > 5) {
+                    pr("bailing on download, 0 blockparts rx'd\n");
+                    return;
+                }
                 for (uint8_t c = 0; c < partsThisBlock; c++) {
                     curBlock.requestedParts[c / 8] |= (1 << (c % 8));
                 }
@@ -905,6 +897,6 @@ void mainProtocolLoop(void) {
             } else {
             }
         }
-        doSleep(getNextSleep()*1000UL);
+        doSleep(getNextSleep() * 1000UL);
     }
 }

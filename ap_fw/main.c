@@ -49,6 +49,7 @@ struct MacFrameBcast {
 #define PKT_BLOCK_PART 0xE8
 #define PKT_XFER_COMPLETE 0xEA
 #define PKT_XFER_COMPLETE_ACK 0xEB
+#define PKT_CANCEL_XFER 0xEC
 
 struct AvailDataReq {
     uint8_t checksum;
@@ -113,7 +114,6 @@ struct blockRequest {
 struct blockRequestAck {
     uint8_t checksum;
     uint16_t pleaseWaitMs;
-    uint8_t cancelXfer;
 } __packed;
 
 struct espPendingData {
@@ -169,7 +169,9 @@ uint32_t __xdata nextBlockAttempt = 0;                // reference time for when
 uint8_t seq = 0;                                      // holds current sequence number for transmission
 uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];  // block transfer buffer
 uint8_t lastAckMac[8] = {0};
+
 void sendXferCompleteAck(uint8_t *dst);
+void sendCancelXfer(uint8_t *dst);
 
 // tools
 void addCRC(void *p, uint8_t len) {
@@ -231,7 +233,9 @@ uint8_t __xdata getPacketType(void *__xdata buffer) {
 int8_t findSlotForMac(const uint8_t *mac) {
     for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
         if (u64_isEq((uint64_t __xdata *)mac, (uint64_t __xdata *)&(pendingDataArr[c].targetMac))) {  // this costs 1 sloc :(
-            return c;
+            if (pendingDataArr[c].attemptsLeft != 0) {
+                return c;
+            }
         }
     }
     return -1;
@@ -244,10 +248,27 @@ int8_t findFreeSlot() {
     }
     return -1;
 }
+int8_t findSlotForVer(const uint8_t *ver) {
+    for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
+        // if (u64_isEq((uint64_t __xdata *)ver, (uint64_t __xdata *)&(pendingDataArr[c].availdatainfo.dataVer))) {
+        if (memcmp(ver, ((uint8_t __xdata *)&(pendingDataArr[c].availdatainfo.dataVer)), 8) == 0) {
+            if (pendingDataArr[c].attemptsLeft != 0) return c;
+        }
+    }
+    return -1;
+}
+void deleteAllPendingDataForVer(const uint8_t *ver) {
+    int8_t slot = -1;
+    do {
+        slot = findSlotForVer(ver);
+        if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
+    } while (slot != -1);
+}
 
 // processing serial data
 #define ZBS_RX_WAIT_HEADER 0
 #define ZBS_RX_WAIT_SDA 1
+#define ZBS_RX_WAIT_CANCEL 2
 void processSerial(uint8_t lastchar) {
     // uartTx(lastchar); echo
     switch (RXState) {
@@ -259,6 +280,12 @@ void processSerial(uint8_t lastchar) {
             cmdbuffer[3] = lastchar;
             if (strncmp(cmdbuffer, "SDA>", 4) == 0) {
                 RXState = ZBS_RX_WAIT_SDA;
+                bytesRemain = sizeof(struct pendingData);
+                serialbufferp = serialbuffer;
+                break;
+            }
+            if (strncmp(cmdbuffer, "CXD>", 4) == 0) {
+                RXState = ZBS_RX_WAIT_CANCEL;
                 bytesRemain = sizeof(struct pendingData);
                 serialbufferp = serialbuffer;
                 break;
@@ -287,6 +314,22 @@ void processSerial(uint8_t lastchar) {
                     } else {
                         pr("NOK>\n");
                     }
+                } else {
+                    pr("NOK>\n");
+                }
+
+                RXState = ZBS_RX_WAIT_HEADER;
+            }
+            break;
+        case ZBS_RX_WAIT_CANCEL:
+            *serialbufferp = lastchar;
+            serialbufferp++;
+            bytesRemain--;
+            if (bytesRemain == 0) {
+                if (checkCRC(serialbuffer, sizeof(struct pendingData))) {
+                    struct pendingData *pd = (struct pendingData *)serialbuffer;
+                    deleteAllPendingDataForVer((uint8_t *)&pd->availdatainfo.dataVer);
+                    pr("ACK>\n");
                 } else {
                     pr("NOK>\n");
                 }
@@ -348,7 +391,16 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     struct MacFrameNormal *__xdata rxHeader = (struct MacFrameNormal *)buffer;
     struct blockRequest *__xdata blockReq = (struct blockRequest *)(buffer + sizeof(struct MacFrameNormal) + 1);
     if (!checkCRC(blockReq, sizeof(struct blockRequest))) return;
-    // todo: actually do something with the block request
+
+
+    // check if we have data for this mac
+    if(findSlotForMac(rxHeader->src)==-1){
+        // no data for this mac, politely tell it to fuck off
+        sendCancelXfer(rxHeader->src);
+        return;
+    }
+
+
     bool __xdata requestDataDownload = false;
     if ((blockReq->blockId != requestedData.blockId) || (!u64_isEq((const uint64_t __xdata *)&blockReq->ver, (const uint64_t __xdata *)&requestedData.ver))) {
         // requested block isn't already in the buffer
@@ -389,8 +441,6 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
         blockRequestAck->pleaseWaitMs = 50;
     }
     blockStartTimer = timerGet() + blockRequestAck->pleaseWaitMs * TIMER_TICKS_PER_MS;
-
-    blockRequestAck->cancelXfer = 0;
 
     memcpy(txHeader->src, mSelfMac, 8);
     memcpy(txHeader->dst, rxHeader->src, 8);
@@ -468,10 +518,9 @@ void processAvailDataReq(uint8_t *buffer) {
     txHeader->seq = seq++;
     addCRC(availDataInfo, sizeof(struct AvailDataInfo));
     radioTx(radiotxbuffer);
-    memset(lastAckMac, 0, 8);                               // reset lastAckMac, so we can record if we've received exactly one ack packet
+    memset(lastAckMac, 0, 8);  // reset lastAckMac, so we can record if we've received exactly one ack packet
     espNotifyAvailDataReq(availDataReq, rxHeader->src);
 }
-
 void processXferComplete(uint8_t *buffer) {
     struct MacFrameNormal *rxHeader = (struct MacFrameNormal *)buffer;
     sendXferCompleteAck(rxHeader->src);
@@ -519,6 +568,21 @@ void sendXferCompleteAck(uint8_t *dst) {
     struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
     memset(radiotxbuffer + 1, 0, sizeof(struct blockPart) + sizeof(struct MacFrameNormal));
     radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_XFER_COMPLETE_ACK;
+    radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + RAW_PKT_PADDING;
+    memcpy(frameHeader->src, mSelfMac, 8);
+    memcpy(frameHeader->dst, dst, 8);
+    frameHeader->fcs.frameType = 1;
+    frameHeader->fcs.panIdCompressed = 1;
+    frameHeader->fcs.destAddrType = 3;
+    frameHeader->fcs.srcAddrType = 3;
+    frameHeader->seq = seq++;
+    frameHeader->pan = dstPan;
+    radioTx(radiotxbuffer);
+}
+void sendCancelXfer(uint8_t *dst) {
+    struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
+    memset(radiotxbuffer + 1, 0, sizeof(struct blockPart) + sizeof(struct MacFrameNormal));
+    radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_CANCEL_XFER;
     radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + RAW_PKT_PADDING;
     memcpy(frameHeader->src, mSelfMac, 8);
     memcpy(frameHeader->dst, dst, 8);
