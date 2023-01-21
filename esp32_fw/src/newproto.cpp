@@ -41,6 +41,12 @@ uint8_t* getDataForFile(File* file) {
     return ret;
 }
 
+void prepareCancelPending(uint64_t ver) {
+    struct pendingData pending = {0};
+    pending.availdatainfo.dataVer = ver;
+    sendCancelPending(&pending);
+}
+
 bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst) {
     *filename = "/" + *filename;
     if (!LittleFS.exists(*filename)) return false;
@@ -92,6 +98,7 @@ void processBlockRequest(struct espBlockRequest* br) {
 
     pendingdata* pd = pendingdata::findByVer(br->ver);
     if (pd == nullptr) {
+        prepareCancelPending(br->ver);
         Serial.printf("Couldn't find pendingdata info for ver %llu", br->ver);
         return;
     } else {
@@ -139,7 +146,7 @@ void processDataReq(struct espAvailDataReq* eadr) {
     uint8_t src[8];
     //    *((uint64_t*)src) = swap64(*((uint64_t*)adr->));
     sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
-    //sprintf(buffer, "<DATA REQ - version=%d, voltage=%d\n", adr->softVer, adr->batteryMv);
+    // sprintf(buffer, "<DATA REQ - version=%d, voltage=%d\n", adr->softVer, adr->batteryMv);
     wsString((String)buffer);
     Serial.print(buffer);
 }

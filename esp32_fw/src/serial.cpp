@@ -70,6 +70,18 @@ void sendDataAvail(struct pendingData* pending) {
     Serial1.write(0x00);
 }
 
+void sendCancelPending(struct pendingData* pending) {
+    addCRC(pending, sizeof(struct pendingData));
+    Serial1.print("CXD>");
+    for (uint8_t c = 0; c < sizeof(struct pendingData); c++) {
+        Serial1.write(((uint8_t*)pending)[c]);
+    }
+    Serial1.write(0x00);
+    Serial1.write(0x00);
+    Serial1.write(0x00);
+    Serial1.write(0x00);
+}
+
 uint8_t RXState = ZBS_RX_WAIT_HEADER;
 char cmdbuffer[4] = {0};
 uint8_t* packetp = nullptr;
