@@ -21,7 +21,6 @@ void uartInit(void) {
 }
 
 extern uint8_t __xdata blockbuffer[];
-extern bool __xdata blockRequestInProgress;
 
 volatile uint8_t txtail = 0;
 volatile uint8_t txhead = 0;
@@ -79,7 +78,6 @@ void UART_IRQ1(void) __interrupt(0) {
             *blockp++ = UARTBUF;
             if (blockp == (blockbuffer+4100)) {
                 serialBypassActive = false;
-                blockRequestInProgress = false;
             }
         } else {
             rxbuf[rxhead] = UARTBUF;

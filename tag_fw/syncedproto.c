@@ -133,7 +133,6 @@ struct blockRequestAck {
 } __packed;
 
 #define TIMER_TICKS_PER_MS 1333UL
-#define RX_WINDOW_SIZE 10UL  // ms
 // #define DEBUGBLOCKS
 
 // download-stuff
@@ -149,26 +148,27 @@ uint32_t __xdata curHighSlotId = 0;
 uint8_t __xdata nextImgSlot = 0;
 uint8_t __xdata imgSlots = 0;
 
-// stuff we need to keep track of because of the network
+// stuff we need to keep track of related to the network/AP
 uint8_t __xdata APmac[8] = {0};
 uint16_t __xdata APsrcPan = 0;
 uint8_t __xdata mSelfMac[8] = {0};
 uint8_t __xdata seq = 0;
 
-// timing stuff
-bool __xdata isSynced = false;  // are we synced to the network?
-#define SYNC_CALIB_TIME 10000UL
-#define MAX_NEXT_ATTEMPT_DELAY_MS 300000UL
-#define MIN_NEXT_ATTEMPT_DELAY_MS 1000UL   // wait at least this time
-uint32_t __xdata nextAttempt = 1000;       // delay before next attempt;
-bool __xdata isCalibrated = false;         // is the RC oscillator calibrated against the AP?
-uint16_t __xdata calib = SYNC_CALIB_TIME;  // RC oscillator calibration value
-uint32_t __xdata APburstInterval = 0;
-int8_t __xdata calibVector = 0;
-uint16_t __xdata APburstLengthMs = 0;  // burst length in ms
-uint8_t __xdata APburstLength = 0;
+// power saving algorithm
+#define INTERVAL_BASE 40                                           // interval (in seconds) (when 1 packet is sent/received) for target current (7.2µA)
+#define INTERVAL_AT_MAX_ATTEMPTS 600                               // interval (in seconds) (at max attempts) for target average current
+#define INTERVAL_NO_SIGNAL 1800                                    // interval (in seconds) when no answer for POWER_SAVING_SMOOTHING attempts,
+                                                                   // (INTERVAL_AT_MAX_ATTEMPTS * POWER_SAVING_SMOOTHING) seconds
+#define DATA_REQ_RX_WINDOW_SIZE 5UL                                // How many milliseconds we should wait for a packet during the data_request.
+                                                                   // If the AP holds a long list of data for tags, it may need a little more time to lookup the mac address
+#define DATA_REQ_MAX_ATTEMPTS 14                                   // How many attempts (at most) we should do to get something back from the AP
+#define POWER_SAVING_SMOOTHING 8                                   // How many samples we should use to smooth the data request interval
+#define MINIMUM_INTERVAL 45                                        // IMPORTANT: Minimum interval for check-in; this determines overal battery life!
+uint16_t __xdata dataReqAttemptArr[POWER_SAVING_SMOOTHING] = {0};  // Holds the amount of attempts required per data_req/check-in
+uint8_t __xdata dataReqAttemptArrayIndex = 0;
+uint8_t __xdata dataReqLastAttempt = 0;
 
-// buffer we use to prepare packets
+// buffer we use to prepare/read packets
 // static uint8_t __xdata mRxBuf[130];
 static uint8_t __xdata inBuffer[128] = {0};
 static uint8_t __xdata outBuffer[128] = {0};
@@ -186,13 +186,6 @@ uint8_t __xdata getPacketType(void *__xdata buffer) {
         return type;
     }
     return 0;
-}
-uint32_t __xdata getNextAttemptDelay() {
-    nextAttempt *= 2;
-    if (nextAttempt > MAX_NEXT_ATTEMPT_DELAY_MS) {
-        nextAttempt = MAX_NEXT_ATTEMPT_DELAY_MS;
-    }
-    return nextAttempt;
 }
 void dump(uint8_t *__xdata a, uint16_t __xdata l) {
     pr("\n        ");
@@ -261,15 +254,36 @@ void initAfterWake() {
     initRadio();
 }
 void doSleep(uint32_t __xdata t) {
+    pr("s=%lu\n ", t/1000);
     powerPortsDownForSleep();
     // sleepy
-    sleepForMsec(t * SYNC_CALIB_TIME / (uint32_t)calib);
+    sleepForMsec(t);
     initAfterWake();
+}
+uint16_t getNextSleep() {
+    uint16_t __xdata curval = INTERVAL_AT_MAX_ATTEMPTS - INTERVAL_BASE;
+    curval *= dataReqLastAttempt;
+    curval /= DATA_REQ_MAX_ATTEMPTS;
+    curval += INTERVAL_BASE;
+    dataReqAttemptArr[dataReqAttemptArrayIndex % POWER_SAVING_SMOOTHING] = curval;
+    dataReqAttemptArrayIndex++;
+
+    uint16_t avg = 0;
+    bool noNetwork = true;
+    for (uint8_t c = 0; c < POWER_SAVING_SMOOTHING; c++) {
+        avg += dataReqAttemptArr[c];
+        if (dataReqAttemptArr[c] != INTERVAL_AT_MAX_ATTEMPTS) {
+            noNetwork = false;
+        }
+    }
+    if (noNetwork == true) return INTERVAL_NO_SIGNAL;
+    avg /= POWER_SAVING_SMOOTHING;
+    return avg;
 }
 
 // data xfer stuff
 void sendAvailDataReq() {
-    struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer+1);
+    struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer + 1);
     memset(outBuffer, 0, sizeof(struct MacFrameBcast) + sizeof(struct AvailDataReq) + 2 + 4);
     struct AvailDataReq *__xdata availreq = (struct AvailDataReq *)(outBuffer + 2 + sizeof(struct MacFrameBcast));
     outBuffer[0] = sizeof(struct MacFrameBcast) + sizeof(struct AvailDataReq) + 2 + 2;
@@ -290,9 +304,9 @@ void sendAvailDataReq() {
 }
 struct AvailDataInfo *__xdata getAvailDataInfo() {
     uint32_t __xdata t;
-    for (uint8_t c = 0; c < 15; c++) {
+    for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
         sendAvailDataReq();
-        t = timerGet() + (TIMER_TICKS_PER_MS * 10UL);
+        t = timerGet() + (TIMER_TICKS_PER_MS * DATA_REQ_RX_WINDOW_SIZE);
         while (timerGet() < t) {
             int8_t __xdata ret = commsRxUnencrypted(inBuffer);
             if (ret > 1) {
@@ -301,12 +315,16 @@ struct AvailDataInfo *__xdata getAvailDataInfo() {
                         struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)inBuffer;
                         memcpy(APmac, f->src, 8);
                         APsrcPan = f->pan;
+                        // pr("RSSI: %d\n", commsGetLastPacketRSSI());
+                        // pr("LQI: %d\n", commsGetLastPacketLQI());
+                        dataReqLastAttempt = c;
                         return (struct AvailDataInfo *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
                     }
                 }
             }
         }
     }
+    dataReqLastAttempt = DATA_REQ_MAX_ATTEMPTS;
     return NULL;
 }
 void processBlockPart(struct blockPart *bp) {
@@ -359,7 +377,8 @@ void sendBlockRequest() {
     struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)(outBuffer + 1);
     struct blockRequest *__xdata blockreq = (struct blockRequest *)(outBuffer + 2 + sizeof(struct MacFrameNormal));
     outBuffer[0] = sizeof(struct MacFrameNormal) + sizeof(struct blockRequest) + 2 + 2;
-    if (requestPartialBlock) {;
+    if (requestPartialBlock) {
+        ;
         outBuffer[sizeof(struct MacFrameNormal) + 1] = PKT_BLOCK_PARTIAL_REQUEST;
     } else {
         outBuffer[sizeof(struct MacFrameNormal) + 1] = PKT_BLOCK_REQUEST;
@@ -398,8 +417,8 @@ struct blockRequestAck *__xdata performBlockRequest() {
                         break;
                     case PKT_BLOCK_PART:
                         // block already started while we were waiting for a get block reply
-                        //pr("!");
-                        //processBlockPart((struct blockPart *)(inBuffer + sizeof(struct MacFrameNormal) + 1));
+                        // pr("!");
+                        // processBlockPart((struct blockPart *)(inBuffer + sizeof(struct MacFrameNormal) + 1));
                         return continueToRX();
                         break;
                     default:
@@ -411,7 +430,7 @@ struct blockRequestAck *__xdata performBlockRequest() {
         } while (timerGet() < t);
     }
     return continueToRX();
-    //return NULL;
+    // return NULL;
 }
 void sendXferCompletePacket() {
     memset(outBuffer, 0, sizeof(struct MacFrameNormal) + 2 + 4);
@@ -450,6 +469,15 @@ void sendXferComplete() {
     }
     pr("XFC NACK!\n");
     return;
+}
+bool validateBlockData() {
+    struct blockData *bd = (struct blockData *)blockXferBuffer;
+    // pr("expected len = %04X, checksum=%04X\n", bd->size, bd->checksum);
+    uint16_t t = 0;
+    for (uint16_t c = 0; c < bd->size; c++) {
+        t += bd->data[c];
+    }
+    return bd->checksum == t;
 }
 
 const uint8_t epd_bitmap_ant[] = {
@@ -529,7 +557,6 @@ void saveUpdateBlockData(uint8_t blockId) {
     if (!eepromWrite(EEPROM_UPDATA_AREA_START + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
         pr("EEPROM write failed\n");
 }
-
 void saveImgBlockData(uint8_t blockId) {
     uint16_t length = EEPROM_IMG_EACH - (sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE));
     if (length > 4096) length = 4096;
@@ -562,19 +589,9 @@ uint32_t getHighSlotId() {
     return temp;
 }
 
-bool validateBlockData() {
-    struct blockData *bd = (struct blockData *)blockXferBuffer;
-    // pr("expected len = %04X, checksum=%04X\n", bd->size, bd->checksum);
-    uint16_t t = 0;
-    for (uint16_t c = 0; c < bd->size; c++) {
-        t += bd->data[c];
-    }
-    return bd->checksum == t;
-}
-
 #define DEBUGBLOCKS
 // Main download function
-void doDataDownload(struct AvailDataInfo* __xdata avail){
+void doDataDownload(struct AvailDataInfo *__xdata avail) {
     // this is the main function for the download process
 
     if (!eepromInit()) {  // we'll need the eeprom here, init it.
@@ -681,7 +698,7 @@ void doDataDownload(struct AvailDataInfo* __xdata avail){
         pr("]\n");
 #endif
 
-        //timerDelay(TIMER_TICKS_PER_MS*100);
+        // timerDelay(TIMER_TICKS_PER_MS*100);
 
         // DO BLOCK REQUEST - request a block, get an ack with timing info (hopefully)
         struct blockRequestAck *__xdata ack = performBlockRequest();
@@ -711,14 +728,14 @@ void doDataDownload(struct AvailDataInfo* __xdata avail){
         }
 
         // BLOCK RX LOOP - receive a block, until the timeout has passed
-        if (!blockRxLoop(440)) { // was 340
+        if (!blockRxLoop(440)) {  // was 340
             // didn't receive packets
             blockRequestAttempt++;
             if (blockRequestAttempt > 5) {
                 pr("bailing on download, 0 blockparts rx'd\n");
                 return;
             } else {
-                //goto startdownload;
+                // goto startdownload;
             }
         } else {
             // successfull block RX loop
@@ -815,7 +832,7 @@ void doDataDownload(struct AvailDataInfo* __xdata avail){
                         sendXferComplete();
                         killRadio();
                         eepromReadStart(EEPROM_UPDATA_AREA_START);
-                        //wdtDeviceReset();
+                        // wdtDeviceReset();
                         selfUpdate();
 
                         break;
@@ -856,8 +873,6 @@ void mainProtocolLoop(void) {
     // i2ctest();
 
     pr("BOOTED> (new version!)\n\n");
-    isSynced = false;
-    isCalibrated = false;
 
     if (!eepromInit()) {
         pr("failed to init eeprom\n");
@@ -869,20 +884,27 @@ void mainProtocolLoop(void) {
         curHighSlotId = getHighSlotId();
     }
 
+    // initialize attempt-array with the default value;
+    for (uint8_t c = 0; c < POWER_SAVING_SMOOTHING; c++) {
+        dataReqAttemptArr[c] = INTERVAL_BASE;
+    }
+
     screenSleep();
     eepromDeepPowerDown();
     initRadio();
     // drawPartial();
     // i2ctest();
-
+    // doSleep(10000);
     while (1) {
         radioRxEnable(true, true);
         struct AvailDataInfo *__xdata avail = getAvailDataInfo();
-        if(avail->dataType!=DATATYPE_NOUPDATE){
-            doDataDownload(avail);
+        if (avail == NULL) {
         } else {
-            pr("nothing.\n");
+            if (avail->dataType != DATATYPE_NOUPDATE) {
+                doDataDownload(avail);
+            } else {
+            }
         }
-        doSleep(10000);
+        doSleep(getNextSleep()*1000UL);
     }
 }

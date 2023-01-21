@@ -168,7 +168,7 @@ extern bool __idata serialBypassActive;               // if the serial bypass is
 uint32_t __xdata nextBlockAttempt = 0;                // reference time for when the AP can request a new block from the ESP32
 uint8_t seq = 0;                                      // holds current sequence number for transmission
 uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];  // block transfer buffer
-
+uint8_t lastAckMac[8] = {0};
 void sendXferCompleteAck(uint8_t *dst);
 
 // tools
@@ -437,7 +437,7 @@ void processAvailDataReq(uint8_t *buffer) {
         return;
 
     // prepare tx buffer to send a response
-    memset(radiotxbuffer, 0, sizeof(struct MacFrameNormal)+sizeof(struct AvailDataInfo)+2);//120);
+    memset(radiotxbuffer, 0, sizeof(struct MacFrameNormal) + sizeof(struct AvailDataInfo) + 2);  // 120);
     struct MacFrameNormal *txHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
     struct AvailDataInfo *availDataInfo = (struct AvailDataInfo *)(radiotxbuffer + sizeof(struct MacFrameNormal) + 2);
     radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + sizeof(struct AvailDataInfo) + RAW_PKT_PADDING;
@@ -468,14 +468,19 @@ void processAvailDataReq(uint8_t *buffer) {
     txHeader->seq = seq++;
     addCRC(availDataInfo, sizeof(struct AvailDataInfo));
     radioTx(radiotxbuffer);
+    memset(lastAckMac, 0, 8);                               // reset lastAckMac, so we can record if we've received exactly one ack packet
     espNotifyAvailDataReq(availDataReq, rxHeader->src);
 }
+
 void processXferComplete(uint8_t *buffer) {
     struct MacFrameNormal *rxHeader = (struct MacFrameNormal *)buffer;
     sendXferCompleteAck(rxHeader->src);
-    espNotifyXferComplete(rxHeader->src);
-    int8_t slot = findSlotForMac(rxHeader->src);
-    if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
+    if (memcmp(lastAckMac, rxHeader->src, 8) != 0) {
+        xMemCopyShort((void *__xdata)lastAckMac, (void *__xdata)rxHeader->src, 8);
+        espNotifyXferComplete(rxHeader->src);
+        int8_t slot = findSlotForMac(rxHeader->src);
+        if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
+    }
 }
 
 // send block data to the tag
