@@ -234,9 +234,11 @@ void init_web() {
     server.on("/send_image", HTTP_POST, [](AsyncWebServerRequest *request) {
         String filename;
         String dst;
+        uint16_t nextCheckin;
         if (request->hasParam("filename", true) && request->hasParam("dst", true)) {
             filename = request->getParam("filename", true)->value();
             dst = request->getParam("dst", true)->value();
+            nextCheckin = request->getParam("ttl",true)->value().toInt();
             uint8_t mac_addr[12];  // I expected this to return like 8 values, but if I make the array 8 bytes long, things die.
             mac_addr[0] = 0x00;
             mac_addr[1] = 0x00;
@@ -250,7 +252,7 @@ void init_web() {
                 request->send(200, "text/plain", "Something went wrong trying to parse the mac address");
             } else {
                 *((uint64_t *)mac_addr) = swap64(*((uint64_t *)mac_addr));
-                if (prepareDataAvail(&filename, DATATYPE_IMGRAW, mac_addr)) {
+                if (prepareDataAvail(&filename, DATATYPE_IMGRAW, mac_addr, nextCheckin)) {
                     request->send(200, "text/plain", "Sending to " + dst);
                 } else {
                     request->send(200, "text/plain", "Couldn't find filename :(");
@@ -281,7 +283,7 @@ void init_web() {
                 request->send(200, "text/plain", "Something went wrong trying to parse the mac address");
             } else {
                 *((uint64_t *)mac_addr) = swap64(*((uint64_t *)mac_addr));
-                if (prepareDataAvail(&filename, DATATYPE_UPDATE, mac_addr)) {
+                if (prepareDataAvail(&filename, DATATYPE_UPDATE, mac_addr, 0)) {
                     request->send(200, "text/plain", "Sending FW to " + dst);
                 } else {
                     request->send(200, "text/plain", "Couldn't find filename :(");
@@ -311,7 +313,7 @@ void init_web() {
                 request->send(200, "text/plain", "Something went wrong trying to parse the mac address");
             } else {
                 *((uint64_t *)mac_addr) = swap64(*((uint64_t *)mac_addr));
-                if (prepareDataAvail(&filename, DATATYPE_NOUPDATE, mac_addr)) {
+                if (prepareDataAvail(&filename, DATATYPE_NOUPDATE, mac_addr,0)) {
                     request->send(200, "text/plain", "Sending check-in request to " + dst);
                 }
             }

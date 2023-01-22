@@ -47,7 +47,7 @@ void prepareCancelPending(uint64_t ver) {
     sendCancelPending(&pending);
 }
 
-bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst) {
+bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
     *filename = "/" + *filename;
     if (!LittleFS.exists(*filename)) return false;
     File file = LittleFS.open(*filename);
@@ -72,6 +72,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst) {
     pending.availdatainfo.dataType = dataType;
     pending.availdatainfo.dataVer = *((uint64_t*)md5bytes);
     pending.availdatainfo.dataSize = file.size();
+    pending.availdatainfo.nextCheckIn = nextCheckin;
     pending.attemptsLeft = 10;
     sendDataAvail(&pending);
 
