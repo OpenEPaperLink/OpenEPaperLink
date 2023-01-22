@@ -131,10 +131,17 @@ struct AvailDataInfo __xdata curDataInfo = {0};
 uint16_t __xdata dataRemaining = 0;
 bool __xdata curXferComplete = false;
 bool __xdata requestPartialBlock = false;
+
 uint8_t __xdata curImgSlot = 0;
 uint32_t __xdata curHighSlotId = 0;
 uint8_t __xdata nextImgSlot = 0;
 uint8_t __xdata imgSlots = 0;
+
+// doDownload persistent variables
+bool __xdata lastBlock = false;
+uint8_t __xdata partsThisBlock = 0;
+uint8_t __xdata blockRequestAttempt = 0;
+uint8_t __xdata blockValidateAttempt = 0;
 
 // stuff we need to keep track of related to the network/AP
 uint8_t __xdata APmac[8] = {0};
@@ -243,7 +250,7 @@ void initAfterWake() {
     initRadio();
 }
 void doSleep(uint32_t __xdata t) {
-    pr("s=%lu\n ", t / 1000);
+    if(t>1000)pr("s=%lu\n ", t / 1000);
     powerPortsDownForSleep();
     // sleepy
     sleepForMsec(t);
@@ -581,14 +588,14 @@ uint32_t getHighSlotId() {
     return temp;
 }
 
-#define DEBUGBLOCKS
-// Main download function
-void doDataDownload(struct AvailDataInfo *__xdata avail) {
+// #define DEBUGBLOCKS
+//  Main download function
+bool doDataDownload(struct AvailDataInfo *__xdata avail) {
     // this is the main function for the download process
 
     if (!eepromInit()) {  // we'll need the eeprom here, init it.
         pr("failed to init eeprom\n");
-        return;
+        return false;
     }
 
     // GET AVAIL DATA INFO - enable the radio and get data
@@ -596,13 +603,10 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
 #ifdef DEBUGBLOCKS
         pr("didn't receive getavaildatainfo");
 #endif
-        return;
+        return false;
     }
 
     // did receive available data info (avail struct)
-    uint8_t __xdata partsThisBlock = 0;
-    bool __xdata lastBlock = false;
-
     switch (avail->dataType) {
         case DATATYPE_IMG:
         case DATATYPE_IMGRAW:
@@ -611,7 +615,7 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
                 // we've downloaded this already, we're guessing it's already displayed
                 pr("old ver, already downloaded!\n");
                 sendXferComplete();
-                return;
+                return true;
             } else {
                 // check if we've seen this version before
                 curImgSlot = findSlot(&(avail->dataVer));
@@ -627,7 +631,7 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
                     xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
 
                     drawImageFromEeprom();
-                    return;
+                    return true;
                 } else {
                     // not found in cache, prepare to download
                     // go to the next image slot
@@ -637,6 +641,7 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
 
                     eepromErase(getAddressForSlot(curImgSlot), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
                     pr("new download, writing to slot %d\n", curImgSlot);
+                    // continue!
                 }
             }
             break;
@@ -672,13 +677,17 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
     }
 
     // do transfer!
-    uint8_t __xdata blockRequestAttempt = 0;
-    uint8_t __xdata blockValidateAttempt = 0;
+    blockRequestAttempt = 0;
+    blockValidateAttempt = 0;
     while (!curXferComplete) {
         // this while loop loops until the transfer has been completed, or we get tired for other reasons
     startdownload:;
+#ifndef DEBUGBLOCKS
+        pr("REQ %d ", curBlock.blockId);
+#endif
 #ifdef DEBUGBLOCKS
         pr("REQ %d[", curBlock.blockId);
+
         for (uint8_t c = 0; c < BLOCK_MAX_PARTS; c++) {
             if ((c != 0) && (c % 8 == 0)) pr("][");
             if (curBlock.requestedParts[c / 8] & (1 << (c % 8))) {
@@ -696,33 +705,28 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
         struct blockRequestAck *__xdata ack = performBlockRequest();
         if (ack == NULL) {
             pr("Cancelled request\n");
-            return;
+            return false;
         } else {
             // got an ack!
         }
-
         // SLEEP - until the AP is ready with the data
         if (ack->pleaseWaitMs) {
-            ack->pleaseWaitMs -= 10;
             if (ack->pleaseWaitMs < 35) {
                 timerDelay(ack->pleaseWaitMs * TIMER_TICKS_PER_MS);
             } else {
-                doSleep(ack->pleaseWaitMs - 30);
+                doSleep(ack->pleaseWaitMs - 10);
                 radioRxEnable(true, true);
             }
         } else {
             // immediately start with the reception of the block data
         }
-
         // BLOCK RX LOOP - receive a block, until the timeout has passed
-        if (!blockRxLoop(440)) {  // was 340
+        if (!blockRxLoop(270)) {  // was 300
             // didn't receive packets
             blockRequestAttempt++;
             if (blockRequestAttempt > 5) {
                 pr("bailing on download, 0 blockparts rx'd\n");
-                return;
-            } else {
-                // goto startdownload;
+                return false;
             }
         } else {
             // successfull block RX loop
@@ -749,6 +753,9 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
         }
 
         if (blockComplete) {
+#ifndef DEBUGBLOCKS
+            pr("- COMPLETE\n");
+#endif
             if (validateBlockData()) {
                 // checked and found okay
                 requestPartialBlock = false;  // next block is going to be requested from the ESP32 by the AP
@@ -767,7 +774,7 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
                 blockValidateAttempt++;
                 if (blockValidateAttempt > 5) {
                     pr("bailing on download, 0 blockparts rx'd\n");
-                    return;
+                    return false;
                 }
                 for (uint8_t c = 0; c < partsThisBlock; c++) {
                     curBlock.requestedParts[c / 8] |= (1 << (c % 8));
@@ -777,6 +784,9 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
                 pr("block failed validation!\n");
             }
         } else {
+#ifndef DEBUGBLOCKS
+            pr("- INCOMPLETE\n");
+#endif
             // block incomplete, re-request a partial block
             requestPartialBlock = true;
         }
@@ -790,6 +800,7 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
                     // full block-size
                     partsThisBlock = BLOCK_MAX_PARTS;
                     memset(curBlock.requestedParts, 0xFF, BLOCK_REQ_PARTS_BYTES);
+                    lastBlock = false;
                 } else {
                     // final block, probably partial
                     partsThisBlock = dataRemaining / BLOCK_PART_DATA_SIZE;
@@ -800,6 +811,7 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
                     }
                     lastBlock = true;
                 }
+
             } else {
                 // this was the last block. What should we do next?
                 switch (curBlock.type) {
@@ -827,7 +839,6 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
                         eepromReadStart(EEPROM_UPDATA_AREA_START);
                         // wdtDeviceReset();
                         selfUpdate();
-
                         break;
                 }
             }
@@ -835,6 +846,7 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
             // incomplete block, wrap around and get the rest of the block...
         }
     }  // end download while loop
+    return true;
 }
 
 // main loop;
@@ -890,15 +902,24 @@ void mainProtocolLoop(void) {
     // doSleep(10000);
     while (1) {
         radioRxEnable(true, true);
+
         struct AvailDataInfo *__xdata avail = getAvailDataInfo();
         if (avail == NULL) {
-            nextCheckInFromAP = 0;
+            // no data :(
+            nextCheckInFromAP = 0;  // let the power-saving algorithm determine the next sleep period
         } else {
             nextCheckInFromAP = avail->nextCheckIn;
+            // got some data from the AP!
             if (avail->dataType != DATATYPE_NOUPDATE) {
-                doDataDownload(avail);
+                // data transfer
+                if (doDataDownload(avail)) {
+                    // succesful transfer, next wake time is determined by the NextCheckin;
+                } else {
+                    // failed transfer, let the algorithm determine next sleep interval (not the AP)
+                    nextCheckInFromAP = 0;
+                }
             } else {
-                // just sleep
+                // no data transfer, just sleep.
             }
         }
 

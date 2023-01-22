@@ -117,7 +117,6 @@ struct blockRequestAck {
     uint16_t pleaseWaitMs;
 } __packed;
 
-
 struct espBlockRequest {
     uint8_t checksum;
     uint64_t ver;
@@ -166,6 +165,11 @@ uint32_t __xdata nextBlockAttempt = 0;                // reference time for when
 uint8_t seq = 0;                                      // holds current sequence number for transmission
 uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];  // block transfer buffer
 uint8_t lastAckMac[8] = {0};
+
+// these variables hold the current mac were talking to
+#define CONCURRENT_REQUEST_DELAY 1200UL * TIMER_TICKS_PER_MS
+uint32_t __xdata lastBlockRequest = 0;
+uint8_t __xdata lastBlockMac[8];
 
 void sendXferCompleteAck(uint8_t *dst);
 void sendCancelXfer(uint8_t *dst);
@@ -224,6 +228,15 @@ uint8_t __xdata getPacketType(void *__xdata buffer) {
         return type;
     }
     return 0;
+}
+uint8_t getBlockDataLength() {
+    uint8_t partNo = 0;
+    for (uint8_t c = 0; c < BLOCK_MAX_PARTS; c++) {
+        if (requestedData.requestedParts[c / 8] & (1 << (c % 8))) {
+            partNo++;
+        }
+    }
+    return partNo;
 }
 
 // pendingdata slot stuff
@@ -309,7 +322,7 @@ void processSerial(uint8_t lastchar) {
                         xMemCopyShort(&(pendingDataArr[slot]), serialbuffer, sizeof(struct pendingData));
                         pr("ACK>\n");
                     } else {
-                        pr("NOK>\n");
+                        pr("NOQ>\n");
                     }
                 } else {
                     pr("NOK>\n");
@@ -389,14 +402,30 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     struct blockRequest *__xdata blockReq = (struct blockRequest *)(buffer + sizeof(struct MacFrameNormal) + 1);
     if (!checkCRC(blockReq, sizeof(struct blockRequest))) return;
 
+    // check if we're already talking to this mac
+    if (memcmp(rxHeader->src, lastBlockMac, 8) == 0) {
+        lastBlockRequest = timerGet();
+    } else {
+        // we weren't talking to this mac, see if there was a transfer in progress from another mac, recently
+        if ((timerGet() - lastBlockRequest) > CONCURRENT_REQUEST_DELAY) {
+            // mark this mac as the new current mac we're talking to
+            xMemCopyShort((void *__xdata)lastBlockMac, (void *__xdata)rxHeader->src, 8);
+            lastBlockRequest = timerGet();
+            // memcpy(lastBlockRequest, rxHeader->src, 8);
+        } else {
+            // we're talking to another mac, let this mac know we can't accomodate another request right now
+            pr("not accepting traffic from this tag\n");
+            sendCancelXfer(rxHeader->src);
+            return;
+        }
+    }
 
     // check if we have data for this mac
-    if(findSlotForMac(rxHeader->src)==-1){
+    if (findSlotForMac(rxHeader->src) == -1) {
         // no data for this mac, politely tell it to fuck off
         sendCancelXfer(rxHeader->src);
         return;
     }
-
 
     bool __xdata requestDataDownload = false;
     if ((blockReq->blockId != requestedData.blockId) || (!u64_isEq((const uint64_t __xdata *)&blockReq->ver, (const uint64_t __xdata *)&requestedData.ver))) {
@@ -551,6 +580,10 @@ void sendPart(uint8_t partNo) {
     radioTx(radiotxbuffer);
 }
 void sendBlockData() {
+    if(getBlockDataLength()==0){
+        pr("Invalid block request received, 0 parts..\n");
+        requestedData.requestedParts[0] |= 0x01;
+    }
     uint8_t partNo = 0;
     while (partNo < BLOCK_MAX_PARTS) {
         for (uint8_t c = 0; (c < BLOCK_MAX_PARTS) && (partNo < BLOCK_MAX_PARTS); c++) {
@@ -638,7 +671,6 @@ void main(void) {
 
     pr("VER>%04X\n", version);
     while (1) {
-        // spend about 30 seconds - 100ms in this while loop. The last 100ms are for preparing the sync burst
         while ((timerGet() - housekeepingTimer) < ((TIMER_TICKS_PER_SECOND * HOUSEKEEPING_INTERVAL) - 100 * TIMER_TICKS_PER_MS)) {
             int8_t ret = commsRxUnencrypted(radiorxbuffer);
             if (ret > 1) {
@@ -658,8 +690,7 @@ void main(void) {
                         break;
                         //
                     default:
-                        pr("type = %02X\n", getPacketType(radiorxbuffer));
-                        // dump(radiorxbuffer, 128);
+                        pr("t=%02X\n", getPacketType(radiorxbuffer));
                         break;
                 }
             }
@@ -674,6 +705,7 @@ void main(void) {
                 }
             }
         }
+        pr("housekeeping...");
 
         for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
             if (pendingDataArr[c].attemptsLeft == 1) {
@@ -681,7 +713,7 @@ void main(void) {
                 pendingDataArr[c].attemptsLeft = 0;
             } else if (pendingDataArr[c].attemptsLeft > 1) {
                 pendingDataArr[c].attemptsLeft--;
-                if(pendingDataArr[c].availdatainfo.nextCheckIn)pendingDataArr[c].availdatainfo.nextCheckIn--;
+                if (pendingDataArr[c].availdatainfo.nextCheckIn) pendingDataArr[c].availdatainfo.nextCheckIn--;
             }
         }
         housekeepingTimer = timerGet();
