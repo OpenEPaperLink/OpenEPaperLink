@@ -49,7 +49,6 @@ struct MacFrameBcast {
     uint8_t src[8];
 } __packed;
 
-
 #define PKT_AVAIL_DATA_REQ 0xE5
 #define PKT_AVAIL_DATA_INFO 0xE6
 #define PKT_BLOCK_PARTIAL_REQUEST 0xE7
@@ -81,6 +80,7 @@ struct AvailDataInfo {
     uint64_t dataVer;
     uint32_t dataSize;
     uint8_t dataType;
+    uint16_t nextCheckIn;
 } __packed;
 
 struct blockPart {
@@ -155,6 +155,7 @@ uint8_t __xdata seq = 0;
 uint16_t __xdata dataReqAttemptArr[POWER_SAVING_SMOOTHING] = {0};  // Holds the amount of attempts required per data_req/check-in
 uint8_t __xdata dataReqAttemptArrayIndex = 0;
 uint8_t __xdata dataReqLastAttempt = 0;
+uint16_t __xdata nextCheckInFromAP = 0;
 
 // buffer we use to prepare/read packets
 // static uint8_t __xdata mRxBuf[130];
@@ -445,7 +446,7 @@ void sendXferCompletePacket() {
 void sendXferComplete() {
     radioRxEnable(true, true);
 
-    for (uint8_t c = 0; c < 4; c++) {
+    for (uint8_t c = 0; c < 8; c++) {
         sendXferCompletePacket();
         uint32_t __xdata start = timerGet();
         while ((timerGet() - start) < (TIMER_TICKS_PER_MS * 6UL)) {
@@ -750,7 +751,7 @@ void doDataDownload(struct AvailDataInfo *__xdata avail) {
         if (blockComplete) {
             if (validateBlockData()) {
                 // checked and found okay
-                requestPartialBlock = false; // next block is going to be requested from the ESP32 by the AP
+                requestPartialBlock = false;  // next block is going to be requested from the ESP32 by the AP
                 blockValidateAttempt = 0;
                 switch (curBlock.type) {
                     case DATATYPE_IMG:
@@ -891,12 +892,21 @@ void mainProtocolLoop(void) {
         radioRxEnable(true, true);
         struct AvailDataInfo *__xdata avail = getAvailDataInfo();
         if (avail == NULL) {
+            nextCheckInFromAP = 0;
         } else {
+            nextCheckInFromAP = avail->nextCheckIn;
             if (avail->dataType != DATATYPE_NOUPDATE) {
                 doDataDownload(avail);
             } else {
+                // just sleep
             }
         }
-        doSleep(getNextSleep() * 1000UL);
+
+        // if the AP told us to sleep for a specific period, do so.
+        if (nextCheckInFromAP) {
+            doSleep(nextCheckInFromAP * 60000UL);
+        } else {
+            doSleep(getNextSleep() * 1000UL);
+        }
     }
 }

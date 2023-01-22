@@ -72,6 +72,7 @@ struct AvailDataInfo {
     uint64_t dataVer;
     uint32_t dataSize;
     uint8_t dataType;
+    uint16_t nextCheckIn;
 } __packed;
 
 struct blockPart {
@@ -89,7 +90,7 @@ struct blockData {
 
 struct pendingData {
     struct AvailDataInfo availdatainfo;
-    uint8_t attemptsLeft;
+    uint16_t attemptsLeft;
     uint8_t targetMac[8];
 } __packed;
 
@@ -98,7 +99,7 @@ struct pendingData {
 #define BLOCK_DATA_SIZE 4096
 #define BLOCK_XFER_BUFFER_SIZE BLOCK_DATA_SIZE + sizeof(struct blockData)
 #define BLOCK_REQ_PARTS_BYTES 6  // BLOCK_MAX_PARTS / 8 + 1
-#define MAX_PENDING_MACS 10
+#define MAX_PENDING_MACS 64
 #define HOUSEKEEPING_INTERVAL 60UL
 
 struct pendingData __xdata pendingDataArr[MAX_PENDING_MACS];
@@ -116,10 +117,6 @@ struct blockRequestAck {
     uint16_t pleaseWaitMs;
 } __packed;
 
-struct espPendingData {
-    uint8_t checksum;
-    struct pendingData pending;
-} __packed;
 
 struct espBlockRequest {
     uint8_t checksum;
@@ -684,6 +681,7 @@ void main(void) {
                 pendingDataArr[c].attemptsLeft = 0;
             } else if (pendingDataArr[c].attemptsLeft > 1) {
                 pendingDataArr[c].attemptsLeft--;
+                if(pendingDataArr[c].availdatainfo.nextCheckIn)pendingDataArr[c].availdatainfo.nextCheckIn--;
             }
         }
         housekeepingTimer = timerGet();
