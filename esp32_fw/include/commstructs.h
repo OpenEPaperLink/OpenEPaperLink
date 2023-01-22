@@ -45,15 +45,14 @@ struct AvailDataInfo {
     uint64_t dataVer;
     uint32_t dataSize;
     uint8_t dataType;
+    uint16_t nextCheckIn;
 } __packed;
 
 struct pendingData {
     struct AvailDataInfo availdatainfo;
-    uint8_t attemptsLeft;
+    uint16_t attemptsLeft;
     uint8_t targetMac[8];
 } __packed;
-
-
 
 #define BLOCK_DATA_SIZE 4096
 #define BLOCK_XFER_BUFFER_SIZE BLOCK_DATA_SIZE + sizeof(struct blockData)
