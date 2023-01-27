@@ -68,7 +68,7 @@ struct AvailDataReq {
     uint8_t softVer;
     uint8_t hwType;
     uint8_t protoVer;
-    //uint8_t buttonState;
+    uint8_t buttonState;
 } __packed;
 
 #define DATATYPE_NOUPDATE 0
@@ -160,6 +160,9 @@ uint8_t __xdata seq = 0;
 #define DATA_REQ_MAX_ATTEMPTS 14                                   // How many attempts (at most) we should do to get something back from the AP
 #define POWER_SAVING_SMOOTHING 8                                   // How many samples we should use to smooth the data request interval
 #define MINIMUM_INTERVAL 45                                        // IMPORTANT: Minimum interval for check-in; this determines overal battery life!
+
+#define HAS_BUTTON	 // uncomment to enable reading a push button (connect between 'TEST' en 'GND' on the tag, along with a 100nF capacitor in parallel).
+
 uint16_t __xdata dataReqAttemptArr[POWER_SAVING_SMOOTHING] = {0};  // Holds the amount of attempts required per data_req/check-in
 uint8_t __xdata dataReqAttemptArrayIndex = 0;
 uint8_t __xdata dataReqLastAttempt = 0;
@@ -254,34 +257,22 @@ void doSleep(uint32_t __xdata t) {
     if(t>1000)pr("s=%lu\n ", t / 1000);
     powerPortsDownForSleep();
 
+#ifdef HAS_BUTTON
 	//Button setup on TEST pin 1.0 (input pullup)
-	uint8_t tmp_P1FUNC = P1FUNC;
-	uint8_t tmp_P1DIR = P1DIR;
-	uint8_t tmp_P1PULL = P1PULL;
-	uint8_t tmp_P1LVLSEL = P1LVLSEL;
-
 	P1FUNC &=~ (1 << 0);
 	P1DIR |= (1 << 0);
 	P1PULL |= (1 << 0);
-
 	P1LVLSEL |= (1 << 0);
-	P1CHSTA &=~ (1 << 0);
-	P0INTEN = 0;
 	P1INTEN = (1 << 0);
-	P2INTEN = 0;
 	P1CHSTA &=~ (1 << 0);
+#endif
 
     // sleepy
     sleepForMsec(t);
 
-	P0INTEN = 0;
+#ifdef HAS_BUTTON
 	P1INTEN = 0;
-	P2INTEN = 0;
-
-	P1FUNC = tmp_P1FUNC;
-	P1DIR = tmp_P1DIR;
-	P1PULL = tmp_P1PULL;
-	P1LVLSEL = tmp_P1LVLSEL;
+#endif
 
     initAfterWake();
 }
@@ -325,7 +316,7 @@ void sendAvailDataReq() {
     // TODO: send some meaningful data
     availreq->softVer = 1;
 	if (P1CHSTA && (1 << 0)) {
-		availreq->protoVer = 1;     //buttonState
+		availreq->buttonState = 1;
 		pr("button pressed\n");
 		P1CHSTA &=~ (1 << 0);
 	}
