@@ -60,7 +60,7 @@ struct AvailDataReq {
     uint8_t softVer;
     uint8_t hwType;
     uint8_t protoVer;
-    //uint8_t buttonState;
+    uint8_t buttonState;
 } __packed;
 
 #define DATATYPE_NOUPDATE 0
