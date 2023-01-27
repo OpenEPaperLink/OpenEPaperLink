@@ -145,9 +145,7 @@ void processXferComplete(struct espXferComplete* xfc) {
 void processDataReq(struct espAvailDataReq* eadr) {
     char buffer[64];
     uint8_t src[8];
-    //    *((uint64_t*)src) = swap64(*((uint64_t*)adr->));
-    sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
-    sprintf(buffer, "<button: \n", eadr->adr->protoVer);
+    sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X button: %02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0], eadr->adr.protoVer);
     wsString((String)buffer);
     Serial.print(buffer);
 }
