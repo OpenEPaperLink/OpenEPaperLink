@@ -68,6 +68,7 @@ struct AvailDataReq {
     uint8_t softVer;
     uint8_t hwType;
     uint8_t protoVer;
+    //uint8_t buttonState;
 } __packed;
 
 #define DATATYPE_NOUPDATE 0
@@ -252,8 +253,36 @@ void initAfterWake() {
 void doSleep(uint32_t __xdata t) {
     if(t>1000)pr("s=%lu\n ", t / 1000);
     powerPortsDownForSleep();
+
+	//Button setup on TEST pin 1.0 (input pullup)
+	uint8_t tmp_P1FUNC = P1FUNC;
+	uint8_t tmp_P1DIR = P1DIR;
+	uint8_t tmp_P1PULL = P1PULL;
+	uint8_t tmp_P1LVLSEL = P1LVLSEL;
+
+	P1FUNC &=~ (1 << 0);
+	P1DIR |= (1 << 0);
+	P1PULL |= (1 << 0);
+
+	P1LVLSEL |= (1 << 0);
+	P1CHSTA &=~ (1 << 0);
+	P0INTEN = 0;
+	P1INTEN = (1 << 0);
+	P2INTEN = 0;
+	P1CHSTA &=~ (1 << 0);
+
     // sleepy
     sleepForMsec(t);
+
+	P0INTEN = 0;
+	P1INTEN = 0;
+	P2INTEN = 0;
+
+	P1FUNC = tmp_P1FUNC;
+	P1DIR = tmp_P1DIR;
+	P1PULL = tmp_P1PULL;
+	P1LVLSEL = tmp_P1LVLSEL;
+
     initAfterWake();
 }
 uint16_t getNextSleep() {
@@ -295,6 +324,11 @@ void sendAvailDataReq() {
     txframe->srcPan = 0x4447;
     // TODO: send some meaningful data
     availreq->softVer = 1;
+	if (P1CHSTA && (1 << 0)) {
+		availreq->protoVer = 1;     //buttonState
+		pr("button pressed\n");
+		P1CHSTA &=~ (1 << 0);
+	}
     addCRC(availreq, sizeof(struct AvailDataReq));
     commsTxNoCpy(outBuffer);
 }
@@ -897,6 +931,9 @@ void mainProtocolLoop(void) {
     screenSleep();
     eepromDeepPowerDown();
     initRadio();
+	
+	P1CHSTA &=~ (1 << 0);	
+	
     // drawPartial();
     // i2ctest();
     // doSleep(10000);
