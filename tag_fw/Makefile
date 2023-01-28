@@ -3,8 +3,8 @@ BUILD		?= zbs29v033
 
 #file containing main() must be first!
 SOURCES		+= main.c eeprom.c drawing.c
-SOURCES		+= comms.c chars.c
-SOURCES		+= syncedproto.c
+SOURCES		+= comms.c
+SOURCES		+= syncedproto.c epd.c
 
 
 all:	#make sure it is the first target
@@ -18,21 +18,7 @@ FLAGS += -Icpu/$(CPU)
 
 SOURCES += cpu/$(CPU)/cpu.c
 SOURCES += board/$(BUILD)/board.c
-SOURCES += board/$(BUILD)/screen.c
-
-
-ifeq ($(BARCODE),barcode)
-  FLAGS += -DBARCODE
-  SOURCES += barcode.c
-else ifeq ($(BARCODE),datamatrix)
- # FLAGS += -DDATAMATRIX
- # SOURCES += datamatrix.c
- #i might release this later, but for now, just use barcodes :P
-  FLAGS += -DBARCODE
-  SOURCES += barcode.c
-else
-  SOURCES += $(warning "no barcode type set")
-endif
+#SOURCES += board/$(BUILD)/screen.c
 
 
 EEPROMDRV ?= eeprom.c

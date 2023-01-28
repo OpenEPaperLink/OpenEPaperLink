@@ -8,6 +8,8 @@
 static uint32_t __xdata mEepromSize;
 static uint8_t __xdata mOpcodeErz4K = 0, mOpcodeErz32K = 0, mOpcodeErz64K = 0;
 
+//extern uint8_t __xdata* tempBuffer;
+uint8_t __xdata tempBufferE[320];
 
 uint32_t eepromGetSize(void)
 {
@@ -158,27 +160,27 @@ __bit eepromInit(void)
 			
 			uint8_t j;
 			
-			eepromPrvSfdpRead(*(uint16_t __xdata*)(buf + 4), mScreenRow, 9 * 4);
-			if ((mScreenRow[0] & 3) != 1) {
+			eepromPrvSfdpRead(*(uint16_t __xdata*)(buf + 4), tempBufferE, 9 * 4);
+			if ((tempBufferE[0] & 3) != 1) {
 				pr("SFDP: no 4K ERZ\n");
 				break;
 			}
-			if (!(mScreenRow[0] & 0x04)) {
+			if (!(tempBufferE[0] & 0x04)) {
 				pr("SFDP: no large write buf\n");
 				break;
 			}
-			if ((mScreenRow[2] & 0x06)) {
+			if ((tempBufferE[2] & 0x06)) {
 				pr("SFDP: addr.len != 3\n");
 				break;
 			}
 			
-			if (!mScreenRow[1] || mScreenRow[1] == 0xff) {
+			if (!tempBufferE[1] || tempBufferE[1] == 0xff) {
 				pr("SFDP: 4K ERZ opcode invalid\n");
 				break;
 			}
-			mOpcodeErz4K = mScreenRow[1];
+			mOpcodeErz4K = tempBufferE[1];
 			
-			if (mScreenRow[7] & 0x80) {
+			if (tempBufferE[7] & 0x80) {
 				
 				pr("SFDP: device too big\n");
 				break;
@@ -187,11 +189,11 @@ __bit eepromInit(void)
 				
 				uint8_t t;
 				
-				if (t = mScreenRow[7])
+				if (t = tempBufferE[7])
 					mEepromSize = 0x00200000UL;
-				else if (t = mScreenRow[6])
+				else if (t = tempBufferE[6])
 					mEepromSize = 0x00002000UL;
-				else if (t = mScreenRow[5])
+				else if (t = tempBufferE[5])
 					mEepromSize = 0x00000020UL;
 				else {
 					pr("SFDP: device so small?!\n");
@@ -206,12 +208,12 @@ __bit eepromInit(void)
 			
 			//get erase opcodes
 			for (j = 0x1c; j < 0x24; j += 2) {
-				uint8_t instr = mScreenRow[j + 1];
+				uint8_t instr = tempBufferE[j + 1];
 				
 				if (!instr || instr == 0xff)
 					continue;
 				
-				switch (mScreenRow[j]) {
+				switch (tempBufferE[j]) {
 					case 0x0c:
 						if (mOpcodeErz4K != instr) {
 							pr("4K ERZ opcode disagreement\n");

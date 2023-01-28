@@ -11,6 +11,9 @@ void spiInit(void);
 #pragma callee_saves spiByte
 uint8_t spiByte(uint8_t val);
 
+#pragma callee_saves spiTXByte
+void spiTXByte(uint8_t val);
+
 
 
 #endif

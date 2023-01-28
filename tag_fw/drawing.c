@@ -2,12 +2,13 @@
 // #include "datamatrix.h"
 #include "adc.h"
 #include "asmUtil.h"
-#include "barcode.h"
+// #include "barcode.h"
 #include "board.h"
-#include "chars.h"
+// #include "chars.h"
 #include "cpu.h"
 #include "drawing.h"
 #include "eeprom.h"
+#include "epd.h"
 #include "printf.h"
 #include "screen.h"
 #include "timer.h"
@@ -55,6 +56,16 @@ struct BitmapDrawInfo {
     // flags
     uint8_t bpp : 4;
     uint8_t bottomUp : 1;
+};
+
+uint8_t __xdata mPassNo = 0;
+
+static const uint8_t __code mColorMap[][6] = {
+    // colors are: B, DG, G, LG, W, R
+    // phase 0 (LUTS: B:W:R:G, purpose: BWR, prepare greys)
+    {1, 1, 1, 1, 0, 0},  // lo plane (B)
+
+    {0, 0, 0, 0, 0, 1}  // hi plane (R)
 };
 
 static uint8_t __xdata mClutMap[256];
@@ -247,7 +258,7 @@ static void drawPrvDecodeImageOnce(void) {
 
                 if (emit) {
                     emit = false;
-                    screenByteTx(txPrev | val);
+                    ByteDecode(txPrev | val);
                     nBytesOut++;
                     txPrev = 0;
                 } else {
@@ -260,7 +271,7 @@ static void drawPrvDecodeImageOnce(void) {
                 bitpoolOut |= val;
                 bitpoolOutUsedUsed += SCREEN_TX_BPP;
                 if (bitpoolOutUsedUsed >= 8) {
-                    screenByteTx(bitpoolOut >> (bitpoolOutUsedUsed -= 8));
+                    ByteDecode(bitpoolOut >> (bitpoolOutUsedUsed -= 8));
                     bitpoolOut &= (1 << bitpoolOutUsedUsed) - 1;
                     nBytesOut++;
                 }
@@ -272,14 +283,14 @@ static void drawPrvDecodeImageOnce(void) {
 #if SCREEN_TX_BPP == 4
 
         if (emit) {
-            screenByteTx(txPrev);
+            ByteDecode(txPrev);
             nBytesOut++;
         }
 
 #else
 
         if (bitpoolOutUsedUsed) {
-            screenByteTx(bitpoolOut);
+            ByteDecode(bitpoolOut);
             nBytesOut++;
         }
 
@@ -288,7 +299,7 @@ static void drawPrvDecodeImageOnce(void) {
         // if we did not produce enough bytes, do so
         nBytesOut = ((long)SCREEN_WIDTH * SCREEN_TX_BPP + 7) / 8 - nBytesOut;
         while (nBytesOut--)
-            screenByteTx(SCREEN_BYTE_FILL);
+            ByteDecode(SCREEN_BYTE_FILL);
 
         // update row
         if (mDrawInfo.bottomUp) {
@@ -306,12 +317,24 @@ static void drawPrvDecodeImageOnce(void) {
     // fill the rest of the screen
     for (er = mDrawInfo.effectiveH - SCREEN_HEIGHT; er; er--) {
         for (c = ((long)SCREEN_WIDTH * SCREEN_TX_BPP + 7) / 8; c; c--) {
-            screenByteTx(SCREEN_BYTE_FILL);
+            ByteDecode(SCREEN_BYTE_FILL);
         }
     }
 }
 
 extern uint8_t blockXferBuffer[];
+
+void ByteDecode(uint8_t byte) {
+    static uint8_t __xdata prev, step = 0;
+    prev <<= 2;
+    prev |= (mColorMap[mPassNo][byte >> 4] << 1) | mColorMap[mPassNo][byte & 0x0f];
+    if (++step == 4) {
+        step = 0;
+        epdSelect();
+        epdSend(prev);
+        epdDeselect();
+    }
+}
 
 void drawImageAtAddress(uint32_t addr) {
     uint32_t __xdata clutAddr;
@@ -322,105 +345,20 @@ void drawImageAtAddress(uint32_t addr) {
         return;
     drawPrvLoadAndMapClut(clutAddr);
 
-    screenTxStart(false);
-    for (iter = 0; iter < SCREEN_DATA_PASSES; iter++) {
-        pr(".");
-        drawPrvDecodeImageOnce();
-        screenEndPass();
-    }
+    //screenTxStart(false);
+    epdSetup();
+    mPassNo = 0;
+    beginFullscreenImage();
+    beginWriteFramebuffer(EPD_COLOR_BLACK);
+    drawPrvDecodeImageOnce();
+    endWriteFramebuffer();
+    mPassNo++;
+    beginWriteFramebuffer(EPD_COLOR_RED);
+    drawPrvDecodeImageOnce();
+    endWriteFramebuffer();
+
     pr(" complete.\n");
 
-    screenTxEnd();
-    screenShutdown();
-}
-
-#pragma callee_saves myStrlen
-static uint16_t myStrlen(const char *str) {
-    const char *__xdata strP = str;
-
-    while (charsPrvDerefAndIncGenericPtr(&strP))
-        ;
-
-    return strP - str;
-}
-
-void drawFullscreenMsg(const char *str) {
-    volatile uint16_t PDATA textRow, textRowEnd;  // without volatile, compiler ignores "__pdata"
-    struct CharDrawingParams __xdata cdp;
-    uint8_t __xdata rowIdx;
-    uint8_t iteration;
-    uint16_t i, r;
-
-    getVolt();
-    pr("MESSAGE '%s'\n", str);
-    screenTxStart(false);
-
-    for (iteration = 0; iteration < SCREEN_DATA_PASSES; iteration++) {
-        __bit inBarcode = false;
-        rowIdx = 0;
-
-        cdp.magnify = UI_MSG_MAGNIFY1;
-        cdp.str = str;
-        cdp.x = mathPrvI16Asr1(SCREEN_WIDTH - mathPrvMul8x8(CHAR_WIDTH * cdp.magnify, myStrlen(cdp.str)));
-
-        cdp.foreColor = UI_MSG_FORE_COLOR_1;
-        cdp.backColor = UI_MSG_BACK_COLOR;
-
-        textRow = 5;
-        textRowEnd = textRow + (uint8_t)((uint8_t)CHAR_HEIGHT * (uint8_t)cdp.magnify);
-
-        for (r = 0; r < SCREEN_HEIGHT; r++) {
-            // clear the row
-            for (i = 0; i < SCREEN_WIDTH * SCREEN_TX_BPP / 8; i++)
-                mScreenRow[i] = SCREEN_BYTE_FILL;
-
-            if (r >= textRowEnd) {
-                switch (rowIdx) {
-                    case 0:
-                        rowIdx = 1;
-                        textRow = textRowEnd + 3;
-                        cdp.magnify = UI_MSG_MAGNIFY2;
-                        cdp.foreColor = UI_MSG_FORE_COLOR_2;
-                        // cdp.str = macSmallString();
-                        cdp.x = 0;
-                        textRowEnd = textRow + CHAR_HEIGHT * cdp.magnify;
-                        break;
-
-                    case 1:
-                        rowIdx = 2;
-                        textRow = SCREEN_HEIGHT - CHAR_HEIGHT - CHAR_HEIGHT;
-                        cdp.magnify = UI_MSG_MAGNIFY3;
-                        cdp.foreColor = UI_MSG_FORE_COLOR_3;
-                        // cdp.str = voltString();
-                        cdp.x = 1;
-                        inBarcode = false;
-
-                        break;
-                    case 2:
-                        rowIdx = 3;
-                        textRow = SCREEN_HEIGHT - CHAR_HEIGHT;
-                        cdp.magnify = UI_MSG_MAGNIFY3;
-                        cdp.foreColor = UI_MSG_FORE_COLOR_3;
-                        // cdp.str = fwVerString();
-                        cdp.x = 1;
-                        inBarcode = false;
-                        break;
-                    case 3:
-                        cdp.str = "";
-                        break;
-                }
-            } else if (r > textRow) {
-                inBarcode = false;
-                cdp.imgRow = r - textRow;
-                charsDrawString(&cdp);
-            }
-
-            for (i = 0; i < SCREEN_WIDTH * SCREEN_TX_BPP / 8; i++)
-                screenByteTx(mScreenRow[i]);
-        }
-
-        screenEndPass();
-    }
-
-    screenTxEnd();
+    draw();
+    epdEnterSleep();
 }
