@@ -8,6 +8,7 @@
 #include "serial.h"
 #include "soc/rtc_wdt.h"
 #include "web.h"
+#include "makeimage.h"
 
 void freeHeapTask(void* parameter) {
     while (1) {
@@ -20,6 +21,7 @@ void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
     init_web();
+    tftinit();
 
     long timezone = 2;
     byte daysavetime = 1;
