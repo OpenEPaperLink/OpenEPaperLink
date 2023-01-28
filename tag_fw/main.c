@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "adc.h"
 #include "asmUtil.h"
 #include "board.h"
 #include "comms.h"
@@ -20,6 +18,7 @@
 #include "timer.h"
 #include "wdt.h"
 #include "syncedproto.h"
+
 
 void main(void){
     mainProtocolLoop();

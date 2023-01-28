@@ -4,7 +4,7 @@ BUILD		?= zbs29v033
 #file containing main() must be first!
 SOURCES		+= main.c eeprom.c drawing.c
 SOURCES		+= comms.c
-SOURCES		+= syncedproto.c epd.c
+SOURCES		+= syncedproto.c epd.c userinterface.c
 
 
 all:	#make sure it is the first target

@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "adc.h"
 #include "asmUtil.h"
 #include "board.h"
 #include "cpu.h"
@@ -193,6 +192,7 @@ void epdEnterSleep() {
 }
 void epdSetup() {
     epdReset();
+    currentLUT = 0;
     shortCommand1(CMD_ANALOG_BLK_CTRL, 0x54);
     shortCommand1(CMD_DIGITAL_BLK_CTRL, 0x3B);
     shortCommand2(CMD_UNKNOWN_1, 0x04, 0x63);
@@ -257,7 +257,7 @@ uint16_t epdGetBattery(void) {
 
 void selectLUT(uint8_t lut) {
     if (lut == currentLUT) return;
-    //lut = 1;
+    // lut = 1;
     switch (lut) {
         case 0:
             shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1?
@@ -323,6 +323,11 @@ void draw() {
     // shortCommand1(0x22, SCREEN_CMD_REFRESH);
     shortCommand(0x20);
     epdBusyWait(TIMER_TICKS_PER_SECOND * 120);
+}
+void drawNoWait() {
+    shortCommand1(0x22, 0xCF);
+    // shortCommand1(0x22, SCREEN_CMD_REFRESH);
+    shortCommand(0x20);
 }
 void drawLineHorizontal(bool red, uint16_t y, uint8_t width) {
     setWindowX(0, SCREEN_WIDTH);
@@ -507,7 +512,7 @@ void epdPrintEnd() {
 }
 
 extern uint8_t* __xdata tempBuffer;
-extern void dump(uint8_t *__xdata a, uint16_t __xdata l);
+extern void dump(uint8_t* __xdata a, uint16_t __xdata l);
 
 void loadFixedTempLUT() {
     shortCommand1(0x18, 0x48);

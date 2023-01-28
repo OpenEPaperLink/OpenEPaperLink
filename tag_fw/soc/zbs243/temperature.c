@@ -1,7 +1,6 @@
 #include "asmUtil.h"
 #include "flash.h"
 #include "timer.h"
-#include "adc.h"
 #include "cpu.h"
 
 static volatile uint8_t __xdata mTempRet[4];

@@ -37,10 +37,13 @@ void fillWindowWithPattern(bool color);
 void clearWindow(bool color);
 void clearScreen();
 void draw();
+void drawNoWait();
 void drawLineHorizontal(bool red, uint16_t y, uint8_t width);
 void beginFullscreenImage();
 void beginWriteFramebuffer(bool color);
 void endWriteFramebuffer();
+
+void selectLUT(uint8_t lut);
 
 void ByteDecode(uint8_t byte);
 

@@ -6,8 +6,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "adc.h"
 #include "asmUtil.h"
 #include "board.h"
 #include "comms.h"
@@ -18,8 +16,8 @@
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
-
 #include "epd.h"
+#include "userinterface.h"
 #include "sleep.h"
 #include "timer.h"
 #include "wdt.h"
@@ -104,7 +102,7 @@ struct burstMacData {
 
 #define BLOCK_PART_DATA_SIZE 99
 #define BLOCK_MAX_PARTS 42
-#define BLOCK_DATA_SIZE 4096
+#define BLOCK_DATA_SIZE 4096UL
 #define BLOCK_XFER_BUFFER_SIZE BLOCK_DATA_SIZE + sizeof(struct blockData)
 #define BLOCK_REQ_PARTS_BYTES 6
 
@@ -820,6 +818,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
                         break;
                     case DATATYPE_UPDATE:
                         pr("firmware download complete, doing update.\n");
+                        showApplyUpdate();
                         curXferComplete = true;
                         sendXferComplete();
                         killRadio();
@@ -861,10 +860,9 @@ void mainProtocolLoop(void) {
     }
 
     irqsOn();
-    boardInitStage2();
-    // i2ctest();
+    boardInitStage2(); 
 
-    pr("BOOTED> (new epd driver!!!)\n\n");
+    pr("BOOTED> (UI 0.03-1)\n\n");
 
     if (!eepromInit()) {
         pr("failed to init eeprom\n");
@@ -879,6 +877,9 @@ void mainProtocolLoop(void) {
     for (uint8_t c = 0; c < POWER_SAVING_SMOOTHING; c++) {
         dataReqAttemptArr[c] = INTERVAL_BASE;
     }
+
+    // show the splashscreen
+    showSplashScreen();
 
     epdEnterSleep();
     eepromDeepPowerDown();

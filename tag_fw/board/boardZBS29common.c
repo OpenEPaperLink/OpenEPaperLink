@@ -7,7 +7,6 @@
 #include "spi.h"
 #include "cpu.h"
 #include "wdt.h"
-#include "adc.h"
 #include "i2c.h"
 
 //extern uint8_t __xdata* tempBuffer;
@@ -152,6 +151,8 @@ void selfUpdate(void)
 	uint8_t i, len = updaterInfo >> 16;
 	uint8_t __xdata *dst = tempBuffer;
 	
+	pr("updater len = %d\n", len);
+
 	for (i = len; i ; i--)
 		*dst++ = *src++;
 

@@ -9,7 +9,7 @@ static uint32_t __xdata mEepromSize;
 static uint8_t __xdata mOpcodeErz4K = 0, mOpcodeErz32K = 0, mOpcodeErz64K = 0;
 
 //extern uint8_t __xdata* tempBuffer;
-uint8_t __xdata tempBufferE[320];
+uint8_t __xdata tempBufferE[320] = {0};
 
 uint32_t eepromGetSize(void)
 {

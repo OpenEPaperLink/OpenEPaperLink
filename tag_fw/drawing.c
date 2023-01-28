@@ -1,10 +1,6 @@
 #include <stdbool.h>
-// #include "datamatrix.h"
-#include "adc.h"
 #include "asmUtil.h"
-// #include "barcode.h"
 #include "board.h"
-// #include "chars.h"
 #include "cpu.h"
 #include "drawing.h"
 #include "eeprom.h"
