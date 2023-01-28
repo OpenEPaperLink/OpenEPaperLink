@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WifiManager.h>
+#include <WiFiManager.h>
 #include <time.h>
 
 #include "flasher.h"
