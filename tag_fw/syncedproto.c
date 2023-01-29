@@ -6,11 +6,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "adc.h"
 #include "asmUtil.h"
 #include "board.h"
-#include "chars.h"
 #include "comms.h"
 #include "cpu.h"
 #include "drawing.h"
@@ -19,7 +16,8 @@
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
-#include "screen.h"
+#include "epd.h"
+#include "userinterface.h"
 #include "sleep.h"
 #include "timer.h"
 #include "wdt.h"
@@ -104,7 +102,7 @@ struct burstMacData {
 
 #define BLOCK_PART_DATA_SIZE 99
 #define BLOCK_MAX_PARTS 42
-#define BLOCK_DATA_SIZE 4096
+#define BLOCK_DATA_SIZE 4096UL
 #define BLOCK_XFER_BUFFER_SIZE BLOCK_DATA_SIZE + sizeof(struct blockData)
 #define BLOCK_REQ_PARTS_BYTES 6
 
@@ -133,6 +131,7 @@ uint16_t __xdata dataRemaining = 0;
 bool __xdata curXferComplete = false;
 bool __xdata requestPartialBlock = false;
 
+//uint8_t __xdata *tempBuffer = blockXferBuffer;
 uint8_t __xdata curImgSlot = 0;
 uint32_t __xdata curHighSlotId = 0;
 uint8_t __xdata nextImgSlot = 0;
@@ -151,17 +150,17 @@ uint8_t __xdata mSelfMac[8] = {0};
 uint8_t __xdata seq = 0;
 
 // power saving algorithm
-#define INTERVAL_BASE 40                                           // interval (in seconds) (when 1 packet is sent/received) for target current (7.2µA)
-#define INTERVAL_AT_MAX_ATTEMPTS 600                               // interval (in seconds) (at max attempts) for target average current
-#define INTERVAL_NO_SIGNAL 1800                                    // interval (in seconds) when no answer for POWER_SAVING_SMOOTHING attempts,
-                                                                   // (INTERVAL_AT_MAX_ATTEMPTS * POWER_SAVING_SMOOTHING) seconds
-#define DATA_REQ_RX_WINDOW_SIZE 5UL                                // How many milliseconds we should wait for a packet during the data_request.
-                                                                   // If the AP holds a long list of data for tags, it may need a little more time to lookup the mac address
-#define DATA_REQ_MAX_ATTEMPTS 14                                   // How many attempts (at most) we should do to get something back from the AP
-#define POWER_SAVING_SMOOTHING 8                                   // How many samples we should use to smooth the data request interval
-#define MINIMUM_INTERVAL 45                                        // IMPORTANT: Minimum interval for check-in; this determines overal battery life!
+#define INTERVAL_BASE 40              // interval (in seconds) (when 1 packet is sent/received) for target current (7.2µA)
+#define INTERVAL_AT_MAX_ATTEMPTS 600  // interval (in seconds) (at max attempts) for target average current
+#define INTERVAL_NO_SIGNAL 1800       // interval (in seconds) when no answer for POWER_SAVING_SMOOTHING attempts,
+                                      // (INTERVAL_AT_MAX_ATTEMPTS * POWER_SAVING_SMOOTHING) seconds
+#define DATA_REQ_RX_WINDOW_SIZE 5UL   // How many milliseconds we should wait for a packet during the data_request.
+                                      // If the AP holds a long list of data for tags, it may need a little more time to lookup the mac address
+#define DATA_REQ_MAX_ATTEMPTS 14      // How many attempts (at most) we should do to get something back from the AP
+#define POWER_SAVING_SMOOTHING 8      // How many samples we should use to smooth the data request interval
+#define MINIMUM_INTERVAL 45           // IMPORTANT: Minimum interval for check-in; this determines overal battery life!
 
-#define HAS_BUTTON	 // uncomment to enable reading a push button (connect between 'TEST' en 'GND' on the tag, along with a 100nF capacitor in parallel).
+#define HAS_BUTTON  // uncomment to enable reading a push button (connect between 'TEST' en 'GND' on the tag, along with a 100nF capacitor in parallel).
 
 uint16_t __xdata dataReqAttemptArr[POWER_SAVING_SMOOTHING] = {0};  // Holds the amount of attempts required per data_req/check-in
 uint8_t __xdata dataReqAttemptArrayIndex = 0;
@@ -248,30 +247,30 @@ void initAfterWake() {
     timerInit();
     // partialInit();
     boardInit();
-    screenSleep();
+    epdEnterSleep();
     irqsOn();
     boardInitStage2();
     initRadio();
 }
 void doSleep(uint32_t __xdata t) {
-    if(t>1000)pr("s=%lu\n ", t / 1000);
+    if (t > 1000) pr("s=%lu\n ", t / 1000);
     powerPortsDownForSleep();
 
 #ifdef HAS_BUTTON
-	//Button setup on TEST pin 1.0 (input pullup)
-	P1FUNC &=~ (1 << 0);
-	P1DIR |= (1 << 0);
-	P1PULL |= (1 << 0);
-	P1LVLSEL |= (1 << 0);
-	P1INTEN = (1 << 0);
-	P1CHSTA &=~ (1 << 0);
+    // Button setup on TEST pin 1.0 (input pullup)
+    P1FUNC &= ~(1 << 0);
+    P1DIR |= (1 << 0);
+    P1PULL |= (1 << 0);
+    P1LVLSEL |= (1 << 0);
+    P1INTEN = (1 << 0);
+    P1CHSTA &= ~(1 << 0);
 #endif
 
     // sleepy
     sleepForMsec(t);
 
 #ifdef HAS_BUTTON
-	P1INTEN = 0;
+    P1INTEN = 0;
 #endif
 
     initAfterWake();
@@ -315,11 +314,11 @@ void sendAvailDataReq() {
     txframe->srcPan = 0x4447;
     // TODO: send some meaningful data
     availreq->softVer = 1;
-	if (P1CHSTA && (1 << 0)) {
-		availreq->buttonState = 1;
-		pr("button pressed\n");
-		P1CHSTA &=~ (1 << 0);
-	}
+    if (P1CHSTA && (1 << 0)) {
+        availreq->buttonState = 1;
+        pr("button pressed\n");
+        P1CHSTA &= ~(1 << 0);
+    }
     addCRC(availreq, sizeof(struct AvailDataReq));
     commsTxNoCpy(outBuffer);
 }
@@ -504,45 +503,6 @@ bool validateBlockData() {
     return bd->checksum == t;
 }
 
-const uint8_t epd_bitmap_ant[] = {
-    0xff, 0xbf, 0xfd, 0xdf, 0xfe, 0xdf, 0xee, 0xdf, 0xee, 0xdf, 0xed, 0xdf, 0xd7, 0xbf, 0xd7, 0xff,
-    0xd7, 0xff, 0xbb, 0xff, 0xbb, 0xbb, 0xbb, 0xd7, 0xbb, 0xef, 0x7d, 0xd7, 0x7d, 0xbb, 0x01, 0xff};
-void copyImage() {
-    uint8_t x_begin = 17;
-    uint16_t y_begin = 0;
-    uint8_t y_size = 16;
-    const uint8_t *p = epd_bitmap_ant;
-    pr("begin copy image to epd buffer");
-    for (uint16_t y = 0; y < y_size; y++) {
-        // moveToXY(x_begin, y_begin + y, false);
-        pr("d=%02X,", *p);
-        // screenByteRawTx(*p);
-        p++;
-        // screenByteRawTx(*p);
-        p++;
-    }
-}
-void drawPartial() {
-    screenSleep();
-    screenTxStart(true);
-    pr("sending bytes\n");
-    for (uint8_t iteration = 0; iteration < SCREEN_DATA_PASSES; iteration++) {
-        for (uint16_t y = 0; y < SCREEN_HEIGHT; y++) {
-            for (uint8_t x = 0; x < SCREEN_WIDTH / 8; x++) {
-                if (iteration == 0) {
-                    //  screenByteRawTx(0xFF);
-                } else {
-                    // screenByteRawTx(0x00);
-                }
-            }
-        }
-        screenEndPass();
-        pr("pass complete\n");
-    }
-    copyImage();
-    screenTxEnd();
-}
-
 // EEprom related stuff
 uint32_t getAddressForSlot(uint8_t s) {
     return EEPROM_IMG_START + (EEPROM_IMG_EACH * s);
@@ -564,7 +524,7 @@ uint8_t findSlot(uint8_t *__xdata ver) {
     // return 0xFF;  // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
     uint32_t __xdata markerValid = EEPROM_IMG_VALID;
     for (uint8_t __xdata c = 0; c < imgSlots; c++) {
-        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)mScreenRow;
+        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
         eepromRead(getAddressForSlot(c), eih, sizeof(struct EepromImageHeader));
         if (xMemEqual4(&eih->validMarker, &markerValid)) {
             if (xMemEqual(&eih->version, (void *)ver, 8)) {
@@ -600,7 +560,7 @@ uint32_t getHighSlotId() {
     uint32_t temp = 0;
     uint32_t __xdata markerValid = EEPROM_IMG_VALID;
     for (uint8_t __xdata c = 0; c < imgSlots; c++) {
-        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)mScreenRow;
+        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
         eepromRead(getAddressForSlot(c), eih, sizeof(struct EepromImageHeader));
         if (xMemEqual4(&eih->validMarker, &markerValid)) {
             if (temp < eih->id) {
@@ -843,7 +803,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
                     case DATATYPE_IMG:
                     case DATATYPE_IMGRAW:;
                         // transfer complete. Save data info and mark data in image slot as 'valid'
-                        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)mScreenRow;
+                        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
                         xMemCopy8(&eih->version, &curDataInfo.dataVer);
                         eih->size = curDataInfo.dataSize;
                         eih->validMarker = EEPROM_IMG_VALID;
@@ -858,6 +818,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
                         break;
                     case DATATYPE_UPDATE:
                         pr("firmware download complete, doing update.\n");
+                        showApplyUpdate();
                         curXferComplete = true;
                         sendXferComplete();
                         killRadio();
@@ -899,14 +860,12 @@ void mainProtocolLoop(void) {
     }
 
     irqsOn();
-    boardInitStage2();
-    // i2ctest();
+    boardInitStage2(); 
 
-    pr("BOOTED> (new version!)\n\n");
+    pr("BOOTED> (UI 0.03-1)\n\n");
 
     if (!eepromInit()) {
         pr("failed to init eeprom\n");
-        drawFullscreenMsg((const __xdata char *)"eeprom failed");
         while (1)
             ;
     } else {
@@ -919,15 +878,15 @@ void mainProtocolLoop(void) {
         dataReqAttemptArr[c] = INTERVAL_BASE;
     }
 
-    screenSleep();
+    // show the splashscreen
+    showSplashScreen();
+
+    epdEnterSleep();
     eepromDeepPowerDown();
     initRadio();
-	
-	P1CHSTA &=~ (1 << 0);	
-	
-    // drawPartial();
-    // i2ctest();
-    // doSleep(10000);
+
+    P1CHSTA &= ~(1 << 0);
+
     while (1) {
         radioRxEnable(true, true);
 
