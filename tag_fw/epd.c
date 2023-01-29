@@ -69,7 +69,9 @@ static bool __idata epdPr = false;         // wheter or not we copy the pr("") o
 static uint8_t __xdata epdCharSize = 1;    // character size, 1 or 2 (doubled)
 static bool __xdata directionY = true;     // print direction, X or Y (true)
 static uint8_t __xdata rbuffer[32];        // used to rotate bits around
-static uint16_t __xdata fontCurXpos = 0;   // current X value where working with
+static uint16_t __xdata fontCurXpos = 0;   // current X value we're working with
+static uint16_t __xdata fontCurYpos = 0;   // current Y value we're working with
+
 static bool __xdata isInited = false;
 struct waveform __xdata waveform;
 
@@ -282,8 +284,8 @@ void setWindowY(uint16_t start, uint16_t end) {
     commandBegin(CMD_WINDOW_Y_SIZE);
     epdSend((start)&0xff);
     epdSend((start) >> 8);
-    epdSend((end - 1) & 0xff);
-    epdSend((end - 1) >> 8);
+    epdSend((end)&0xff);  // was end-1
+    epdSend((end) >> 8);  // was end-1
     commandEnd();
 }
 void setPosXY(uint16_t x, uint16_t y) {
@@ -364,23 +366,23 @@ static void pushXFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
     if (epdCharSize == 1) {
         uint8_t offset = 7 - (fontCurXpos % 8);
         for (uint8_t c = 0; c < 8; c++) {
-            if (byte2 & (1 << (7-c))) rbuffer[c] |= (1 << offset);
+            if (byte2 & (1 << (7 - c))) rbuffer[c] |= (1 << offset);
         }
         for (uint8_t c = 0; c < 8; c++) {
-            if (byte1 & (1 << (7-c))) rbuffer[8 + c] |= (1 << offset);
+            if (byte1 & (1 << (7 - c))) rbuffer[8 + c] |= (1 << offset);
         }
         fontCurXpos++;
     } else {
         uint8_t offset = 6 - (fontCurXpos % 8);
         // double font size
         for (uint8_t c = 0; c < 8; c++) {
-            if (byte2 & (1 << (7-c))) {
+            if (byte2 & (1 << (7 - c))) {
                 rbuffer[c * 2] |= (3 << offset);
                 rbuffer[(c * 2) + 1] |= (3 << offset);
             }
         }
         for (uint8_t c = 0; c < 8; c++) {
-            if (byte1 & (1 << (7-c))) {
+            if (byte1 & (1 << (7 - c))) {
                 rbuffer[(c * 2) + 16] |= (3 << offset);
                 rbuffer[(c * 2) + 17] |= (3 << offset);
             }
@@ -395,6 +397,30 @@ static void pushXFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
         memset(rbuffer, 0, 32);
     }
 }
+static void bufferByteShift(uint8_t byte) {
+    /*
+                rbuffer[0] = 0;   // previous value
+                rbuffer[1] = y%8; // offset
+                rbuffer[2] = 0;   // current byte counter;
+                rbuffer[3] = 1+(epdCharsize*2);
+    */
+
+    if (rbuffer[1] == 0) {
+        epdSend(byte);
+    } else {
+        uint8_t offset = rbuffer[1];
+        rbuffer[0] |= (byte >> offset);
+        epdSend(rbuffer[0]);
+        //epdSend(byte);
+        rbuffer[0] = (byte << (8-offset));
+        rbuffer[2]++;
+        if (rbuffer[2] == rbuffer[3]) {
+            epdSend(rbuffer[0]);
+            rbuffer[0] = 0;
+            rbuffer[2] = 0;
+        }
+    }
+}
 static void pushYFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
     if (epdCharSize == 2) {
         for (uint8_t j = 0; j < 2; j++) {
@@ -402,21 +428,21 @@ static void pushYFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
             for (uint8_t i = 7; i != 255; i--) {
                 if (byte1 & (1 << i)) c |= (0x03 << ((i % 4) * 2));
                 if ((i % 4) == 0) {
-                    epdSend(c);
+                    bufferByteShift(c);
                     c = 0;
                 }
             }
             for (uint8_t i = 7; i != 255; i--) {
                 if (byte2 & (1 << i)) c |= (0x03 << ((i % 4) * 2));
                 if ((i % 4) == 0) {
-                    epdSend(c);
+                    bufferByteShift(c);
                     c = 0;
                 }
             }
         }
     } else {
-        epdSend(byte1);
-        epdSend(byte2);
+        bufferByteShift(byte1);
+        bufferByteShift(byte2);
     }
 }
 void writeCharEPD(uint8_t c) {
@@ -469,16 +495,27 @@ void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool c
     directionY = direction;
     epdCharSize = 1 + fontsize;
     if (directionY) {
-        y = SCREEN_HEIGHT - y;
-        if (epdCharSize == 2) {
-            setWindowX(x - 32, x);
-            setPosXY(x - 32, SCREEN_HEIGHT-y);
+        uint8_t extra = 0;
+        if (x % 8) {
+            extra = 8;
+            rbuffer[0] = 0;      // previous value
+            rbuffer[1] = x % 8;  // offset
+            rbuffer[2] = 0;      // current byte counter;
+            rbuffer[3] = (epdCharSize * 2);
         } else {
-            setWindowX(x - 16, x);
-            setPosXY(x - 16, SCREEN_HEIGHT-y);
+            rbuffer[1] = 0;
         }
-        setWindowY(y, SCREEN_HEIGHT);
-        shortCommand1(CMD_DATA_ENTRY_MODE, 1); // was 3
+
+        // y = SCREEN_HEIGHT - y;
+        setWindowY(y, 0);
+        if (epdCharSize == 2) {
+            setWindowX(x, x + 32 + extra);
+            setPosXY(x, y);
+        } else {
+            setWindowX(x, x + 16 + extra);
+            setPosXY(x, y);
+        }
+        shortCommand1(CMD_DATA_ENTRY_MODE, 1);  // was 3
     } else {
         if (epdCharSize == 2) {
             x /= 2;
@@ -511,7 +548,6 @@ void epdPrintEnd() {
     epdPr = false;
 }
 
-
 void loadFixedTempLUT() {
     shortCommand1(0x18, 0x48);
     shortCommand2(0x1A, 0x05, 0x00);             // < temp register
@@ -530,7 +566,7 @@ static void readLut() {
     commandReadEnd();
 }
 
-extern void dump(uint8_t* __xdata a, uint16_t __xdata l); // remove me when done
+extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when done
 
 void lutTest() {
     readLut();
