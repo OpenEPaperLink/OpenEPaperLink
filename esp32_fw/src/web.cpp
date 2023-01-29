@@ -108,7 +108,7 @@ void webSocketSendProcess(void *parameter) {
             auto buffer = std::make_shared<std::vector<uint8_t>>(len);
             serializeJson(doc, buffer->data(), len);
             // ws.textAll((char*)buffer->data());
-            ws.textAll("ohai");
+            //ws.textAll("ohai");
             xSemaphoreGive(wsMutex);
         }
     }
@@ -188,16 +188,42 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     }
 }
 
-void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
-
 void wsString(String text) {
+    DynamicJsonDocument doc(1500);
+    doc["logMsg"] = text;
     xSemaphoreTake(wsMutex, portMAX_DELAY);
-    ws.textAll(text);
+    ws.textAll(doc.as<String>());
+    xSemaphoreGive(wsMutex);
+}
+
+void wsSendTaginfo(uint8_t src[8]) {
+    DynamicJsonDocument doc(1500);
+    JsonArray tags = doc.createNestedArray("tags");
+    JsonObject tag = tags.createNestedObject();
+    char buffer[64];
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+    tag["mac"] = (String)buffer;
+    //tag["buttonstate"] = eadr->adr.buttonState;
+    xSemaphoreTake(wsMutex, portMAX_DELAY);
+    ws.textAll(doc.as<String>());
     xSemaphoreGive(wsMutex);
 }
 
 void init_web() {
     LittleFS.begin(true);
+
+    if (!LittleFS.exists("/.exclude.files")) {
+		Serial.println("littlefs exclude.files aanmaken");
+        File f = LittleFS.open("/.exclude.files", "w");
+        f.close();
+    }
+    if (!LittleFS.exists("/current")) {
+        LittleFS.mkdir("/current");
+    }
+    if (!LittleFS.exists("/temp")) {
+        LittleFS.mkdir("/temp");
+    }
+
     WiFi.mode(WIFI_STA);
     WiFiManager wm;
     bool res;

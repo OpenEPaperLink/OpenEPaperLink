@@ -2,14 +2,16 @@
 #include <FS.h>
 #include <LittleFS.h>
 #include <TFT_eSPI.h>
+#include <TJpg_Decoder.h>
 #include <makeimage.h>
 
+TFT_eSPI tft = TFT_eSPI();
+TFT_eSprite spr = TFT_eSprite(&tft);
+
 void tftinit() {
-    TFT_eSPI tft = TFT_eSPI();
-    TFT_eSprite spr = TFT_eSprite(&tft);
+    //tijdelijk: voorbeeld voor aanmaak van plaatje
 
     LittleFS.begin();
-
     long w = 296, h = 128;  // mag staand of liggend
     spr.createSprite(w, h);
     spr.setColorDepth(8);
@@ -20,13 +22,32 @@ void tftinit() {
     spr.drawString("zondag", w / 2, 10);
     spr.loadFont("calibrib50", LittleFS);
     spr.setTextColor(TFT_BLACK, TFT_WHITE);
-    spr.drawString("28 januari", w / 2, 73);
+    spr.drawString("29 januari", w / 2, 73);
     spr.unloadFont();
 
     spr2grays(spr, w, h, "/testspr3.bmp");
 
     spr.deleteSprite();
-    // bmp2grays("/test.bmp", "/testgrays3.bmp");
+}
+
+bool spr_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) {
+    spr.pushImage(x, y, w, h, bitmap);
+    return 1;
+}
+
+void jpg2grays(String filein, String fileout) {
+    TJpgDec.setJpgScale(1);
+    TJpgDec.setCallback(spr_output);
+    uint16_t w = 0, h = 0;
+    TJpgDec.getFsJpgSize(&w, &h, filein);
+
+    spr.createSprite(w, h);
+    spr.setColorDepth(8);
+    spr.fillSprite(TFT_WHITE);
+    TJpgDec.drawFsJpg(0, 0, filein);
+
+    spr2grays(spr, w, h, fileout);
+    spr.deleteSprite();
 }
 
 static uint32_t repackPackedVals(uint32_t val, uint32_t pixelsPerPackedUnit, uint32_t packedMultiplyVal) {

@@ -21,7 +21,6 @@ void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
     init_web();
-    tftinit();
 
     long timezone = 2;
     byte daysavetime = 1;
@@ -33,22 +32,10 @@ void setup() {
     Serial.printf("\nNow is : %d-%02d-%02d %02d:%02d:%02d\n", (tmstruct.tm_year) + 1900, (tmstruct.tm_mon) + 1, tmstruct.tm_mday, tmstruct.tm_hour, tmstruct.tm_min, tmstruct.tm_sec);
     Serial.println("");
 
-    // WiFiManager wm;
     xTaskCreate(freeHeapTask, "print free heap", 10000, NULL, 2, NULL);
     xTaskCreate(zbsRxTask, "zbsRX Process", 10000, NULL, 2, NULL);
     xTaskCreate(garbageCollection, "pending-data cleanup", 5000, NULL, 1, NULL);
     xTaskCreate(webSocketSendProcess, "ws", 5000, NULL,configMAX_PRIORITIES-10, NULL);
-
-    /*
-    wm.setWiFiAutoReconnect(true);
-    wm.setConfigPortalTimeout(180);
-    bool res = wm.autoConnect("ESP32ZigbeeBase", "password");  // password protected ap
-    if (!res) {
-        Serial.println("Failed to connect");
-        ESP.restart();
-    }
-    wm.setWiFiAutoReconnect(true);
-    */
 }
 
 void loop() {
