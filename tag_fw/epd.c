@@ -364,23 +364,23 @@ static void pushXFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
     if (epdCharSize == 1) {
         uint8_t offset = 7 - (fontCurXpos % 8);
         for (uint8_t c = 0; c < 8; c++) {
-            if (byte1 & (1 << c)) rbuffer[c] |= (1 << offset);
+            if (byte2 & (1 << (7-c))) rbuffer[c] |= (1 << offset);
         }
         for (uint8_t c = 0; c < 8; c++) {
-            if (byte2 & (1 << c)) rbuffer[8 + c] |= (1 << offset);
+            if (byte1 & (1 << (7-c))) rbuffer[8 + c] |= (1 << offset);
         }
         fontCurXpos++;
     } else {
         uint8_t offset = 6 - (fontCurXpos % 8);
         // double font size
         for (uint8_t c = 0; c < 8; c++) {
-            if (byte1 & (1 << c)) {
+            if (byte2 & (1 << (7-c))) {
                 rbuffer[c * 2] |= (3 << offset);
                 rbuffer[(c * 2) + 1] |= (3 << offset);
             }
         }
         for (uint8_t c = 0; c < 8; c++) {
-            if (byte2 & (1 << c)) {
+            if (byte1 & (1 << (7-c))) {
                 rbuffer[(c * 2) + 16] |= (3 << offset);
                 rbuffer[(c * 2) + 17] |= (3 << offset);
             }
@@ -389,7 +389,6 @@ static void pushXFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
     }
     if (fontCurXpos % 8 == 0) {
         // next byte, flush current byte to EPD
-
         for (uint8_t i = 0; i < (16 * epdCharSize); i++) {
             epdSend(rbuffer[i]);
         }
@@ -470,16 +469,16 @@ void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool c
     directionY = direction;
     epdCharSize = 1 + fontsize;
     if (directionY) {
+        y = SCREEN_HEIGHT - y;
         if (epdCharSize == 2) {
             setWindowX(x - 32, x);
-            setPosXY(x - 32, y);
-
+            setPosXY(x - 32, SCREEN_HEIGHT-y);
         } else {
             setWindowX(x - 16, x);
-            setPosXY(x - 16, y);
+            setPosXY(x - 16, SCREEN_HEIGHT-y);
         }
         setWindowY(y, SCREEN_HEIGHT);
-        shortCommand1(CMD_DATA_ENTRY_MODE, 3);
+        shortCommand1(CMD_DATA_ENTRY_MODE, 1); // was 3
     } else {
         if (epdCharSize == 2) {
             x /= 2;

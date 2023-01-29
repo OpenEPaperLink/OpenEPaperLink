@@ -35,15 +35,26 @@ void showSplashScreen() {
     selectLUT(1);
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
-    epdPrintBegin(128, 0, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+
+    epdPrintBegin(0, 200, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     pr("Booting!");
     epdPrintEnd();
-    epdPrintBegin(16, 10, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    pr("MAC: %02X:%02X", mSelfMac[7], mSelfMac[6]);
+
+    epdPrintBegin(128, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    pr("MAC5: %02X:%02X", mSelfMac[7], mSelfMac[6]);
     pr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
     pr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
     pr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
+
+
+    epdPrintBegin(128, 288, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    pr("MAC8: %02X:%02X", mSelfMac[7], mSelfMac[6]);
+    pr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
+    pr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
+    pr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
+    epdPrintEnd();
+
     draw();
     timerDelay(1333000);
 #endif
@@ -51,15 +62,28 @@ void showSplashScreen() {
     selectLUT(1);
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
-    epdPrintBegin(0, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    pr("Booting!");
+
+    epdPrintBegin(64, 150, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    pr("TEST");
     epdPrintEnd();
+
+
+    epdPrintBegin(300, 296, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_RED);
+    pr("Booting!Y");
+    epdPrintEnd();
+
+
+    epdPrintBegin(0, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    pr("BootingX!");
+    epdPrintEnd();
+
     epdPrintBegin(16, 284, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
     pr("MAC: %02X:%02X", mSelfMac[7], mSelfMac[6]);
     pr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
     pr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
     pr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
+    
     draw();
     timerDelay(1333000);
 #endif
