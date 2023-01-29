@@ -1,3 +1,30 @@
+#define __packed
+
+struct vgroup {
+    uint8_t A : 2;
+    uint8_t B : 2;
+    uint8_t C : 2;
+    uint8_t D : 2;
+} __packed;
+
+struct lut {
+    struct vgroup group[7];
+} __packed;
+
+struct group {
+    uint8_t phaselength[4];
+    uint8_t repeat;
+} __packed;
+
+struct waveform {
+    struct lut elut[5];
+    struct group egroup[7];
+    uint8_t gatelevel;
+    uint8_t sourcelevel[3];
+    uint8_t dummyline;
+    uint8_t gatewidth;
+} __packed;
+
 static const uint8_t __code lut154[] = {
 	// lut0 (KEEP) voltages
 	0x40,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
@@ -107,6 +134,7 @@ static const uint8_t __code lutSHA[] = {
    0x0F,	0x0F,	0x0,	0x0,	0x0,
    0x0F,	0x0F,	0x0,	0x0,	0x0,
 };
+
 
 static const uint8_t __code lutorig[] = {
     0x00, 0x66, 0x21, 0x45, 0x40, 0x00, 0x00,

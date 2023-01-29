@@ -71,6 +71,7 @@ static bool __xdata directionY = true;     // print direction, X or Y (true)
 static uint8_t __xdata rbuffer[32];        // used to rotate bits around
 static uint16_t __xdata fontCurXpos = 0;   // current X value where working with
 static bool __xdata isInited = false;
+struct waveform __xdata waveform;
 
 #pragma callee_saves epdBusySleep
 #pragma callee_saves epdBusyWait
@@ -511,8 +512,6 @@ void epdPrintEnd() {
     epdPr = false;
 }
 
-extern uint8_t* __xdata tempBuffer;
-extern void dump(uint8_t* __xdata a, uint16_t __xdata l);
 
 void loadFixedTempLUT() {
     shortCommand1(0x18, 0x48);
@@ -521,24 +520,20 @@ void loadFixedTempLUT() {
     shortCommand(CMD_ACTIVATION);
     epdBusyWait(1333000UL);
 }
-static uint8_t readLut() {
-    uint8_t sta = 0;
-
+static void readLut() {
     commandReadBegin(0x33);
-
     uint16_t checksum = 0;
     uint16_t ident = 0;
     uint16_t shortl = 0;
     for (uint16_t c = 0; c < 76; c++) {
-        sta = epdReadByte();
-        checksum += sta;
-        if (c < 70) ident += sta;
-        if (c < 14) shortl += sta;
-        tempBuffer[c] = sta;
+        ((uint8_t*)&waveform)[c] = epdReadByte();
     }
-    pr("ident=%04X checksum=%04X shortl=%04X\n", ident, checksum, shortl);
     commandReadEnd();
-    dump(tempBuffer, 96);
+}
 
-    return sta;
+extern void dump(uint8_t* __xdata a, uint16_t __xdata l); // remove me when done
+
+void lutTest() {
+    readLut();
+    dump((uint8_t*)&waveform, 96);
 }

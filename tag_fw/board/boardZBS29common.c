@@ -151,8 +151,6 @@ void selfUpdate(void)
 	uint8_t i, len = updaterInfo >> 16;
 	uint8_t __xdata *dst = tempBuffer;
 	
-	pr("updater len = %d\n", len);
-
 	for (i = len; i ; i--)
 		*dst++ = *src++;
 

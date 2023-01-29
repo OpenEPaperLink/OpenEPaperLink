@@ -54,4 +54,6 @@ void epdPrintEnd();
 void beginFullscreenImage();
 void beginWriteFramebuffer(bool color);
 
+void lutTest();
+
 #endif
