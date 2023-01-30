@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "asmUtil.h"
+#include "bitmaps.h"
 #include "board.h"
 #include "cpu.h"
 #include "epd.h"
@@ -14,27 +15,41 @@
 #include "sleep.h"
 #include "spi.h"
 #include "timer.h"
-#include "bitmaps.h"
 
 extern uint8_t mSelfMac[];
 
+static const char __code soft_subversion[] = "-LUTs";
+
 void showSplashScreen() {
     epdSetup();
+
 #if (SCREEN_WIDTH == 152)  // 1.54"
-    selectLUT(1);
+    // selectLUT(1);
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
 
-    loadRawBitmap(solum, 0, 32, EPD_COLOR_BLACK);
-    loadRawBitmap(hacked, 16, 44, EPD_COLOR_RED);
-    
-
-    epdPrintBegin(0, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdPrintBegin(12, 2, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     pr("Starting!");
     epdPrintEnd();
+
+    loadRawBitmap(solum, 8, 34, EPD_COLOR_BLACK);
+    loadRawBitmap(hacked, 32, 46, EPD_COLOR_RED);
+
+    epdPrintBegin(5, 136, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    pr("%02X%02X", mSelfMac[7], mSelfMac[6]);
+    pr("%02X%02X", mSelfMac[5], mSelfMac[4]);
+    pr("%02X%02X", mSelfMac[3], mSelfMac[2]);
+    pr("%02X%02X", mSelfMac[1], mSelfMac[0]);
+    epdPrintEnd();
+
+    epdPrintBegin(2, 120, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    pr("zbs29v033 0.1.4");
+    pr(soft_subversion);
+    epdPrintEnd();
     draw();
-    timerDelay(1333000);
 #endif
+
+
 #if (SCREEN_WIDTH == 128)  // 2.9"
     selectLUT(1);
     clearScreen();
@@ -51,14 +66,18 @@ void showSplashScreen() {
     pr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 
+    epdPrintBegin(96, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    pr("zbs29v033 0.1.4");
+    pr(soft_subversion);
+    epdPrintEnd();
+
     loadRawBitmap(solum, 0, 0, EPD_COLOR_BLACK);
     loadRawBitmap(hacked, 16, 12, EPD_COLOR_RED);
     lutTest();
-    //drawLineVertical(EPD_COLOR_RED, 64, 10, 286);
-    //drawLineVertical(EPD_COLOR_BLACK, 65, 10, 286);
+    // drawLineVertical(EPD_COLOR_RED, 64, 10, 286);
+    // drawLineVertical(EPD_COLOR_BLACK, 65, 10, 286);
 
     draw();
-    timerDelay(1333000);
 #endif
 #if (SCREEN_WIDTH == 400)  // 2.9"
     selectLUT(1);
@@ -87,11 +106,10 @@ void showSplashScreen() {
     loadRawBitmap(solum, 256, 10, EPD_COLOR_BLACK);
     loadRawBitmap(hacked, 264, 22, EPD_COLOR_RED);
 
-    loadRawBitmap(solum,253, 72, EPD_COLOR_BLACK);
+    loadRawBitmap(solum, 253, 72, EPD_COLOR_BLACK);
     loadRawBitmap(hacked, 261, 82, EPD_COLOR_RED);
 
     draw();
-    timerDelay(1333000);
 #endif
 }
 
