@@ -62,6 +62,9 @@ void showSplashScreen() {
     pr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 
+    drawLineVertical(EPD_COLOR_RED, 64, 10, 286);
+    drawLineVertical(EPD_COLOR_BLACK, 65, 10, 286);
+
     draw();
     timerDelay(1333000);
 #endif

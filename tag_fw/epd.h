@@ -38,7 +38,9 @@ void clearWindow(bool color);
 void clearScreen();
 void draw();
 void drawNoWait();
-void drawLineHorizontal(bool red, uint16_t y, uint8_t width);
+void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y);
+void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2);
+
 void beginFullscreenImage();
 void beginWriteFramebuffer(bool color);
 void endWriteFramebuffer();

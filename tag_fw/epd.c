@@ -332,15 +332,33 @@ void drawNoWait() {
     // shortCommand1(0x22, SCREEN_CMD_REFRESH);
     shortCommand(0x20);
 }
-void drawLineHorizontal(bool red, uint16_t y, uint8_t width) {
-    setWindowX(0, SCREEN_WIDTH);
-    setWindowY(y, y + width);
-    if (red) {
+void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y) {
+    setWindowX(x1, x2);
+    setWindowY(y, y + 1);
+    if (color) {
         shortCommand1(CMD_WRITE_PATTERN_RED, 0xE6);
     } else {
         shortCommand1(CMD_WRITE_PATTERN_BW, 0xE6);
     }
     epdBusyWait(133300UL);
+}
+
+void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2) {
+    setWindowY(y1, y2);
+    setWindowX(x, x + 8);
+    shortCommand1(CMD_DATA_ENTRY_MODE, 3);
+    setPosXY(x, y1);
+    if (color) {
+        commandBegin(CMD_WRITE_FB_RED);
+    } else {
+        commandBegin(CMD_WRITE_FB_BW);
+    }
+    uint8_t __xdata c = 0x80;
+    c>>=(x%8);
+    for (; y1 < y2; y1++) {
+        epdSend(c);
+    }
+    commandEnd();
 }
 void beginFullscreenImage() {
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
@@ -411,8 +429,8 @@ static void bufferByteShift(uint8_t byte) {
         uint8_t offset = rbuffer[1];
         rbuffer[0] |= (byte >> offset);
         epdSend(rbuffer[0]);
-        //epdSend(byte);
-        rbuffer[0] = (byte << (8-offset));
+        // epdSend(byte);
+        rbuffer[0] = (byte << (8 - offset));
         rbuffer[2]++;
         if (rbuffer[2] == rbuffer[3]) {
             epdSend(rbuffer[0]);
@@ -496,6 +514,8 @@ void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool c
     epdCharSize = 1 + fontsize;
     if (directionY) {
         uint8_t extra = 0;
+
+        // provisions for dealing with font in Y direction, byte-unaligned
         if (x % 8) {
             extra = 8;
             rbuffer[0] = 0;      // previous value
@@ -506,7 +526,6 @@ void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool c
             rbuffer[1] = 0;
         }
 
-        // y = SCREEN_HEIGHT - y;
         setWindowY(y, 0);
         if (epdCharSize == 2) {
             setWindowX(x, x + 32 + extra);
@@ -567,6 +586,28 @@ static void readLut() {
 }
 
 extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when done
+
+extern uint8_t __xdata blockXferBuffer[];
+
+void readRam() {
+    setWindowY(296, 0);
+    setWindowX(0, 8);
+    setPosXY(0, 296);
+    shortCommand1(CMD_DATA_ENTRY_MODE, 1);  // was 3
+    shortCommand1(0x41, 0x00);
+    commandReadBegin(0x27);
+    epdReadByte();
+
+    for (uint16_t c = 0; c < 293; c++) {
+        blockXferBuffer[c] = epdReadByte() | 0x10;
+    }
+    commandReadEnd();
+    commandBegin(CMD_WRITE_FB_BW);
+    for (uint16_t c = 0; c < 296; c++) {
+        epdSend(blockXferBuffer[c]);
+    }
+    commandEnd();
+}
 
 void lutTest() {
     readLut();
