@@ -3,7 +3,6 @@
 	padding:0;
 	border:0;
 	list-style-type: none;
-	-webkit-appearance: none;
 	outline: none;
 	font-weight: 400;
 	-webkit-box-sizing: border-box;
@@ -76,18 +75,60 @@ label {
 	background-color: white;
 }
 	
-.actionbox input {
-	border: solid 1px black;
+input {
+	border: solid 1px #666666;
 	padding: 4px;
 }
 
-.actionbox input[type=button] {
+input[type=button] {
 	border: 0px;
 	padding: 4px;
 	cursor:pointer;
 }
-.actionbox input[type=button]:hover {
+input[type=button]:hover {
 	background-color:#aaaaaa;
+}
+select {
+	padding: 4px;
+}
+
+#configbox {
+	display: none;
+	position: fixed;
+	top: 80px;
+	left: 50px;
+	width: 500px;
+	padding: 15px;
+	background-color: #f0e6d3;
+	z-index: 999;
+	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
+}
+
+#configbox p {
+	padding: 5px;
+}
+
+#configbox h3 {
+	font-size: 1.5em;
+	font-weight: bold;
+}
+
+#cfgdelete {
+	position: absolute;
+	bottom: 15px;
+	right: 15px;
+	cursor:pointer;
+}
+
+.closebtn {
+	border: 1px solid black;
+	float: right;
+	width: 19px;
+	height: 20px;
+	font-size: 1.1em;
+	text-align: center;
+	margin: 5px;
+	cursor: pointer;
 }
 
 .logbox {
@@ -104,13 +145,21 @@ label {
 	cursor:pointer;
 }
 
+.logbox #sysinfo {
+	float: right;
+}
+
 .taglist {
 	display: flex;
 	flex-wrap: wrap;
 }
 
+#tagtemplate {
+	display:none;
+}
+
 .tagcard {
-	width: 220px;
+	width: 225px;
 	position: relative;
 	height: 170px;
 	margin: 5px;
@@ -151,6 +200,16 @@ label {
 	background-image: url("data: image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAQAAAAngNWGAAABXklEQVQoz43SP2tUQRQF8N99ecFKFEVh0Y1ZbFQ2xEoIQkoLW0t7C/OVLGzyHay1EAQjRFGrLMkjKSwWsRGV3WvxZvc9XQtnivl35sydc048nfuvVkW0k8XYtT936pVja5jJv/Z7wPZo0wNzLzQSHWnVwTZtqY1su2to3bZhj7dewEYeu+iDawi7bhn7Yl9TWGsikrzksnNxr9zfsIErcaEAMysyZXrvE5mp6w7zc8rMzFJjGNlxFWHmWKMVd2DHsHuadQ+NkcKxZ2pPXC8FHHhu1v91X6ZcUZHYy8xwwyju5wAzJypDFdHka5OiaN1yHDl100BaMyq84cwrs1JjtTBu7E5xIpeebLndOZOlnK859d1bZ0JoHPiRU986ZxYZmdjP8/HRrkfSS2+MTTXlycyawhlHJBOH5k789A6x/H/sZQuMKKNatjGLvkoreUy/lsnsq1mXJOe/Ut6tM38DZpmDFxwTi8EAAAAASUVORK5CYII=");
 }
 
+.warningicon {
+	display:none;
+	font-size: 1.3em;
+	background-color: yellow;
+	color: black;
+	height: 20px;
+	width: 20px;
+	vertical-align: top;
+	text-align: center;
+}
 
 ul.messages {
 	padding: 5px;

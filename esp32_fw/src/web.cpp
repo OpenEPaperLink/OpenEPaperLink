@@ -14,6 +14,7 @@
 #include "commstructs.h"
 #include "newproto.h"
 #include "settings.h"
+#include "tag_db.h"
 
 extern uint8_t data_to_send[];
 
@@ -189,21 +190,49 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 }
 
 void wsString(String text) {
-    DynamicJsonDocument doc(1500);
+    DynamicJsonDocument doc(100);
     doc["logMsg"] = text;
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
     xSemaphoreGive(wsMutex);
 }
 
-void wsSendTaginfo(uint8_t src[8]) {
-    DynamicJsonDocument doc(1500);
+void wsSendSysteminfo() {
+    DynamicJsonDocument doc(250);
+    JsonObject sys = doc.createNestedObject("sys");
+    time_t now;
+    time(&now);
+    sys["currtime"] = now;
+    sys["heap"] = ESP.getFreeHeap();
+    sys["recordcount"] = tagDB.size();
+    sys["dbsize"] = tagDB.size() * sizeof(tagRecord);
+    sys["littlefsfree"] = LittleFS.totalBytes() - LittleFS.usedBytes();
+
+    xSemaphoreTake(wsMutex, portMAX_DELAY);
+    ws.textAll(doc.as<String>());
+    xSemaphoreGive(wsMutex);
+}
+
+void wsSendTaginfo(uint8_t mac[6]) {
+    DynamicJsonDocument doc(1000);
     JsonArray tags = doc.createNestedArray("tags");
     JsonObject tag = tags.createNestedObject();
     char buffer[64];
-    sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     tag["mac"] = (String)buffer;
-    //tag["buttonstate"] = eadr->adr.buttonState;
+
+    tagRecord *taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo != nullptr) {
+        tag["lastseen"] = taginfo->lastseen;
+        tag["nextupdate"] = taginfo->nextupdate;
+        tag["model"] = taginfo->model;
+        tag["pending"] = taginfo->pending;
+        tag["button"] = taginfo->button;
+        tag["alias"] = taginfo->alias;
+        tag["contentmode"] = taginfo->contentMode;
+    }
+
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
     xSemaphoreGive(wsMutex);
@@ -239,10 +268,6 @@ void init_web() {
 
     ws.onEvent(onEvent);
     server.addHandler(&ws);
-
-    server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(200, "text/plain", String(ESP.getFreeHeap()));
-    });
 
     server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
         request->send(200, "text/plain", "OK Reboot");
@@ -347,6 +372,41 @@ void init_web() {
         }
         request->send(200, "text/plain", "Didn't get the required params");
         return;
+    });
+
+    server.on("/get_db", HTTP_GET, [](AsyncWebServerRequest *request) {
+        String json = "";
+        if (request->hasParam("mac")) {
+            String dst = request->getParam("mac")->value();
+            uint8_t mac[6];
+            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5])==6) {
+                json = tagDBtoJson(mac);
+            }
+        } else {
+			json = tagDBtoJson();
+		}
+        request->send(200, "application/json", json);
+    });
+
+    server.on("/save_cfg", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("mac", true)) {
+            String dst = request->getParam("mac", true)->value();
+            uint8_t mac[6];
+            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
+                tagRecord *taginfo = nullptr;
+                taginfo = tagRecord::findByMAC(mac);
+                if (taginfo != nullptr) {
+                    taginfo->alias = request->getParam("alias", true)->value();
+                    taginfo->contentMode = (contentModes)atoi(request->getParam("contentmode", true)->value().c_str());
+                    taginfo->model = atoi(request->getParam("model", true)->value().c_str());
+                    wsSendTaginfo(mac);
+                    request->send(200, "text/plain", "Ok, saved");
+                } else {
+                    request->send(200, "text/plain", "Error while saving: mac not found");
+                }
+            }
+        }
+        request->send(200, "text/plain", "Ok, saved");
     });
 
     server.onNotFound([](AsyncWebServerRequest *request) {

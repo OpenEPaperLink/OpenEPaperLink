@@ -4,12 +4,14 @@
 #include <Arduino.h>
 #include <MD5Builder.h>
 #include <makeimage.h>
+#include <time.h>
 
 #include "LittleFS.h"
 #include "commstructs.h"
 #include "pendingdata.h"
 #include "serial.h"
 #include "settings.h"
+#include "tag_db.h"
 #include "web.h"
 
 extern void sendBlock(const void* data, const uint16_t len);
@@ -128,6 +130,17 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     int bytes_written = file.write(pendinginfo->data, pendinginfo->len);
     file.close();
 
+    uint8_t src[8];
+    *((uint64_t*)src) = swap64(*((uint64_t*)dst));
+    uint8_t mac[6];
+    memcpy(mac, src + 2, sizeof(mac));
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo != nullptr) {
+        taginfo->pending = true;
+    }
+    wsSendTaginfo(mac);
+
     return true;
 }
 
@@ -180,7 +193,15 @@ void processXferComplete(struct espXferComplete* xfc) {
     sprintf(buffer, "< %02X%02X%02X%02X%02X%02X reports xfer complete\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
     wsString((String)buffer);
     Serial.print(buffer);
-    wsSendTaginfo(src);
+    uint8_t mac[6];
+    memcpy(mac, src + 2, sizeof(mac));
+
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo != nullptr) {
+        taginfo->pending = false;
+    }
+    wsSendTaginfo(mac);
 
     char src_path[64];
     char dst_path[64];
@@ -198,8 +219,25 @@ void processDataReq(struct espAvailDataReq* eadr) {
     char buffer[64];
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)eadr->src));
-    sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X button: %02X\n\0", src[2], src[3], src[4], src[5], src[6], src[7], eadr->adr.buttonState);
-    wsString((String)buffer);
+
+    tagRecord* taginfo = nullptr;
+    uint8_t mac[6];
+    memcpy(mac, src + 2, sizeof(mac));
+
+    taginfo = tagRecord::findByMAC(mac);
+    time_t now;
+    time(&now);
+    if (taginfo == nullptr) {
+        taginfo = new tagRecord;
+        memcpy(taginfo->mac, src + 2, sizeof(taginfo->mac));
+        taginfo->pending = false;
+        tagDB.push_back(taginfo);
+    }
+    taginfo->lastseen = now;
+    taginfo->button = (eadr->adr.buttonState == 1);
+
+    sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Serial.print(buffer);
-    wsSendTaginfo(src);
+    wsString((String)buffer);
+    wsSendTaginfo(mac);
 }
