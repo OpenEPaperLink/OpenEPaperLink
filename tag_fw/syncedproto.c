@@ -1,32 +1,26 @@
 #define __packed
 #include "syncedproto.h"
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
 #include "asmUtil.h"
-#include "board.h"
-#include "comms.h"
 #include "cpu.h"
 #include "drawing.h"
 #include "eeprom.h"
-#include "epd.h"
 #include "i2c.h"
 #include "powermgt.h"
 #include "printf.h"
 #include "proto.h"
+#include "comms.h"
 #include "radio.h"
 #include "sleep.h"
 #include "timer.h"
 #include "userinterface.h"
 #include "wdt.h"
 #include "powermgt.h"
-
-#define TIMER_TICKS_PER_MS 1333UL
-// #define DEBUGBLOCKS
+#include "settings.h"
 
 // download-stuff
 bool __xdata dataPending = true;
@@ -389,7 +383,6 @@ uint32_t getHighSlotId() {
     return temp;
 }
 
-// #define DEBUGBLOCKS
 //  Main download function
 bool doDataDownload(struct AvailDataInfo *__xdata avail) {
     // this is the main function for the download process

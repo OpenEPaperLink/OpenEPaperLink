@@ -15,19 +15,21 @@
 #include "sleep.h"
 #include "spi.h"
 #include "timer.h"
+#include "settings.h"
 
 extern uint8_t mSelfMac[];
 
-static const char __code soft_subversion[] = "-refactor";
+static const uint8_t __code fwVersion = FW_VERSION;
+static const char __code fwVersionSuffix[] = FW_VERSION_SUFFIX;
 
 void showSplashScreen() {
     epdSetup();
 
 #if (SCREEN_WIDTH == 152)  // 1.54"
-    // selectLUT(1);
+
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
-
+    selectLUT(1);
     epdPrintBegin(12, 2, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     pr("Starting!");
     epdPrintEnd();
@@ -43,8 +45,7 @@ void showSplashScreen() {
     epdPrintEnd();
 
     epdPrintBegin(2, 120, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    pr("zbs154v033 0.1.4");
-    pr(soft_subversion);
+    pr("zbs154v033 %d.%d.%d%s", fwVersion/100, (fwVersion%100)/10, (fwVersion%10),fwVersionSuffix);
     epdPrintEnd();
     draw();
 #endif
@@ -67,8 +68,7 @@ void showSplashScreen() {
     epdPrintEnd();
 
     epdPrintBegin(96, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    pr("zbs29v033 0.1.4");
-    pr(soft_subversion);
+    pr("zbs29v033 %d.%d.%d%s", fwVersion/100, (fwVersion%100)/10, (fwVersion%10),fwVersionSuffix);
     epdPrintEnd();
 
     loadRawBitmap(solum, 0, 0, EPD_COLOR_BLACK);
@@ -96,6 +96,10 @@ void showSplashScreen() {
     pr("BootingX!");
     epdPrintEnd();
 
+
+    epdPrintBegin(16, 252, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    pr("zbs42v033 %d.%d.%d%s", fwVersion/100, (fwVersion%100)/10, (fwVersion%10),fwVersionSuffix);
+    epdPrintEnd();
     epdPrintBegin(16, 284, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
     pr("MAC: %02X:%02X", mSelfMac[7], mSelfMac[6]);
     pr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);

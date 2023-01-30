@@ -6,21 +6,18 @@
 #include <string.h>
 
 #include "asmUtil.h"
-#include "board.h"
-#include "comms.h"
-#include "cpu.h"
-#include "drawing.h"
 #include "eeprom.h"
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
-#include "screen.h"
-#include "sleep.h"
 #include "syncedproto.h"
 #include "timer.h"
 #include "wdt.h"
 #include "powermgt.h"
+
 #include "userinterface.h"
+#include "epd.h"
+
 
 void mainProtocolLoop(void) {
     clockingAndIntsInit();

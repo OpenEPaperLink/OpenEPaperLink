@@ -340,15 +340,14 @@ void drawImageAtAddress(uint32_t addr) {
         return;
     drawPrvLoadAndMapClut(clutAddr);
 
-    //screenTxStart(false);
     epdSetup();
     mPassNo = 0;
     beginFullscreenImage();
     beginWriteFramebuffer(EPD_COLOR_BLACK);
     drawPrvDecodeImageOnce();
     endWriteFramebuffer();
-    setPosXY(0, 0);
     mPassNo++;
+    beginFullscreenImage();
     beginWriteFramebuffer(EPD_COLOR_RED);
     drawPrvDecodeImageOnce();
     endWriteFramebuffer();

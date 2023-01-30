@@ -11,7 +11,8 @@
 #define EPD_SIZE_DOUBLE true
 #define EPD_COLOR_RED true
 #define EPD_COLOR_BLACK false
-
+#define EPD_LOAD_CUSTOM_LUT true
+#define EPD_LOAD_OTP_LUT false
 #define EPD_MODE_NORMAL 0x00
 #define EPD_MODE_INVERT 0x08
 #define EPD_MODE_IGNORE 0x04

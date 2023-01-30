@@ -22,9 +22,8 @@
 #include "timer.h"
 #include "userinterface.h"
 #include "wdt.h"
+#include "settings.h"
 
-
-#define HAS_BUTTON  // uncomment to enable reading a push button (connect between 'TEST' en 'GND' on the tag, along with a 100nF capacitor in parallel).
 
 uint16_t __xdata dataReqAttemptArr[POWER_SAVING_SMOOTHING] = {0};  // Holds the amount of attempts required per data_req/check-in
 uint8_t __xdata dataReqAttemptArrayIndex = 0;

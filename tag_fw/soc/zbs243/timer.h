@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define TIMER_TICKS_PER_SECOND			(16000000 / 12)		//overflows every 53 minutes
-
+#define TIMER_TICKS_PER_MS              1333UL
 //this is a requirement by SDCC. is this prototype is missing when compiling main(), we get no irq handler
 void T0_ISR(void) __interrupt (1);
 
