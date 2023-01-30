@@ -1,8 +1,6 @@
 #include "epd.h"
-
 #include <stdbool.h>
 #include <string.h>
-
 #include "asmUtil.h"
 #include "board.h"
 #include "cpu.h"
@@ -342,7 +340,6 @@ void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y) {
     }
     epdBusyWait(133300UL);
 }
-
 void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2) {
     setWindowY(y1, y2);
     setWindowX(x, x + 8);
@@ -354,7 +351,7 @@ void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2) {
         commandBegin(CMD_WRITE_FB_BW);
     }
     uint8_t __xdata c = 0x80;
-    c>>=(x%8);
+    c >>= (x % 8);
     for (; y1 < y2; y1++) {
         epdSend(c);
     }
@@ -378,6 +375,26 @@ void beginWriteFramebuffer(bool color) {
 void endWriteFramebuffer() {
     commandEnd();
 }
+void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color) {
+    uint16_t xsize = bmp[0] / 8;
+    if (bmp[0] % 8) xsize++;
+    uint16_t size = xsize * bmp[1];
+    setWindowX(x, x+(xsize*8));
+    setWindowY(y, bmp[1] + y);
+    setPosXY(x, y);
+    shortCommand1(CMD_DATA_ENTRY_MODE, 3);
+    if (color) {
+        commandBegin(CMD_WRITE_FB_RED);
+    } else {
+        commandBegin(CMD_WRITE_FB_BW);
+    }
+    bmp += 2;
+    while (size--) {
+        epdSend(*(bmp++));
+    }
+    commandEnd();
+}
+
 
 // stuff for printing text
 static void pushXFontBytesToEPD(uint8_t byte1, uint8_t byte2) {

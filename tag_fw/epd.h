@@ -44,6 +44,7 @@ void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2);
 void beginFullscreenImage();
 void beginWriteFramebuffer(bool color);
 void endWriteFramebuffer();
+void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color);
 
 void selectLUT(uint8_t lut);
 

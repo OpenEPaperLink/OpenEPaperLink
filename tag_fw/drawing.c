@@ -318,7 +318,6 @@ static void drawPrvDecodeImageOnce(void) {
     }
 }
 
-extern uint8_t blockXferBuffer[];
 
 void ByteDecode(uint8_t byte) {
     static uint8_t __xdata prev, step = 0;
@@ -348,6 +347,7 @@ void drawImageAtAddress(uint32_t addr) {
     beginWriteFramebuffer(EPD_COLOR_BLACK);
     drawPrvDecodeImageOnce();
     endWriteFramebuffer();
+    setPosXY(0, 0);
     mPassNo++;
     beginWriteFramebuffer(EPD_COLOR_RED);
     drawPrvDecodeImageOnce();
