@@ -6,118 +6,24 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
 #include "asmUtil.h"
 #include "board.h"
 #include "comms.h"
 #include "cpu.h"
 #include "drawing.h"
 #include "eeprom.h"
+#include "epd.h"
 #include "i2c.h"
+#include "powermgt.h"
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
-#include "epd.h"
-#include "userinterface.h"
 #include "sleep.h"
 #include "timer.h"
+#include "userinterface.h"
 #include "wdt.h"
-
-struct MacFrameFromMaster {
-    struct MacFcs fcs;
-    uint8_t seq;
-    uint16_t pan;
-    uint8_t dst[8];
-    uint16_t from;
-} __packed;
-
-struct MacFrameNormal {
-    struct MacFcs fcs;
-    uint8_t seq;
-    uint16_t pan;
-    uint8_t dst[8];
-    uint8_t src[8];
-} __packed;
-
-struct MacFrameBcast {
-    struct MacFcs fcs;
-    uint8_t seq;
-    uint16_t dstPan;
-    uint16_t dstAddr;
-    uint16_t srcPan;
-    uint8_t src[8];
-} __packed;
-
-#define PKT_AVAIL_DATA_REQ 0xE5
-#define PKT_AVAIL_DATA_INFO 0xE6
-#define PKT_BLOCK_PARTIAL_REQUEST 0xE7
-#define PKT_BLOCK_REQUEST_ACK 0xE9
-#define PKT_BLOCK_REQUEST 0xE4
-#define PKT_BLOCK_PART 0xE8
-#define PKT_XFER_COMPLETE 0xEA
-#define PKT_XFER_COMPLETE_ACK 0xEB
-#define PKT_CANCEL_XFER 0xEC
-
-struct AvailDataReq {
-    uint8_t checksum;
-    uint8_t lastPacketLQI;  // zero if not reported/not supported to be reported
-    int8_t lastPacketRSSI;  // zero if not reported/not supported to be reported
-    uint8_t temperature;    // zero if not reported/not supported to be reported. else, this minus CHECKIN_TEMP_OFFSET is temp in degrees C
-    uint16_t batteryMv;
-    uint8_t softVer;
-    uint8_t hwType;
-    uint8_t protoVer;
-    uint8_t buttonState;
-} __packed;
-
-#define DATATYPE_NOUPDATE 0
-#define DATATYPE_IMG 1
-#define DATATYPE_IMGRAW 2
-#define DATATYPE_UPDATE 3
-
-struct AvailDataInfo {
-    uint8_t checksum;
-    uint64_t dataVer;
-    uint32_t dataSize;
-    uint8_t dataType;
-    uint16_t nextCheckIn;
-} __packed;
-
-struct blockPart {
-    uint8_t checksum;
-    uint8_t blockId;
-    uint8_t blockPart;
-    uint8_t data[];
-} __packed;
-
-struct blockData {
-    uint16_t size;
-    uint16_t checksum;
-    uint8_t data[];
-} __packed;
-
-struct burstMacData {
-    uint16_t offset;
-    uint8_t targetMac[8];
-} __packed;
-
-#define BLOCK_PART_DATA_SIZE 99
-#define BLOCK_MAX_PARTS 42
-#define BLOCK_DATA_SIZE 4096UL
-#define BLOCK_XFER_BUFFER_SIZE BLOCK_DATA_SIZE + sizeof(struct blockData)
-#define BLOCK_REQ_PARTS_BYTES 6
-
-struct blockRequest {
-    uint8_t checksum;
-    uint64_t ver;
-    uint8_t blockId;
-    uint8_t type;
-    uint8_t requestedParts[BLOCK_REQ_PARTS_BYTES];
-} __packed;
-
-struct blockRequestAck {
-    uint8_t checksum;
-    uint16_t pleaseWaitMs;
-} __packed;
+#include "powermgt.h"
 
 #define TIMER_TICKS_PER_MS 1333UL
 // #define DEBUGBLOCKS
@@ -131,7 +37,7 @@ uint16_t __xdata dataRemaining = 0;
 bool __xdata curXferComplete = false;
 bool __xdata requestPartialBlock = false;
 
-//uint8_t __xdata *tempBuffer = blockXferBuffer;
+// uint8_t __xdata *tempBuffer = blockXferBuffer;
 uint8_t __xdata curImgSlot = 0;
 uint32_t __xdata curHighSlotId = 0;
 uint8_t __xdata nextImgSlot = 0;
@@ -148,24 +54,6 @@ uint8_t __xdata APmac[8] = {0};
 uint16_t __xdata APsrcPan = 0;
 uint8_t __xdata mSelfMac[8] = {0};
 uint8_t __xdata seq = 0;
-
-// power saving algorithm
-#define INTERVAL_BASE 40              // interval (in seconds) (when 1 packet is sent/received) for target current (7.2µA)
-#define INTERVAL_AT_MAX_ATTEMPTS 600  // interval (in seconds) (at max attempts) for target average current
-#define INTERVAL_NO_SIGNAL 1800       // interval (in seconds) when no answer for POWER_SAVING_SMOOTHING attempts,
-                                      // (INTERVAL_AT_MAX_ATTEMPTS * POWER_SAVING_SMOOTHING) seconds
-#define DATA_REQ_RX_WINDOW_SIZE 5UL   // How many milliseconds we should wait for a packet during the data_request.
-                                      // If the AP holds a long list of data for tags, it may need a little more time to lookup the mac address
-#define DATA_REQ_MAX_ATTEMPTS 14      // How many attempts (at most) we should do to get something back from the AP
-#define POWER_SAVING_SMOOTHING 8      // How many samples we should use to smooth the data request interval
-#define MINIMUM_INTERVAL 45           // IMPORTANT: Minimum interval for check-in; this determines overal battery life!
-
-#define HAS_BUTTON  // uncomment to enable reading a push button (connect between 'TEST' en 'GND' on the tag, along with a 100nF capacitor in parallel).
-
-uint16_t __xdata dataReqAttemptArr[POWER_SAVING_SMOOTHING] = {0};  // Holds the amount of attempts required per data_req/check-in
-uint8_t __xdata dataReqAttemptArrayIndex = 0;
-uint8_t __xdata dataReqLastAttempt = 0;
-uint16_t __xdata nextCheckInFromAP = 0;
 
 // buffer we use to prepare/read packets
 // static uint8_t __xdata mRxBuf[130];
@@ -222,78 +110,6 @@ void addCRC(void *p, uint8_t len) {
         total += ((uint8_t *)p)[c];
     }
     ((uint8_t *)p)[0] = total;
-}
-
-// init/sleep
-void initRadio() {
-    radioInit();
-    radioRxFilterCfg(mSelfMac, 0x10000, PROTO_PAN_ID);
-    radioSetChannel(RADIO_FIRST_CHANNEL);
-    radioSetTxPower(10);
-}
-void killRadio() {
-    radioRxEnable(false, true);
-    RADIO_IRQ4_pending = 0;
-    UNK_C1 &= ~0x81;
-    TCON &= ~0x20;
-    uint8_t __xdata cfgPg = CFGPAGE;
-    CFGPAGE = 4;
-    RADIO_command = 0xCA;
-    RADIO_command = 0xC5;
-    CFGPAGE = cfgPg;
-}
-void initAfterWake() {
-    clockingAndIntsInit();
-    timerInit();
-    // partialInit();
-    boardInit();
-    epdEnterSleep();
-    irqsOn();
-    boardInitStage2();
-    initRadio();
-}
-void doSleep(uint32_t __xdata t) {
-    if (t > 1000) pr("s=%lu\n ", t / 1000);
-    powerPortsDownForSleep();
-
-#ifdef HAS_BUTTON
-    // Button setup on TEST pin 1.0 (input pullup)
-    P1FUNC &= ~(1 << 0);
-    P1DIR |= (1 << 0);
-    P1PULL |= (1 << 0);
-    P1LVLSEL |= (1 << 0);
-    P1INTEN = (1 << 0);
-    P1CHSTA &= ~(1 << 0);
-#endif
-
-    // sleepy
-    sleepForMsec(t);
-
-#ifdef HAS_BUTTON
-    P1INTEN = 0;
-#endif
-
-    initAfterWake();
-}
-uint16_t getNextSleep() {
-    uint16_t __xdata curval = INTERVAL_AT_MAX_ATTEMPTS - INTERVAL_BASE;
-    curval *= dataReqLastAttempt;
-    curval /= DATA_REQ_MAX_ATTEMPTS;
-    curval += INTERVAL_BASE;
-    dataReqAttemptArr[dataReqAttemptArrayIndex % POWER_SAVING_SMOOTHING] = curval;
-    dataReqAttemptArrayIndex++;
-
-    uint16_t avg = 0;
-    bool noNetwork = true;
-    for (uint8_t c = 0; c < POWER_SAVING_SMOOTHING; c++) {
-        avg += dataReqAttemptArr[c];
-        if (dataReqAttemptArr[c] != INTERVAL_AT_MAX_ATTEMPTS) {
-            noNetwork = false;
-        }
-    }
-    if (noNetwork == true) return INTERVAL_NO_SIGNAL;
-    avg /= POWER_SAVING_SMOOTHING;
-    return avg;
 }
 
 // data xfer stuff
@@ -835,86 +651,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
     return true;
 }
 
-// main loop;
-void mainProtocolLoop(void) {
-    clockingAndIntsInit();
-    timerInit();
-    boardInit();
-
-    if (!boardGetOwnMac(mSelfMac)) {
-        pr("failed to get MAC. Aborting\n");
-        while (1)
-            ;
-    } else {
-        /*
-        for (uint8_t c = 0; c < 8; c++) {
-            mSelfMac[c] = c + 5;
-        }
-        */
-        // really... if I do the call below, it'll cost me 8 bytes IRAM. Not the kind of 'optimization' I ever dreamed of doing
-        // pr("MAC>%02X%02X%02X%02X%02X%02X%02X%02X\n", mSelfMac[0], mSelfMac[1], mSelfMac[2], mSelfMac[3], mSelfMac[4], mSelfMac[5], mSelfMac[6], mSelfMac[7]);
-        pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
-        pr("%02X%02X", mSelfMac[2], mSelfMac[3]);
-        pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
-        pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
-    }
-
-    irqsOn();
-    boardInitStage2(); 
-
-    pr("BOOTED> (UI 0.03-1)\n\n");
-
-    if (!eepromInit()) {
-        pr("failed to init eeprom\n");
-        while (1)
-            ;
-    } else {
-        getNumSlots();
-        curHighSlotId = getHighSlotId();
-    }
-
-    // initialize attempt-array with the default value;
-    for (uint8_t c = 0; c < POWER_SAVING_SMOOTHING; c++) {
-        dataReqAttemptArr[c] = INTERVAL_BASE;
-    }
-
-    // show the splashscreen
-    showSplashScreen();
-
-    epdEnterSleep();
-    eepromDeepPowerDown();
-    initRadio();
-
-    P1CHSTA &= ~(1 << 0);
-
-    while (1) {
-        radioRxEnable(true, true);
-
-        struct AvailDataInfo *__xdata avail = getAvailDataInfo();
-        if (avail == NULL) {
-            // no data :(
-            nextCheckInFromAP = 0;  // let the power-saving algorithm determine the next sleep period
-        } else {
-            nextCheckInFromAP = avail->nextCheckIn;
-            // got some data from the AP!
-            if (avail->dataType != DATATYPE_NOUPDATE) {
-                // data transfer
-                if (doDataDownload(avail)) {
-                    // succesful transfer, next wake time is determined by the NextCheckin;
-                } else {
-                    // failed transfer, let the algorithm determine next sleep interval (not the AP)
-                    nextCheckInFromAP = 0;
-                }
-            } else {
-                // no data transfer, just sleep.
-            }
-        }
-
-        // if the AP told us to sleep for a specific period, do so.
-        if (nextCheckInFromAP) {
-            doSleep(nextCheckInFromAP * 60000UL);
-        } else {
-            doSleep(getNextSleep() * 1000UL);
-        }
-    }
+void initializeProto() {
+    getNumSlots();
+    curHighSlotId = getHighSlotId();
 }

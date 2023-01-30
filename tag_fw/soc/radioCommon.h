@@ -21,19 +21,7 @@
 
 
 
-struct MacFcs {
-	
-	uint8_t frameType			: 3;
-	uint8_t secure				: 1;
-	uint8_t framePending		: 1;
-	uint8_t ackReqd				: 1;
-	uint8_t panIdCompressed		: 1;
-	uint8_t rfu1				: 1;
-	uint8_t rfu2				: 2;
-	uint8_t destAddrType		: 2;
-	uint8_t frameVer			: 2;
-	uint8_t srcAddrType			: 2;
-};
+
 
 
 void radioInit(void);

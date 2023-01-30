@@ -18,7 +18,7 @@
 
 extern uint8_t mSelfMac[];
 
-static const char __code soft_subversion[] = "-LUTs";
+static const char __code soft_subversion[] = "-refactor";
 
 void showSplashScreen() {
     epdSetup();
@@ -43,7 +43,7 @@ void showSplashScreen() {
     epdPrintEnd();
 
     epdPrintBegin(2, 120, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    pr("zbs29v033 0.1.4");
+    pr("zbs154v033 0.1.4");
     pr(soft_subversion);
     epdPrintEnd();
     draw();
