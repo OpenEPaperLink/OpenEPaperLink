@@ -27,6 +27,7 @@ void showSplashScreen() {
 
     loadRawBitmap(solum, 0, 32, EPD_COLOR_BLACK);
     loadRawBitmap(hacked, 16, 44, EPD_COLOR_RED);
+    
 
     epdPrintBegin(0, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     pr("Starting!");
@@ -82,6 +83,12 @@ void showSplashScreen() {
     pr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
     pr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
+
+    loadRawBitmap(solum, 256, 10, EPD_COLOR_BLACK);
+    loadRawBitmap(hacked, 264, 22, EPD_COLOR_RED);
+
+    loadRawBitmap(solum,253, 72, EPD_COLOR_BLACK);
+    loadRawBitmap(hacked, 261, 82, EPD_COLOR_RED);
 
     draw();
     timerDelay(1333000);

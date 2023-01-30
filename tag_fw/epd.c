@@ -1,6 +1,8 @@
 #include "epd.h"
+
 #include <stdbool.h>
 #include <string.h>
+
 #include "asmUtil.h"
 #include "board.h"
 #include "cpu.h"
@@ -282,8 +284,8 @@ void setWindowY(uint16_t start, uint16_t end) {
     commandBegin(CMD_WINDOW_Y_SIZE);
     epdSend((start)&0xff);
     epdSend((start) >> 8);
-    epdSend((end)&0xff);  // was end-1
-    epdSend((end) >> 8);  // was end-1
+    epdSend((end-1)&0xff);
+    epdSend((end-1) >> 8);
     commandEnd();
 }
 void setPosXY(uint16_t x, uint16_t y) {
@@ -379,7 +381,7 @@ void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color) {
     uint16_t xsize = bmp[0] / 8;
     if (bmp[0] % 8) xsize++;
     uint16_t size = xsize * bmp[1];
-    setWindowX(x, x+(xsize*8));
+    setWindowX(x, x + (xsize * 8));
     setWindowY(y, bmp[1] + y);
     setPosXY(x, y);
     shortCommand1(CMD_DATA_ENTRY_MODE, 3);
@@ -394,7 +396,6 @@ void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color) {
     }
     commandEnd();
 }
-
 
 // stuff for printing text
 static void pushXFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
@@ -543,7 +544,7 @@ void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool c
             rbuffer[1] = 0;
         }
 
-        setWindowY(y, 0);
+        setWindowY(y, 1);
         if (epdCharSize == 2) {
             setWindowX(x, x + 32 + extra);
             setPosXY(x, y);
