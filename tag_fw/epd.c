@@ -66,7 +66,6 @@
 
 extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when done
 
-static bool __idata epdPr = false;        // wheter or not we copy the pr("") output to the EPD
 static uint8_t __xdata epdCharSize = 1;   // character size, 1 or 2 (doubled)
 static bool __xdata directionY = true;    // print direction, X or Y (true)
 static uint8_t __xdata rbuffer[32];       // used to rotate bits around
@@ -303,9 +302,8 @@ void selectLUT(uint8_t lut) {
     if (SCREEN_WIDTH == 152) {
         sendCustomLut(lut154, 100);
     } else {
-        sendCustomLut(lut154, 70);
+        sendCustomLut(lutorig, 70);
     }
-    return;
     readLut();
     // dump((uint8_t*)&waveform, 96);
     dump(blockXferBuffer, 512);
@@ -524,9 +522,6 @@ static void pushYFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
     }
 }
 void writeCharEPD(uint8_t c) {
-    if (!epdPr) {
-        return;
-    }
     // Writes a single character to the framebuffer
     bool empty = true;
     for (uint8_t i = 0; i < 20; i++) {
@@ -611,7 +606,6 @@ void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool c
         memset(rbuffer, 0, 32);
     }
 
-    epdPr = true;
     if (color) {
         commandBegin(CMD_WRITE_FB_RED);
     } else {
@@ -625,7 +619,6 @@ void epdPrintEnd() {
         }
     }
     commandEnd();
-    epdPr = false;
 }
 
 extern uint8_t __xdata blockXferBuffer[];

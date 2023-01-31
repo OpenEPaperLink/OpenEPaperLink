@@ -31,21 +31,21 @@ void showSplashScreen() {
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     selectLUT(1);
     epdPrintBegin(12, 2, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    pr("Starting!");
+    epdpr("Starting!");
     epdPrintEnd();
 
     loadRawBitmap(solum, 8, 34, EPD_COLOR_BLACK);
     loadRawBitmap(hacked, 32, 46, EPD_COLOR_RED);
 
     epdPrintBegin(5, 136, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    pr("%02X%02X", mSelfMac[7], mSelfMac[6]);
-    pr("%02X%02X", mSelfMac[5], mSelfMac[4]);
-    pr("%02X%02X", mSelfMac[3], mSelfMac[2]);
-    pr("%02X%02X", mSelfMac[1], mSelfMac[0]);
+    epdpr("%02X%02X", mSelfMac[7], mSelfMac[6]);
+    epdpr("%02X%02X", mSelfMac[5], mSelfMac[4]);
+    epdpr("%02X%02X", mSelfMac[3], mSelfMac[2]);
+    epdpr("%02X%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 
     epdPrintBegin(2, 120, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    pr("zbs154v033 %d.%d.%d%s", fwVersion/100, (fwVersion%100)/10, (fwVersion%10),fwVersionSuffix);
+    epdpr("zbs154v033 %d.%d.%d%s", fwVersion/100, (fwVersion%100)/10, (fwVersion%10),fwVersionSuffix);
     epdPrintEnd();
     draw();
 #endif
@@ -57,18 +57,18 @@ void showSplashScreen() {
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
 
     epdPrintBegin(0, 295, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    pr("Starting!");
+    epdpr("Starting!");
     epdPrintEnd();
 
     epdPrintBegin(115, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    pr("MAC: %02X:%02X", mSelfMac[7], mSelfMac[6]);
-    pr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
-    pr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
-    pr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
+    epdpr("MAC: %02X:%02X", mSelfMac[7], mSelfMac[6]);
+    epdpr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
+    epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
+    epdpr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 
     epdPrintBegin(96, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    pr("zbs29v033 %d.%d.%d%s", fwVersion/100, (fwVersion%100)/10, (fwVersion%10),fwVersionSuffix);
+    epdpr("zbs29v033 %d.%d.%d%s", fwVersion/100, (fwVersion%100)/10, (fwVersion%10),fwVersionSuffix);
     epdPrintEnd();
 
     loadRawBitmap(solum, 0, 0, EPD_COLOR_BLACK);
@@ -84,27 +84,23 @@ void showSplashScreen() {
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
 
-    epdPrintBegin(64, 150, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    pr("TEST");
-    epdPrintEnd();
-
     epdPrintBegin(300, 296, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_RED);
-    pr("Booting!Y");
-    epdPrintEnd();
+    epdpr("Booting!Y");
+    epdpr();
 
     epdPrintBegin(0, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    pr("BootingX!");
+    epdpr("Starting!");
     epdPrintEnd();
 
 
     epdPrintBegin(16, 252, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    pr("zbs42v033 %d.%d.%d%s", fwVersion/100, (fwVersion%100)/10, (fwVersion%10),fwVersionSuffix);
+    epdpr("zbs42v033 %d.%d.%d%s", fwVersion/100, (fwVersion%100)/10, (fwVersion%10),fwVersionSuffix);
     epdPrintEnd();
     epdPrintBegin(16, 284, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    pr("MAC: %02X:%02X", mSelfMac[7], mSelfMac[6]);
-    pr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
-    pr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
-    pr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
+    epdpr("MAC: %02X:%02X", mSelfMac[7], mSelfMac[6]);
+    epdpr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
+    epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
+    epdpr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 
     loadRawBitmap(solum, 256, 10, EPD_COLOR_BLACK);
@@ -123,7 +119,7 @@ void showApplyUpdate() {
     clearScreen();
     setColorMode(EPD_MODE_IGNORE, EPD_MODE_NORMAL);
     epdPrintBegin(8, 60, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    pr("Updating!");
+    epdpr("Updating!");
     epdPrintEnd();
     drawNoWait();
 }

@@ -54,10 +54,12 @@ void ByteDecode(uint8_t byte);
 void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool red);
 void epdPrintEnd();
 
-
 void beginFullscreenImage();
 void beginWriteFramebuffer(bool color);
 
 void lutTest();
+
+// for printf.c
+void writeCharEPD(uint8_t c);
 
 #endif
