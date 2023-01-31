@@ -37,23 +37,6 @@ void initPowerSaving() {
 }
 
 // init/sleep
-void initRadio() {
-    radioInit();
-    radioRxFilterCfg(mSelfMac, 0x10000, PROTO_PAN_ID);
-    radioSetChannel(RADIO_FIRST_CHANNEL);
-    radioSetTxPower(10);
-}
-void killRadio() {
-    radioRxEnable(false, true);
-    RADIO_IRQ4_pending = 0;
-    UNK_C1 &= ~0x81;
-    TCON &= ~0x20;
-    uint8_t __xdata cfgPg = CFGPAGE;
-    CFGPAGE = 4;
-    RADIO_command = 0xCA;
-    RADIO_command = 0xC5;
-    CFGPAGE = cfgPg;
-}
 void initAfterWake() {
     clockingAndIntsInit();
     timerInit();
@@ -107,9 +90,3 @@ uint16_t getNextSleep() {
     avg /= POWER_SAVING_SMOOTHING;
     return avg;
 }
-
-void initRadio();
-void killRadio();
-void initAfterWake();
-void doSleep(uint32_t __xdata t);
-uint16_t getNextSleep();

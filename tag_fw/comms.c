@@ -21,8 +21,8 @@
 
 static uint8_t __xdata mCommsBuf[127];
 static uint8_t __xdata mSeq = 0;
-static uint8_t __xdata mLastLqi = 0;
-static int8_t __xdata mLastRSSI = 0;
+uint8_t __xdata mLastLqi = 0;
+int8_t __xdata mLastRSSI = 0;
 
 uint8_t commsGetLastPacketLQI(void)
 {

@@ -7,17 +7,16 @@
 
 #include "asmUtil.h"
 #include "eeprom.h"
+#include "epd.h"
+#include "powermgt.h"
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
+#include "comms.h" // for mLastLqi and mLastRSSI
 #include "syncedproto.h"
 #include "timer.h"
-#include "wdt.h"
-#include "powermgt.h"
-
 #include "userinterface.h"
-#include "epd.h"
-
+#include "wdt.h"
 
 void mainProtocolLoop(void) {
     clockingAndIntsInit();
@@ -55,7 +54,7 @@ void mainProtocolLoop(void) {
         initializeProto();
     }
 
-    // initialize attempt-array with the default value;
+    // initialize Powers-saving-attempt-array with the default value;
     initPowerSaving();
 
     // show the splashscreen
@@ -64,6 +63,14 @@ void mainProtocolLoop(void) {
     epdEnterSleep();
     eepromDeepPowerDown();
     initRadio();
+
+    for (uint8_t c = 25; c > 10; c--) {
+        if (probeChannel(c)) {
+            pr("Channel: %d - LQI: %d RSSI %d\n", c, mLastLqi, mLastRSSI);
+        } else {
+            pr("Channel %d - nothing.\n", c);
+        }
+    }
 
     P1CHSTA &= ~(1 << 0);
 

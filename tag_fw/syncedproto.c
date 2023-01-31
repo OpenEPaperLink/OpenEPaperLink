@@ -1,11 +1,14 @@
 #define __packed
 #include "syncedproto.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
 #include "asmUtil.h"
+#include "comms.h"
 #include "cpu.h"
 #include "drawing.h"
 #include "eeprom.h"
@@ -13,14 +16,12 @@
 #include "powermgt.h"
 #include "printf.h"
 #include "proto.h"
-#include "comms.h"
 #include "radio.h"
+#include "settings.h"
 #include "sleep.h"
 #include "timer.h"
 #include "userinterface.h"
 #include "wdt.h"
-#include "powermgt.h"
-#include "settings.h"
 
 // download-stuff
 bool __xdata dataPending = true;
@@ -48,6 +49,7 @@ uint8_t __xdata APmac[8] = {0};
 uint16_t __xdata APsrcPan = 0;
 uint8_t __xdata mSelfMac[8] = {0};
 uint8_t __xdata seq = 0;
+uint8_t __xdata currentChannel = 0;
 
 // buffer we use to prepare/read packets
 // static uint8_t __xdata mRxBuf[130];
@@ -106,6 +108,38 @@ void addCRC(void *p, uint8_t len) {
     ((uint8_t *)p)[0] = total;
 }
 
+// radio stuff
+void initRadio() {
+    radioInit();
+    radioRxFilterCfg(mSelfMac, 0x10000, PROTO_PAN_ID);
+    if (currentChannel >= 11 && currentChannel <= 25) {
+        radioSetChannel(currentChannel);
+    } else {
+        radioSetChannel(RADIO_FIRST_CHANNEL);
+    }
+    radioSetTxPower(10);
+}
+void killRadio() {
+    radioRxEnable(false, true);
+    RADIO_IRQ4_pending = 0;
+    UNK_C1 &= ~0x81;
+    TCON &= ~0x20;
+    uint8_t __xdata cfgPg = CFGPAGE;
+    CFGPAGE = 4;
+    RADIO_command = 0xCA;
+    RADIO_command = 0xC5;
+    CFGPAGE = cfgPg;
+}
+bool probeChannel(uint8_t channel) {
+    radioRxEnable(false, true);
+    radioRxFlush();
+    radioSetChannel(channel);
+    radioRxEnable(true, true);
+    getAvailDataInfo();
+    return(dataReqLastAttempt != DATA_REQ_MAX_ATTEMPTS);
+
+}
+
 // data xfer stuff
 void sendAvailDataReq() {
     struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer + 1);
@@ -121,7 +155,7 @@ void sendAvailDataReq() {
     txframe->seq = seq++;
     txframe->dstPan = 0xFFFF;
     txframe->dstAddr = 0xFFFF;
-    txframe->srcPan = 0x4447;
+    txframe->srcPan = PROTO_PAN_ID;
     // TODO: send some meaningful data
     availreq->softVer = 1;
     if (P1CHSTA && (1 << 0)) {

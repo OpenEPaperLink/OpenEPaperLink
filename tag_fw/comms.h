@@ -11,11 +11,8 @@
 
 #define COMMS_MAX_PACKET_SZ				(127)
 
-#pragma callee_saves commsGetLastPacketLQI
-uint8_t commsGetLastPacketLQI(void);
-
-#pragma callee_saves commsGetLastPacketRSSI
-int8_t commsGetLastPacketRSSI(void);
+extern uint8_t __xdata mLastLqi;
+extern int8_t __xdata mLastRSSI;
 
 int8_t commsRxUnencrypted(void __xdata *data);
 bool commsTxUnencrypted(const void __xdata *packetP, uint8_t len);

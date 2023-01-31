@@ -13,8 +13,6 @@
 #define POWER_SAVING_SMOOTHING 8      // How many samples we should use to smooth the data request interval
 #define MINIMUM_INTERVAL 45           // IMPORTANT: Minimum interval for check-in; this determines overal battery life!
 
-extern void initRadio();
-extern void killRadio();
 extern void initAfterWake();
 extern void doSleep(uint32_t __xdata t);
 extern uint16_t getNextSleep();

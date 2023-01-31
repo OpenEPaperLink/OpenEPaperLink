@@ -7,7 +7,7 @@
 
 //radio cfg
 #define RADIO_FIRST_CHANNEL				(11)		//2.4-GHz channels start at 11
-#define RADIO_NUM_CHANNELS				(1)
+#define RADIO_NUM_CHANNELS				(15)
 
 
 #define RADIO_MAX_PACKET_LEN			(125)	//useful payload, not including the crc
