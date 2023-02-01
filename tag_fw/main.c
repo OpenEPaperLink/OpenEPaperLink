@@ -22,7 +22,7 @@ uint8_t showChannelSelect() {
     uint8_t __xdata result[16];
     memset(result, 0, sizeof(result));
     showScanningWindow();
-    for (uint8_t i = 0; i < 3; i++) {
+    for (uint8_t i = 0; i < 8; i++) {
         for (uint8_t c = 11; c < 27; c++) {
             if (probeChannel(c)) {
                 if (mLastLqi > result[c - 11]) result[c - 11] = mLastLqi;
@@ -44,6 +44,7 @@ uint8_t showChannelSelect() {
         }
     }
     epdWaitRdy();
+    mLastLqi = highestLqi;
     return highestSlot;
 }
 

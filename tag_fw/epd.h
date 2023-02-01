@@ -17,6 +17,12 @@
 #define EPD_MODE_INVERT 0x08
 #define EPD_MODE_IGNORE 0x04
 
+#define EPD_LUT_DEFAULT     0
+#define EPD_LUT_NO_REPEATS  1
+#define EPD_LUT_FAST_NO_REDS  2
+#define EPD_LUT_FAST 3
+
+
 #define epdSelect() \
     do {            \
         P1_7 = 0;   \

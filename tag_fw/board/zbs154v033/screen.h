@@ -21,5 +21,7 @@
 
 #define SCREEN_DATA_PASSES			2
 
+#define SCREEN_LUT_LENGTH           10
+
 
 #endif
