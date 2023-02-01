@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "asmUtil.h"
+#include "barcode.h"
 #include "board.h"
 #include "cpu.h"
 #include "font.h"
@@ -299,11 +300,17 @@ static void readLut() {
 }
 
 void selectLUT(uint8_t lut) {
+    if (lut == 2) {
+        sendCustomLut(lut29, 70);
+        return;
+    }
+
     if (SCREEN_WIDTH == 152) {
         sendCustomLut(lut154, 100);
     } else {
         sendCustomLut(lutorig, 70);
     }
+    return;
     readLut();
     // dump((uint8_t*)&waveform, 96);
     dump(blockXferBuffer, 512);
@@ -356,6 +363,7 @@ void clearScreen() {
     setWindowX(0, SCREEN_WIDTH);
     setWindowY(0, SCREEN_HEIGHT);
     setPosXY(0, 0);
+    shortCommand1(CMD_DATA_ENTRY_MODE, 3);  // was 3
     shortCommand1(CMD_WRITE_PATTERN_BW, 0x66);
     epdBusyWait(TIMER_TICKS_PER_MS * 100);
     shortCommand1(CMD_WRITE_PATTERN_RED, 0x66);
@@ -371,6 +379,9 @@ void drawNoWait() {
     shortCommand1(0x22, 0xCF);
     // shortCommand1(0x22, SCREEN_CMD_REFRESH);
     shortCommand(0x20);
+}
+void epdWaitRdy() {
+    epdBusyWait(TIMER_TICKS_PER_SECOND * 120);
 }
 void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y) {
     setWindowX(x1, x2);
@@ -436,7 +447,26 @@ void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color) {
     }
     commandEnd();
 }
-
+void printBarcode(const uint8_t* string, uint16_t x, uint16_t y) {
+    setWindowY(y, 1);
+    setWindowX(x, x + 8);
+    setPosXY(x, y);
+    shortCommand1(CMD_DATA_ENTRY_MODE, 1);
+    commandBegin(CMD_WRITE_FB_BW);
+    struct BarcodeInfo __xdata bci = {
+        .str = string,
+    };
+    while (!barcodeIsDone(&bci)) {
+        if (barcodeNextBar(&bci)) {
+            pr("1");
+            epdSend(0xFF);
+        } else {
+            pr("0");
+            epdSend(0x00);
+        }
+    }
+    commandEnd();
+}
 // stuff for printing text
 static void pushXFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
     if (epdCharSize == 1) {

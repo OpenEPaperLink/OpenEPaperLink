@@ -6,17 +6,46 @@
 #include <string.h>
 
 #include "asmUtil.h"
+#include "comms.h"  // for mLastLqi and mLastRSSI
 #include "eeprom.h"
 #include "epd.h"
 #include "powermgt.h"
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
-#include "comms.h" // for mLastLqi and mLastRSSI
 #include "syncedproto.h"
 #include "timer.h"
 #include "userinterface.h"
 #include "wdt.h"
+
+uint8_t showChannelSelect() {
+    uint8_t __xdata result[16];
+    memset(result, 0, sizeof(result));
+    showScanningWindow();
+    for (uint8_t i = 0; i < 3; i++) {
+        for (uint8_t c = 11; c < 27; c++) {
+            if (probeChannel(c)) {
+                if (mLastLqi > result[c - 11]) result[c - 11] = mLastLqi;
+                pr("Channel: %d - LQI: %d RSSI %d\n", c, mLastLqi, mLastRSSI);
+            }
+        }
+        epdWaitRdy();
+        for (uint8_t c = 0; c < 16; c++) {
+            addScanResult(11 + c, result[c]);
+        }
+        drawNoWait();
+    }
+    uint8_t __xdata highestLqi = 0;
+    uint8_t __xdata highestSlot = 0;
+    for (uint8_t c = 0; c < sizeof(result); c++) {
+        if (result[c] > highestLqi) {
+            highestSlot = c + 11;
+            highestLqi = result[c];
+        }
+    }
+    epdWaitRdy();
+    return highestSlot;
+}
 
 void mainProtocolLoop(void) {
     clockingAndIntsInit();
@@ -28,13 +57,6 @@ void mainProtocolLoop(void) {
         while (1)
             ;
     } else {
-        /*
-        for (uint8_t c = 0; c < 8; c++) {
-            mSelfMac[c] = c + 5;
-        }
-        */
-        // really... if I do the call below, it'll cost me 8 bytes IRAM. Not the kind of 'optimization' I ever dreamed of doing
-        // pr("MAC>%02X%02X%02X%02X%02X%02X%02X%02X\n", mSelfMac[0], mSelfMac[1], mSelfMac[2], mSelfMac[3], mSelfMac[4], mSelfMac[5], mSelfMac[6], mSelfMac[7]);
         pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
         pr("%02X%02X", mSelfMac[2], mSelfMac[3]);
         pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
@@ -53,24 +75,26 @@ void mainProtocolLoop(void) {
     } else {
         initializeProto();
     }
-
+    eepromDeepPowerDown();
     // initialize Powers-saving-attempt-array with the default value;
     initPowerSaving();
 
     // show the splashscreen
     showSplashScreen();
 
-    epdEnterSleep();
     eepromDeepPowerDown();
     initRadio();
 
-    for (uint8_t c = 25; c > 10; c--) {
-        if (probeChannel(c)) {
-            pr("Channel: %d - LQI: %d RSSI %d\n", c, mLastLqi, mLastRSSI);
-        } else {
-            pr("Channel %d - nothing.\n", c);
-        }
+    currentChannel = showChannelSelect();
+    if (currentChannel == 0) {
+        // couldn't find an AP :()
+        showNoAP();
+    } else {
+        // Found an AP.
+        showAPFound();
     }
+
+    epdEnterSleep();
 
     P1CHSTA &= ~(1 << 0);
 

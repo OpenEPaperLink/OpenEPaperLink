@@ -39,6 +39,7 @@ void clearWindow(bool color);
 void clearScreen();
 void draw();
 void drawNoWait();
+void epdWaitRdy();
 void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y);
 void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2);
 
@@ -46,6 +47,7 @@ void beginFullscreenImage();
 void beginWriteFramebuffer(bool color);
 void endWriteFramebuffer();
 void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color);
+void printBarcode(const uint8_t* string, uint16_t x, uint16_t y);
 
 void selectLUT(uint8_t lut);
 
