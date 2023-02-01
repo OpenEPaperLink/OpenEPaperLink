@@ -131,19 +131,6 @@ function updatecards() {
 	})
 }
 
-$('#send_fw').onclick = function () {
-	let formData = new FormData();
-	formData.append("dst", $("#dstmac").value);
-	formData.append("filename", $("#fwfile").value);
-	fetch("/send_fw", {
-		method: "POST",
-		body: formData
-	})
-		.then(response => response.text())
-		.then(data => showMessage(data))
-		.catch(error => showMessage('Error: ' + error));
-}
-
 $('#clearlog').onclick = function () {
 	$('#messages').innerHTML='';
 }
