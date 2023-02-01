@@ -18,6 +18,8 @@
 #include "userinterface.h"
 #include "wdt.h"
 
+//#define DEBUG_MODE
+
 uint8_t showChannelSelect() {
     uint8_t __xdata result[16];
     memset(result, 0, sizeof(result));
@@ -79,7 +81,7 @@ void mainProtocolLoop(void) {
     eepromDeepPowerDown();
     // initialize Powers-saving-attempt-array with the default value;
     initPowerSaving();
-
+#ifndef DEBUG_MODE
     // show the splashscreen
     showSplashScreen();
 
@@ -91,10 +93,15 @@ void mainProtocolLoop(void) {
         // couldn't find an AP :()
         showNoAP();
     } else {
+        radioSetChannel(currentChannel);
         // Found an AP.
         showAPFound();
     }
-
+#endif
+#ifdef DEBUG_MODE
+    initRadio();
+    currentChannel = 11;
+#endif
     epdEnterSleep();
 
     P1CHSTA &= ~(1 << 0);
