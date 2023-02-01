@@ -19,6 +19,9 @@
 #pragma callee_saves pr
 void pr(const char __code *fmt, ...) __reentrant;
 
+#pragma callee_saves epdpr
+void epdpr(const char __code *fmt, ...) __reentrant;
+
 #pragma callee_saves spr
 void spr(char __xdata* out, const char __code *fmt, ...) __reentrant;
 

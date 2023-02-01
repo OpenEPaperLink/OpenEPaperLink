@@ -7,9 +7,10 @@
 #include "spi.h"
 #include "cpu.h"
 #include "wdt.h"
-#include "adc.h"
 #include "i2c.h"
 
+//extern uint8_t __xdata* tempBuffer;
+uint8_t __xdata tempBuffer[320];
 
 void powerPortsDownForSleep(void)
 {
@@ -148,12 +149,12 @@ void selfUpdate(void)
 	uint32_t updaterInfo = prvUpdateApplierGet();
 	uint8_t __code *src = (uint8_t __code*)updaterInfo;
 	uint8_t i, len = updaterInfo >> 16;
-	uint8_t __xdata *dst = mScreenRow;
+	uint8_t __xdata *dst = tempBuffer;
 	
 	for (i = len; i ; i--)
 		*dst++ = *src++;
 
-	if (!flashWrite(0xfc00, mScreenRow, len, true))
+	if (!flashWrite(0xfc00, tempBuffer, len, true))
 		pr("failed to write updater\n");
 
 	IEN_EA = 0;	//ints off

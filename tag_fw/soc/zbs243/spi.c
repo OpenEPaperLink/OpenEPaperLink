@@ -30,3 +30,13 @@ uint8_t spiByte(uint8_t val)
 	
 	return val;
 }
+
+void spiTXByte(uint8_t val)
+{
+	uint8_t bcp = CFGPAGE;
+	CFGPAGE = 4;
+	SPITX = val;
+	SPICFG = 0xa0;	//spi at 4mhz, mode 0
+	while(SPICFG & 0x20);	
+	CFGPAGE = bcp;
+}

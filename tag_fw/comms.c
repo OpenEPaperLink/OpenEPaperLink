@@ -21,34 +21,8 @@
 
 static uint8_t __xdata mCommsBuf[127];
 static uint8_t __xdata mSeq = 0;
-static uint8_t __xdata mLastLqi = 0;
-static int8_t __xdata mLastRSSI = 0;
-
-
-struct MacFrameFromMaster {
-	struct MacFcs fcs;
-	uint8_t seq;
-	uint16_t pan;
-	uint8_t dst[8];
-	uint16_t from;
-};
-
-struct MacFrameNormal {
-	struct MacFcs fcs;
-	uint8_t seq;
-	uint16_t pan;
-	uint8_t dst[8];
-	uint8_t src[8];
-};
-
-struct MacFrameBcast {
-	struct MacFcs fcs;
-	uint8_t seq;
-	uint16_t dstPan;
-	uint16_t dstAddr;
-	uint16_t srcPan;
-	uint8_t src[8];
-};
+uint8_t __xdata mLastLqi = 0;
+int8_t __xdata mLastRSSI = 0;
 
 uint8_t commsGetLastPacketLQI(void)
 {
