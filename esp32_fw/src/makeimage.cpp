@@ -8,28 +8,6 @@
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
 
-void tftinit() {
-    //tijdelijk: voorbeeld voor aanmaak van plaatje
-
-    LittleFS.begin();
-    long w = 296, h = 128;  // mag staand of liggend
-    spr.createSprite(w, h);
-    spr.setColorDepth(8);
-    spr.fillSprite(TFT_WHITE);
-    spr.setTextDatum(TC_DATUM);
-    spr.loadFont("calibrib62", LittleFS);
-    spr.setTextColor(TFT_RED, TFT_WHITE);
-    spr.drawString("zondag", w / 2, 10);
-    spr.loadFont("calibrib50", LittleFS);
-    spr.setTextColor(TFT_BLACK, TFT_WHITE);
-    spr.drawString("29 januari", w / 2, 73);
-    spr.unloadFont();
-
-    spr2grays(spr, w, h, "/testspr3.bmp");
-
-    spr.deleteSprite();
-}
-
 bool spr_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) {
     spr.pushImage(x, y, w, h, bitmap);
     return 1;
@@ -40,6 +18,7 @@ void jpg2grays(String filein, String fileout) {
     TJpgDec.setCallback(spr_output);
     uint16_t w = 0, h = 0;
     TJpgDec.getFsJpgSize(&w, &h, filein);
+    Serial.println("jpeg conversion " + String(w) + "x" + String(h));
 
     spr.createSprite(w, h);
     spr.setColorDepth(8);

@@ -82,7 +82,7 @@ input {
 
 input[type=button] {
 	border: 0px;
-	padding: 4px;
+	padding: 4px 10px;
 	cursor:pointer;
 }
 input[type=button]:hover {
@@ -111,6 +111,15 @@ select {
 #configbox h3 {
 	font-size: 1.5em;
 	font-weight: bold;
+}
+
+#configbox input {
+	border: solid 1px #666666;
+	padding: 4px;
+}
+
+#configbox label {
+	text-transform: capitalize;
 }
 
 #cfgdelete {
@@ -165,6 +174,10 @@ select {
 	margin: 5px;
 	padding: 5px;
 	background-color: #dddddd;
+}
+
+.tagcard .pending {
+	padding-bottom:15px;
 }
 
 .currimg {

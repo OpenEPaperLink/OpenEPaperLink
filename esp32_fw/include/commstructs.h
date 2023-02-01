@@ -57,3 +57,5 @@ struct pendingData {
 
 #define BLOCK_DATA_SIZE 4096
 #define BLOCK_XFER_BUFFER_SIZE BLOCK_DATA_SIZE + sizeof(struct blockData)
+
+#pragma pack(pop)

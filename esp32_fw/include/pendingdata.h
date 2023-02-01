@@ -21,3 +21,5 @@ class pendingdata {
 
 void garbageCollection(void* parameter);
 extern std::vector<pendingdata*> pendingfiles;
+
+#pragma pack(pop)

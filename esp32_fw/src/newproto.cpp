@@ -1,4 +1,3 @@
-#pragma pack(push, 1)
 #include "newproto.h"
 
 #include <Arduino.h>
@@ -51,6 +50,12 @@ void prepareCancelPending(uint64_t ver) {
 }
 
 bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
+
+    if (nextCheckin > 1440) {
+        //to prevent very long sleeps of the tag
+        nextCheckin = 0;
+    }
+
     *filename = "/" + *filename;
     if (!LittleFS.exists(*filename)) return false;
     fs::File file = LittleFS.open(*filename);
@@ -101,6 +106,20 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         md5.getBytes(md5bytes);
     }
 
+    uint8_t src[8];
+    *((uint64_t*)src) = swap64(*((uint64_t*)dst));
+    uint8_t mac[6];
+    memcpy(mac, src + 2, sizeof(mac));
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo != nullptr) {
+        if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
+            wsString("new image is the same as current image. not updating tag.");
+            wsSendTaginfo(mac);
+            return false;
+        }
+    }
+
     // the message that will be sent to the AP to tell the tag there is data pending
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
@@ -124,21 +143,23 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pendinginfo->timeout = 1800;
     pendingfiles.push_back(pendinginfo);
 
-    char dst_path[64];
-    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-    file = LittleFS.open(dst_path, "w");
-    int bytes_written = file.write(pendinginfo->data, pendinginfo->len);
-    file.close();
+    if (dataType != DATATYPE_UPDATE) {
+        char dst_path[64];
+        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+        file = LittleFS.open(dst_path, "w");
+        int bytes_written = file.write(pendinginfo->data, pendinginfo->len);
+        file.close();
 
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)dst));
-    uint8_t mac[6];
-    memcpy(mac, src + 2, sizeof(mac));
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(mac);
-    if (taginfo != nullptr) {
-        taginfo->pending = true;
+        wsString("new image pending: " + String(dst_path));
+        if (taginfo != nullptr) {
+            taginfo->pending = true;
+            taginfo->CheckinInMinPending = nextCheckin + 1;
+            memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
+        }
+    } else {
+        Serial.println("firmware upload pending");
     }
+
     wsSendTaginfo(mac);
 
     return true;
@@ -196,23 +217,30 @@ void processXferComplete(struct espXferComplete* xfc) {
     uint8_t mac[6];
     memcpy(mac, src + 2, sizeof(mac));
 
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(mac);
-    if (taginfo != nullptr) {
-        taginfo->pending = false;
-    }
-    wsSendTaginfo(mac);
-
     char src_path[64];
     char dst_path[64];
     char tmp_path[64];
     sprintf(src_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", src[2], src[3], src[4], src[5], src[6], src[7]);
     sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.bmp\0", src[2], src[3], src[4], src[5], src[6], src[7]);
     sprintf(tmp_path, "/temp/%02X%02X%02X%02X%02X%02X.bmp\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+    if (LittleFS.exists(dst_path)) {
+        LittleFS.remove(dst_path);
+    }
     LittleFS.rename(src_path, dst_path);
     if (LittleFS.exists(tmp_path)) {
         LittleFS.remove(tmp_path);
     }
+
+    time_t now;
+    time(&now);
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo != nullptr) {
+        taginfo->pending = false;
+        taginfo->expectedNextCheckin = now + 60 * taginfo->CheckinInMinPending + 30;
+        memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
+    }
+    wsSendTaginfo(mac);
 }
 
 void processDataReq(struct espAvailDataReq* eadr) {
@@ -225,19 +253,20 @@ void processDataReq(struct espAvailDataReq* eadr) {
     memcpy(mac, src + 2, sizeof(mac));
 
     taginfo = tagRecord::findByMAC(mac);
-    time_t now;
-    time(&now);
     if (taginfo == nullptr) {
         taginfo = new tagRecord;
         memcpy(taginfo->mac, src + 2, sizeof(taginfo->mac));
         taginfo->pending = false;
         tagDB.push_back(taginfo);
     }
+    time_t now;
+    time(&now);
     taginfo->lastseen = now;
+    taginfo->expectedNextCheckin = now + 300;
     taginfo->button = (eadr->adr.buttonState == 1);
 
     sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Serial.print(buffer);
-    wsString((String)buffer);
+    //wsString((String)buffer);
     wsSendTaginfo(mac);
 }

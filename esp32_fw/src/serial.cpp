@@ -1,4 +1,3 @@
-#pragma pack(push, 1)
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include <LittleFS.h>

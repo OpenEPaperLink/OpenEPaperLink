@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
@@ -54,62 +55,15 @@ void webSocketSendProcess(void *parameter) {
             //  sendStatus(STATUS_WIFI_ACTIVITY);
             DynamicJsonDocument doc(1500);
             if (ulNotificationValue & 2) {  // WS_SEND_MODE_STATUS) {
-                /*  doc["rxActive"] = status.rxActive;
-                  doc["txActive"] = status.txActive;
-                  doc["freq"] = status.freq;
-                  doc["txMode"] = status.currentmode;
-                  */
             }
             /*
                 JsonArray statusframes = doc.createNestedArray("frames");
-                for (uint8_t c = 0; c < STATUSFRAMELISTSIZE; c++) {
-                    if (statusframearr[c]) {
-                        JsonObject statusframe = statusframes.createNestedObject();
-                        statusframe["frame"] = statusframearr[c]->frameno;
-                        statusframe["isTX"] = statusframearr[c]->isTX;
-                        statusframe["freq"] = statusframearr[c]->freq;
-                        statusframe["txSkipped"] = statusframearr[c]->txCancelled;
-                        switch (statusframearr[c]->rxtype) {
-                            case flexsynctype::SYNC_FLEX_1600:
-                                statusframe["rxType"] = "FLEX_1600";
-                                break;
-                            case flexsynctype::SYNC_FLEX_3200_2:
-                                statusframe["rxType"] = "FLEX_3200_2";
-                                break;
-                            case flexsynctype::SYNC_FLEX_3200_4:
-                                statusframe["rxType"] = "FLEX_3200_4";
-                                break;
-                            case flexsynctype::SYNC_FLEX_6400:
-                                statusframe["rxType"] = "FLEX_3200_4";
-                                break;
-                            default:
-                                break;
-                        }
-                        switch (statusframearr[c]->txformat) {
-                            case txframe::FORMAT_FLEX:
-                                statusframe["txType"] = "FLEX";
-                                break;
-                            case txframe::FORMAT_POCSAG:
-                                statusframe["txType"] = "POCSAG";
-                                break;
-                            case txframe::FORMAT_IDLE:
-                                statusframe["txType"] = "IDLE";
-                                break;
-                            case txframe::FORMAT_BLOCKED:
-                                statusframe["txType"] = "BLOCKED";
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                }
             }*/
             size_t len = measureJson(doc);
             xSemaphoreTake(wsMutex, portMAX_DELAY);
             auto buffer = std::make_shared<std::vector<uint8_t>>(len);
             serializeJson(doc, buffer->data(), len);
             // ws.textAll((char*)buffer->data());
-            //ws.textAll("ohai");
             xSemaphoreGive(wsMutex);
         }
     }
@@ -214,28 +168,14 @@ void wsSendSysteminfo() {
 }
 
 void wsSendTaginfo(uint8_t mac[6]) {
-    DynamicJsonDocument doc(1000);
-    JsonArray tags = doc.createNestedArray("tags");
-    JsonObject tag = tags.createNestedObject();
-    char buffer[64];
-    sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    tag["mac"] = (String)buffer;
 
-    tagRecord *taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(mac);
-    if (taginfo != nullptr) {
-        tag["lastseen"] = taginfo->lastseen;
-        tag["nextupdate"] = taginfo->nextupdate;
-        tag["model"] = taginfo->model;
-        tag["pending"] = taginfo->pending;
-        tag["button"] = taginfo->button;
-        tag["alias"] = taginfo->alias;
-        tag["contentmode"] = taginfo->contentMode;
-    }
+    String json = "";
+    json = tagDBtoJson(mac);
 
     xSemaphoreTake(wsMutex, portMAX_DELAY);
-    ws.textAll(doc.as<String>());
+    ws.textAll(json);
     xSemaphoreGive(wsMutex);
+
 }
 
 void init_web() {
@@ -282,70 +222,6 @@ void init_web() {
         },
         doImageUpload);
 
-    server.on("/send_image", HTTP_POST, [](AsyncWebServerRequest *request) {
-        String filename;
-        String dst;
-        uint16_t nextCheckin;
-        if (request->hasParam("filename", true) && request->hasParam("dst", true)) {
-            filename = request->getParam("filename", true)->value();
-            dst = request->getParam("dst", true)->value();
-            nextCheckin = request->getParam("ttl",true)->value().toInt();
-            uint8_t mac_addr[12];  // I expected this to return like 8 values, but if I make the array 8 bytes long, things die.
-            mac_addr[0] = 0x00;
-            mac_addr[1] = 0x00;
-            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X",
-                       &mac_addr[2],
-                       &mac_addr[3],
-                       &mac_addr[4],
-                       &mac_addr[5],
-                       &mac_addr[6],
-                       &mac_addr[7]) != 6) {
-                request->send(200, "text/plain", "Something went wrong trying to parse the mac address");
-            } else {
-                *((uint64_t *)mac_addr) = swap64(*((uint64_t *)mac_addr));
-                if (prepareDataAvail(&filename, DATATYPE_IMGRAW, mac_addr, nextCheckin)) {
-                    request->send(200, "text/plain", "Sending to " + dst);
-                } else {
-                    request->send(200, "text/plain", "Couldn't find filename :(");
-                }
-            }
-            return;
-        }
-        request->send(200, "text/plain", "Didn't get the required filename + dst");
-        return;
-    });
-
-    server.on("/send_fw", HTTP_POST, [](AsyncWebServerRequest *request) {
-        String filename;
-        String dst;
-        if (request->hasParam("filename", true) && request->hasParam("dst", true)) {
-            filename = request->getParam("filename", true)->value();
-            dst = request->getParam("dst", true)->value();
-            uint8_t mac_addr[12];  // I expected this to return like 8 values, but if I make the array 8 bytes long, things die.
-            mac_addr[0] = 0x00;
-            mac_addr[1] = 0x00;
-            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X",
-                       &mac_addr[2],
-                       &mac_addr[3],
-                       &mac_addr[4],
-                       &mac_addr[5],
-                       &mac_addr[6],
-                       &mac_addr[7]) != 6) {
-                request->send(200, "text/plain", "Something went wrong trying to parse the mac address");
-            } else {
-                *((uint64_t *)mac_addr) = swap64(*((uint64_t *)mac_addr));
-                if (prepareDataAvail(&filename, DATATYPE_UPDATE, mac_addr, 0)) {
-                    request->send(200, "text/plain", "Sending FW to " + dst);
-                } else {
-                    request->send(200, "text/plain", "Couldn't find filename :(");
-                }
-            }
-            return;
-        }
-        request->send(200, "text/plain", "Didn't get the required filename + dst");
-        return;
-    });
-
     server.on("/req_checkin", HTTP_POST, [](AsyncWebServerRequest *request) {
         String filename;
         String dst;
@@ -383,8 +259,12 @@ void init_web() {
                 json = tagDBtoJson(mac);
             }
         } else {
-			json = tagDBtoJson();
-		}
+            uint8_t startPos=0;
+            if (request->hasParam("pos")) {
+                startPos = atoi(request->getParam("pos")->value().c_str());
+            }
+            json = tagDBtoJson(nullptr,startPos);
+        }
         request->send(200, "application/json", json);
     });
 
@@ -397,9 +277,12 @@ void init_web() {
                 taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
                     taginfo->alias = request->getParam("alias", true)->value();
+                    taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
                     taginfo->contentMode = (contentModes)atoi(request->getParam("contentmode", true)->value().c_str());
                     taginfo->model = atoi(request->getParam("model", true)->value().c_str());
+                    taginfo->nextupdate = 0;
                     wsSendTaginfo(mac);
+                    saveDB("/tagDB.json");
                     request->send(200, "text/plain", "Ok, saved");
                 } else {
                     request->send(200, "text/plain", "Error while saving: mac not found");
@@ -413,55 +296,6 @@ void init_web() {
         if (request->url() == "/" || request->url() == "index.htm") {
             request->send(200, "text/html", "-");
             return;
-        }
-        Serial.printf("NOT_FOUND: ");
-
-        switch (request->method()) {
-            case HTTP_GET:
-                Serial.printf("GET");
-                break;
-            case HTTP_POST:
-                Serial.printf("POST");
-                break;
-            case HTTP_DELETE:
-                Serial.printf("DELETE");
-                break;
-            case HTTP_PUT:
-                Serial.printf("PUT");
-                break;
-            case HTTP_PATCH:
-                Serial.printf("PATCH");
-                break;
-            case HTTP_HEAD:
-                Serial.printf("HEAD");
-                break;
-            case HTTP_OPTIONS:
-                Serial.printf("OPTIONS");
-                break;
-
-            default:
-                Serial.printf("UNKNOWN");
-                break;
-        }
-        Serial.printf(" http://%s%s\n", request->host().c_str(), request->url().c_str());
-
-        if (request->contentLength()) {
-            Serial.printf("_CONTENT_TYPE: %s\n", request->contentType().c_str());
-            Serial.printf("_CONTENT_LENGTH: %u\n", request->contentLength());
-        }
-        for (int i = 0; i < request->headers(); i++) {
-            AsyncWebHeader *h = request->getHeader(i);
-            Serial.printf("_HEADER[%s]: %s\n", h->name().c_str(), h->value().c_str());
-        }
-        for (int i = 0; i < request->params(); i++) {
-            AsyncWebParameter *p = request->getParam(i);
-            if (p->isFile()) {
-                Serial.printf("_FILE[%s]: %s, size: %u\n", p->name().c_str(), p->value().c_str(), p->size());
-            } else if (p->isPost()) {
-                Serial.printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
-            } else {
-                Serial.printf("_GET[%s]: %s\n", p->name().c_str(), p->value().c_str());
-            }
         }
         request->send(404);
     });

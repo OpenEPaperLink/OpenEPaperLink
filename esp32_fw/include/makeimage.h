@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 
+#pragma once
+
 struct BitmapFileHeader {
 	uint8_t sig[2];
 	uint32_t fileSz;
@@ -27,7 +29,6 @@ enum EinkClut {
 	EinkClutThreeBlacksAndRed,
 };
 
-void tftinit();
 void spr2grays(TFT_eSprite &spr, long w, long h, String fileout);
 void jpg2grays(String filein, String fileout);
 void bmp2grays(String filein, String fileout);

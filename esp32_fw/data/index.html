@@ -18,12 +18,12 @@
 		<div class="closebtn">&#10006;</div>
 		<h3 id="cfgmac">00000000</h3>
 		<p>
-			<label for="alias">Alias</label>
-			<input name="alias" id="cfgalias" type="text">
+			<label for="cfgalias">Alias</label>
+			<input id="cfgalias" type="text">
 		</p>
 		<p>
-			<label for="model">Model</label>
-			<select name="model" id="cfgmodel">
+			<label for="cfgmodel">Model</label>
+			<select id="cfgmodel">
 				<option value="0">unknown</option>
 				<option value="1">1.54" 152x152px</option>
 				<option value="2">2.9" 296x128px</option>
@@ -31,17 +31,19 @@
 			</select>
 		</p>
 		<p>
-			<label for="content">Content</label>
-			<select name="content" id="cfgcontent">
+			<label for="cfgcontent">Content</label>
+			<select id="cfgcontent" onchange="contentselected()">
 				<option value="0">static image</option>
 				<option value="1">current date</option>
 				<option value="2">count days</option>
 				<option value="3">count hours</option>
-				<option value="4">current weather</option>
-				<option value="5">public transport</option>
-				<option value="6">memo text</option>
+				<option value="4" disabled>current weather</option>
+				<option value="6" disabled>memo text</option>
+				<option value="7">image url</option>
+				<option value="5">firmware update</option>
 			</select>
 		</p>
+		<div id="customoptions"></div>
 		<p>
 			<input type="button" value="Save" id="cfgsave">
 			<span id="cfgdelete"><img src="data:image/gif;base64,R0lGODlhEAAQAPMAANXV1e3t7d/f39HR0dvb2/Hx8dTU1OLi4urq6mZmZpmZmf///wAAAAAAAAAAAAAAACH5BAEAAAwALAAAAAAQABAAAARBkMlJq71Yrp3ZXkr4WWCYnOZSgQVyEMYwJCq1nHhe20qgCAoA7QLyAYU7njE4JPV+zOSkCEUSFbmTVPPpbjvgTAQAOw==
@@ -55,39 +57,9 @@
 		<div class="window">
 
 			<div class="actionbox">
-					<div>
-						<label for="dst">Destination MAC</label>
-						<input name="dst" class="dst" id="dstmac" size=12 maxlength=12 type="text" placeholder="001122334455">
-					</div>
-					<div class="columns">
-						<div>
-							<p>
-								<label for="filename">Filename</label>
-								<input name="filename" id="imgfile" type="text" placeholder="default.bmp">
-							</p>
-							<p>
-								<label for="ttl">Next check-in</label>
-								<input name="ttl" id="ttl" type="text" placeholder="1"> min
-							</p>
-							<p>
-								<input type="button" value="Send Image" id="send_image">
-							</p>
-						</div>
-						<div>
-							<p>
-								<label for="filename">Filename</label>
-								<input name="filename" id="fwfile" type="text" placeholder="update.bin">
-							</p>
-							<p>
-								<input type="button" value="Send FW Update" id="send_fw">
-							</p>
-						</div>
-						<div>
-							<p>
-								<input type="button" value="Request Check-in" id="req_checkin">
-							</p>
-						</div>
-					</div>
+				<div>
+					Currently active tags:<br>
+				</div>
 			</div>
 
 			<div id="taglist" class="taglist">
@@ -96,9 +68,10 @@
 					<div class="mac"></div>
 					<div class="alias"></div>
 					<div class="model"></div>
-					<div class="pending"></div>
 					<div class="contentmode"></div>
-					last: <span class="lastseen"></span><span class="idletime"></span>
+					<div class="pending"></div>
+					<div class="lastseen"></div>
+					<div class="nextcheckin"></div>
 					<div class="nextupdate"></div>
 					<div class="corner">
 						<div class="warningicon">&#9888;</div>
