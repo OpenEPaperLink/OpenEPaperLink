@@ -29,6 +29,10 @@ enum TagScreenType {
 	TagScreenTypeOther = 0x7f,
 };
 
+#define SOLUM_154_033   0
+#define SOLUM_29_033    1
+#define SOLUM_42_033    2
+
 #ifndef __packed
 #define __packed		__attribute__((packed))
 #endif

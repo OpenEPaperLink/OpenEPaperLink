@@ -2,7 +2,7 @@
 #define _BOARD_H_
 
 #include <stdint.h>
-
+#include "proto.h"
 #include "spi.h"
 
 #define eepromByte				spiByte
@@ -20,7 +20,7 @@
 #define EEPROM_PROGRESS_BYTES			(128)
 
 //hw types
-#define HW_TYPE_NORMAL					HW_TYPE_29_INCH_ZBS_026
+#define HW_TYPE					        SOLUM_29_033
 
 #include "../boardCommon.h"
 

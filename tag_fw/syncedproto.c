@@ -158,6 +158,7 @@ void sendAvailDataReq() {
     txframe->srcPan = PROTO_PAN_ID;
     // TODO: send some meaningful data
     availreq->softVer = 1;
+    availreq->hwType = HW_TYPE;
     if (P1CHSTA && (1 << 0)) {
         availreq->buttonState = 1;
         pr("button pressed\n");
