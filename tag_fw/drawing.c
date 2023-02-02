@@ -335,7 +335,6 @@ void ByteDecode(uint8_t byte) {
 
 void drawImageAtAddress(uint32_t addr) {
     uint32_t __xdata clutAddr;
-    uint8_t __xdata iter;
     pr("sending to EPD - ");
     clutAddr = drawPrvParseHeader(addr);
     if (!clutAddr)

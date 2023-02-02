@@ -50,18 +50,19 @@ struct MacFrameBcast {
 #define PKT_XFER_COMPLETE 0xEA
 #define PKT_XFER_COMPLETE_ACK 0xEB
 #define PKT_CANCEL_XFER 0xEC
+#define PKT_PING 0xED
+#define PKT_PONG 0xEE
 
 struct AvailDataReq {
     uint8_t checksum;
-    uint8_t lastPacketLQI;  // zero if not reported/not supported to be reported
-    int8_t lastPacketRSSI;  // zero if not reported/not supported to be reported
-    uint8_t temperature;    // zero if not reported/not supported to be reported. else, this minus CHECKIN_TEMP_OFFSET is temp in degrees C
-    uint16_t batteryMv;
-    uint8_t softVer;
-    uint8_t hwType;
-    uint8_t protoVer;
-    uint8_t buttonState;
-} __packed;
+    uint8_t lastPacketLQI : 7;
+    uint8_t lastPacketRSSI : 7;  // is negative
+    int8_t temperature : 7;      // zero if not reported/not supported to be reported. else, this minus CHECKIN_TEMP_OFFSET is temp in degrees C
+    uint16_t batteryMv : 12;
+    uint8_t hwType : 5;          // 32 types of tags supported
+    uint8_t wakeupReason : 2;    // supports 4 types of wakeup reasons
+    uint8_t capabilities;
+} __packed; // 7 bytes
 
 #define DATATYPE_NOUPDATE 0
 #define DATATYPE_IMG 1
@@ -70,11 +71,13 @@ struct AvailDataReq {
 
 struct AvailDataInfo {
     uint8_t checksum;
-    uint64_t dataVer;
-    uint32_t dataSize;
-    uint8_t dataType;
-    uint16_t nextCheckIn;
+    uint64_t dataVer;              // MD5 of potential traffic
+    uint32_t dataSize;              
+    uint8_t dataType : 4;          // allows for 16 different datatypes
+    uint8_t dataTypeArgument : 4;  // extra specification or instruction for the tag (LUT to be used for drawing image)
+    uint16_t nextCheckIn;          // when should the tag check-in again? Measured in minutes
 } __packed;
+
 
 struct blockPart {
     uint8_t checksum;
@@ -625,6 +628,25 @@ void sendCancelXfer(uint8_t *dst) {
     frameHeader->pan = dstPan;
     radioTx(radiotxbuffer);
 }
+void sendPong(void *__xdata buf) {
+    struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
+    struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
+    memset(radiotxbuffer, 0, sizeof(struct MacFrameNormal) + 2);
+
+    radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_PONG;
+    radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + RAW_PKT_PADDING;
+    memcpy(frameHeader->src, mSelfMac, 8);
+    memcpy(frameHeader->dst, rxframe->src, 8);
+
+    frameHeader->fcs.frameType = 1;
+    frameHeader->fcs.panIdCompressed = 1;
+    frameHeader->fcs.destAddrType = 3;
+    frameHeader->fcs.srcAddrType = 3;
+    frameHeader->seq = seq++;
+    frameHeader->pan = rxframe->srcPan;
+
+    radioTx(radiotxbuffer);
+}
 
 // main loop
 void main(void) {
@@ -689,7 +711,9 @@ void main(void) {
                     case PKT_XFER_COMPLETE:
                         processXferComplete(radiorxbuffer);
                         break;
-                        //
+                    case PKT_PING:
+                        sendPong(radiorxbuffer);
+                        break;
                     default:
                         pr("t=%02X\n", getPacketType(radiorxbuffer));
                         break;

@@ -269,7 +269,7 @@ void processDataReq(struct espAvailDataReq* eadr) {
     time(&now);
     taginfo->lastseen = now;
     taginfo->expectedNextCheckin = now + 300;
-    taginfo->button = (eadr->adr.buttonState == 1);
+    taginfo->button = (eadr->adr.wakeupReason==WAKEUP_REASON_GPIO);
 
     sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Serial.print(buffer);

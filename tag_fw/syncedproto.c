@@ -28,7 +28,7 @@ bool __xdata dataPending = true;
 uint8_t __xdata blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
 struct blockRequest __xdata curBlock = {0};
 struct AvailDataInfo __xdata curDataInfo = {0};
-uint16_t __xdata dataRemaining = 0;
+uint16_t __xdata dataRemaining = 0;  // since the targeted solum tags don't have more than 64k progmem, this is fine.
 bool __xdata curXferComplete = false;
 bool __xdata requestPartialBlock = false;
 
@@ -69,6 +69,17 @@ uint8_t __xdata getPacketType(void *__xdata buffer) {
         return type;
     }
     return 0;
+}
+bool pktIsUnicast(void *__xdata buffer) {
+    struct MacFcs *__xdata fcs = buffer;
+    if ((fcs->frameType == 1) && (fcs->destAddrType == 2) && (fcs->srcAddrType == 3) && (fcs->panIdCompressed == 0)) {
+        return false;
+    } else if ((fcs->frameType == 1) && (fcs->destAddrType == 3) && (fcs->srcAddrType == 3) && (fcs->panIdCompressed == 1)) {
+        // normal frame
+        return true;
+    }
+    // unknown type...
+    return false;
 }
 void dump(uint8_t *__xdata a, uint16_t __xdata l) {
     pr("\n        ");
@@ -130,14 +141,46 @@ void killRadio() {
     RADIO_command = 0xC5;
     CFGPAGE = cfgPg;
 }
-bool probeChannel(uint8_t channel) {
+void sendPing() {
+    struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer + 1);
+    memset(outBuffer, 0, sizeof(struct MacFrameBcast) + 2 + 4);
+    outBuffer[0] = sizeof(struct MacFrameBcast) + 1 + 2;
+    outBuffer[sizeof(struct MacFrameBcast) + 1] = PKT_PING;
+    memcpy(txframe->src, mSelfMac, 8);
+    txframe->fcs.frameType = 1;
+    txframe->fcs.ackReqd = 1;
+    txframe->fcs.destAddrType = 2;
+    txframe->fcs.srcAddrType = 3;
+    txframe->seq = seq++;
+    txframe->dstPan = 0xFFFF;
+    txframe->dstAddr = 0xFFFF;
+    txframe->srcPan = PROTO_PAN_ID;
+    commsTxNoCpy(outBuffer);
+}
+uint8_t detectAP(uint8_t channel) {
+    uint32_t __xdata t;
     radioRxEnable(false, true);
     radioRxFlush();
     radioSetChannel(channel);
     radioRxEnable(true, true);
-    getAvailDataInfo();
-    return(dataReqLastAttempt != DATA_REQ_MAX_ATTEMPTS);
-
+    for (uint8_t c = 1; c <= MAXIMUM_PING_ATTEMPTS; c++) {
+        sendPing();
+        t = timerGet() + (TIMER_TICKS_PER_MS * PING_REPLY_WINDOW);
+        while (timerGet() < t) {
+            int8_t __xdata ret = commsRxUnencrypted(inBuffer);
+            if (ret > 1) {
+                if (getPacketType(inBuffer) == PKT_PONG) {
+                    if (pktIsUnicast(inBuffer)) {
+                        struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)inBuffer;
+                        memcpy(APmac, f->src, 8);
+                        APsrcPan = f->pan;
+                        return c;
+                    }
+                }
+            }
+        }
+    }
+    return 0;
 }
 
 // data xfer stuff
@@ -156,13 +199,10 @@ void sendAvailDataReq() {
     txframe->dstPan = 0xFFFF;
     txframe->dstAddr = 0xFFFF;
     txframe->srcPan = PROTO_PAN_ID;
-    // TODO: send some meaningful data
-    availreq->softVer = 1;
-    if (P1CHSTA && (1 << 0)) {
-        availreq->buttonState = 1;
-        pr("button pressed\n");
-        P1CHSTA &= ~(1 << 0);
-    }
+    // TODO: send some (more) meaningful data
+    availreq->hwType = HW_TYPE;
+    availreq->wakeupReason = wakeUpReason;
+
     addCRC(availreq, sizeof(struct AvailDataReq));
     commsTxNoCpy(outBuffer);
 }
@@ -179,8 +219,6 @@ struct AvailDataInfo *__xdata getAvailDataInfo() {
                         struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)inBuffer;
                         memcpy(APmac, f->src, 8);
                         APsrcPan = f->pan;
-                        // pr("RSSI: %d\n", commsGetLastPacketRSSI());
-                        // pr("LQI: %d\n", commsGetLastPacketLQI());
                         dataReqLastAttempt = c;
                         return (struct AvailDataInfo *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
                     }

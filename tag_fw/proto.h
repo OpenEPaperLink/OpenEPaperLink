@@ -4,65 +4,66 @@
 #include <stdint.h>
 
 enum TagScreenType {
-	TagScreenEink_BW_1bpp,
-	TagScreenEink_BW_2bpp,
-	TagScreenEink_BW_4bpp,
-	TagScreenEink_BWY_only,		//2bpp, but only 3 colors (BW?Y)
-	TagScreenEink_BWY_2bpp,
-	TagScreenEink_BWY_4bpp,
-	TagScreenEink_BWR_only,		//2bpp, but only 3 colors (BW?R)
-	TagScreenEink_BWR_2bpp,
-	TagScreenEink_BWR_4bpp,
-	
-	TagScreenEink_BWY_3bpp,
-	TagScreenEink_BWR_3bpp,
-	TagScreenEink_BW_3bpp,
-	
-	TagScreenPersistentLcd_1bpp,
-	
-	TagScreenEink_BWY_5colors,
-	TagScreenEink_BWR_5colors,
-	
-	TagScreenEink_BWY_6colors,
-	TagScreenEink_BWR_6colors,
-	
-	TagScreenTypeOther = 0x7f,
+    TagScreenEink_BW_1bpp,
+    TagScreenEink_BW_2bpp,
+    TagScreenEink_BW_4bpp,
+    TagScreenEink_BWY_only,  // 2bpp, but only 3 colors (BW?Y)
+    TagScreenEink_BWY_2bpp,
+    TagScreenEink_BWY_4bpp,
+    TagScreenEink_BWR_only,  // 2bpp, but only 3 colors (BW?R)
+    TagScreenEink_BWR_2bpp,
+    TagScreenEink_BWR_4bpp,
+
+    TagScreenEink_BWY_3bpp,
+    TagScreenEink_BWR_3bpp,
+    TagScreenEink_BW_3bpp,
+
+    TagScreenPersistentLcd_1bpp,
+
+    TagScreenEink_BWY_5colors,
+    TagScreenEink_BWR_5colors,
+
+    TagScreenEink_BWY_6colors,
+    TagScreenEink_BWR_6colors,
+
+    TagScreenTypeOther = 0x7f,
 };
 
+#define SOLUM_154_033 0
+#define SOLUM_29_033 1
+#define SOLUM_42_033 2
+
 #ifndef __packed
-#define __packed		__attribute__((packed))
+#define __packed __attribute__((packed))
 #endif
 
-#define PROTO_PAN_ID			(0x4447)	//PAN ID compression shall be used
+#define PROTO_PAN_ID (0x4447)  // PAN ID compression shall be used
 
+#define RADIO_MAX_PACKET_LEN (125)  // useful payload, not including the crc
 
-#define RADIO_MAX_PACKET_LEN			(125)	//useful payload, not including the crc
+#define ADDR_MODE_NONE (0)
+#define ADDR_MODE_SHORT (2)
+#define ADDR_MODE_LONG (3)
 
-#define ADDR_MODE_NONE					(0)
-#define ADDR_MODE_SHORT					(2)
-#define ADDR_MODE_LONG					(3)
+#define FRAME_TYPE_BEACON (0)
+#define FRAME_TYPE_DATA (1)
+#define FRAME_TYPE_ACK (2)
+#define FRAME_TYPE_MAC_CMD (3)
 
-#define FRAME_TYPE_BEACON				(0)
-#define FRAME_TYPE_DATA					(1)
-#define FRAME_TYPE_ACK					(2)
-#define FRAME_TYPE_MAC_CMD				(3)
-
-#define SHORT_MAC_UNUSED				(0x10000000UL)	//for radioRxFilterCfg's myShortMac
-
-
+#define SHORT_MAC_UNUSED (0x10000000UL)  // for radioRxFilterCfg's myShortMac
 
 struct MacFcs {
-	uint8_t frameType			: 3;
-	uint8_t secure				: 1;
-	uint8_t framePending		: 1;
-	uint8_t ackReqd				: 1;
-	uint8_t panIdCompressed		: 1;
-	uint8_t rfu1				: 1;
-	uint8_t rfu2				: 2;
-	uint8_t destAddrType		: 2;
-	uint8_t frameVer			: 2;
-	uint8_t srcAddrType			: 2;
-} __packed ;
+    uint8_t frameType : 3;
+    uint8_t secure : 1;
+    uint8_t framePending : 1;
+    uint8_t ackReqd : 1;
+    uint8_t panIdCompressed : 1;
+    uint8_t rfu1 : 1;
+    uint8_t rfu2 : 2;
+    uint8_t destAddrType : 2;
+    uint8_t frameVer : 2;
+    uint8_t srcAddrType : 2;
+} __packed;
 
 struct MacFrameFromMaster {
     struct MacFcs fcs;
@@ -98,18 +99,19 @@ struct MacFrameBcast {
 #define PKT_XFER_COMPLETE 0xEA
 #define PKT_XFER_COMPLETE_ACK 0xEB
 #define PKT_CANCEL_XFER 0xEC
+#define PKT_PING 0xED
+#define PKT_PONG 0xEE
 
 struct AvailDataReq {
     uint8_t checksum;
-    uint8_t lastPacketLQI;  // zero if not reported/not supported to be reported
-    int8_t lastPacketRSSI;  // zero if not reported/not supported to be reported
-    uint8_t temperature;    // zero if not reported/not supported to be reported. else, this minus CHECKIN_TEMP_OFFSET is temp in degrees C
-    uint16_t batteryMv;
-    uint8_t softVer;
-    uint8_t hwType;
-    uint8_t protoVer;
-    uint8_t buttonState;
-} __packed;
+    uint8_t lastPacketLQI : 7;
+    uint8_t lastPacketRSSI : 7;  // is negative
+    int8_t temperature : 7;      // zero if not reported/not supported to be reported. else, this minus CHECKIN_TEMP_OFFSET is temp in degrees C
+    uint16_t batteryMv : 12;
+    uint8_t hwType : 5;          // 32 types of tags supported
+    uint8_t wakeupReason : 2;    // supports 4 types of wakeup reasons
+    uint8_t capabilities;
+} __packed; // 7 bytes
 
 #define DATATYPE_NOUPDATE 0
 #define DATATYPE_IMG 1
@@ -118,10 +120,11 @@ struct AvailDataReq {
 
 struct AvailDataInfo {
     uint8_t checksum;
-    uint64_t dataVer;
-    uint32_t dataSize;
-    uint8_t dataType;
-    uint16_t nextCheckIn;
+    uint64_t dataVer;              // MD5 of potential traffic
+    uint32_t dataSize;              
+    uint8_t dataType : 4;          // allows for 16 different datatypes
+    uint8_t dataTypeArgument : 4;  // extra specification or instruction for the tag (LUT to be used for drawing image)
+    uint16_t nextCheckIn;          // when should the tag check-in again? Measured in minutes
 } __packed;
 
 struct blockPart {
@@ -161,7 +164,7 @@ struct blockRequestAck {
     uint16_t pleaseWaitMs;
 } __packed;
 
-#define MACFMT		"%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
-#define MACCVT(x)	((const uint8_t*)(x))[7], ((const uint8_t*)(x))[6], ((const uint8_t*)(x))[5], ((const uint8_t*)(x))[4], ((const uint8_t*)(x))[3], ((const uint8_t*)(x))[2], ((const uint8_t*)(x))[1], ((const uint8_t*)(x))[0]
+#define MACFMT "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
+#define MACCVT(x) ((const uint8_t*)(x))[7], ((const uint8_t*)(x))[6], ((const uint8_t*)(x))[5], ((const uint8_t*)(x))[4], ((const uint8_t*)(x))[3], ((const uint8_t*)(x))[2], ((const uint8_t*)(x))[1], ((const uint8_t*)(x))[0]
 
 #endif
