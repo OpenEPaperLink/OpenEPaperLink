@@ -26,7 +26,7 @@ uint8_t showChannelSelect() {
     showScanningWindow();
     for (uint8_t i = 0; i < 8; i++) {
         for (uint8_t c = 11; c < 27; c++) {
-            if (probeChannel(c)) {
+            if (detectAP(c)) {
                 if (mLastLqi > result[c - 11]) result[c - 11] = mLastLqi;
                 pr("Channel: %d - LQI: %d RSSI %d\n", c, mLastLqi, mLastRSSI);
             }
