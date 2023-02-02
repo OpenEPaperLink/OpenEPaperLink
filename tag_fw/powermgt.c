@@ -17,18 +17,18 @@
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
+#include "settings.h"
 #include "sleep.h"
 #include "syncedproto.h"
 #include "timer.h"
 #include "userinterface.h"
 #include "wdt.h"
-#include "settings.h"
-
 
 uint16_t __xdata dataReqAttemptArr[POWER_SAVING_SMOOTHING] = {0};  // Holds the amount of attempts required per data_req/check-in
 uint8_t __xdata dataReqAttemptArrayIndex = 0;
 uint8_t __xdata dataReqLastAttempt = 0;
 uint16_t __xdata nextCheckInFromAP = 0;
+uint8_t __xdata wakeUpReason = 0;
 
 void initPowerSaving() {
     for (uint8_t c = 0; c < POWER_SAVING_SMOOTHING; c++) {
@@ -63,9 +63,15 @@ void doSleep(uint32_t __xdata t) {
 
     // sleepy
     sleepForMsec(t);
+    wakeUpReason = WAKEUP_REASON_TIMED;
 
 #ifdef HAS_BUTTON
     P1INTEN = 0;
+    if (P1CHSTA && (1 << 0)) {
+        wakeUpReason = WAKEUP_REASON_GPIO;
+        pr("button pressed\n");
+        P1CHSTA &= ~(1 << 0);
+    }
 #endif
 
     initAfterWake();

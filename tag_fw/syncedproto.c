@@ -28,7 +28,7 @@ bool __xdata dataPending = true;
 uint8_t __xdata blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
 struct blockRequest __xdata curBlock = {0};
 struct AvailDataInfo __xdata curDataInfo = {0};
-uint16_t __xdata dataRemaining = 0;
+uint16_t __xdata dataRemaining = 0;                             // since the targeted solum tags don't have more than 64k progmem, this is fine. 
 bool __xdata curXferComplete = false;
 bool __xdata requestPartialBlock = false;
 
@@ -156,14 +156,11 @@ void sendAvailDataReq() {
     txframe->dstPan = 0xFFFF;
     txframe->dstAddr = 0xFFFF;
     txframe->srcPan = PROTO_PAN_ID;
-    // TODO: send some meaningful data
-    availreq->softVer = 1;
+    // TODO: send some (more) meaningful data
     availreq->hwType = HW_TYPE;
-    if (P1CHSTA && (1 << 0)) {
-        availreq->buttonState = 1;
-        pr("button pressed\n");
-        P1CHSTA &= ~(1 << 0);
-    }
+    availreq->wakeupReason = wakeUpReason;
+
+
     addCRC(availreq, sizeof(struct AvailDataReq));
     commsTxNoCpy(outBuffer);
 }
