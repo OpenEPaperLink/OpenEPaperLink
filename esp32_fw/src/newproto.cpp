@@ -138,27 +138,35 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pendinginfo->len = pending.availdatainfo.dataSize;
     pendinginfo->data = nullptr;
     pendinginfo->timeout = PENDING_TIMEOUT;
-    pendinginfo->data = getDataForFile(&file);
-    file.close();
-    pendinginfo->timeout = 1800;
+    //pendinginfo->data = getDataForFile(&file);
+    pendinginfo->timeout = 1800;  // ***fixme... a tag can sleep for a long time when ttl is used.
     pendingfiles.push_back(pendinginfo);
 
     if (dataType != DATATYPE_UPDATE) {
         char dst_path[64];
         sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        file = LittleFS.open(dst_path, "w");
-        int bytes_written = file.write(pendinginfo->data, pendinginfo->len);
-        file.close();
+        fs::File dstfile = LittleFS.open(dst_path, "w");
+        //int bytes_written = dstfile.write(pendinginfo->data, pendinginfo->len);
+        file.seek(0);
+        const int chunkSize = 512;
+        uint8_t buffer[chunkSize];
+        size_t bytesRead = 0;
+        while ((bytesRead = file.read(buffer, chunkSize)) > 0) {
+            dstfile.write(buffer, bytesRead);
+        }
+        dstfile.close();
 
         wsString("new image pending: " + String(dst_path));
         if (taginfo != nullptr) {
             taginfo->pending = true;
             taginfo->CheckinInMinPending = nextCheckin + 1;
             memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
+            }
         }
-    } else {
-        Serial.println("firmware upload pending");
-    }
+        else {
+            Serial.println("firmware upload pending");
+        }
+    file.close();
 
     wsSendTaginfo(mac);
 

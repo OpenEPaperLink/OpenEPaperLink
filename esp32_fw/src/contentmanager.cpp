@@ -35,7 +35,6 @@ void contentRunner() {
 void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     time_t now;
     time(&now);
-    struct tm *time_info = gmtime(&now);
 
     char buffer[64];
     uint8_t src[8];
@@ -45,15 +44,20 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
     String filename = "/" + dst + ".bmp";
 
-    time_info->tm_hour = 0;
-    time_info->tm_min = 0;
-    time_info->tm_sec = 0;
-    time_info->tm_mday++;
-    time_t midnight = mktime(time_info);
+    struct tm time_info;
+    getLocalTime(&time_info);
+    time_info.tm_hour = 0;
+    time_info.tm_min = 0;
+    time_info.tm_sec = 0;
+    time_info.tm_mday++;
+    time_t midnight = mktime(&time_info);
 
     DynamicJsonDocument doc(500);
     deserializeJson(doc, taginfo->modeConfigJson);
     JsonObject cfgobj = doc.as<JsonObject>();
+
+    Serial.println("Updating " + dst + " mode " + String(taginfo->contentMode) + " nextupdate " + String(taginfo->nextupdate));
+    taginfo->nextupdate = now + 600;
 
     switch (taginfo->contentMode) {
         case Image:
@@ -71,16 +75,21 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case Today:
 
+            Serial.println("heap voor drawDate: " + String(ESP.getFreeHeap()));
             drawDate(filename);
-            updateTagImage(filename, mac, (midnight - now) / 60 - 10);
+            Serial.println("heap na drawDate: " + String(ESP.getFreeHeap()));
+            // updateTagImage(filename, mac, (midnight - now) / 60 - 10);
+            updateTagImage(filename, mac, 60);
             taginfo->nextupdate = midnight;
             break;
 
         case CountDays:
 
             if (buttonPressed) cfgobj["counter"] = 0;
+            Serial.println("heap voor drawnumber: " + String(ESP.getFreeHeap()));
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"]);
-            updateTagImage(filename, mac, (midnight - now) / 60 - 5);
+            Serial.println("heap na drawnumber: " + String(ESP.getFreeHeap()));
+            updateTagImage(filename, mac, 60);
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             taginfo->nextupdate = midnight;
             break;
@@ -88,7 +97,9 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case CountHours:
 
             if (buttonPressed) cfgobj["counter"] = 0;
+            Serial.println("heap voor drawnumber: " + String(ESP.getFreeHeap()));
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"]);
+            Serial.println("heap na drawnumber: " + String(ESP.getFreeHeap()));
             // updateTagImage(&filename, mac, (3600 - now % 3600) / 60);
             // taginfo->nextupdate = now + 3600 - (now % 3600);
             updateTagImage(filename, mac, 3);
@@ -110,8 +121,11 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 } else {
                     wsString("Error accessing " + filename);
                 }
+                cfgobj["filename"]="";
                 taginfo->nextupdate = 3216153600;
                 taginfo->contentMode = Image;
+            } else {
+                taginfo->nextupdate = now + 300;
             }
             break;
 
@@ -123,7 +137,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 updateTagImage(filename, mac, cfgobj["interval"].as<int>());
                 cfgobj["#fetched"] = now;
             }
-            taginfo->nextupdate = now + 60 * cfgobj["interval"].as<int>();
+            taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>()) ;
             break;
     }
 
@@ -151,6 +165,9 @@ void drawDate(String &filename) {
     LittleFS.begin();
     long w = 296, h = 128;  // mag staand of liggend
     spr.createSprite(w, h);
+    if (spr.getPointer() == nullptr) {
+        Serial.println("Failed to create sprite in drawDate");
+    }
     spr.setColorDepth(8);
     spr.fillSprite(TFT_WHITE);
     spr.setTextDatum(TC_DATUM);
@@ -174,6 +191,9 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred) {
     LittleFS.begin();
     long w = 296, h = 128;
     spr.createSprite(w, h);
+    if (spr.getPointer() == nullptr) {
+        Serial.println("Failed to create sprite in drawNumber");
+    }
     spr.setColorDepth(8);
     spr.fillSprite(TFT_WHITE);
     spr.setTextDatum(MC_DATUM);

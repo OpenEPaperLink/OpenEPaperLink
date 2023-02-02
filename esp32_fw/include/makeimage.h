@@ -29,7 +29,7 @@ enum EinkClut {
 	EinkClutThreeBlacksAndRed,
 };
 
-void spr2grays(TFT_eSprite &spr, long w, long h, String fileout);
+void spr2grays(TFT_eSprite &spr, long w, long h, String &fileout);
 void jpg2grays(String filein, String fileout);
 void bmp2grays(String filein, String fileout);
 
