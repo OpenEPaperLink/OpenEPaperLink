@@ -16,5 +16,6 @@ extern struct AvailDataInfo *__xdata getAvailDataInfo();
 extern bool doDataDownload(struct AvailDataInfo *__xdata avail);
 extern void initializeProto();
 extern struct AvailDataInfo *__xdata getAvailDataInfo();
-bool probeChannel(uint8_t channel);
+uint8_t detectAP(uint8_t channel);
+
 #endif
