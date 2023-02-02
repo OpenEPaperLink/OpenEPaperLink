@@ -1,8 +1,10 @@
+#include "drawing.h"
+
 #include <stdbool.h>
+
 #include "asmUtil.h"
 #include "board.h"
 #include "cpu.h"
-#include "drawing.h"
 #include "eeprom.h"
 #include "epd.h"
 #include "printf.h"
@@ -318,10 +320,9 @@ static void drawPrvDecodeImageOnce(void) {
     }
 }
 
-extern uint8_t blockXferBuffer[];
+static uint8_t __xdata prev, step = 0;
 
 void ByteDecode(uint8_t byte) {
-    static uint8_t __xdata prev, step = 0;
     prev <<= 2;
     prev |= (mColorMap[mPassNo][byte >> 4] << 1) | mColorMap[mPassNo][byte & 0x0f];
     if (++step == 4) {
@@ -341,15 +342,19 @@ void drawImageAtAddress(uint32_t addr) {
         return;
     drawPrvLoadAndMapClut(clutAddr);
 
-    //screenTxStart(false);
     epdSetup();
     mPassNo = 0;
     beginFullscreenImage();
     beginWriteFramebuffer(EPD_COLOR_BLACK);
+    prev = 0;
+    step = 0;
     drawPrvDecodeImageOnce();
     endWriteFramebuffer();
     mPassNo++;
+    beginFullscreenImage();
     beginWriteFramebuffer(EPD_COLOR_RED);
+    prev = 0;
+    step = 0;
     drawPrvDecodeImageOnce();
     endWriteFramebuffer();
 

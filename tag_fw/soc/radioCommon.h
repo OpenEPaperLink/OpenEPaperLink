@@ -5,6 +5,10 @@
 #include <stdint.h>
 
 
+//radio cfg
+#define RADIO_FIRST_CHANNEL				(11)		//2.4-GHz channels start at 11
+#define RADIO_NUM_CHANNELS				(15)
+
 
 #define RADIO_MAX_PACKET_LEN			(125)	//useful payload, not including the crc
 
@@ -18,22 +22,6 @@
 #define FRAME_TYPE_MAC_CMD				(3)
 
 #define SHORT_MAC_UNUSED				(0x10000000UL)	//for radioRxFilterCfg's myShortMac
-
-
-
-struct MacFcs {
-	
-	uint8_t frameType			: 3;
-	uint8_t secure				: 1;
-	uint8_t framePending		: 1;
-	uint8_t ackReqd				: 1;
-	uint8_t panIdCompressed		: 1;
-	uint8_t rfu1				: 1;
-	uint8_t rfu2				: 2;
-	uint8_t destAddrType		: 2;
-	uint8_t frameVer			: 2;
-	uint8_t srcAddrType			: 2;
-};
 
 
 void radioInit(void);

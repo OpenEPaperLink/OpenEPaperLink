@@ -1,0 +1,277 @@
+*{
+	margin:0;
+	padding:0;
+	border:0;
+	list-style-type: none;
+	outline: none;
+	font-weight: 400;
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+	font-smooth: auto;
+	-webkit-font-smoothing: antialiased;
+}
+
+html, body {
+	height: 100%;
+}
+
+body {
+	font-size: 12px;
+	font-family: Helvetica, Arial, Verdana, sans-serif;
+	line-height: 1.5;
+	background-color: #e8f1f9;
+	background-color: #f1f1f1;
+	/*background-image: linear-gradient(315deg, #dde1ee 0%, #e8f1f9 100%);*/
+}
+
+header {
+	height: 50px;
+	background-color: #666;
+}
+
+label {
+	width:100px;
+	display: inline-block;
+}
+
+.logo {
+	margin: 0 auto;
+	height: 50px;
+	text-indent: 50px;
+	overflow:hidden;
+	background-size: 50px 50px;
+	font-size: 2.5em;
+	color: white;
+}
+
+.window {
+	margin: 0 auto;
+	max-width: 94%;
+}
+
+.actionbox>div:first-child {
+	padding: 10px;
+		background-color: white;
+		margin: 5px;
+}
+
+.actionbox p {
+	padding: 5px;
+}
+
+.actionbox .columns {
+	display:flex;
+	flex-wrap: wrap;
+}
+
+.filebutton {
+	padding:2px 5px;
+	background-color: #cccccc;
+	text-decoration: none;
+	color: black;
+}
+
+.editbtn {
+	float:right;
+}
+
+.columns div {
+	flex: 1;
+}
+
+input {
+	border: solid 1px #666666;
+	padding: 4px;
+}
+
+input[type=button] {
+	border: 0px;
+	padding: 4px 10px;
+	cursor:pointer;
+}
+input[type=button]:hover {
+	background-color:#aaaaaa;
+}
+select {
+	padding: 4px;
+}
+
+#configbox {
+	display: none;
+	position: fixed;
+	top: 80px;
+	left: 50px;
+	width: 500px;
+	padding: 15px;
+	background-color: #f0e6d3;
+	z-index: 999;
+	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
+}
+
+#configbox p {
+	padding: 5px;
+}
+
+#configbox h3 {
+	font-size: 1.5em;
+	font-weight: bold;
+}
+
+#configbox input {
+	border: solid 1px #666666;
+	padding: 4px;
+}
+
+#configbox label {
+	text-transform: capitalize;
+}
+
+#cfgdelete {
+	position: absolute;
+	bottom: 15px;
+	right: 15px;
+	cursor:pointer;
+}
+
+.closebtn {
+	border: 1px solid black;
+	float: right;
+	width: 19px;
+	height: 20px;
+	font-size: 1.1em;
+	text-align: center;
+	margin: 5px;
+	cursor: pointer;
+}
+
+.logbox {
+	margin: 5px;
+}
+
+.logbox p {
+	background-color: #ffffff;
+	padding: 5px 10px;
+}
+
+.logbox img {
+	vertical-align: bottom;
+	cursor:pointer;
+}
+
+.logbox #sysinfo {
+	float: right;
+}
+
+.taglist {
+	display: flex;
+	flex-wrap: wrap;
+}
+
+#tagtemplate {
+	display:none;
+}
+
+.tagcard {
+	width: 225px;
+	position: relative;
+	height: 170px;
+	margin: 5px;
+	padding: 5px;
+	background-color: #dddddd;
+}
+
+.tagcard .pending {
+	padding-bottom:15px;
+}
+
+.currimg {
+	float: right;
+}
+
+.currimg img {
+	max-width: 50px;
+}
+
+.mac {
+	font-size: 0.9em;
+	cursor:pointer;
+}
+
+.alias {
+	font-size: 1.4em;
+	font-weight: bold;
+}
+
+.corner {
+	position: absolute;
+	right: 0px;
+	bottom: 0px;
+	padding: 5px;
+}
+
+.configicon {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	cursor:pointer;
+	background-image: url("data: image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAQAAAAngNWGAAABXklEQVQoz43SP2tUQRQF8N99ecFKFEVh0Y1ZbFQ2xEoIQkoLW0t7C/OVLGzyHay1EAQjRFGrLMkjKSwWsRGV3WvxZvc9XQtnivl35sydc048nfuvVkW0k8XYtT936pVja5jJv/Z7wPZo0wNzLzQSHWnVwTZtqY1su2to3bZhj7dewEYeu+iDawi7bhn7Yl9TWGsikrzksnNxr9zfsIErcaEAMysyZXrvE5mp6w7zc8rMzFJjGNlxFWHmWKMVd2DHsHuadQ+NkcKxZ2pPXC8FHHhu1v91X6ZcUZHYy8xwwyju5wAzJypDFdHka5OiaN1yHDl100BaMyq84cwrs1JjtTBu7E5xIpeebLndOZOlnK859d1bZ0JoHPiRU986ZxYZmdjP8/HRrkfSS2+MTTXlycyawhlHJBOH5k789A6x/H/sZQuMKKNatjGLvkoreUy/lsnsq1mXJOe/Ut6tM38DZpmDFxwTi8EAAAAASUVORK5CYII=");
+}
+
+.warningicon {
+	display:none;
+	font-size: 1.3em;
+	background-color: yellow;
+	color: black;
+	height: 20px;
+	width: 20px;
+	vertical-align: top;
+	text-align: center;
+}
+
+ul.messages {
+	padding: 5px;
+}
+
+ul.messages li {
+	position: relative;
+}
+
+ul.messages li.new {
+	animation-name: new;
+	animation-duration: 1400ms;
+	animation-iteration-count: 1;
+	animation-timing-function: ease-in-out;
+}
+
+.error {
+	color: red;
+}
+
+
+@media(max-width: 460px) {
+	.messages li div, ul.messages li div.date, ul.messages li div.message {
+		display:block;
+		position:relative;
+		padding: 0;
+		left: auto;
+	}
+	.messages li div.message, li.pending {
+		margin-bottom: 8px;
+	}
+	ul.messages {
+		padding-bottom: 4px;
+	}
+}
+
+@keyframes new {
+    0% {
+        background-color: rgba(255, 255, 204, 1);
+    }
+    50% {
+        background-color: rgba(255, 255, 204, .5);	
+    }
+    100% {
+        background-color: rgba(255, 255, 204, 0);
+    }
+}

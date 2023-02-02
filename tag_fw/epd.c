@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "asmUtil.h"
+#include "barcode.h"
 #include "board.h"
 #include "cpu.h"
 #include "font.h"
@@ -64,16 +65,24 @@
         P2_2 = 1;  \
     } while (0)
 
-static uint8_t __xdata currentLUT = 0x00;  // Current selected LUT
-static bool __idata epdPr = false;         // wheter or not we copy the pr("") output to the EPD
-static uint8_t __xdata epdCharSize = 1;    // character size, 1 or 2 (doubled)
-static bool __xdata directionY = true;     // print direction, X or Y (true)
-static uint8_t __xdata rbuffer[32];        // used to rotate bits around
-static uint16_t __xdata fontCurXpos = 0;   // current X value we're working with
-static uint16_t __xdata fontCurYpos = 0;   // current Y value we're working with
+extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when done
+
+static uint8_t __xdata epdCharSize = 1;   // character size, 1 or 2 (doubled)
+static bool __xdata directionY = true;    // print direction, X or Y (true)
+static uint8_t __xdata rbuffer[32];       // used to rotate bits around
+static uint16_t __xdata fontCurXpos = 0;  // current X value we're working with
+static uint16_t __xdata fontCurYpos = 0;  // current Y value we're working with
+static uint8_t __xdata currentLut = 0;
 
 static bool __xdata isInited = false;
-struct waveform __xdata waveform;
+
+uint8_t waveformbuffer[120];
+#if (SCREEN_LUT_LENGTH == 10)
+struct waveform10* __xdata waveform = (struct waveform10*)waveformbuffer;  // holds the LUT/waveform
+#endif
+#if (SCREEN_LUT_LENGTH == 7)
+struct waveform* __xdata waveform = (struct waveform*)waveformbuffer;  // holds the LUT/waveform
+#endif
 
 #pragma callee_saves epdBusySleep
 #pragma callee_saves epdBusyWait
@@ -189,13 +198,12 @@ void epdEnterSleep() {
     P2_0 = 1;
     timerDelay(50);
     shortCommand(CMD_SOFT_RESET2);
-    epdBusyWait(133300);
+    epdBusyWait(TIMER_TICKS_PER_MS * 10);
     shortCommand1(CMD_ENTER_SLEEP, 0x03);
     isInited = false;
 }
 void epdSetup() {
     epdReset();
-    currentLUT = 0;
     shortCommand1(CMD_ANALOG_BLK_CTRL, 0x54);
     shortCommand1(CMD_DIGITAL_BLK_CTRL, 0x3B);
     shortCommand2(CMD_UNKNOWN_1, 0x04, 0x63);
@@ -219,8 +227,9 @@ void epdSetup() {
     shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1 (i2C)
     // shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB9);  // mode 2?
     shortCommand(CMD_ACTIVATION);
-    epdBusyWait(1333000UL);
+    epdBusyWait(TIMER_TICKS_PER_SECOND);
     isInited = true;
+    currentLut = EPD_LUT_DEFAULT;
 }
 static uint8_t epdGetStatus() {
     uint8_t sta;
@@ -238,11 +247,11 @@ uint16_t epdGetBattery(void) {
 
     shortCommand1(CMD_DISP_UPDATE_CTRL2, SCREEN_CMD_CLOCK_ON | SCREEN_CMD_ANALOG_ON);
     shortCommand(CMD_ACTIVATION);
-    epdBusyWait(133300);
+    epdBusyWait(TIMER_TICKS_PER_MS * 100);
 
     for (val = 3; val < 8; val++) {
         shortCommand1(CMD_SETUP_VOLT_DETECT, val);
-        epdBusyWait(133300);
+        epdBusyWait(TIMER_TICKS_PER_MS * 100);
         if (epdGetStatus() & 0x10) {  // set if voltage is less than threshold ( == 1.9 + val / 10)
             voltage = 1850 + mathPrvMul8x8(val, 100);
             break;
@@ -251,30 +260,109 @@ uint16_t epdGetBattery(void) {
 
     shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);
     shortCommand(CMD_ACTIVATION);
-    epdBusyWait(133300);
+    epdBusyWait(TIMER_TICKS_PER_MS * 100);
 
     if (!isInited)
         epdEnterSleep();
     return voltage;
 }
 
+void loadFixedTempOTPLUT() {
+    shortCommand1(0x18, 0x48);                   // external temp sensor
+    shortCommand2(0x1A, 0x05, 0x00);             // < temp register
+    shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1 (i2C)
+    shortCommand(CMD_ACTIVATION);
+    epdBusyWait(TIMER_TICKS_PER_SECOND);
+}
+static void writeLut() {
+    commandBegin(CMD_WRITE_LUT);
+    for (uint8_t i = 0; i < (SCREEN_LUT_LENGTH * 10); i++)
+        epdSend(waveformbuffer[i]);
+    commandEnd();
+}
+static void readLut() {
+    commandReadBegin(0x33);
+    uint16_t checksum = 0;
+    uint16_t ident = 0;
+    uint16_t shortl = 0;
+    for (uint16_t c = 0; c < ((SCREEN_LUT_LENGTH * 10) + 6); c++) {
+        waveformbuffer[c] = epdReadByte();
+    }
+    commandReadEnd();
+}
+static void lutGroupDisable(uint8_t group) {
+    memset(&(waveform->group[group]), 0x00, 5);
+}
+static void lutGroupSpeedup(uint8_t group, uint8_t speed) {
+    for (uint8_t i = 0; i < 4; i++) {
+        waveform->group[group].phaselength[i] = 1 + (waveform->group[group].phaselength[i] / speed);
+    }
+}
+static void lutGroupRepeat(uint8_t group, uint8_t repeat) {
+    waveform->group[group].repeat = repeat;
+}
+static void lutGroupRepeatReduce(uint8_t group, uint8_t factor) {
+    waveform->group[group].repeat = waveform->group[group].repeat / factor;
+}
 void selectLUT(uint8_t lut) {
-    if (lut == currentLUT) return;
-    // lut = 1;
+    if (currentLut == lut) {
+        return;
+    }
+
+    if (currentLut != EPD_LUT_DEFAULT) {
+        // load the 'default' LUT for the current temperature in the EPD lut register
+        shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1?
+        shortCommand(CMD_ACTIVATION);
+        epdBusyWait(TIMER_TICKS_PER_SECOND);
+    }
+
+    currentLut = lut;
+
+    // if we're going to be using the default LUT, we're done here.
+    if (lut == EPD_LUT_DEFAULT) {
+        return;
+    }
+
+    // download the current LUT from the waveform buffer
+    readLut();
+
     switch (lut) {
-        case 0:
-            shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1?
-            shortCommand(CMD_ACTIVATION);
-            epdBusyWait(1333000UL);
+        case EPD_LUT_NO_REPEATS:
+            lutGroupDisable(LUTGROUP_NEGATIVE);
+            lutGroupDisable(LUTGROUP_FASTBLINK);
+            lutGroupRepeat(LUTGROUP_SLOWBLINK, 0);
+            lutGroupSpeedup(LUTGROUP_SET, 2);
+            lutGroupSpeedup(LUTGROUP_IMPROVE_SHARPNESS, 2);
+            lutGroupRepeatReduce(LUTGROUP_IMPROVE_SHARPNESS, 2);
+            lutGroupSpeedup(LUTGROUP_IMPROVE_REDS, 2);
+            lutGroupRepeatReduce(LUTGROUP_IMPROVE_REDS, 2);
             break;
-        case 1:
-            commandBegin(CMD_WRITE_LUT);
-            for (uint8_t i = 0; i < 70; i++)
-                epdSend(lutorig[i]);
-            commandEnd();
+        case EPD_LUT_FAST_NO_REDS:
+            lutGroupDisable(LUTGROUP_NEGATIVE);
+            lutGroupDisable(LUTGROUP_FASTBLINK);
+            lutGroupDisable(LUTGROUP_SLOWBLINK);
+            //lutGroupSpeedup(LUTGROUP_SET, 2);
+            lutGroupDisable(LUTGROUP_IMPROVE_REDS);
+            lutGroupDisable(LUTGROUP_IMPROVE_SHARPNESS);
+            break;
+        case EPD_LUT_FAST:
+            lutGroupDisable(LUTGROUP_NEGATIVE);
+            lutGroupDisable(LUTGROUP_FASTBLINK);
+            lutGroupDisable(LUTGROUP_SLOWBLINK);
+            lutGroupRepeat(LUTGROUP_SET, 0);
+            //lutGroupSpeedup(LUTGROUP_SET, 2);
+            lutGroupDisable(LUTGROUP_IMPROVE_REDS);
+            lutGroupDisable(LUTGROUP_IMPROVE_SHARPNESS);
             break;
     }
-    currentLUT = lut;
+
+#if (SCREEN_LUT_LENGTH == 10)
+    lutGroupDisable(LUTGROUP_UNUSED);
+    lutGroupDisable(LUTGROUP_UNKNOWN);
+    lutGroupDisable(LUTGROUP_UNUSED3);
+    lutGroupDisable(LUTGROUP_UNUSED4);
+#endif
+    writeLut();
 }
 
 void setWindowX(uint16_t start, uint16_t end) {
@@ -284,8 +372,8 @@ void setWindowY(uint16_t start, uint16_t end) {
     commandBegin(CMD_WINDOW_Y_SIZE);
     epdSend((start)&0xff);
     epdSend((start) >> 8);
-    epdSend((end)&0xff);  // was end-1
-    epdSend((end) >> 8);  // was end-1
+    epdSend((end - 1) & 0xff);
+    epdSend((end - 1) >> 8);
     commandEnd();
 }
 void setPosXY(uint16_t x, uint16_t y) {
@@ -316,10 +404,11 @@ void clearScreen() {
     setWindowX(0, SCREEN_WIDTH);
     setWindowY(0, SCREEN_HEIGHT);
     setPosXY(0, 0);
+    shortCommand1(CMD_DATA_ENTRY_MODE, 3);  // was 3
     shortCommand1(CMD_WRITE_PATTERN_BW, 0x66);
-    epdBusyWait(133300UL);
+    epdBusyWait(TIMER_TICKS_PER_MS * 100);
     shortCommand1(CMD_WRITE_PATTERN_RED, 0x66);
-    epdBusyWait(133300UL);
+    epdBusyWait(TIMER_TICKS_PER_MS * 100);
 }
 void draw() {
     shortCommand1(0x22, 0xCF);
@@ -332,6 +421,9 @@ void drawNoWait() {
     // shortCommand1(0x22, SCREEN_CMD_REFRESH);
     shortCommand(0x20);
 }
+void epdWaitRdy() {
+    epdBusyWait(TIMER_TICKS_PER_SECOND * 120);
+}
 void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y) {
     setWindowX(x1, x2);
     setWindowY(y, y + 1);
@@ -340,9 +432,8 @@ void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y) {
     } else {
         shortCommand1(CMD_WRITE_PATTERN_BW, 0xE6);
     }
-    epdBusyWait(133300UL);
+    epdBusyWait(TIMER_TICKS_PER_MS * 100);
 }
-
 void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2) {
     setWindowY(y1, y2);
     setWindowX(x, x + 8);
@@ -354,7 +445,7 @@ void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2) {
         commandBegin(CMD_WRITE_FB_BW);
     }
     uint8_t __xdata c = 0x80;
-    c>>=(x%8);
+    c >>= (x % 8);
     for (; y1 < y2; y1++) {
         epdSend(c);
     }
@@ -378,7 +469,43 @@ void beginWriteFramebuffer(bool color) {
 void endWriteFramebuffer() {
     commandEnd();
 }
-
+void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color) {
+    uint16_t xsize = bmp[0] / 8;
+    if (bmp[0] % 8) xsize++;
+    uint16_t size = xsize * bmp[1];
+    setWindowX(x, x + (xsize * 8));
+    setWindowY(y, bmp[1] + y);
+    setPosXY(x, y);
+    shortCommand1(CMD_DATA_ENTRY_MODE, 3);
+    if (color) {
+        commandBegin(CMD_WRITE_FB_RED);
+    } else {
+        commandBegin(CMD_WRITE_FB_BW);
+    }
+    bmp += 2;
+    while (size--) {
+        epdSend(*(bmp++));
+    }
+    commandEnd();
+}
+void printBarcode(const uint8_t* string, uint16_t x, uint16_t y) {
+    setWindowY(y, 1);
+    setWindowX(x, x + 8);
+    setPosXY(x, y);
+    shortCommand1(CMD_DATA_ENTRY_MODE, 1);
+    commandBegin(CMD_WRITE_FB_BW);
+    struct BarcodeInfo __xdata bci = {
+        .str = string,
+    };
+    while (!barcodeIsDone(&bci)) {
+        if (barcodeNextBar(&bci)) {
+            epdSend(0xFF);
+        } else {
+            epdSend(0x00);
+        }
+    }
+    commandEnd();
+}
 // stuff for printing text
 static void pushXFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
     if (epdCharSize == 1) {
@@ -464,9 +591,6 @@ static void pushYFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
     }
 }
 void writeCharEPD(uint8_t c) {
-    if (!epdPr) {
-        return;
-    }
     // Writes a single character to the framebuffer
     bool empty = true;
     for (uint8_t i = 0; i < 20; i++) {
@@ -508,6 +632,7 @@ void writeCharEPD(uint8_t c) {
         pushXFontBytesToEPD(0x00, 0x00);
     }
 }
+
 // Print text to the EPD. Origin is top-left
 void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool color) {
     directionY = direction;
@@ -526,7 +651,7 @@ void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool c
             rbuffer[1] = 0;
         }
 
-        setWindowY(y, 0);
+        setWindowY(y, 1);
         if (epdCharSize == 2) {
             setWindowX(x, x + 32 + extra);
             setPosXY(x, y);
@@ -550,7 +675,6 @@ void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool c
         memset(rbuffer, 0, 32);
     }
 
-    epdPr = true;
     if (color) {
         commandBegin(CMD_WRITE_FB_RED);
     } else {
@@ -564,28 +688,7 @@ void epdPrintEnd() {
         }
     }
     commandEnd();
-    epdPr = false;
 }
-
-void loadFixedTempLUT() {
-    shortCommand1(0x18, 0x48);
-    shortCommand2(0x1A, 0x05, 0x00);             // < temp register
-    shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1 (i2C)
-    shortCommand(CMD_ACTIVATION);
-    epdBusyWait(1333000UL);
-}
-static void readLut() {
-    commandReadBegin(0x33);
-    uint16_t checksum = 0;
-    uint16_t ident = 0;
-    uint16_t shortl = 0;
-    for (uint16_t c = 0; c < 76; c++) {
-        ((uint8_t*)&waveform)[c] = epdReadByte();
-    }
-    commandReadEnd();
-}
-
-extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when done
 
 extern uint8_t __xdata blockXferBuffer[];
 

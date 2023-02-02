@@ -1,0 +1,105 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+
+	<title>Solum - alternative proto AP</title>
+	<link rel="stylesheet" href="main.css" type="text/css" />
+	<link rel="icon" href="data:,">
+</head>
+
+<body>
+	<header>
+		<div class="logo">Solum - alternative proto AP</div>
+	</header>
+
+	<div id="configbox">
+		<div class="closebtn">&#10006;</div>
+		<h3 id="cfgmac">00000000</h3>
+		<p>
+			<label for="cfgalias">Alias</label>
+			<input id="cfgalias" type="text">
+		</p>
+		<p>
+			<label for="cfgmodel">Model</label>
+			<select id="cfgmodel">
+				<option value="0">unknown</option>
+				<option value="1">1.54" 152x152px</option>
+				<option value="2">2.9" 296x128px</option>
+				<option value="3">4.2" 400x300px</option>
+			</select>
+		</p>
+		<p>
+			<label for="cfgcontent">Content</label>
+			<select id="cfgcontent" onchange="contentselected()">
+				<option value="0">static image</option>
+				<option value="1">current date</option>
+				<option value="2">count days</option>
+				<option value="3">count hours</option>
+				<option value="4" disabled>current weather</option>
+				<option value="6" disabled>memo text</option>
+				<option value="7">image url</option>
+				<option value="5">firmware update</option>
+			</select>
+		</p>
+		<div id="customoptions"></div>
+		<p>
+			<input type="button" value="Save" id="cfgsave">
+			<span id="cfgdelete"><img src="data:image/gif;base64,R0lGODlhEAAQAPMAANXV1e3t7d/f39HR0dvb2/Hx8dTU1OLi4urq6mZmZpmZmf///wAAAAAAAAAAAAAAACH5BAEAAAwALAAAAAAQABAAAARBkMlJq71Yrp3ZXkr4WWCYnOZSgQVyEMYwJCq1nHhe20qgCAoA7QLyAYU7njE4JPV+zOSkCEUSFbmTVPPpbjvgTAQAOw==
+			"></span>
+		</p>
+	</div>
+
+	<form>
+	<div class="container">
+
+		<div class="window">
+
+			<div class="actionbox">
+				<div>
+					<div class="editbtn"><a href="/edit" target="littlefs" class="filebutton">edit littleFS</a></div>
+					Currently active tags:<br>
+				</div>
+			</div>
+
+			<div id="taglist" class="taglist">
+				<div class="tagcard" id="tagtemplate">
+					<div class="currimg"><img class="tagimg" src=""></div>
+					<div class="mac"></div>
+					<div class="alias"></div>
+					<div class="model"></div>
+					<div class="contentmode"></div>
+					<div class="pending"></div>
+					<div class="lastseen"></div>
+					<div class="nextcheckin"></div>
+					<div class="nextupdate"></div>
+					<div class="corner">
+						<div class="warningicon">&#9888;</div>
+						<div class="configicon"></div>
+					</div>
+				</div>
+			</div>
+
+			<div class="logbox">
+				<p>
+					<span>logging</span>
+					<span><img id="clearlog" src="data:image/gif;base64,R0lGODlhEAAQAPMAANXV1e3t7d/f39HR0dvb2/Hx8dTU1OLi4urq6mZmZpmZmf///wAAAAAAAAAAAAAAACH5BAEAAAwALAAAAAAQABAAAARBkMlJq71Yrp3ZXkr4WWCYnOZSgQVyEMYwJCq1nHhe20qgCAoA7QLyAYU7njE4JPV+zOSkCEUSFbmTVPPpbjvgTAQAOw==
+"></span>
+					<span id="sysinfo"></span>
+				</p>
+				<ul id="messages" class="messages">
+				</ul>
+			</div>
+		</div>
+
+
+	</div>
+	</form>
+
+	<script src="main.js"></script>
+
+</body>
+
+</html>

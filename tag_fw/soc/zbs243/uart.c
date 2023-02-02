@@ -12,10 +12,7 @@ void uartInit(void) {
     UARTSTA = 0x12;  // also set the "empty" bit else we wait forever for it to go up
 }
 
-extern void writeCharEPD(uint8_t c);
-
 void uartTx(uint8_t val) {
-    writeCharEPD(val);
     while (!(UARTSTA & (1 << 1)))
         ;
     UARTSTA &= ~(1 << 1);
