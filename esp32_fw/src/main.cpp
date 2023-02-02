@@ -35,7 +35,7 @@ void setup() {
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 
     init_web();
-    loadDB("/tagDB.json");
+    loadDB("/current/tagDB.json");
 
     xTaskCreate(timeTask, "timed tasks", 10000, NULL, 2, NULL);
     xTaskCreate(zbsRxTask, "zbsRX Process", 10000, NULL, 2, NULL);

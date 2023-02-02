@@ -138,7 +138,6 @@ void SerialRXLoop() {
                 }
                 if (strncmp(cmdbuffer, "BST>", 4) == 0) {
                     Serial.print(">SYNC BURST\n");
-                    wsString(">SYNC BURST");
                     RXState = ZBS_RX_WAIT_HEADER;
                 }
                 if (strncmp(cmdbuffer, "XFC>", 4) == 0) {

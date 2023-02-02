@@ -56,7 +56,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     deserializeJson(doc, taginfo->modeConfigJson);
     JsonObject cfgobj = doc.as<JsonObject>();
 
-    Serial.println("Updating " + dst + " mode " + String(taginfo->contentMode) + " nextupdate " + String(taginfo->nextupdate));
+    wsLog("Updating " + dst + " mode " + String(taginfo->contentMode));
     taginfo->nextupdate = now + 600;
 
     switch (taginfo->contentMode) {
@@ -67,7 +67,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 if (prepareDataAvail(&filename, DATATYPE_IMGRAW, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
                 } else {
-                    wsString("Error accessing " + filename);
+                    wsErr("Error accessing " + filename);
                 }
                 taginfo->nextupdate = 3216153600;
             }
@@ -75,9 +75,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case Today:
 
-            Serial.println("heap voor drawDate: " + String(ESP.getFreeHeap()));
             drawDate(filename);
-            Serial.println("heap na drawDate: " + String(ESP.getFreeHeap()));
             // updateTagImage(filename, mac, (midnight - now) / 60 - 10);
             updateTagImage(filename, mac, 60);
             taginfo->nextupdate = midnight;
@@ -86,10 +84,8 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case CountDays:
 
             if (buttonPressed) cfgobj["counter"] = 0;
-            Serial.println("heap voor drawnumber: " + String(ESP.getFreeHeap()));
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"]);
-            Serial.println("heap na drawnumber: " + String(ESP.getFreeHeap()));
-            updateTagImage(filename, mac, 60);
+            updateTagImage(filename, mac, (buttonPressed?0:60));
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             taginfo->nextupdate = midnight;
             break;
@@ -97,12 +93,10 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case CountHours:
 
             if (buttonPressed) cfgobj["counter"] = 0;
-            Serial.println("heap voor drawnumber: " + String(ESP.getFreeHeap()));
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"]);
-            Serial.println("heap na drawnumber: " + String(ESP.getFreeHeap()));
             // updateTagImage(&filename, mac, (3600 - now % 3600) / 60);
             // taginfo->nextupdate = now + 3600 - (now % 3600);
-            updateTagImage(filename, mac, 3);
+            updateTagImage(filename, mac, (buttonPressed?0:3));
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             taginfo->nextupdate = now + 300;
             break;
@@ -119,7 +113,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 if (prepareDataAvail(&filename, DATATYPE_UPDATE, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
                 } else {
-                    wsString("Error accessing " + filename);
+                    wsErr("Error accessing " + filename);
                 }
                 cfgobj["filename"]="";
                 taginfo->nextupdate = 3216153600;
@@ -166,15 +160,15 @@ void drawDate(String &filename) {
     long w = 296, h = 128;  // mag staand of liggend
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
-        Serial.println("Failed to create sprite in drawDate");
+        wsErr("Failed to create sprite in drawDate");
     }
     spr.setColorDepth(8);
     spr.fillSprite(TFT_WHITE);
     spr.setTextDatum(TC_DATUM);
-    spr.loadFont("calibrib62", LittleFS);
+    spr.loadFont("fonts/calibrib62", LittleFS);
     spr.setTextColor(TFT_RED, TFT_WHITE);
     spr.drawString(Dag[timeinfo.tm_wday], w / 2, 10);
-    spr.loadFont("calibrib50", LittleFS);
+    spr.loadFont("fonts/calibrib50", LittleFS);
     spr.setTextColor(TFT_BLACK, TFT_WHITE);
     spr.drawString(String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], w / 2, 73);
     spr.unloadFont();
@@ -192,7 +186,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred) {
     long w = 296, h = 128;
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
-        Serial.println("Failed to create sprite in drawNumber");
+        wsErr("Failed to create sprite in drawNumber");
     }
     spr.setColorDepth(8);
     spr.fillSprite(TFT_WHITE);
@@ -202,9 +196,9 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred) {
     } else {
         spr.setTextColor(TFT_BLACK, TFT_WHITE);
     }
-    String font = "numbers1-2";
-    if (count>999) font="numbers2-2";
-    if (count>9999) font="numbers3-2";
+    String font = "fonts/numbers1-2";
+    if (count > 999) font = "fonts/numbers2-2";
+    if (count > 9999) font = "fonts/numbers3-2";
     spr.loadFont(font, LittleFS);
     spr.drawString(String(count), w/2, h/2+10);
     spr.unloadFont();
@@ -233,7 +227,11 @@ bool getImgURL(String &filename, String URL, time_t fetched) {
             jpg2grays(filename, filename);
         }
     } else {
-        Serial.println("http " + String(httpCode));
+        if (httpCode!=304) { 
+            wsErr("http " + URL + " " + String(httpCode));
+        } else {
+            wsLog("http " + URL + " " + String(httpCode));
+        }
     }
     http.end();
     return (httpCode == 200);

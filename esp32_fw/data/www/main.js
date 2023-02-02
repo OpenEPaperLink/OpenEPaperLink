@@ -42,7 +42,10 @@ function connect() {
 		console.log(event.data);
 		const msg = JSON.parse(event.data);
 		if (msg.logMsg) {
-			showMessage(msg.logMsg);
+			showMessage(msg.logMsg,false);
+		}
+		if (msg.errMsg) {
+			showMessage(msg.logMsg,true);
 		}
 		if (msg.tags) {
 			processTags(msg.tags);
@@ -226,11 +229,15 @@ function contentselected() {
 	});
 }
 
-function showMessage(message) {
+function showMessage(message,iserr) {
 	const messages = $('#messages');
 	var date = new Date(),
         time = date.toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'});
-	messages.insertAdjacentHTML("afterbegin", '<li class="new">'+htmlEncode(time+' '+message)+'</li>');
+	if (iserr) {
+		messages.insertAdjacentHTML("afterbegin", '<li class="new error">' + htmlEncode(time + ' ' + message) + '</li>');
+	} else {
+		messages.insertAdjacentHTML("afterbegin", '<li class="new">'+htmlEncode(time+' '+message)+'</li>');
+	}
 }
 
 function htmlEncode(input) {

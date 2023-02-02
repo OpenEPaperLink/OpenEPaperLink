@@ -71,12 +71,11 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         if (hdr.width == 296 && hdr.height == 128) {
             //sorry, can't rotate
             Serial.println("when using BMP files, remember to only use 128px width and 296px height");
-            wsString("when using BMP files, remember to only use 128px width and 296px height");
+            wsErr("when using BMP files, remember to only use 128px width and 296px height");
             return false;
         }
         if (hdr.sig[0] == 'B' && hdr.sig[1] == 'M' && hdr.bpp == 24) {
             Serial.println("converting 24bpp bmp to grays");
-            wsString("converting 24bpp bmp to grays");
             char fileout[64];
             sprintf(fileout, "/temp/%02X%02X%02X%02X%02X%02X.bmp\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
             bmp2grays(*filename,(String)fileout);
@@ -88,7 +87,6 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
 
     if (filename->endsWith(".jpg") || filename->endsWith(".JPG")) {
         Serial.println("converting jpg to grays");
-        wsString("converting jpg to grays");
         char fileout[64];
         sprintf(fileout, "/temp/%02X%02X%02X%02X%02X%02X.bmp\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
         jpg2grays(*filename, (String)fileout);
@@ -114,7 +112,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     taginfo = tagRecord::findByMAC(mac);
     if (taginfo != nullptr) {
         if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
-            wsString("new image is the same as current image. not updating tag.");
+            Serial.println("new image is the same as current image. not updating tag.");
             wsSendTaginfo(mac);
             return false;
         }
@@ -156,7 +154,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         }
         dstfile.close();
 
-        wsString("new image pending: " + String(dst_path));
+        wsLog("new image pending: " + String(dst_path));
         if (taginfo != nullptr) {
             taginfo->pending = true;
             taginfo->CheckinInMinPending = nextCheckin + 1;
@@ -164,7 +162,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
             }
         }
         else {
-            Serial.println("firmware upload pending");
+            wsLog("firmware upload pending");
         }
     file.close();
 
@@ -211,7 +209,7 @@ void processBlockRequest(struct espBlockRequest* br) {
     sendBlock(pd->data + (br->blockId * BLOCK_DATA_SIZE), len);
     char buffer[64];
     sprintf(buffer, "< Block Request received for MD5 %llu, block %d\n\0", br->ver, br->blockId);
-    wsString((String)buffer);
+    wsLog((String)buffer);
     Serial.printf("<BlockId=%d\n", br->blockId);
 }
 
@@ -220,7 +218,7 @@ void processXferComplete(struct espXferComplete* xfc) {
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)xfc->src));
     sprintf(buffer, "< %02X%02X%02X%02X%02X%02X reports xfer complete\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
-    wsString((String)buffer);
+    wsLog((String)buffer);
     Serial.print(buffer);
     uint8_t mac[6];
     memcpy(mac, src + 2, sizeof(mac));
@@ -275,6 +273,5 @@ void processDataReq(struct espAvailDataReq* eadr) {
 
     sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Serial.print(buffer);
-    //wsString((String)buffer);
     wsSendTaginfo(mac);
 }
