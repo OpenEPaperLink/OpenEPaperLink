@@ -72,7 +72,6 @@ void fillNode(JsonObject &tag, tagRecord* &taginfo) {
 void saveDB(String filename) {
     DynamicJsonDocument doc(2500);
 
-    Serial.println("start writing DB to file");
     long t = millis();
 
     LittleFS.begin();
@@ -100,7 +99,7 @@ void saveDB(String filename) {
 
     file.close();
     Serial.println(millis() - t);
-    Serial.println("finished writing file");
+    Serial.println("finished writing DB");
 
     return;
 }

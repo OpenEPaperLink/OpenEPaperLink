@@ -21,6 +21,9 @@ void jpg2grays(String filein, String fileout) {
     Serial.println("jpeg conversion " + String(w) + "x" + String(h));
 
     spr.createSprite(w, h);
+    if (spr.getPointer() == nullptr) {
+        Serial.println("Failed to create sprite in jpg2grays");
+    }
     spr.setColorDepth(8);
     spr.fillSprite(TFT_WHITE);
     TJpgDec.drawFsJpg(0, 0, filein);
@@ -38,10 +41,9 @@ static uint32_t repackPackedVals(uint32_t val, uint32_t pixelsPerPackedUnit, uin
     return ret;
 }
 
-void spr2grays(TFT_eSprite &spr, long w, long h, String fileout) {
+void spr2grays(TFT_eSprite &spr, long w, long h, String &fileout) {
     // based on bmp2grays function by Dmitry.GR
 
-    Serial.println("start writing BMP");
     long t = millis();
     LittleFS.begin();
 
@@ -237,7 +239,6 @@ void spr2grays(TFT_eSprite &spr, long w, long h, String fileout) {
 void bmp2grays(String filein, String fileout) {
     // based on bmp2grays function by Dmitry.GR
 
-    Serial.println("start writing BMP2");
     long t = millis();
     LittleFS.begin();
 
