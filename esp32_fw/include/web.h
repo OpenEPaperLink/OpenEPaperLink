@@ -7,7 +7,8 @@ void init_web();
 void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
 
 extern void webSocketSendProcess(void *parameter);
-void wsString(String text);
+void wsLog(String text);
+void wsErr(String text);
 void wsSendTaginfo(uint8_t mac[6]);
 void wsSendSysteminfo();
 

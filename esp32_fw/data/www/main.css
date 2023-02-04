@@ -65,16 +65,21 @@ label {
 	flex-wrap: wrap;
 }
 
+.filebutton {
+	padding:2px 5px;
+	background-color: #cccccc;
+	text-decoration: none;
+	color: black;
+}
+
+.editbtn {
+	float:right;
+}
+
 .columns div {
 	flex: 1;
 }
 
-.actionbox div div {
-	padding: 5px;
-	margin: 5px;
-	background-color: white;
-}
-	
 input {
 	border: solid 1px #666666;
 	padding: 4px;
@@ -239,6 +244,9 @@ ul.messages li.new {
 	animation-timing-function: ease-in-out;
 }
 
+.error {
+	color: red;
+}
 
 
 @media(max-width: 460px) {

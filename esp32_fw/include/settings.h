@@ -24,6 +24,9 @@
 // this determines how long images will be cached;
 #define PENDING_DATA_TIMEOUT 60
 
+#define SOLUM_154_033 0
+#define SOLUM_29_033 1
+#define SOLUM_42_033 2
 
 // flasher options
 #define CUSTOM_MAC_HDR 0x0000

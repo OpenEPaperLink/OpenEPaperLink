@@ -1,7 +1,7 @@
 const $ = document.querySelector.bind(document);
 
 const contentModes = ["static image", "current date", "counting days", "counting hours", "current weather", "firmware update", "memo text", "image url"];
-const models = ["unknown type", "1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
+const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
 const contentModeOptions = [];
 contentModeOptions[0] = ["filename","timetolive"];
 contentModeOptions[1] = [];
@@ -42,7 +42,10 @@ function connect() {
 		console.log(event.data);
 		const msg = JSON.parse(event.data);
 		if (msg.logMsg) {
-			showMessage(msg.logMsg);
+			showMessage(msg.logMsg,false);
+		}
+		if (msg.errMsg) {
+			showMessage(msg.errMsg,true);
 		}
 		if (msg.tags) {
 			processTags(msg.tags);
@@ -226,11 +229,15 @@ function contentselected() {
 	});
 }
 
-function showMessage(message) {
+function showMessage(message,iserr) {
 	const messages = $('#messages');
 	var date = new Date(),
         time = date.toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'});
-	messages.insertAdjacentHTML("afterbegin", '<li class="new">'+htmlEncode(time+' '+message)+'</li>');
+	if (iserr) {
+		messages.insertAdjacentHTML("afterbegin", '<li class="new error">' + htmlEncode(time + ' ' + message) + '</li>');
+	} else {
+		messages.insertAdjacentHTML("afterbegin", '<li class="new">'+htmlEncode(time+' '+message)+'</li>');
+	}
 }
 
 function htmlEncode(input) {

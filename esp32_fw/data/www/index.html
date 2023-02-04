@@ -7,6 +7,7 @@
 
 	<title>Solum - alternative proto AP</title>
 	<link rel="stylesheet" href="main.css" type="text/css" />
+	<link rel="icon" href="data:,">
 </head>
 
 <body>
@@ -24,10 +25,10 @@
 		<p>
 			<label for="cfgmodel">Model</label>
 			<select id="cfgmodel">
-				<option value="0">unknown</option>
-				<option value="1">1.54" 152x152px</option>
-				<option value="2">2.9" 296x128px</option>
-				<option value="3">4.2" 400x300px</option>
+				<option value="99">unknown</option>
+				<option value="0">1.54" 152x152px</option>
+				<option value="1">2.9" 296x128px</option>
+				<option value="2">4.2" 400x300px</option>
 			</select>
 		</p>
 		<p>
@@ -37,8 +38,8 @@
 				<option value="1">current date</option>
 				<option value="2">count days</option>
 				<option value="3">count hours</option>
-				<option value="4" disabled>current weather</option>
-				<option value="6" disabled>memo text</option>
+				<option value="4">current weather</option>
+				<option value="6">memo text</option>
 				<option value="7">image url</option>
 				<option value="5">firmware update</option>
 			</select>
@@ -58,6 +59,7 @@
 
 			<div class="actionbox">
 				<div>
+					<div class="editbtn"><a href="/edit" target="littlefs" class="filebutton">edit littleFS</a></div>
 					Currently active tags:<br>
 				</div>
 			</div>

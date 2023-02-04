@@ -143,9 +143,17 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     }
 }
 
-void wsString(String text) {
-    DynamicJsonDocument doc(100);
+void wsLog(String text) {
+    StaticJsonDocument<500> doc;
     doc["logMsg"] = text;
+    xSemaphoreTake(wsMutex, portMAX_DELAY);
+    ws.textAll(doc.as<String>());
+    xSemaphoreGive(wsMutex);
+}
+
+void wsErr(String text) {
+    StaticJsonDocument<500> doc;
+    doc["errMsg"] = text;
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
     xSemaphoreGive(wsMutex);
@@ -181,11 +189,6 @@ void wsSendTaginfo(uint8_t mac[6]) {
 void init_web() {
     LittleFS.begin(true);
 
-    if (!LittleFS.exists("/.exclude.files")) {
-		Serial.println("littlefs exclude.files aanmaken");
-        File f = LittleFS.open("/.exclude.files", "w");
-        f.close();
-    }
     if (!LittleFS.exists("/current")) {
         LittleFS.mkdir("/current");
     }
@@ -214,8 +217,9 @@ void init_web() {
         ESP.restart();
     });
 
-    server.serveStatic("/", LittleFS, "/").setDefaultFile("index.htm");
-
+    server.serveStatic("/current", LittleFS, "/current/");
+    server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html");
+    
     server.on(
         "/imgupload", HTTP_POST, [](AsyncWebServerRequest *request) {
             request->send(200);
@@ -282,7 +286,7 @@ void init_web() {
                     taginfo->model = atoi(request->getParam("model", true)->value().c_str());
                     taginfo->nextupdate = 0;
                     wsSendTaginfo(mac);
-                    saveDB("/tagDB.json");
+                    saveDB("/current/tagDB.json");
                     request->send(200, "text/plain", "Ok, saved");
                 } else {
                     request->send(200, "text/plain", "Error while saving: mac not found");

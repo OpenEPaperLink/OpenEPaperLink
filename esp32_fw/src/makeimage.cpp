@@ -4,6 +4,7 @@
 #include <TFT_eSPI.h>
 #include <TJpg_Decoder.h>
 #include <makeimage.h>
+#include <web.h>
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
@@ -22,7 +23,7 @@ void jpg2grays(String filein, String fileout) {
 
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
-        Serial.println("Failed to create sprite in jpg2grays");
+        wsErr("Failed to create sprite in jpg2grays");
     }
     spr.setColorDepth(8);
     spr.fillSprite(TFT_WHITE);
