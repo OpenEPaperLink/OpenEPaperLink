@@ -98,7 +98,7 @@ void showSplashScreen() {
 
     epdPrintBegin(300, 296, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_RED);
     epdpr("Booting!Y");
-    epdpr();
+    epdpr("");
 
     epdPrintBegin(0, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("Starting!");

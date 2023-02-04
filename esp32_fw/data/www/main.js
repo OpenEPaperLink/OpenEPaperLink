@@ -167,7 +167,6 @@ $('#taglist').addEventListener("click", (event) => {
 				var tagdata = data.tags[0];
 				$('#cfgalias').value = tagdata.alias;
 				$('#cfgcontent').value = tagdata.contentmode;
-				$('#cfgmodel').value = tagdata.model;
 				$('#cfgcontent').dataset.json = tagdata.modecfgjson;
 				contentselected();
 				$('#configbox').style.display = 'block';
@@ -189,7 +188,6 @@ $('#cfgsave').onclick = function () {
 	formData.append("mac", $('#cfgmac').dataset.mac);
 	formData.append("alias", $('#cfgalias').value);
 	formData.append("contentmode", contentmode);
-	formData.append("model", $('#cfgmodel').value);
 	formData.append("modecfgjson", JSON.stringify(obj));
 	fetch("/save_cfg", {
 		method: "POST",

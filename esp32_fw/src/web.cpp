@@ -283,7 +283,6 @@ void init_web() {
                     taginfo->alias = request->getParam("alias", true)->value();
                     taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
                     taginfo->contentMode = (contentModes)atoi(request->getParam("contentmode", true)->value().c_str());
-                    taginfo->model = atoi(request->getParam("model", true)->value().c_str());
                     taginfo->nextupdate = 0;
                     wsSendTaginfo(mac);
                     saveDB("/current/tagDB.json");
