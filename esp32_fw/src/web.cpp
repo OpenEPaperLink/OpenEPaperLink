@@ -144,7 +144,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 }
 
 void wsLog(String text) {
-    DynamicJsonDocument doc(100);
+    StaticJsonDocument<500> doc;
     doc["logMsg"] = text;
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -152,7 +152,7 @@ void wsLog(String text) {
 }
 
 void wsErr(String text) {
-    DynamicJsonDocument doc(100);
+    StaticJsonDocument<500> doc;
     doc["errMsg"] = text;
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());

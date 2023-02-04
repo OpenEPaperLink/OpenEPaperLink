@@ -31,7 +31,7 @@ void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
 
-    configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "europe.pool.ntp.org", "time.nist.gov");
+    configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "0.nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 
     init_web();

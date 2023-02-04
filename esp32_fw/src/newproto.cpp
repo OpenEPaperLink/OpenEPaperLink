@@ -268,6 +268,7 @@ void processDataReq(struct espAvailDataReq* eadr) {
     time_t now;
     time(&now);
     taginfo->lastseen = now;
+    //taginfo->model = eadr->adr.hwType;
     taginfo->expectedNextCheckin = now + 300;
     taginfo->button = (eadr->adr.wakeupReason==WAKEUP_REASON_GPIO);
 
