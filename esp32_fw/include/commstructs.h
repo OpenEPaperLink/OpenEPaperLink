@@ -29,14 +29,14 @@ struct blockData {
 
 struct AvailDataReq {
     uint8_t checksum;
-    uint8_t lastPacketLQI : 7;
-    uint8_t lastPacketRSSI : 7;  // is negative
-    int8_t temperature : 7;      // zero if not reported/not supported to be reported. else, this minus CHECKIN_TEMP_OFFSET is temp in degrees C
-    uint16_t batteryMv : 12;
-    uint8_t hwType : 5;          // 32 types of tags supported
-    uint8_t wakeupReason : 2;    // supports 4 types of wakeup reasons
-    uint8_t capabilities;       // undefined, as of now
-} __packed; // 7 bytes
+    uint8_t lastPacketLQI;
+    int8_t lastPacketRSSI;
+    int8_t temperature;
+    uint16_t batteryMv;
+    uint8_t hwType;
+    uint8_t wakeupReason;
+    uint8_t capabilities;        // undefined, as of now
+} __packed;
 
 struct espAvailDataReq {
     uint8_t checksum;
@@ -53,8 +53,8 @@ struct AvailDataInfo {
     uint8_t checksum;
     uint64_t dataVer;              // MD5 of potential traffic
     uint32_t dataSize;              
-    uint8_t dataType : 4;          // allows for 16 different datatypes
-    uint8_t dataTypeArgument : 4;  // extra specification or instruction for the tag (LUT to be used for drawing image)
+    uint8_t dataType;          // allows for 16 different datatypes
+    uint8_t dataTypeArgument;  // extra specification or instruction for the tag (LUT to be used for drawing image)
     uint16_t nextCheckIn;          // when should the tag check-in again? Measured in minutes
 } __packed;
 
