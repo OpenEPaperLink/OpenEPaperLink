@@ -35,6 +35,7 @@
 
 void epdSetup();
 void epdEnterSleep();
+uint16_t epdGetBattery();
 
 void setWindowX(uint16_t start, uint16_t end);
 void setWindowY(uint16_t start, uint16_t end);
@@ -48,7 +49,6 @@ void drawNoWait();
 void epdWaitRdy();
 void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y);
 void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2);
-
 void beginFullscreenImage();
 void beginWriteFramebuffer(bool color);
 void endWriteFramebuffer();

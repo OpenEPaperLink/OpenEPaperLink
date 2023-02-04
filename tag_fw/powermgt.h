@@ -28,9 +28,15 @@ extern void initAfterWake();
 extern void doSleep(uint32_t __xdata t);
 extern uint16_t getNextSleep();
 extern void initPowerSaving();
+extern void getExtraData();
+
 extern uint8_t __xdata wakeUpReason;
+
 
 extern uint16_t __xdata nextCheckInFromAP;
 extern uint8_t __xdata dataReqLastAttempt;
+extern int8_t __xdata temperature;
+extern uint16_t __xdata batteryVoltage;
+
 
 #endif

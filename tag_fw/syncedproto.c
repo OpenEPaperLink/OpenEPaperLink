@@ -202,7 +202,10 @@ void sendAvailDataReq() {
     // TODO: send some (more) meaningful data
     availreq->hwType = HW_TYPE;
     availreq->wakeupReason = wakeUpReason;
-
+    availreq->lastPacketRSSI = (uint8_t)(-1*mLastRSSI);
+    availreq->lastPacketLQI = mLastLqi;
+    availreq->temperature = temperature;
+    availreq->batteryMv = batteryVoltage;
     addCRC(availreq, sizeof(struct AvailDataReq));
     commsTxNoCpy(outBuffer);
 }

@@ -20,6 +20,8 @@
 
 //#define DEBUG_MODE
 
+
+
 uint8_t showChannelSelect() {
     uint8_t __xdata result[16];
     memset(result, 0, sizeof(result));
@@ -49,7 +51,6 @@ uint8_t showChannelSelect() {
     mLastLqi = highestLqi;
     return highestSlot;
 }
-
 void mainProtocolLoop(void) {
     clockingAndIntsInit();
     timerInit();
@@ -83,6 +84,8 @@ void mainProtocolLoop(void) {
     initPowerSaving();
 #ifndef DEBUG_MODE
     // show the splashscreen
+        getExtraData();
+        
     showSplashScreen();
 
     eepromDeepPowerDown();

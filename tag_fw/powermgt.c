@@ -30,11 +30,24 @@ uint8_t __xdata dataReqLastAttempt = 0;
 uint16_t __xdata nextCheckInFromAP = 0;
 uint8_t __xdata wakeUpReason = 0;
 
+extern int8_t adcSampleTemperature(void);		//in degrees C
+
 void initPowerSaving() {
     for (uint8_t c = 0; c < POWER_SAVING_SMOOTHING; c++) {
         dataReqAttemptArr[c] = INTERVAL_BASE;
     }
 }
+
+int8_t __xdata temperature = 0;
+uint16_t __xdata batteryVoltage = 0;
+
+void getExtraData(){
+    batteryVoltage = epdGetBattery();
+    temperature = adcSampleTemperature();
+    pr("temp = %d volt = %d\n", temperature, batteryVoltage);
+}
+
+
 
 // init/sleep
 void initAfterWake() {
@@ -45,6 +58,7 @@ void initAfterWake() {
     epdEnterSleep();
     irqsOn();
     boardInitStage2();
+    getExtraData();
     initRadio();
 }
 void doSleep(uint32_t __xdata t) {
