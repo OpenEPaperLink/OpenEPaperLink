@@ -42,8 +42,6 @@ bool commsTxUnencrypted(const void __xdata *packetP, uint8_t len) {
     mCommsBuf[0] = len + RADIO_PAD_LEN_BY;
     
     return radioTx(mCommsBuf);;
-    radioTx(mCommsBuf);;
-
 }
 
 bool commsTxNoCpy(const void __xdata *packetp) {

@@ -7,7 +7,7 @@
 #include "timer.h"
 
 #define RX_BUFFER_SIZE (RADIO_MAX_PACKET_LEN + 1 /* len byte */ + 2 /* RSSI & LQI */)
-#define RX_BUFFER_NUM 3
+#define RX_BUFFER_NUM 7
 
 static volatile uint8_t __xdata mRxBufs[RX_BUFFER_NUM][RX_BUFFER_SIZE];
 static volatile uint8_t __xdata mLastRSSI, mLastTxedSeq, mRxOn, mRxBufNextR, mRxBufNextW, mRxBufNumFree;
