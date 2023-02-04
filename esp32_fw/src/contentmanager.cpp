@@ -20,14 +20,14 @@ void contentRunner() {
         tagRecord* taginfo = nullptr;
         taginfo = tagDB.at(c);
 
-        if (now >= taginfo->nextupdate || taginfo->button) {
+        if (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO) {
             uint8_t mac8[8] = {0, 0, 0, 0, 0, 0, 0, 0};
             memcpy(mac8 + 2, taginfo->mac, 6);
             uint8_t src[8];
             *((uint64_t *)src) = swap64(*((uint64_t *)mac8));
 
-            drawNew(src, taginfo->button, taginfo);
-            taginfo->button = false;
+            drawNew(src, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
+            taginfo->wakeupReason == 0;
         }
     }
 }
@@ -98,7 +98,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             // taginfo->nextupdate = now + 3600 - (now % 3600);
             updateTagImage(filename, mac, (buttonPressed?0:3));
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
-            taginfo->nextupdate = now + 300;
+            taginfo->nextupdate = now + 3600;
             break;
 
         case Weather:
@@ -110,7 +110,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             drawWeather(filename, cfgobj["location"], taginfo);
             updateTagImage(filename, mac, 0);
-            taginfo->nextupdate = now + 900;
+            taginfo->nextupdate = now + 1800;
             break;
 
         case Firmware:
@@ -165,7 +165,7 @@ void drawDate(String &filename, tagRecord *&taginfo) {
 
     LittleFS.begin();
 
-    if (taginfo->model == SOLUM_29_033) {
+    if (taginfo->hwType == SOLUM_29_033) {
         w = 296;
         h = 128;
         spr.createSprite(w, h);
@@ -182,7 +182,7 @@ void drawDate(String &filename, tagRecord *&taginfo) {
         spr.setTextColor(TFT_BLACK, TFT_WHITE);
         spr.drawString(String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], w / 2, 73);
         spr.unloadFont();
-    } else if (taginfo->model == SOLUM_154_033) {
+    } else if (taginfo->hwType == SOLUM_154_033) {
         w = 154;
         h = 154;
         spr.createSprite(w, h);
@@ -216,7 +216,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     spr.setColorDepth(8);
     long w, h;
 
-    if (taginfo->model == SOLUM_29_033) {
+    if (taginfo->hwType == SOLUM_29_033) {
         w = 296;
         h = 128;
         spr.createSprite(w, h);
@@ -236,7 +236,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         spr.loadFont(font, LittleFS);
         spr.drawString(String(count), w / 2, h / 2 + 10);
         spr.unloadFont();
-    } else if (taginfo->model == SOLUM_154_033) {
+    } else if (taginfo->hwType == SOLUM_154_033) {
         w = 154;
         h = 154;
         spr.createSprite(w, h);
@@ -328,7 +328,7 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
 
             long w, h;
 
-            if (taginfo->model == SOLUM_29_033) {
+            if (taginfo->hwType == SOLUM_29_033) {
                 w = 296;
                 h = 128;
                 spr.createSprite(w, h);
@@ -382,7 +382,7 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
                     spr.setCursor(190, 0);
                     spr.printToSprite("\uf084");
                 }
-            } else if (taginfo->model == SOLUM_154_033) {
+            } else if (taginfo->hwType == SOLUM_154_033) {
                 w = 154;
                 h = 154;
 

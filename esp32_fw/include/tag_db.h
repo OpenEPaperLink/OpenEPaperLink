@@ -17,24 +17,38 @@ enum contentModes {
     ImageUrl,
 };
 
+#define SOLUM_154_033 0
+#define SOLUM_29_033 1
+#define SOLUM_42_033 2
+
+#define WAKEUP_REASON_TIMED 0
+#define WAKEUP_REASON_BOOTUP 1
+#define WAKEUP_REASON_GPIO 2
+#define WAKEUP_REASON_NFC 3
+
 class tagRecord {
    public:
     uint16_t nextCheckinpending;
-    tagRecord() : mac{0}, model(0), alias(""), lastseen(0), nextupdate(0), contentMode(Image), pending(false), button(false), md5{0}, md5pending{0}, CheckinInMinPending(0), expectedNextCheckin(0), modeConfigJson("") {}
+    tagRecord() : mac{0}, alias(""), lastseen(0), nextupdate(0), contentMode(Image), pending(false), md5{0}, md5pending{0}, CheckinInMinPending(0), expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0) {}
 
     uint8_t mac[6];
-    u_int8_t model;
     String alias;
     uint32_t lastseen;
     uint32_t nextupdate;
     contentModes contentMode;
     bool pending;
-    bool button;
     uint8_t md5[16];
     uint8_t md5pending[16];
     uint16_t CheckinInMinPending;
     uint32_t expectedNextCheckin;
     String modeConfigJson;
+    uint8_t LQI;
+    int8_t RSSI;
+    int8_t temperature;
+    uint16_t batteryMv;
+    uint8_t hwType;
+    uint8_t wakeupReason;
+    uint8_t capabilities; 
     static tagRecord* findByMAC(uint8_t mac[6]);
 };
 

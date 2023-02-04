@@ -61,11 +61,16 @@ void fillNode(JsonObject &tag, tagRecord* &taginfo) {
     tag["lastseen"] = taginfo->lastseen;
     tag["nextupdate"] = taginfo->nextupdate;
     tag["nextcheckin"] = taginfo->expectedNextCheckin;
-    tag["model"] = taginfo->model;
     tag["pending"] = taginfo->pending;
-    tag["button"] = taginfo->button;
     tag["alias"] = taginfo->alias;
-    tag["contentmode"] = taginfo->contentMode;
+    tag["contentMode"] = taginfo->contentMode;
+    tag["LQI"] = taginfo->LQI;
+    tag["RSSI"] = taginfo->RSSI;
+    tag["temperature"] = taginfo->temperature;
+    tag["batteryMv"] = taginfo->batteryMv;
+    tag["hwType"] = taginfo->hwType;
+    tag["wakeupReason"] = taginfo->wakeupReason;
+    tag["capabilities"] = taginfo->capabilities;
     tag["modecfgjson"] = taginfo->modeConfigJson;
 }
 
@@ -143,11 +148,16 @@ void loadDB(String filename) {
                     if (taginfo->expectedNextCheckin < now - 1800) { 
                         taginfo->expectedNextCheckin = now + 1800; 
                     }
-                    taginfo->model = (uint8_t)tag["model"];
                     taginfo->pending = false;
-                    taginfo->button = false;
                     taginfo->alias = tag["alias"].as<String>();
                     taginfo->contentMode = static_cast<contentModes>(tag["contentmode"]);
+                    taginfo->LQI = tag["LQI"]; 
+                    taginfo->RSSI = tag["RSSI"]; 
+                    taginfo->temperature = tag["temperature"]; 
+                    taginfo->batteryMv = tag["batteryMv"]; 
+                    taginfo->hwType = (uint8_t)tag["hwType"];
+                    taginfo->wakeupReason = tag["wakeupReason"];
+                    taginfo->capabilities = tag["capabilities"];
                     taginfo->modeConfigJson = tag["modecfgjson"].as<String>();
                 }
             } else {
