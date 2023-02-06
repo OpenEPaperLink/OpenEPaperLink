@@ -30,8 +30,6 @@ void powerPortsDownForSleep(void)
 
 void boardInit(void)
 {
-	wdtOff();
-	
 	//set up pins for spi(0.0,0.1,0.2), UART (0.6)
 	P0FUNC |= (1 << 0) | (1 << 1) | (1 << 2) | (1 << 6);
 	P0DIR = (P0DIR &~ ((1 << 0) | (1 << 1) | (1 << 6))) | (1 << 2);
@@ -54,14 +52,9 @@ void boardInit(void)
 	//BS1 = low
 	P1_2 = 0;
 	
-	uartInit();
 	spiInit();
 }
 
-void boardInitStage2(void)
-{
-	//nothing yet
-}
 
 __bit boardGetOwnMac(uint8_t __xdata *mac)
 {

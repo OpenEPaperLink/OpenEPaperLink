@@ -46,6 +46,7 @@ void clearWindow(bool color);
 void clearScreen();
 void draw();
 void drawNoWait();
+void drawWithSleep();
 void epdWaitRdy();
 void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y);
 void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2);

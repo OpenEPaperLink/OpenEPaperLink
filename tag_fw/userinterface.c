@@ -25,12 +25,10 @@ extern uint8_t __xdata mSelfMac[8];
 extern uint8_t __xdata currentChannel;
 extern uint8_t __xdata APmac[];
 
-static const uint8_t __code fwVersion = FW_VERSION;
-static const char __code fwVersionSuffix[] = FW_VERSION_SUFFIX;
+const uint8_t __code fwVersion = FW_VERSION;
+const char __code fwVersionSuffix[] = FW_VERSION_SUFFIX;
 
 void showSplashScreen() {
-    epdSetup();
-
 #if (SCREEN_WIDTH == 152)  // 1.54"
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
@@ -52,7 +50,7 @@ void showSplashScreen() {
     epdPrintBegin(2, 120, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("zbs154v033 %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
     epdPrintEnd();
-    draw();
+
 #endif
 
 #if (SCREEN_WIDTH == 128)  // 2.9"
@@ -88,7 +86,6 @@ void showSplashScreen() {
     //  drawLineVertical(EPD_COLOR_RED, 64, 10, 286);
     //  drawLineVertical(EPD_COLOR_BLACK, 65, 10, 286);
 
-    draw();
     // timerDelay(TIMER_TICKS_PER_SECOND * 4);
 #endif
 #if (SCREEN_WIDTH == 400)  // 2.9"
@@ -120,14 +117,12 @@ void showSplashScreen() {
     loadRawBitmap(solum, 253, 72, EPD_COLOR_BLACK);
     loadRawBitmap(hacked, 261, 82, EPD_COLOR_RED);
 
-    draw();
 #endif
+    drawWithSleep();
 }
 
 void showApplyUpdate() {
-    epdSetup();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
-
     selectLUT(1);
     clearScreen();
     setColorMode(EPD_MODE_IGNORE, EPD_MODE_NORMAL);
@@ -140,7 +135,6 @@ void showApplyUpdate() {
 uint8_t __xdata resultcounter = 0;
 
 void showScanningWindow() {
-    epdSetup();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     selectLUT(EPD_LUT_FAST_NO_REDS);
     clearScreen();
@@ -180,8 +174,9 @@ void addScanResult(uint8_t channel, uint8_t lqi) {
 }
 
 void showAPFound() {
-    selectLUT(EPD_LUT_FAST_NO_REDS);
     clearScreen();
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+    selectLUT(1);
 #if (SCREEN_WIDTH == 128)
     epdPrintBegin(0, 285, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("Waiting for data...");
@@ -247,7 +242,7 @@ void showAPFound() {
     epdpr("%02X%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 #endif
-    draw();
+    drawWithSleep();
 }
 
 void showNoAP() {
@@ -281,5 +276,62 @@ void showNoAP() {
     epdpr("a little while");
     epdPrintEnd();
 #endif
-    draw();
+    drawWithSleep();
+}
+
+void showNoEEPROM() {
+    selectLUT(EPD_LUT_NO_REPEATS);
+    clearScreen();
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+#if (SCREEN_WIDTH == 128)  // 2.9"
+    epdPrintBegin(0, 285, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("EEPROM FAILED :(");
+    epdPrintEnd();
+    epdPrintBegin(64, 285, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("Sleeping forever :'(");
+    epdPrintEnd();
+    loadRawBitmap(failed, 42, 26, EPD_COLOR_RED);
+#endif
+#if (SCREEN_WIDTH == 152)  // 1.54"
+    epdPrintBegin(26, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("EEPROM ");
+    epdPrintEnd();
+    epdPrintBegin(8, 32, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("FAILED :(");
+    epdPrintEnd();
+    loadRawBitmap(failed, 60, 72, EPD_COLOR_RED);
+
+    epdPrintBegin(3, 136, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("Sleeping forever :'(");
+    epdPrintEnd();
+#endif
+    drawWithSleep();
+}
+
+void showNoMAC() {
+    selectLUT(EPD_LUT_NO_REPEATS);
+    clearScreen();
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+#if (SCREEN_WIDTH == 128)  // 2.9"
+    epdPrintBegin(0, 285, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("NO MAC SET :(");
+    epdPrintEnd();
+    epdPrintBegin(64, 285, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("Sleeping forever :'(");
+    epdPrintEnd();
+    loadRawBitmap(failed, 42, 26, EPD_COLOR_RED);
+#endif
+#if (SCREEN_WIDTH == 152)  // 1.54"
+    epdPrintBegin(20, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("NO MAC");
+    epdPrintEnd();
+    epdPrintBegin(30, 32, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("SET :(");
+    epdPrintEnd();
+    loadRawBitmap(failed, 60, 72, EPD_COLOR_RED);
+    epdPrintBegin(3, 136, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("Sleeping forever :'(");
+    epdPrintEnd();
+#endif
+    drawWithSleep();
 }

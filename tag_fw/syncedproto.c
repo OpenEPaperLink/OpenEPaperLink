@@ -1,4 +1,5 @@
 #define __packed
+
 #include "syncedproto.h"
 
 #include <stdbool.h>
@@ -120,27 +121,6 @@ void addCRC(void *p, uint8_t len) {
 }
 
 // radio stuff
-void initRadio() {
-    radioInit();
-    radioRxFilterCfg(mSelfMac, 0x10000, PROTO_PAN_ID);
-    if (currentChannel >= 11 && currentChannel <= 25) {
-        radioSetChannel(currentChannel);
-    } else {
-        radioSetChannel(RADIO_FIRST_CHANNEL);
-    }
-    radioSetTxPower(10);
-}
-void killRadio() {
-    radioRxEnable(false, true);
-    RADIO_IRQ4_pending = 0;
-    UNK_C1 &= ~0x81;
-    TCON &= ~0x20;
-    uint8_t __xdata cfgPg = CFGPAGE;
-    CFGPAGE = 4;
-    RADIO_command = 0xCA;
-    RADIO_command = 0xC5;
-    CFGPAGE = cfgPg;
-}
 void sendPing() {
     struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer + 1);
     memset(outBuffer, 0, sizeof(struct MacFrameBcast) + 2 + 4);
@@ -160,8 +140,8 @@ void sendPing() {
 uint8_t detectAP(uint8_t channel) {
     uint32_t __xdata t;
     radioRxEnable(false, true);
-    radioRxFlush();
     radioSetChannel(channel);
+    radioRxFlush();
     radioRxEnable(true, true);
     for (uint8_t c = 1; c <= MAXIMUM_PING_ATTEMPTS; c++) {
         sendPing();
@@ -184,6 +164,19 @@ uint8_t detectAP(uint8_t channel) {
 }
 
 // data xfer stuff
+void sendShortAvailDataReq() {
+    struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer + 1);
+    outBuffer[0] = sizeof(struct MacFrameBcast) + 1 + 2;
+    outBuffer[sizeof(struct MacFrameBcast) + 1] = PKT_AVAIL_DATA_SHORTREQ;
+    memcpy(txframe->src, mSelfMac, 8);
+    outBuffer[1] = 0x21;
+    outBuffer[2] = 0xC8;  // quickly set txframe fcs structure for broadcast packet
+    txframe->seq = seq++;
+    txframe->dstPan = 0xFFFF;
+    txframe->dstAddr = 0xFFFF;
+    txframe->srcPan = PROTO_PAN_ID;
+    commsTxNoCpy(outBuffer);
+}
 void sendAvailDataReq() {
     struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer + 1);
     memset(outBuffer, 0, sizeof(struct MacFrameBcast) + sizeof(struct AvailDataReq) + 2 + 4);
@@ -202,7 +195,7 @@ void sendAvailDataReq() {
     // TODO: send some (more) meaningful data
     availreq->hwType = HW_TYPE;
     availreq->wakeupReason = wakeUpReason;
-    availreq->lastPacketRSSI = (uint8_t)(-1*mLastRSSI);
+    availreq->lastPacketRSSI = mLastRSSI;
     availreq->lastPacketLQI = mLastLqi;
     availreq->temperature = temperature;
     availreq->batteryMv = batteryVoltage;
@@ -210,9 +203,35 @@ void sendAvailDataReq() {
     commsTxNoCpy(outBuffer);
 }
 struct AvailDataInfo *__xdata getAvailDataInfo() {
+    radioRxEnable(true, true);
     uint32_t __xdata t;
     for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
         sendAvailDataReq();
+        t = timerGet() + (TIMER_TICKS_PER_MS * DATA_REQ_RX_WINDOW_SIZE);
+        while (timerGet() < t) {
+            int8_t __xdata ret = commsRxUnencrypted(inBuffer);
+            if (ret > 1) {
+                if (getPacketType(inBuffer) == PKT_AVAIL_DATA_INFO) {
+                    if (checkCRC(inBuffer + sizeof(struct MacFrameNormal) + 1, sizeof(struct AvailDataInfo))) {
+                        struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)inBuffer;
+                        memcpy(APmac, f->src, 8);
+                        APsrcPan = f->pan;
+                        dataReqLastAttempt = c;
+                        return (struct AvailDataInfo *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
+                    }
+                }
+            }
+        }
+    }
+    dataReqLastAttempt = DATA_REQ_MAX_ATTEMPTS;
+    return NULL;
+}
+struct AvailDataInfo *__xdata getShortAvailDataInfo() {
+    radioRxEnable(true, true);
+    uint32_t __xdata t;
+    for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
+        sendShortAvailDataReq();
+        // sendAvailDataReq();
         t = timerGet() + (TIMER_TICKS_PER_MS * DATA_REQ_RX_WINDOW_SIZE);
         while (timerGet() < t) {
             int8_t __xdata ret = commsRxUnencrypted(inBuffer);
@@ -439,7 +458,6 @@ void drawImageFromEeprom() {
     wdtOn();
     drawImageAtAddress(getAddressForSlot(curImgSlot));
     //   adcSampleBattery();
-    initRadio();
 }
 uint32_t getHighSlotId() {
     uint32_t temp = 0;
@@ -483,15 +501,18 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
             if (curXferComplete && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8)) {
                 // we've downloaded this already, we're guessing it's already displayed
                 pr("old ver, already downloaded!\n");
+                powerUp(INIT_RADIO);
                 sendXferComplete();
+                powerDown(INIT_RADIO);
                 return true;
             } else {
                 // check if we've seen this version before
                 curImgSlot = findSlot(&(avail->dataVer));
                 if (curImgSlot != 0xFF) {
                     // found a (complete)valid image slot for this version
+                    powerDown(INIT_RADIO);
                     sendXferComplete();
-                    killRadio();
+                    powerDown(INIT_RADIO);
 
                     pr("already seen, drawing from eeprom slot %d\n", curImgSlot);
 
@@ -551,6 +572,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
     while (!curXferComplete) {
         // this while loop loops until the transfer has been completed, or we get tired for other reasons
     startdownload:;
+        wdt10s();
 #ifndef DEBUGBLOCKS
         pr("REQ %d ", curBlock.blockId);
 #endif
@@ -571,6 +593,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
         // timerDelay(TIMER_TICKS_PER_MS*100);
 
         // DO BLOCK REQUEST - request a block, get an ack with timing info (hopefully)
+        powerUp(INIT_RADIO);
         struct blockRequestAck *__xdata ack = performBlockRequest();
         if (ack == NULL) {
             pr("Cancelled request\n");
@@ -583,7 +606,9 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
             if (ack->pleaseWaitMs < 35) {
                 timerDelay(ack->pleaseWaitMs * TIMER_TICKS_PER_MS);
             } else {
+                powerDown(INIT_GPIO);
                 doSleep(ack->pleaseWaitMs - 10);
+                powerUp(INIT_BASE | INIT_GPIO | INIT_UART | INIT_RADIO);
                 radioRxEnable(true, true);
             }
         } else {
@@ -594,6 +619,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
             // didn't receive packets
             blockRequestAttempt++;
             if (blockRequestAttempt > 5) {
+                powerDown(INIT_RADIO);
                 pr("bailing on download, 0 blockparts rx'd\n");
                 return false;
             }
@@ -601,7 +627,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
             // successfull block RX loop
             blockRequestAttempt = 0;
         }
-
+        powerDown(INIT_RADIO);
 #ifdef DEBUGBLOCKS
         pr("RX  %d[", curBlock.blockId);
         for (uint8_t c = 0; c < BLOCK_MAX_PARTS; c++) {
@@ -695,19 +721,23 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
                         eepromWrite(getAddressForSlot(curImgSlot), eih, sizeof(struct EepromImageHeader));
                         // pr("transfer complete!");
                         curXferComplete = true;
+                        powerUp(INIT_RADIO);
                         sendXferComplete();
-                        killRadio();
+                        powerDown(INIT_RADIO);
+                        wdt60s();
                         drawImageFromEeprom();
                         curDataInfo.dataVer = 0xAA;
                         break;
                     case DATATYPE_UPDATE:
                         pr("firmware download complete, doing update.\n");
+                        powerUp(INIT_EPD);
                         showApplyUpdate();
                         curXferComplete = true;
+                        powerUp(INIT_RADIO);
                         sendXferComplete();
-                        killRadio();
+                        powerDown(INIT_RADIO);
+                        wdt60s();
                         eepromReadStart(EEPROM_UPDATA_AREA_START);
-                        // wdtDeviceReset();
                         selfUpdate();
                         break;
                 }
