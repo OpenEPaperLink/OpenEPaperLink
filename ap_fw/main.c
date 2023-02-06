@@ -708,7 +708,7 @@ void main(void) {
                     case PKT_AVAIL_DATA_SHORTREQ:
                         // a short AvailDataReq is basically a very short (1 byte payload) packet that requires little preparation on the tx side, for optimal battery use
                         // bytes of the struct are set 0, so it passes the checksum test, and the ESP32 can detect that no interesting payload is sent
-                        memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast) + 1, 0, sizeof(struct AvailDataReq));
+                        memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast), 0, sizeof(struct AvailDataReq)+2);
                         processAvailDataReq(radiorxbuffer);
                         break;
                     default:
