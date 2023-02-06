@@ -359,6 +359,5 @@ void drawImageAtAddress(uint32_t addr) {
 
     pr(" complete.\n");
 
-    draw();
-    epdEnterSleep();
+    drawWithSleep();
 }

@@ -27,22 +27,6 @@ extern int8_t __xdata mCurTemperature;
 
 #define SCREEN_DATA_PASSES			2
 
-void screenShutdown(void);
-
-void screenTest(void);
-
-__bit screenTxStart(__bit forPartial);
-
-void screenEndPass(void);	//at end of each pass
-
-#pragma callee_saves screenByteTx
-void screenByteTx(uint8_t byte);
-void screenTxEnd(void);
-
-void screenSleep(void);
-
-extern uint8_t __xdata mScreenRow[];	//320 bytes used as temp by many on cc where memory is tight
-
 #endif
 
 

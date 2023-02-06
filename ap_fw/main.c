@@ -9,7 +9,6 @@
 #include "board.h"
 #include "comms.h"
 #include "cpu.h"
-#include "eeprom.h"
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
@@ -40,7 +39,8 @@ struct MacFrameBcast {
     uint16_t srcPan;
     uint8_t src[8];
 } __packed;
-#define PKT_AVAIL_DATA_REQ_SHORT 0xE4
+
+#define PKT_AVAIL_DATA_SHORTREQ 0xE3
 #define PKT_AVAIL_DATA_REQ 0xE5
 #define PKT_AVAIL_DATA_INFO 0xE6
 #define PKT_BLOCK_PARTIAL_REQUEST 0xE7
@@ -61,9 +61,8 @@ struct AvailDataReq {
     uint16_t batteryMv;
     uint8_t hwType;
     uint8_t wakeupReason;
-    uint8_t capabilities;        // undefined, as of now
+    uint8_t capabilities;  // undefined, as of now
 } __packed;
-
 
 #define DATATYPE_NOUPDATE 0
 #define DATATYPE_IMG 1
@@ -72,13 +71,12 @@ struct AvailDataReq {
 
 struct AvailDataInfo {
     uint8_t checksum;
-    uint64_t dataVer;              // MD5 of potential traffic
-    uint32_t dataSize;              
-    uint8_t dataType;          // allows for 16 different datatypes
+    uint64_t dataVer;  // MD5 of potential traffic
+    uint32_t dataSize;
+    uint8_t dataType;          // allows for different datatypes
     uint8_t dataTypeArgument;  // extra specification or instruction for the tag (LUT to be used for drawing image)
-    uint16_t nextCheckIn;          // when should the tag check-in again? Measured in minutes
+    uint16_t nextCheckIn;      // when should the tag check-in again? Measured in minutes
 } __packed;
-
 
 struct blockPart {
     uint8_t checksum;
@@ -585,7 +583,7 @@ void sendPart(uint8_t partNo) {
     radioTx(radiotxbuffer);
 }
 void sendBlockData() {
-    if(getBlockDataLength()==0){
+    if (getBlockDataLength() == 0) {
         pr("Invalid block request received, 0 parts..\n");
         requestedData.requestedParts[0] |= 0x01;
     }
@@ -632,20 +630,14 @@ void sendCancelXfer(uint8_t *dst) {
 void sendPong(void *__xdata buf) {
     struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
     struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
-    memset(radiotxbuffer, 0, sizeof(struct MacFrameNormal) + 2);
-
     radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_PONG;
     radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + RAW_PKT_PADDING;
     memcpy(frameHeader->src, mSelfMac, 8);
     memcpy(frameHeader->dst, rxframe->src, 8);
-
-    frameHeader->fcs.frameType = 1;
-    frameHeader->fcs.panIdCompressed = 1;
-    frameHeader->fcs.destAddrType = 3;
-    frameHeader->fcs.srcAddrType = 3;
+    radiotxbuffer[1] = 0x41;  // fast way to set the appropriate bits
+    radiotxbuffer[2] = 0xCC;  // normal frame
     frameHeader->seq = seq++;
     frameHeader->pan = rxframe->srcPan;
-
     radioTx(radiotxbuffer);
 }
 
@@ -681,18 +673,16 @@ void main(void) {
     radioSetTxPower(10);
     radioRxEnable(true, true);
 
-    // uint8_t __xdata fromMac[8];
     pr("RDY>\n");
 
     housekeepingTimer = timerGet();
 
-    // really... if I do the call below, it'll cost me 8 bytes IRAM. Not the kind of 'optimization' I ever dreamed of doing
-    // pr("MAC>%02X%02X%02X%02X%02X%02X%02X%02X\n", mSelfMac[0], mSelfMac[1], mSelfMac[2], mSelfMac[3], mSelfMac[4], mSelfMac[5], mSelfMac[6], mSelfMac[7]);
     pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
     pr("%02X%02X", mSelfMac[2], mSelfMac[3]);
     pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
     pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
 
+    uint16_t __xdata loopCount = 1;
     pr("VER>%04X\n", version);
     while (1) {
         while ((timerGet() - housekeepingTimer) < ((TIMER_TICKS_PER_SECOND * HOUSEKEEPING_INTERVAL) - 100 * TIMER_TICKS_PER_MS)) {
@@ -715,10 +705,17 @@ void main(void) {
                     case PKT_PING:
                         sendPong(radiorxbuffer);
                         break;
+                    case PKT_AVAIL_DATA_SHORTREQ:
+                        // a short AvailDataReq is basically a very short (1 byte payload) packet that requires little preparation on the tx side, for optimal battery use
+                        // bytes of the struct are set 0, so it passes the checksum test, and the ESP32 can detect that no interesting payload is sent
+                        memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast), 0, sizeof(struct AvailDataReq)+2);
+                        processAvailDataReq(radiorxbuffer);
+                        break;
                     default:
                         pr("t=%02X\n", getPacketType(radiorxbuffer));
                         break;
                 }
+                loopCount = 10000;
             }
             while (uartBytesAvail()) {
                 processSerial(uartRx());
@@ -730,8 +727,14 @@ void main(void) {
                     blockStartTimer = 0;
                 }
             }
+            loopCount--;
+            if (loopCount == 0) {
+                loopCount = 10000;
+                // every once in a while, especially when handling a lot of traffic, the radio will hang. Calling this every once in while
+                // alleviates this problem. The radio is set back to 'receive' whenever loopCount overflows
+                RADIO_command = RADIO_CMD_RECEIVE;
+            }
         }
-        pr("housekeeping...");
 
         for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
             if (pendingDataArr[c].attemptsLeft == 1) {

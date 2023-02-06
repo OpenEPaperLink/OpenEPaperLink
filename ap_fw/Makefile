@@ -2,7 +2,7 @@
 BUILD		?= zbs29v033
 
 #file containing main() must be first!
-SOURCES         += main.c eeprom.c
+SOURCES         += main.c
 SOURCES		+= comms.c
 
 

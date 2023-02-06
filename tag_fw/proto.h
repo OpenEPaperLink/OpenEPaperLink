@@ -90,7 +90,7 @@ struct MacFrameBcast {
     uint8_t src[8];
 } __packed;
 
-#define PKT_AVAIL_DATA_REQ_SHORT 0xE4
+#define PKT_AVAIL_DATA_SHORTREQ 0xE3
 #define PKT_AVAIL_DATA_REQ 0xE5
 #define PKT_AVAIL_DATA_INFO 0xE6
 #define PKT_BLOCK_PARTIAL_REQUEST 0xE7

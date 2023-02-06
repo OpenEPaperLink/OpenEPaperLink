@@ -198,7 +198,7 @@ void epdEnterSleep() {
     P2_0 = 1;
     timerDelay(50);
     shortCommand(CMD_SOFT_RESET2);
-    epdBusyWait(TIMER_TICKS_PER_MS * 10);
+    epdBusyWait(TIMER_TICKS_PER_MS * 15);
     shortCommand1(CMD_ENTER_SLEEP, 0x03);
     isInited = false;
 }
@@ -239,11 +239,23 @@ static uint8_t epdGetStatus() {
     return sta;
 }
 uint16_t epdGetBattery(void) {
+//    epdEnterSleep(); // r
+//    return 2600; // r
     uint16_t voltage = 2600;
-
-    if (!isInited)
-        epdReset();
     uint8_t val;
+
+    //epdReset();
+
+        timerDelay(50);
+    P2_0 = 0;
+        timerDelay(50);
+    P2_0 = 1;
+        timerDelay(50);
+
+    shortCommand(CMD_SOFT_RESET);  // software reset
+    epdBusyWait(TIMER_TICKS_PER_MS * 30);
+    shortCommand(CMD_SOFT_RESET2);
+    epdBusyWait(TIMER_TICKS_PER_MS * 30);
 
     shortCommand1(CMD_DISP_UPDATE_CTRL2, SCREEN_CMD_CLOCK_ON | SCREEN_CMD_ANALOG_ON);
     shortCommand(CMD_ACTIVATION);
@@ -258,12 +270,10 @@ uint16_t epdGetBattery(void) {
         }
     }
 
-    shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);
-    shortCommand(CMD_ACTIVATION);
-    epdBusyWait(TIMER_TICKS_PER_MS * 100);
+    shortCommand(CMD_SOFT_RESET2);
+    epdBusyWait(TIMER_TICKS_PER_MS * 15);
+    shortCommand1(CMD_ENTER_SLEEP, 0x03);
 
-    if (!isInited)
-        epdEnterSleep();
     return voltage;
 }
 
@@ -341,7 +351,7 @@ void selectLUT(uint8_t lut) {
             lutGroupDisable(LUTGROUP_NEGATIVE);
             lutGroupDisable(LUTGROUP_FASTBLINK);
             lutGroupDisable(LUTGROUP_SLOWBLINK);
-            //lutGroupSpeedup(LUTGROUP_SET, 2);
+            // lutGroupSpeedup(LUTGROUP_SET, 2);
             lutGroupDisable(LUTGROUP_IMPROVE_REDS);
             lutGroupDisable(LUTGROUP_IMPROVE_SHARPNESS);
             break;
@@ -350,7 +360,7 @@ void selectLUT(uint8_t lut) {
             lutGroupDisable(LUTGROUP_FASTBLINK);
             lutGroupDisable(LUTGROUP_SLOWBLINK);
             lutGroupRepeat(LUTGROUP_SET, 0);
-            //lutGroupSpeedup(LUTGROUP_SET, 2);
+            // lutGroupSpeedup(LUTGROUP_SET, 2);
             lutGroupDisable(LUTGROUP_IMPROVE_REDS);
             lutGroupDisable(LUTGROUP_IMPROVE_SHARPNESS);
             break;
@@ -420,6 +430,32 @@ void drawNoWait() {
     shortCommand1(0x22, 0xCF);
     // shortCommand1(0x22, SCREEN_CMD_REFRESH);
     shortCommand(0x20);
+}
+void drawWithSleep() {
+    shortCommand1(0x22, 0xCF);
+    // shortCommand1(0x22, SCREEN_CMD_REFRESH);
+    shortCommand(0x20);
+    uint8_t tmp_P2FUNC = P2FUNC;
+    uint8_t tmp_P2DIR = P2DIR;
+    uint8_t tmp_P2PULL = P2PULL;
+    uint8_t tmp_P2LVLSEL = P2LVLSEL;
+    P2FUNC &= 0xfd;
+    P2DIR |= 2;
+    P2PULL |= 2;
+    P2LVLSEL |= 2;
+
+    P2CHSTA &= 0xfd;
+    P2INTEN |= 2;
+    P2CHSTA &= 0xfd;
+    sleepForMsec(TIMER_TICKS_PER_SECOND * 120);
+    P2CHSTA &= 0xfd;
+    P2INTEN &= 0xfd;
+
+    P2FUNC = tmp_P2FUNC;
+    P2DIR = tmp_P2DIR;
+    P2PULL = tmp_P2PULL;
+    P2LVLSEL = tmp_P2LVLSEL;
+    eepromPrvDeselect();
 }
 void epdWaitRdy() {
     epdBusyWait(TIMER_TICKS_PER_SECOND * 120);
