@@ -46,11 +46,11 @@
 #define VOLTAGE_CHECK_INTERVAL 288  // How often the tag should do a battery voltage check (multiplied by LONG_DATAREQ_INTERVAL)
 
 // power saving when no AP's were found (scanning every X)
-#define INTERVAL_1_TIME 1800UL   // Try every half hour
-#define INTERVAL_1_ATTEMPTS 48   // for 48 attempts (an entire day)
-#define INTERVAL_2_TIME 3600UL   // Try every hour
-#define INTERVAL_2_ATTEMPTS 24   // for 24 attempts (an additional day)
-#define INTERVAL_3_TIME 86400UL  // Try every day
+#define INTERVAL_1_TIME 3600UL   // Try every hour
+#define INTERVAL_1_ATTEMPTS 24   // for 24 attempts (an entire day)
+#define INTERVAL_2_TIME 7200UL   // Try every 2 hours
+#define INTERVAL_2_ATTEMPTS 12   // for 12 attempts (an additional day)
+#define INTERVAL_3_TIME 86400UL  // Finally, try every day
 
 extern void powerUp(uint8_t parts);
 extern void powerDown(uint8_t parts);

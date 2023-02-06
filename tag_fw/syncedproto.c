@@ -457,7 +457,7 @@ void drawImageFromEeprom() {
     wdtSetResetVal(0xFFFFFFFF - 0x38C340);
     wdtOn();
     drawImageAtAddress(getAddressForSlot(curImgSlot));
-    //   adcSampleBattery();
+    powerDown(INIT_EPD);
 }
 uint32_t getHighSlotId() {
     uint32_t temp = 0;
