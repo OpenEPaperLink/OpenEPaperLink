@@ -15,10 +15,12 @@ bool spr_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) 
 }
 
 void jpg2grays(String filein, String fileout) {
+    LittleFS.begin();
+    TJpgDec.setSwapBytes(true);
     TJpgDec.setJpgScale(1);
     TJpgDec.setCallback(spr_output);
     uint16_t w = 0, h = 0;
-    TJpgDec.getFsJpgSize(&w, &h, filein);
+    TJpgDec.getFsJpgSize(&w, &h, filein, LittleFS);
     Serial.println("jpeg conversion " + String(w) + "x" + String(h));
 
     spr.createSprite(w, h);
@@ -56,8 +58,9 @@ void spr2grays(TFT_eSprite &spr, long w, long h, String &fileout) {
     memset(&hdr, 0, sizeof(hdr));
     enum EinkClut clutType;
     uint8_t clut[256][3];
-    bool dither = false, rotated = false;
+    bool dither = true, rotated = false;
     int skipBytes;
+    srand(0);
 
     clutType = EinkClutTwoBlacksAndRed;
 
@@ -251,9 +254,10 @@ void bmp2grays(String filein, String fileout) {
     struct BitmapFileHeader hdr;
     enum EinkClut clutType;
     uint8_t clut[256][3];
-    bool dither = false;
+    bool dither = true;
     int skipBytes;
-
+    srand(0);
+    
     clutType = EinkClutTwoBlacksAndRed;
 
     f_in.read((uint8_t *)&hdr, sizeof(hdr));

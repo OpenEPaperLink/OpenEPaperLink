@@ -131,7 +131,12 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             break;
 
         case Memo:
+
+            drawIdentify(filename, taginfo);
+            updateTagImage(filename, mac, 0);
+            taginfo->nextupdate = now + 600;
             break;
+
         case ImageUrl:
 
             if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"])) {
@@ -150,80 +155,70 @@ bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin) {
     return true;
 }
 
+void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, uint16_t color) {
+    // drawString(spr,"test",100,10,"bahnschrift30",TFT_RED);
+    spr.loadFont(font, LittleFS);
+    spr.setTextColor(color, TFT_WHITE);
+    spr.setCursor(posx, posy);
+    spr.printToSprite(content);
+    spr.unloadFont();
+}
+
+void initSprite(TFT_eSprite &spr, int w, int h) {
+    spr.setColorDepth(8);
+    spr.createSprite(w, h);
+    if (spr.getPointer() == nullptr) {
+        wsErr("Failed to create sprite in drawNumber");
+    }
+    spr.fillSprite(TFT_WHITE);
+}
+
 void drawDate(String &filename, tagRecord *&taginfo) {
+
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     time_t now;
     time(&now);
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
+
     String Dag[] = {"zondag","maandag","dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"};
     String Maand[] = {"januari", "februari", "maart", "april", "mei", "juni","juli", "augustus", "september", "oktober", "november", "december"};
     int weekday_number = timeinfo.tm_wday;
     int month_number = timeinfo.tm_mon;
-    long w,h;
 
     LittleFS.begin();
 
     if (taginfo->hwType == SOLUM_29_033) {
-        w = 296;
-        h = 128;
-        spr.createSprite(w, h);
-        if (spr.getPointer() == nullptr) {
-            wsErr("Failed to create sprite in drawDate");
-        }
-        spr.setColorDepth(8);
-        spr.fillSprite(TFT_WHITE);
+
+        initSprite(spr,296,128);
         spr.setTextDatum(TC_DATUM);
-        spr.loadFont("fonts/calibrib62", LittleFS);
-        spr.setTextColor(TFT_RED, TFT_WHITE);
-        spr.drawString(Dag[timeinfo.tm_wday], w / 2, 10);
-        spr.loadFont("fonts/calibrib50", LittleFS);
-        spr.setTextColor(TFT_BLACK, TFT_WHITE);
-        spr.drawString(String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], w / 2, 73);
-        spr.unloadFont();
+        drawString(spr, Dag[timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib62", TFT_RED);
+        drawString(spr, String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], 296 / 2, 73, "fonts/calibrib50");
+
     } else if (taginfo->hwType == SOLUM_154_033) {
-        w = 154;
-        h = 154;
-        spr.createSprite(w, h);
-        if (spr.getPointer() == nullptr) {
-            wsErr("Failed to create sprite in drawDate");
-        }
-        spr.setColorDepth(8);
-        spr.fillSprite(TFT_WHITE);
+
+        initSprite(spr, 154, 154);
         spr.setTextDatum(TC_DATUM);
-        spr.loadFont("fonts/calibrib30", LittleFS);
-        spr.setTextColor(TFT_BLACK, TFT_WHITE);
-        spr.drawString(Dag[timeinfo.tm_wday], w / 2, 10);
-        spr.drawString(String(Maand[timeinfo.tm_mon]), w / 2, 120);
-        spr.unloadFont();
-        spr.loadFont("fonts/numbers2-1", LittleFS);
-        spr.setTextColor(TFT_RED, TFT_WHITE);
-        spr.drawString(String(timeinfo.tm_mday), w / 2, 42);
-        spr.unloadFont();
+        drawString(spr, Dag[timeinfo.tm_wday], 154 / 2, 10, "fonts/calibrib30");
+        drawString(spr, String(Maand[timeinfo.tm_mon]), 154 / 2, 120, "fonts/calibrib30");
+        drawString(spr, String(timeinfo.tm_mday), 154 / 2, 42, "fonts/numbers2-1", TFT_RED);
+
     }
 
-    spr2grays(spr, w, h, filename);
-
+    spr2grays(spr, spr.width(), spr.height(), filename);
     spr.deleteSprite();
 }
 
 void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo) {
+
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
-
     LittleFS.begin();
-    spr.setColorDepth(8);
-    long w, h;
 
     if (taginfo->hwType == SOLUM_29_033) {
-        w = 296;
-        h = 128;
-        spr.createSprite(w, h);
-        if (spr.getPointer() == nullptr) {
-            wsErr("Failed to create sprite in drawNumber");
-        }
-        spr.fillSprite(TFT_WHITE);
+
+        initSprite(spr, 296, 128);
         spr.setTextDatum(MC_DATUM);
         if (count > thresholdred) {
             spr.setTextColor(TFT_RED, TFT_WHITE);
@@ -234,16 +229,12 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         if (count > 999) font = "fonts/numbers2-2";
         if (count > 9999) font = "fonts/numbers3-2";
         spr.loadFont(font, LittleFS);
-        spr.drawString(String(count), w / 2, h / 2 + 10);
+        spr.drawString(String(count), 296 / 2, 128 / 2 + 10);
         spr.unloadFont();
+
     } else if (taginfo->hwType == SOLUM_154_033) {
-        w = 154;
-        h = 154;
-        spr.createSprite(w, h);
-        if (spr.getPointer() == nullptr) {
-            wsErr("Failed to create sprite in drawNumber");
-        }
-        spr.fillSprite(TFT_WHITE);
+
+        initSprite(spr, 154, 154);
         spr.setTextDatum(MC_DATUM);
         if (count > thresholdred) {
             spr.setTextColor(TFT_RED, TFT_WHITE);
@@ -254,12 +245,12 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         if (count > 99) font = "fonts/numbers2-1";
         if (count > 999) font = "fonts/numbers3-1";
         spr.loadFont(font, LittleFS);
-        spr.drawString(String(count), w / 2, h / 2 + 10);
+        spr.drawString(String(count), 154 / 2, 154 / 2 + 10);
         spr.unloadFont();
+
     }
 
-    spr2grays(spr, w, h, filename);
-
+    spr2grays(spr, spr.width(), spr.height(), filename);
     spr.deleteSprite();
 }
 
@@ -301,7 +292,6 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
             auto temperature = doc["current_weather"]["temperature"].as<double>();
             auto windspeed = doc["current_weather"]["windspeed"].as<int>();
             auto winddirection = doc["current_weather"]["winddirection"].as<int>();
-
             uint8_t weathercode = doc["current_weather"]["weathercode"].as<int>();
             if (weathercode > 40) weathercode -= 40;
             int wind = windSpeedToBeaufort(windspeed);
@@ -323,36 +313,18 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
             doc.clear();
 
             LittleFS.begin();
-            spr.setColorDepth(8);
             tft.setTextWrap(false,false);
 
-            long w, h;
-
             if (taginfo->hwType == SOLUM_29_033) {
-                w = 296;
-                h = 128;
-                spr.createSprite(w, h);
-                if (spr.getPointer() == nullptr) {
-                    wsErr("Failed to create sprite in drawWeather");
-                }
-                spr.fillSprite(TFT_WHITE);
+
+                initSprite(spr, 296, 128);
                 spr.setTextDatum(TL_DATUM);
 
-                spr.loadFont("fonts/bahnschrift30", LittleFS);
-                spr.setTextColor(TFT_BLACK, TFT_WHITE);
-                spr.drawString(location, 10, 10);
-                spr.unloadFont();
+                drawString(spr, location, 10, 10, "fonts/bahnschrift30");
 
-                spr.loadFont("fonts/bahnschrift70", LittleFS);
-                if (temperature < 0) {
-                    spr.setTextColor(TFT_RED, TFT_WHITE);
-                } else {
-                    spr.setTextColor(TFT_BLACK, TFT_WHITE);
-                }
                 char tmpOutput[5];
                 dtostrf(temperature, 2, 1, tmpOutput);
-                spr.drawString(String(tmpOutput), 5, 65);
-                spr.unloadFont();
+                drawString(spr, String(tmpOutput), 5, 65, "fonts/bahnschrift70",(temperature<0 ? TFT_RED : TFT_BLACK));
 
                 spr.loadFont("fonts/weathericons78", LittleFS);
                 if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
@@ -360,7 +332,6 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
                 } else {
                     spr.setTextColor(TFT_BLACK, TFT_WHITE);
                 }
-                spr.setTextColor(TFT_BLACK, TFT_WHITE);
                 spr.setCursor(185, 20);
                 spr.printToSprite(weatherIcons[weathercode]);
                 spr.unloadFont();
@@ -382,31 +353,20 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
                     spr.setCursor(190, 0);
                     spr.printToSprite("\uf084");
                 }
-            } else if (taginfo->hwType == SOLUM_154_033) {
-                w = 154;
-                h = 154;
+                spr.unloadFont();
 
-                spr.createSprite(w, h);
-                if (spr.getPointer() == nullptr) {
-                    wsErr("Failed to create sprite in drawWeather");
-                }
-                spr.fillSprite(TFT_WHITE);
+            } else if (taginfo->hwType == SOLUM_154_033) {
+
+                initSprite(spr, 154, 154);
                 spr.setTextDatum(TL_DATUM);
 
                 spr.setTextFont(2);
                 spr.setTextColor(TFT_BLACK, TFT_WHITE);
                 spr.drawString(location, 10, 130);
 
-                spr.loadFont("fonts/bahnschrift30", LittleFS);
-                if (temperature < 0) {
-                    spr.setTextColor(TFT_RED, TFT_WHITE);
-                } else {
-                    spr.setTextColor(TFT_BLACK, TFT_WHITE);
-                }
                 char tmpOutput[5];
                 dtostrf(temperature, 2, 1, tmpOutput);
-                spr.drawString(String(tmpOutput), 10, 10);
-                spr.unloadFont();
+                drawString(spr, String(tmpOutput), 10, 10, "fonts/bahnschrift30", (temperature < 0 ? TFT_RED : TFT_BLACK));
 
                 spr.loadFont("fonts/weathericons78", LittleFS);
                 if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
@@ -414,7 +374,6 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
                 } else {
                     spr.setTextColor(TFT_BLACK, TFT_WHITE);
                 }
-                spr.setTextColor(TFT_BLACK, TFT_WHITE);
                 spr.setCursor(35, 25);
                 spr.printToSprite(weatherIcons[weathercode]);
                 spr.unloadFont();
@@ -436,14 +395,38 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
                     spr.setCursor(115, 110);
                     spr.printToSprite("\uf084");
                 }
+                spr.unloadFont();
+
             }
 
-            spr.unloadFont();
-            spr2grays(spr, w, h, filename);
+            spr2grays(spr, spr.width(), spr.height(), filename);
             spr.deleteSprite();
         }
     }
     http.end();
+}
+
+void drawIdentify(String &filename, tagRecord *&taginfo) {
+
+    TFT_eSPI tft = TFT_eSPI();
+    TFT_eSprite spr = TFT_eSprite(&tft);
+    LittleFS.begin();
+
+    if (taginfo->hwType == SOLUM_29_033) {
+        initSprite(spr, 296, 128);
+        spr.setTextDatum(TL_DATUM);
+        drawString(spr, "TEST", 10, 10, "fonts/bahnschrift30");
+        drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift30", TFT_RED);
+
+    } else if (taginfo->hwType == SOLUM_154_033) {
+        initSprite(spr, 154, 154);
+        spr.setTextDatum(TL_DATUM);
+        drawString(spr, "TEST", 5, 5, "fonts/bahnschrift30");
+        drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift30", TFT_RED);
+    }
+
+    spr2grays(spr, spr.width(), spr.height(), filename);
+    spr.deleteSprite();
 }
 
 bool getImgURL(String &filename, String URL, time_t fetched) {
@@ -519,4 +502,10 @@ String windDirectionIcon(int degrees) {
         index = 0;
     }
     return directions[index];
+}
+
+String mac62hex(uint8_t *mac) {
+    char buffer[16];
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    return (String)buffer;
 }

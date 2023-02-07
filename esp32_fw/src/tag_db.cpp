@@ -103,14 +103,13 @@ void saveDB(String filename) {
     file.write(']');
 
     file.close();
-    Serial.println(millis() - t);
-    Serial.println("finished writing DB");
+    Serial.println("DB saved " + String(millis() - t) + "ms");
 
     return;
 }
 
 void loadDB(String filename) {
-    StaticJsonDocument<400> doc;
+    StaticJsonDocument<1000> doc;
 
     Serial.println("start reading DB from file");
     long t = millis();
@@ -141,8 +140,8 @@ void loadDB(String filename) {
                         memcpy(taginfo->mac, mac, sizeof(taginfo->mac));
                         tagDB.push_back(taginfo);
                     }
-                    //taginfo->lastseen = (uint32_t)tag["lastseen"];
-                    taginfo->lastseen = 0;
+                    taginfo->lastseen = (uint32_t)tag["lastseen"];
+                    //taginfo->lastseen = 0;
                     taginfo->nextupdate = (uint32_t)tag["nextupdate"];
                     taginfo->expectedNextCheckin = (uint16_t)tag["nextcheckin"];
                     if (taginfo->expectedNextCheckin < now - 1800) { 
@@ -150,7 +149,7 @@ void loadDB(String filename) {
                     }
                     taginfo->pending = false;
                     taginfo->alias = tag["alias"].as<String>();
-                    taginfo->contentMode = static_cast<contentModes>(tag["contentmode"]);
+                    taginfo->contentMode = static_cast<contentModes>(tag["contentMode"]);
                     taginfo->LQI = tag["LQI"]; 
                     taginfo->RSSI = tag["RSSI"]; 
                     taginfo->temperature = tag["temperature"]; 

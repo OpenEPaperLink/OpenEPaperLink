@@ -90,11 +90,17 @@ function processTags(tagArray) {
 		if (div.dataset.hash != element.hash) loadImage(tagmac, '/current/' + tagmac + '.bmp?' + (new Date()).getTime());
 
 		$('#tag' + tagmac + ' .contentmode').innerHTML = contentModes[element.contentMode];
-		$('#tag' + tagmac + ' .model').innerHTML = models[element.hwType];
-		$('#tag' + tagmac + ' .rssi').innerHTML = element.RSSI;
-		$('#tag' + tagmac + ' .lqi').innerHTML = element.LQI;
-		$('#tag' + tagmac + ' .temperature').innerHTML = element.temperature;
-		$('#tag' + tagmac + ' .batt').innerHTML = element.batteryMv/1000;
+		if (element.RSSI) {
+			$('#tag' + tagmac + ' .model').innerHTML = models[element.hwType];
+			$('#tag' + tagmac + ' .rssi').innerHTML = element.RSSI;
+			$('#tag' + tagmac + ' .lqi').innerHTML = element.LQI;
+			$('#tag' + tagmac + ' .temperature').innerHTML = element.temperature;
+			$('#tag' + tagmac + ' .batt').innerHTML = element.batteryMv/1000;
+			$('#tag' + tagmac + ' .received').style.opacity = "1";
+		} else {
+			$('#tag' + tagmac + ' .model').innerHTML = "waiting for hardware type";
+			$('#tag' + tagmac + ' .received').style.opacity = "0";
+		}
 
 		if (element.nextupdate > 1672531200 && element.nextupdate!=3216153600) {
 			var date = new Date(element.nextupdate * 1000);
