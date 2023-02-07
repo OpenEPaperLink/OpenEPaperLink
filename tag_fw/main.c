@@ -22,6 +22,70 @@
 // #define DEBUG_MODE
 static bool __xdata attemptFirstContact = true;
 
+void displayLoop() {
+    powerUp(INIT_BASE | INIT_UART | INIT_GPIO);
+
+    pr("Splash screen\n");
+    powerUp(INIT_EPD);
+    showSplashScreen();
+    timerDelay(TIMER_TICKS_PER_SECOND * 4);
+
+    pr("Update screen\n");
+    powerUp(INIT_EPD);
+    showApplyUpdate();
+    timerDelay(TIMER_TICKS_PER_SECOND * 4);
+
+    wdtOn();
+    wdt60s();
+
+    pr("Scanning screen - ");
+    powerUp(INIT_EPD);
+    showScanningWindow();
+    timerDelay(TIMER_TICKS_PER_SECOND * 8);
+    for (uint8_t i = 0; i < 5; i++) {
+        for (uint8_t c = 0; c < 16; c++) {
+            addScanResult(11 + c, 2 * i + 60 + c);
+        }
+        pr("redraw... ");
+        draw();
+    }
+    pr("\n");
+    timerDelay(TIMER_TICKS_PER_SECOND * 4);
+
+    wdtOn();
+    wdt30s();
+
+    pr("AP Found\n");
+    powerUp(INIT_EPD);
+    showAPFound();
+    timerDelay(TIMER_TICKS_PER_SECOND * 4);
+
+    wdtOn();
+    wdt30s();
+
+    pr("AP NOT Found\n");
+    powerUp(INIT_EPD);
+    showNoAP();
+    timerDelay(TIMER_TICKS_PER_SECOND * 4);
+
+    wdtOn();
+    wdt30s();
+
+    pr("NO EEPROM\n");
+    powerUp(INIT_EPD);
+    showNoEEPROM();
+    timerDelay(TIMER_TICKS_PER_SECOND * 4);
+
+    wdtOn();
+    wdt30s();
+
+    pr("NO EEPROM\n");
+    powerUp(INIT_EPD);
+    showNoMAC();
+    timerDelay(TIMER_TICKS_PER_SECOND * 4);
+    wdtDeviceReset();
+}
+
 uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
     uint8_t __xdata result[16];
     memset(result, 0, sizeof(result));
@@ -77,6 +141,7 @@ uint8_t channelSelect() {  // returns 0 if no accesspoints were found
 }
 
 void mainProtocolLoop(void) {
+    //displayLoop();  // remove me
     powerUp(INIT_BASE | INIT_UART | INIT_GPIO);
     wdt10s();
     boardGetOwnMac(mSelfMac);
@@ -142,8 +207,7 @@ void mainProtocolLoop(void) {
             if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || attemptFirstContact || wakeUpReason != WAKEUP_REASON_TIMED) {
                 if (attemptFirstContact)
                     wakeUpReason = WAKEUP_REASON_BOOTUP;
-                
-                
+
                 if (voltageCheckCounter == VOLTAGE_CHECK_INTERVAL) {
                     powerUp(INIT_BASE | INIT_TEMPREADING | INIT_EPD_VOLTREADING | INIT_RADIO);
                     voltageCheckCounter = 0;
