@@ -122,6 +122,7 @@ function processTags(tagArray) {
 		div.dataset.lastseen = element.lastseen;
 		div.dataset.hash = element.hash;
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
+		$('#tag' + tagmac).style.background = "inherit";
 		$('#tag' + tagmac + ' .pendingicon').style.display = (element.pending ? 'inline-block' : 'none');
 		div.classList.add("tagflash");
 		(function(tagmac) {
@@ -138,7 +139,10 @@ function updatecards() {
 		if (item.dataset.lastseen && item.dataset.lastseen > 1672531200) {
 			let idletime = (Date.now() / 1000) + servertimediff - item.dataset.lastseen;
 			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>"+displayTime(Math.floor(idletime))+" ago";
-			if ((Date.now() / 1000) + servertimediff > item.dataset.nextcheckin) $('#tag' + tagmac + ' .warningicon').style.display='inline-block';
+			if ((Date.now() / 1000) + servertimediff > item.dataset.nextcheckin) {
+				$('#tag' + tagmac + ' .warningicon').style.display='inline-block';
+				$('#tag' + tagmac).style.background = '#ffffcc';
+			}
 			if (idletime > 24*3600) {
 				$('#tag' + tagmac).style.opacity = '.5';
 				$('#tag' + tagmac + ' .lastseen').style.color = "red";

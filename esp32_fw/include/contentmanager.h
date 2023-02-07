@@ -9,7 +9,7 @@
 void contentRunner();
 void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo);
 bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin);
-void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, uint16_t color = TFT_BLACK);
+void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, byte align = 0, uint16_t color = TFT_BLACK);
 void initSprite(TFT_eSprite &spr, int w, int h);
 void drawDate(String &filename, tagRecord *&taginfo);
 void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo);

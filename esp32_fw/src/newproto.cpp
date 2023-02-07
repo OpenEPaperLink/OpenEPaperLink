@@ -271,7 +271,7 @@ void processDataReq(struct espAvailDataReq* eadr) {
     time(&now);
     taginfo->lastseen = now;
     taginfo->expectedNextCheckin = now + 300;
-    if (taginfo->RSSI) {
+    if (eadr->adr.lastPacketRSSI != 0) {
         taginfo->LQI = eadr->adr.lastPacketLQI;
         taginfo->hwType = eadr->adr.hwType;
         taginfo->RSSI = eadr->adr.lastPacketRSSI;

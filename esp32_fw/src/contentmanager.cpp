@@ -20,14 +20,14 @@ void contentRunner() {
         tagRecord* taginfo = nullptr;
         taginfo = tagDB.at(c);
 
-        if (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO) {
+        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO)) {
             uint8_t mac8[8] = {0, 0, 0, 0, 0, 0, 0, 0};
             memcpy(mac8 + 2, taginfo->mac, 6);
             uint8_t src[8];
             *((uint64_t *)src) = swap64(*((uint64_t *)mac8));
 
             drawNew(src, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
-            taginfo->wakeupReason == 0;
+            taginfo->wakeupReason = 0;
         }
     }
 }
@@ -56,9 +56,9 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     deserializeJson(doc, taginfo->modeConfigJson);
     JsonObject cfgobj = doc.as<JsonObject>();
 
-    wsLog("Updating " + dst + " mode " + String(taginfo->contentMode));
+    wsLog("Updating " + dst);
     taginfo->nextupdate = now + 600;
-
+    
     switch (taginfo->contentMode) {
         case Image:
 
@@ -77,7 +77,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             drawDate(filename, taginfo);
             // updateTagImage(filename, mac, (midnight - now) / 60 - 10);
-            updateTagImage(filename, mac, 0);
+            updateTagImage(filename, mac, 600);
             taginfo->nextupdate = midnight;
             break;
 
@@ -85,7 +85,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             if (buttonPressed) cfgobj["counter"] = 0;
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo);
-            updateTagImage(filename, mac, (buttonPressed?0:60));
+            updateTagImage(filename, mac, (buttonPressed?0:600));
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             taginfo->nextupdate = midnight;
             break;
@@ -96,7 +96,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo);
             // updateTagImage(&filename, mac, (3600 - now % 3600) / 60);
             // taginfo->nextupdate = now + 3600 - (now % 3600);
-            updateTagImage(filename, mac, (buttonPressed?0:3));
+            updateTagImage(filename, mac, (buttonPressed?0:600));
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             taginfo->nextupdate = now + 3600;
             break;
@@ -109,8 +109,8 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             // https://github.com/erikflowers/weather-icons
 
             drawWeather(filename, cfgobj["location"], taginfo);
-            updateTagImage(filename, mac, 0);
-            taginfo->nextupdate = now + 1800;
+            updateTagImage(filename, mac, 600);
+            taginfo->nextupdate = now + 3600;
             break;
 
         case Firmware:
@@ -134,7 +134,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             drawIdentify(filename, taginfo);
             updateTagImage(filename, mac, 0);
-            taginfo->nextupdate = now + 600;
+            taginfo->nextupdate = now + 24*3600;
             break;
 
         case ImageUrl:
@@ -155,12 +155,12 @@ bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin) {
     return true;
 }
 
-void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, uint16_t color) {
-    // drawString(spr,"test",100,10,"bahnschrift30",TFT_RED);
+void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, byte align,uint16_t color) {
+    // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,TFT_RED);
+    spr.setTextDatum(align);
     spr.loadFont(font, LittleFS);
     spr.setTextColor(color, TFT_WHITE);
-    spr.setCursor(posx, posy);
-    spr.printToSprite(content);
+    spr.drawString(content, posx, posy);
     spr.unloadFont();
 }
 
@@ -192,18 +192,15 @@ void drawDate(String &filename, tagRecord *&taginfo) {
     if (taginfo->hwType == SOLUM_29_033) {
 
         initSprite(spr,296,128);
-        spr.setTextDatum(TC_DATUM);
-        drawString(spr, Dag[timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib62", TFT_RED);
-        drawString(spr, String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], 296 / 2, 73, "fonts/calibrib50");
+        drawString(spr, Dag[timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib62", TC_DATUM, TFT_RED);
+        drawString(spr, String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], 296 / 2, 73, "fonts/calibrib50", TC_DATUM);
 
     } else if (taginfo->hwType == SOLUM_154_033) {
 
         initSprite(spr, 154, 154);
-        spr.setTextDatum(TC_DATUM);
-        drawString(spr, Dag[timeinfo.tm_wday], 154 / 2, 10, "fonts/calibrib30");
-        drawString(spr, String(Maand[timeinfo.tm_mon]), 154 / 2, 120, "fonts/calibrib30");
-        drawString(spr, String(timeinfo.tm_mday), 154 / 2, 42, "fonts/numbers2-1", TFT_RED);
-
+        drawString(spr, Dag[timeinfo.tm_wday], 154 / 2, 10, "fonts/calibrib30", TC_DATUM);
+        drawString(spr, String(Maand[timeinfo.tm_mon]), 154 / 2, 120, "fonts/calibrib30", TC_DATUM);
+        drawString(spr, String(timeinfo.tm_mday), 154 / 2, 42, "fonts/numbers2-1", TC_DATUM, TFT_RED);
     }
 
     spr2grays(spr, spr.width(), spr.height(), filename);
@@ -318,13 +315,12 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
             if (taginfo->hwType == SOLUM_29_033) {
 
                 initSprite(spr, 296, 128);
-                spr.setTextDatum(TL_DATUM);
 
                 drawString(spr, location, 10, 10, "fonts/bahnschrift30");
 
                 char tmpOutput[5];
                 dtostrf(temperature, 2, 1, tmpOutput);
-                drawString(spr, String(tmpOutput), 5, 65, "fonts/bahnschrift70",(temperature<0 ? TFT_RED : TFT_BLACK));
+                drawString(spr, String(tmpOutput), 5, 65, "fonts/bahnschrift70", TL_DATUM, (temperature < 0 ? TFT_RED : TFT_BLACK));
 
                 spr.loadFont("fonts/weathericons78", LittleFS);
                 if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
@@ -366,7 +362,7 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
 
                 char tmpOutput[5];
                 dtostrf(temperature, 2, 1, tmpOutput);
-                drawString(spr, String(tmpOutput), 10, 10, "fonts/bahnschrift30", (temperature < 0 ? TFT_RED : TFT_BLACK));
+                drawString(spr, String(tmpOutput), 10, 10, "fonts/bahnschrift30", TL_DATUM, (temperature < 0 ? TFT_RED : TFT_BLACK));
 
                 spr.loadFont("fonts/weathericons78", LittleFS);
                 if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
@@ -414,15 +410,13 @@ void drawIdentify(String &filename, tagRecord *&taginfo) {
 
     if (taginfo->hwType == SOLUM_29_033) {
         initSprite(spr, 296, 128);
-        spr.setTextDatum(TL_DATUM);
-        drawString(spr, "TEST", 10, 10, "fonts/bahnschrift30");
-        drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift30", TFT_RED);
+        drawString(spr, taginfo->alias, 10, 10, "fonts/bahnschrift20");
+        drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift20", TL_DATUM, TFT_RED);
 
     } else if (taginfo->hwType == SOLUM_154_033) {
         initSprite(spr, 154, 154);
-        spr.setTextDatum(TL_DATUM);
-        drawString(spr, "TEST", 5, 5, "fonts/bahnschrift30");
-        drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift30", TFT_RED);
+        drawString(spr, taginfo->alias, 5, 5, "fonts/bahnschrift20");
+        drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift20", TL_DATUM, TFT_RED);
     }
 
     spr2grays(spr, spr.width(), spr.height(), filename);
