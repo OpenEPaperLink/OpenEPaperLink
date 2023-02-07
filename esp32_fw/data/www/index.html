@@ -23,15 +23,6 @@
 			<input id="cfgalias" type="text">
 		</p>
 		<p>
-			<label for="cfgmodel">Model</label>
-			<select id="cfgmodel">
-				<option value="99">unknown</option>
-				<option value="0">1.54" 152x152px</option>
-				<option value="1">2.9" 296x128px</option>
-				<option value="2">4.2" 400x300px</option>
-			</select>
-		</p>
-		<p>
 			<label for="cfgcontent">Content</label>
 			<select id="cfgcontent" onchange="contentselected()">
 				<option value="0">static image</option>
@@ -70,14 +61,18 @@
 					<div class="mac"></div>
 					<div class="alias"></div>
 					<div class="model"></div>
+
+					<div class="received">
+						RSSI <div class="rssi"></div>, LQI <div class="lqi"></div>, <div class="temperature"></div>&deg;C, <div class="batt"></div>V
+					</div>
+					
 					<div class="contentmode"></div>
-					<div class="pending"></div>
 					<div class="lastseen"></div>
 					<div class="nextcheckin"></div>
 					<div class="nextupdate"></div>
 					<div class="corner">
+						<div class="pendingicon">&circlearrowright;</div>
 						<div class="warningicon">&#9888;</div>
-						<div class="configicon"></div>
 					</div>
 				</div>
 			</div>

@@ -102,7 +102,7 @@ select {
 	position: fixed;
 	top: 80px;
 	left: 50px;
-	width: 500px;
+	width: 380px;
 	padding: 15px;
 	background-color: #f0e6d3;
 	z-index: 999;
@@ -179,10 +179,20 @@ select {
 	margin: 5px;
 	padding: 5px;
 	background-color: #dddddd;
+	border: 1px solid #cccccc;}
+
+.tagcard:hover {
+	cursor:pointer;
+	background-color: #eeeeee;
+	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
 }
 
-.tagcard .pending {
-	padding-bottom:15px;
+.tagflash {
+	animation: tagflash 1s;
+}
+
+.tagpending {
+	animation: pending 2s ease-in-out infinite;
 }
 
 .currimg {
@@ -203,6 +213,34 @@ select {
 	font-weight: bold;
 }
 
+.received {
+	display: flex;
+	font-size: .85em;
+	padding-bottom: 5px;
+}
+.received div {
+	padding-left: 3px;
+	padding-right: 1px;
+	display: inline-block;
+	font-weight: bold;
+}
+
+.contentmode {
+	font-weight: bold;
+	font-size: 1.4em;
+	padding-bottom: 5px;
+}
+
+.lastseen, .nextcheckin, .nextupdate {
+	font-size: 0.9em;
+}
+
+.lastseen span,
+.nextcheckin span,
+.nextupdate span {
+	width:105px;
+	display:inline-block;
+}
 .corner {
 	position: absolute;
 	right: 0px;
@@ -210,12 +248,15 @@ select {
 	padding: 5px;
 }
 
-.configicon {
-	display: inline-block;
+.pendingicon {
 	width: 20px;
 	height: 20px;
-	cursor:pointer;
-	background-image: url("data: image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAQAAAAngNWGAAABXklEQVQoz43SP2tUQRQF8N99ecFKFEVh0Y1ZbFQ2xEoIQkoLW0t7C/OVLGzyHay1EAQjRFGrLMkjKSwWsRGV3WvxZvc9XQtnivl35sydc048nfuvVkW0k8XYtT936pVja5jJv/Z7wPZo0wNzLzQSHWnVwTZtqY1su2to3bZhj7dewEYeu+iDawi7bhn7Yl9TWGsikrzksnNxr9zfsIErcaEAMysyZXrvE5mp6w7zc8rMzFJjGNlxFWHmWKMVd2DHsHuadQ+NkcKxZ2pPXC8FHHhu1v91X6ZcUZHYy8xwwyju5wAzJypDFdHka5OiaN1yHDl100BaMyq84cwrs1JjtTBu7E5xIpeebLndOZOlnK859d1bZ0JoHPiRU986ZxYZmdjP8/HRrkfSS2+MTTXlycyawhlHJBOH5k789A6x/H/sZQuMKKNatjGLvkoreUy/lsnsq1mXJOe/Ut6tM38DZpmDFxwTi8EAAAAASUVORK5CYII=");
+	background-color: rgb(7, 174, 230);
+	font-size: 1.2em;
+	text-align: center;
+	font-weight: bold;
+	display: none;
+	vertical-align: top;
 }
 
 .warningicon {
@@ -265,13 +306,19 @@ ul.messages li.new {
 }
 
 @keyframes new {
-    0% {
-        background-color: rgba(255, 255, 204, 1);
-    }
-    50% {
-        background-color: rgba(255, 255, 204, .5);	
-    }
-    100% {
-        background-color: rgba(255, 255, 204, 0);
-    }
+    0%   { background-color: rgba(255, 255, 204, 1); }
+    50%  { background-color: rgba(255, 255, 204, .5); }
+    100% { background-color: rgba(255, 255, 204, 0); }
+}
+
+@keyframes tagflash {
+	0% { opacity: 1; }
+	50% { opacity: 0; }
+	100% { opacity: 1; }
+}
+
+@keyframes pending {
+	0% { background-color: lightgray;}
+	50% { background-color: lightblue;}
+	100% { background-color: lightgray;}
 }

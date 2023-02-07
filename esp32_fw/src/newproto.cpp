@@ -112,9 +112,9 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     taginfo = tagRecord::findByMAC(mac);
     if (taginfo != nullptr) {
         if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
-            Serial.println("new image is the same as current image. not updating tag.");
+            wsLog("new image is the same as current image. not updating tag.");
             wsSendTaginfo(mac);
-            return false;
+            return true;
         }
     }
 
@@ -188,6 +188,8 @@ void processBlockRequest(struct espBlockRequest* br) {
             fs::File file = LittleFS.open(pd->filename);
             if (!file) {
                 Serial.print("Dunno how this happened... File pending but deleted in the meantime?\n");
+                prepareCancelPending(br->ver);
+                return;
             }
             pd->data = getDataForFile(&file);
             pd->datatimeout = PENDING_DATA_TIMEOUT;
@@ -268,9 +270,18 @@ void processDataReq(struct espAvailDataReq* eadr) {
     time_t now;
     time(&now);
     taginfo->lastseen = now;
-    //taginfo->model = eadr->adr.hwType;
     taginfo->expectedNextCheckin = now + 300;
-    taginfo->button = (eadr->adr.wakeupReason==WAKEUP_REASON_GPIO);
+    if (taginfo->RSSI) {
+        taginfo->LQI = eadr->adr.lastPacketLQI;
+        taginfo->hwType = eadr->adr.hwType;
+        taginfo->RSSI = eadr->adr.lastPacketRSSI;
+        taginfo->temperature = eadr->adr.temperature;
+        taginfo->batteryMv = eadr->adr.batteryMv;
+        taginfo->hwType = eadr->adr.hwType;
+        taginfo->wakeupReason = eadr->adr.wakeupReason;
+        taginfo->capabilities = eadr->adr.capabilities;
+    }
+
     Serial.printf("t=%d, lqi=%d, rssi=%d, ", eadr->adr.temperature, eadr->adr.lastPacketLQI, eadr->adr.lastPacketRSSI);
     Serial.printf("hwtype=%d, reason=%d, volt=%d", eadr->adr.hwType,eadr->adr.wakeupReason,eadr->adr.batteryMv);
     sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);

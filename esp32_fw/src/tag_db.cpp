@@ -61,11 +61,16 @@ void fillNode(JsonObject &tag, tagRecord* &taginfo) {
     tag["lastseen"] = taginfo->lastseen;
     tag["nextupdate"] = taginfo->nextupdate;
     tag["nextcheckin"] = taginfo->expectedNextCheckin;
-    tag["model"] = taginfo->model;
     tag["pending"] = taginfo->pending;
-    tag["button"] = taginfo->button;
     tag["alias"] = taginfo->alias;
-    tag["contentmode"] = taginfo->contentMode;
+    tag["contentMode"] = taginfo->contentMode;
+    tag["LQI"] = taginfo->LQI;
+    tag["RSSI"] = taginfo->RSSI;
+    tag["temperature"] = taginfo->temperature;
+    tag["batteryMv"] = taginfo->batteryMv;
+    tag["hwType"] = taginfo->hwType;
+    tag["wakeupReason"] = taginfo->wakeupReason;
+    tag["capabilities"] = taginfo->capabilities;
     tag["modecfgjson"] = taginfo->modeConfigJson;
 }
 
@@ -98,14 +103,13 @@ void saveDB(String filename) {
     file.write(']');
 
     file.close();
-    Serial.println(millis() - t);
-    Serial.println("finished writing DB");
+    Serial.println("DB saved " + String(millis() - t) + "ms");
 
     return;
 }
 
 void loadDB(String filename) {
-    StaticJsonDocument<400> doc;
+    StaticJsonDocument<1000> doc;
 
     Serial.println("start reading DB from file");
     long t = millis();
@@ -136,18 +140,23 @@ void loadDB(String filename) {
                         memcpy(taginfo->mac, mac, sizeof(taginfo->mac));
                         tagDB.push_back(taginfo);
                     }
-                    //taginfo->lastseen = (uint32_t)tag["lastseen"];
-                    taginfo->lastseen = 0;
+                    taginfo->lastseen = (uint32_t)tag["lastseen"];
+                    //taginfo->lastseen = 0;
                     taginfo->nextupdate = (uint32_t)tag["nextupdate"];
                     taginfo->expectedNextCheckin = (uint16_t)tag["nextcheckin"];
                     if (taginfo->expectedNextCheckin < now - 1800) { 
                         taginfo->expectedNextCheckin = now + 1800; 
                     }
-                    taginfo->model = (uint8_t)tag["model"];
                     taginfo->pending = false;
-                    taginfo->button = false;
                     taginfo->alias = tag["alias"].as<String>();
-                    taginfo->contentMode = static_cast<contentModes>(tag["contentmode"]);
+                    taginfo->contentMode = static_cast<contentModes>(tag["contentMode"]);
+                    taginfo->LQI = tag["LQI"]; 
+                    taginfo->RSSI = tag["RSSI"]; 
+                    taginfo->temperature = tag["temperature"]; 
+                    taginfo->batteryMv = tag["batteryMv"]; 
+                    taginfo->hwType = (uint8_t)tag["hwType"];
+                    taginfo->wakeupReason = tag["wakeupReason"];
+                    taginfo->capabilities = tag["capabilities"];
                     taginfo->modeConfigJson = tag["modecfgjson"].as<String>();
                 }
             } else {

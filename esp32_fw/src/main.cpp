@@ -18,9 +18,10 @@ void timeTask(void* parameter) {
         time(&now);
         tm tm;
         if (!getLocalTime(&tm)) {
-            Serial.println("Failed to obtain time");
+            Serial.println("Waiting for valid time from NTP-server");
         } else {
             if (now % 10 == 0) wsSendSysteminfo();
+            if (now % 300 == 0) saveDB("/current/tagDB.json");
             contentRunner();
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);

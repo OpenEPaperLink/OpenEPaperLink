@@ -1,5 +1,5 @@
 @echo off
-del fs154.bin
+del fw154.bin
 del fw29.bin
 del fw42.bin
 makeit clean

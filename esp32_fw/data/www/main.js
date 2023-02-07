@@ -1,6 +1,6 @@
 const $ = document.querySelector.bind(document);
 
-const contentModes = ["static image", "current date", "counting days", "counting hours", "current weather", "firmware update", "memo text", "image url"];
+const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url"];
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
 const contentModeOptions = [];
 contentModeOptions[0] = ["filename","timetolive"];
@@ -89,13 +89,23 @@ function processTags(tagArray) {
 
 		if (div.dataset.hash != element.hash) loadImage(tagmac, '/current/' + tagmac + '.bmp?' + (new Date()).getTime());
 
-		$('#tag' + tagmac + ' .contentmode').innerHTML = contentModes[element.contentmode];
-		$('#tag' + tagmac + ' .model').innerHTML = models[element.model];
+		$('#tag' + tagmac + ' .contentmode').innerHTML = contentModes[element.contentMode];
+		if (element.RSSI) {
+			$('#tag' + tagmac + ' .model').innerHTML = models[element.hwType];
+			$('#tag' + tagmac + ' .rssi').innerHTML = element.RSSI;
+			$('#tag' + tagmac + ' .lqi').innerHTML = element.LQI;
+			$('#tag' + tagmac + ' .temperature').innerHTML = element.temperature;
+			$('#tag' + tagmac + ' .batt').innerHTML = element.batteryMv/1000;
+			$('#tag' + tagmac + ' .received').style.opacity = "1";
+		} else {
+			$('#tag' + tagmac + ' .model').innerHTML = "waiting for hardware type";
+			$('#tag' + tagmac + ' .received').style.opacity = "0";
+		}
 
 		if (element.nextupdate > 1672531200 && element.nextupdate!=3216153600) {
 			var date = new Date(element.nextupdate * 1000);
 			var options = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-			$('#tag' + tagmac + ' .nextupdate').innerHTML = "next update: " + date.toLocaleString('nl-NL', options);
+			$('#tag' + tagmac + ' .nextupdate').innerHTML = "<span>next update</span>" + date.toLocaleString('nl-NL', options);
 		} else {
 			$('#tag' + tagmac + ' .nextupdate').innerHTML = "";
 		}
@@ -106,12 +116,18 @@ function processTags(tagArray) {
 			div.dataset.nextcheckin = element.lastseen + 1800;
 		}
 
+		div.style.opacity = '1';
+		$('#tag' + tagmac + ' .lastseen').style.color = "black";
+		div.classList.remove("tagpending");
 		div.dataset.lastseen = element.lastseen;
 		div.dataset.hash = element.hash;
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
-
-		if (element.pending) $('#tag' + tagmac + ' .pending').innerHTML = "pending update..."; else $('#tag' + tagmac + ' .pending').innerHTML = "";
-
+		$('#tag' + tagmac + ' .pendingicon').style.display = (element.pending ? 'inline-block' : 'none');
+		div.classList.add("tagflash");
+		(function(tagmac) {
+			setTimeout(function () { $('#tag' + tagmac).classList.remove("tagflash"); }, 1400);
+		})(tagmac);
+		if (element.pending) div.classList.add("tagpending");
 	}
 }
 
@@ -121,15 +137,19 @@ function updatecards() {
 
 		if (item.dataset.lastseen && item.dataset.lastseen > 1672531200) {
 			let idletime = (Date.now() / 1000) + servertimediff - item.dataset.lastseen;
-			$('#tag' + tagmac + ' .lastseen').innerHTML = "last seen: "+displayTime(Math.floor(idletime))+" ago";
+			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>"+displayTime(Math.floor(idletime))+" ago";
 			if ((Date.now() / 1000) + servertimediff > item.dataset.nextcheckin) $('#tag' + tagmac + ' .warningicon').style.display='inline-block';
+			if (idletime > 24*3600) {
+				$('#tag' + tagmac).style.opacity = '.5';
+				$('#tag' + tagmac + ' .lastseen').style.color = "red";
+			}
 		} else {
 			$('#tag' + tagmac + ' .lastseen').innerHTML = ""
 		}
 
 		if (item.dataset.nextcheckin > 1672531200) {
 			let nextcheckin = item.dataset.nextcheckin - ((Date.now() / 1000) + servertimediff);
-			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "expecting next checkin: " + displayTime(Math.floor(nextcheckin));
+			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<span>expected checkin</span>" + displayTime(Math.floor(nextcheckin));
 		}
 	})
 }
@@ -154,10 +174,7 @@ $('#taglist').addEventListener("click", (event) => {
 		return;
 	}
 	const mac = currentElement.dataset.mac;
-	if (event.target.classList.contains("mac")) {
-		$('#dstmac').value=mac;
-	}
-	if (event.target.classList.contains("configicon")) {
+	//if (event.target.classList.contains("configicon")) {
 		$('#cfgmac').innerHTML = mac;
 		$('#cfgmac').dataset.mac = mac;
 		fetch("/get_db?mac=" + mac)
@@ -166,20 +183,19 @@ $('#taglist').addEventListener("click", (event) => {
 				console.log(data);
 				var tagdata = data.tags[0];
 				$('#cfgalias').value = tagdata.alias;
-				$('#cfgcontent').value = tagdata.contentmode;
-				$('#cfgmodel').value = tagdata.model;
+				$('#cfgcontent').value = tagdata.contentMode;
 				$('#cfgcontent').dataset.json = tagdata.modecfgjson;
 				contentselected();
 				$('#configbox').style.display = 'block';
 			})
-			.catch(error => showMessage('Error: ' + error));
-	}
+			//.catch(error => showMessage('Error: ' + error));
+	//}
 })
 
 $('#cfgsave').onclick = function () {
 
-	let contentmode = $('#cfgcontent').value;
-	let extraoptions = contentModeOptions[contentmode];
+	let contentMode = $('#cfgcontent').value;
+	let extraoptions = contentModeOptions[contentMode];
 	let obj={};
 	extraoptions.forEach(element => {
 		obj[element] = $('#opt' + element).value;
@@ -188,8 +204,7 @@ $('#cfgsave').onclick = function () {
 	let formData = new FormData();
 	formData.append("mac", $('#cfgmac').dataset.mac);
 	formData.append("alias", $('#cfgalias').value);
-	formData.append("contentmode", contentmode);
-	formData.append("model", $('#cfgmodel').value);
+	formData.append("contentmode", contentMode);
 	formData.append("modecfgjson", JSON.stringify(obj));
 	fetch("/save_cfg", {
 		method: "POST",
@@ -206,8 +221,8 @@ $('#cfgdelete').onclick = function () {
 }
 
 function contentselected() {
-	let contentmode=$('#cfgcontent').value;
-	let extraoptions = contentModeOptions[contentmode];
+	let contentMode = $('#cfgcontent').value;
+	let extraoptions = contentModeOptions[contentMode];
 	$('#customoptions').innerHTML="";
 	var obj = {};
 	if ($('#cfgcontent').dataset.json && ($('#cfgcontent').dataset.json!="null")) {
@@ -232,7 +247,7 @@ function contentselected() {
 function showMessage(message,iserr) {
 	const messages = $('#messages');
 	var date = new Date(),
-        time = date.toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'});
+        time = date.toLocaleTimeString('nl-NL', {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'});
 	if (iserr) {
 		messages.insertAdjacentHTML("afterbegin", '<li class="new error">' + htmlEncode(time + ' ' + message) + '</li>');
 	} else {
