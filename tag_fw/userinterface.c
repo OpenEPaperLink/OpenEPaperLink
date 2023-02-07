@@ -29,10 +29,11 @@ const uint8_t __code fwVersion = FW_VERSION;
 const char __code fwVersionSuffix[] = FW_VERSION_SUFFIX;
 
 void showSplashScreen() {
-#if (SCREEN_WIDTH == 152)  // 1.54"
+    selectLUT(EPD_LUT_NO_REPEATS);
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
-    selectLUT(1);
+
+#if (SCREEN_WIDTH == 152)  // 1.54"
     epdPrintBegin(12, 2, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("Starting!");
     epdPrintEnd();
@@ -54,9 +55,6 @@ void showSplashScreen() {
 #endif
 
 #if (SCREEN_WIDTH == 128)  // 2.9"
-    selectLUT(EPD_LUT_NO_REPEATS);
-    clearScreen();
-    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
 
     epdPrintBegin(0, 295, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("Starting!");
@@ -88,23 +86,15 @@ void showSplashScreen() {
 
     // timerDelay(TIMER_TICKS_PER_SECOND * 4);
 #endif
-#if (SCREEN_WIDTH == 400)  // 2.9"
-    selectLUT(1);
-    clearScreen();
-    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
-
-    epdPrintBegin(300, 296, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_RED);
-    epdpr("Booting!Y");
-    epdpr();
-
-    epdPrintBegin(0, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+#if (SCREEN_WIDTH == 400)  // 4.2"
+    epdPrintBegin(3, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("Starting!");
     epdPrintEnd();
 
-    epdPrintBegin(16, 252, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdPrintBegin(3, 268, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("zbs42v033 %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
     epdPrintEnd();
-    epdPrintBegin(16, 284, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    epdPrintBegin(3, 284, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
     epdpr("MAC: %02X:%02X", mSelfMac[7], mSelfMac[6]);
     epdpr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
     epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
@@ -114,8 +104,12 @@ void showSplashScreen() {
     loadRawBitmap(solum, 256, 10, EPD_COLOR_BLACK);
     loadRawBitmap(hacked, 264, 22, EPD_COLOR_RED);
 
-    loadRawBitmap(solum, 253, 72, EPD_COLOR_BLACK);
-    loadRawBitmap(hacked, 261, 82, EPD_COLOR_RED);
+    uint8_t __xdata buffer[17];
+    spr(buffer, "%02X%02X", mSelfMac[7], mSelfMac[6]);
+    spr(buffer + 4, "%02X%02X", mSelfMac[5], mSelfMac[4]);
+    spr(buffer + 8, "%02X%02X", mSelfMac[3], mSelfMac[2]);
+    spr(buffer + 12, "%02X%02X", mSelfMac[1], mSelfMac[0]);
+    printBarcode(buffer, 392, 286);
 
 #endif
     drawWithSleep();
@@ -126,7 +120,18 @@ void showApplyUpdate() {
     selectLUT(1);
     clearScreen();
     setColorMode(EPD_MODE_IGNORE, EPD_MODE_NORMAL);
-    epdPrintBegin(8, 60, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+
+#if (SCREEN_WIDTH == 152)
+    epdPrintBegin(12, 60, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+#endif
+#if (SCREEN_WIDTH == 128)
+    epdPrintBegin(48, 86, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+#endif
+
+#if (SCREEN_WIDTH == 400)
+    epdPrintBegin(136, 134, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+#endif
+
     epdpr("Updating!");
     epdPrintEnd();
     drawNoWait();
@@ -153,6 +158,18 @@ void showScanningWindow() {
     epdpr("Scanning...");
     epdPrintEnd();
 #endif
+#if (SCREEN_WIDTH == 400)  // 4.2"
+    epdPrintBegin(2, 2, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("Scanning for APs");
+    epdPrintEnd();
+
+    epdPrintBegin(2, 40, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    epdpr("Channel - Quality");
+    epdPrintEnd();
+    loadRawBitmap(receive, 320, 125, EPD_COLOR_BLACK);
+#endif
+
+
     draw();
     selectLUT(EPD_LUT_FAST);
     resultcounter = 0;
@@ -160,16 +177,17 @@ void showScanningWindow() {
 
 void addScanResult(uint8_t channel, uint8_t lqi) {
     if (channel == 11) resultcounter = 0;
-#if (SCREEN_WIDTH == 128)
+#if (SCREEN_WIDTH == 128)  // 2.9"
     epdPrintBegin(56 + ((resultcounter % 4) * 16), 282 - (47 * (resultcounter / 4)), EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    epdpr("%d-%d", channel, lqi);
-    epdPrintEnd();
 #endif
-#if (SCREEN_WIDTH == 152)  // 1.54"
+#if (SCREEN_WIDTH ==150)  // 1.54"
     epdPrintBegin(4 + (47 * (resultcounter / 8)), 31 + (15 * (resultcounter % 8)), EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+#endif
+#if (SCREEN_WIDTH == 400)  // 4.2"
+    epdPrintBegin(4 + (47 * (resultcounter / 8)), 50 + (15 * (resultcounter % 8)), EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+#endif
     epdpr("%d-%d", channel, lqi);
     epdPrintEnd();
-#endif
     resultcounter++;
 }
 
@@ -330,6 +348,15 @@ void showNoMAC() {
     epdPrintEnd();
     loadRawBitmap(failed, 60, 72, EPD_COLOR_RED);
     epdPrintBegin(3, 136, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("Sleeping forever :'(");
+    epdPrintEnd();
+#endif
+#if (SCREEN_WIDTH == 400)  // 1.54"
+    epdPrintBegin(100, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("NO MAC SET :(");
+    epdPrintEnd();
+    loadRawBitmap(failed, 176, 126, EPD_COLOR_RED);
+    epdPrintBegin(100, 284, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("Sleeping forever :'(");
     epdPrintEnd();
 #endif

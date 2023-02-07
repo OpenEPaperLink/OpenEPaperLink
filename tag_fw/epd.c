@@ -239,18 +239,15 @@ static uint8_t epdGetStatus() {
     return sta;
 }
 uint16_t epdGetBattery(void) {
-//    epdEnterSleep(); // r
-//    return 2600; // r
+
     uint16_t voltage = 2600;
     uint8_t val;
 
-    //epdReset();
-
-        timerDelay(50);
+    timerDelay(50);
     P2_0 = 0;
-        timerDelay(50);
+    timerDelay(50);
     P2_0 = 1;
-        timerDelay(50);
+    timerDelay(50);
 
     shortCommand(CMD_SOFT_RESET);  // software reset
     epdBusyWait(TIMER_TICKS_PER_MS * 30);
@@ -346,23 +343,26 @@ void selectLUT(uint8_t lut) {
             lutGroupRepeatReduce(LUTGROUP_IMPROVE_SHARPNESS, 2);
             lutGroupSpeedup(LUTGROUP_IMPROVE_REDS, 2);
             lutGroupRepeatReduce(LUTGROUP_IMPROVE_REDS, 2);
+            lutGroupDisable(LUTGROUP_UNUSED);
             break;
         case EPD_LUT_FAST_NO_REDS:
             lutGroupDisable(LUTGROUP_NEGATIVE);
             lutGroupDisable(LUTGROUP_FASTBLINK);
             lutGroupDisable(LUTGROUP_SLOWBLINK);
-            // lutGroupSpeedup(LUTGROUP_SET, 2);
+            lutGroupSpeedup(LUTGROUP_SET, 2);
             lutGroupDisable(LUTGROUP_IMPROVE_REDS);
             lutGroupDisable(LUTGROUP_IMPROVE_SHARPNESS);
+            lutGroupDisable(LUTGROUP_UNUSED);
             break;
         case EPD_LUT_FAST:
             lutGroupDisable(LUTGROUP_NEGATIVE);
             lutGroupDisable(LUTGROUP_FASTBLINK);
             lutGroupDisable(LUTGROUP_SLOWBLINK);
             lutGroupRepeat(LUTGROUP_SET, 0);
-            // lutGroupSpeedup(LUTGROUP_SET, 2);
-            lutGroupDisable(LUTGROUP_IMPROVE_REDS);
+            lutGroupSpeedup(LUTGROUP_SET, 2);
             lutGroupDisable(LUTGROUP_IMPROVE_SHARPNESS);
+            lutGroupDisable(LUTGROUP_IMPROVE_REDS);
+            lutGroupDisable(LUTGROUP_UNUSED);
             break;
     }
 
