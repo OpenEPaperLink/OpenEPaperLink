@@ -11,7 +11,7 @@ class pendingdata {
     //uint8_t dst[8];
     uint64_t ver;
     String md5;
-    uint16_t timeout;
+    uint32_t timeout;
     uint8_t datatimeout;
     uint8_t* data = nullptr;
     uint32_t len;

@@ -8,6 +8,7 @@
 #include "makeimage.h"
 #include "pendingdata.h"
 #include "serial.h"
+#include "settings.h"
 #include "soc/rtc_wdt.h"
 #include "tag_db.h"
 #include "web.h"
@@ -21,7 +22,9 @@ void timeTask(void* parameter) {
             Serial.println("Waiting for valid time from NTP-server");
         } else {
             if (now % 10 == 0) wsSendSysteminfo();
-            if (now % 300 == 0) saveDB("/current/tagDB.json");
+            if (now % 60 == 3) Ping();
+            if (now % 300 == 6) saveDB("/current/tagDB.json");
+
             contentRunner();
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -31,6 +34,9 @@ void timeTask(void* parameter) {
 void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
+
+    pinMode(ONBOARD_LED, OUTPUT);
+    digitalWrite(ONBOARD_LED, HIGH);
 
     configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "0.nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv

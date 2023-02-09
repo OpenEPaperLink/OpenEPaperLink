@@ -282,8 +282,11 @@ void init_web() {
                 if (taginfo != nullptr) {
                     taginfo->alias = request->getParam("alias", true)->value();
                     taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
-                    taginfo->contentMode = (contentModes)atoi(request->getParam("contentmode", true)->value().c_str());
+                    taginfo->contentMode = atoi(request->getParam("contentmode", true)->value().c_str());
                     taginfo->nextupdate = 0;
+                    taginfo->CheckinInMinPending = 0;
+                    memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
+                    memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
                     wsSendTaginfo(mac);
                     saveDB("/current/tagDB.json");
                     request->send(200, "text/plain", "Ok, saved");

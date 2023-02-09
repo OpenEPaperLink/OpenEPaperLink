@@ -88,7 +88,7 @@ uint8_t pktlen = 0;
 uint8_t pktindex = 0;
 char lastchar = 0;
 uint8_t charindex = 0;
-bool waitingForVersion = true;
+uint64_t  waitingForVersion = 0;
 uint16_t version;
 
 void ShortRXWaitLoop() {
@@ -103,19 +103,24 @@ void ShortRXWaitLoop() {
     }
 }
 
+void Ping() {
+    Serial1.print("VER?");
+    waitingForVersion = esp_timer_get_time();
+}
+
 void SerialRXLoop() {
     if (Serial1.available()) {
         lastchar = Serial1.read();
-        Serial.write(lastchar);
         switch (RXState) {
             case ZBS_RX_WAIT_HEADER:
+                Serial.write(lastchar);
                 // shift characters in
                 for (uint8_t c = 0; c < 3; c++) {
                     cmdbuffer[c] = cmdbuffer[c + 1];
                 }
                 cmdbuffer[3] = lastchar;
                 if ((strncmp(cmdbuffer, "VER>", 4) == 0) && waitingForVersion) {
-                    waitingForVersion = false;
+                    waitingForVersion = 0;
                     pktindex = 0;
                     RXState = ZBS_RX_WAIT_VER;
                     charindex = 0;
@@ -182,7 +187,8 @@ void SerialRXLoop() {
                 if (charindex == 4) {
                     charindex = 0;
                     version = (uint16_t)strtoul(cmdbuffer, NULL, 16);
-                    uint16_t fsversion;  // BREAK here! break;
+                    /*
+                    uint16_t fsversion;
                     lookupFirmwareFile(fsversion);
                     if ((fsversion) && (version != fsversion)) {
                         Serial.printf("ZBS/Zigbee FW version: %04X, version on SPIFFS: %04X\n", version, fsversion);
@@ -194,6 +200,7 @@ void SerialRXLoop() {
                     } else {
                         Serial.printf("ZBS/Zigbee FW version: %04X\n", version);
                     }
+                    */
                     RXState = ZBS_RX_WAIT_HEADER;
                 }
                 break;
@@ -208,6 +215,7 @@ void zbsRxTask(void* parameter) {
 
     simplePowerOn();
     Serial1.print("VER?");
+    waitingForVersion = esp_timer_get_time();
     while (1) {
         SerialRXLoop();
 
@@ -216,13 +224,12 @@ void zbsRxTask(void* parameter) {
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
         if (waitingForVersion) {
-            if (millis() > 30000) {
-                waitingForVersion = false;
-                performDeviceFlash();
-                // Serial.printf("We've been waiting for communication from the tag, but got nothing. This is expected if this tag hasn't been flashed yet. We'll try to flash it.\n");
-                // doAPUpdate();
+            if (esp_timer_get_time() - waitingForVersion > 10000*1000ULL) {
+                waitingForVersion = esp_timer_get_time();
                 //performDeviceFlash();
-                // SDAtest();
+                Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
+                Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
+                simplePowerOn();
             }
         }
     }
