@@ -180,7 +180,7 @@ void addScanResult(uint8_t channel, uint8_t lqi) {
 #if (SCREEN_WIDTH == 128)  // 2.9"
     epdPrintBegin(56 + ((resultcounter % 4) * 16), 282 - (47 * (resultcounter / 4)), EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
 #endif
-#if (SCREEN_WIDTH ==150)  // 1.54"
+#if (SCREEN_WIDTH ==152)  // 1.54"
     epdPrintBegin(4 + (47 * (resultcounter / 8)), 31 + (15 * (resultcounter % 8)), EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
 #endif
 #if (SCREEN_WIDTH == 400)  // 4.2"
