@@ -138,7 +138,7 @@ struct espAvailDataReq {
 } __packed;
 
 #define TIMER_TICKS_PER_MS 1333UL
-uint16_t __xdata version = 0x0006;
+uint16_t __xdata version = 0x0007;
 #define RAW_PKT_PADDING 2
 
 static uint8_t __xdata mRxBuf[COMMS_MAX_PACKET_SZ];
@@ -245,7 +245,8 @@ uint8_t getBlockDataLength() {
 // pendingdata slot stuff
 int8_t findSlotForMac(const uint8_t *mac) {
     for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
-        if (u64_isEq((uint64_t __xdata *)mac, (uint64_t __xdata *)&(pendingDataArr[c].targetMac))) {  // this costs 1 sloc :(
+        //if (u64_isEq((uint64_t __xdata *)mac, (uint64_t __xdata *)&(pendingDataArr[c].targetMac))) {  // this costs 1 sloc :(
+        if (memcmp(mac, ((uint8_t __xdata *)&(pendingDataArr[c].targetMac)), 8) == 0) {
             if (pendingDataArr[c].attemptsLeft != 0) {
                 return c;
             }
@@ -320,7 +321,9 @@ void processSerial(uint8_t lastchar) {
             bytesRemain--;
             if (bytesRemain == 0) {
                 if (checkCRC(serialbuffer, sizeof(struct pendingData))) {
-                    int8_t slot = findFreeSlot();
+                    struct pendingData *pd = (struct pendingData *)serialbuffer;
+					int8_t slot = findSlotForMac(pd->targetMac);
+					if (slot == -1) slot = findFreeSlot();
                     if (slot != -1) {
                         xMemCopyShort(&(pendingDataArr[slot]), serialbuffer, sizeof(struct pendingData));
                         pr("ACK>\n");
@@ -396,7 +399,17 @@ void espNotifyXferComplete(const uint8_t *src) {
         uartTx(((uint8_t *)exfc)[c]);
     }
 }
-void espNotifyTimeOut() {
+void espNotifyTimeOut(const uint8_t *src) {
+    struct espXferComplete exfc;
+    xMemCopy8(&exfc.src, src);
+    uartTx('X');
+    uartTx('T');
+    uartTx('O');
+    uartTx('>');
+    addCRC(&exfc, sizeof(exfc));
+    for (uint8_t c = 0; c < sizeof(exfc); c++) {
+        uartTx(((uint8_t *)exfc)[c]);
+    }
 }
 
 // process data from tag
@@ -738,7 +751,7 @@ void main(void) {
 
         for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
             if (pendingDataArr[c].attemptsLeft == 1) {
-                espNotifyTimeOut();
+                espNotifyTimeOut(pendingDataArr[c].targetMac);
                 pendingDataArr[c].attemptsLeft = 0;
             } else if (pendingDataArr[c].attemptsLeft > 1) {
                 pendingDataArr[c].attemptsLeft--;
