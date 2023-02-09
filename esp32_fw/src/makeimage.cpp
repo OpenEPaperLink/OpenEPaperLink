@@ -29,7 +29,7 @@ void jpg2grays(String filein, String fileout) {
     }
     spr.setColorDepth(8);
     spr.fillSprite(TFT_WHITE);
-    TJpgDec.drawFsJpg(0, 0, filein);
+    TJpgDec.drawFsJpg(0, 0, filein, LittleFS);
 
     spr2grays(spr, w, h, fileout);
     spr.deleteSprite();
@@ -236,8 +236,7 @@ void spr2grays(TFT_eSprite &spr, long w, long h, String &fileout) {
             f_out.write(0);
     }
     f_out.close();
-    Serial.println(millis() - t);
-    Serial.println("finished writing BMP");
+    Serial.println("finished writing BMP " + String(millis() - t) + "ms");
 }
 
 void bmp2grays(String filein, String fileout) {
@@ -429,6 +428,5 @@ void bmp2grays(String filein, String fileout) {
     }
     f_in.close();
     f_out.close();
-    Serial.println(millis() - t);
-    Serial.println("finished writing BMP2");
+    Serial.println("finished converting BMP " + String(millis() - t) + "ms");
 }

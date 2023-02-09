@@ -12,6 +12,18 @@
 #include "makeimage.h"
 #include "web.h"
 
+enum contentModes {
+    Image,
+    Today,
+    CountDays,
+    CountHours,
+    Weather,
+    Firmware,
+    Memo,
+    ImageUrl,
+};
+
+
 void contentRunner() {
     time_t now;
     time(&now);
@@ -76,8 +88,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case Today:
 
             drawDate(filename, taginfo);
-            // updateTagImage(filename, mac, (midnight - now) / 60 - 10);
-            updateTagImage(filename, mac, 600);
+            updateTagImage(filename, mac, (midnight - now) / 60 - 10);
             taginfo->nextupdate = midnight;
             break;
 
@@ -85,7 +96,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             if (buttonPressed) cfgobj["counter"] = 0;
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo);
-            updateTagImage(filename, mac, (buttonPressed?0:600));
+            updateTagImage(filename, mac, (buttonPressed?0:15));
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             taginfo->nextupdate = midnight;
             break;
@@ -94,9 +105,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             if (buttonPressed) cfgobj["counter"] = 0;
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo);
-            // updateTagImage(&filename, mac, (3600 - now % 3600) / 60);
-            // taginfo->nextupdate = now + 3600 - (now % 3600);
-            updateTagImage(filename, mac, (buttonPressed?0:600));
+            updateTagImage(filename, mac, (buttonPressed?0:5));
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             taginfo->nextupdate = now + 3600;
             break;
@@ -109,7 +118,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             // https://github.com/erikflowers/weather-icons
 
             drawWeather(filename, cfgobj["location"], taginfo);
-            updateTagImage(filename, mac, 600);
+            updateTagImage(filename, mac, 15);
             taginfo->nextupdate = now + 3600;
             break;
 
@@ -134,7 +143,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             drawIdentify(filename, taginfo);
             updateTagImage(filename, mac, 0);
-            taginfo->nextupdate = now + 24*3600;
+            taginfo->nextupdate = now + 12*3600;
             break;
 
         case ImageUrl:
@@ -142,8 +151,10 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"])) {
                 updateTagImage(filename, mac, cfgobj["interval"].as<int>());
                 cfgobj["#fetched"] = now;
+                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
+            } else {
+                taginfo->nextupdate = now + 300;
             }
-            taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>()) ;
             break;
     }
 
@@ -449,7 +460,7 @@ bool getImgURL(String &filename, String URL, time_t fetched) {
         }
     }
     http.end();
-    return (httpCode == 200);
+    return (httpCode == 200 || httpCode == 304);
 }
 
 char *formatHttpDate(time_t t) {

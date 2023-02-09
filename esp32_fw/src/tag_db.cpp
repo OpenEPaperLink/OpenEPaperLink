@@ -149,7 +149,7 @@ void loadDB(String filename) {
                     }
                     taginfo->pending = false;
                     taginfo->alias = tag["alias"].as<String>();
-                    taginfo->contentMode = static_cast<contentModes>(tag["contentMode"]);
+                    taginfo->contentMode = tag["contentMode"];
                     taginfo->LQI = tag["LQI"]; 
                     taginfo->RSSI = tag["RSSI"]; 
                     taginfo->temperature = tag["temperature"]; 

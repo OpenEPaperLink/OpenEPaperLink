@@ -139,8 +139,9 @@ function updatecards() {
 		if (item.dataset.lastseen && item.dataset.lastseen > 1672531200) {
 			let idletime = (Date.now() / 1000) + servertimediff - item.dataset.lastseen;
 			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>"+displayTime(Math.floor(idletime))+" ago";
-			if ((Date.now() / 1000) + servertimediff > item.dataset.nextcheckin) {
+			if ((Date.now() / 1000) + servertimediff - 60 > item.dataset.nextcheckin) {
 				$('#tag' + tagmac + ' .warningicon').style.display='inline-block';
+				$('#tag' + tagmac).classList.remove("tagpending")
 				$('#tag' + tagmac).style.background = '#ffffcc';
 			}
 			if (idletime > 24*3600) {
