@@ -58,7 +58,7 @@ void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
     memcpy(pending.targetMac, dst, 8);
     pending.availdatainfo.dataType = DATATYPE_NOUPDATE;
     pending.availdatainfo.nextCheckIn = nextCheckin;
-    pending.attemptsLeft = 10;
+    pending.attemptsLeft = 10 + MIN_RESPONSE_TIME;
 
     char buffer[64];
     uint8_t src[8];
@@ -124,6 +124,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         md5.getBytes(md5bytes);
     }
 
+    uint16_t attempts = 60;
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)dst));
     uint8_t mac[6];
@@ -131,11 +132,20 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(mac);
     if (taginfo != nullptr) {
+
         if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
             wsLog("new image is the same as current image. not updating tag.");
             wsSendTaginfo(mac);
             return true;
         }
+
+        time_t now;
+        time(&now);
+        uint16_t minutesUntilNextCheckin = 0;
+        if (taginfo->expectedNextCheckin > now) minutesUntilNextCheckin = (taginfo->expectedNextCheckin - now) / 60;
+        attempts += minutesUntilNextCheckin;
+    } else {
+        wsErr("Tag not found, this shouldn't happen.");
     }
 
     // the message that will be sent to the AP to tell the tag there is data pending
@@ -145,7 +155,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pending.availdatainfo.dataVer = *((uint64_t*)md5bytes);
     pending.availdatainfo.dataSize = file.size();
     pending.availdatainfo.nextCheckIn = nextCheckin;
-    pending.attemptsLeft = 10;
+    pending.attemptsLeft = attempts;
     sendDataAvail(&pending);
 
     // data for the cache on the esp32; needs to hold the data longer than the maximum timeout on the AP
@@ -280,6 +290,29 @@ void processXferComplete(struct espXferComplete* xfc) {
 
         taginfo->pending = false;
         memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
+    }
+    wsSendTaginfo(mac);
+}
+
+void processXferTimeout(struct espXferComplete* xfc) {
+    char buffer[64];
+    uint8_t src[8];
+    *((uint64_t*)src) = swap64(*((uint64_t*)xfc->src));
+    sprintf(buffer, "< %02X%02X%02X%02X%02X%02X xfer timeout\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+    wsErr((String)buffer);
+    Serial.print(buffer);
+    uint8_t mac[6];
+    memcpy(mac, src + 2, sizeof(mac));
+
+    time_t now;
+    time(&now);
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo != nullptr) {
+        taginfo->expectedNextCheckin = now + 60;
+        taginfo->CheckinInMinPending = 0;
+        taginfo->pending = false;
+        memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
     }
     wsSendTaginfo(mac);
 }

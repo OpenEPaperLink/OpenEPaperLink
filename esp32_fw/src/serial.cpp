@@ -19,6 +19,7 @@
 #define ZBS_RX_WAIT_XFERCOMPLETE 8
 #define ZBS_RX_WAIT_DATA_REQ 9
 #define ZBS_RX_WAIT_JOINNETWORK 10
+#define ZBS_RX_WAIT_XFERTIMEOUT 11
 
 uint8_t restartBlockRequest = 0;
 
@@ -111,6 +112,7 @@ void Ping() {
 void SerialRXLoop() {
     if (Serial1.available()) {
         lastchar = Serial1.read();
+        //Serial.write(lastchar);
         switch (RXState) {
             case ZBS_RX_WAIT_HEADER:
                 Serial.write(lastchar);
@@ -119,8 +121,7 @@ void SerialRXLoop() {
                     cmdbuffer[c] = cmdbuffer[c + 1];
                 }
                 cmdbuffer[3] = lastchar;
-                if ((strncmp(cmdbuffer, "VER>", 4) == 0) && waitingForVersion) {
-                    waitingForVersion = 0;
+                if ((strncmp(cmdbuffer, "VER>", 4) == 0)) {
                     pktindex = 0;
                     RXState = ZBS_RX_WAIT_VER;
                     charindex = 0;
@@ -151,6 +152,12 @@ void SerialRXLoop() {
                     packetp = (uint8_t*)calloc(sizeof(struct espXferComplete) + 8, 1);
                     memset(cmdbuffer, 0x00, 4);
                 }
+                if (strncmp(cmdbuffer, "XTO>", 4) == 0) {
+                    RXState = ZBS_RX_WAIT_XFERTIMEOUT;
+                    pktindex = 0;
+                    packetp = (uint8_t*)calloc(sizeof(struct espXferComplete) + 8, 1);
+                    memset(cmdbuffer, 0x00, 4);
+                }
                 break;
             case ZBS_RX_BLOCK_REQUEST:
                 packetp[pktindex] = lastchar;
@@ -171,6 +178,16 @@ void SerialRXLoop() {
                     RXState = ZBS_RX_WAIT_HEADER;
                 }
                 break;
+            case ZBS_RX_WAIT_XFERTIMEOUT:
+                packetp[pktindex] = lastchar;
+                pktindex++;
+                if (pktindex == sizeof(struct espXferComplete)) {
+                    struct espXferComplete* xfc = (struct espXferComplete*)packetp;
+                    processXferTimeout(xfc);
+                    free(packetp);
+                    RXState = ZBS_RX_WAIT_HEADER;
+                }
+                break;
             case ZBS_RX_WAIT_DATA_REQ:
                 packetp[pktindex] = lastchar;
                 pktindex++;
@@ -182,6 +199,7 @@ void SerialRXLoop() {
                 }
                 break;
             case ZBS_RX_WAIT_VER:
+                waitingForVersion = 0;
                 cmdbuffer[charindex] = lastchar;
                 charindex++;
                 if (charindex == 4) {
@@ -214,6 +232,8 @@ void zbsRxTask(void* parameter) {
     Serial1.begin(230400, SERIAL_8N1, RXD1, TXD1);
 
     simplePowerOn();
+    bool firstrun = true;
+
     Serial1.print("VER?");
     waitingForVersion = esp_timer_get_time();
     while (1) {
@@ -223,14 +243,30 @@ void zbsRxTask(void* parameter) {
             Serial1.write(Serial.read());
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
+
         if (waitingForVersion) {
             if (esp_timer_get_time() - waitingForVersion > 10000*1000ULL) {
-                waitingForVersion = esp_timer_get_time();
+                waitingForVersion = 0;
                 //performDeviceFlash();
                 Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
                 Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
                 simplePowerOn();
             }
+        }
+        
+        if (version && firstrun) {
+            Serial.printf("ZBS/Zigbee FW version: %04X\n", version);
+            uint16_t fsversion;
+            lookupFirmwareFile(fsversion);
+            if ((fsversion) && (version != fsversion)) {
+                Serial.printf("Firmware version on LittleFS: %04X\n", fsversion);
+                Serial.printf("Performing flash update in about 30 seconds");
+                vTaskDelay(30000 / portTICK_PERIOD_MS);
+                performDeviceFlash();
+            } else if (!fsversion) {
+                Serial.println("No ZBS/Zigbee FW binary found on SPIFFS, please upload a zigbeebase000X.bin - format binary to enable flashing");
+            }
+            firstrun = false;
         }
     }
 }

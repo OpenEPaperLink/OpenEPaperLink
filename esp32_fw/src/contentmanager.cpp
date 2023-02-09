@@ -88,26 +88,26 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case Today:
 
             drawDate(filename, taginfo);
-            updateTagImage(filename, mac, (midnight - now) / 60 - 10);
             taginfo->nextupdate = midnight;
+            updateTagImage(filename, mac, (midnight - now) / 60 - 10);
             break;
 
         case CountDays:
 
             if (buttonPressed) cfgobj["counter"] = 0;
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo);
-            updateTagImage(filename, mac, (buttonPressed?0:15));
-            cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             taginfo->nextupdate = midnight;
+            updateTagImage(filename, mac, (buttonPressed ? 0 : 15));
+            cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             break;
 
         case CountHours:
 
             if (buttonPressed) cfgobj["counter"] = 0;
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo);
-            updateTagImage(filename, mac, (buttonPressed?0:5));
-            cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             taginfo->nextupdate = now + 3600;
+            updateTagImage(filename, mac, (buttonPressed ? 0 : 5));
+            cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             break;
 
         case Weather:
@@ -118,8 +118,8 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             // https://github.com/erikflowers/weather-icons
 
             drawWeather(filename, cfgobj["location"], taginfo);
-            updateTagImage(filename, mac, 15);
             taginfo->nextupdate = now + 3600;
+            updateTagImage(filename, mac, 15);
             break;
 
         case Firmware:
@@ -142,16 +142,16 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case Memo:
 
             drawIdentify(filename, taginfo);
+            taginfo->nextupdate = now + 12 * 3600;
             updateTagImage(filename, mac, 0);
-            taginfo->nextupdate = now + 12*3600;
             break;
 
         case ImageUrl:
 
             if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"])) {
+                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
                 updateTagImage(filename, mac, cfgobj["interval"].as<int>());
                 cfgobj["#fetched"] = now;
-                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
             } else {
                 taginfo->nextupdate = now + 300;
             }
