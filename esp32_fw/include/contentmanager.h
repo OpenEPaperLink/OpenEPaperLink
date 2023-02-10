@@ -14,6 +14,7 @@ void initSprite(TFT_eSprite &spr, int w, int h);
 void drawDate(String &filename, tagRecord *&taginfo);
 void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo);
 void drawWeather(String &filename, String location, tagRecord *&taginfo);
+void drawForecast(String &filename, String location, tagRecord *&taginfo);
 void drawIdentify(String &filename, tagRecord *&taginfo);
 bool getImgURL(String &filename, String URL, time_t fetched);
 char *formatHttpDate(time_t t);
