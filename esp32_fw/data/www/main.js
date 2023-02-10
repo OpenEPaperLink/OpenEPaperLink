@@ -1,6 +1,6 @@
 const $ = document.querySelector.bind(document);
 
-const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url", "Weather forecast"];
+const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url", "Weather forecast","RSS feed"];
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
 const contentModeOptions = [];
 contentModeOptions[0] = ["filename","timetolive"];
@@ -12,6 +12,7 @@ contentModeOptions[5] = ["filename"];
 contentModeOptions[6] = ["text"];
 contentModeOptions[7] = ["url","interval"];
 contentModeOptions[8] = ["location"];
+contentModeOptions[9] = ["title", "url", "interval"];
 
 const imageQueue = [];
 let isProcessing = false;
