@@ -38,6 +38,7 @@ uint8_t __xdata curImgSlot = 0;
 uint32_t __xdata curHighSlotId = 0;
 uint8_t __xdata nextImgSlot = 0;
 uint8_t __xdata imgSlots = 0;
+uint8_t __xdata drawWithLut = 0;
 
 // doDownload persistent variables
 bool __xdata lastBlock = false;
@@ -456,7 +457,9 @@ void drawImageFromEeprom() {
     // enable WDT, to make sure de tag resets if it's for some reason unable to draw the image
     wdtSetResetVal(0xFFFFFFFF - 0x38C340);
     wdtOn();
-    drawImageAtAddress(getAddressForSlot(curImgSlot));
+
+    drawImageAtAddress(getAddressForSlot(curImgSlot), drawWithLut);
+    drawWithLut = 0; // default back to the regular ol' stock/OTP LUT
     powerDown(INIT_EPD);
 }
 uint32_t getHighSlotId() {
@@ -519,7 +522,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
                     // mark as completed and draw from EEPROM
                     curXferComplete = true;
                     xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
-
+                    drawWithLut = avail->dataTypeArgument;
                     drawImageFromEeprom();
                     return true;
                 } else {
@@ -528,7 +531,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
                     nextImgSlot++;
                     if (nextImgSlot >= imgSlots) nextImgSlot = 0;
                     curImgSlot = nextImgSlot;
-
+                    drawWithLut = avail->dataTypeArgument;
                     eepromErase(getAddressForSlot(curImgSlot), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
                     pr("new download, writing to slot %d\n", curImgSlot);
                     // continue!

@@ -333,7 +333,7 @@ void ByteDecode(uint8_t byte) {
     }
 }
 
-void drawImageAtAddress(uint32_t addr) {
+void drawImageAtAddress(uint32_t addr, uint8_t lut) {
     uint32_t __xdata clutAddr;
     pr("sending to EPD - ");
     clutAddr = drawPrvParseHeader(addr);
@@ -342,6 +342,7 @@ void drawImageAtAddress(uint32_t addr) {
     drawPrvLoadAndMapClut(clutAddr);
 
     epdSetup();
+    if(lut)selectLUT(lut);
     mPassNo = 0;
     beginFullscreenImage();
     beginWriteFramebuffer(EPD_COLOR_BLACK);
