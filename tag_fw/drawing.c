@@ -11,6 +11,7 @@
 #include "screen.h"
 #include "timer.h"
 
+#include "userinterface.h" // for addIcons
 #define COMPRESSION_BITPACKED_3x5_to_7 0x62700357  // 3 pixels of 5 possible colors in 7 bits
 #define COMPRESSION_BITPACKED_5x3_to_8 0x62700538  // 5 pixels of 3 possible colors in 8 bits
 #define COMPRESSION_BITPACKED_3x6_to_8 0x62700368  // 3 pixels of 6 possible colors in 8 bits
@@ -359,6 +360,6 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
     endWriteFramebuffer();
 
     pr(" complete.\n");
-
+    addOverlay();
     drawWithSleep();
 }

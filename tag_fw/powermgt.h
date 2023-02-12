@@ -42,8 +42,9 @@
 #define MAXIMUM_PING_ATTEMPTS 20      // How many attempts to discover an AP the tag should do
 #define PING_REPLY_WINDOW 2UL
 
-#define LONG_DATAREQ_INTERVAL 300   // How often (in seconds, approximately) the tag should do a long datareq (including temperature)
-#define VOLTAGE_CHECK_INTERVAL 288  // How often the tag should do a battery voltage check (multiplied by LONG_DATAREQ_INTERVAL)
+#define LONG_DATAREQ_INTERVAL 300     // How often (in seconds, approximately) the tag should do a long datareq (including temperature)
+#define VOLTAGE_CHECK_INTERVAL 288    // How often the tag should do a battery voltage check (multiplied by LONG_DATAREQ_INTERVAL)
+#define BATTERY_VOLTAGE_MINIMUM 2600  // 2600 or below is the best we can do on the EPD
 
 // power saving when no AP's were found (scanning every X)
 #define INTERVAL_1_TIME 3600UL   // Try every hour

@@ -13,6 +13,7 @@
 #include "epd.h"
 #include "font.h"
 #include "lut.h"
+#include "powermgt.h"
 #include "printf.h"
 #include "screen.h"
 #include "settings.h"
@@ -21,12 +22,42 @@
 #include "syncedproto.h"  // for APmac / Channel
 #include "timer.h"
 
-extern uint8_t __xdata mSelfMac[8];
-extern uint8_t __xdata currentChannel;
-extern uint8_t __xdata APmac[];
+// extern uint8_t __xdata mSelfMac[8];
+// extern uint8_t __xdata currentChannel;
+// extern uint8_t __xdata APmac[];
+// extern uint16_t __xdata batteryVoltage;
 
 const uint8_t __code fwVersion = FW_VERSION;
 const char __code fwVersionSuffix[] = FW_VERSION_SUFFIX;
+
+bool __xdata lowBatteryShown = false;
+bool __xdata noAPShown = false;
+
+void addOverlay() {
+    if (currentChannel == 0) {
+#if (SCREEN_WIDTH != 128)
+        loadRawBitmap(ant, SCREEN_WIDTH - 16, 0, EPD_COLOR_BLACK);
+        loadRawBitmap(cross, SCREEN_WIDTH - 8, 7, EPD_COLOR_RED);
+#else
+        loadRawBitmap(ant, 0, 0, EPD_COLOR_BLACK);
+        loadRawBitmap(cross, 8, 0, EPD_COLOR_RED);
+#endif
+        noAPShown = true;
+    } else {
+        noAPShown = false;
+    }
+
+    if (batteryVoltage != 2600) {
+#if (SCREEN_WIDTH != 128)
+        loadRawBitmap(battery, SCREEN_WIDTH - 16, SCREEN_HEIGHT - 8, EPD_COLOR_BLACK);
+#else
+        loadRawBitmap(battery, 112, 0, EPD_COLOR_BLACK);
+#endif
+        lowBatteryShown = true;
+    } else {
+        lowBatteryShown = false;
+    }
+}
 
 void showSplashScreen() {
     selectLUT(EPD_LUT_NO_REPEATS);
@@ -169,7 +200,6 @@ void showScanningWindow() {
     loadRawBitmap(receive, 320, 125, EPD_COLOR_BLACK);
 #endif
 
-
     draw();
     selectLUT(EPD_LUT_FAST);
     resultcounter = 0;
@@ -180,7 +210,7 @@ void addScanResult(uint8_t channel, uint8_t lqi) {
 #if (SCREEN_WIDTH == 128)  // 2.9"
     epdPrintBegin(56 + ((resultcounter % 4) * 16), 282 - (47 * (resultcounter / 4)), EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
 #endif
-#if (SCREEN_WIDTH ==152)  // 1.54"
+#if (SCREEN_WIDTH == 152)  // 1.54"
     epdPrintBegin(4 + (47 * (resultcounter / 8)), 31 + (15 * (resultcounter % 8)), EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
 #endif
 #if (SCREEN_WIDTH == 400)  // 4.2"
@@ -260,11 +290,13 @@ void showAPFound() {
     epdpr("%02X%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 #endif
+    addOverlay();
     drawWithSleep();
 }
 
 void showNoAP() {
     selectLUT(EPD_LUT_NO_REPEATS);
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     clearScreen();
 #if (SCREEN_WIDTH == 128)  // 1.54"
     epdPrintBegin(0, 285, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
@@ -294,6 +326,7 @@ void showNoAP() {
     epdpr("a little while");
     epdPrintEnd();
 #endif
+    addOverlay();
     drawWithSleep();
 }
 

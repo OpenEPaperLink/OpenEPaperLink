@@ -2,6 +2,8 @@
 #define _UI_H_
 #include <stdint.h>
 
+void addOverlay();
+
 void showSplashScreen();
 void showApplyUpdate();
 void showScanningWindow();
@@ -11,7 +13,9 @@ void showNoAP();
 void showNoEEPROM();
 void showNoMAC();
 
-
 extern const uint8_t __code fwVersion;
 extern const char __code fwVersionSuffix[];
+extern bool __xdata lowBatteryShown;
+extern bool __xdata noAPShown;
+
 #endif

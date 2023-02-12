@@ -141,7 +141,7 @@ uint8_t channelSelect() {  // returns 0 if no accesspoints were found
 }
 
 void mainProtocolLoop(void) {
-    //displayLoop();  // remove me
+    // displayLoop();  // remove me
     powerUp(INIT_BASE | INIT_UART | INIT_GPIO);
     wdt10s();
     boardGetOwnMac(mSelfMac);
@@ -216,6 +216,16 @@ void mainProtocolLoop(void) {
                 }
                 voltageCheckCounter++;
 
+                // check if the battery level is below minimum, and force a redraw of the screen
+                if ((batteryVoltage < BATTERY_VOLTAGE_MINIMUM && !lowBatteryShown) || (noAPShown)) {
+                    // Check if we were already displaying an image
+                    if (curImgSlot != 0xFF) {
+                        drawImageFromEeprom();
+                    } else {
+                        showAPFound();
+                    }
+                }
+
                 avail = getAvailDataInfo();
                 if (avail != NULL) {
                     longDataReqCounter = 0;
@@ -276,7 +286,16 @@ void mainProtocolLoop(void) {
             powerUp(INIT_RADIO);
             wdt30s();
             currentChannel = channelSelect();
-            powerDown(INIT_RADIO | INIT_GPIO);
+            powerDown(INIT_RADIO);
+            if (!currentChannel && !noAPShown) {
+                if (curImgSlot != 0xFF) {
+                    drawImageFromEeprom();
+                } else {
+                    showAPFound();
+                }
+            }
+
+            powerDown(INIT_GPIO);
 
             // did we find a working channel?
             if (currentChannel) {

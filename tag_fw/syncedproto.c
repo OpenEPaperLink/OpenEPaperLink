@@ -33,8 +33,7 @@ uint16_t __xdata dataRemaining = 0;  // since the targeted solum tags don't have
 bool __xdata curXferComplete = false;
 bool __xdata requestPartialBlock = false;
 
-// uint8_t __xdata *tempBuffer = blockXferBuffer;
-uint8_t __xdata curImgSlot = 0;
+uint8_t __xdata curImgSlot = 0xFF;
 uint32_t __xdata curHighSlotId = 0;
 uint8_t __xdata nextImgSlot = 0;
 uint8_t __xdata imgSlots = 0;
