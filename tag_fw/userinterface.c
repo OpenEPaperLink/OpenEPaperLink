@@ -35,12 +35,15 @@ bool __xdata noAPShown = false;
 
 void addOverlay() {
     if (currentChannel == 0) {
-#if (SCREEN_WIDTH != 128)
+#if (SCREEN_WIDTH == 152)
         loadRawBitmap(ant, SCREEN_WIDTH - 16, 0, EPD_COLOR_BLACK);
         loadRawBitmap(cross, SCREEN_WIDTH - 8, 7, EPD_COLOR_RED);
-#else
+#elif (SCREEN_WIDTH == 128)
         loadRawBitmap(ant, 0, 0, EPD_COLOR_BLACK);
         loadRawBitmap(cross, 8, 0, EPD_COLOR_RED);
+#elif (SCREEN_WIDTH == 400)
+        loadRawBitmap(ant, SCREEN_WIDTH - 24, 6, EPD_COLOR_BLACK);
+        loadRawBitmap(cross, SCREEN_WIDTH - 16, 13, EPD_COLOR_RED);
 #endif
         noAPShown = true;
     } else {
@@ -48,9 +51,11 @@ void addOverlay() {
     }
 
     if (batteryVoltage != 2600) {
-#if (SCREEN_WIDTH != 128)
+#if (SCREEN_WIDTH == 152)
         loadRawBitmap(battery, SCREEN_WIDTH - 16, SCREEN_HEIGHT - 10, EPD_COLOR_BLACK);
-#else
+#elif (SCREEN_WIDTH == 400)
+        loadRawBitmap(battery, SCREEN_WIDTH - 24, SCREEN_HEIGHT - 16, EPD_COLOR_BLACK);
+#elif (SCREEN_WIDTH == 128)
         loadRawBitmap(battery, 112, 0, EPD_COLOR_BLACK);
 #endif
         lowBatteryShown = true;
@@ -140,7 +145,8 @@ void showSplashScreen() {
     spr(buffer + 4, "%02X%02X", mSelfMac[5], mSelfMac[4]);
     spr(buffer + 8, "%02X%02X", mSelfMac[3], mSelfMac[2]);
     spr(buffer + 12, "%02X%02X", mSelfMac[1], mSelfMac[0]);
-    printBarcode(buffer, 392, 286);
+    printBarcode(buffer, 392, 264);
+    printBarcode(buffer, 384, 264);
 
 #endif
     drawWithSleep();
@@ -214,7 +220,7 @@ void addScanResult(uint8_t channel, uint8_t lqi) {
     epdPrintBegin(4 + (47 * (resultcounter / 8)), 31 + (15 * (resultcounter % 8)), EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
 #endif
 #if (SCREEN_WIDTH == 400)  // 4.2"
-    epdPrintBegin(4 + (47 * (resultcounter / 8)), 50 + (15 * (resultcounter % 8)), EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdPrintBegin(4 + (47 * (resultcounter / 8)), 58 + (15 * (resultcounter % 8)), EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
 #endif
     epdpr("%d-%d", channel, lqi);
     epdPrintEnd();
@@ -290,6 +296,39 @@ void showAPFound() {
     epdpr("%02X%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 #endif
+#if (SCREEN_WIDTH == 400)
+    epdPrintBegin(10, 10, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("Waiting for data...");
+    epdPrintEnd();
+    epdPrintBegin(48, 80, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("Found the following AP:");
+    epdPrintEnd();
+    epdPrintBegin(48, 96, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("AP MAC: %02X:%02X", APmac[7], APmac[6]);
+    epdpr(":%02X:%02X", APmac[5], APmac[4]);
+    epdpr(":%02X:%02X", APmac[3], APmac[2]);
+    epdpr(":%02X:%02X", APmac[1], APmac[0]);
+    epdPrintEnd();
+    epdPrintBegin(48, 112, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("Ch: %d RSSI: %d LQI: %d", currentChannel, mLastRSSI, mLastLqi);
+    epdPrintEnd();
+
+    epdPrintBegin(366, 258, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("Tag MAC: %02X:%02X", mSelfMac[7], mSelfMac[6]);
+    epdpr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
+    epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
+    epdpr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
+    epdPrintEnd();
+
+    uint8_t __xdata buffer[17];
+    spr(buffer, "%02X%02X", mSelfMac[7], mSelfMac[6]);
+    spr(buffer + 4, "%02X%02X", mSelfMac[5], mSelfMac[4]);
+    spr(buffer + 8, "%02X%02X", mSelfMac[3], mSelfMac[2]);
+    spr(buffer + 12, "%02X%02X", mSelfMac[1], mSelfMac[0]);
+    printBarcode(buffer, 392, 253);
+    printBarcode(buffer, 384, 253);
+    loadRawBitmap(receive, 100, 170, EPD_COLOR_BLACK);
+#endif
     addOverlay();
     drawWithSleep();
 }
@@ -326,6 +365,16 @@ void showNoAP() {
     epdpr("a little while");
     epdPrintEnd();
 #endif
+#if (SCREEN_WIDTH == 400)  // 4.2"
+    epdPrintBegin(10, 10, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("No AP found :(");
+    epdPrintEnd();
+    epdPrintBegin(10, 274, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("We'll try again in a little while");
+    epdPrintEnd();
+    loadRawBitmap(receive, 76, 120, EPD_COLOR_BLACK);
+    loadRawBitmap(failed, 82, 122, EPD_COLOR_RED);
+#endif
     addOverlay();
     drawWithSleep();
 }
@@ -338,9 +387,8 @@ void showLongTermSleep() {
     epdPrintBegin(0, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("zZ");
     epdPrintEnd();
-#endif
-#if (SCREEN_WIDTH == 152)  // 1.54"
-    epdPrintBegin(1, 136, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+#else
+    epdPrintBegin(2, SCREEN_HEIGHT - 16, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("zZ");
     epdPrintEnd();
 #endif
@@ -373,6 +421,15 @@ void showNoEEPROM() {
     epdpr("Sleeping forever :'(");
     epdPrintEnd();
 #endif
+#if (SCREEN_WIDTH == 400)  // 4.2"
+    epdPrintBegin(50 , 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("EEPROM FAILED :(");
+    epdPrintEnd();
+    loadRawBitmap(failed, 176, 126, EPD_COLOR_RED);
+    epdPrintBegin(100, 284, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("Sleeping forever :'(");
+    epdPrintEnd();
+#endif
     drawWithSleep();
 }
 
@@ -401,7 +458,7 @@ void showNoMAC() {
     epdpr("Sleeping forever :'(");
     epdPrintEnd();
 #endif
-#if (SCREEN_WIDTH == 400)  // 1.54"
+#if (SCREEN_WIDTH == 400)  // 4.2"
     epdPrintBegin(100, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("NO MAC SET :(");
     epdPrintEnd();

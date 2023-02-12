@@ -71,6 +71,14 @@ void displayLoop() {
     wdtOn();
     wdt30s();
 
+    pr("Longterm sleep screen\n");
+    powerUp(INIT_EPD);
+    showLongTermSleep();
+    timerDelay(TIMER_TICKS_PER_SECOND * 4);
+
+    wdtOn();
+    wdt30s();
+
     pr("NO EEPROM\n");
     powerUp(INIT_EPD);
     showNoEEPROM();
@@ -141,7 +149,7 @@ uint8_t channelSelect() {  // returns 0 if no accesspoints were found
 }
 
 void mainProtocolLoop(void) {
-    // displayLoop();  // remove me
+    //displayLoop();  // remove me
     powerUp(INIT_BASE | INIT_UART | INIT_GPIO);
     wdt10s();
     boardGetOwnMac(mSelfMac);
@@ -294,13 +302,13 @@ void mainProtocolLoop(void) {
             wdt30s();
             currentChannel = channelSelect();
             powerDown(INIT_RADIO);
-            if ((!currentChannel && !noAPShown) || (lowBattery && !lowBatteryShown) || (scanAttempts == (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS-1))) {
+            if ((!currentChannel && !noAPShown) || (lowBattery && !lowBatteryShown) || (scanAttempts == (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
                 powerUp(INIT_EPD);
                 if (curImgSlot != 0xFF) {
                     powerUp(INIT_EEPROM);
                     drawImageFromEeprom();
                     powerDown(INIT_EEPROM);
-                } else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS-1))) {
+                } else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
                     showLongTermSleep();
                     powerDown(INIT_EPD);
                 } else {
