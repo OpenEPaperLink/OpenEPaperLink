@@ -47,11 +47,12 @@
 #define BATTERY_VOLTAGE_MINIMUM 2600  // 2600 or below is the best we can do on the EPD
 
 // power saving when no AP's were found (scanning every X)
-#define INTERVAL_1_TIME 3600UL   // Try every hour
-#define INTERVAL_1_ATTEMPTS 24   // for 24 attempts (an entire day)
-#define INTERVAL_2_TIME 7200UL   // Try every 2 hours
-#define INTERVAL_2_ATTEMPTS 12   // for 12 attempts (an additional day)
-#define INTERVAL_3_TIME 86400UL  // Finally, try every day
+#define VOLTAGEREADING_DURING_SCAN_INTERVAL 2  // how often we should read voltages; this is done every scan attempt in interval bracket 3
+#define INTERVAL_1_TIME 3600UL                 // Try every hour
+#define INTERVAL_1_ATTEMPTS 24                 // for 24 attempts (an entire day)
+#define INTERVAL_2_TIME 7200UL                 // Try every 2 hours
+#define INTERVAL_2_ATTEMPTS 12                 // for 12 attempts (an additional day)
+#define INTERVAL_3_TIME 86400UL                // Finally, try every day
 
 extern void powerUp(uint8_t parts);
 extern void powerDown(uint8_t parts);
@@ -71,6 +72,7 @@ extern uint16_t __xdata nextCheckInFromAP;
 extern uint8_t __xdata dataReqLastAttempt;
 extern int8_t __xdata temperature;
 extern uint16_t __xdata batteryVoltage;
+extern bool __xdata lowBattery;
 extern uint8_t __xdata scanAttempts;
 extern uint16_t __xdata longDataReqCounter;
 extern uint16_t __xdata voltageCheckCounter;

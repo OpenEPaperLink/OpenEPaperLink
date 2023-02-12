@@ -10,6 +10,7 @@ void showScanningWindow();
 void addScanResult(uint8_t channel, uint8_t lqi);
 void showAPFound();
 void showNoAP();
+void showLongTermSleep();
 void showNoEEPROM();
 void showNoMAC();
 

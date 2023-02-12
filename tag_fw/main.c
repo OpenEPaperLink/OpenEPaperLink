@@ -217,12 +217,16 @@ void mainProtocolLoop(void) {
                 voltageCheckCounter++;
 
                 // check if the battery level is below minimum, and force a redraw of the screen
-                if ((batteryVoltage < BATTERY_VOLTAGE_MINIMUM && !lowBatteryShown) || (noAPShown)) {
+                if ((lowBattery && !lowBatteryShown) || (noAPShown)) {
+                    powerUp(INIT_EPD);
                     // Check if we were already displaying an image
                     if (curImgSlot != 0xFF) {
+                        powerUp(INIT_EEPROM);
                         drawImageFromEeprom();
+                        powerDown(INIT_EEPROM);
                     } else {
                         showAPFound();
+                        powerDown(INIT_EPD);
                     }
                 }
 
@@ -280,18 +284,28 @@ void mainProtocolLoop(void) {
 
         } else {
             // not associated
-            powerUp(INIT_BASE | INIT_RADIO);  // || INIT_GPIO | INIT_UART
-
+            if (((scanAttempts != 0) && (scanAttempts % VOLTAGEREADING_DURING_SCAN_INTERVAL == 0)) || (scanAttempts > (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS))) {
+                powerUp(INIT_BASE | INIT_EPD_VOLTREADING | INIT_RADIO);
+            } else {
+                powerUp(INIT_BASE | INIT_RADIO);  // || INIT_GPIO | INIT_UART
+            }
             // try to find a working channel
             powerUp(INIT_RADIO);
             wdt30s();
             currentChannel = channelSelect();
             powerDown(INIT_RADIO);
-            if (!currentChannel && !noAPShown) {
+            if ((!currentChannel && !noAPShown) || (lowBattery && !lowBatteryShown) || (scanAttempts == (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS-1))) {
+                powerUp(INIT_EPD);
                 if (curImgSlot != 0xFF) {
+                    powerUp(INIT_EEPROM);
                     drawImageFromEeprom();
+                    powerDown(INIT_EEPROM);
+                } else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS-1))) {
+                    showLongTermSleep();
+                    powerDown(INIT_EPD);
                 } else {
-                    showAPFound();
+                    showNoAP();
+                    powerDown(INIT_EPD);
                 }
             }
 

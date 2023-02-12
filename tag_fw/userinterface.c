@@ -49,7 +49,7 @@ void addOverlay() {
 
     if (batteryVoltage != 2600) {
 #if (SCREEN_WIDTH != 128)
-        loadRawBitmap(battery, SCREEN_WIDTH - 16, SCREEN_HEIGHT - 8, EPD_COLOR_BLACK);
+        loadRawBitmap(battery, SCREEN_WIDTH - 16, SCREEN_HEIGHT - 10, EPD_COLOR_BLACK);
 #else
         loadRawBitmap(battery, 112, 0, EPD_COLOR_BLACK);
 #endif
@@ -298,7 +298,7 @@ void showNoAP() {
     selectLUT(EPD_LUT_NO_REPEATS);
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     clearScreen();
-#if (SCREEN_WIDTH == 128)  // 1.54"
+#if (SCREEN_WIDTH == 128)  // 2,9"
     epdPrintBegin(0, 285, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("No AP found :(");
     epdPrintEnd();
@@ -330,6 +330,23 @@ void showNoAP() {
     drawWithSleep();
 }
 
+void showLongTermSleep() {
+    selectLUT(EPD_LUT_NO_REPEATS);
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+    clearScreen();
+#if (SCREEN_WIDTH == 128)  // 2.9"
+    epdPrintBegin(0, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("zZ");
+    epdPrintEnd();
+#endif
+#if (SCREEN_WIDTH == 152)  // 1.54"
+    epdPrintBegin(1, 136, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("zZ");
+    epdPrintEnd();
+#endif
+    addOverlay();
+    drawWithSleep();
+}
 void showNoEEPROM() {
     selectLUT(EPD_LUT_NO_REPEATS);
     clearScreen();

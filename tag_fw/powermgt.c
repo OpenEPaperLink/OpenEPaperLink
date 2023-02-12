@@ -34,6 +34,7 @@ uint8_t __xdata scanAttempts = 0;
 
 int8_t __xdata temperature = 0;
 uint16_t __xdata batteryVoltage = 0;
+bool __xdata lowBattery = false;
 uint16_t __xdata longDataReqCounter = 0;
 uint16_t __xdata voltageCheckCounter = 0;
 
@@ -70,6 +71,11 @@ void powerUp(uint8_t parts) {
         if (!(parts & INIT_GPIO))
             boardInit();
         batteryVoltage = epdGetBattery();
+        if(batteryVoltage<BATTERY_VOLTAGE_MINIMUM){
+            lowBattery = true;
+        } else {
+            lowBattery = false;
+        }
     }
 
     if (parts & INIT_UART) {
