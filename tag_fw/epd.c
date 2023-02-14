@@ -15,6 +15,7 @@
 #include "sleep.h"
 #include "spi.h"
 #include "timer.h"
+#include "wdt.h"
 
 #define CMD_DRV_OUTPUT_CTRL 0x01
 #define CMD_SOFT_START_CTRL 0x0C
@@ -99,6 +100,7 @@ static void epdBusySleep(uint32_t timeout) {
     P2INTEN |= 2;
     P2CHSTA &= 0xfd;
     sleepForMsec(timeout);
+    wdtOn();
     P2CHSTA &= 0xfd;
     P2INTEN &= 0xfd;
 
@@ -487,6 +489,7 @@ void drawWithSleep() {
     P2INTEN |= 2;
     P2CHSTA &= 0xfd;
     sleepForMsec(TIMER_TICKS_PER_SECOND * 120);
+    wdtOn();
     P2CHSTA &= 0xfd;
     P2INTEN &= 0xfd;
 

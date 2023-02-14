@@ -3,9 +3,11 @@
 #include <stdint.h>
 
 #define WAKEUP_REASON_TIMED 0
-#define WAKEUP_REASON_BOOTUP 1
 #define WAKEUP_REASON_GPIO 2
 #define WAKEUP_REASON_NFC 3
+#define WAKEUP_REASON_FIRSTBOOT 0xFC
+#define WAKEUP_REASON_NETWORK_SCAN 0xFD
+#define WAKEUP_REASON_WDT_RESET 0xFE
 
 #define INIT_EPD_VOLTREADING 0x80
 #define INIT_RADIO 0x40
@@ -19,16 +21,19 @@
 #define wdt10s()                    \
     do {                            \
         wdtSetResetVal(0xFFF68A1F); \
+        wdtOn();                    \
     } while (0)
 
 #define wdt30s()                    \
     do {                            \
         wdtSetResetVal(0xFFE39E5F); \
+        wdtOn();                    \
     } while (0)
 
 #define wdt60s()                    \
     do {                            \
         wdtSetResetVal(0xFFC73CBF); \
+        wdtOn();                    \
     } while (0)
 
 // power saving algorithm

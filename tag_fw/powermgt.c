@@ -51,27 +51,30 @@ void powerUp(uint8_t parts) {
         clockingAndIntsInit();
         timerInit();
         irqsOn();
-        wdtOn();
-        wdt10s();
     }
-
-    if (parts & INIT_GPIO)
+    if (parts & INIT_GPIO){
         boardInit();
+        wdtOn();
+    }
 
     if (parts & INIT_EPD)
         epdSetup();
 
     if ((parts & INIT_BASE) && !(parts & INIT_EPD_VOLTREADING) && !(parts & INIT_EPD)) {
-        if (!(parts & INIT_GPIO))
+        if (!(parts & INIT_GPIO)){
             boardInit();
+            wdtOn();
+        }
         epdEnterSleep();  // this required fixing! halp halp fix me
     }
 
     if (parts & INIT_EPD_VOLTREADING) {
-        if (!(parts & INIT_GPIO))
+        if (!(parts & INIT_GPIO)){
             boardInit();
+            wdtOn();
+        }
         batteryVoltage = epdGetBattery();
-        if(batteryVoltage<BATTERY_VOLTAGE_MINIMUM){
+        if (batteryVoltage < BATTERY_VOLTAGE_MINIMUM) {
             lowBattery = true;
         } else {
             lowBattery = false;
@@ -148,7 +151,6 @@ void doSleep(uint32_t __xdata t) {
 
     // sleepy
     sleepForMsec(t);
-    wakeUpReason = WAKEUP_REASON_TIMED;
 #ifdef HAS_BUTTON
     P1INTEN = 0;
     if (P1CHSTA && (1 << 0)) {

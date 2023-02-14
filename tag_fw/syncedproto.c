@@ -453,12 +453,8 @@ void saveImgBlockData(uint8_t blockId) {
         pr("EEPROM write failed\n");
 }
 void drawImageFromEeprom() {
-    // enable WDT, to make sure de tag resets if it's for some reason unable to draw the image
-    wdtSetResetVal(0xFFFFFFFF - 0x38C340);
-    wdtOn();
-
     drawImageAtAddress(getAddressForSlot(curImgSlot), drawWithLut);
-    drawWithLut = 0; // default back to the regular ol' stock/OTP LUT
+    drawWithLut = 0;  // default back to the regular ol' stock/OTP LUT
     powerDown(INIT_EPD);
 }
 uint32_t getHighSlotId() {
@@ -522,6 +518,7 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
                     curXferComplete = true;
                     xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
                     drawWithLut = avail->dataTypeArgument;
+                    wdt60s();
                     drawImageFromEeprom();
                     return true;
                 } else {

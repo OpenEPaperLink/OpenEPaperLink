@@ -20,7 +20,6 @@
 #include "wdt.h"
 
 // #define DEBUG_MODE
-static bool __xdata attemptFirstContact = true;
 
 void displayLoop() {
     powerUp(INIT_BASE | INIT_UART | INIT_GPIO);
@@ -35,7 +34,6 @@ void displayLoop() {
     showApplyUpdate();
     timerDelay(TIMER_TICKS_PER_SECOND * 4);
 
-    wdtOn();
     wdt60s();
 
     pr("Scanning screen - ");
@@ -52,7 +50,6 @@ void displayLoop() {
     pr("\n");
     timerDelay(TIMER_TICKS_PER_SECOND * 4);
 
-    wdtOn();
     wdt30s();
 
     pr("AP Found\n");
@@ -60,7 +57,6 @@ void displayLoop() {
     showAPFound();
     timerDelay(TIMER_TICKS_PER_SECOND * 4);
 
-    wdtOn();
     wdt30s();
 
     pr("AP NOT Found\n");
@@ -68,7 +64,6 @@ void displayLoop() {
     showNoAP();
     timerDelay(TIMER_TICKS_PER_SECOND * 4);
 
-    wdtOn();
     wdt30s();
 
     pr("Longterm sleep screen\n");
@@ -76,7 +71,6 @@ void displayLoop() {
     showLongTermSleep();
     timerDelay(TIMER_TICKS_PER_SECOND * 4);
 
-    wdtOn();
     wdt30s();
 
     pr("NO EEPROM\n");
@@ -84,7 +78,6 @@ void displayLoop() {
     showNoEEPROM();
     timerDelay(TIMER_TICKS_PER_SECOND * 4);
 
-    wdtOn();
     wdt30s();
 
     pr("NO EEPROM\n");
@@ -149,9 +142,18 @@ uint8_t channelSelect() {  // returns 0 if no accesspoints were found
 }
 
 void mainProtocolLoop(void) {
-    //displayLoop();  // remove me
+    // displayLoop();  // remove me
     powerUp(INIT_BASE | INIT_UART | INIT_GPIO);
+
+    if (RESET & 0x01) {
+        wakeUpReason = WAKEUP_REASON_WDT_RESET;
+        pr("WDT reset!\n");
+    } else {
+        wakeUpReason = WAKEUP_REASON_FIRSTBOOT;
+    }
+
     wdt10s();
+
     boardGetOwnMac(mSelfMac);
 
     {
@@ -190,11 +192,14 @@ void mainProtocolLoop(void) {
     powerUp(INIT_EPD);
     showSplashScreen();
 
-    wdt30s();
     powerUp(INIT_EPD);
+    wdt30s();
     currentChannel = showChannelSelect();
 
     powerUp(INIT_GPIO | INIT_EPD);
+
+    wdt10s();
+
     if (currentChannel) {
         showAPFound();
         initPowerSaving(INTERVAL_BASE);
@@ -208,14 +213,14 @@ void mainProtocolLoop(void) {
     }
 
     while (1) {
+        wdt10s();
         if (currentChannel) {
             // associated
 
             struct AvailDataInfo *__xdata avail;
-            if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || attemptFirstContact || wakeUpReason != WAKEUP_REASON_TIMED) {
-                if (attemptFirstContact)
-                    wakeUpReason = WAKEUP_REASON_BOOTUP;
-
+            // Is there any reason why we should do a long (full) get data request (including reason, status)?
+            if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
+                // check if we should do a voltage measurement (those are pretty expensive)
                 if (voltageCheckCounter == VOLTAGE_CHECK_INTERVAL) {
                     powerUp(INIT_BASE | INIT_TEMPREADING | INIT_EPD_VOLTREADING | INIT_RADIO);
                     voltageCheckCounter = 0;
@@ -240,8 +245,10 @@ void mainProtocolLoop(void) {
 
                 avail = getAvailDataInfo();
                 if (avail != NULL) {
+                    // we got some data!
                     longDataReqCounter = 0;
-                    attemptFirstContact = false;
+                    // since we've had succesful contact, and communicated the wakeup reason succesfully, we can now reset to the 'normal' status
+                    wakeUpReason = WAKEUP_REASON_TIMED;
                 }
             } else {
                 powerUp(INIT_BASE | INIT_RADIO);  //| INIT_GPIO | INIT_UART
@@ -259,7 +266,6 @@ void mainProtocolLoop(void) {
                 // got some data from the AP!
                 if (avail->dataType != DATATYPE_NOUPDATE) {
                     // data transfer
-                    wdt10s();
                     powerUp(INIT_GPIO | INIT_UART);
                     if (doDataDownload(avail)) {
                         // succesful transfer, next wake time is determined by the NextCheckin;
@@ -299,7 +305,6 @@ void mainProtocolLoop(void) {
             }
             // try to find a working channel
             powerUp(INIT_RADIO);
-            wdt30s();
             currentChannel = channelSelect();
             powerDown(INIT_RADIO);
             if ((!currentChannel && !noAPShown) || (lowBattery && !lowBatteryShown) || (scanAttempts == (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
@@ -323,7 +328,7 @@ void mainProtocolLoop(void) {
             if (currentChannel) {
                 // now associated!
                 scanAttempts = 0;
-                attemptFirstContact = true;
+                wakeUpReason = WAKEUP_REASON_NETWORK_SCAN;
                 initPowerSaving(INTERVAL_BASE);
                 doSleep(getNextSleep() * 1000UL);
 
