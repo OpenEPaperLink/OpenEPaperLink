@@ -11,6 +11,7 @@
 #include "lut.h"
 #include "printf.h"
 #include "screen.h"
+#include "settings.h"
 #include "sleep.h"
 #include "spi.h"
 #include "timer.h"
@@ -73,16 +74,14 @@ static uint8_t __xdata rbuffer[32];       // used to rotate bits around
 static uint16_t __xdata fontCurXpos = 0;  // current X value we're working with
 static uint16_t __xdata fontCurYpos = 0;  // current Y value we're working with
 static uint8_t __xdata currentLut = 0;
+static uint8_t __xdata dispLutSize = 0;
 
 static bool __xdata isInited = false;
 
-uint8_t waveformbuffer[120];
-#if (SCREEN_LUT_LENGTH == 10)
-struct waveform10* __xdata waveform = (struct waveform10*)waveformbuffer;  // holds the LUT/waveform
-#endif
-#if (SCREEN_LUT_LENGTH == 7)
-struct waveform* __xdata waveform = (struct waveform*)waveformbuffer;  // holds the LUT/waveform
-#endif
+#define LUT_BUFFER_SIZE 128
+uint8_t waveformbuffer[LUT_BUFFER_SIZE];
+struct waveform10* __xdata waveform10 = (struct waveform10*)waveformbuffer;  // holds the LUT/waveform
+struct waveform* __xdata waveform7 = (struct waveform*)waveformbuffer;       // holds the LUT/waveform
 
 #pragma callee_saves epdBusySleep
 #pragma callee_saves epdBusyWait
@@ -239,7 +238,6 @@ static uint8_t epdGetStatus() {
     return sta;
 }
 uint16_t epdGetBattery(void) {
-
     uint16_t voltage = 2600;
     uint8_t val;
 
@@ -283,7 +281,7 @@ void loadFixedTempOTPLUT() {
 }
 static void writeLut() {
     commandBegin(CMD_WRITE_LUT);
-    for (uint8_t i = 0; i < (SCREEN_LUT_LENGTH * 10); i++)
+    for (uint8_t i = 0; i < (dispLutSize * 10); i++)
         epdSend(waveformbuffer[i]);
     commandEnd();
 }
@@ -292,24 +290,56 @@ static void readLut() {
     uint16_t checksum = 0;
     uint16_t ident = 0;
     uint16_t shortl = 0;
-    for (uint16_t c = 0; c < ((SCREEN_LUT_LENGTH * 10) + 6); c++) {
+    for (uint16_t c = 0; c < LUT_BUFFER_SIZE; c++) {
         waveformbuffer[c] = epdReadByte();
     }
     commandReadEnd();
 }
+static uint8_t getLutSize() {
+    uint8_t ref = 0;
+    for (uint8_t c = (LUT_BUFFER_SIZE - 4); c > 16; c--) {
+        uint8_t check = waveformbuffer[c];
+        for (uint8_t d = 1; d < 4; d++) {
+            if (waveformbuffer[c + d] != check) {
+                ref = c;
+                goto end;
+            }
+        }
+    }
+end:;
+    return ref + 1;
+}
 static void lutGroupDisable(uint8_t group) {
-    memset(&(waveform->group[group]), 0x00, 5);
+    if (dispLutSize == 7) {
+        memset(&(waveform7->group[group]), 0x00, 5);
+    } else {
+        memset(&(waveform10->group[group]), 0x00, 5);
+    }
 }
 static void lutGroupSpeedup(uint8_t group, uint8_t speed) {
-    for (uint8_t i = 0; i < 4; i++) {
-        waveform->group[group].phaselength[i] = 1 + (waveform->group[group].phaselength[i] / speed);
+    if (dispLutSize == 7) {
+        for (uint8_t i = 0; i < 4; i++) {
+            waveform7->group[group].phaselength[i] = 1 + (waveform7->group[group].phaselength[i] / speed);
+        }
+    } else {
+        for (uint8_t i = 0; i < 4; i++) {
+            waveform10->group[group].phaselength[i] = 1 + (waveform10->group[group].phaselength[i] / speed);
+        }
     }
 }
 static void lutGroupRepeat(uint8_t group, uint8_t repeat) {
-    waveform->group[group].repeat = repeat;
+    if (dispLutSize == 7) {
+        waveform7->group[group].repeat = repeat;
+    } else {
+        waveform10->group[group].repeat = repeat;
+    }
 }
 static void lutGroupRepeatReduce(uint8_t group, uint8_t factor) {
-    waveform->group[group].repeat = waveform->group[group].repeat / factor;
+    if (dispLutSize == 7) {
+        waveform7->group[group].repeat = waveform7->group[group].repeat / factor;
+    } else {
+        waveform10->group[group].repeat = waveform10->group[group].repeat / factor;
+    }
 }
 void selectLUT(uint8_t lut) {
     if (currentLut == lut) {
@@ -332,6 +362,15 @@ void selectLUT(uint8_t lut) {
 
     // download the current LUT from the waveform buffer
     readLut();
+
+    if (dispLutSize == 0) {
+        dispLutSize = getLutSize();
+        dispLutSize /= 10;
+        pr("lut size = %d\n", dispLutSize);
+#ifdef PRINT_LUT
+        dump(waveformbuffer, LUT_BUFFER_SIZE);
+#endif
+    }
 
     switch (lut) {
         case EPD_LUT_NO_REPEATS:
@@ -358,7 +397,7 @@ void selectLUT(uint8_t lut) {
             lutGroupDisable(LUTGROUP_NEGATIVE);
             lutGroupDisable(LUTGROUP_FASTBLINK);
             lutGroupDisable(LUTGROUP_SLOWBLINK);
-            lutGroupRepeat(LUTGROUP_SET, 0);
+            lutGroupRepeat(LUTGROUP_SET, 1);
             lutGroupSpeedup(LUTGROUP_SET, 2);
             lutGroupDisable(LUTGROUP_IMPROVE_SHARPNESS);
             lutGroupDisable(LUTGROUP_IMPROVE_REDS);
@@ -366,12 +405,12 @@ void selectLUT(uint8_t lut) {
             break;
     }
 
-#if (SCREEN_LUT_LENGTH == 10)
-    lutGroupDisable(LUTGROUP_UNUSED);
-    lutGroupDisable(LUTGROUP_UNKNOWN);
-    lutGroupDisable(LUTGROUP_UNUSED3);
-    lutGroupDisable(LUTGROUP_UNUSED4);
-#endif
+    if (dispLutSize == 10) {
+        lutGroupDisable(LUTGROUP_UNUSED);
+        lutGroupDisable(LUTGROUP_UNKNOWN);
+        lutGroupDisable(LUTGROUP_UNUSED3);
+        lutGroupDisable(LUTGROUP_UNUSED4);
+    }
     writeLut();
 }
 
@@ -746,9 +785,4 @@ void readRam() {
         epdSend(blockXferBuffer[c]);
     }
     commandEnd();
-}
-
-void lutTest() {
-    readLut();
-    dump((uint8_t*)&waveform, 96);
 }

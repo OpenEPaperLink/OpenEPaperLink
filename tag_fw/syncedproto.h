@@ -8,12 +8,15 @@ extern uint8_t __xdata mSelfMac[];
 extern uint8_t __xdata currentChannel;
 extern uint8_t __xdata APmac[];
 
+extern uint8_t __xdata curImgSlot;
+
 extern void setupRadio(void);
 extern void killRadio(void);
 
 
 extern struct AvailDataInfo *__xdata getAvailDataInfo();
 extern struct AvailDataInfo *__xdata getShortAvailDataInfo();
+extern void drawImageFromEeprom();
 extern bool doDataDownload(struct AvailDataInfo *__xdata avail);
 extern void initializeProto();
 extern uint8_t detectAP(uint8_t channel);

@@ -10,11 +10,10 @@
 #define LUTGROUP_IMPROVE_REDS       5
 #define LUTGROUP_UNUSED             6
 
-#if (SCREEN_LUT_LENGTH == 10)
 #define LUTGROUP_UNKNOWN            7
 #define LUTGROUP_UNUSED3            8  
 #define LUTGROUP_UNUSED4            9
-#endif
+
 
 struct vgroup {
     uint8_t A : 2;

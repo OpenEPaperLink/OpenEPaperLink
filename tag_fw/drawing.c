@@ -11,6 +11,7 @@
 #include "screen.h"
 #include "timer.h"
 
+#include "userinterface.h" // for addIcons
 #define COMPRESSION_BITPACKED_3x5_to_7 0x62700357  // 3 pixels of 5 possible colors in 7 bits
 #define COMPRESSION_BITPACKED_5x3_to_8 0x62700538  // 5 pixels of 3 possible colors in 8 bits
 #define COMPRESSION_BITPACKED_3x6_to_8 0x62700368  // 3 pixels of 6 possible colors in 8 bits
@@ -333,7 +334,7 @@ void ByteDecode(uint8_t byte) {
     }
 }
 
-void drawImageAtAddress(uint32_t addr) {
+void drawImageAtAddress(uint32_t addr, uint8_t lut) {
     uint32_t __xdata clutAddr;
     pr("sending to EPD - ");
     clutAddr = drawPrvParseHeader(addr);
@@ -342,6 +343,7 @@ void drawImageAtAddress(uint32_t addr) {
     drawPrvLoadAndMapClut(clutAddr);
 
     epdSetup();
+    if(lut)selectLUT(lut);
     mPassNo = 0;
     beginFullscreenImage();
     beginWriteFramebuffer(EPD_COLOR_BLACK);
@@ -358,6 +360,6 @@ void drawImageAtAddress(uint32_t addr) {
     endWriteFramebuffer();
 
     pr(" complete.\n");
-
+    addOverlay();
     drawWithSleep();
 }

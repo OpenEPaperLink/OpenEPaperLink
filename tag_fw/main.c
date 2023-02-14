@@ -71,6 +71,14 @@ void displayLoop() {
     wdtOn();
     wdt30s();
 
+    pr("Longterm sleep screen\n");
+    powerUp(INIT_EPD);
+    showLongTermSleep();
+    timerDelay(TIMER_TICKS_PER_SECOND * 4);
+
+    wdtOn();
+    wdt30s();
+
     pr("NO EEPROM\n");
     powerUp(INIT_EPD);
     showNoEEPROM();
@@ -216,6 +224,20 @@ void mainProtocolLoop(void) {
                 }
                 voltageCheckCounter++;
 
+                // check if the battery level is below minimum, and force a redraw of the screen
+                if ((lowBattery && !lowBatteryShown) || (noAPShown)) {
+                    powerUp(INIT_EPD);
+                    // Check if we were already displaying an image
+                    if (curImgSlot != 0xFF) {
+                        powerUp(INIT_EEPROM);
+                        drawImageFromEeprom();
+                        powerDown(INIT_EEPROM);
+                    } else {
+                        showAPFound();
+                        powerDown(INIT_EPD);
+                    }
+                }
+
                 avail = getAvailDataInfo();
                 if (avail != NULL) {
                     longDataReqCounter = 0;
@@ -270,13 +292,32 @@ void mainProtocolLoop(void) {
 
         } else {
             // not associated
-            powerUp(INIT_BASE | INIT_RADIO);  // || INIT_GPIO | INIT_UART
-
+            if (((scanAttempts != 0) && (scanAttempts % VOLTAGEREADING_DURING_SCAN_INTERVAL == 0)) || (scanAttempts > (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS))) {
+                powerUp(INIT_BASE | INIT_EPD_VOLTREADING | INIT_RADIO);
+            } else {
+                powerUp(INIT_BASE | INIT_RADIO);  // || INIT_GPIO | INIT_UART
+            }
             // try to find a working channel
             powerUp(INIT_RADIO);
             wdt30s();
             currentChannel = channelSelect();
-            powerDown(INIT_RADIO | INIT_GPIO);
+            powerDown(INIT_RADIO);
+            if ((!currentChannel && !noAPShown) || (lowBattery && !lowBatteryShown) || (scanAttempts == (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
+                powerUp(INIT_EPD);
+                if (curImgSlot != 0xFF) {
+                    powerUp(INIT_EEPROM);
+                    drawImageFromEeprom();
+                    powerDown(INIT_EEPROM);
+                } else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
+                    showLongTermSleep();
+                    powerDown(INIT_EPD);
+                } else {
+                    showNoAP();
+                    powerDown(INIT_EPD);
+                }
+            }
+
+            powerDown(INIT_GPIO);
 
             // did we find a working channel?
             if (currentChannel) {
