@@ -1,6 +1,7 @@
 const $ = document.querySelector.bind(document);
 
 const WAKEUP_REASON_TIMED = 0;
+const WAKEUP_REASON_BOOT = 1;
 const WAKEUP_REASON_GPIO = 2;
 const WAKEUP_REASON_NFC = 3;
 const WAKEUP_REASON_FIRSTBOOT = 0xFC;
@@ -130,10 +131,15 @@ function processTags(tagArray) {
 		div.classList.remove("tagpending");
 		div.dataset.lastseen = element.lastseen;
 		div.dataset.hash = element.hash;
+		div.dataset.wakeupreason = element.wakeupReason;
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
 		$('#tag' + tagmac).style.background = "inherit";
-		switch (element.wakeupReason) {
+		switch (parseInt(element.wakeupReason)) {
 			case WAKEUP_REASON_TIMED:
+				break;
+			case WAKEUP_REASON_BOOT:
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>First boot</font>"
+				$('#tag' + tagmac).style.background = "#40c040";
 				break;
 			case WAKEUP_REASON_GPIO:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "GPIO wakeup"
@@ -143,15 +149,15 @@ function processTags(tagArray) {
 				break;
 			case WAKEUP_REASON_FIRSTBOOT:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>First boot</font>"
-				$('#tag' + tagmac).style.background = "purple";
+				$('#tag' + tagmac).style.background = "#40c040";
 				break;
 			case WAKEUP_REASON_NETWORK_SCAN:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>Network scan</font>"
-				$('#tag' + tagmac).style.background = "green";
+				$('#tag' + tagmac).style.background = "#4040c0";
 				break;
 			case WAKEUP_REASON_WDT_RESET:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Watchdog reset!"
-				$('#tag' + tagmac).style.background = "red";
+				$('#tag' + tagmac).style.background = "#c04040";
 				break;
 		}
 		$('#tag' + tagmac + ' .pendingicon').style.display = (element.pending ? 'inline-block' : 'none');
@@ -183,7 +189,7 @@ function updatecards() {
 			$('#tag' + tagmac + ' .lastseen').innerHTML = ""
 		}
 
-		if (item.dataset.nextcheckin > 1672531200) {
+		if (item.dataset.nextcheckin > 1672531200 && parseInt(item.dataset.wakeupreason)==0) {
 			let nextcheckin = item.dataset.nextcheckin - ((Date.now() / 1000) + servertimediff);
 			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<span>expected checkin</span>" + displayTime(Math.floor(nextcheckin));
 		}

@@ -178,7 +178,7 @@ void spr2grays(TFT_eSprite &spr, long w, long h, String &fileout) {
 
             if (dither) {
                 // ditherFudge = (rand() % 255 - 127) / (int)numGrays;   // -64 to 64
-                ditherFudge = (dither_matrix[numRows % 4][c % 4] - 8) * 24 / (int)numGrays;
+                ditherFudge = (dither_matrix[numRows % 4][c % 4] - 8) * 16 / (int)numGrays;
             }
 
             for (i = 0; i < hdr.numColors; i++) {
