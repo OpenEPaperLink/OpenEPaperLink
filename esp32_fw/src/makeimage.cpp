@@ -152,6 +152,12 @@ void spr2grays(TFT_eSprite &spr, long w, long h, String &fileout) {
         f_out.write(0x00);
     }
 
+    const int dither_matrix[4][4] = {
+        {1, 9, 3, 11},
+        {13, 5, 15, 7},
+        {4, 12, 2, 10},
+        {0, 8, 14, 6}};
+
     while (numRows--) {
         uint32_t pixelValsPackedSoFar = 0, numPixelsPackedSoFar = 0, valSoFar = 0, bytesIn = 0, bytesOut = 0, bitsSoFar = 0;
 
@@ -170,8 +176,10 @@ void spr2grays(TFT_eSprite &spr, long w, long h, String &fileout) {
             uint8_t green = ((color565 >> 5) & 0x3F) * 4;
             uint8_t blue = (color565 & 0x1F) * 8;
 
-            if (dither)
-                ditherFudge = (rand() % 255 - 127) / (int)numGrays;
+            if (dither) {
+                // ditherFudge = (rand() % 255 - 127) / (int)numGrays;   // -64 to 64
+                ditherFudge = (dither_matrix[numRows % 4][c % 4] - 8) * 24 / (int)numGrays;
+            }
 
             for (i = 0; i < hdr.numColors; i++) {
                 int64_t dist = 0;
@@ -253,7 +261,7 @@ void bmp2grays(String filein, String fileout) {
     struct BitmapFileHeader hdr;
     enum EinkClut clutType;
     uint8_t clut[256][3];
-    bool dither = true;
+    bool dither = false;
     int skipBytes;
     srand(0);
     

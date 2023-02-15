@@ -22,10 +22,12 @@ struct blockData {
 #define SOLUM_29_033 1
 #define SOLUM_42_033 2
 
-#define WAKEUP_REASON_TIMED     0
-#define WAKEUP_REASON_BOOTUP    1
-#define WAKEUP_REASON_GPIO      2
-#define WAKEUP_REASON_NFC       3
+#define WAKEUP_REASON_TIMED 0
+#define WAKEUP_REASON_GPIO 2
+#define WAKEUP_REASON_NFC 3
+#define WAKEUP_REASON_FIRSTBOOT 0xFC
+#define WAKEUP_REASON_NETWORK_SCAN 0xFD
+#define WAKEUP_REASON_WDT_RESET 0xFE
 
 struct AvailDataReq {
     uint8_t checksum;
@@ -48,6 +50,11 @@ struct espAvailDataReq {
 #define DATATYPE_IMG 1
 #define DATATYPE_IMGRAW 2
 #define DATATYPE_UPDATE 3
+
+#define EPD_LUT_DEFAULT 0
+#define EPD_LUT_NO_REPEATS 1
+#define EPD_LUT_FAST_NO_REDS 2
+#define EPD_LUT_FAST 3
 
 struct AvailDataInfo {
     uint8_t checksum;

@@ -124,7 +124,8 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         md5.getBytes(md5bytes);
     }
 
-    uint16_t attempts = 60;
+    uint16_t attempts = 60 * 24;
+    uint8_t lut = EPD_LUT_DEFAULT;
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)dst));
     uint8_t mac[6];
@@ -141,9 +142,13 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
 
         time_t now;
         time(&now);
+        time_t last_midnight = now - now % (24 * 60 * 60) + 3 * 3600;  // somewhere in the middle of the night
+        if (taginfo->lastfullupdate > last_midnight) lut = EPD_LUT_NO_REPEATS; // fast updates during the day
+        /*
         uint16_t minutesUntilNextCheckin = 0;
         if (taginfo->expectedNextCheckin > now) minutesUntilNextCheckin = (taginfo->expectedNextCheckin - now) / 60;
         attempts += minutesUntilNextCheckin;
+        */
     } else {
         wsErr("Tag not found, this shouldn't happen.");
     }
@@ -154,6 +159,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pending.availdatainfo.dataType = dataType;
     pending.availdatainfo.dataVer = *((uint64_t*)md5bytes);
     pending.availdatainfo.dataSize = file.size();
+    pending.availdatainfo.dataTypeArgument = EPD_LUT_NO_REPEATS;
     pending.availdatainfo.nextCheckIn = nextCheckin;
     pending.attemptsLeft = attempts;
     sendDataAvail(&pending);
@@ -185,14 +191,15 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
 
         wsLog("new image pending: " + String(dst_path));
         if (taginfo != nullptr) {
+            time_t now;
+            time(&now);
             taginfo->pending = true;
-            taginfo->CheckinInMinPending = nextCheckin;
+            taginfo->expectedNextCheckin = now + nextCheckin * 60 + 60;
             memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
-            }
         }
-        else {
-            wsLog("firmware upload pending");
-        }
+    } else {
+        wsLog("firmware upload pending");
+    }
     file.close();
 
     wsSendTaginfo(mac);
@@ -275,17 +282,13 @@ void processXferComplete(struct espXferComplete* xfc) {
     if (taginfo != nullptr) {
 
         uint16_t minutesUntilNextUpdate = 0;
-        if (taginfo->nextupdate > now + 60 * taginfo->CheckinInMinPending + 3) {
-            minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60 - taginfo->CheckinInMinPending;
-            if (minutesUntilNextUpdate > taginfo->CheckinInMinPending) minutesUntilNextUpdate = taginfo->CheckinInMinPending;
+        if (taginfo->nextupdate > now + 2) {
+            minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
             if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
-
             taginfo->expectedNextCheckin = now + 60 * minutesUntilNextUpdate + 60;
-            if (minutesUntilNextUpdate > 0) prepareIdleReq (xfc->src, minutesUntilNextUpdate);
-            taginfo->CheckinInMinPending = minutesUntilNextUpdate;
+            if (minutesUntilNextUpdate > 1) prepareIdleReq (xfc->src, minutesUntilNextUpdate);
         } else {
             taginfo->expectedNextCheckin = now + 60;
-            taginfo->CheckinInMinPending = 0;
         }
 
         taginfo->pending = false;
@@ -310,7 +313,6 @@ void processXferTimeout(struct espXferComplete* xfc) {
     taginfo = tagRecord::findByMAC(mac);
     if (taginfo != nullptr) {
         taginfo->expectedNextCheckin = now + 60;
-        taginfo->CheckinInMinPending = 0;
         taginfo->pending = false;
         memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
     }
@@ -341,15 +343,13 @@ void processDataReq(struct espAvailDataReq* eadr) {
     taginfo->lastseen = now;
 
     uint16_t minutesUntilNextUpdate = 0;
-    if (taginfo->nextupdate > now + 60 * taginfo->CheckinInMinPending + 3 && taginfo->pending == false) {
-        minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60 - taginfo->CheckinInMinPending;
-        if (minutesUntilNextUpdate > taginfo->CheckinInMinPending) minutesUntilNextUpdate = taginfo->CheckinInMinPending;
+    if (taginfo->nextupdate > now + 2) {
+        minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
         if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
         taginfo->expectedNextCheckin = now + 60 * minutesUntilNextUpdate + 60;
-        if (minutesUntilNextUpdate > 0) prepareIdleReq(eadr->src, minutesUntilNextUpdate);
-        taginfo->CheckinInMinPending = minutesUntilNextUpdate;
+        if (minutesUntilNextUpdate > 1 && taginfo->pending == false) prepareIdleReq(eadr->src, minutesUntilNextUpdate);
     } else {
-        taginfo->expectedNextCheckin = now + 60 * taginfo->CheckinInMinPending + 60;
+        taginfo->expectedNextCheckin = now + 60;
     }
 
     if (eadr->adr.lastPacketRSSI != 0) {
