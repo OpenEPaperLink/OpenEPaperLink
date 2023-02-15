@@ -25,25 +25,18 @@
 #include "wdt.h"
 
 // download-stuff
-bool __xdata dataPending = true;
 uint8_t __xdata blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
-struct blockRequest __xdata curBlock = {0};
-struct AvailDataInfo __xdata curDataInfo = {0};
-uint16_t __xdata dataRemaining = 0;  // since the targeted solum tags don't have more than 64k progmem, this is fine.
-bool __xdata curXferComplete = false;
+struct blockRequest __xdata curBlock = {0};      // used by the block-requester, contains the next request that we'll send
+struct AvailDataInfo __xdata curDataInfo = {0};  // last 'AvailDataInfo' we received from the AP
 bool __xdata requestPartialBlock = false;
+#define BLOCK_TRANSFER_ATTEMPTS 5
 
+uint8_t __xdata prevImgSlot = 0xFF;
 uint8_t __xdata curImgSlot = 0xFF;
 uint32_t __xdata curHighSlotId = 0;
 uint8_t __xdata nextImgSlot = 0;
 uint8_t __xdata imgSlots = 0;
 uint8_t __xdata drawWithLut = 0;
-
-// doDownload persistent variables
-bool __xdata lastBlock = false;
-uint8_t __xdata partsThisBlock = 0;
-uint8_t __xdata blockRequestAttempt = 0;
-uint8_t __xdata blockValidateAttempt = 0;
 
 // stuff we need to keep track of related to the network/AP
 uint8_t __xdata APmac[8] = {0};
@@ -441,19 +434,22 @@ uint8_t findSlot(uint8_t *__xdata ver) {
 void eraseUpdateBlock() {
     eepromErase(EEPROM_UPDATA_AREA_START, EEPROM_UPDATE_AREA_LEN / EEPROM_ERZ_SECTOR_SZ);
 }
+void eraseImageBlock(uint8_t c) {
+    eepromErase(getAddressForSlot(c), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
+}
 void saveUpdateBlockData(uint8_t blockId) {
     if (!eepromWrite(EEPROM_UPDATA_AREA_START + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
         pr("EEPROM write failed\n");
 }
-void saveImgBlockData(uint8_t blockId) {
+void saveImgBlockData(uint8_t imgSlot, uint8_t blockId) {
     uint16_t length = EEPROM_IMG_EACH - (sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE));
     if (length > 4096) length = 4096;
 
-    if (!eepromWrite(getAddressForSlot(curImgSlot) + sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), length))
+    if (!eepromWrite(getAddressForSlot(imgSlot) + sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), length))
         pr("EEPROM write failed\n");
 }
-void drawImageFromEeprom() {
-    drawImageAtAddress(getAddressForSlot(curImgSlot), drawWithLut);
+void drawImageFromEeprom(uint8_t imgSlot) {
+    drawImageAtAddress(getAddressForSlot(imgSlot), drawWithLut);
     drawWithLut = 0;  // default back to the regular ol' stock/OTP LUT
     powerDown(INIT_EPD);
 }
@@ -474,110 +470,30 @@ uint32_t getHighSlotId() {
     return temp;
 }
 
-//  Main download function
-bool doDataDownload(struct AvailDataInfo *__xdata avail) {
-    // this is the main function for the download process
+bool getDataBlock(uint16_t blockSize) {
+    static uint8_t __xdata partsThisBlock = 0;
+    static uint8_t __xdata blockAttempts = 0;
+    blockAttempts = BLOCK_TRANSFER_ATTEMPTS;
 
-    if (!eepromInit()) {  // we'll need the eeprom here, init it.
-        pr("failed to init eeprom\n");
-        return false;
-    }
-
-    // GET AVAIL DATA INFO - enable the radio and get data
-    if (avail == NULL) {  // didn't receive a reply to get info about the data, we'll resync and try again later
-#ifdef DEBUGBLOCKS
-        pr("didn't receive getavaildatainfo");
-#endif
-        return false;
-    }
-
-    // did receive available data info (avail struct)
-    switch (avail->dataType) {
-        case DATATYPE_IMG:
-        case DATATYPE_IMGRAW:
-            // check if this download is currently displayed or active
-            if (curXferComplete && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8)) {
-                // we've downloaded this already, we're guessing it's already displayed
-                pr("old ver, already downloaded!\n");
-                powerUp(INIT_RADIO);
-                sendXferComplete();
-                powerDown(INIT_RADIO);
-                return true;
-            } else {
-                // check if we've seen this version before
-                curImgSlot = findSlot(&(avail->dataVer));
-                if (curImgSlot != 0xFF) {
-                    // found a (complete)valid image slot for this version
-                    powerDown(INIT_RADIO);
-                    sendXferComplete();
-                    powerDown(INIT_RADIO);
-
-                    pr("already seen, drawing from eeprom slot %d\n", curImgSlot);
-
-                    // mark as completed and draw from EEPROM
-                    curXferComplete = true;
-                    xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
-                    drawWithLut = avail->dataTypeArgument;
-                    wdt60s();
-                    drawImageFromEeprom();
-                    return true;
-                } else {
-                    // not found in cache, prepare to download
-                    // go to the next image slot
-                    nextImgSlot++;
-                    if (nextImgSlot >= imgSlots) nextImgSlot = 0;
-                    curImgSlot = nextImgSlot;
-                    drawWithLut = avail->dataTypeArgument;
-                    eepromErase(getAddressForSlot(curImgSlot), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
-                    pr("new download, writing to slot %d\n", curImgSlot);
-                    // continue!
-                }
-            }
-            break;
-        case DATATYPE_UPDATE:
-            pr("received firmware!\n");
-            eepromErase(EEPROM_UPDATA_AREA_START, EEPROM_UPDATE_AREA_LEN / EEPROM_ERZ_SECTOR_SZ);
-            break;
-    }
-
-    // prepare for download
-    curXferComplete = false;
-    curBlock.blockId = 0;
-    xMemCopy8(&(curBlock.ver), &(avail->dataVer));
-    curBlock.type = avail->dataType;
-    xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
-    dataRemaining = curDataInfo.dataSize;  // this was + 2, and I can't remember why. It works fine without it, so I don't know....
-
-    // set requested parts - check if the transfer is contained in this block
-    if (dataRemaining > BLOCK_DATA_SIZE) {
-        // full block, not last
-        lastBlock = false;
+    if (blockSize == BLOCK_DATA_SIZE) {
         partsThisBlock = BLOCK_MAX_PARTS;
         memset(curBlock.requestedParts, 0xFF, BLOCK_REQ_PARTS_BYTES);
     } else {
-        // final block, probably partial
-        lastBlock = true;
-        partsThisBlock = dataRemaining / BLOCK_PART_DATA_SIZE;
-        if (dataRemaining % BLOCK_PART_DATA_SIZE) partsThisBlock++;
+        partsThisBlock = blockSize / BLOCK_PART_DATA_SIZE;
+        if (blockSize % BLOCK_PART_DATA_SIZE) partsThisBlock++;
         memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
         for (uint8_t c = 0; c < partsThisBlock; c++) {
             curBlock.requestedParts[c / 8] |= (1 << (c % 8));
         }
     }
 
-    // do transfer!
-    blockRequestAttempt = 0;
-    blockValidateAttempt = 0;
-    while (!curXferComplete) {
-        // this while loop loops until the transfer has been completed, or we get tired for other reasons
-    startdownload:;
-        wdt10s();
+    requestPartialBlock = false;  // this forces the AP to request the block data from the host
+
+    while (blockAttempts--) {
 #ifndef DEBUGBLOCKS
         pr("REQ %d ", curBlock.blockId);
-#endif
-#ifdef DEBUGBLOCKS
+#else
         pr("REQ %d[", curBlock.blockId);
-
         for (uint8_t c = 0; c < BLOCK_MAX_PARTS; c++) {
             if ((c != 0) && (c % 8 == 0)) pr("][");
             if (curBlock.requestedParts[c / 8] & (1 << (c % 8))) {
@@ -588,20 +504,13 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
         }
         pr("]\n");
 #endif
-
-        // timerDelay(TIMER_TICKS_PER_MS*100);
-
-        // DO BLOCK REQUEST - request a block, get an ack with timing info (hopefully)
         powerUp(INIT_RADIO);
         struct blockRequestAck *__xdata ack = performBlockRequest();
         if (ack == NULL) {
             pr("Cancelled request\n");
             return false;
-        } else {
-            // got an ack!
         }
-        // SLEEP - until the AP is ready with the data
-        if (ack->pleaseWaitMs) {
+        if (ack->pleaseWaitMs) {  // SLEEP - until the AP is ready with the data
             if (ack->pleaseWaitMs < 35) {
                 timerDelay(ack->pleaseWaitMs * TIMER_TICKS_PER_MS);
             } else {
@@ -613,20 +522,10 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
         } else {
             // immediately start with the reception of the block data
         }
-        // BLOCK RX LOOP - receive a block, until the timeout has passed
-        if (!blockRxLoop(270)) {  // was 300
-            // didn't receive packets
-            blockRequestAttempt++;
-            if (blockRequestAttempt > 5) {
-                powerDown(INIT_RADIO);
-                pr("bailing on download, 0 blockparts rx'd\n");
-                return false;
-            }
-        } else {
-            // successfull block RX loop
-            blockRequestAttempt = 0;
-        }
+
+        blockRxLoop(270);  // BLOCK RX LOOP - receive a block, until the timeout has passed
         powerDown(INIT_RADIO);
+
 #ifdef DEBUGBLOCKS
         pr("RX  %d[", curBlock.blockId);
         for (uint8_t c = 0; c < BLOCK_MAX_PARTS; c++) {
@@ -639,7 +538,6 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
         }
         pr("]\n");
 #endif
-
         // check if we got all the parts we needed, e.g: has the block been completed?
         bool blockComplete = true;
         for (uint8_t c = 0; c < partsThisBlock; c++) {
@@ -651,31 +549,14 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
             pr("- COMPLETE\n");
 #endif
             if (validateBlockData()) {
-                // checked and found okay
-                requestPartialBlock = false;  // next block is going to be requested from the ESP32 by the AP
-                blockValidateAttempt = 0;
-                switch (curBlock.type) {
-                    case DATATYPE_IMG:
-                    case DATATYPE_IMGRAW:
-                        saveImgBlockData(curBlock.blockId);
-                        break;
-                    case DATATYPE_UPDATE:
-                        saveUpdateBlockData(curBlock.blockId);
-                        break;
-                }
+                // block download complete, validated
+                return true;
             } else {
-                // block checked, but failed validation. Mark all parts for this block as 'request'
-                blockValidateAttempt++;
-                if (blockValidateAttempt > 5) {
-                    pr("bailing on download, 0 blockparts rx'd\n");
-                    return false;
-                }
                 for (uint8_t c = 0; c < partsThisBlock; c++) {
                     curBlock.requestedParts[c / 8] |= (1 << (c % 8));
                 }
-                blockComplete = false;
                 requestPartialBlock = false;
-                pr("block failed validation!\n");
+                pr("blk failed validation!\n");
             }
         } else {
 #ifndef DEBUGBLOCKS
@@ -684,67 +565,174 @@ bool doDataDownload(struct AvailDataInfo *__xdata avail) {
             // block incomplete, re-request a partial block
             requestPartialBlock = true;
         }
+    }
+    pr("failed getting block\n");
+    return false;
+}
 
-        if (blockComplete) {
-            if (!lastBlock) {
-                // Not the last block! check what the next block is going to be
-                curBlock.blockId++;
-                dataRemaining -= BLOCK_DATA_SIZE;
-                if (dataRemaining > BLOCK_DATA_SIZE) {
-                    // full block-size
-                    partsThisBlock = BLOCK_MAX_PARTS;
-                    memset(curBlock.requestedParts, 0xFF, BLOCK_REQ_PARTS_BYTES);
-                    lastBlock = false;
-                } else {
-                    // final block, probably partial
-                    partsThisBlock = dataRemaining / BLOCK_PART_DATA_SIZE;
-                    if (dataRemaining % BLOCK_PART_DATA_SIZE) partsThisBlock++;
-                    memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
-                    for (uint8_t c = 0; c < partsThisBlock; c++) {
-                        curBlock.requestedParts[c / 8] |= (1 << (c % 8));
-                    }
-                    lastBlock = true;
-                }
+bool downloadFWUpdate(struct AvailDataInfo *__xdata avail) {
+    // check if we already started the transfer of this information & haven't completed it
+    if (xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8) && curDataInfo.dataSize) {
+        // looks like we did. We'll carry on where we left off.
+    } else {
+        // start, or restart the transfer from 0. Copy data from the AvailDataInfo struct, and the struct intself. This forces a new transfer
+        curBlock.blockId = 0;
+        xMemCopy8(&(curBlock.ver), &(avail->dataVer));
+        curBlock.type = avail->dataType;
+        xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+        eraseUpdateBlock();
+    }
 
-            } else {
-                // this was the last block. What should we do next?
-                switch (curBlock.type) {
-                    case DATATYPE_IMG:
-                    case DATATYPE_IMGRAW:;
-                        // transfer complete. Save data info and mark data in image slot as 'valid'
-                        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
-                        xMemCopy8(&eih->version, &curDataInfo.dataVer);
-                        eih->size = curDataInfo.dataSize;
-                        eih->validMarker = EEPROM_IMG_VALID;
-                        eih->id = ++curHighSlotId;
-                        eepromWrite(getAddressForSlot(curImgSlot), eih, sizeof(struct EepromImageHeader));
-                        // pr("transfer complete!");
-                        curXferComplete = true;
-                        powerUp(INIT_RADIO);
-                        sendXferComplete();
-                        powerDown(INIT_RADIO);
-                        wdt60s();
-                        drawImageFromEeprom();
-                        curDataInfo.dataVer = 0xAA;
-                        break;
-                    case DATATYPE_UPDATE:
-                        pr("firmware download complete, doing update.\n");
-                        powerUp(INIT_EPD);
-                        showApplyUpdate();
-                        curXferComplete = true;
-                        powerUp(INIT_RADIO);
-                        sendXferComplete();
-                        powerDown(INIT_RADIO);
-                        wdt60s();
-                        eepromReadStart(EEPROM_UPDATA_AREA_START);
-                        selfUpdate();
-                        break;
-                }
-            }
+    while (curDataInfo.dataSize) {
+        wdt10s();
+        static uint16_t __xdata dataRequestSize;
+        if (curDataInfo.dataSize > BLOCK_DATA_SIZE) {
+            // more than one block remaining
+            dataRequestSize = BLOCK_DATA_SIZE;
         } else {
-            // incomplete block, wrap around and get the rest of the block...
+            // only one block remains
+            dataRequestSize = curDataInfo.dataSize;
         }
-    }  // end download while loop
+        if (getDataBlock(dataRequestSize)) {
+            // succesfully downloaded datablock, save to eeprom
+            powerUp(INIT_EEPROM);
+            saveUpdateBlockData(curBlock.blockId);
+            powerDown(INIT_EEPROM);
+            curBlock.blockId++;
+            curDataInfo.dataSize -= dataRequestSize;
+        } else {
+            // failed to get the block we wanted, we'll stop for now, maybe resume later
+            return false;
+        }
+    }
+    // no more data, download complete
+    return true;
+}
+bool downloadImageData(struct AvailDataInfo *__xdata avail) {
+    static uint16_t __xdata imageSize = 0;
+    // check if we already started the transfer of this information & haven't completed it
+    if (xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8) && curDataInfo.dataSize) {
+        // looks like we did. We'll carry on where we left off.
+        pr("restarting image download");
+    } else {
+        // go to the next image slot
+        nextImgSlot++;
+        if (nextImgSlot >= imgSlots) nextImgSlot = 0;
+        curImgSlot = nextImgSlot;
+        drawWithLut = avail->dataTypeArgument;
+        eepromErase(getAddressForSlot(curImgSlot), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
+        pr("new download, writing to slot %d\n", curImgSlot);
+
+        // start, or restart the transfer. Copy data from the AvailDataInfo struct, and the struct intself. This forces a new transfer
+        curBlock.blockId = 0;
+        xMemCopy8(&(curBlock.ver), &(avail->dataVer));
+        curBlock.type = avail->dataType;
+        xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+        imageSize = curDataInfo.dataSize;
+    }
+
+    while (curDataInfo.dataSize) {
+        wdt10s();
+        static uint16_t __xdata dataRequestSize;
+        if (curDataInfo.dataSize > BLOCK_DATA_SIZE) {
+            // more than one block remaining
+            dataRequestSize = BLOCK_DATA_SIZE;
+        } else {
+            // only one block remains
+            dataRequestSize = curDataInfo.dataSize;
+        }
+        if (getDataBlock(dataRequestSize)) {
+            // succesfully downloaded datablock, save to eeprom
+            powerUp(INIT_EEPROM);
+            saveImgBlockData(curImgSlot, curBlock.blockId);
+            curBlock.blockId++;
+            curDataInfo.dataSize -= dataRequestSize;
+        } else {
+            // failed to get the block we wanted, we'll stop for now, probably resume later
+            return false;
+        }
+    }
+
+    // borrow the blockXferBuffer temporarily
+    struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
+    xMemCopy8(&eih->version, &curDataInfo.dataVer);
+    eih->validMarker = EEPROM_IMG_VALID;
+    eih->id = ++curHighSlotId;
+    eih->size = imageSize;
+    eih->dataType = curDataInfo.dataType;
+    eepromWrite(getAddressForSlot(curImgSlot), eih, sizeof(struct EepromImageHeader));
+
+    powerUp(INIT_RADIO);
+    sendXferComplete();
+    powerDown(INIT_RADIO);
+    // no more data, download complete
+    return true;
+}
+
+bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
+    powerUp(INIT_EEPROM | INIT_UART | INIT_GPIO);
+    switch (avail->dataType) {
+        case DATATYPE_IMG_BMP:
+        case DATATYPE_IMG_DIFF:
+        case DATATYPE_IMG_RAW_1BPP:
+        case DATATYPE_IMG_RAW_2BPP:
+            // check if this download is currently displayed or active
+            if (curDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8)) {
+                // we've downloaded this already, we're guessing it's already displayed
+                pr("currently shown image, send xfc\n");
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+                return true;
+            }
+
+            // check if we've seen this version before
+            powerUp(INIT_EEPROM);
+            curImgSlot = findSlot(&(avail->dataVer));
+            if (curImgSlot != 0xFF) {
+                // found a (complete)valid image slot for this version
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+
+                pr("already seen, drawing from eeprom slot %d\n", curImgSlot);
+
+                // mark as completed and draw from EEPROM
+                xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+                curDataInfo.dataSize = 0;  // mark as transfer not pending
+
+                drawWithLut = avail->dataTypeArgument;
+                wdt60s();
+                drawImageFromEeprom(curImgSlot);
+                return true;
+            } else {
+                drawWithLut = avail->dataTypeArgument;
+                // not found in cache, prepare to download
+                downloadImageData(avail);
+                drawImageFromEeprom(curImgSlot);
+                return true;
+            }
+            break;
+        case DATATYPE_FW_UPDATE:
+            powerUp(INIT_EEPROM);
+            if (downloadFWUpdate(avail)) {
+                pr("firmware download complete, doing update.\n");
+
+                powerUp(INIT_EPD);
+                showApplyUpdate();
+
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+
+                wdt60s();
+                eepromReadStart(EEPROM_UPDATA_AREA_START);
+                selfUpdate();
+            } else {
+                return false;
+            }
+            break;
+    }
     return true;
 }
 

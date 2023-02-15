@@ -235,7 +235,7 @@ void mainProtocolLoop(void) {
                     // Check if we were already displaying an image
                     if (curImgSlot != 0xFF) {
                         powerUp(INIT_EEPROM);
-                        drawImageFromEeprom();
+                        drawImageFromEeprom(curImgSlot);
                         powerDown(INIT_EEPROM);
                     } else {
                         showAPFound();
@@ -267,7 +267,7 @@ void mainProtocolLoop(void) {
                 if (avail->dataType != DATATYPE_NOUPDATE) {
                     // data transfer
                     powerUp(INIT_GPIO | INIT_UART);
-                    if (doDataDownload(avail)) {
+                    if (processAvailDataInfo(avail)) {
                         // succesful transfer, next wake time is determined by the NextCheckin;
                     } else {
                         // failed transfer, let the algorithm determine next sleep interval (not the AP)
@@ -311,7 +311,7 @@ void mainProtocolLoop(void) {
                 powerUp(INIT_EPD);
                 if (curImgSlot != 0xFF) {
                     powerUp(INIT_EEPROM);
-                    drawImageFromEeprom();
+                    drawImageFromEeprom(curImgSlot);
                     powerDown(INIT_EEPROM);
                 } else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
                     showLongTermSleep();

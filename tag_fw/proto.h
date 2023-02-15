@@ -116,9 +116,11 @@ struct AvailDataReq {
 
 
 #define DATATYPE_NOUPDATE 0
-#define DATATYPE_IMG 1
-#define DATATYPE_IMGRAW 2
-#define DATATYPE_UPDATE 3
+#define DATATYPE_IMG_BMP 2
+#define DATATYPE_FW_UPDATE 3
+#define DATATYPE_IMG_DIFF 0x10  // always 1BPP
+#define DATATYPE_IMG_RAW_1BPP 0x20 // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
+#define DATATYPE_IMG_RAW_2BPP 0x21 // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2" 
 
 struct AvailDataInfo {
     uint8_t checksum;
