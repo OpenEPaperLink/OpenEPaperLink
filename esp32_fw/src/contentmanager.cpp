@@ -73,7 +73,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     JsonObject cfgobj = doc.as<JsonObject>();
 
     wsLog("Updating " + dst);
-    taginfo->nextupdate = now + 600;
+    taginfo->nextupdate = now + 60;
     
     switch (taginfo->contentMode) {
         case Image:

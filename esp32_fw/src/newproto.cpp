@@ -125,7 +125,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     }
 
     uint16_t attempts = 60 * 24;
-    uint8_t lut = EPD_LUT_DEFAULT;
+    uint8_t lut = EPD_LUT_NO_REPEATS;
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)dst));
     uint8_t mac[6];
@@ -143,12 +143,11 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         time_t now;
         time(&now);
         time_t last_midnight = now - now % (24 * 60 * 60) + 3 * 3600;  // somewhere in the middle of the night
-        if (taginfo->lastfullupdate > last_midnight) lut = EPD_LUT_NO_REPEATS; // fast updates during the day
-        /*
-        uint16_t minutesUntilNextCheckin = 0;
-        if (taginfo->expectedNextCheckin > now) minutesUntilNextCheckin = (taginfo->expectedNextCheckin - now) / 60;
-        attempts += minutesUntilNextCheckin;
-        */
+        if (taginfo->lastfullupdate < last_midnight) {
+            lut = EPD_LUT_DEFAULT;  // full update once a day
+            taginfo->lastfullupdate = now;
+        }
+        Serial.println("last midnight: "+String(last_midnight)+" last full: "+String(taginfo->lastfullupdate) + " -> lut: " + String(lut));
     } else {
         wsErr("Tag not found, this shouldn't happen.");
     }
@@ -159,7 +158,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pending.availdatainfo.dataType = dataType;
     pending.availdatainfo.dataVer = *((uint64_t*)md5bytes);
     pending.availdatainfo.dataSize = file.size();
-    pending.availdatainfo.dataTypeArgument = EPD_LUT_NO_REPEATS;
+    pending.availdatainfo.dataTypeArgument = lut;
     pending.availdatainfo.nextCheckIn = nextCheckin;
     pending.attemptsLeft = attempts;
     sendDataAvail(&pending);
@@ -282,7 +281,7 @@ void processXferComplete(struct espXferComplete* xfc) {
     if (taginfo != nullptr) {
 
         uint16_t minutesUntilNextUpdate = 0;
-        if (taginfo->nextupdate > now + 2) {
+        if (taginfo->nextupdate > now + 2 * 60) {
             minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
             if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
             taginfo->expectedNextCheckin = now + 60 * minutesUntilNextUpdate + 60;
@@ -343,7 +342,7 @@ void processDataReq(struct espAvailDataReq* eadr) {
     taginfo->lastseen = now;
 
     uint16_t minutesUntilNextUpdate = 0;
-    if (taginfo->nextupdate > now + 2) {
+    if (taginfo->nextupdate > now + 2 * 60) {
         minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
         if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
         taginfo->expectedNextCheckin = now + 60 * minutesUntilNextUpdate + 60;
