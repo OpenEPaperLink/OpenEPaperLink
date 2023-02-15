@@ -18,7 +18,7 @@
 class tagRecord {
    public:
     uint16_t nextCheckinpending;
-    tagRecord() : mac{0}, alias(""), lastseen(0), nextupdate(0), contentMode(0), pending(false), md5{0}, md5pending{0}, CheckinInMinPending(0), expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0) {}
+    tagRecord() : mac{0}, alias(""), lastseen(0), nextupdate(0), contentMode(0), pending(false), md5{0}, md5pending{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0) {}
 
     uint8_t mac[6];
     String alias;
@@ -28,7 +28,6 @@ class tagRecord {
     bool pending;
     uint8_t md5[16];
     uint8_t md5pending[16];
-    uint16_t CheckinInMinPending;
     uint32_t expectedNextCheckin;
     String modeConfigJson;
     uint8_t LQI;
@@ -37,7 +36,8 @@ class tagRecord {
     uint16_t batteryMv;
     uint8_t hwType;
     uint8_t wakeupReason;
-    uint8_t capabilities; 
+    uint8_t capabilities;
+    uint32_t lastfullupdate;
     static tagRecord* findByMAC(uint8_t mac[6]);
 };
 

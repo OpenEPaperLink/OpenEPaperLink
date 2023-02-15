@@ -284,7 +284,6 @@ void init_web() {
                     taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
                     taginfo->contentMode = atoi(request->getParam("contentmode", true)->value().c_str());
                     taginfo->nextupdate = 0;
-                    taginfo->CheckinInMinPending = 0;
                     memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
                     memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
                     wsSendTaginfo(mac);

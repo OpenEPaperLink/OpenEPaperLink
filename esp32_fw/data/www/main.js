@@ -1,6 +1,13 @@
 const $ = document.querySelector.bind(document);
 
-const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url"];
+const WAKEUP_REASON_TIMED = 0;
+const WAKEUP_REASON_GPIO = 2;
+const WAKEUP_REASON_NFC = 3;
+const WAKEUP_REASON_FIRSTBOOT = 0xFC;
+const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
+const WAKEUP_REASON_WDT_RESET = 0xFE;
+
+const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url", "Weather forecast","RSS feed"];
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
 const contentModeOptions = [];
 contentModeOptions[0] = ["filename","timetolive"];
@@ -11,6 +18,8 @@ contentModeOptions[4] = ["location"];
 contentModeOptions[5] = ["filename"];
 contentModeOptions[6] = ["text"];
 contentModeOptions[7] = ["url","interval"];
+contentModeOptions[8] = ["location"];
+contentModeOptions[9] = ["title", "url", "interval"];
 
 const imageQueue = [];
 let isProcessing = false;
@@ -123,6 +132,28 @@ function processTags(tagArray) {
 		div.dataset.hash = element.hash;
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
 		$('#tag' + tagmac).style.background = "inherit";
+		switch (element.wakeupReason) {
+			case WAKEUP_REASON_TIMED:
+				break;
+			case WAKEUP_REASON_GPIO:
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "GPIO wakeup"
+				break;
+			case WAKEUP_REASON_NFC:
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "NFC wakeup"
+				break;
+			case WAKEUP_REASON_FIRSTBOOT:
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>First boot</font>"
+				$('#tag' + tagmac).style.background = "purple";
+				break;
+			case WAKEUP_REASON_NETWORK_SCAN:
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>Network scan</font>"
+				$('#tag' + tagmac).style.background = "green";
+				break;
+			case WAKEUP_REASON_WDT_RESET:
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Watchdog reset!"
+				$('#tag' + tagmac).style.background = "red";
+				break;
+		}
 		$('#tag' + tagmac + ' .pendingicon').style.display = (element.pending ? 'inline-block' : 'none');
 		div.classList.add("tagflash");
 		(function(tagmac) {
