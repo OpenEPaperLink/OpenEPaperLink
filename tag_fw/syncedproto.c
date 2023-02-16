@@ -451,7 +451,6 @@ void saveImgBlockData(uint8_t imgSlot, uint8_t blockId) {
 void drawImageFromEeprom(uint8_t imgSlot) {
     drawImageAtAddress(getAddressForSlot(imgSlot), drawWithLut);
     drawWithLut = 0;  // default back to the regular ol' stock/OTP LUT
-    powerDown(INIT_EPD);
 }
 uint32_t getHighSlotId() {
     uint32_t temp = 0;
@@ -670,7 +669,6 @@ bool downloadImageData(struct AvailDataInfo *__xdata avail) {
 }
 
 bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
-    powerUp(INIT_EEPROM | INIT_UART | INIT_GPIO);
     switch (avail->dataType) {
         case DATATYPE_IMG_BMP:
         case DATATYPE_IMG_DIFF:
@@ -689,6 +687,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             // check if we've seen this version before
             powerUp(INIT_EEPROM);
             curImgSlot = findSlot(&(avail->dataVer));
+            powerDown(INIT_EEPROM);
             if (curImgSlot != 0xFF) {
                 // found a (complete)valid image slot for this version
                 powerUp(INIT_RADIO);
@@ -703,13 +702,18 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
 
                 drawWithLut = avail->dataTypeArgument;
                 wdt60s();
+                powerUp(INIT_EPD | INIT_EEPROM);
                 drawImageFromEeprom(curImgSlot);
+                powerDown(INIT_EPD | INIT_EEPROM);
                 return true;
             } else {
-                drawWithLut = avail->dataTypeArgument;
                 // not found in cache, prepare to download
+                drawWithLut = avail->dataTypeArgument;
+                powerUp(INIT_EEPROM);
                 downloadImageData(avail);
+                powerUp(INIT_EPD);
                 drawImageFromEeprom(curImgSlot);
+                powerDown(INIT_EPD | INIT_EEPROM);
                 return true;
             }
             break;

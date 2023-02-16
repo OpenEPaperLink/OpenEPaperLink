@@ -79,6 +79,8 @@ static uint8_t __xdata dispLutSize = 0;
 
 static bool __xdata isInited = false;
 
+bool __xdata epdGPIOActive = false;
+
 #define LUT_BUFFER_SIZE 128
 uint8_t waveformbuffer[LUT_BUFFER_SIZE];
 struct waveform10* __xdata waveform10 = (struct waveform10*)waveformbuffer;  // holds the LUT/waveform
@@ -192,6 +194,31 @@ static void epdReset() {
     timerDelay(TIMER_TICKS_PER_SECOND / 1000);
     shortCommand(CMD_SOFT_RESET2);
     timerDelay(TIMER_TICKS_PER_SECOND / 1000);
+}
+void epdConfigGPIO(bool setup) {
+    // data / _command: 2.2
+    // busy             2.1
+    // reset            2.0
+    // _select          1.7
+    // bs1              1.2
+
+    // GENERIC SPI BUS PINS
+    // spi.clk          0.0
+    // spi.mosi         0.1
+    if(epdGPIOActive==setup)return;
+    if (setup) {
+        P2DIR |= (1 << 1);                // busy as input
+        P2DIR &= ~((1 << 2) | (1 << 0));  // D/C and Reset as output
+        P1DIR &= ~((1 << 7) | (1 << 2));  // select and bs1 as output
+        P1_2 = 0;                         // select 4-wire SPI / BS1 = low
+        P1_7 = 1;                         // deselect EPD
+    } else {
+        P2DIR |= ((1 << 2) | (1 << 0));  // DC and Reset as input
+        P2 &= ~((1 << 2) | (1 << 0));
+        P1DIR |= ((1 << 7) | (1 << 2));  // Select and BS1 as input
+        P2 &= ~((1 << 7));
+    }
+    epdGPIOActive = setup;
 }
 void epdEnterSleep() {
     P2_0 = 0;

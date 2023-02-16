@@ -143,7 +143,8 @@ uint8_t channelSelect() {  // returns 0 if no accesspoints were found
 
 void mainProtocolLoop(void) {
     // displayLoop();  // remove me
-    powerUp(INIT_BASE | INIT_UART | INIT_GPIO);
+    setupPortsInitial();
+    powerUp(INIT_BASE | INIT_UART);
 
     if (RESET & 0x01) {
         wakeUpReason = WAKEUP_REASON_WDT_RESET;
@@ -169,7 +170,7 @@ void mainProtocolLoop(void) {
             pr("Mac can't be all FF's.\n");
             powerUp(INIT_EPD);
             showNoMAC();
-            powerDown(INIT_EPD | INIT_GPIO | INIT_EEPROM);
+            powerDown(INIT_EPD | INIT_UART | INIT_EEPROM);
             doSleep(-1);
             wdtDeviceReset();
         }
@@ -196,23 +197,22 @@ void mainProtocolLoop(void) {
     wdt30s();
     currentChannel = showChannelSelect();
 
-    powerUp(INIT_GPIO | INIT_EPD);
-
     wdt10s();
 
     if (currentChannel) {
         showAPFound();
         initPowerSaving(INTERVAL_BASE);
-        powerDown(INIT_EPD | INIT_GPIO);
+        powerDown(INIT_EPD | INIT_UART);
         doSleep(5000UL);
     } else {
         showNoAP();
         initPowerSaving(INTERVAL_AT_MAX_ATTEMPTS);
-        powerDown(INIT_EPD | INIT_GPIO);
+        powerDown(INIT_EPD | INIT_UART);
         doSleep(120000UL);
     }
 
     while (1) {
+        powerUp(INIT_UART);
         wdt10s();
         if (currentChannel) {
             // associated
@@ -222,28 +222,30 @@ void mainProtocolLoop(void) {
             if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
                 // check if we should do a voltage measurement (those are pretty expensive)
                 if (voltageCheckCounter == VOLTAGE_CHECK_INTERVAL) {
-                    powerUp(INIT_BASE | INIT_TEMPREADING | INIT_EPD_VOLTREADING | INIT_RADIO);
+                    powerUp(INIT_TEMPREADING | INIT_EPD_VOLTREADING);
                     voltageCheckCounter = 0;
                 } else {
-                    powerUp(INIT_BASE | INIT_TEMPREADING | INIT_RADIO);
+                    powerUp(INIT_TEMPREADING);
                 }
                 voltageCheckCounter++;
 
                 // check if the battery level is below minimum, and force a redraw of the screen
                 if ((lowBattery && !lowBatteryShown) || (noAPShown)) {
-                    powerUp(INIT_EPD);
                     // Check if we were already displaying an image
                     if (curImgSlot != 0xFF) {
-                        powerUp(INIT_EEPROM);
+                        powerUp(INIT_EEPROM | INIT_EPD);
                         drawImageFromEeprom(curImgSlot);
-                        powerDown(INIT_EEPROM);
+                        powerDown(INIT_EEPROM | INIT_EPD);
                     } else {
+                        powerUp(INIT_EPD);
                         showAPFound();
                         powerDown(INIT_EPD);
                     }
                 }
-
+                powerUp(INIT_RADIO);
                 avail = getAvailDataInfo();
+                powerDown(INIT_RADIO);
+
                 if (avail != NULL) {
                     // we got some data!
                     longDataReqCounter = 0;
@@ -251,10 +253,10 @@ void mainProtocolLoop(void) {
                     wakeUpReason = WAKEUP_REASON_TIMED;
                 }
             } else {
-                powerUp(INIT_BASE | INIT_RADIO);  //| INIT_GPIO | INIT_UART
+                powerUp(INIT_RADIO);
                 avail = getShortAvailDataInfo();
+                powerDown(INIT_RADIO);
             }
-            powerDown(INIT_RADIO);
 
             addAverageValue();
 
@@ -266,21 +268,16 @@ void mainProtocolLoop(void) {
                 // got some data from the AP!
                 if (avail->dataType != DATATYPE_NOUPDATE) {
                     // data transfer
-                    powerUp(INIT_GPIO | INIT_UART);
                     if (processAvailDataInfo(avail)) {
                         // succesful transfer, next wake time is determined by the NextCheckin;
                     } else {
                         // failed transfer, let the algorithm determine next sleep interval (not the AP)
                         nextCheckInFromAP = 0;
                     }
-                    powerUp(INIT_GPIO);
-                    powerDown(INIT_EEPROM | INIT_RADIO);
                 } else {
                     // no data transfer, just sleep.
                 }
             }
-
-            powerDown(INIT_GPIO);
 
             uint16_t nextCheckin = getNextSleep();
             longDataReqCounter += nextCheckin;
@@ -299,14 +296,13 @@ void mainProtocolLoop(void) {
         } else {
             // not associated
             if (((scanAttempts != 0) && (scanAttempts % VOLTAGEREADING_DURING_SCAN_INTERVAL == 0)) || (scanAttempts > (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS))) {
-                powerUp(INIT_BASE | INIT_EPD_VOLTREADING | INIT_RADIO);
-            } else {
-                powerUp(INIT_BASE | INIT_RADIO);  // || INIT_GPIO | INIT_UART
+                powerUp(INIT_EPD_VOLTREADING);
             }
             // try to find a working channel
             powerUp(INIT_RADIO);
             currentChannel = channelSelect();
             powerDown(INIT_RADIO);
+
             if ((!currentChannel && !noAPShown) || (lowBattery && !lowBatteryShown) || (scanAttempts == (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
                 powerUp(INIT_EPD);
                 if (curImgSlot != 0xFF) {
@@ -315,14 +311,11 @@ void mainProtocolLoop(void) {
                     powerDown(INIT_EEPROM);
                 } else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
                     showLongTermSleep();
-                    powerDown(INIT_EPD);
                 } else {
                     showNoAP();
-                    powerDown(INIT_EPD);
                 }
+                powerDown(INIT_EPD);
             }
-
-            powerDown(INIT_GPIO);
 
             // did we find a working channel?
             if (currentChannel) {

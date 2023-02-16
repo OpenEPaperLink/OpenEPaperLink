@@ -59,6 +59,8 @@
 #define INTERVAL_2_ATTEMPTS 12                 // for 12 attempts (an additional day)
 #define INTERVAL_3_TIME 86400UL                // Finally, try every day
 
+extern void setupPortsInitial();
+
 extern void powerUp(uint8_t parts);
 extern void powerDown(uint8_t parts);
 
