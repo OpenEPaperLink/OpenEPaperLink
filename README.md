@@ -53,9 +53,6 @@ You can access the ESP32 with any web browser after connecting it to your WiFi N
 - Do more with status info as sent by the tags
 
 ## Known issues:
-
-- For some reason, the screen needs to be reset and put to sleep -EVERY TIME- the tag wakes up. This is a relatively slow process; it would really help if we could find out what causes this. Some glitch on the reset line of the EPD would be my guess...
-- The ZBS CPU should be able to sleep during the EPD-draw command; however, this currently (for some reason) increases the sleep-current-draw
 - Some tags work better as AP's than others. Your range may suck. The boards on these tags are tiny and fragile. For instance, a dab of hot-glue on a board is enough to warp it pretty severely, and will damage the components that are soldered on there. Reportedly, segmented-display solum tags work well. 
 
 ## Hints and excuses:
