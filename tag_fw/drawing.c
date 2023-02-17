@@ -348,7 +348,7 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
             clearScreen();
             beginWriteFramebuffer(EPD_COLOR_BLACK);
             epdSelect();
-            for (uint16_t c = 0; c < (SCREEN_HEIGHT * SCREEN_WIDTH / 8); c++) {
+            for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
                 if (c % 256 == 0) {
                     epdDeselect();
                     eepromRead(addr + sizeof(struct EepromImageHeader) + c, mClutMap, 256);
@@ -366,7 +366,7 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
             beginFullscreenImage();
             beginWriteFramebuffer(EPD_COLOR_BLACK);
             epdSelect();
-            for (uint16_t c = 0; c < (SCREEN_HEIGHT * SCREEN_WIDTH / 8); c++) {
+            for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
                 if (c % 256 == 0) {
                     epdDeselect();
                     eepromRead(addr + sizeof(struct EepromImageHeader) + c, mClutMap, 256);
@@ -379,10 +379,10 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
 
             beginWriteFramebuffer(EPD_COLOR_RED);
             epdSelect();
-            for (uint16_t c = 0; c < (SCREEN_HEIGHT * SCREEN_WIDTH / 8); c++) {
+            for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
                 if (c % 256 == 0) {
                     epdDeselect();
-                    eepromRead(addr + sizeof(struct EepromImageHeader) + (SCREEN_HEIGHT * SCREEN_WIDTH / 8) + c, mClutMap, 256);
+                    eepromRead(addr + sizeof(struct EepromImageHeader) + (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)) + c, mClutMap, 256);
                     epdSelect();
                 }
                 epdSend(mClutMap[c % 256]);

@@ -59,13 +59,13 @@ void setupPortsInitial() {
     P2PULL = 0x00;
 }
 
-void initPowerSaving(uint16_t initialValue) {
+void initPowerSaving(const uint16_t initialValue) {
     for (uint8_t c = 0; c < POWER_SAVING_SMOOTHING; c++) {
         dataReqAttemptArr[c] = initialValue;
     }
 }
 
-void configSPI(bool setup) {
+static void configSPI(const bool setup) {
     if (setup == spiActive) return;
     if (setup) {
         P0FUNC |= (1 << 0) | (1 << 1) | (1 << 2);
@@ -88,7 +88,7 @@ void configSPI(bool setup) {
     spiActive = setup;
 }
 
-void configUART(bool setup) {
+static void configUART(const bool setup) {
     if (uartActive == setup) return;
     if (setup) {
         P0FUNC |= (1 << 6);
@@ -102,7 +102,7 @@ void configUART(bool setup) {
     uartActive = setup;
 }
 
-void configEEPROM(bool setup) {
+static void configEEPROM(const bool setup) {
     if (setup == eepromActive) return;
     if (setup) {
         P1FUNC &= ~(1 << 1);
@@ -121,7 +121,7 @@ void configEEPROM(bool setup) {
     setup == eepromActive;
 }
 
-void powerUp(uint8_t parts) {
+void powerUp(const uint8_t parts) {
     if (parts & INIT_BASE) {
         clockingAndIntsInit();
         timerInit();
@@ -173,7 +173,7 @@ void powerUp(uint8_t parts) {
     }
 }
 
-void powerDown(uint8_t parts) {
+void powerDown(const uint8_t parts) {
     if (parts & INIT_UART) {
         configUART(false);
     }
@@ -203,7 +203,7 @@ void powerDown(uint8_t parts) {
     }
 }
 
-void doSleep(uint32_t __xdata t) {
+void doSleep(const uint32_t __xdata t) {
     // if (t > 1000) pr("s=%lu\n ", t / 1000);
     // powerPortsDownForSleep();
 
@@ -245,13 +245,12 @@ void doSleep(uint32_t __xdata t) {
     P1INTEN = 0;
     if (P1CHSTA && (1 << 0)) {
         wakeUpReason = WAKEUP_REASON_GPIO;
-        pr("button pressed\n");
         P1CHSTA &= ~(1 << 0);
     }
 #endif
 }
 
-uint32_t getNextScanSleep(bool increment) {
+uint32_t getNextScanSleep(const bool increment) {
     if (increment) {
         if (scanAttempts < 255)
             scanAttempts++;
