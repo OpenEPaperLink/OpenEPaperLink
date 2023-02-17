@@ -124,7 +124,7 @@ static void sendPing() {
     txframe->fcs.destAddrType = 2;
     txframe->fcs.srcAddrType = 3;
     txframe->seq = seq++;
-    txframe->dstPan = 0xFFFF;
+    txframe->dstPan = PROTO_PAN_ID;
     txframe->dstAddr = 0xFFFF;
     txframe->srcPan = PROTO_PAN_ID;
     commsTxNoCpy(outBuffer);
