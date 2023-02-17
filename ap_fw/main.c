@@ -245,7 +245,7 @@ uint8_t getBlockDataLength() {
 // pendingdata slot stuff
 int8_t findSlotForMac(const uint8_t *mac) {
     for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
-        //if (u64_isEq((uint64_t __xdata *)mac, (uint64_t __xdata *)&(pendingDataArr[c].targetMac))) {  // this costs 1 sloc :(
+        // if (u64_isEq((uint64_t __xdata *)mac, (uint64_t __xdata *)&(pendingDataArr[c].targetMac))) {  // this costs 1 sloc :(
         if (memcmp(mac, ((uint8_t __xdata *)&(pendingDataArr[c].targetMac)), 8) == 0) {
             if (pendingDataArr[c].attemptsLeft != 0) {
                 return c;
@@ -322,8 +322,8 @@ void processSerial(uint8_t lastchar) {
             if (bytesRemain == 0) {
                 if (checkCRC(serialbuffer, sizeof(struct pendingData))) {
                     struct pendingData *pd = (struct pendingData *)serialbuffer;
-					int8_t slot = findSlotForMac(pd->targetMac);
-					if (slot == -1) slot = findFreeSlot();
+                    int8_t slot = findSlotForMac(pd->targetMac);
+                    if (slot == -1) slot = findFreeSlot();
                     if (slot != -1) {
                         xMemCopyShort(&(pendingDataArr[slot]), serialbuffer, sizeof(struct pendingData));
                         pr("ACK>\n");
@@ -721,8 +721,10 @@ void main(void) {
                     case PKT_AVAIL_DATA_SHORTREQ:
                         // a short AvailDataReq is basically a very short (1 byte payload) packet that requires little preparation on the tx side, for optimal battery use
                         // bytes of the struct are set 0, so it passes the checksum test, and the ESP32 can detect that no interesting payload is sent
-                        memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast), 0, sizeof(struct AvailDataReq)+2);
-                        processAvailDataReq(radiorxbuffer);
+                        if (ret == 18) {
+                            memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast), 0, sizeof(struct AvailDataReq) + 2);
+                            processAvailDataReq(radiorxbuffer);
+                        }
                         break;
                     default:
                         pr("t=%02X\n", getPacketType(radiorxbuffer));
