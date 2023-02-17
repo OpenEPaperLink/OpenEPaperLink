@@ -32,17 +32,14 @@ void eepromReadStart(uint32_t addr)  __reentrant;
 
 //structures
 #define EEPROM_IMG_INPROGRESS			(0x7fffffffUL)
-#define EEPROM_IMG_VALID				(0x494d4722UL)
-
+#define EEPROM_IMG_VALID				(0x494d4721UL)
 #include "board.h"
 
-#define EEPROM_PIECE_SZ					(88)
 struct EepromImageHeader {				//each image space is 0x17000 bytes, we have space for ten of them
 	uint64_t version;
 	uint32_t validMarker;
 	uint32_t size;
-	uint32_t rfu[8];									//zero-filled for now
-	uint8_t piecesMissing[EEPROM_PROGRESS_BYTES];		//each bit represents a EEPROM_PIECE_SZ-byte piece
+	uint8_t dataType;
 	uint32_t id;
 	
 	//image data here

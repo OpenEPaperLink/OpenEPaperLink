@@ -59,17 +59,19 @@
 #define INTERVAL_2_ATTEMPTS 12                 // for 12 attempts (an additional day)
 #define INTERVAL_3_TIME 86400UL                // Finally, try every day
 
-extern void powerUp(uint8_t parts);
-extern void powerDown(uint8_t parts);
+extern void setupPortsInitial();
+
+extern void powerUp(const uint8_t parts);
+extern void powerDown(const uint8_t parts);
 
 extern void initAfterWake();
-extern void doSleep(uint32_t __xdata t);
+extern void doSleep(const uint32_t __xdata t);
 
 extern void addAverageValue();
 extern uint16_t getNextSleep();
 
-extern uint32_t getNextScanSleep(bool increment);
-extern void initPowerSaving(uint16_t initialValue);
+extern uint32_t getNextScanSleep(const bool increment);
+extern void initPowerSaving(const uint16_t initialValue);
 
 extern uint8_t __xdata wakeUpReason;
 

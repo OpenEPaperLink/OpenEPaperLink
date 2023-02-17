@@ -36,6 +36,9 @@
 void epdSetup();
 void epdEnterSleep();
 uint16_t epdGetBattery();
+void epdConfigGPIO(bool setup);
+
+extern bool __xdata epdGPIOActive;
 
 void setWindowX(uint16_t start, uint16_t end);
 void setWindowY(uint16_t start, uint16_t end);

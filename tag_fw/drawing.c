@@ -8,10 +8,11 @@
 #include "eeprom.h"
 #include "epd.h"
 #include "printf.h"
+#include "proto.h"
 #include "screen.h"
 #include "timer.h"
+#include "userinterface.h"  // for addIcons
 
-#include "userinterface.h" // for addIcons
 #define COMPRESSION_BITPACKED_3x5_to_7 0x62700357  // 3 pixels of 5 possible colors in 7 bits
 #define COMPRESSION_BITPACKED_5x3_to_8 0x62700538  // 5 pixels of 3 possible colors in 8 bits
 #define COMPRESSION_BITPACKED_3x6_to_8 0x62700368  // 3 pixels of 6 possible colors in 8 bits
@@ -335,31 +336,88 @@ void ByteDecode(uint8_t byte) {
 }
 
 void drawImageAtAddress(uint32_t addr, uint8_t lut) {
-    uint32_t __xdata clutAddr;
-    pr("sending to EPD - ");
-    clutAddr = drawPrvParseHeader(addr);
-    if (!clutAddr)
-        return;
-    drawPrvLoadAndMapClut(clutAddr);
+    struct EepromImageHeader* __xdata eih = (struct EepromImageHeader*)mClutMap;
+    eepromRead(addr, mClutMap, sizeof(struct EepromImageHeader));
 
-    epdSetup();
-    if(lut)selectLUT(lut);
-    mPassNo = 0;
-    beginFullscreenImage();
-    beginWriteFramebuffer(EPD_COLOR_BLACK);
-    prev = 0;
-    step = 0;
-    drawPrvDecodeImageOnce();
-    endWriteFramebuffer();
-    mPassNo++;
-    beginFullscreenImage();
-    beginWriteFramebuffer(EPD_COLOR_RED);
-    prev = 0;
-    step = 0;
-    drawPrvDecodeImageOnce();
-    endWriteFramebuffer();
+    switch (eih->dataType) {
+        case DATATYPE_IMG_RAW_1BPP:
+            pr("Doing raw 1bpp\n");
+            epdSetup();
+            if (lut) selectLUT(lut);
+            beginFullscreenImage();
+            clearScreen();
+            beginWriteFramebuffer(EPD_COLOR_BLACK);
+            epdSelect();
+            for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
+                if (c % 256 == 0) {
+                    epdDeselect();
+                    eepromRead(addr + sizeof(struct EepromImageHeader) + c, mClutMap, 256);
+                    epdSelect();
+                }
+                epdSend(mClutMap[c % 256]);
+            }
+            epdDeselect();
+            endWriteFramebuffer();
+            break;
+        case DATATYPE_IMG_RAW_2BPP:
+            pr("Doing raw 2bpp\n");
+            epdSetup();
+            if (lut) selectLUT(lut);
+            beginFullscreenImage();
+            beginWriteFramebuffer(EPD_COLOR_BLACK);
+            epdSelect();
+            for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
+                if (c % 256 == 0) {
+                    epdDeselect();
+                    eepromRead(addr + sizeof(struct EepromImageHeader) + c, mClutMap, 256);
+                    epdSelect();
+                }
+                epdSend(mClutMap[c % 256]);
+            }
+            epdDeselect();
+            endWriteFramebuffer();
 
-    pr(" complete.\n");
+            beginWriteFramebuffer(EPD_COLOR_RED);
+            epdSelect();
+            for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
+                if (c % 256 == 0) {
+                    epdDeselect();
+                    eepromRead(addr + sizeof(struct EepromImageHeader) + (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)) + c, mClutMap, 256);
+                    epdSelect();
+                }
+                epdSend(mClutMap[c % 256]);
+            }
+            epdDeselect();
+            endWriteFramebuffer();
+            break;
+        case DATATYPE_IMG_BMP:;
+            uint32_t __xdata clutAddr;
+            pr("sending to EPD - ");
+            clutAddr = drawPrvParseHeader(addr);
+            if (!clutAddr)
+                return;
+            drawPrvLoadAndMapClut(clutAddr);
+
+            epdSetup();
+            if (lut) selectLUT(lut);
+            mPassNo = 0;
+            beginFullscreenImage();
+            beginWriteFramebuffer(EPD_COLOR_BLACK);
+            prev = 0;
+            step = 0;
+            drawPrvDecodeImageOnce();
+            endWriteFramebuffer();
+            mPassNo++;
+            beginFullscreenImage();
+            beginWriteFramebuffer(EPD_COLOR_RED);
+            prev = 0;
+            step = 0;
+            drawPrvDecodeImageOnce();
+            endWriteFramebuffer();
+
+            pr(" complete.\n");
+            break;
+    }
     addOverlay();
     drawWithSleep();
 }

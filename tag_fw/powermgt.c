@@ -38,54 +38,75 @@ bool __xdata lowBattery = false;
 uint16_t __xdata longDataReqCounter = 0;
 uint16_t __xdata voltageCheckCounter = 0;
 
+bool __xdata spiActive = false;
+bool __xdata uartActive = false;
+bool __xdata eepromActive = false;
+
 extern int8_t adcSampleTemperature(void);  // in degrees C
 
-void initPowerSaving(uint16_t initialValue) {
+void setupPortsInitial() {
+    P0INTEN = 0;
+    P1INTEN = 0;
+    P2INTEN = 0;
+    P0FUNC = 0;
+    P1FUNC = 0;
+    P2FUNC = 0;
+    P0DIR = 0xFF;
+    P1DIR = 0xFF;
+    P2DIR = 0xFF;
+    P0PULL = 0x00;
+    P1PULL = 0x00;
+    P2PULL = 0x00;
+}
+
+void initPowerSaving(const uint16_t initialValue) {
     for (uint8_t c = 0; c < POWER_SAVING_SMOOTHING; c++) {
         dataReqAttemptArr[c] = initialValue;
     }
 }
 
-void powerUp(uint8_t parts) {
-    if (parts & INIT_BASE) {
-        clockingAndIntsInit();
-        timerInit();
-        irqsOn();
-    }
-    if (parts & INIT_GPIO){
-        boardInit();
+static void configSPI(const bool setup) {
+    if (setup == spiActive) return;
+    if (setup) {
+        P0FUNC |= (1 << 0) | (1 << 1) | (1 << 2);
+        P0DIR |= (1 << 2);                // MISO as input
+        P0DIR &= ~((1 << 0) | (1 << 1));  // CLK and MOSI as output
+        P0PULL |= (1 << 2);
+        spiInit();
         wdtOn();
+    } else {
+        P0FUNC &= ~((1 << 0) | (1 << 1) | (1 << 2));
+        P0DIR |= (1 << 0) | (1 << 1) | (1 << 2);
+        P0PULL &= ~(1 << 2);
+        uint8_t bcp;
+        CLKEN &= ~(0x08);
+        bcp = CFGPAGE;
+        CFGPAGE = 4;
+        SPIENA &= ~(0x81);
+        CFGPAGE = bcp;
     }
+    spiActive = setup;
+}
 
-    if (parts & INIT_EPD)
-        epdSetup();
-
-    if ((parts & INIT_BASE) && !(parts & INIT_EPD_VOLTREADING) && !(parts & INIT_EPD)) {
-        if (!(parts & INIT_GPIO)){
-            boardInit();
-            wdtOn();
-        }
-        epdEnterSleep();  // this required fixing! halp halp fix me
-    }
-
-    if (parts & INIT_EPD_VOLTREADING) {
-        if (!(parts & INIT_GPIO)){
-            boardInit();
-            wdtOn();
-        }
-        batteryVoltage = epdGetBattery();
-        if (batteryVoltage < BATTERY_VOLTAGE_MINIMUM) {
-            lowBattery = true;
-        } else {
-            lowBattery = false;
-        }
-    }
-
-    if (parts & INIT_UART) {
+static void configUART(const bool setup) {
+    if (uartActive == setup) return;
+    if (setup) {
+        P0FUNC |= (1 << 6);
+        P0DIR &= ~(1 << 6);
         uartInit();
+    } else {
+        P0DIR |= (1 << 6);
+        P0FUNC &= ~(1 << 6);
+        CLKEN &= ~(0x20);
     }
+    uartActive = setup;
+}
 
-    if (parts & INIT_EEPROM) {
+static void configEEPROM(const bool setup) {
+    if (setup == eepromActive) return;
+    if (setup) {
+        P1FUNC &= ~(1 << 1);
+        P1DIR &= ~(1 << 1);
         if (!eepromInit()) {
             powerDown(INIT_RADIO);
             powerUp(INIT_EPD);
@@ -94,6 +115,46 @@ void powerUp(uint8_t parts) {
             doSleep(-1);
             wdtDeviceReset();
         }
+    } else {
+        P1DIR |= (1 << 1);
+    }
+    setup == eepromActive;
+}
+
+void powerUp(const uint8_t parts) {
+    if (parts & INIT_BASE) {
+        clockingAndIntsInit();
+        timerInit();
+        irqsOn();
+        wdtOn();
+    }
+
+    if (parts & INIT_EPD) {
+        configSPI(true);
+        epdConfigGPIO(true);
+        epdSetup();
+    }
+
+    if (parts & INIT_EPD_VOLTREADING) {
+        epdConfigGPIO(true);
+        configSPI(true);
+        batteryVoltage = epdGetBattery();
+        if (batteryVoltage < BATTERY_VOLTAGE_MINIMUM) {
+            lowBattery = true;
+        } else {
+            lowBattery = false;
+        }
+        configSPI(false);
+        epdConfigGPIO(false);
+    }
+
+    if (parts & INIT_UART) {
+        configUART(true);
+    }
+
+    if (parts & INIT_EEPROM) {
+        configSPI(true);
+        configEEPROM(true);
     }
 
     if (parts & INIT_TEMPREADING) {
@@ -112,7 +173,10 @@ void powerUp(uint8_t parts) {
     }
 }
 
-void powerDown(uint8_t parts) {
+void powerDown(const uint8_t parts) {
+    if (parts & INIT_UART) {
+        configUART(false);
+    }
     if (parts & INIT_RADIO) {
         radioRxEnable(false, true);
         RADIO_IRQ4_pending = 0;
@@ -127,17 +191,44 @@ void powerDown(uint8_t parts) {
     if (parts & INIT_EEPROM) {
         eepromDeepPowerDown();
         eepromPrvDeselect();
+        configEEPROM(false);
     }
-    if (parts & INIT_EPD)
+    if (parts & INIT_EPD) {
+        epdConfigGPIO(true);
         epdEnterSleep();
-
-    if (parts & INIT_GPIO)
-        powerPortsDownForSleep();
+        epdConfigGPIO(false);
+    }
+    if (!eepromActive && !epdGPIOActive) {
+        configSPI(false);
+    }
 }
 
-void doSleep(uint32_t __xdata t) {
+void doSleep(const uint32_t __xdata t) {
     // if (t > 1000) pr("s=%lu\n ", t / 1000);
     // powerPortsDownForSleep();
+
+    // set up pins for spi(0.0,0.1,0.2), UART (0.6)
+    // setup 1.1(eeprom_nCS), 1.2(eink_BS1), 1.7(eink_nCS)
+    // setup 2.0(eink_nRST), 2.1(eink_BUSY), 2.2(eink_D/nC)
+
+    P0FUNC = 0;
+    P1FUNC = 0;
+    P2FUNC = 0;
+
+    P0DIR = 1;
+    P0 = 0;
+    P0PULL = 1;
+
+    P1DIR = 0x86;
+    P1PULL = 0x86;
+
+    P2DIR = 7;
+    P2 = 0;
+    P2PULL = 5;
+
+    spiActive = false;
+    uartActive = false;
+    eepromActive = false;
 
 #ifdef HAS_BUTTON
     // Button setup on TEST pin 1.0 (input pullup)
@@ -148,20 +239,18 @@ void doSleep(uint32_t __xdata t) {
     P1INTEN = (1 << 0);
     P1CHSTA &= ~(1 << 0);
 #endif
-
     // sleepy
     sleepForMsec(t);
 #ifdef HAS_BUTTON
     P1INTEN = 0;
     if (P1CHSTA && (1 << 0)) {
         wakeUpReason = WAKEUP_REASON_GPIO;
-        pr("button pressed\n");
         P1CHSTA &= ~(1 << 0);
     }
 #endif
 }
 
-uint32_t getNextScanSleep(bool increment) {
+uint32_t getNextScanSleep(const bool increment) {
     if (increment) {
         if (scanAttempts < 255)
             scanAttempts++;
