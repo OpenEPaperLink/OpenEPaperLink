@@ -44,10 +44,10 @@ void setup() {
     init_web();
     loadDB("/current/tagDB.json");
 
-    xTaskCreate(timeTask, "timed tasks", 10000, NULL, 2, NULL);
     xTaskCreate(zbsRxTask, "zbsRX Process", 10000, NULL, 2, NULL);
     xTaskCreate(garbageCollection, "pending-data cleanup", 5000, NULL, 1, NULL);
     xTaskCreate(webSocketSendProcess, "ws", 5000, NULL,configMAX_PRIORITIES-10, NULL);
+    xTaskCreate(timeTask, "timed tasks", 10000, NULL, 2, NULL);
 }
 
 void loop() {

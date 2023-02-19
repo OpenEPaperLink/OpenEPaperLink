@@ -200,7 +200,7 @@ void initSprite(TFT_eSprite &spr, int w, int h) {
     spr.setColorDepth(8);
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
-        wsErr("Failed to create sprite in drawNumber");
+        wsErr("Failed to create sprite");
     }
     spr.fillSprite(TFT_WHITE);
 }

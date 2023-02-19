@@ -52,28 +52,32 @@ label {
 
 .actionbox>div:first-child {
 	padding: 10px;
-		background-color: white;
-		margin: 5px;
+	background-color: white;
+	margin: 5px;
 }
 
-.actionbox p {
-	padding: 5px;
+.actionbox>div:first-child>div:first-child {
+	flex-grow: 2;
 }
 
-.actionbox .columns {
+.actionbox>div {
 	display:flex;
-	flex-wrap: wrap;
+	gap: 20px;
 }
 
-.filebutton {
-	padding:2px 5px;
+#rebootbutton {
+	padding: 2px 5px;
 	background-color: #cccccc;
 	text-decoration: none;
 	color: black;
+	cursor: pointer;
 }
 
-.editbtn {
-	float:right;
+.filebutton {
+	padding: 2px 5px;
+	background-color: #cccccc;
+	text-decoration: none;
+	color: black;
 }
 
 .columns div {

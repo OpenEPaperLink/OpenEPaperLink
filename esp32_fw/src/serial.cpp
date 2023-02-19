@@ -251,6 +251,8 @@ void zbsRxTask(void* parameter) {
                 Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
                 Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
                 simplePowerOn();
+                wsErr("The AP tag crashed. Restarting tag, regenerating all pending info.");
+                refreshAllPending();
             }
         }
         
