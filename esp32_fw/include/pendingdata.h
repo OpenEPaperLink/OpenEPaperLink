@@ -8,9 +8,7 @@
 class pendingdata {
    public:
     String filename;
-    //uint8_t dst[8];
     uint64_t ver;
-    String md5;
     uint32_t timeout;
     uint8_t datatimeout;
     uint8_t* data = nullptr;

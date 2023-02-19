@@ -63,7 +63,6 @@ void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
     char buffer[64];
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)dst));
-    sprintf(buffer, "idle request %02X%02X%02X%02X%02X%02X %d minutes\n\0", src[2], src[3], src[4], src[5], src[6], src[7], nextCheckin);
     Serial.print(buffer);
 
     sendDataAvail(&pending);
@@ -135,7 +134,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     if (taginfo != nullptr) {
 
         if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
-            wsLog("new image is the same as current image. not updating tag.");
+            wsLog("new image is the same as current or already pending image. not updating tag.");
             wsSendTaginfo(mac);
             return true;
         }
@@ -147,7 +146,6 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
             lut = EPD_LUT_DEFAULT;  // full update once a day
             taginfo->lastfullupdate = now;
         }
-        Serial.println("last midnight: "+String(last_midnight)+" last full: "+String(taginfo->lastfullupdate) + " -> lut: " + String(lut));
     } else {
         wsErr("Tag not found, this shouldn't happen.");
     }
@@ -266,10 +264,14 @@ void processXferComplete(struct espXferComplete* xfc) {
     sprintf(src_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", src[2], src[3], src[4], src[5], src[6], src[7]);
     sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.bmp\0", src[2], src[3], src[4], src[5], src[6], src[7]);
     sprintf(tmp_path, "/temp/%02X%02X%02X%02X%02X%02X.bmp\0", src[2], src[3], src[4], src[5], src[6], src[7]);
-    if (LittleFS.exists(dst_path)) {
+    if (LittleFS.exists(dst_path) && LittleFS.exists(src_path)) {
         LittleFS.remove(dst_path);
     }
-    LittleFS.rename(src_path, dst_path);
+    if (LittleFS.exists(src_path)) {
+        LittleFS.rename(src_path, dst_path);
+    } else {
+        wsErr("hm, weird, no pending image found after xfercomplete.");
+    }
     if (LittleFS.exists(tmp_path)) {
         LittleFS.remove(tmp_path);
     }
@@ -362,11 +364,23 @@ void processDataReq(struct espAvailDataReq* eadr) {
         taginfo->capabilities = eadr->adr.capabilities;
     }
 
-    Serial.printf("t=%d, lqi=%d, rssi=%d, ", eadr->adr.temperature, eadr->adr.lastPacketLQI, eadr->adr.lastPacketRSSI);
-    Serial.printf("hwtype=%d, reason=%d, volt=%d", eadr->adr.hwType,eadr->adr.wakeupReason,eadr->adr.batteryMv);
     sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Serial.print(buffer);
     wsSendTaginfo(mac);
 
     digitalWrite(ONBOARD_LED, HIGH);
 }
+
+void refreshAllPending() {
+    for (int16_t c = 0; c < tagDB.size(); c++) {
+        tagRecord* taginfo = nullptr;
+        taginfo = tagDB.at(c);
+        if (taginfo->pending) {
+            taginfo->pending = false;
+            taginfo->nextupdate = 0;
+            memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
+            memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
+            wsSendTaginfo(taginfo->mac);
+        }
+    }
+};

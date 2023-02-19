@@ -42,30 +42,11 @@ uint64_t swap64(uint64_t x) {
 }
 
 void webSocketSendProcess(void *parameter) {
-    uint32_t ulNotificationValue;
-    Serial.print("websocket thread started\n");
     websocketUpdater = xTaskGetCurrentTaskHandle();
     wsMutex = xSemaphoreCreateMutex();
     while (true) {
-        ulNotificationValue = ulTaskNotifyTake(pdTRUE, 1000 / portTICK_RATE_MS);
-        if (ulNotificationValue == 0) {  // timeout, so every 1s
-            ws.cleanupClients();
-        } else {
-            // if (ws.count())
-            //  sendStatus(STATUS_WIFI_ACTIVITY);
-            DynamicJsonDocument doc(1500);
-            if (ulNotificationValue & 2) {  // WS_SEND_MODE_STATUS) {
-            }
-            /*
-                JsonArray statusframes = doc.createNestedArray("frames");
-            }*/
-            size_t len = measureJson(doc);
-            xSemaphoreTake(wsMutex, portMAX_DELAY);
-            auto buffer = std::make_shared<std::vector<uint8_t>>(len);
-            serializeJson(doc, buffer->data(), len);
-            // ws.textAll((char*)buffer->data());
-            xSemaphoreGive(wsMutex);
-        }
+        ws.cleanupClients();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -146,17 +127,17 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 void wsLog(String text) {
     StaticJsonDocument<500> doc;
     doc["logMsg"] = text;
-    xSemaphoreTake(wsMutex, portMAX_DELAY);
+    if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
-    xSemaphoreGive(wsMutex);
+    if (wsMutex) xSemaphoreGive(wsMutex);
 }
 
 void wsErr(String text) {
     StaticJsonDocument<500> doc;
     doc["errMsg"] = text;
-    xSemaphoreTake(wsMutex, portMAX_DELAY);
+    if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
-    xSemaphoreGive(wsMutex);
+    if (wsMutex) xSemaphoreGive(wsMutex);
 }
 
 void wsSendSysteminfo() {
@@ -214,6 +195,12 @@ void init_web() {
 
     server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
         request->send(200, "text/plain", "OK Reboot");
+        wsErr("REBOOTING");
+        ws.enable(false);
+        refreshAllPending();
+        saveDB("/current/tagDB.json");
+        ws.closeAll();
+        delay(100);
         ESP.restart();
     });
 
@@ -225,34 +212,6 @@ void init_web() {
             request->send(200);
         },
         doImageUpload);
-
-    server.on("/req_checkin", HTTP_POST, [](AsyncWebServerRequest *request) {
-        String filename;
-        String dst;
-        if (request->hasParam("dst", true)) {
-            dst = request->getParam("dst", true)->value();
-            uint8_t mac_addr[12];  // I expected this to return like 8 values, but if I make the array 8 bytes long, things die.
-            mac_addr[0] = 0x00;
-            mac_addr[1] = 0x00;
-            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X",
-                       &mac_addr[2],
-                       &mac_addr[3],
-                       &mac_addr[4],
-                       &mac_addr[5],
-                       &mac_addr[6],
-                       &mac_addr[7]) != 6) {
-                request->send(200, "text/plain", "Something went wrong trying to parse the mac address");
-            } else {
-                *((uint64_t *)mac_addr) = swap64(*((uint64_t *)mac_addr));
-                if (prepareDataAvail(&filename, DATATYPE_NOUPDATE, mac_addr,0)) {
-                    request->send(200, "text/plain", "Sending check-in request to " + dst);
-                }
-            }
-            return;
-        }
-        request->send(200, "text/plain", "Didn't get the required params");
-        return;
-    });
 
     server.on("/get_db", HTTP_GET, [](AsyncWebServerRequest *request) {
         String json = "";
@@ -284,8 +243,8 @@ void init_web() {
                     taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
                     taginfo->contentMode = atoi(request->getParam("contentmode", true)->value().c_str());
                     taginfo->nextupdate = 0;
-                    memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-                    memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
+                    //memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
+                    //memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
                     wsSendTaginfo(mac);
                     saveDB("/current/tagDB.json");
                     request->send(200, "text/plain", "Ok, saved");
@@ -295,6 +254,22 @@ void init_web() {
             }
         }
         request->send(200, "text/plain", "Ok, saved");
+    });
+
+    server.on("/delete_cfg", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("mac", true)) {
+            String dst = request->getParam("mac", true)->value();
+            uint8_t mac[6];
+            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
+                if (deleteRecord(mac)) {
+                    request->send(200, "text/plain", "Ok, deleted");
+                } else {
+                    request->send(200, "text/plain", "Error while saving: mac not found");
+                }
+            }
+        } else {
+            request->send(500, "text/plain", "no mac");
+        }
     });
 
     server.onNotFound([](AsyncWebServerRequest *request) {

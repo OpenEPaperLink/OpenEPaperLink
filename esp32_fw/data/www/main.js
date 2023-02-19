@@ -259,7 +259,28 @@ $('#cfgsave').onclick = function () {
 }
 
 $('#cfgdelete').onclick = function () {
-	let mac = $('#cfgmac').dataset.mac;
+	let formData = new FormData();
+	formData.append("mac", $('#cfgmac').dataset.mac);
+	fetch("/delete_cfg", {
+		method: "POST",
+		body: formData
+	})
+		.then(response => response.text())
+		.then(data => {
+			var div = $('#tag' + $('#cfgmac').dataset.mac);
+			div.remove();
+			showMessage(data);
+		})
+		.catch(error => showMessage('Error: ' + error));
+	$('#configbox').style.display = 'none';
+}
+
+$('#rebootbutton').onclick = function () {
+	showMessage("rebooting AP....",true);
+	fetch("/reboot", {
+		method: "POST"
+	});
+	socket.close();
 }
 
 function contentselected() {

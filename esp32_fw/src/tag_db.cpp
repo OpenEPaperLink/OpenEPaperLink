@@ -20,6 +20,19 @@ tagRecord* tagRecord::findByMAC(uint8_t mac[6]) {
     return nullptr;
 }
 
+bool deleteRecord(uint8_t mac[6]) {
+    for (int16_t c = 0; c < tagDB.size(); c++) {
+        tagRecord* tag = nullptr;
+        tag = tagDB.at(c);
+        if (memcmp(tag->mac, mac, 6) == 0) {
+            delete tagDB[c];
+            tagDB.erase(tagDB.begin() + c);
+            return true;
+        }
+    }
+    return false;
+}
+
 String tagDBtoJson(uint8_t mac[6], uint8_t startPos) {
     DynamicJsonDocument doc(2500);
     JsonArray tags = doc.createNestedArray("tags");
@@ -55,9 +68,12 @@ void fillNode(JsonObject &tag, tagRecord* &taginfo) {
     char buffer[16];
     sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", taginfo->mac[0], taginfo->mac[1], taginfo->mac[2], taginfo->mac[3], taginfo->mac[4], taginfo->mac[5]);
     tag["mac"] = (String)buffer;
-    char hex[7];
-    sprintf(hex, "%02x%02x%02x\0", taginfo->md5[0], taginfo->md5[1], taginfo->md5[2]);
-    tag["hash"] = hex;
+    
+    char hex[33];
+    for (uint8_t i = 0; i < 16; i++) {
+        sprintf(hex + (i * 2), "%02x", taginfo->md5[i]);
+    }
+    tag["hash"] = (String)hex;
     tag["lastseen"] = taginfo->lastseen;
     tag["nextupdate"] = taginfo->nextupdate;
     tag["nextcheckin"] = taginfo->expectedNextCheckin;
@@ -140,8 +156,14 @@ void loadDB(String filename) {
                         memcpy(taginfo->mac, mac, sizeof(taginfo->mac));
                         tagDB.push_back(taginfo);
                     }
+                    String md5 = tag["hash"].as<String>();
+                    if (md5.length() >= 32) {
+                        for (int i = 0; i < 16; i++) {
+                            taginfo->md5[i] = strtoul(md5.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
+                        }
+                    }
+                    memcpy(taginfo->md5pending, taginfo->md5, sizeof(taginfo->md5));
                     taginfo->lastseen = (uint32_t)tag["lastseen"];
-                    //taginfo->lastseen = 0;
                     taginfo->nextupdate = (uint32_t)tag["nextupdate"];
                     taginfo->expectedNextCheckin = (uint16_t)tag["nextcheckin"];
                     if (taginfo->expectedNextCheckin < now - 1800) { 
