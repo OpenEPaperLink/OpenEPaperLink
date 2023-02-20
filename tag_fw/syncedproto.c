@@ -373,7 +373,7 @@ static void sendXferCompletePacket() {
 static void sendXferComplete() {
     radioRxEnable(true, true);
 
-    for (uint8_t c = 0; c < 8; c++) {
+    for (uint8_t c = 0; c < 16; c++) {
         sendXferCompletePacket();
         uint32_t __xdata start = timerGet();
         while ((timerGet() - start) < (TIMER_TICKS_PER_MS * 6UL)) {
@@ -617,8 +617,21 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
         nextImgSlot++;
         if (nextImgSlot >= imgSlots) nextImgSlot = 0;
         curImgSlot = nextImgSlot;
+        pr("Saving to image slot %d\n", curImgSlot);
         drawWithLut = avail->dataTypeArgument;
-        eepromErase(getAddressForSlot(curImgSlot), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
+        powerUp(INIT_EEPROM);
+        uint8_t __xdata attempt = 5;
+        while (attempt--) {
+            if (eepromErase(getAddressForSlot(curImgSlot), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ)) goto eraseSuccess;
+        }
+    eepromFail:
+        powerDown(INIT_RADIO);
+        powerUp(INIT_EPD);
+        showNoEEPROM();
+        powerDown(INIT_EEPROM | INIT_EPD);
+        doSleep(-1);
+        wdtDeviceReset();
+    eraseSuccess:
         pr("new download, writing to slot %d\n", curImgSlot);
 
         // start, or restart the transfer. Copy data from the AvailDataInfo struct, and the struct intself. This forces a new transfer
@@ -643,6 +656,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
             // succesfully downloaded datablock, save to eeprom
             powerUp(INIT_EEPROM);
             saveImgBlockData(curImgSlot, curBlock.blockId);
+            powerDown(INIT_EEPROM);
             curBlock.blockId++;
             curDataInfo.dataSize -= dataRequestSize;
         } else {
@@ -650,6 +664,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
             return false;
         }
     }
+    // no more data, download complete
 
     // borrow the blockXferBuffer temporarily
     struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
@@ -658,12 +673,11 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
     eih->id = ++curHighSlotId;
     eih->size = imageSize;
     eih->dataType = curDataInfo.dataType;
-    eepromWrite(getAddressForSlot(curImgSlot), eih, sizeof(struct EepromImageHeader));
 
-    powerUp(INIT_RADIO);
-    sendXferComplete();
-    powerDown(INIT_RADIO);
-    // no more data, download complete
+    powerUp(INIT_EEPROM);
+    eepromWrite(getAddressForSlot(curImgSlot), eih, sizeof(struct EepromImageHeader));
+    powerDown(INIT_EEPROM);
+
     return true;
 }
 
@@ -707,14 +721,24 @@ bool processAvailDataInfo(const struct AvailDataInfo *__xdata avail) {
                 return true;
             } else {
                 // not found in cache, prepare to download
+                pr("downloading to imgslot\n");
                 drawWithLut = avail->dataTypeArgument;
                 powerUp(INIT_EEPROM);
-                downloadImageDataToEEPROM(avail);
-                wdt60s();
-                powerUp(INIT_EPD);
-                drawImageFromEeprom(curImgSlot);
-                powerDown(INIT_EPD | INIT_EEPROM);
-                return true;
+                if (downloadImageDataToEEPROM(avail)) {
+                    pr("download complete!\n");
+                    powerUp(INIT_RADIO);
+                    sendXferComplete();
+                    powerDown(INIT_RADIO);
+
+                    wdt60s();
+                    powerUp(INIT_EPD | INIT_EEPROM);
+                    drawImageFromEeprom(curImgSlot);
+                    powerDown(INIT_EPD | INIT_EEPROM);
+                    return true;
+                } else {
+                    powerDown(INIT_EEPROM);
+                    return false;
+                }
             }
             break;
         case DATATYPE_FW_UPDATE:

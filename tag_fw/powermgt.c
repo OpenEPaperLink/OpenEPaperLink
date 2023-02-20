@@ -111,7 +111,7 @@ static void configEEPROM(const bool setup) {
             powerDown(INIT_RADIO);
             powerUp(INIT_EPD);
             showNoEEPROM();
-            powerDown(INIT_EEPROM | INIT_EPD | INIT_GPIO);
+            powerDown(INIT_EEPROM | INIT_EPD);
             doSleep(-1);
             wdtDeviceReset();
         }

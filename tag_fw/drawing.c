@@ -215,7 +215,9 @@ static void drawPrvDecodeImageOnce(void) {
         uint16_t __xdata bitpoolOut = 0;
 #endif
         // get a row
+        epdDeselect();
         eepromRead(mathPrvMul16x16(er, mDrawInfo.stride) + mDrawInfo.dataAddr, rowBuf, mDrawInfo.stride);
+        epdSelect();
         // convert to our format
         c = mDrawInfo.effectiveW;
         do {
@@ -329,16 +331,13 @@ void ByteDecode(uint8_t byte) {
     prev |= (mColorMap[mPassNo][byte >> 4] << 1) | mColorMap[mPassNo][byte & 0x0f];
     if (++step == 4) {
         step = 0;
-        epdSelect();
         epdSend(prev);
-        epdDeselect();
     }
 }
 
 void drawImageAtAddress(uint32_t addr, uint8_t lut) {
     struct EepromImageHeader* __xdata eih = (struct EepromImageHeader*)mClutMap;
     eepromRead(addr, mClutMap, sizeof(struct EepromImageHeader));
-
     switch (eih->dataType) {
         case DATATYPE_IMG_RAW_1BPP:
             pr("Doing raw 1bpp\n");
@@ -392,7 +391,7 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
             break;
         case DATATYPE_IMG_BMP:;
             uint32_t __xdata clutAddr;
-            pr("sending to EPD - ");
+            pr("sending BMP to EPD - ");
             clutAddr = drawPrvParseHeader(addr);
             if (!clutAddr)
                 return;
