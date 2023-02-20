@@ -753,6 +753,7 @@ bool processAvailDataInfo(const struct AvailDataInfo *__xdata avail) {
                 sendXferComplete();
                 powerDown(INIT_RADIO);
 
+                powerUp(INIT_EEPROM);
                 wdt60s();
                 eepromReadStart(EEPROM_UPDATA_AREA_START);
                 selfUpdate();
