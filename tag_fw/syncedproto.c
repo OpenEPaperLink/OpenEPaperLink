@@ -23,6 +23,7 @@
 #include "timer.h"
 #include "userinterface.h"
 #include "wdt.h"
+#include "screen.h"
 
 // download-stuff
 uint8_t __xdata blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
@@ -681,8 +682,38 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
     return true;
 }
 
-bool processAvailDataInfo(const struct AvailDataInfo *__xdata avail) {
+bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
     switch (avail->dataType) {
+#if (SCREEN_WIDTH == 152)
+        // the 1.54" screen is pretty small, we can write an entire 1bpp image from the block transfer buffer directly to the EPD buffer
+        case DATATYPE_IMG_RAW_1BPP_DIRECT:
+            pr("Direct draw image received\n");
+            if (curDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8)) {
+                // we've downloaded this already, we're guessing it's already displayed
+                pr("currently shown image, send xfc\n");
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+                return true;
+            }
+            xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+            if (avail->dataSize > 4096) avail->dataSize = 4096;
+            
+            if (getDataBlock(avail->dataSize)) {
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+
+                curDataInfo.dataSize = 0;  // mark as transfer not pending
+                powerUp(INIT_EPD);
+                drawImageFromBuffer(blockXferBuffer, drawWithLut);
+                powerDown(INIT_EPD);
+                drawWithLut = 0;  // default back to the regular ol' stock/OTP LUT
+                return true;
+            }
+            return false;
+            break;
+#endif
         case DATATYPE_IMG_BMP:
         case DATATYPE_IMG_DIFF:
         case DATATYPE_IMG_RAW_1BPP:

@@ -17,7 +17,7 @@ extern void killRadio(void);
 extern struct AvailDataInfo *__xdata getAvailDataInfo();
 extern struct AvailDataInfo *__xdata getShortAvailDataInfo();
 extern void drawImageFromEeprom(const uint8_t imgSlot);
-extern bool processAvailDataInfo(const struct AvailDataInfo *__xdata avail);
+extern bool processAvailDataInfo(struct AvailDataInfo *__xdata avail);
 extern void initializeProto();
 extern uint8_t detectAP(const uint8_t channel);
 

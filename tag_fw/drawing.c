@@ -334,7 +334,24 @@ void ByteDecode(uint8_t byte) {
         epdSend(prev);
     }
 }
-
+#if (SCREEN_WIDTH == 152)
+void drawImageFromBuffer(uint8_t* buffer, const uint8_t lut) {
+    pr("Doing raw 1bpp\n");
+    epdSetup();
+    if (lut) selectLUT(lut);
+    beginFullscreenImage();
+    clearScreen();
+    beginWriteFramebuffer(EPD_COLOR_BLACK);
+    epdSelect();
+    for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
+        epdSend(buffer[c]);
+    }
+    epdDeselect();
+    endWriteFramebuffer();
+    addOverlay();
+    drawWithSleep();
+}
+#endif
 void drawImageAtAddress(uint32_t addr, uint8_t lut) {
     struct EepromImageHeader* __xdata eih = (struct EepromImageHeader*)mClutMap;
     eepromRead(addr, mClutMap, sizeof(struct EepromImageHeader));
