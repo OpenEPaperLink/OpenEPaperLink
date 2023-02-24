@@ -5,15 +5,15 @@ del fw42.bin
 makeit clean
 makeit BUILD=zbs154v033 CPU=8051 SOC=zbs243
 pause
-ren main.bin fw154.bin
+ren main.bin fw154_%date:~10,4%%date:~4,2%%date:~7,2%.bin
 makeit clean
 makeit BUILD=zbs29v033 CPU=8051 SOC=zbs243
 pause
-ren main.bin fw29.bin
+ren main.bin fw29_%date:~10,4%%date:~4,2%%date:~7,2%.bin
 makeit clean
 makeit BUILD=zbs42v033 CPU=8051 SOC=zbs243
 pause
-ren main.bin fw42.bin
+ren main.bin fw42_%date:~10,4%%date:~4,2%%date:~7,2%.bin
 
 del /s *.asm
 del /s *.lst

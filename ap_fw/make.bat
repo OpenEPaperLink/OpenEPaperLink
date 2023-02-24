@@ -1,6 +1,7 @@
 @echo off
 makeit clean
 makeit
+ren main.bin apfw_%date:~10,4%%date:~4,2%%date:~7,2%.bin
 del /s *.asm
 del /s *.lst
 del /s *.rst
