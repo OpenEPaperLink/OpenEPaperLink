@@ -71,11 +71,11 @@ void showSplashScreen() {
 
 #if (SCREEN_WIDTH == 152)  // 1.54"
     epdPrintBegin(12, 2, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    epdpr("Starting!");
+    epdpr("Starting");
     epdPrintEnd();
 
-    loadRawBitmap(solum, 8, 34, EPD_COLOR_BLACK);
-    loadRawBitmap(hacked, 32, 46, EPD_COLOR_RED);
+    loadRawBitmap(oepli, 0, 12, EPD_COLOR_BLACK);
+    loadRawBitmap(cloud, 0, 0, EPD_COLOR_RED);
 
     epdPrintBegin(5, 136, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
     epdpr("%02X%02X", mSelfMac[7], mSelfMac[6]);
@@ -93,7 +93,7 @@ void showSplashScreen() {
 #if (SCREEN_WIDTH == 128)  // 2.9"
 
     epdPrintBegin(0, 295, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    epdpr("Starting!");
+    epdpr("Starting");
     epdPrintEnd();
 
     epdPrintBegin(80, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
@@ -114,8 +114,8 @@ void showSplashScreen() {
     spr(buffer + 12, "%02X%02X", mSelfMac[1], mSelfMac[0]);
     printBarcode(buffer, 120, 284);
 
-    loadRawBitmap(solum, 0, 0, EPD_COLOR_BLACK);
-    loadRawBitmap(hacked, 16, 12, EPD_COLOR_RED);
+    loadRawBitmap(oepli, 0, 12, EPD_COLOR_BLACK);
+    loadRawBitmap(cloud, 0, 0, EPD_COLOR_RED);
     // lutTest();
     //  drawLineVertical(EPD_COLOR_RED, 64, 10, 286);
     //  drawLineVertical(EPD_COLOR_BLACK, 65, 10, 286);
@@ -124,7 +124,7 @@ void showSplashScreen() {
 #endif
 #if (SCREEN_WIDTH == 400)  // 4.2"
     epdPrintBegin(3, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    epdpr("Starting!");
+    epdpr("Starting");
     epdPrintEnd();
 
     epdPrintBegin(3, 268, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
@@ -137,8 +137,8 @@ void showSplashScreen() {
     epdpr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 
-    loadRawBitmap(solum, 256, 10, EPD_COLOR_BLACK);
-    loadRawBitmap(hacked, 264, 22, EPD_COLOR_RED);
+    loadRawBitmap(oepli, 136, 22, EPD_COLOR_BLACK);
+    loadRawBitmap(cloud, 136, 10, EPD_COLOR_RED);
 
     uint8_t __xdata buffer[17];
     spr(buffer, "%02X%02X", mSelfMac[7], mSelfMac[6]);
