@@ -183,7 +183,9 @@ void mainProtocolLoop(void) {
     pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
     pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
 
+    powerUp(INIT_RADIO);  // load down the battery using the radio to get a good voltage reading
     powerUp(INIT_EPD_VOLTREADING | INIT_TEMPREADING | INIT_EEPROM);
+    powerDown(INIT_RADIO);
 
     // get the highest slot number, number of slots
     initializeProto();
@@ -222,7 +224,9 @@ void mainProtocolLoop(void) {
             if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
                 // check if we should do a voltage measurement (those are pretty expensive)
                 if (voltageCheckCounter == VOLTAGE_CHECK_INTERVAL) {
+                    powerUp(INIT_RADIO);  // load down the battery using the radio to get a good reading
                     powerUp(INIT_TEMPREADING | INIT_EPD_VOLTREADING);
+                    powerDown(INIT_RADIO);
                     voltageCheckCounter = 0;
                 } else {
                     powerUp(INIT_TEMPREADING);
@@ -234,6 +238,7 @@ void mainProtocolLoop(void) {
                     // Check if we were already displaying an image
                     if (curImgSlot != 0xFF) {
                         powerUp(INIT_EEPROM | INIT_EPD);
+                        wdt60s();
                         drawImageFromEeprom(curImgSlot);
                         powerDown(INIT_EEPROM | INIT_EPD);
                     } else {
@@ -296,7 +301,9 @@ void mainProtocolLoop(void) {
         } else {
             // not associated
             if (((scanAttempts != 0) && (scanAttempts % VOLTAGEREADING_DURING_SCAN_INTERVAL == 0)) || (scanAttempts > (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS))) {
+                powerUp(INIT_RADIO);  // load down the battery using the radio to get a good reading
                 powerUp(INIT_EPD_VOLTREADING);
+                powerDown(INIT_RADIO);
             }
             // try to find a working channel
             powerUp(INIT_RADIO);
@@ -307,6 +314,7 @@ void mainProtocolLoop(void) {
                 powerUp(INIT_EPD);
                 if (curImgSlot != 0xFF) {
                     powerUp(INIT_EEPROM);
+                    wdt60s();
                     drawImageFromEeprom(curImgSlot);
                     powerDown(INIT_EEPROM);
                 } else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
