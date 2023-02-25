@@ -177,7 +177,7 @@ void powerDown(const uint8_t parts) {
     if (parts & INIT_UART) {
         configUART(false);
     }
-    if (parts & INIT_RADIO) {
+    if (parts & INIT_RADIO) { // warning; this also touches some stuff about the EEPROM, apparently. Re-init EEPROM afterwards
         radioRxEnable(false, true);
         RADIO_IRQ4_pending = 0;
         UNK_C1 &= ~0x81;
