@@ -141,7 +141,7 @@ uint8_t channelSelect() {  // returns 0 if no accesspoints were found
     return highestSlot;
 }
 
-void mainProtocolLoop(void) {
+void main() {
     // displayLoop();  // remove me
     setupPortsInitial();
     powerUp(INIT_BASE | INIT_UART);
@@ -339,8 +339,4 @@ void mainProtocolLoop(void) {
             }
         }
     }
-}
-
-void main(void) {
-    mainProtocolLoop();
 }
