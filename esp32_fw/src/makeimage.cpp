@@ -14,7 +14,7 @@ bool spr_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) 
     return 1;
 }
 
-void jpg2grays(String filein, String fileout) {
+void jpg2buffer(String filein, String fileout) {
     LittleFS.begin();
     TJpgDec.setSwapBytes(true);
     TJpgDec.setJpgScale(1);
@@ -23,15 +23,15 @@ void jpg2grays(String filein, String fileout) {
     TJpgDec.getFsJpgSize(&w, &h, filein, LittleFS);
     Serial.println("jpeg conversion " + String(w) + "x" + String(h));
 
+    spr.setColorDepth(8);
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
-        wsErr("Failed to create sprite in jpg2grays");
+        wsErr("Failed to create sprite in jpg2buffer");
     }
-    spr.setColorDepth(8);
     spr.fillSprite(TFT_WHITE);
     TJpgDec.drawFsJpg(0, 0, filein, LittleFS);
 
-    spr2grays(spr, w, h, fileout);
+    spr2buffer(spr, fileout);
     spr.deleteSprite();
 }
 
@@ -45,8 +45,6 @@ static uint32_t repackPackedVals(uint32_t val, uint32_t pixelsPerPackedUnit, uin
 }
 
 void spr2grays(TFT_eSprite &spr, long w, long h, String &fileout) {
-    // based on bmp2grays function by Dmitry.GR
-
     long t = millis();
     LittleFS.begin();
 
@@ -245,6 +243,55 @@ void spr2grays(TFT_eSprite &spr, long w, long h, String &fileout) {
     }
     f_out.close();
     Serial.println("finished writing BMP " + String(millis() - t) + "ms");
+}
+
+void spr2buffer(TFT_eSprite &spr, String &fileout) {
+    long t = millis();
+    LittleFS.begin();
+
+    fs::File f_out = LittleFS.open(fileout, "w");
+
+    bool dither = true, rotated = false;
+    long bufw = spr.width(), bufh = spr.height();
+
+    if (bufw > bufh) {
+        rotated = true;
+        bufw = spr.height();
+        bufh = spr.width();
+    }
+
+    int bufferSize = (bufw * bufh) / 8;
+    uint16_t color;
+    uint8_t *blackBuffer = new uint8_t[bufferSize];
+    uint8_t *redBuffer = new uint8_t[bufferSize];
+    memset(blackBuffer, 0, bufferSize);
+    memset(redBuffer, 0, bufferSize);
+
+    for (uint16_t y = 0; y < bufh; y++) {
+        for (uint16_t x = 0; x < bufw; x++) {
+            if (rotated) {
+                color = spr.readPixel(bufh - 1 - y, x);
+            } else {
+                color = spr.readPixel(x, y);
+            }
+            uint16_t bitIndex = 7 - (x % 8);
+            uint16_t byteIndex = (y * bufw + x) / 8;
+            if (color == TFT_BLACK) {
+                blackBuffer[byteIndex] |= (1 << bitIndex);
+            } else if (color == TFT_RED) {
+                redBuffer[byteIndex] |= (1 << bitIndex);
+            }
+        }
+    }
+
+    f_out.write(blackBuffer, bufferSize);
+    f_out.write(redBuffer, bufferSize);
+
+    delete[] blackBuffer;
+    delete[] redBuffer;
+
+    f_out.close();
+    Serial.println("finished writing buffer " + String(millis() - t) + "ms");
 }
 
 void bmp2grays(String filein, String fileout) {

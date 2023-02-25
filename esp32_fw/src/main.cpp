@@ -22,7 +22,7 @@ void timeTask(void* parameter) {
             Serial.println("Waiting for valid time from NTP-server");
         } else {
             if (now % 10 == 0) wsSendSysteminfo();
-            if (now % 60 == 3) Ping();
+            if (now % 30 == 3) Ping();
             if (now % 300 == 6) saveDB("/current/tagDB.json");
 
             contentRunner();

@@ -13,7 +13,7 @@
 #include "tag_db.h"
 #include "web.h"
 
-extern void sendBlock(const void* data, const uint16_t len);
+extern uint16_t sendBlock(const void* data, const uint16_t len);
 
 void addCRC(void* p, uint8_t len) {
     uint8_t total = 0;
@@ -74,80 +74,79 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         nextCheckin = MIN_RESPONSE_TIME;
     }
 
-    *filename = "/" + *filename;
-    LittleFS.begin();
-    if (!LittleFS.exists(*filename)) return false;
-    fs::File file = LittleFS.open(*filename);
-
-    if (file.size() == 0) {
-        Serial.print("opened a file with size 0??\n");
-        return false;
-    }
-
-    if (filename->endsWith(".bmp") || filename->endsWith(".BMP")) {
-        struct BitmapFileHeader hdr;
-        file.read((uint8_t*)&hdr, sizeof(hdr));
-        if (hdr.width == 296 && hdr.height == 128) {
-            //sorry, can't rotate
-            Serial.println("when using BMP files, remember to only use 128px width and 296px height");
-            wsErr("when using BMP files, remember to only use 128px width and 296px height");
-            return false;
-        }
-        if (hdr.sig[0] == 'B' && hdr.sig[1] == 'M' && hdr.bpp == 24) {
-            Serial.println("converting 24bpp bmp to grays");
-            char fileout[64];
-            sprintf(fileout, "/temp/%02X%02X%02X%02X%02X%02X.bmp\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-            bmp2grays(*filename,(String)fileout);
-            *filename = (String)fileout;
-            file.close();
-            file = LittleFS.open(*filename);
-        }
-    }
-
-    if (filename->endsWith(".jpg") || filename->endsWith(".JPG")) {
-        Serial.println("converting jpg to grays");
-        char fileout[64];
-        sprintf(fileout, "/temp/%02X%02X%02X%02X%02X%02X.bmp\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        jpg2grays(*filename, (String)fileout);
-        *filename = (String)fileout;
-        file.close();
-        file = LittleFS.open(*filename);
-    }
-
-    uint8_t md5bytes[16];
-    {
-        MD5Builder md5;
-        md5.begin();
-        md5.addStream(file, file.size());
-        md5.calculate();
-        md5.getBytes(md5bytes);
-    }
-
-    uint16_t attempts = 60 * 24;
-    uint8_t lut = EPD_LUT_NO_REPEATS;
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)dst));
     uint8_t mac[6];
     memcpy(mac, src + 2, sizeof(mac));
     tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(mac);
-    if (taginfo != nullptr) {
+    if (taginfo == nullptr) {
+        wsErr("Tag not found, this shouldn't happen.");
+        return true;
+    }
 
-        if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
-            wsLog("new image is the same as current or already pending image. not updating tag.");
-            wsSendTaginfo(mac);
-            return true;
+    *filename = "/" + *filename;
+    LittleFS.begin();
+
+    if (!LittleFS.exists(*filename)) {
+        wsErr("File not found. " + *filename);
+        return false;
+    }
+
+    fs::File file = LittleFS.open(*filename);
+    uint32_t filesize = file.size();
+    if (filesize == 0) {
+        file.close();
+        wsErr("File has size 0. " + *filename);
+        return false;
+    }
+
+    uint8_t md5bytes[16];
+    {
+        MD5Builder md5;
+        md5.begin();
+        md5.addStream(file, filesize);
+        md5.calculate();
+        md5.getBytes(md5bytes);
+    }
+
+    file.close();
+    uint16_t attempts = 60 * 24;
+    uint8_t lut = EPD_LUT_NO_REPEATS;
+
+    if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
+        wsLog("new image is the same as current or already pending image. not updating tag.");
+        wsSendTaginfo(mac);
+        return true;
+    }
+
+    time_t now;
+    time(&now);
+    time_t last_midnight = now - now % (24 * 60 * 60) + 3 * 3600;  // somewhere in the middle of the night
+    if (taginfo->lastfullupdate < last_midnight) {
+        lut = EPD_LUT_DEFAULT;  // full update once a day
+        taginfo->lastfullupdate = now;
+    }
+
+    if (dataType != DATATYPE_FW_UPDATE) {
+
+        char dst_path[64];
+        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+        if (LittleFS.exists(dst_path)) {
+            LittleFS.remove(dst_path);
         }
+        LittleFS.rename(*filename, dst_path);
+        *filename = String(dst_path);
 
+        wsLog("new image pending: " + String(dst_path));
         time_t now;
         time(&now);
-        time_t last_midnight = now - now % (24 * 60 * 60) + 3 * 3600;  // somewhere in the middle of the night
-        if (taginfo->lastfullupdate < last_midnight) {
-            lut = EPD_LUT_DEFAULT;  // full update once a day
-            taginfo->lastfullupdate = now;
-        }
+        taginfo->pending = true;
+        taginfo->expectedNextCheckin = now + nextCheckin * 60 + 60;
+        memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
+
     } else {
-        wsErr("Tag not found, this shouldn't happen.");
+        wsLog("firmware upload pending");
     }
 
     // the message that will be sent to the AP to tell the tag there is data pending
@@ -155,7 +154,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     memcpy(pending.targetMac, dst, 8);
     pending.availdatainfo.dataType = dataType;
     pending.availdatainfo.dataVer = *((uint64_t*)md5bytes);
-    pending.availdatainfo.dataSize = file.size();
+    pending.availdatainfo.dataSize = filesize;
     pending.availdatainfo.dataTypeArgument = lut;
     pending.availdatainfo.nextCheckIn = nextCheckin;
     pending.attemptsLeft = attempts;
@@ -169,35 +168,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pendinginfo->len = pending.availdatainfo.dataSize;
     pendinginfo->data = nullptr;
     pendinginfo->timeout = PENDING_TIMEOUT;
-    //pendinginfo->data = getDataForFile(&file);
     pendingfiles.push_back(pendinginfo);
-
-    if (dataType != DATATYPE_UPDATE) {
-        char dst_path[64];
-        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        fs::File dstfile = LittleFS.open(dst_path, "w");
-        //int bytes_written = dstfile.write(pendinginfo->data, pendinginfo->len);
-        file.seek(0);
-        const int chunkSize = 512;
-        uint8_t buffer[chunkSize];
-        size_t bytesRead = 0;
-        while ((bytesRead = file.read(buffer, chunkSize)) > 0) {
-            dstfile.write(buffer, bytesRead);
-        }
-        dstfile.close();
-
-        wsLog("new image pending: " + String(dst_path));
-        if (taginfo != nullptr) {
-            time_t now;
-            time(&now);
-            taginfo->pending = true;
-            taginfo->expectedNextCheckin = now + nextCheckin * 60 + 60;
-            memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
-        }
-    } else {
-        wsLog("firmware upload pending");
-    }
-    file.close();
 
     wsSendTaginfo(mac);
 
@@ -229,7 +200,7 @@ void processBlockRequest(struct espBlockRequest* br) {
             file.close();
         } else {
             // file is already cached, refresh the timeout
-            pd->datatimeout = PENDING_DATA_TIMEOUT;
+            //pd->datatimeout = PENDING_DATA_TIMEOUT;
         }
     }
     // check if we're not exceeding max blocks (to prevent sendBlock from exceeding its boundary)
@@ -241,11 +212,11 @@ void processBlockRequest(struct espBlockRequest* br) {
 
     uint32_t len = pd->len - (BLOCK_DATA_SIZE * br->blockId);
     if (len > BLOCK_DATA_SIZE) len = BLOCK_DATA_SIZE;
-    sendBlock(pd->data + (br->blockId * BLOCK_DATA_SIZE), len);
-    char buffer[64];
-    sprintf(buffer, "< Block Request received for MD5 %llu, block %d\n\0", br->ver, br->blockId);
+    uint16_t checksum = sendBlock(pd->data + (br->blockId * BLOCK_DATA_SIZE), len);
+    char buffer[150];
+    sprintf(buffer, "< Block Request received for file %s block %d, len %d checksum %u\0", pd->filename.c_str(), br->blockId, len, checksum);
     wsLog((String)buffer);
-    Serial.printf("<BlockId=%d\n", br->blockId);
+    Serial.printf("< Block Request received for MD5 %llu, file %s block %d, len %d checksum %u\n", br->ver, pd->filename.c_str(), br->blockId, len, checksum);
 }
 
 void processXferComplete(struct espXferComplete* xfc) {
@@ -260,10 +231,8 @@ void processXferComplete(struct espXferComplete* xfc) {
 
     char src_path[64];
     char dst_path[64];
-    char tmp_path[64];
     sprintf(src_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", src[2], src[3], src[4], src[5], src[6], src[7]);
-    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.bmp\0", src[2], src[3], src[4], src[5], src[6], src[7]);
-    sprintf(tmp_path, "/temp/%02X%02X%02X%02X%02X%02X.bmp\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.raw\0", src[2], src[3], src[4], src[5], src[6], src[7]);
     if (LittleFS.exists(dst_path) && LittleFS.exists(src_path)) {
         LittleFS.remove(dst_path);
     }
@@ -271,9 +240,6 @@ void processXferComplete(struct espXferComplete* xfc) {
         LittleFS.rename(src_path, dst_path);
     } else {
         wsErr("hm, weird, no pending image found after xfercomplete.");
-    }
-    if (LittleFS.exists(tmp_path)) {
-        LittleFS.remove(tmp_path);
     }
 
     time_t now;
@@ -362,6 +328,11 @@ void processDataReq(struct espAvailDataReq* eadr) {
         taginfo->hwType = eadr->adr.hwType;
         taginfo->wakeupReason = eadr->adr.wakeupReason;
         taginfo->capabilities = eadr->adr.capabilities;
+        if (eadr->adr.wakeupReason == WAKEUP_REASON_FIRSTBOOT && !taginfo->pending) {
+            taginfo->nextupdate = 0;
+            memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
+            memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
+        }
     }
 
     sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);

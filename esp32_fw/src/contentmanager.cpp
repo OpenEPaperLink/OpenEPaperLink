@@ -58,7 +58,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", src[2], src[3], src[4], src[5], src[6], src[7]);
     String dst = (String)buffer;
 
-    String filename = "/" + dst + ".bmp";
+    String filename = "/" + dst + ".raw";
 
     struct tm time_info;
     getLocalTime(&time_info);
@@ -79,8 +79,9 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case Image:
 
             filename = cfgobj["filename"].as<String>();
+            //***FIXME... convert jpg to raw
             if (filename && filename !="null" && !cfgobj["#fetched"].as<bool>()) {
-                if (prepareDataAvail(&filename, DATATYPE_IMGRAW, mac, cfgobj["timetolive"].as<int>())) {
+                if (prepareDataAvail(&filename, DATATYPE_IMG_BMP, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
                 } else {
                     wsErr("Error accessing " + filename);
@@ -137,7 +138,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             filename = cfgobj["filename"].as<String>();
             if (filename && filename != "null" && !cfgobj["#fetched"].as<bool>()) {
-                if (prepareDataAvail(&filename, DATATYPE_UPDATE, mac, cfgobj["timetolive"].as<int>())) {
+                if (prepareDataAvail(&filename, DATATYPE_FW_UPDATE, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
                 } else {
                     wsErr("Error accessing " + filename);
@@ -183,7 +184,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 }
 
 bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin) {
-    prepareDataAvail(&filename, DATATYPE_IMGRAW, dst, nextCheckin);
+    prepareDataAvail(&filename, DATATYPE_IMG_RAW_2BPP, dst, nextCheckin);
     return true;
 }
 
@@ -229,13 +230,13 @@ void drawDate(String &filename, tagRecord *&taginfo) {
 
     } else if (taginfo->hwType == SOLUM_154_033) {
 
-        initSprite(spr, 154, 154);
-        drawString(spr, Dag[timeinfo.tm_wday], 154 / 2, 10, "fonts/calibrib30", TC_DATUM);
-        drawString(spr, String(Maand[timeinfo.tm_mon]), 154 / 2, 120, "fonts/calibrib30", TC_DATUM);
-        drawString(spr, String(timeinfo.tm_mday), 154 / 2, 42, "fonts/numbers2-1", TC_DATUM, TFT_RED);
+        initSprite(spr, 152, 152);
+        drawString(spr, Dag[timeinfo.tm_wday], 152 / 2, 10, "fonts/calibrib30", TC_DATUM);
+        drawString(spr, String(Maand[timeinfo.tm_mon]), 152 / 2, 120, "fonts/calibrib30", TC_DATUM);
+        drawString(spr, String(timeinfo.tm_mday), 152 / 2, 42, "fonts/numbers2-1", TC_DATUM, TFT_RED);
     }
 
-    spr2grays(spr, spr.width(), spr.height(), filename);
+    spr2buffer(spr, filename);
     spr.deleteSprite();
 }
 
@@ -263,7 +264,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
 
     } else if (taginfo->hwType == SOLUM_154_033) {
 
-        initSprite(spr, 154, 154);
+        initSprite(spr, 152, 152);
         spr.setTextDatum(MC_DATUM);
         if (count > thresholdred) {
             spr.setTextColor(TFT_RED, TFT_WHITE);
@@ -274,12 +275,12 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         if (count > 99) font = "fonts/numbers2-1";
         if (count > 999) font = "fonts/numbers3-1";
         spr.loadFont(font, LittleFS);
-        spr.drawString(String(count), 154 / 2, 154 / 2 + 10);
+        spr.drawString(String(count), 152 / 2, 152 / 2 + 10);
         spr.unloadFont();
 
     }
 
-    spr2grays(spr, spr.width(), spr.height(), filename);
+    spr2buffer(spr, filename);
     spr.deleteSprite();
 }
 
@@ -377,7 +378,7 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
 
             } else if (taginfo->hwType == SOLUM_154_033) {
 
-                initSprite(spr, 154, 154);
+                initSprite(spr, 152, 152);
                 spr.setTextDatum(TL_DATUM);
 
                 spr.setTextFont(2);
@@ -414,7 +415,7 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
 
             }
 
-            spr2grays(spr, spr.width(), spr.height(), filename);
+            spr2buffer(spr, filename);
             spr.deleteSprite();
         }
     }
@@ -517,7 +518,7 @@ void drawForecast(String &filename, String location, tagRecord *&taginfo) {
                 }
 
             }
-            spr2grays(spr, spr.width(), spr.height(), filename);
+            spr2buffer(spr, filename);
             spr.deleteSprite();
         }
     }
@@ -536,12 +537,12 @@ void drawIdentify(String &filename, tagRecord *&taginfo) {
         drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift20", TL_DATUM, TFT_RED);
 
     } else if (taginfo->hwType == SOLUM_154_033) {
-        initSprite(spr, 154, 154);
+        initSprite(spr, 152, 152);
         drawString(spr, taginfo->alias, 5, 5, "fonts/bahnschrift20");
         drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift20", TL_DATUM, TFT_RED);
     }
 
-    spr2grays(spr, spr.width(), spr.height(), filename);
+    spr2buffer(spr, filename);
     spr.deleteSprite();
 }
 
@@ -557,11 +558,11 @@ bool getImgURL(String &filename, String URL, time_t fetched) {
     http.setTimeout(5000);  //timeout in ms
     int httpCode = http.GET();
     if (httpCode == 200) {
-        File f = LittleFS.open(filename, "w");
+        File f = LittleFS.open("/temp/temp.jpg", "w");
         if (f) {
             http.writeToStream(&f);
             f.close();
-            jpg2grays(filename, filename);
+            jpg2buffer("/temp/temp.jpg", filename);
         }
     } else {
         if (httpCode!=304) { 
@@ -624,7 +625,7 @@ bool getRSSfeed(String &filename, String URL, String title, tagRecord *&taginfo)
         }
     }
 
-    spr2grays(spr, spr.width(), spr.height(), filename);
+    spr2buffer(spr, filename);
     spr.deleteSprite();
 
     return true;
