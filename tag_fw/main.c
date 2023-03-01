@@ -187,7 +187,6 @@ void main() {
     powerUp(INIT_EPD_VOLTREADING | INIT_TEMPREADING);
     powerDown(INIT_RADIO);
 
-
     powerUp(INIT_EEPROM);
     // get the highest slot number, number of slots
     initializeProto();
@@ -314,9 +313,9 @@ void main() {
 
             if ((!currentChannel && !noAPShown) || (lowBattery && !lowBatteryShown) || (scanAttempts == (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
                 powerUp(INIT_EPD);
+                wdt60s();
                 if (curImgSlot != 0xFF) {
                     powerUp(INIT_EEPROM);
-                    wdt60s();
                     drawImageFromEeprom(curImgSlot);
                     powerDown(INIT_EEPROM);
                 } else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {

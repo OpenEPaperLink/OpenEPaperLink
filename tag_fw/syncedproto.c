@@ -479,7 +479,7 @@ static bool getDataBlock(const uint16_t blockSize) {
         partsThisBlock = BLOCK_MAX_PARTS;
         memset(curBlock.requestedParts, 0xFF, BLOCK_REQ_PARTS_BYTES);
     } else {
-        partsThisBlock = blockSize / BLOCK_PART_DATA_SIZE;
+        partsThisBlock = (sizeof(struct blockData)+blockSize) / BLOCK_PART_DATA_SIZE;
         if (blockSize % BLOCK_PART_DATA_SIZE) partsThisBlock++;
         memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
         for (uint8_t c = 0; c < partsThisBlock; c++) {
