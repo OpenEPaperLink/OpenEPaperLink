@@ -71,6 +71,8 @@ void beginWriteFramebuffer(bool color);
 
 void lutTest();
 
+void epdTest();
+
 // for printf.c
 void writeCharEPD(uint8_t c);
 
