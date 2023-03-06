@@ -6,7 +6,6 @@
 #include "board.h"
 #include "cpu.h"
 #include "eeprom.h"
-//#include "epd.h"
 #include "screen.h"
 #include "printf.h"
 #include "proto.h"
