@@ -1,5 +1,3 @@
-#include "epd.h"
-
 #include <stdbool.h>
 #include <string.h>
 
@@ -7,6 +5,7 @@
 #include "barcode.h"
 #include "board.h"
 #include "cpu.h"
+#include "ssd1619.h"
 #include "font.h"
 #include "lut.h"
 #include "printf.h"
@@ -205,7 +204,7 @@ void epdConfigGPIO(bool setup) {
     // GENERIC SPI BUS PINS
     // spi.clk          0.0
     // spi.mosi         0.1
-    if(epdGPIOActive==setup)return;
+    if (epdGPIOActive == setup) return;
     if (setup) {
         P2DIR |= (1 << 1);                // busy as input
         P2DIR &= ~((1 << 2) | (1 << 0));  // D/C and Reset as output

@@ -36,6 +36,13 @@
         wdtOn();                    \
     } while (0)
 
+
+#define wdt120s()                    \
+    do {                            \
+        wdtSetResetVal(0xFF8E797F); \
+        wdtOn();                    \
+    } while (0)
+
 // power saving algorithm
 #define INTERVAL_BASE 40              // interval (in seconds) (when 1 packet is sent/received) for target current (7.2µA)
 #define INTERVAL_AT_MAX_ATTEMPTS 600  // interval (in seconds) (at max attempts) for target average current

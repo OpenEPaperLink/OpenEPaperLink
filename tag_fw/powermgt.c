@@ -12,7 +12,7 @@
 #include "cpu.h"
 #include "drawing.h"
 #include "eeprom.h"
-#include "epd.h"
+#include "screen.h"
 #include "i2c.h"
 #include "printf.h"
 #include "proto.h"
