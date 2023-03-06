@@ -187,7 +187,7 @@ static uint16_t __xdata fontCurXpos = 0;  // current X value we're working with
 static uint16_t __xdata fontCurYpos = 0;  // current Y value we're working with
 static uint8_t __xdata currentLut = 0;
 static uint8_t __xdata dispLutSize = 0;
-
+static bool __xdata drawDirection = false;
 static bool __xdata isInited = false;
 
 bool __xdata epdGPIOActive = false;
@@ -329,21 +329,31 @@ void epdConfigGPIO(bool setup) {
 void epdEnterSleep() {
     shortCommand1(CMD_VCOM_INTERVAL, 0x17);
     shortCommand1(CMD_VCOM_DC_SETTING, 0x00);
-    shortCommand(CMD_POWER_OFF);
-    epdWaitRdy();
+    // shortCommand(CMD_POWER_OFF);
+    // epdWaitRdy();
     shortCommand1(CMD_DEEP_SLEEP, 0xA5);
     isInited = false;
 }
+
+static void epdDrawDirection(bool direction) {
+    if (direction == drawDirection) return;
+
+    drawDirection = direction;
+
+    uint8_t psr_setting = RES_128x296 | FORMAT_BWR | BOOSTER_ON | RESET_NONE | LUT_OTP | SHIFT_RIGHT;
+    if (drawDirection) {
+        psr_setting |= SCAN_DOWN;
+    } else {
+        psr_setting |= SCAN_UP;
+    }
+    shortCommand1(CMD_PANEL_SETTING, psr_setting);
+}
+
 void epdSetup() {
     epdReset();
 
-    uint8_t psr_setting = RES_128x296 | FORMAT_BWR | BOOSTER_ON | RESET_NONE;
-
-    psr_setting |= LUT_OTP;
-
-    psr_setting |= SHIFT_RIGHT | SCAN_DOWN;
-
-    shortCommand1(CMD_PANEL_SETTING, psr_setting);
+    drawDirection = false;
+    epdDrawDirection(true);
 
     commandBegin(CMD_POWER_SETTING);
     epdSend(VDS_INTERNAL | VDG_INTERNAL);
@@ -371,9 +381,8 @@ void epdSetup() {
     shortCommand1(CMD_POWER_OFF_SEQUENCE, FRAMES_1);
     shortCommand1(CMD_TEMPERATURE_SELECT, TEMP_INTERNAL | OFFSET_0);
     shortCommand1(CMD_TCON_SETTING, 0x22);
-    shortCommand1(CMD_VCOM_INTERVAL, 0x87);  // 0b10'01'1100);
-    shortCommand1(CMD_PLL_CONTROL, HZ_100);
-    // shortCommand(POF);
+    shortCommand1(CMD_VCOM_INTERVAL, 0x8d);  // 0x87
+    shortCommand1(CMD_PLL_CONTROL, HZ_200);
     epdWaitRdy();
     shortCommand(CMD_POWER_ON);
     epdWaitRdy();
@@ -446,7 +455,9 @@ static void lutGroupRepeatReduce(uint8_t group, uint8_t factor) {
     }
 }
 void selectLUT(uint8_t lut) {
-    wdtSetResetVal(0xFFC73CBF);
+    // implement alternative LUTs here. Currently just reset the watchdog to two minutes,
+    // to ensure it doesn't reset during the much longer bootup procedure
+    wdtSetResetVal(0xFF8E797F);  // 120 s
     wdtOn();
     return;
 }
@@ -518,6 +529,7 @@ void epdWaitRdy() {
 }
 void beginFullscreenImage() {
     shortCommand(CMD_PARTIAL_OUT);
+    epdDrawDirection(false);
     // shortCommand1(CMD_DATA_ENTRY_MODE, 3);
     // setPosXY(0, 0);
 }
@@ -532,23 +544,30 @@ void beginWriteFramebuffer(bool color) {
 void endWriteFramebuffer() {
     commandEnd();
 }
-void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color) {
-    // this function is very badly hurt by the switch to UC8151, taking up LOTS of valuable idata space. fix me, or put me out of my misery
-    uint16_t __xdata xsize = bmp[0] / 8;
+
+void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color) __reentrant {
+    // this function is very badly hurt by the switch to UC8151, taking up LOTS of valuable idata space. Only defining variables
+    // as static, or the function as reentrant (relegating variables to the stack) seemed to fix the idata issue. Fix me, or put me out of my misery...
+
+    uint16_t xsize = bmp[0] / 8;
     if (bmp[0] % 8) xsize++;
-    uint16_t __xdata ysize = bmp[1];
-    uint16_t __xdata size = xsize * bmp[1];
+    uint16_t ysize = bmp[1];
+    uint16_t size = xsize * bmp[1];
 
     // shortCommand1(CMD_DATA_ENTRY_MODE, 3);
 
     bmp += 2;
 
-    uint16_t __xdata c = 0;
-    uint16_t __xdata curY = y;
+    uint16_t c = 0;
+    uint16_t curY = y;
     while (1) {
         if (c % xsize == 0) {
             commandEnd();
-            setWindowXY(x, x + xsize * 8, SCREEN_HEIGHT - curY - 1, SCREEN_HEIGHT - curY);
+            if (drawDirection) {
+                setWindowXY(x, x + xsize * 8, SCREEN_HEIGHT - curY - 1, SCREEN_HEIGHT - curY);
+            } else {
+                setWindowXY(x, x + xsize * 8, curY - 1, curY);
+            }
             curY++;
             if (color) {
                 commandBegin(CMD_DISPLAY_START_TRANSMISSION_DTM2);
@@ -762,6 +781,7 @@ void epdPrintEnd() {
     }
     commandEnd();
     shortCommand(CMD_PARTIAL_OUT);
+    epdDrawDirection(true);
 }
 
 extern uint8_t __xdata blockXferBuffer[];
