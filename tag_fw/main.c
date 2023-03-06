@@ -8,7 +8,7 @@
 #include "asmUtil.h"
 #include "comms.h"  // for mLastLqi and mLastRSSI
 #include "eeprom.h"
-#include "epd.h"
+#include "screen.h"
 #include "powermgt.h"
 #include "printf.h"
 #include "proto.h"

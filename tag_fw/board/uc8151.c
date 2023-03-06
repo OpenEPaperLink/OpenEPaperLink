@@ -1,4 +1,4 @@
-#include "epd.h"
+#include "uc8151.h"
 
 #include <stdbool.h>
 #include <string.h>
