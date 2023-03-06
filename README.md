@@ -11,6 +11,8 @@ It is currently compatible with the following tags:
 * 2.9"
 * 1.54"
 
+On the 2.9" tags, both the UC8151 and SSD1619 display variants are supported
+
 ### Aims
 - Low power (currently around 9µA with a minimum of 40 second latency)
 - Even lower power when there's no AP around
@@ -43,8 +45,6 @@ You can access the ESP32 with any web browser after connecting it to your WiFi N
 - Code cleanup... Splitting into different files, for instance. It's a mess.
 ### Tags:
 - Implement NFC for URL's
-- Implement battery reading
-- Implement RSSI/LQI to be sent to the AP
 ### AP:
 - Important! The AP needs to be able to tell a tag to try again later if it's already doing comms with another tag. The AP can't handle concurrent checkins/download due to memory constraints!
 - More reliable serial comms (sometimes bytes are dropped)
