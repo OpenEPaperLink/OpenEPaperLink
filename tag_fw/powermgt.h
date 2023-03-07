@@ -82,6 +82,8 @@ extern void initPowerSaving(const uint16_t initialValue);
 
 extern uint8_t __xdata wakeUpReason;
 
+extern uint8_t __xdata capabilities;
+
 extern uint16_t __xdata nextCheckInFromAP;
 extern uint8_t __xdata dataReqLastAttempt;
 extern int8_t __xdata temperature;

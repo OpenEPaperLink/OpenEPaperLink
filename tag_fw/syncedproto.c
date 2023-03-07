@@ -50,9 +50,6 @@ uint8_t __xdata currentChannel = 0;
 static uint8_t __xdata inBuffer[128] = {0};
 static uint8_t __xdata outBuffer[128] = {0};
 
-// get capabilities from main.c
-extern uint8_t __xdata capabilities;
-
 // tools
 static uint8_t __xdata getPacketType(const void *__xdata buffer) {
     const struct MacFcs *__xdata fcs = buffer;

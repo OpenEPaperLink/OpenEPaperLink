@@ -23,8 +23,6 @@
 
 // #define DEBUG_MODE
 
-uint8_t __xdata capabilities = 0;
-
 void displayLoop() {
     powerUp(INIT_BASE | INIT_UART);
 
@@ -180,16 +178,22 @@ void main() {
         }
     }
 
-    pr("BOOTED>  %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+    pr("BOOTED>  %d.%d.%d%s\n", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
 
 #ifdef HAS_BUTTON
     capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
 #endif
     powerUp(INIT_I2C);
-    if (i2cCheckDevice(0x55)){
+    if (i2cCheckDevice(0x55)) {
+        powerDown(INIT_I2C);
         capabilities |= CAPABILITY_HAS_NFC;
+        if (supportsNFCWake()) {
+            pr("This board supports NFC wake!\n");
+            capabilities |= CAPABILITY_NFC_WAKE;
+        }
+    } else {
+        powerDown(INIT_I2C);
     }
-    powerDown(INIT_I2C);
 
     pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
     pr("%02X%02X", mSelfMac[2], mSelfMac[3]);

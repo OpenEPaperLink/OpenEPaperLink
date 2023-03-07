@@ -39,6 +39,8 @@ bool __xdata lowBattery = false;
 uint16_t __xdata longDataReqCounter = 0;
 uint16_t __xdata voltageCheckCounter = 0;
 
+uint8_t __xdata capabilities = 0;
+
 bool __xdata spiActive = false;
 bool __xdata uartActive = false;
 bool __xdata eepromActive = false;
@@ -130,7 +132,7 @@ static void configI2C(const bool setup) {
         P1FUNC |= (1 << 4) | (1 << 5);
         P1PULL |= (1 << 4) | (1 << 5);
         i2cInit();
-        i2cCheckDevice(0x50); // first transaction after init fails, this makes sure everything is ready for the first transaction
+        i2cCheckDevice(0x50);  // first transaction after init fails, this makes sure everything is ready for the first transaction
     } else {
         P1DIR |= (1 << 6);
         P1_6 = 0;
@@ -259,13 +261,23 @@ void doSleep(const uint32_t __xdata t) {
 
 #ifdef HAS_BUTTON
     // Button setup on TEST pin 1.0 (input pullup)
-    P1FUNC &= ~(1 << 0);
-    P1DIR |= (1 << 0);
-    P1PULL |= (1 << 0);
-    P1LVLSEL |= (1 << 0);
-    P1INTEN = (1 << 0);
-    P1CHSTA &= ~(1 << 0);
+        P1FUNC &= ~(1 << 0);
+        P1DIR |= (1 << 0);
+        P1PULL |= (1 << 0);
+        P1LVLSEL |= (1 << 0);
+        P1INTEN = (1 << 0);
+        P1CHSTA &= ~(1 << 0);
 #endif
+
+    if (capabilities & CAPABILITY_NFC_WAKE) {
+        P1FUNC &= ~(1 << 3);
+        P1DIR |= (1 << 3);
+        P1PULL |= (1 << 3);
+        P1LVLSEL |= (1 << 3);
+        P1INTEN = (1 << 3);
+        P1CHSTA &= ~(1 << 3);
+    }
+
     // sleepy
     sleepForMsec(t);
 #ifdef HAS_BUTTON
@@ -273,6 +285,11 @@ void doSleep(const uint32_t __xdata t) {
     if (P1CHSTA && (1 << 0)) {
         wakeUpReason = WAKEUP_REASON_GPIO;
         P1CHSTA &= ~(1 << 0);
+    }
+
+    if (P1CHSTA && (1 << 3) && capabilities & CAPABILITY_NFC_WAKE) {
+        wakeUpReason = WAKEUP_REASON_NFC;
+        P1CHSTA &= ~(1 << 3);
     }
 #endif
 }

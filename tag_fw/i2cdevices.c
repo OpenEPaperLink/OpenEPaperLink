@@ -23,6 +23,24 @@ extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when don
 extern uint8_t __xdata blockXferBuffer[];
 __xdata uint8_t i2cbuffer[18];
 
+bool supportsNFCWake() {
+    P1PULL |= (1 << 3);
+    timerDelay(33300);  // wait 25 ms
+    uint32_t pcount = 0;
+    P1PULL &= ~(1 << 3);
+    while (P1_3 && pcount < 10000) {
+        pcount++;
+    }
+    if (pcount < 10000) {
+        // P1_3 (Field Detect) dropped to 'low' pretty fast, this means the load on this pin is high
+        pr("This tag currently does not support NFC wake, load on the FD pin (P1.3) is pretty high.\nOn some boards, a pull-up resistor backpowers the NFC IC. Consider removing it!\n");
+        return false;
+    } else {
+        // No reason to believe this pin is currently loaded down severely
+        return true;
+    }
+}
+
 void loadRawNTag(uint16_t blocksize) {
     struct I2cTransaction __xdata i2ctrans;
     if (blocksize > 864) blocksize = 864;
