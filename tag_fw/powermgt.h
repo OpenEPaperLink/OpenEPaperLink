@@ -11,7 +11,7 @@
 
 #define INIT_EPD_VOLTREADING 0x80
 #define INIT_RADIO 0x40
-#define INIT_GPIO 0x20
+#define INIT_I2C 0x20
 #define INIT_UART 0x10
 #define INIT_EPD 0x08
 #define INIT_EEPROM 0x04

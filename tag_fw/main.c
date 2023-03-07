@@ -8,11 +8,13 @@
 #include "asmUtil.h"
 #include "comms.h"  // for mLastLqi and mLastRSSI
 #include "eeprom.h"
-#include "screen.h"
+#include "i2c.h"
+#include "i2cdevices.h"
 #include "powermgt.h"
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
+#include "screen.h"
 #include "settings.h"
 #include "syncedproto.h"
 #include "timer.h"
@@ -21,8 +23,10 @@
 
 // #define DEBUG_MODE
 
+uint8_t __xdata capabilities = 0;
+
 void displayLoop() {
-    powerUp(INIT_BASE | INIT_UART | INIT_GPIO);
+    powerUp(INIT_BASE | INIT_UART);
 
     pr("Splash screen\n");
     powerUp(INIT_EPD);
@@ -177,6 +181,15 @@ void main() {
     }
 
     pr("BOOTED>  %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+
+#ifdef HAS_BUTTON
+    capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
+#endif
+    powerUp(INIT_I2C);
+    if (i2cCheckDevice(0x55)){
+        capabilities |= CAPABILITY_HAS_NFC;
+    }
+    powerDown(INIT_I2C);
 
     pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
     pr("%02X%02X", mSelfMac[2], mSelfMac[3]);

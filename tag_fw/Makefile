@@ -5,7 +5,7 @@ BUILD		?= zbs29v033
 SOURCES		+= main.c eeprom.c drawing.c
 SOURCES		+= comms.c
 SOURCES		+= syncedproto.c userinterface.c
-SOURCES		+= powermgt.c barcode.c
+SOURCES		+= powermgt.c barcode.c i2cdevices.c
 
 all:	#make sure it is the first target
 
