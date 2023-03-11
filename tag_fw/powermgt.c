@@ -12,11 +12,12 @@
 #include "cpu.h"
 #include "drawing.h"
 #include "eeprom.h"
-#include "screen.h"
 #include "i2c.h"
+#include "i2cdevices.h"
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
+#include "screen.h"
 #include "settings.h"
 #include "sleep.h"
 #include "syncedproto.h"
@@ -38,10 +39,12 @@ bool __xdata lowBattery = false;
 uint16_t __xdata longDataReqCounter = 0;
 uint16_t __xdata voltageCheckCounter = 0;
 
+uint8_t __xdata capabilities = 0;
+
 bool __xdata spiActive = false;
 bool __xdata uartActive = false;
 bool __xdata eepromActive = false;
-
+bool __xdata i2cActive = false;
 extern int8_t adcSampleTemperature(void);  // in degrees C
 
 void setupPortsInitial() {
@@ -118,7 +121,27 @@ static void configEEPROM(const bool setup) {
     } else {
         P1DIR |= (1 << 1);
     }
-    setup == eepromActive;
+    setup == eepromActive;  // wtf, this does nothing.
+}
+
+static void configI2C(const bool setup) {
+    if (setup == i2cActive) return;
+    if (setup) {
+        P1DIR &= ~(1 << 6);
+        P1_6 = 1;
+        P1FUNC |= (1 << 4) | (1 << 5);
+        P1PULL |= (1 << 4) | (1 << 5);
+        i2cInit();
+        i2cCheckDevice(0x50);  // first transaction after init fails, this makes sure everything is ready for the first transaction
+    } else {
+        P1DIR |= (1 << 6);
+        P1_6 = 0;
+        P1FUNC &= ~((1 << 4) | (1 << 5));
+        P1PULL &= ~((1 << 4) | (1 << 5));
+        CLKEN &= ~0x10;
+        IEN1 &= ~4;
+    }
+    i2cActive = setup;
 }
 
 void powerUp(const uint8_t parts) {
@@ -171,13 +194,16 @@ void powerUp(const uint8_t parts) {
             radioSetChannel(RADIO_FIRST_CHANNEL);
         }
     }
+    if (parts & INIT_I2C) {
+        configI2C(true);
+    }
 }
 
 void powerDown(const uint8_t parts) {
     if (parts & INIT_UART) {
         configUART(false);
     }
-    if (parts & INIT_RADIO) { // warning; this also touches some stuff about the EEPROM, apparently. Re-init EEPROM afterwards
+    if (parts & INIT_RADIO) {  // warning; this also touches some stuff about the EEPROM, apparently. Re-init EEPROM afterwards
         radioRxEnable(false, true);
         RADIO_IRQ4_pending = 0;
         UNK_C1 &= ~0x81;
@@ -200,6 +226,9 @@ void powerDown(const uint8_t parts) {
     }
     if (!eepromActive && !epdGPIOActive) {
         configSPI(false);
+    }
+    if (parts & INIT_I2C) {
+        configI2C(false);
     }
 }
 
@@ -232,13 +261,23 @@ void doSleep(const uint32_t __xdata t) {
 
 #ifdef HAS_BUTTON
     // Button setup on TEST pin 1.0 (input pullup)
-    P1FUNC &= ~(1 << 0);
-    P1DIR |= (1 << 0);
-    P1PULL |= (1 << 0);
-    P1LVLSEL |= (1 << 0);
-    P1INTEN = (1 << 0);
-    P1CHSTA &= ~(1 << 0);
+        P1FUNC &= ~(1 << 0);
+        P1DIR |= (1 << 0);
+        P1PULL |= (1 << 0);
+        P1LVLSEL |= (1 << 0);
+        P1INTEN = (1 << 0);
+        P1CHSTA &= ~(1 << 0);
 #endif
+
+    if (capabilities & CAPABILITY_NFC_WAKE) {
+        P1FUNC &= ~(1 << 3);
+        P1DIR |= (1 << 3);
+        P1PULL |= (1 << 3);
+        P1LVLSEL |= (1 << 3);
+        P1INTEN = (1 << 3);
+        P1CHSTA &= ~(1 << 3);
+    }
+
     // sleepy
     sleepForMsec(t);
 #ifdef HAS_BUTTON
@@ -246,6 +285,11 @@ void doSleep(const uint32_t __xdata t) {
     if (P1CHSTA && (1 << 0)) {
         wakeUpReason = WAKEUP_REASON_GPIO;
         P1CHSTA &= ~(1 << 0);
+    }
+
+    if (P1CHSTA && (1 << 3) && capabilities & CAPABILITY_NFC_WAKE) {
+        wakeUpReason = WAKEUP_REASON_NFC;
+        P1CHSTA &= ~(1 << 3);
     }
 #endif
 }

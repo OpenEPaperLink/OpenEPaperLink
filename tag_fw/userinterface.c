@@ -20,6 +20,7 @@
 #include "spi.h"
 #include "syncedproto.h"  // for APmac / Channel
 #include "timer.h"
+#include "proto.h"
 
 // extern uint8_t __xdata mSelfMac[8];
 // extern uint8_t __xdata currentChannel;
@@ -29,8 +30,20 @@
 const uint8_t __code fwVersion = FW_VERSION;
 const char __code fwVersionSuffix[] = FW_VERSION_SUFFIX;
 
+extern uint8_t __xdata capabilities;
+
 bool __xdata lowBatteryShown = false;
 bool __xdata noAPShown = false;
+
+void addCapabilities() {
+    epdpr("Options: ");
+    if (capabilities & CAPABILITY_HAS_NFC) {
+        epdpr("-NFC ");
+    }
+    if (capabilities & CAPABILITY_HAS_WAKE_BUTTON) {
+        epdpr("-WAKE BUTTON" );
+    }
+}
 
 void addOverlay() {
     if (currentChannel == 0) {
@@ -83,6 +96,10 @@ void showSplashScreen() {
     epdpr("%02X%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 
+    epdPrintBegin(2, 104, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    addCapabilities();
+    epdPrintEnd();
+
     epdPrintBegin(2, 120, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("zbs154v033 %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
     epdPrintEnd();
@@ -95,6 +112,11 @@ void showSplashScreen() {
     epdpr("Starting");
     epdPrintEnd();
 
+
+    epdPrintBegin(64, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    addCapabilities();
+    epdPrintEnd();
+
     epdPrintBegin(80, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("zbs29v033 %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
     epdPrintEnd();
@@ -105,6 +127,7 @@ void showSplashScreen() {
     epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
     epdpr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
+
 
     uint8_t __xdata buffer[17];
     spr(buffer, "%02X%02X", mSelfMac[7], mSelfMac[6]);
@@ -124,6 +147,10 @@ void showSplashScreen() {
 #if (SCREEN_WIDTH == 400)  // 4.2"
     epdPrintBegin(3, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("Starting");
+    epdPrintEnd();
+
+    epdPrintBegin(2, 252, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    addCapabilities();
     epdPrintEnd();
 
     epdPrintBegin(3, 268, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
@@ -421,7 +448,7 @@ void showNoEEPROM() {
     epdPrintEnd();
 #endif
 #if (SCREEN_WIDTH == 400)  // 4.2"
-    epdPrintBegin(50 , 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdPrintBegin(50, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("EEPROM FAILED :(");
     epdPrintEnd();
     loadRawBitmap(failed, 176, 126, EPD_COLOR_RED);
