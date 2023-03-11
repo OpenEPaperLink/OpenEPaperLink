@@ -18,12 +18,12 @@
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
+#include "screen.h"
 #include "settings.h"
 #include "sleep.h"
 #include "timer.h"
 #include "userinterface.h"
 #include "wdt.h"
-#include "screen.h"
 
 // download-stuff
 uint8_t __xdata blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
@@ -45,6 +45,9 @@ uint16_t __xdata APsrcPan = 0;
 uint8_t __xdata mSelfMac[8] = {0};
 static uint8_t __xdata seq = 0;
 uint8_t __xdata currentChannel = 0;
+
+// check if we're in event mode
+bool __xdata eventModeActive = false;
 
 // buffer we use to prepare/read packets
 static uint8_t __xdata inBuffer[128] = {0};
@@ -147,6 +150,12 @@ uint8_t detectAP(const uint8_t channel) {
                         struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)inBuffer;
                         memcpy(APmac, f->src, 8);
                         APsrcPan = f->pan;
+                        return c;
+                    }
+                }
+                if (getPacketType(inBuffer) == PKT_EVENT_PONG) {
+                    if (pktIsUnicast(inBuffer)) {
+                        eventModeActive = true;
                         return c;
                     }
                 }
@@ -479,7 +488,7 @@ static bool getDataBlock(const uint16_t blockSize) {
         partsThisBlock = BLOCK_MAX_PARTS;
         memset(curBlock.requestedParts, 0xFF, BLOCK_REQ_PARTS_BYTES);
     } else {
-        partsThisBlock = (sizeof(struct blockData)+blockSize) / BLOCK_PART_DATA_SIZE;
+        partsThisBlock = (sizeof(struct blockData) + blockSize) / BLOCK_PART_DATA_SIZE;
         if (blockSize % BLOCK_PART_DATA_SIZE) partsThisBlock++;
         memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
         for (uint8_t c = 0; c < partsThisBlock; c++) {
@@ -698,7 +707,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             }
             xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
             if (avail->dataSize > 4096) avail->dataSize = 4096;
-            
+
             if (getDataBlock(avail->dataSize)) {
                 powerUp(INIT_RADIO);
                 sendXferComplete();
@@ -799,4 +808,100 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
 void initializeProto() {
     getNumSlots();
     curHighSlotId = getHighSlotId();
+}
+
+// event mode
+#define EVENT_AP_TIME 10
+#define RAW_PKT_PADDING 2
+#define EVENT_PKT_SIZE 100
+#define EVENT_DATA_REQ_RX_WINDOW_SIZE 10
+
+static void sendEventPong(const void *__xdata buf) {
+    struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
+    struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(outBuffer + 1);
+    outBuffer[sizeof(struct MacFrameNormal) + 1] = PKT_EVENT_PONG;
+    outBuffer[0] = sizeof(struct MacFrameNormal) + 1 + RAW_PKT_PADDING;
+    memcpy(frameHeader->src, mSelfMac, 8);
+    memcpy(frameHeader->dst, rxframe->src, 8);
+    outBuffer[1] = 0x41;  // fast way to set the appropriate bits
+    outBuffer[2] = 0xCC;  // normal frame
+    frameHeader->seq = seq++;
+    frameHeader->pan = rxframe->srcPan;
+    radioTx(outBuffer);
+}
+static void sendEventDataReply(const void *__xdata buf) {
+    struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
+    struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(outBuffer + 1);
+    struct eventData *eventData = (struct eventData *)(outBuffer + sizeof(struct MacFrameNormal) + 2);
+    memset(outBuffer + 1, 0, sizeof(struct eventData) + sizeof(struct MacFrameNormal));
+    outBuffer[sizeof(struct MacFrameNormal) + 1] = PKT_EVENT_DATA;
+    outBuffer[0] = sizeof(struct MacFrameNormal) + sizeof(struct eventData) + EVENT_PKT_SIZE + 1 + RAW_PKT_PADDING;
+    memcpy(frameHeader->src, mSelfMac, 8);
+    memcpy(frameHeader->dst, rxframe->src, 8);
+    memcpy(eventData, blockXferBuffer, sizeof(struct eventData) + EVENT_PKT_SIZE);
+    addCRC(eventData, sizeof(struct eventData) + EVENT_PKT_SIZE);
+    frameHeader->fcs.frameType = 1;
+    frameHeader->fcs.panIdCompressed = 1;
+    frameHeader->fcs.destAddrType = 3;
+    frameHeader->fcs.srcAddrType = 3;
+    frameHeader->seq = seq++;
+    frameHeader->pan = rxframe->srcPan;
+    radioTx(outBuffer);
+}
+void eventAPMode() {
+    radioRxEnable(true, true);
+    uint32_t __xdata APTime = timerGet();
+    while ((timerGet() - APTime) < (TIMER_TICKS_PER_SECOND * EVENT_AP_TIME)) {
+        int8_t ret = commsRxUnencrypted(inBuffer);
+        if (ret > 1) {
+            // received a packet, lets see what it is
+            switch (getPacketType(inBuffer)) {
+                case PKT_PING:
+                    pr("pong rx\n");
+                    sendEventPong(inBuffer);
+                    break;
+                case PKT_EVENT_DATA_REQ:
+                    pr("event data reply\n");
+                    sendEventDataReply(inBuffer);
+                    break;
+            }
+        }
+    }
+}
+static void sendEventDataReq() {
+    struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer + 1);
+    memset(outBuffer, 0, sizeof(struct MacFrameBcast) + sizeof(struct AvailDataReq) + 2 + 4);
+    outBuffer[0] = sizeof(struct MacFrameBcast) + 2 + 2;
+    outBuffer[sizeof(struct MacFrameBcast) + 1] = PKT_EVENT_DATA_REQ;
+    memcpy(txframe->src, mSelfMac, 8);
+    txframe->fcs.frameType = 1;
+    txframe->fcs.ackReqd = 1;
+    txframe->fcs.destAddrType = 2;
+    txframe->fcs.srcAddrType = 3;
+    txframe->seq = seq++;
+    txframe->dstPan = PROTO_PAN_ID;
+    txframe->dstAddr = 0xFFFF;
+    txframe->srcPan = PROTO_PAN_ID;
+    commsTxNoCpy(outBuffer);
+}
+struct eventData *__xdata getEventData() {
+    radioRxEnable(true, true);
+    uint32_t __xdata t;
+    for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
+        sendEventDataReq();
+        t = timerGet() + (TIMER_TICKS_PER_MS * EVENT_DATA_REQ_RX_WINDOW_SIZE);
+        while (timerGet() < t) {
+            int8_t __xdata ret = commsRxUnencrypted(inBuffer);
+            if (ret > 1) {
+                if (getPacketType(inBuffer) == PKT_EVENT_DATA) {
+                    if (checkCRC(inBuffer + sizeof(struct MacFrameNormal) + 1, sizeof(struct eventData) + EVENT_PKT_SIZE)) {
+                        struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)inBuffer;
+                        memcpy(blockXferBuffer, inBuffer + sizeof(struct MacFrameNormal) + 1, 128);
+                        return (struct eventData *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
+                    }
+                }
+            }
+        }
+    }
+    return NULL;
 }

@@ -21,4 +21,10 @@ extern bool processAvailDataInfo(struct AvailDataInfo *__xdata avail);
 extern void initializeProto();
 extern uint8_t detectAP(const uint8_t channel);
 
+
+extern uint8_t __xdata eventDataID;
+extern bool __xdata eventModeActive;
+struct eventData *__xdata getEventData();
+void eventAPMode();
+
 #endif

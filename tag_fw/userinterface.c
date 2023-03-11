@@ -63,6 +63,29 @@ void addOverlay() {
     }
 }
 
+void eventUpdateScreen() {
+    selectLUT(EPD_LUT_FAST_NO_REDS);
+    clearScreen();
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+    loadRawBitmap(hackaday, 0, 0, EPD_COLOR_BLACK);
+    drawNoWait();
+}
+
+extern uint8_t __xdata blockXferBuffer[];
+
+void eventScreen() {
+    selectLUT(EPD_LUT_NO_REPEATS);
+    clearScreen();
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+    loadRawBitmap(hadberlin, 0, 0, EPD_COLOR_BLACK);
+
+    epdPrintBegin(2, 120, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("ID=%d",blockXferBuffer[1]);
+    epdPrintEnd();
+
+    drawWithSleep();
+}
+
 void showSplashScreen() {
     selectLUT(EPD_LUT_NO_REPEATS);
     clearScreen();
@@ -421,7 +444,7 @@ void showNoEEPROM() {
     epdPrintEnd();
 #endif
 #if (SCREEN_WIDTH == 400)  // 4.2"
-    epdPrintBegin(50 , 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdPrintBegin(50, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("EEPROM FAILED :(");
     epdPrintEnd();
     loadRawBitmap(failed, 176, 126, EPD_COLOR_RED);

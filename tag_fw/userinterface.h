@@ -14,6 +14,11 @@ void showLongTermSleep();
 void showNoEEPROM();
 void showNoMAC();
 
+void eventUpdateScreen();
+void eventScreen();
+
+
+
 extern const uint8_t __code fwVersion;
 extern const char __code fwVersionSuffix[];
 extern bool __xdata lowBatteryShown;

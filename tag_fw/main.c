@@ -8,11 +8,11 @@
 #include "asmUtil.h"
 #include "comms.h"  // for mLastLqi and mLastRSSI
 #include "eeprom.h"
-#include "screen.h"
 #include "powermgt.h"
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
+#include "screen.h"
 #include "settings.h"
 #include "syncedproto.h"
 #include "timer.h"
@@ -21,8 +21,26 @@
 
 // #define DEBUG_MODE
 
+void eventMode();
+
 void displayLoop() {
-    powerUp(INIT_BASE | INIT_UART | INIT_GPIO);
+    while (1) {
+        wdt120s();
+        pr("Splash screen\n");
+        powerUp(INIT_EPD);
+        showSplashScreen();
+        timerDelay(TIMER_TICKS_PER_SECOND * 4);
+        wdt120s();
+        pr("Event screen1\n");
+        powerUp(INIT_EPD);
+        eventUpdateScreen();
+        timerDelay(TIMER_TICKS_PER_SECOND * 4);
+        wdt120s();
+        pr("Event screen2\n");
+        powerUp(INIT_EPD);
+        eventScreen();
+        timerDelay(TIMER_TICKS_PER_SECOND * 4);
+    }
 
     pr("Splash screen\n");
     powerUp(INIT_EPD);
@@ -98,6 +116,13 @@ uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
                 if (mLastLqi > result[c - 11]) result[c - 11] = mLastLqi;
                 pr("Channel: %d - LQI: %d RSSI %d\n", c, mLastLqi, mLastRSSI);
             }
+            if (eventModeActive) {
+                // if event mode became active, skip the rest of the scan and go straight to event mode
+                epdWaitRdy();
+                powerDown(INIT_RADIO);
+                // skip the rest of the scan if
+                return c;
+            }
         }
         epdWaitRdy();
         for (uint8_t c = 0; c < 16; c++) {
@@ -142,9 +167,10 @@ uint8_t channelSelect() {  // returns 0 if no accesspoints were found
 }
 
 void main() {
-    // displayLoop();  // remove me
     setupPortsInitial();
     powerUp(INIT_BASE | INIT_UART);
+
+    // displayLoop();  // remove me
 
     if (RESET & 0x01) {
         wakeUpReason = WAKEUP_REASON_WDT_RESET;
@@ -194,6 +220,7 @@ void main() {
 
     // show the splashscreen
     powerUp(INIT_EPD);
+
     showSplashScreen();
 
     powerUp(INIT_EPD);
@@ -201,6 +228,11 @@ void main() {
     currentChannel = showChannelSelect();
 
     wdt10s();
+
+    if (eventModeActive) {
+        // skip straight to event mode
+        eventMode();
+    }
 
     if (currentChannel) {
         showAPFound();
@@ -220,7 +252,7 @@ void main() {
         if (currentChannel) {
             // associated
 
-            struct AvailDataInfo *__xdata avail;
+            struct AvailDataInfo* __xdata avail;
             // Is there any reason why we should do a long (full) get data request (including reason, status)?
             if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
                 // check if we should do a voltage measurement (those are pretty expensive)
@@ -339,5 +371,75 @@ void main() {
                 doSleep(getNextScanSleep(true) * 1000UL);
             }
         }
+    }
+}
+
+#define EVENT_POLL_INTERVAL 5000
+uint8_t __xdata eventDataID = 0;
+
+void eventMode() {
+    powerUp(INIT_EPD);
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+    selectLUT(EPD_LUT_FAST_NO_REDS);
+    clearScreen();
+    epdPrintBegin(0, 60, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("EventMode");
+    epdPrintEnd();
+    drawWithSleep();
+    powerDown(INIT_EPD);
+
+    doSleep(1000);
+
+    uint16_t __xdata failedCount = 0;
+
+    // display welcome!
+
+    while (failedCount < 17280) {  // 24 hours at 5 second intervals
+        wdt10s();
+        powerUp(INIT_RADIO | INIT_UART);
+        struct eventData* __xdata ed = getEventData();
+        powerDown(INIT_RADIO);
+
+        if (ed == NULL) {
+            failedCount++;
+        } else {
+            // eventdata is copied to blockXferBuffer, gets picked up from
+            failedCount = 0;
+
+            // check if should display this data, and make it available to other tags
+            if ((ed->eventDataID > eventDataID) || (ed->eventDataID - eventDataID > 128)) {
+                eventDataID = ed->eventDataID;
+
+                // display event logo while we run the AP (we could just skip straight to showing the data, but where's the fun in that)
+                powerUp(INIT_EPD);
+                eventUpdateScreen();
+
+                wdt30s();
+                // enter AP mode
+                pr("AP enabled\n");
+                powerUp(INIT_RADIO);
+                eventAPMode();
+                powerDown(INIT_RADIO);
+                pr("AP disabled\n");
+
+                // for good measure, check if the EPD was ready with the picture
+                epdWaitRdy();
+
+                wdt10s();
+                // display new data
+                eventScreen();
+                powerDown(INIT_EPD);
+            } else {
+                // ignore
+            }
+        }
+        doSleep(EVENT_POLL_INTERVAL);
+    }
+
+    // display thank you blah
+
+    while (1) {
+        // sleep forever
+        doSleep(-1);
     }
 }

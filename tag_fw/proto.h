@@ -103,6 +103,10 @@ struct MacFrameBcast {
 #define PKT_PING 0xED
 #define PKT_PONG 0xEE
 
+#define PKT_EVENT_PONG 0xC1
+#define PKT_EVENT_DATA_REQ 0xC2
+#define PKT_EVENT_DATA 0xC3
+
 struct AvailDataReq {
     uint8_t checksum;
     uint8_t lastPacketLQI;
@@ -111,27 +115,25 @@ struct AvailDataReq {
     uint16_t batteryMv;
     uint8_t hwType;
     uint8_t wakeupReason;
-    uint8_t capabilities;        // undefined, as of now
+    uint8_t capabilities;  // undefined, as of now
 } __packed;
-
 
 #define DATATYPE_NOUPDATE 0
 #define DATATYPE_IMG_BMP 2
 #define DATATYPE_FW_UPDATE 3
-#define DATATYPE_IMG_DIFF 0x10  // always 1BPP
-#define DATATYPE_IMG_RAW_1BPP 0x20 // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
-#define DATATYPE_IMG_RAW_2BPP 0x21 // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2" 
-#define DATATYPE_IMG_RAW_1BPP_DIRECT 0x3F // only for 1.54", don't write to EEPROM, but straightaway to the EPD
+#define DATATYPE_IMG_DIFF 0x10             // always 1BPP
+#define DATATYPE_IMG_RAW_1BPP 0x20         // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
+#define DATATYPE_IMG_RAW_2BPP 0x21         // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2"
+#define DATATYPE_IMG_RAW_1BPP_DIRECT 0x3F  // only for 1.54", don't write to EEPROM, but straightaway to the EPD
 
 struct AvailDataInfo {
     uint8_t checksum;
-    uint64_t dataVer;              // MD5 of potential traffic
-    uint32_t dataSize;              
-    uint8_t dataType;          
+    uint64_t dataVer;  // MD5 of potential traffic
+    uint32_t dataSize;
+    uint8_t dataType;
     uint8_t dataTypeArgument;  // extra specification or instruction for the tag (LUT to be used for drawing image)
-    uint16_t nextCheckIn;          // when should the tag check-in again? Measured in minutes
+    uint16_t nextCheckIn;      // when should the tag check-in again? Measured in minutes
 } __packed;
-
 
 struct blockPart {
     uint8_t checksum;
@@ -149,6 +151,12 @@ struct blockData {
 struct burstMacData {
     uint16_t offset;
     uint8_t targetMac[8];
+} __packed;
+
+struct eventData {
+    uint8_t checksum;
+    uint8_t eventDataID;
+    uint8_t data[];
 } __packed;
 
 #define BLOCK_PART_DATA_SIZE 99

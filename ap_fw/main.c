@@ -53,6 +53,16 @@ struct MacFrameBcast {
 #define PKT_PING 0xED
 #define PKT_PONG 0xEE
 
+#define PKT_EVENT_PONG 0xC1
+#define PKT_EVENT_DATA_REQ 0xC2
+#define PKT_EVENT_DATA 0xC3
+
+struct eventData {
+    uint8_t checksum;
+    uint8_t eventDataID;
+    uint8_t data[];
+} __packed;
+
 struct AvailDataReq {
     uint8_t checksum;
     uint8_t lastPacketLQI;
@@ -168,6 +178,9 @@ uint32_t __xdata nextBlockAttempt = 0;                // reference time for when
 uint8_t seq = 0;                                      // holds current sequence number for transmission
 uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];  // block transfer buffer
 uint8_t lastAckMac[8] = {0};
+
+uint8_t* eventDataBuffer = blockbuffer+1024;
+bool __xdata eventMode = true;
 
 // these variables hold the current mac were talking to
 #define CONCURRENT_REQUEST_DELAY 1200UL * TIMER_TICKS_PER_MS
@@ -643,7 +656,11 @@ void sendCancelXfer(uint8_t *dst) {
 void sendPong(void *__xdata buf) {
     struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
     struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
-    radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_PONG;
+    if (eventMode) {
+        radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_EVENT_PONG;
+    } else {
+        radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_PONG;
+    }
     radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + RAW_PKT_PADDING;
     memcpy(frameHeader->src, mSelfMac, 8);
     memcpy(frameHeader->dst, rxframe->src, 8);
@@ -653,6 +670,27 @@ void sendPong(void *__xdata buf) {
     frameHeader->pan = rxframe->srcPan;
     radioTx(radiotxbuffer);
 }
+
+#define EVENT_PKT_SIZE 100
+
+void sendEventData(void *__xdata buf) {
+    struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
+    struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
+    struct eventData *ed = (struct eventData *)(radiotxbuffer + sizeof(struct MacFrameNormal) + 2);
+    radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_EVENT_DATA;
+    radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + sizeof(struct eventData) + EVENT_PKT_SIZE + RAW_PKT_PADDING;
+    memcpy(ed, eventDataBuffer, sizeof(struct eventData) + EVENT_PKT_SIZE);
+    addCRC(ed, sizeof(struct eventData) + EVENT_PKT_SIZE);
+    memcpy(frameHeader->src, mSelfMac, 8);
+    memcpy(frameHeader->dst, rxframe->src, 8);
+    radiotxbuffer[1] = 0x41;  // fast way to set the appropriate bits
+    radiotxbuffer[2] = 0xCC;  // normal frame
+    frameHeader->seq = seq++;
+    frameHeader->pan = rxframe->srcPan;
+    radioTx(radiotxbuffer);
+}
+
+
 
 // main loop
 void main(void) {
@@ -714,6 +752,9 @@ void main(void) {
                         break;
                     case PKT_XFER_COMPLETE:
                         processXferComplete(radiorxbuffer);
+                        break;
+                    case PKT_EVENT_DATA_REQ:
+                        sendEventData(radiorxbuffer);
                         break;
                     case PKT_PING:
                         sendPong(radiorxbuffer);
