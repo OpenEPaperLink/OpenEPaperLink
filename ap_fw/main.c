@@ -179,8 +179,9 @@ uint8_t seq = 0;                                      // holds current sequence 
 uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];  // block transfer buffer
 uint8_t lastAckMac[8] = {0};
 
-uint8_t* eventDataBuffer = blockbuffer+1024;
-bool __xdata eventMode = true;
+#define EVENT_PKT_SIZE 100
+uint8_t *eventDataBuffer = blockbuffer + 1024;
+bool __xdata eventMode = false;
 
 // these variables hold the current mac were talking to
 #define CONCURRENT_REQUEST_DELAY 1200UL * TIMER_TICKS_PER_MS
@@ -296,6 +297,7 @@ void deleteAllPendingDataForVer(const uint8_t *ver) {
 #define ZBS_RX_WAIT_HEADER 0
 #define ZBS_RX_WAIT_SDA 1
 #define ZBS_RX_WAIT_CANCEL 2
+#define ZBS_RX_WAIT_EVENTD 3
 void processSerial(uint8_t lastchar) {
     // uartTx(lastchar); echo
     switch (RXState) {
@@ -311,6 +313,28 @@ void processSerial(uint8_t lastchar) {
                 serialbufferp = serialbuffer;
                 break;
             }
+
+            if (strncmp(cmdbuffer, "UED>", 4) == 0) {
+                RXState = ZBS_RX_WAIT_EVENTD;
+                bytesRemain = sizeof(struct eventData) + EVENT_PKT_SIZE;
+                serialbufferp = blockbuffer;
+                break;
+            }
+
+            if (strncmp(cmdbuffer, "EEM>", 4) == 0) {
+                // enter event mode
+                eventMode = true;
+                pr("ACK>");
+                break;
+            }
+
+            if (strncmp(cmdbuffer, "SEM>", 4) == 0) {
+                // disable event mode
+                eventMode = false;
+                pr("ACK>");
+                break;
+            }
+
             if (strncmp(cmdbuffer, "CXD>", 4) == 0) {
                 RXState = ZBS_RX_WAIT_CANCEL;
                 bytesRemain = sizeof(struct pendingData);
@@ -327,7 +351,20 @@ void processSerial(uint8_t lastchar) {
                 wdtDeviceReset();
             }
             break;
-
+        case ZBS_RX_WAIT_EVENTD:
+            *serialbufferp = lastchar;
+            serialbufferp++;
+            bytesRemain--;
+            if (bytesRemain == 0) {
+                if (checkCRC(blockbuffer, sizeof(struct eventData) + EVENT_PKT_SIZE)) {
+                    xMemCopyShort((void *)eventDataBuffer, blockbuffer, sizeof(struct eventData) + EVENT_PKT_SIZE);
+                    pr("ACK>\n");
+                } else {
+                    pr("NOK>\n");
+                }
+                RXState = ZBS_RX_WAIT_HEADER;
+            }
+            break;
         case ZBS_RX_WAIT_SDA:
             *serialbufferp = lastchar;
             serialbufferp++;
@@ -671,8 +708,6 @@ void sendPong(void *__xdata buf) {
     radioTx(radiotxbuffer);
 }
 
-#define EVENT_PKT_SIZE 100
-
 void sendEventData(void *__xdata buf) {
     struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
     struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
@@ -689,8 +724,6 @@ void sendEventData(void *__xdata buf) {
     frameHeader->pan = rxframe->srcPan;
     radioTx(radiotxbuffer);
 }
-
-
 
 // main loop
 void main(void) {
@@ -754,7 +787,7 @@ void main(void) {
                         processXferComplete(radiorxbuffer);
                         break;
                     case PKT_EVENT_DATA_REQ:
-                        sendEventData(radiorxbuffer);
+                        if (eventMode == true) sendEventData(radiorxbuffer);
                         break;
                     case PKT_PING:
                         sendPong(radiorxbuffer);
