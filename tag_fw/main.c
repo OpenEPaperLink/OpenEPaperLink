@@ -8,11 +8,13 @@
 #include "asmUtil.h"
 #include "comms.h"  // for mLastLqi and mLastRSSI
 #include "eeprom.h"
-#include "epd.h"
+#include "i2c.h"
+#include "i2cdevices.h"
 #include "powermgt.h"
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
+#include "screen.h"
 #include "settings.h"
 #include "syncedproto.h"
 #include "timer.h"
@@ -22,7 +24,7 @@
 // #define DEBUG_MODE
 
 void displayLoop() {
-    powerUp(INIT_BASE | INIT_UART | INIT_GPIO);
+    powerUp(INIT_BASE | INIT_UART);
 
     pr("Splash screen\n");
     powerUp(INIT_EPD);
@@ -141,7 +143,7 @@ uint8_t channelSelect() {  // returns 0 if no accesspoints were found
     return highestSlot;
 }
 
-void mainProtocolLoop(void) {
+void main() {
     // displayLoop();  // remove me
     setupPortsInitial();
     powerUp(INIT_BASE | INIT_UART);
@@ -176,15 +178,33 @@ void mainProtocolLoop(void) {
         }
     }
 
-    pr("BOOTED>  %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+    pr("BOOTED>  %d.%d.%d%s\n", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+
+#ifdef HAS_BUTTON
+    capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
+#endif
+    powerUp(INIT_I2C);
+    if (i2cCheckDevice(0x55)) {
+        powerDown(INIT_I2C);
+        capabilities |= CAPABILITY_HAS_NFC;
+        if (supportsNFCWake()) {
+            pr("This board supports NFC wake!\n");
+            capabilities |= CAPABILITY_NFC_WAKE;
+        }
+    } else {
+        powerDown(INIT_I2C);
+    }
 
     pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
     pr("%02X%02X", mSelfMac[2], mSelfMac[3]);
     pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
     pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
 
-    powerUp(INIT_EPD_VOLTREADING | INIT_TEMPREADING | INIT_EEPROM);
+    powerUp(INIT_RADIO);  // load down the battery using the radio to get a good voltage reading
+    powerUp(INIT_EPD_VOLTREADING | INIT_TEMPREADING);
+    powerDown(INIT_RADIO);
 
+    powerUp(INIT_EEPROM);
     // get the highest slot number, number of slots
     initializeProto();
     powerDown(INIT_EEPROM);
@@ -222,7 +242,9 @@ void mainProtocolLoop(void) {
             if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
                 // check if we should do a voltage measurement (those are pretty expensive)
                 if (voltageCheckCounter == VOLTAGE_CHECK_INTERVAL) {
+                    powerUp(INIT_RADIO);  // load down the battery using the radio to get a good reading
                     powerUp(INIT_TEMPREADING | INIT_EPD_VOLTREADING);
+                    powerDown(INIT_RADIO);
                     voltageCheckCounter = 0;
                 } else {
                     powerUp(INIT_TEMPREADING);
@@ -234,6 +256,7 @@ void mainProtocolLoop(void) {
                     // Check if we were already displaying an image
                     if (curImgSlot != 0xFF) {
                         powerUp(INIT_EEPROM | INIT_EPD);
+                        wdt60s();
                         drawImageFromEeprom(curImgSlot);
                         powerDown(INIT_EEPROM | INIT_EPD);
                     } else {
@@ -296,7 +319,9 @@ void mainProtocolLoop(void) {
         } else {
             // not associated
             if (((scanAttempts != 0) && (scanAttempts % VOLTAGEREADING_DURING_SCAN_INTERVAL == 0)) || (scanAttempts > (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS))) {
+                powerUp(INIT_RADIO);  // load down the battery using the radio to get a good reading
                 powerUp(INIT_EPD_VOLTREADING);
+                powerDown(INIT_RADIO);
             }
             // try to find a working channel
             powerUp(INIT_RADIO);
@@ -305,6 +330,7 @@ void mainProtocolLoop(void) {
 
             if ((!currentChannel && !noAPShown) || (lowBattery && !lowBatteryShown) || (scanAttempts == (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
                 powerUp(INIT_EPD);
+                wdt60s();
                 if (curImgSlot != 0xFF) {
                     powerUp(INIT_EEPROM);
                     drawImageFromEeprom(curImgSlot);
@@ -331,8 +357,4 @@ void mainProtocolLoop(void) {
             }
         }
     }
-}
-
-void main(void) {
-    mainProtocolLoop();
 }

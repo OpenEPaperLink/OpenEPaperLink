@@ -13,17 +13,17 @@
 #include "cpu.h"
 #include "drawing.h"
 #include "eeprom.h"
-#include "i2c.h"
+#include "i2cdevices.h"
 #include "powermgt.h"
 #include "printf.h"
 #include "proto.h"
 #include "radio.h"
+#include "screen.h"
 #include "settings.h"
 #include "sleep.h"
 #include "timer.h"
 #include "userinterface.h"
 #include "wdt.h"
-#include "screen.h"
 
 // download-stuff
 uint8_t __xdata blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
@@ -192,6 +192,7 @@ static void sendAvailDataReq() {
     availreq->lastPacketLQI = mLastLqi;
     availreq->temperature = temperature;
     availreq->batteryMv = batteryVoltage;
+    availreq->capabilities = capabilities;
     addCRC(availreq, sizeof(struct AvailDataReq));
     commsTxNoCpy(outBuffer);
 }
@@ -479,7 +480,7 @@ static bool getDataBlock(const uint16_t blockSize) {
         partsThisBlock = BLOCK_MAX_PARTS;
         memset(curBlock.requestedParts, 0xFF, BLOCK_REQ_PARTS_BYTES);
     } else {
-        partsThisBlock = blockSize / BLOCK_PART_DATA_SIZE;
+        partsThisBlock = (sizeof(struct blockData) + blockSize) / BLOCK_PART_DATA_SIZE;
         if (blockSize % BLOCK_PART_DATA_SIZE) partsThisBlock++;
         memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
         for (uint8_t c = 0; c < partsThisBlock; c++) {
@@ -698,7 +699,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             }
             xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
             if (avail->dataSize > 4096) avail->dataSize = 4096;
-            
+
             if (getDataBlock(avail->dataSize)) {
                 powerUp(INIT_RADIO);
                 sendXferComplete();
@@ -791,6 +792,50 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             } else {
                 return false;
             }
+            break;
+        case DATATYPE_NFC_URL_DIRECT:
+        case DATATYPE_NFC_RAW_CONTENT:
+            // Handle data for the NFC IC (if we have it)
+
+            // check if we actually have the capability to do NFC
+            if (!(capabilities & CAPABILITY_HAS_NFC)) {
+                // looks like we don't. mark as complete and then bail!
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+                return true;
+            }
+
+            pr("NFC URL received\n");
+            if (curDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8)) {
+                // we've already downloaded this NFC data, disregard and send XFC
+                pr("this was the same as the last transfer, disregard\n");
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+                return true;
+            }
+            xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+            uint16_t __xdata nfcsize = avail->dataSize;
+            if (getDataBlock(avail->dataSize)) {
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+
+                curDataInfo.dataSize = 0;  // mark as transfer not pending
+
+                powerUp(INIT_I2C);
+                if (avail->dataType == DATATYPE_NFC_URL_DIRECT) {
+                    // only one URL (handle NDEF records on the tag)
+                    loadURLtoNTag();
+                } else {
+                    // raw NFC data upload to the NFC IC
+                    loadRawNTag(nfcsize);
+                }
+                powerDown(INIT_I2C);
+                return true;
+            }
+            return false;
             break;
     }
     return true;

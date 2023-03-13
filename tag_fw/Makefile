@@ -4,8 +4,8 @@ BUILD		?= zbs29v033
 #file containing main() must be first!
 SOURCES		+= main.c eeprom.c drawing.c
 SOURCES		+= comms.c
-SOURCES		+= syncedproto.c epd.c userinterface.c
-SOURCES		+= powermgt.c barcode.c
+SOURCES		+= syncedproto.c userinterface.c
+SOURCES		+= powermgt.c barcode.c i2cdevices.c
 
 all:	#make sure it is the first target
 
@@ -18,7 +18,7 @@ FLAGS += -Icpu/$(CPU)
 
 SOURCES += cpu/$(CPU)/cpu.c
 SOURCES += board/$(BUILD)/board.c
-#SOURCES += board/$(BUILD)/screen.c
+SOURCES += board/$(BUILD)/screen.c
 
 
 EEPROMDRV ?= eeprom.c

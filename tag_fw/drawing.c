@@ -6,7 +6,7 @@
 #include "board.h"
 #include "cpu.h"
 #include "eeprom.h"
-#include "epd.h"
+#include "screen.h"
 #include "printf.h"
 #include "proto.h"
 #include "screen.h"
@@ -433,6 +433,9 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
 
             pr(" complete.\n");
             break;
+        default:  // prevent drawing from an unknown file image type
+            pr("Image with type 0x%02X was requested, but we don't know what to do with that currently...\n", eih->dataType);
+            return;
     }
     addOverlay();
     drawWithSleep();

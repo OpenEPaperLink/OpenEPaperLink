@@ -3312,6 +3312,19 @@ You are welcome to use this library for commercial purposes. For attribution, we
 <wire x1="54.737" y1="70.383" x2="57.912" y2="70.383" width="0.4064" layer="1"/>
 <wire x1="57.912" y1="70.383" x2="57.912" y2="72.898" width="0.4064" layer="1"/>
 <wire x1="57.912" y1="72.898" x2="58.014" y2="72.898" width="0.4064" layer="1"/>
+<contactref element="J9" pad="0"/>
+<wire x1="54.737" y1="70.383" x2="54.737" y2="72.263" width="0.4064" layer="1"/>
+<via x="54.737" y="72.263" extent="1-16" drill="0.35"/>
+<wire x1="54.737" y1="72.263" x2="54.737" y2="68.453" width="0.4064" layer="16"/>
+<wire x1="54.737" y1="68.453" x2="55.245" y2="67.945" width="0.4064" layer="16"/>
+<wire x1="55.245" y1="67.945" x2="62.5348" y2="67.945" width="0.4064" layer="16"/>
+<wire x1="62.5348" y1="67.945" x2="65.151" y2="67.945" width="0.2032" layer="16"/>
+<wire x1="65.151" y1="67.945" x2="74.803" y2="67.945" width="0.4064" layer="16"/>
+<wire x1="74.803" y1="67.945" x2="75.311" y2="67.437" width="0.4064" layer="16"/>
+<wire x1="75.311" y1="67.437" x2="75.311" y2="47.879" width="0.4064" layer="16"/>
+<wire x1="75.311" y1="47.879" x2="84.455" y2="38.735" width="0.4064" layer="16"/>
+<via x="84.455" y="38.735" extent="1-16" drill="0.35"/>
+<wire x1="84.455" y1="38.735" x2="89.281" y2="38.735" width="0.4064" layer="1"/>
 </signal>
 <signal name="N$42">
 <contactref element="R4" pad="1"/>

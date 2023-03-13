@@ -8047,6 +8047,12 @@ You are welcome to use this library for commercial purposes. For attribution, we
 <wire x1="-7.62" y1="124.46" x2="-10.16" y2="124.46" width="0.1524" layer="91"/>
 <wire x1="-10.16" y1="124.46" x2="-10.16" y2="144.78" width="0.1524" layer="91"/>
 <junction x="-10.16" y="144.78"/>
+<wire x1="-10.16" y1="124.46" x2="-10.16" y2="86.36" width="0.1524" layer="91"/>
+<wire x1="-10.16" y1="86.36" x2="132.08" y2="86.36" width="0.1524" layer="91"/>
+<junction x="-10.16" y="124.46"/>
+<pinref part="J9" gate="G$1" pin="BOOT/0"/>
+<wire x1="132.08" y1="86.36" x2="132.08" y2="53.34" width="0.1524" layer="91"/>
+<wire x1="132.08" y1="53.34" x2="124.46" y2="53.34" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$42" class="0">

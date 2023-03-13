@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 #include "board.h"
-#include "epd.h"
+#include "screen.h"
 #include "uart.h"
 #include "zbs243.h"
 
