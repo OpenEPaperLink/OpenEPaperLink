@@ -1,4 +1,4 @@
-*{
+* {
 	margin:0;
 	padding:0;
 	border:0;
@@ -40,7 +40,6 @@ label {
 	height: 50px;
 	text-indent: 50px;
 	overflow:hidden;
-	background-size: 50px 50px;
 	font-size: 2.5em;
 	color: white;
 }
@@ -84,9 +83,20 @@ label {
 	flex: 1;
 }
 
+textarea,
+input.text,
+input[type="text"],
+input[type="button"],
+input[type="submit"],
+button {
+	-webkit-appearance: none;
+	border-radius: 0;
+}
+
 input {
 	border: solid 1px #666666;
 	padding: 4px;
+	-webkit-border-radius: 0px;
 }
 
 input[type=button] {
@@ -99,6 +109,7 @@ input[type=button]:hover {
 }
 select {
 	padding: 4px;
+	-webkit-border-radius: 0px;
 }
 
 #configbox {
@@ -179,7 +190,7 @@ select {
 .tagcard {
 	width: 225px;
 	position: relative;
-	height: 170px;
+	min-height: 170px;
 	margin: 5px;
 	padding: 5px;
 	background-color: #dddddd;
@@ -203,7 +214,7 @@ select {
 	float: right;
 }
 
-.currimg img {
+.currimg img, .currimg canvas {
 	max-width: 50px;
 }
 
@@ -325,4 +336,47 @@ ul.messages li.new {
 	0% { background-color: lightgray;}
 	50% { background-color: lightblue;}
 	100% { background-color: lightgray;}
+}
+
+@media screen and (max-width: 480px) {
+	/* styles for mobile devices in portrait mode */
+
+	body {
+		font-size: 14px;
+	}
+
+	.tagcard {
+		width: 100%;
+		min-height: 200px;
+	}
+
+	.logbox #sysinfo {
+		float: none;
+		display: block;
+	}
+
+	#configbox {
+		top: 0px;
+		left: 0px;
+		width: 100%;
+	}
+
+	.currimg {
+		float: none;
+		position: absolute;
+		right: 5px;
+	}
+
+	.currimg img,
+	.currimg canvas {
+		max-width: 60px;
+	}
+
+	.logo {
+		padding-top: 10px;
+		text-indent: 0px;
+		font-size: 1.8em;
+		text-align: center;
+	}
+
 }
