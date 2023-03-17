@@ -10,6 +10,8 @@ const WAKEUP_REASON_WDT_RESET = 0xFE;
 
 const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url", "Weather forecast","RSS feed"];
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
+const displaySizeLookup = { 0: [152, 152], 1: [128, 296], 2: [400, 300] };
+const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [255, 0, 0] };
 const contentModeOptions = [];
 contentModeOptions[0] = ["filename","timetolive"];
 contentModeOptions[1] = [];
@@ -63,6 +65,7 @@ function connect() {
 		if (msg.sys) {
 			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + msg.sys.dbsize + ' bytes &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; littlefs free: ' + msg.sys.littlefsfree + ' bytes';
 			servertimediff = (Date.now() / 1000) - msg.sys.currtime;
+			console.log("timediff: " + servertimediff);
 		}
 	});
 
@@ -82,13 +85,10 @@ function processTags(tagArray) {
 			div = $('#tagtemplate').cloneNode(true);
 			div.setAttribute('id', 'tag'+tagmac);
 			div.dataset.mac = tagmac;
+			div.dataset.hwtype = -1;
 			$('#taglist').appendChild(div);
 
 			$('#tag' + tagmac + ' .mac').innerHTML = tagmac;
-			var img = $('#tag' + tagmac + ' .tagimg');
-			img.addEventListener('error', function handleError() {
-				img.style.display = 'none';
-			});	
 		} 
 
 		div.style.display = 'block';
@@ -97,10 +97,9 @@ function processTags(tagArray) {
 		if (!alias) alias = tagmac;
 		$('#tag' + tagmac + ' .alias').innerHTML = alias;
 
-		if (div.dataset.hash != element.hash) loadImage(tagmac, '/current/' + tagmac + '.bmp?' + (new Date()).getTime());
-
 		$('#tag' + tagmac + ' .contentmode').innerHTML = contentModes[element.contentMode];
 		if (element.RSSI) {
+			div.dataset.hwtype = element.hwType;
 			$('#tag' + tagmac + ' .model').innerHTML = models[element.hwType];
 			$('#tag' + tagmac + ' .rssi').innerHTML = element.RSSI;
 			$('#tag' + tagmac + ' .lqi').innerHTML = element.LQI;
@@ -110,6 +109,11 @@ function processTags(tagArray) {
 		} else {
 			$('#tag' + tagmac + ' .model').innerHTML = "waiting for hardware type";
 			$('#tag' + tagmac + ' .received').style.opacity = "0";
+		}
+
+		if (div.dataset.hash != element.hash && div.dataset.hwtype > -1) {
+			loadImage(tagmac, '/current/' + tagmac + '.raw?' + (new Date()).getTime());
+			div.dataset.hash = element.hash;
 		}
 
 		if (element.nextupdate > 1672531200 && element.nextupdate!=3216153600) {
@@ -130,7 +134,6 @@ function processTags(tagArray) {
 		$('#tag' + tagmac + ' .lastseen').style.color = "black";
 		div.classList.remove("tagpending");
 		div.dataset.lastseen = element.lastseen;
-		div.dataset.hash = element.hash;
 		div.dataset.wakeupreason = element.wakeupReason;
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
 		$('#tag' + tagmac).style.background = "inherit";
@@ -174,9 +177,9 @@ function updatecards() {
 		let tagmac = item.dataset.mac;
 
 		if (item.dataset.lastseen && item.dataset.lastseen > 1672531200) {
-			let idletime = (Date.now() / 1000) + servertimediff - item.dataset.lastseen;
+			let idletime = (Date.now() / 1000) - servertimediff - item.dataset.lastseen;
 			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>"+displayTime(Math.floor(idletime))+" ago";
-			if ((Date.now() / 1000) + servertimediff - 300 > item.dataset.nextcheckin) {
+			if ((Date.now() / 1000) - servertimediff - 300 > item.dataset.nextcheckin) {
 				$('#tag' + tagmac + ' .warningicon').style.display='inline-block';
 				$('#tag' + tagmac).classList.remove("tagpending")
 				$('#tag' + tagmac).style.background = '#ffffcc';
@@ -190,7 +193,7 @@ function updatecards() {
 		}
 
 		if (item.dataset.nextcheckin > 1672531200 && parseInt(item.dataset.wakeupreason)==0) {
-			let nextcheckin = item.dataset.nextcheckin - ((Date.now() / 1000) + servertimediff);
+			let nextcheckin = item.dataset.nextcheckin - ((Date.now() / 1000) - servertimediff);
 			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<span>expected checkin</span>" + displayTime(Math.floor(nextcheckin));
 		}
 	})
@@ -338,16 +341,36 @@ function processQueue() {
 	}
 	isProcessing = true;
 	const { id, imageSrc } = imageQueue.shift();
-	const image = $('#tag' + id + ' .tagimg');
-	image.onload = function () { 
-		image.style.display = 'block';
-		processQueue();
-	}
-	image.onerror = function () { 
-		image.style.display = 'none';
-		processQueue();
-	};
-	image.src = imageSrc;
+	const canvas = $('#tag' + id + ' .tagimg');
+	const hwtype = $('#tag' + id).dataset.hwtype;
+	
+	fetch(imageSrc)
+		.then(response => response.arrayBuffer())
+		.then(buffer => {
+			[canvas.width, canvas.height] = displaySizeLookup[hwtype] || [0,0];
+			const ctx = canvas.getContext('2d');
+			const imageData = ctx.createImageData(canvas.width, canvas.height);
+			const data = new Uint8ClampedArray(buffer);
+			const offsetRed = (data.length >= (canvas.width * canvas.height / 8) * 2) ? canvas.width * canvas.height / 8 : 0;
+			var pixelValue = 0;
+			for (let i = 0; i < data.length; i++) {
+				for (let j = 0; j < 8; j++) {
+					const pixelIndex = i * 8 + j;
+					if (offsetRed) {
+						pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0) | (((data[i + offsetRed] & (1 << (7 - j))) ? 1 : 0) << 1);
+					} else {
+						pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0);
+					}
+					imageData.data[pixelIndex * 4] = colorTable[pixelValue][0];
+					imageData.data[pixelIndex * 4 + 1] = colorTable[pixelValue][1];
+					imageData.data[pixelIndex * 4 + 2] = colorTable[pixelValue][2];
+					imageData.data[pixelIndex * 4 + 3] = 255;
+				}
+			}
+
+			ctx.putImageData(imageData, 0, 0);
+			processQueue();
+		});
 }
 
 function displayTime(seconds) {

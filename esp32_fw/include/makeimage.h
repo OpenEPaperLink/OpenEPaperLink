@@ -30,6 +30,7 @@ enum EinkClut {
 };
 
 void spr2grays(TFT_eSprite &spr, long w, long h, String &fileout);
-void jpg2grays(String filein, String fileout);
+void spr2buffer(TFT_eSprite &spr, String &fileout);
+void jpg2buffer(String filein, String fileout);
 void bmp2grays(String filein, String fileout);
 

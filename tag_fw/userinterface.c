@@ -82,12 +82,12 @@ void showSplashScreen() {
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
 
 #if (SCREEN_WIDTH == 152)  // 1.54"
-    epdPrintBegin(12, 52, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdPrintBegin(5, 55, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("Starting");
     epdPrintEnd();
 
-    loadRawBitmap(oepli, 8, 12, EPD_COLOR_BLACK);
-    loadRawBitmap(cloud, 8, 0, EPD_COLOR_RED);
+    loadRawBitmap(oepli, 12, 12, EPD_COLOR_BLACK);
+    loadRawBitmap(cloud, 12, 0, EPD_COLOR_RED);
 
     epdPrintBegin(5, 136, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
     epdpr("%02X%02X", mSelfMac[7], mSelfMac[6]);
