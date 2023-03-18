@@ -231,7 +231,7 @@ extern uint8_t* getDataForFile(File* file);
 void zbsRxTask(void* parameter) {
     Serial1.begin(230400, SERIAL_8N1, RXD1, TXD1);
 
-    simplePowerOn();
+    //simplePowerOn();
     bool firstrun = true;
 
     Serial1.print("VER?");
@@ -250,7 +250,7 @@ void zbsRxTask(void* parameter) {
                 //performDeviceFlash();
                 Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
                 Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
-                simplePowerOn();
+                //simplePowerOn();
                 wsErr("The AP tag crashed. Restarting tag, regenerating all pending info.");
                 refreshAllPending();
             }

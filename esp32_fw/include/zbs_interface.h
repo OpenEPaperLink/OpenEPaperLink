@@ -1,15 +1,16 @@
 #pragma once
-#include <stdint.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <SPI.h>
 
 /*   Autor: Aaron Christophel ATCnetz.de   */
 #include <Arduino.h>
 
-void simplePowerOn();
-
-class ZBS_interface {
-   public:
-    uint8_t begin();
+class ZBS_interface
+{
+public:
+    uint8_t begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO, uint8_t RESET, uint8_t POWER = -1, uint32_t spi_speed = 8000000);
+    void setSpeed(uint32_t speed);
     void set_power(uint8_t state);
     void enable_debug();
     void reset();
@@ -27,8 +28,11 @@ class ZBS_interface {
     uint8_t select_flash(uint8_t page);
     void erase_flash();
     void erase_infoblock();
+    ~ZBS_interface();
 
-   private:
+private:
+    SPIClass *spi = NULL;
+    SPISettings spiSettings;
     uint8_t _SS_PIN = -1;
     uint8_t _CLK_PIN = -1;
     uint8_t _MOSI_PIN = -1;
@@ -36,8 +40,11 @@ class ZBS_interface {
     uint8_t _RESET_PIN = -1;
     uint8_t _POWER_PIN = -1;
     int ZBS_spi_delay = 1;
+    uint8_t spi_ready = 0;
+    uint32_t after_byte_delay = 10;
 
-    typedef enum {
+    typedef enum
+    {
         ZBS_CMD_W_RAM = 0x02,
         ZBS_CMD_R_RAM = 0x03,
         ZBS_CMD_W_FLASH = 0x08,
@@ -48,10 +55,9 @@ class ZBS_interface {
         ZBS_CMD_ERASE_INFOBLOCK = 0x48,
     } ZBS_CMD_LIST;
 
-    typedef enum {
+    typedef enum
+    {
         ZBS_ON = 1,
         ZBS_OFF = 0,
     } ZBS_POWER_STATE;
 };
-
-extern ZBS_interface zbs;
