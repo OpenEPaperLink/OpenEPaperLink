@@ -14,8 +14,10 @@ void showLongTermSleep();
 void showNoEEPROM();
 void showNoMAC();
 
+void eventStartScreen();
 void eventUpdateScreen();
 void eventScreen();
+void eventEndScreen();
 
 
 

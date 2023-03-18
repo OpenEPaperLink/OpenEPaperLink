@@ -18,6 +18,14 @@ struct blockData {
     uint8_t data[];
 } __packed;
 
+#define EVENT_PKT_SIZE 100
+struct eventData {
+    uint8_t checksum;
+    uint8_t eventDataID;
+    uint8_t data[100];
+} __packed;
+
+
 #define SOLUM_154_033 0
 #define SOLUM_29_033 1
 #define SOLUM_42_033 2

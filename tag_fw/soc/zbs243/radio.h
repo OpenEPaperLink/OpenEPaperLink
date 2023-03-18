@@ -12,9 +12,6 @@ void RF_IRQ2(void) __interrupt (5);
 #include "../radioCommon.h"
 
 
-
-
-
 #endif
 
 

@@ -701,7 +701,7 @@ void writeCharEPD(uint8_t c) {
         if (font[c][i]) empty = false;
     }
     if (empty) {
-        for (uint8_t i = 0; i < 8; i++) {
+        for (uint8_t i = 0; i < 5; i++) {
             if (directionY) {
                 pushYFontBytesToEPD(0x00, 0x00);
             } else {

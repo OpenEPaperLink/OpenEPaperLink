@@ -21,6 +21,8 @@
 #define ZBS_RX_WAIT_JOINNETWORK 10
 #define ZBS_RX_WAIT_XFERTIMEOUT 11
 
+static SemaphoreHandle_t serialWait;
+
 uint8_t restartBlockRequest = 0;
 
 uint16_t sendBlock(const void* data, const uint16_t len) {
@@ -89,7 +91,7 @@ uint8_t pktlen = 0;
 uint8_t pktindex = 0;
 char lastchar = 0;
 uint8_t charindex = 0;
-uint64_t  waitingForVersion = 0;
+uint64_t waitingForVersion = 0;
 uint16_t version;
 
 void ShortRXWaitLoop() {
@@ -103,16 +105,75 @@ void ShortRXWaitLoop() {
         cmdbuffer[3] = lastchar;
     }
 }
-
+int8_t serialWaitReply() {
+    uint32_t start = millis();
+    int8_t ret = -1;
+    while ((millis() - start) < 100) {
+        ShortRXWaitLoop();
+        if ((strncmp(cmdbuffer, "ACK>", 4) == 0)) {
+            memset(cmdbuffer, 0x00, 4);
+            return 1;
+        }
+        if ((strncmp(cmdbuffer, "NOK>", 4) == 0)) {
+            memset(cmdbuffer, 0x00, 4);
+            return 0;
+        }
+        if ((strncmp(cmdbuffer, "NOQ>", 4) == 0)) {
+            memset(cmdbuffer, 0x00, 4);
+            return 2;
+        }
+    }
+    Serial.println(cmdbuffer);
+    return -1;
+}
+bool sendEventData(struct eventData* ed) {
+    addCRC(ed, sizeof(struct eventData));
+    uint8_t attempts = 5;
+    xSemaphoreTake(serialWait, portMAX_DELAY);
+    while (attempts--) {
+        uint8_t len = sizeof(struct eventData)+5;
+        uint8_t* sendp = (uint8_t*)ed;
+        Serial1.print("UED>");
+        while(len--){
+            Serial1.write(*(sendp++));
+            delayMicroseconds(200);
+        }
+        if (serialWaitReply() == 1) {
+            Serial.println("Event Data Sent");
+            xSemaphoreGive(serialWait);
+            return true;
+        }
+        vTaskDelay(3 / portTICK_PERIOD_MS);
+    }
+    xSemaphoreGive(serialWait);
+    Serial.println("Failed to send event data");
+    return false;
+}
 void Ping() {
     Serial1.print("VER?");
     waitingForVersion = esp_timer_get_time();
 }
-
+void setEventMode(bool on) {
+    uint8_t attempts = 5;
+    xSemaphoreTake(serialWait, portMAX_DELAY);
+    while (attempts--) {
+        if (on) {
+            Serial1.print("EEM>");
+        } else {
+            Serial1.print("SEM>");
+        }
+        if (serialWaitReply() == 1) {
+            xSemaphoreGive(serialWait);
+            return;
+        }
+    }
+    xSemaphoreGive(serialWait);
+    Serial.println("Failed to set mode...");
+}
 void SerialRXLoop() {
     if (Serial1.available()) {
         lastchar = Serial1.read();
-        //Serial.write(lastchar);
+        // Serial.write(lastchar);
         switch (RXState) {
             case ZBS_RX_WAIT_HEADER:
                 Serial.write(lastchar);
@@ -227,7 +288,6 @@ void SerialRXLoop() {
 }
 
 extern uint8_t* getDataForFile(File* file);
-
 void zbsRxTask(void* parameter) {
     Serial1.begin(230400, SERIAL_8N1, RXD1, TXD1);
 
@@ -236,7 +296,9 @@ void zbsRxTask(void* parameter) {
 
     Serial1.print("VER?");
     waitingForVersion = esp_timer_get_time();
+    serialWait = xSemaphoreCreateMutex();
     while (1) {
+        xSemaphoreTake(serialWait, portMAX_DELAY);
         SerialRXLoop();
 
         if (Serial.available()) {
@@ -245,9 +307,9 @@ void zbsRxTask(void* parameter) {
         vTaskDelay(1 / portTICK_PERIOD_MS);
 
         if (waitingForVersion) {
-            if (esp_timer_get_time() - waitingForVersion > 10000*1000ULL) {
+            if (esp_timer_get_time() - waitingForVersion > 10000 * 1000ULL) {
                 waitingForVersion = 0;
-                //performDeviceFlash();
+                // performDeviceFlash();
                 Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
                 Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
                 simplePowerOn();
@@ -255,7 +317,7 @@ void zbsRxTask(void* parameter) {
                 refreshAllPending();
             }
         }
-        
+
         if (version && firstrun) {
             Serial.printf("ZBS/Zigbee FW version: %04X\n", version);
             uint16_t fsversion;
@@ -270,5 +332,6 @@ void zbsRxTask(void* parameter) {
             }
             firstrun = false;
         }
+        xSemaphoreGive(serialWait);
     }
 }

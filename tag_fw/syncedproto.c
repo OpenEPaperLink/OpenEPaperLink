@@ -247,6 +247,9 @@ struct AvailDataInfo *__xdata getShortAvailDataInfo() {
                         return (struct AvailDataInfo *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
                     }
                 }
+                if (getPacketType(inBuffer) == PKT_EVENT_PONG) {
+                    wdtDeviceReset();
+                }
             }
         }
     }
@@ -814,7 +817,7 @@ void initializeProto() {
 #define EVENT_AP_TIME 10
 #define RAW_PKT_PADDING 2
 #define EVENT_PKT_SIZE 100
-#define EVENT_DATA_REQ_RX_WINDOW_SIZE 10
+#define EVENT_DATA_REQ_RX_WINDOW_SIZE 7
 
 static void sendEventPong(const void *__xdata buf) {
     struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
@@ -857,21 +860,19 @@ void eventAPMode() {
             // received a packet, lets see what it is
             switch (getPacketType(inBuffer)) {
                 case PKT_PING:
-                    pr("pong rx\n");
                     sendEventPong(inBuffer);
                     break;
                 case PKT_EVENT_DATA_REQ:
-                    pr("event data reply\n");
                     sendEventDataReply(inBuffer);
                     break;
             }
         }
     }
 }
-static void sendEventDataReq() {
+bool sendEventDataReq() {
     struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer + 1);
     memset(outBuffer, 0, sizeof(struct MacFrameBcast) + sizeof(struct AvailDataReq) + 2 + 4);
-    outBuffer[0] = sizeof(struct MacFrameBcast) + 2 + 2;
+    outBuffer[0] = sizeof(struct MacFrameBcast) + 2 + 2 + 10;  // added some random extra bytes, seems to reduce crashes. Probably some timing issue
     outBuffer[sizeof(struct MacFrameBcast) + 1] = PKT_EVENT_DATA_REQ;
     memcpy(txframe->src, mSelfMac, 8);
     txframe->fcs.frameType = 1;
@@ -882,16 +883,22 @@ static void sendEventDataReq() {
     txframe->dstPan = PROTO_PAN_ID;
     txframe->dstAddr = 0xFFFF;
     txframe->srcPan = PROTO_PAN_ID;
-    commsTxNoCpy(outBuffer);
+    return commsTxNoCpy(outBuffer);
 }
 struct eventData *__xdata getEventData() {
     radioRxEnable(true, true);
     uint32_t __xdata t;
-    for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
-        sendEventDataReq();
+    bool timeExtended = false;
+    timerDelay(100);
+    for (uint8_t c = 0; c < 2; c++) {
+
+        if(!sendEventDataReq()) return NULL;
+
         t = timerGet() + (TIMER_TICKS_PER_MS * EVENT_DATA_REQ_RX_WINDOW_SIZE);
+
         while (timerGet() < t) {
             int8_t __xdata ret = commsRxUnencrypted(inBuffer);
+
             if (ret > 1) {
                 if (getPacketType(inBuffer) == PKT_EVENT_DATA) {
                     if (checkCRC(inBuffer + sizeof(struct MacFrameNormal) + 1, sizeof(struct eventData) + EVENT_PKT_SIZE)) {

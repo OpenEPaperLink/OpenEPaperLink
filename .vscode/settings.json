@@ -1,0 +1,3 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}/esp32_fw/.pio/libdeps/lolin32_lite/ESP Async WebServer"
+}

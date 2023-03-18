@@ -148,7 +148,7 @@ struct espAvailDataReq {
 } __packed;
 
 #define TIMER_TICKS_PER_MS 1333UL
-uint16_t __xdata version = 0x0007;
+uint16_t __xdata version = 0x000A;
 #define RAW_PKT_PADDING 2
 
 static uint8_t __xdata mRxBuf[COMMS_MAX_PACKET_SZ];
@@ -307,7 +307,7 @@ void processSerial(uint8_t lastchar) {
                 cmdbuffer[c] = cmdbuffer[c + 1];
             }
             cmdbuffer[3] = lastchar;
-            if (strncmp(cmdbuffer, "SDA>", 4) == 0) {
+            if ((strncmp(cmdbuffer, "SDA>", 4) == 0) && (eventMode == false)) {
                 RXState = ZBS_RX_WAIT_SDA;
                 bytesRemain = sizeof(struct pendingData);
                 serialbufferp = serialbuffer;
@@ -793,6 +793,10 @@ void main(void) {
                         sendPong(radiorxbuffer);
                         break;
                     case PKT_AVAIL_DATA_SHORTREQ:
+                        if (eventMode == true) {
+                            sendPong(radiorxbuffer);
+                            break;
+                        }
                         // a short AvailDataReq is basically a very short (1 byte payload) packet that requires little preparation on the tx side, for optimal battery use
                         // bytes of the struct are set 0, so it passes the checksum test, and the ESP32 can detect that no interesting payload is sent
                         if (ret == 18) {

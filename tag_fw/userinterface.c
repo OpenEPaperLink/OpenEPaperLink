@@ -63,6 +63,122 @@ void addOverlay() {
     }
 }
 
+extern uint8_t __xdata blockXferBuffer[];
+struct eventNowNext {
+    uint8_t type;
+    uint8_t nowStartHour;
+    uint8_t nowStartMinutes;
+    uint8_t nowEndHour;
+    uint8_t nowEndMinutes;
+    uint8_t nextStartHour;
+    uint8_t nextStartMinutes;
+    uint8_t nextEndHour;
+    uint8_t nextEndMinutes;
+    uint8_t data[];
+};
+
+static void eventNowNext() {
+    struct eventNowNext* enn = (struct eventNowNext*)(blockXferBuffer + sizeof(struct eventData));
+
+    selectLUT(EPD_LUT_NO_REPEATS);
+    clearScreen();
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+    loadRawBitmap(hadberlin, 0, 0, EPD_COLOR_BLACK);
+    if (blockXferBuffer[1] & 0x01) {
+        loadRawBitmap(atc1441, 20, 143, EPD_COLOR_BLACK);
+    } else {
+        loadRawBitmap(openepaperlink, 8, 143, EPD_COLOR_BLACK);
+    }
+
+    epdPrintBegin(2, 22, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_RED);
+    epdpr("Now:");
+    epdPrintEnd();
+    epdPrintBegin(2, 86, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    epdpr("Next:");
+    epdPrintEnd();
+    epdPrintBegin(73, 33, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("%02d:%02d-%02d:%02d", enn->nowStartHour, enn->nowStartMinutes, enn->nowEndHour, enn->nowEndMinutes);
+    epdPrintEnd();
+
+    epdPrintBegin(73, 86, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("%02d:%02d-%02d:%02d", enn->nextStartHour, enn->nextStartMinutes, enn->nextEndHour, enn->nextEndMinutes);
+    epdPrintEnd();
+
+    char* readp = enn->data;
+    uint8_t row = 0;
+    uint8_t currow = 0;
+    epdPrintBegin(2, 54, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    while (*readp) {
+        if (*readp == '\n') row++;
+        if (row != currow) {
+            readp++;
+            currow = row;
+            epdPrintEnd();
+            switch (row) {
+                case 1:
+                    epdPrintBegin(2, 70, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+                    break;
+                case 2:
+                    epdPrintBegin(2, 102, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+                    break;
+                case 3:
+                    epdPrintBegin(2, 118, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+                    break;
+            }
+        } else {
+            writeCharEPD(*(readp++));
+        }
+    }
+    epdPrintEnd();
+    drawWithSleep();
+}
+
+static void eventGeneric() {
+    selectLUT(EPD_LUT_NO_REPEATS);
+    clearScreen();
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+    loadRawBitmap(hadberlin, 0, 0, EPD_COLOR_BLACK);
+    if (blockXferBuffer[1] & 0x01) {
+        loadRawBitmap(atc1441, 20, 143, EPD_COLOR_BLACK);
+    } else {
+        loadRawBitmap(openepaperlink, 8, 143, EPD_COLOR_BLACK);
+    }
+
+    char* readp = &blockXferBuffer[3];
+    uint8_t row = 0;
+    uint8_t currow = 0;
+    epdPrintBegin(2, 38, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    while (*readp) {
+        if (*readp == '\n') row++;
+        if (row != currow) {
+            readp++;
+            currow = row;
+            epdPrintEnd();
+            switch (row) {
+                case 1:
+                    epdPrintBegin(2, 54, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+                    break;
+                case 2:
+                    epdPrintBegin(2, 70, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+                    break;
+                case 3:
+                    epdPrintBegin(2, 86, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+                    break;
+                case 4:
+                    epdPrintBegin(2, 102, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+                    break;
+                case 5:
+                    epdPrintBegin(2, 118, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+                    break;
+            }
+        } else {
+            writeCharEPD(*(readp++));
+        }
+    }
+    epdPrintEnd();
+    drawWithSleep();
+}
+
 void eventUpdateScreen() {
     selectLUT(EPD_LUT_FAST_NO_REDS);
     clearScreen();
@@ -71,19 +187,51 @@ void eventUpdateScreen() {
     drawNoWait();
 }
 
-extern uint8_t __xdata blockXferBuffer[];
-
-void eventScreen() {
+void eventStartScreen() {
     selectLUT(EPD_LUT_NO_REPEATS);
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
-    loadRawBitmap(hadberlin, 0, 0, EPD_COLOR_BLACK);
+    loadRawBitmap(hackadaysmall, 40, 37, EPD_COLOR_BLACK);
+    epdPrintBegin(20, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_RED);
+    epdpr("Welcome");
+    epdPrintEnd();
 
-    epdPrintBegin(2, 120, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    epdpr("ID=%d",blockXferBuffer[1]);
+    epdPrintBegin(10, 117, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("to Hackaday Berlin");
+    epdPrintEnd();
+    epdPrintBegin(66, 133, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("2023");
+    epdPrintEnd();
+    drawWithSleep();
+}
+void eventEndScreen() {
+    selectLUT(EPD_LUT_DEFAULT);
+    clearScreen();
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+    loadRawBitmap(hadberlin, 0, 131, EPD_COLOR_BLACK);
+    loadRawBitmap(hackadaysmall, 40, 37, EPD_COLOR_BLACK);
+    epdPrintBegin(4, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_RED);
+    epdpr("Thank you");
+    epdPrintEnd();
+
+    epdPrintBegin(36, 117, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("for visiting");
     epdPrintEnd();
 
     drawWithSleep();
+}
+void eventScreen() {
+    switch (blockXferBuffer[2]) {
+        case 0xB1:
+            eventNowNext();
+            break;
+        case 0xB2:
+            eventGeneric();
+            break;
+        default:
+            pr("type=%d\n", blockXferBuffer[2]);
+            break;
+    }
 }
 
 void showSplashScreen() {
@@ -107,7 +255,8 @@ void showSplashScreen() {
     epdPrintEnd();
 
     epdPrintBegin(2, 120, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    epdpr("zbs154v033 %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+    epdpr("Hackaday Berlin 2023");
+    //epdpr("zbs154v033 %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
     epdPrintEnd();
 
 #endif
@@ -173,7 +322,6 @@ void showSplashScreen() {
 #endif
     drawWithSleep();
 }
-
 void showApplyUpdate() {
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     selectLUT(1);
@@ -195,9 +343,7 @@ void showApplyUpdate() {
     epdPrintEnd();
     drawNoWait();
 }
-
 uint8_t __xdata resultcounter = 0;
-
 void showScanningWindow() {
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     selectLUT(EPD_LUT_FAST_NO_REDS);
@@ -232,7 +378,6 @@ void showScanningWindow() {
     selectLUT(EPD_LUT_FAST);
     resultcounter = 0;
 }
-
 void addScanResult(uint8_t channel, uint8_t lqi) {
     if (channel == 11) resultcounter = 0;
 #if (SCREEN_WIDTH == 128)  // 2.9"
@@ -248,7 +393,6 @@ void addScanResult(uint8_t channel, uint8_t lqi) {
     epdPrintEnd();
     resultcounter++;
 }
-
 void showAPFound() {
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
@@ -354,7 +498,6 @@ void showAPFound() {
     addOverlay();
     drawWithSleep();
 }
-
 void showNoAP() {
     selectLUT(EPD_LUT_NO_REPEATS);
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
@@ -400,7 +543,6 @@ void showNoAP() {
     addOverlay();
     drawWithSleep();
 }
-
 void showLongTermSleep() {
     selectLUT(EPD_LUT_NO_REPEATS);
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
@@ -454,7 +596,6 @@ void showNoEEPROM() {
 #endif
     drawWithSleep();
 }
-
 void showNoMAC() {
     selectLUT(EPD_LUT_NO_REPEATS);
     clearScreen();

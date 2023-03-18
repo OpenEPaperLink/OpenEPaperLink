@@ -374,15 +374,15 @@ void main() {
     }
 }
 
-#define EVENT_POLL_INTERVAL 5000
+#define EVENT_POLL_INTERVAL 3000
 uint8_t __xdata eventDataID = 0;
-
+uint16_t __xdata failedCount = 0;
 void eventMode() {
     powerUp(INIT_EPD);
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     selectLUT(EPD_LUT_FAST_NO_REDS);
     clearScreen();
-    epdPrintBegin(0, 60, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdPrintBegin(2, 60, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("EventMode");
     epdPrintEnd();
     drawWithSleep();
@@ -390,24 +390,28 @@ void eventMode() {
 
     doSleep(1000);
 
-    uint16_t __xdata failedCount = 0;
+    powerUp(INIT_EPD);
+    eventStartScreen();
+    powerDown(INIT_EPD);
 
-    // display welcome!
+    doSleep(5000);
 
-    while (failedCount < 17280) {  // 24 hours at 5 second intervals
+    while (failedCount < 28800) {  // 24 hours at 3 second intervals
+
         wdt10s();
-        powerUp(INIT_RADIO | INIT_UART);
+        powerUp(INIT_RADIO);
+        powerUp(INIT_UART);
         struct eventData* __xdata ed = getEventData();
         powerDown(INIT_RADIO);
 
         if (ed == NULL) {
             failedCount++;
         } else {
-            // eventdata is copied to blockXferBuffer, gets picked up from
+            // eventdata is copied to blockXferBuffer, gets picked up from there
             failedCount = 0;
 
             // check if should display this data, and make it available to other tags
-            if ((ed->eventDataID > eventDataID) || (ed->eventDataID - eventDataID > 128)) {
+            if ((ed->eventDataID > eventDataID) || (eventDataID - ed->eventDataID > 128)) {
                 eventDataID = ed->eventDataID;
 
                 // display event logo while we run the AP (we could just skip straight to showing the data, but where's the fun in that)
@@ -436,10 +440,19 @@ void eventMode() {
         doSleep(EVENT_POLL_INTERVAL);
     }
 
+    wdt60s();
     // display thank you blah
+    powerUp(INIT_EPD);
+    eventEndScreen();
+    powerDown(INIT_EPD);
 
+    // sleep, wake every 10 minutes to see if an event has started; 
     while (1) {
-        // sleep forever
-        doSleep(-1);
+        doSleep(600000);
+        wdt10s();
+        powerUp(INIT_RADIO);
+        struct eventData* __xdata ed = getEventData();
+        powerDown(INIT_RADIO);
+        if(ed!=NULL)wdtDeviceReset();
     }
 }

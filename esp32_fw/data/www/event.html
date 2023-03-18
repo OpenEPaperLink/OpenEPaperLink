@@ -1,0 +1,82 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
+
+<title>Event Mesh - messages</title>
+<link rel="stylesheet" href="main.css" type="text/css"/>
+</head>
+<body>
+<header>
+<div class="logo">Event Mesh - messages</div>
+</header>
+
+<div class="container">
+
+<div class="blocks"><ul></ul></div>
+
+
+<div class="window">
+
+
+<iframe name="empty" style="border:1px solid darkgrey; width:100%; height:4em;"></iframe>
+
+<div class="actionbox">
+	<form action="event_start" method="POST" target="empty">
+    <input type="submit" value="Enable Event Ping">
+	</form>
+	<form action="event_stop" method="POST" target="empty">
+    <input type="submit" value="Disable Event Ping">
+	</form>
+</div>
+<br/>
+
+
+<div class="actionbox">
+	<form action="event_dataNowNext" method="POST" target="empty">
+		ID:<input name="id" size=3 maxlength=3 placeholder="1"/><br/>
+        Now:<input name="nowStart" size=5 maxlength=5 type="text" placeholder="10:00">-
+		<input name="nowEnd" size=5 maxlength=5 type="text" placeholder="10:30"><br/>
+		<input name="Row1" type="text" placeholder="Row1" size=20 maxlength=25><br/>
+		<input name="Row2" type="text" placeholder="Row2" size=20 maxlength=25><br/>
+		Next:<input name="nextStart" size=5 maxlength=5 type="text" placeholder="10:35">-
+		<input name="nextEnd" size=5 maxlength=5 type="text" placeholder="11:00"><br/>
+		<input name="Row3" type="text" placeholder="Row3" size=20 maxlength=25><br/>
+		<input name="Row4" type="text" placeholder="Row4" size=20 maxlength=25><br/>
+                 <input type="submit" value="Send EventData Update">
+</form>
+</div>
+
+<br/>
+<br/>
+
+<div class="actionbox">
+	<form action="event_dataGeneric" method="POST" target="empty">
+		ID:<input name="id" size=3 maxlength=3 placeholder="1"/><br/>
+		<input name="Row1" type="text" placeholder="Row1" size=20 maxlength=25><br/>
+		<input name="Row2" type="text" placeholder="Row2" size=20 maxlength=25><br/>
+		<input name="Row3" type="text" placeholder="Row3" size=20 maxlength=25><br/>
+		<input name="Row4" type="text" placeholder="Row4" size=20 maxlength=25><br/>
+		<input name="Row5" type="text" placeholder="Row5" size=20 maxlength=25><br/>
+		<input name="Row6" type="text" placeholder="Row6" size=20 maxlength=25><br/>
+        <input type="submit" value="Send EventData Update">
+</form>
+</div>
+
+
+<div id="messages">
+<ul class="messages">
+</ul>
+
+</div>
+</div>
+
+
+</div>
+
+<script src="jquery.js"></script>
+<script src="main.js"></script>
+
+</body>
+</html>
