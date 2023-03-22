@@ -3,7 +3,6 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
-#include "newproto.h"
 #include <MD5Builder.h>
 #include <locale.h>
 #include <rssClass.h>
@@ -12,6 +11,8 @@
 #include "U8g2_for_TFT_eSPI.h"
 #include "commstructs.h"
 #include "makeimage.h"
+#include "newproto.h"
+#include "qrcode.h"
 #include "web.h"
 
 #define PAL_BLACK 0
@@ -29,6 +30,7 @@ enum contentModes {
     ImageUrl,
     Forecast,
     RSSFeed,
+    QRcode,
 };
 
 void contentRunner() {
@@ -185,7 +187,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 taginfo->nextupdate = now + 300;
             }
             break;
-    }
+
+        case QRcode:
+
+            drawQR(filename, cfgobj["qr-content"], cfgobj["title"], taginfo, imageParams);
+            taginfo->nextupdate = now + 12 * 3600;
+            updateTagImage(filename, mac, 0, imageParams);
+            break;
+        }
 
     taginfo->modeConfigJson = doc.as<String>();
 }
@@ -633,6 +642,47 @@ bool getRSSfeed(String &filename, String URL, String title, tagRecord *&taginfo,
     spr.deleteSprite();
 
     return true;
+}
+
+void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams) {
+    TFT_eSPI tft = TFT_eSPI();
+    TFT_eSprite spr = TFT_eSprite(&tft);
+    LittleFS.begin();
+
+    const char *text = qrcontent.c_str();
+    QRCode qrcode;
+    uint8_t qrcodeData[qrcode_getBufferSize(2)];
+    // https://github.com/ricmoo/QRCode
+    qrcode_initText(&qrcode, qrcodeData, 2, ECC_MEDIUM, text);
+    int size = qrcode.size;
+    int xpos = 0, ypos = 0, dotsize = 1;
+
+    if (taginfo->hwType == SOLUM_29_033) {
+        initSprite(spr, 296, 128);
+        drawString(spr, title, 10, 5, "fonts/bahnschrift20");
+        dotsize = int((128 - 25) / size);
+        xpos = 149 - dotsize*size /2;
+        ypos = 25;
+    } else if (taginfo->hwType == SOLUM_154_033) {
+        initSprite(spr, 152, 152);
+        spr.setTextFont(2);
+        spr.setTextColor(PAL_BLACK, PAL_WHITE);
+        spr.drawString(title, 10, 5);
+        dotsize = int((152 - 20) / size);
+        xpos = 76 - dotsize*size / 2;
+        ypos = 20;
+    }
+
+    for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+            if (qrcode_getModule(&qrcode, x, y)) {
+                spr.fillRect(xpos + x * dotsize, ypos + y * dotsize, dotsize, dotsize, PAL_BLACK);
+            }
+        }
+    }
+
+    spr2buffer(spr, filename, imageParams);
+    spr.deleteSprite();
 }
 
 char *formatHttpDate(time_t t) {
