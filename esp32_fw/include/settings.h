@@ -17,9 +17,9 @@
 #define FLASHER_AP_MISO 6
 #define FLASHER_AP_RESET 15
 #define FLASHER_AP_POWER 0
-#define FLASHER_AP_TXD 17
+#define FLASHER_AP_TXD 16
 #define FLASHER_AP_RXD 18
-#define FLASHER_AP_TEST 16
+#define FLASHER_AP_TEST 17
 
 #define FLASHER_EXT_SS 40
 #define FLASHER_EXT_CLK 41
@@ -27,9 +27,22 @@
 #define FLASHER_EXT_MISO 42
 #define FLASHER_EXT_RESET 1
 #define FLASHER_EXT_POWER 8
-#define FLASHER_EXT_TXD 47
+#define FLASHER_EXT_TXD 38
 #define FLASHER_EXT_RXD 39
-#define FLASHER_EXT_TEST 38
+#define FLASHER_EXT_TEST 47
+
+#define FLASHER_ALT_SS 3
+#define FLASHER_ALT_CLK 46
+#define FLASHER_ALT_MOSI 10
+#define FLASHER_ALT_MISO 9
+#define FLASHER_ALT_RESET 11
+#define FLASHER_ALT_TXD 12
+#define FLASHER_ALT_RXD 14
+#define FLASHER_ALT_TEST 13
+
+#define FLASHER_LED 21
+#define FLASHER_RGB_LED 48 // maybe 38?
+
 
 
 /* Lolin32 lite connections to AP tag

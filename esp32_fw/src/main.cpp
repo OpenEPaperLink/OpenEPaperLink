@@ -14,6 +14,8 @@
 #include "usbflasher.h"
 #include "web.h"
 
+#include "leds.h"
+
 void timeTask(void* parameter) {
     while (1) {
         time_t now;
@@ -51,8 +53,6 @@ void setup() {
     Serial.printf("Free heap: %d", ESP.getFreeHeap());
     Serial.printf("Total PSRAM: %d", ESP.getPsramSize());
     Serial.printf("Free PSRAM: %d", ESP.getFreePsram());
-    pinMode(ONBOARD_LED, OUTPUT);
-    digitalWrite(ONBOARD_LED, HIGH);
 
     xTaskCreate(usbFlasherTask, "flasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
 
@@ -66,6 +66,7 @@ void setup() {
     xTaskCreate(garbageCollection, "pending-data cleanup", 5000, NULL, 1, NULL);
     xTaskCreate(webSocketSendProcess, "ws", 5000, NULL, configMAX_PRIORITIES - 10, NULL);
     xTaskCreate(timeTask, "timed tasks", 10000, NULL, 2, NULL);
+    xTaskCreate(ledTask, "handles leds", 5000, NULL, 10,  NULL);
 }
 
 void loop() {

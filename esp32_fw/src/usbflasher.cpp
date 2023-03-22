@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "USB.h"
+#include "powermgt.h"
 #include "settings.h"
 #include "zbs_interface.h"
 
@@ -170,17 +171,6 @@ static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t eve
     }
 }
 
-void flasherTaskBegin() {
-    flasherCmdQueue = xQueueCreate(10, sizeof(struct flasherCommand*));
-#if ARDUINO_USB_MODE
-#warning Wrong USB mode is in use, check settings in platformio.ini
-#endif
-    USB.onEvent(usbEventCallback);
-    USBSerial.onEvent(usbEventCallback);
-    USBSerial.begin();
-    USB.begin();
-}
-
 typedef enum {
     CMD_GET_VERSION = 1,
     CMD_RESET_ESP = 2,
@@ -223,7 +213,7 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             ESP.restart();
             break;
         case CMD_ZBS_BEGIN:
-            if (zbs != nullptr){
+            if (zbs != nullptr) {
                 delete zbs;
             }
             zbs = new ZBS_interface;
@@ -235,6 +225,8 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             curspeed = spi_speed;
             if (cmd->data[0] & 2) {
                 temp_buff[0] = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, FLASHER_AP_POWER, spi_speed);
+            } else if (cmd->data[0] & 4) {
+                temp_buff[0] = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, 255, spi_speed);
             } else {
                 temp_buff[0] = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, FLASHER_EXT_POWER, spi_speed);
             }
@@ -333,7 +325,14 @@ void processFlasherCommand(struct flasherCommand* cmd) {
 }
 
 void usbFlasherTask(void* parameter) {
-    flasherTaskBegin();
+    flasherCmdQueue = xQueueCreate(10, sizeof(struct flasherCommand*));
+#if ARDUINO_USB_MODE
+#warning Wrong USB mode is in use, check settings in platformio.ini
+#endif
+    USB.onEvent(usbEventCallback);
+    USBSerial.onEvent(usbEventCallback);
+    USBSerial.begin();
+    USB.begin();
     struct flasherCommand* cmd;
     while (true) {
         BaseType_t queuereceive = xQueueReceive(flasherCmdQueue, &cmd, portMAX_DELAY);

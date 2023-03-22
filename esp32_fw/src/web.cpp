@@ -16,6 +16,7 @@
 #include "newproto.h"
 #include "settings.h"
 #include "tag_db.h"
+#include "leds.h"
 
 extern uint8_t data_to_send[];
 
@@ -51,6 +52,7 @@ void webSocketSendProcess(void *parameter) {
 }
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+    shortBlink(CRGB::BlueViolet);
     switch (type) {
         case WS_EVT_CONNECT:
             // client connected

@@ -89,7 +89,7 @@ uint8_t pktlen = 0;
 uint8_t pktindex = 0;
 char lastchar = 0;
 uint8_t charindex = 0;
-uint64_t  waitingForVersion = 0;
+uint64_t waitingForVersion = 0;
 uint16_t version;
 
 void ShortRXWaitLoop() {
@@ -112,7 +112,7 @@ void Ping() {
 void SerialRXLoop() {
     if (Serial1.available()) {
         lastchar = Serial1.read();
-        //Serial.write(lastchar);
+        // Serial.write(lastchar);
         switch (RXState) {
             case ZBS_RX_WAIT_HEADER:
                 Serial.write(lastchar);
@@ -228,10 +228,37 @@ void SerialRXLoop() {
 
 extern uint8_t* getDataForFile(File* file);
 
-void zbsRxTask(void* parameter) {
-    Serial1.begin(230400, SERIAL_8N1, RXD1, TXD1);
+void simplePowerOn() {
+    pinMode(FLASHER_AP_SS, INPUT);
+    pinMode(FLASHER_AP_CLK, INPUT);
+    pinMode(FLASHER_AP_MOSI, INPUT);
+    pinMode(FLASHER_AP_MISO, INPUT);
 
-    //simplePowerOn();
+    pinMode(FLASHER_AP_RESET, OUTPUT);
+    digitalWrite(FLASHER_AP_RESET, LOW);
+
+    ledcSetup(0, 152000, 8); //152kHz PWM
+    ledcWrite(0, 254);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+    ledcAttachPin(FLASHER_AP_POWER, 0);
+    pinMode(FLASHER_AP_POWER, OUTPUT);
+    for (uint8_t c = 254; c != 0xFF; c--) {
+        ledcWrite(0, c);
+        vTaskDelay(1 / portTICK_PERIOD_MS);
+    }
+    digitalWrite(FLASHER_AP_POWER, LOW);
+    ledcDetachPin(FLASHER_AP_POWER);
+    digitalWrite(FLASHER_AP_POWER, LOW);
+
+    vTaskDelay(1 / portTICK_PERIOD_MS);
+    digitalWrite(FLASHER_AP_RESET, HIGH);
+}
+
+void zbsRxTask(void* parameter) {
+    pinMode(FLASHER_AP_TXD, OUTPUT);
+    Serial1.begin(230400, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
+
+    simplePowerOn();
     bool firstrun = true;
 
     Serial1.print("VER?");
@@ -245,17 +272,17 @@ void zbsRxTask(void* parameter) {
         vTaskDelay(1 / portTICK_PERIOD_MS);
 
         if (waitingForVersion) {
-            if (esp_timer_get_time() - waitingForVersion > 10000*1000ULL) {
+            if (esp_timer_get_time() - waitingForVersion > 10000 * 1000ULL) {
                 waitingForVersion = 0;
-                //performDeviceFlash();
+                // performDeviceFlash();
                 Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
                 Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
-                //simplePowerOn();
+                // simplePowerOn();
                 wsErr("The AP tag crashed. Restarting tag, regenerating all pending info.");
                 refreshAllPending();
             }
         }
-        
+
         if (version && firstrun) {
             Serial.printf("ZBS/Zigbee FW version: %04X\n", version);
             uint16_t fsversion;

@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "powermgt.h"
+
 uint8_t ZBS_interface::begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO, uint8_t RESET, uint8_t POWER, uint32_t spi_speed) {
     _SS_PIN = SS;
     _CLK_PIN = CLK;
@@ -25,7 +27,7 @@ uint8_t ZBS_interface::begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO
     digitalWrite(_CLK_PIN, LOW);
     digitalWrite(_MOSI_PIN, HIGH);
 
-    if(!spi)spi = new SPIClass(HSPI);
+    if (!spi) spi = new SPIClass(HSPI);
 
     spiSettings = SPISettings(spi_speed, MSBFIRST, SPI_MODE0);
     spi_ready = 0;
@@ -39,33 +41,16 @@ uint8_t ZBS_interface::begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO
     return check_connection();
 }
 
-void ZBS_interface::setSpeed(uint32_t speed){
+void ZBS_interface::setSpeed(uint32_t speed) {
     spiSettings = SPISettings(speed, MSBFIRST, SPI_MODE0);
 }
 
-ZBS_interface::~ZBS_interface(){
+ZBS_interface::~ZBS_interface() {
     delete spi;
 }
 void ZBS_interface::set_power(uint8_t state) {
-    if (_POWER_PIN != -1) {
-        if (state) {
-            ledcSetup(0, 20000, 8);
-            ledcWrite(0, 255);
-            ledcAttachPin(_POWER_PIN, 0);
-            pinMode(_POWER_PIN, OUTPUT);
-            for (uint8_t c = 254; c != 0xFF; c--) {
-                ledcWrite(0, c);
-                vTaskDelay(1 / portTICK_PERIOD_MS);
-            }
-            digitalWrite(_POWER_PIN, LOW);
-
-            ledcDetachPin(_POWER_PIN);
-            digitalWrite(_POWER_PIN, LOW);
-
-        } else {
-            pinMode(_POWER_PIN, OUTPUT);
-            digitalWrite(_POWER_PIN, HIGH);
-        }
+    if (_POWER_PIN != 255) {
+        rampTagPower(_POWER_PIN, state);
     }
 }
 

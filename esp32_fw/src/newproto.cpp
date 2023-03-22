@@ -321,9 +321,6 @@ void processXferTimeout(struct espXferComplete* xfc) {
 }
 
 void processDataReq(struct espAvailDataReq* eadr) {
-
-    digitalWrite(ONBOARD_LED, LOW);
-
     char buffer[64];
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)eadr->src));
@@ -367,8 +364,6 @@ void processDataReq(struct espAvailDataReq* eadr) {
     sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Serial.print(buffer);
     wsSendTaginfo(mac);
-
-    digitalWrite(ONBOARD_LED, HIGH);
 }
 
 void refreshAllPending() {
