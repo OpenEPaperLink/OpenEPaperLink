@@ -285,8 +285,12 @@ void init_web() {
 
 void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
     if (!index) {
+        if (request->hasParam("mac", true)) {
+            filename = request->getParam("mac", true)->value() + ".jpg";
+        } else {
+            filename = "unknown.jpg";
+        }
         Serial.print((String) "UploadStart: " + filename);
-        // open the file on first call and store the file handle in the request object
         request->_tempFile = LittleFS.open("/" + filename, "w");
     }
     if (len) {
@@ -294,15 +298,26 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
         request->_tempFile.write(data, len);
     }
     if (final) {
-        Serial.print((String) "UploadEnd: " + filename + "," + index + len);
-        // close the file handle as the upload is now done
+        Serial.println((String) " End: " + filename + ", " + index + len);
         request->_tempFile.close();
-        request->send(200, "text/plain", "File Uploaded !");
-        /*
-                sscanf() if (request->hasParam("id") && request->hasParam("file")) {
-                    id = request->getParam("id")->value().toInt();
-                    filename = request->getParam("file")->value();
+        if (request->hasParam("mac", true)) {
+            String dst = request->getParam("mac", true)->value();
+            uint8_t mac[6];
+            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
+                tagRecord *taginfo = nullptr;
+                taginfo = tagRecord::findByMAC(mac);
+                if (taginfo != nullptr) {
+                    taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"0\"}";
+                    taginfo->contentMode = 0;
+                    taginfo->nextupdate = 0;
+                    wsSendTaginfo(mac);
+                    request->send(200, "text/plain", "Ok, saved");
+                } else {
+                    request->send(200, "text/plain", "Error while saving: mac not found");
                 }
-                */
+            }
+        } else {
+            request->send(500, "text/plain", "parameters incomplete");
+        }
     }
 }

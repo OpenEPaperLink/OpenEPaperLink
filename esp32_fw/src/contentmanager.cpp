@@ -78,12 +78,17 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     wsLog("Updating " + dst);
     taginfo->nextupdate = now + 60;
     
-    switch (taginfo->contentMode) {
+    imgParam imageParams;
+    imageParams.hasRed = false;
+    imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
+
+        switch (taginfo->contentMode) {
         case Image:
 
             if (cfgobj["filename"].as<String>() && cfgobj["filename"].as<String>() != "null" && !cfgobj["#fetched"].as<bool>()) {
-                jpg2buffer(cfgobj["filename"].as<String>(), filename);
-                if (prepareDataAvail(&filename, DATATYPE_IMG_RAW_2BPP, mac, cfgobj["timetolive"].as<int>())) {
+                jpg2buffer(cfgobj["filename"].as<String>(), filename, imageParams);
+                if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
+                if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
                 } else {
                     wsErr("Error accessing " + filename);
@@ -94,26 +99,26 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case Today:
 
-            drawDate(filename, taginfo);
+            drawDate(filename, taginfo, imageParams);
             taginfo->nextupdate = midnight;
-            updateTagImage(filename, mac, (midnight - now) / 60 - 10);
+            updateTagImage(filename, mac, (midnight - now) / 60 - 10, imageParams);
             break;
 
         case CountDays:
 
             if (buttonPressed) cfgobj["counter"] = 0;
-            drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo);
+            drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo, imageParams);
             taginfo->nextupdate = midnight;
-            updateTagImage(filename, mac, (buttonPressed ? 0 : 15));
+            updateTagImage(filename, mac, (buttonPressed ? 0 : 15), imageParams);
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             break;
 
         case CountHours:
 
             if (buttonPressed) cfgobj["counter"] = 0;
-            drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo);
+            drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo, imageParams);
             taginfo->nextupdate = now + 3600;
-            updateTagImage(filename, mac, (buttonPressed ? 0 : 5));
+            updateTagImage(filename, mac, (buttonPressed ? 0 : 5), imageParams);
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             break;
 
@@ -124,16 +129,16 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             // https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true
             // https://github.com/erikflowers/weather-icons
 
-            drawWeather(filename, cfgobj["location"], taginfo);
+            drawWeather(filename, cfgobj["location"], taginfo, imageParams);
             taginfo->nextupdate = now + 3600;
-            updateTagImage(filename, mac, 15);
+            updateTagImage(filename, mac, 15, imageParams);
             break;
 
         case Forecast:
 
-            drawForecast(filename, cfgobj["location"], taginfo);
+            drawForecast(filename, cfgobj["location"], taginfo, imageParams);
             taginfo->nextupdate = now + 3 * 3600;
-            updateTagImage(filename, mac, 15);
+            updateTagImage(filename, mac, 15, imageParams);
             break;
 
         case Firmware:
@@ -155,16 +160,16 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case Memo:
 
-            drawIdentify(filename, taginfo);
+            drawIdentify(filename, taginfo, imageParams);
             taginfo->nextupdate = now + 12 * 3600;
-            updateTagImage(filename, mac, 0);
+            updateTagImage(filename, mac, 0, imageParams);
             break;
 
         case ImageUrl:
 
-            if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"])) {
+            if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams)) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
-                updateTagImage(filename, mac, cfgobj["interval"].as<int>());
+                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), imageParams);
                 cfgobj["#fetched"] = now;
             } else {
                 taginfo->nextupdate = now + 300;
@@ -173,9 +178,9 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case RSSFeed:
 
-            if (getRSSfeed(filename, cfgobj["url"], cfgobj["title"], taginfo)) {
+            if (getRSSfeed(filename, cfgobj["url"], cfgobj["title"], taginfo, imageParams)) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
-                updateTagImage(filename, mac, cfgobj["interval"].as<int>());
+                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), imageParams);
             } else {
                 taginfo->nextupdate = now + 300;
             }
@@ -185,8 +190,9 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     taginfo->modeConfigJson = doc.as<String>();
 }
 
-bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin) {
-    prepareDataAvail(&filename, DATATYPE_IMG_RAW_2BPP, dst, nextCheckin);
+bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, imgParam &imageParams) {
+    if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
+    prepareDataAvail(&filename, imageParams.dataType, dst, nextCheckin);
     return true;
 }
 
@@ -208,8 +214,7 @@ void initSprite(TFT_eSprite &spr, int w, int h) {
     spr.fillSprite(PAL_WHITE);
 }
 
-void drawDate(String &filename, tagRecord *&taginfo) {
-
+void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     time_t now;
@@ -238,12 +243,11 @@ void drawDate(String &filename, tagRecord *&taginfo) {
         drawString(spr, String(timeinfo.tm_mday), 152 / 2, 42, "fonts/numbers2-1", TC_DATUM, PAL_RED);
     }
 
-    spr2buffer(spr, filename);
+    spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
 }
 
-void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo) {
-
+void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     LittleFS.begin();
@@ -282,12 +286,11 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
 
     }
 
-    spr2buffer(spr, filename);
+    spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
 }
 
-void drawWeather(String &filename, String location, tagRecord *&taginfo) {
-
+void drawWeather(String &filename, String location, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
 
@@ -417,14 +420,14 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo) {
 
             }
 
-            spr2buffer(spr, filename);
+            spr2buffer(spr, filename, imageParams);
             spr.deleteSprite();
         }
     }
     http.end();
 }
 
-void drawForecast(String &filename, String location, tagRecord *&taginfo) {
+void drawForecast(String &filename, String location, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
 
@@ -520,15 +523,14 @@ void drawForecast(String &filename, String location, tagRecord *&taginfo) {
                 }
 
             }
-            spr2buffer(spr, filename);
+            spr2buffer(spr, filename, imageParams);
             spr.deleteSprite();
         }
     }
     http.end();
 }
 
-void drawIdentify(String &filename, tagRecord *&taginfo) {
-
+void drawIdentify(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     LittleFS.begin();
@@ -544,11 +546,11 @@ void drawIdentify(String &filename, tagRecord *&taginfo) {
         drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
     }
 
-    spr2buffer(spr, filename);
+    spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
 }
 
-bool getImgURL(String &filename, String URL, time_t fetched) {
+bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams) {
     // https://images.klari.net/kat-bw29.jpg
 
     LittleFS.begin();
@@ -564,7 +566,7 @@ bool getImgURL(String &filename, String URL, time_t fetched) {
         if (f) {
             http.writeToStream(&f);
             f.close();
-            jpg2buffer("/temp/temp.jpg", filename);
+            jpg2buffer("/temp/temp.jpg", filename, imageParams);
         }
     } else {
         if (httpCode!=304) { 
@@ -579,7 +581,7 @@ bool getImgURL(String &filename, String URL, time_t fetched) {
 
 rssClass reader;
 
-bool getRSSfeed(String &filename, String URL, String title, tagRecord *&taginfo) {
+bool getRSSfeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
     // https://github.com/garretlab/shoddyxml2
 
     // http://feeds.feedburner.com/tweakers/nieuws
@@ -627,7 +629,7 @@ bool getRSSfeed(String &filename, String URL, String title, tagRecord *&taginfo)
         }
     }
 
-    spr2buffer(spr, filename);
+    spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
 
     return true;

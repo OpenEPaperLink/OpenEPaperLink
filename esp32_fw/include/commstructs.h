@@ -37,7 +37,7 @@ struct AvailDataReq {
     uint16_t batteryMv;
     uint8_t hwType;
     uint8_t wakeupReason;
-    uint8_t capabilities;        // undefined, as of now
+    uint8_t capabilities;
 } __packed;
 
 struct espAvailDataReq {
@@ -53,6 +53,8 @@ struct espAvailDataReq {
 #define DATATYPE_IMG_RAW_1BPP 0x20         // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
 #define DATATYPE_IMG_RAW_2BPP 0x21         // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2"
 #define DATATYPE_IMG_RAW_1BPP_DIRECT 0x3F  // only for 1.54", don't write to EEPROM, but straightaway to the EPD
+#define DATATYPE_NFC_RAW_CONTENT 0xA0      // raw memory content for the NT3H1101
+#define DATATYPE_NFC_URL_DIRECT 0xA1       // URL format for NT3H1101
 
 #define EPD_LUT_DEFAULT 0
 #define EPD_LUT_NO_REPEATS 1

@@ -328,8 +328,8 @@ void processDataReq(struct espAvailDataReq* eadr) {
         taginfo->hwType = eadr->adr.hwType;
         taginfo->wakeupReason = eadr->adr.wakeupReason;
         taginfo->capabilities = eadr->adr.capabilities;
-        if (eadr->adr.wakeupReason == WAKEUP_REASON_FIRSTBOOT && !taginfo->pending) {
-            taginfo->nextupdate = 0;
+        if (eadr->adr.wakeupReason >= 0xF0) {
+            if (!taginfo->pending) taginfo->nextupdate = 0;
             memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
             memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
         }
