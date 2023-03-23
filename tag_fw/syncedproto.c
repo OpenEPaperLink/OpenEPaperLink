@@ -817,7 +817,7 @@ void initializeProto() {
 #define EVENT_AP_TIME 10
 #define RAW_PKT_PADDING 2
 #define EVENT_PKT_SIZE 100
-#define EVENT_DATA_REQ_RX_WINDOW_SIZE 7
+#define EVENT_DATA_REQ_RX_WINDOW_SIZE 8
 
 static void sendEventPong(const void *__xdata buf) {
     struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
@@ -860,9 +860,11 @@ void eventAPMode() {
             // received a packet, lets see what it is
             switch (getPacketType(inBuffer)) {
                 case PKT_PING:
+                    timerDelay(13 * (100 - mLastLqi));
                     sendEventPong(inBuffer);
                     break;
                 case PKT_EVENT_DATA_REQ:
+                    timerDelay(13 * (100 - mLastLqi));
                     sendEventDataReply(inBuffer);
                     break;
             }
@@ -891,8 +893,7 @@ struct eventData *__xdata getEventData() {
     bool timeExtended = false;
     timerDelay(100);
     for (uint8_t c = 0; c < 2; c++) {
-
-        if(!sendEventDataReq()) return NULL;
+        if (!sendEventDataReq()) return NULL;
 
         t = timerGet() + (TIMER_TICKS_PER_MS * EVENT_DATA_REQ_RX_WINDOW_SIZE);
 
@@ -900,7 +901,7 @@ struct eventData *__xdata getEventData() {
             int8_t __xdata ret = commsRxUnencrypted(inBuffer);
 
             if (ret > 1) {
-                if (getPacketType(inBuffer) == PKT_EVENT_DATA) {
+                if ((getPacketType(inBuffer) == PKT_EVENT_DATA) && (pktIsUnicast(inBuffer))) {
                     if (checkCRC(inBuffer + sizeof(struct MacFrameNormal) + 1, sizeof(struct eventData) + EVENT_PKT_SIZE)) {
                         struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)inBuffer;
                         memcpy(blockXferBuffer, inBuffer + sizeof(struct MacFrameNormal) + 1, 128);

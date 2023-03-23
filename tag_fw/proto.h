@@ -90,6 +90,22 @@ struct MacFrameBcast {
     uint8_t src[8];
 } __packed;
 
+#define EVENT_CMD_EVENTSCREEN 3
+#define EVENT_CMD_DRAWSCREEN 2
+#define EVENT_CMD_CMD 1
+#define EVENT_CMD_GETIMGBLOCKDATA 0 
+
+struct eventCmd{
+    uint8_t mesh : 1;
+    uint8_t noMeshScreen : 1;
+    uint8_t cmd : 2;
+    uint8_t cmdArg: 4;
+} __packed;
+
+#define EVENT_CMD_RESET 0
+#define EVENT_CMD_NO_MESH_SCREEN 0x40
+
+
 #define PKT_AVAIL_DATA_SHORTREQ 0xE3
 #define PKT_AVAIL_DATA_REQ 0xE5
 #define PKT_AVAIL_DATA_INFO 0xE6

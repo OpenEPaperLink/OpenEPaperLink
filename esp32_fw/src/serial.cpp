@@ -131,10 +131,21 @@ bool sendEventData(struct eventData* ed) {
     uint8_t attempts = 5;
     xSemaphoreTake(serialWait, portMAX_DELAY);
     while (attempts--) {
-        uint8_t len = sizeof(struct eventData)+5;
+        uint8_t len = sizeof(struct eventData) + 5;
         uint8_t* sendp = (uint8_t*)ed;
-        Serial1.print("UED>");
-        while(len--){
+        Serial1.print("U");
+        delayMicroseconds(200);
+
+        Serial1.print("E");
+        delayMicroseconds(200);
+
+        Serial1.print("D");
+        delayMicroseconds(200);
+
+        Serial1.print(">");
+        delayMicroseconds(200);
+
+        while (len--) {
             Serial1.write(*(sendp++));
             delayMicroseconds(200);
         }

@@ -354,6 +354,58 @@ void init_web() {
         }
     });
 
+    server.on("/event_showScreen", HTTP_POST, [](AsyncWebServerRequest *request) {
+        struct eventData ed;
+        struct eventGeneric *generic = (struct eventGeneric *)ed.data;
+
+
+        uint8_t id[4];
+        sscanf(request->getParam("id", true)->value().c_str(), "%d", &id[0]);
+
+        uint8_t screenShow[4];
+        sscanf(request->getParam("screen", true)->value().c_str(), "%d", &screenShow[0]);
+        
+        ed.eventDataID = id[0];
+        generic->type = 0x20;
+        generic->type |= (screenShow[0] & 0x0F);
+
+        if (request->hasParam("mesh", true)) {
+            generic->type |= 0x80;
+        }
+        bool ret = sendEventData(&ed);
+        if (ret) {
+            request->send(200, "text/plain", "Event data sent");
+        } else {
+            request->send(200, "text/plain", "Failed sending event data, please try again");
+        }
+    });
+
+        server.on("/event_doCmd", HTTP_POST, [](AsyncWebServerRequest *request) {
+        struct eventData ed;
+        struct eventGeneric *generic = (struct eventGeneric *)ed.data;
+
+
+        uint8_t id[4];
+        sscanf(request->getParam("id", true)->value().c_str(), "%d", &id[0]);
+
+        uint8_t cmd[4];
+        sscanf(request->getParam("cmd", true)->value().c_str(), "%d", &cmd[0]);
+        
+        ed.eventDataID = id[0];
+        generic->type = 0x10;
+        generic->type |= (cmd[0] & 0x0F);
+
+        if (request->hasParam("mesh", true)) {
+            generic->type |= 0x80;
+        }
+        bool ret = sendEventData(&ed);
+        if (ret) {
+            request->send(200, "text/plain", "Event data sent");
+        } else {
+            request->send(200, "text/plain", "Failed sending event data, please try again");
+        }
+    });
+
     server.onNotFound([](AsyncWebServerRequest *request) {
         if (request->url() == "/" || request->url() == "index.htm") {
             request->send(200, "text/html", "-");

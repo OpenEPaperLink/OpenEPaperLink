@@ -255,7 +255,7 @@ void showSplashScreen() {
     epdPrintEnd();
 
     epdPrintBegin(2, 120, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    epdpr("Hackaday Berlin 2023");
+    epdpr("Hackaday Berlin 2023-");
     //epdpr("zbs154v033 %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
     epdPrintEnd();
 

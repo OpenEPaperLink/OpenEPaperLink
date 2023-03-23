@@ -217,8 +217,8 @@ void radioSetChannel(uint8_t ch) {
     static const uint8_t perChannelSetting1[] = {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x22, 0x22, 0x22, 0x22, 0x33, 0x33, 0x33, 0x33, 0x33};
     static const uint8_t perChannelSetting2[] = {4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 2, 2, 2};
 
-    if (ch < RADIO_FIRST_CHANNEL || ch >= RADIO_FIRST_CHANNEL + RADIO_NUM_CHANNELS)
-        return;
+    //if (ch < RADIO_FIRST_CHANNEL || ch >= RADIO_FIRST_CHANNEL + RADIO_NUM_CHANNELS)
+    //    return;
 
     RADIO_channel = ch;  // configmed to be at least RX channel
     RADIO_command = RADIO_CMD_RECEIVE;

@@ -63,6 +63,39 @@
         <input type="submit" value="Send EventData Update">
 </form>
 </div>
+<br/>
+<br/>
+
+<div class="actionbox">
+	Show screen:
+	<form action="event_showScreen" method="POST" target="empty">
+		ID:<input name="id" size=3 maxlength=3 placeholder="1"/><br/>
+		<select name="screen">
+			<option value="0">Event Begin</option>
+			<option value="1">Event End</option>
+			<option value="2">Update Screen</option>
+		</select><br/>
+		<input type="checkbox" name="mesh" value="Rebroadcast">Rebroadcast<br/>
+        <input type="submit" value="Send EventData Update">
+</form>
+</div>
+<br/>
+<br/>
+<div class="actionbox">
+Do command:
+	<form action="event_doCmd" method="POST" target="empty">
+		ID:<input name="id" size=3 maxlength=3 placeholder="1"/><br/>
+		<select name="cmd">
+			<option value="0">Reset</option>
+			<option value="1">Go To EventEnd</option>
+			<option value="2">Cmd 2</option>
+			<option value="3">Cmd 1</option>
+			<option value="4">Cmd 2</option>
+		</select><br/>
+		<input type="checkbox" name="mesh" value="Rebroadcast">Rebroadcast<br/>
+        <input type="submit" value="Send EventData Update">
+</form>
+</div>
 
 
 <div id="messages">

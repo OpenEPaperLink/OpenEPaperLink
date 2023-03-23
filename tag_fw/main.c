@@ -374,6 +374,29 @@ void main() {
     }
 }
 
+extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when done
+
+void doMeshIfNeeded(uint8_t cmddata) {
+    wdt30s();
+    if (!(cmddata & 0x40)) {
+        powerUp(INIT_EPD);
+        eventUpdateScreen();
+    }
+    if (cmddata & 0x80) {
+        wdt30s();
+        // enter AP mode
+        pr("AP enabled\n");
+        powerUp(INIT_RADIO);
+        eventAPMode();
+        powerDown(INIT_RADIO);
+        pr("AP disabled\n");
+        epdWaitRdy();
+    }
+    if (!(cmddata & 0x40)) {
+        powerDown(INIT_EPD);
+    }
+}
+
 #define EVENT_POLL_INTERVAL 3000
 uint8_t __xdata eventDataID = 0;
 uint16_t __xdata failedCount = 0;
@@ -407,34 +430,57 @@ void eventMode() {
         if (ed == NULL) {
             failedCount++;
         } else {
-            // eventdata is copied to blockXferBuffer, gets picked up from there
             failedCount = 0;
+            uint8_t cmddata = ed->data[0];
+            uint8_t newEventDataID = ed->eventDataID;
 
-            // check if should display this data, and make it available to other tags
-            if ((ed->eventDataID > eventDataID) || (eventDataID - ed->eventDataID > 128)) {
-                eventDataID = ed->eventDataID;
-
-                // display event logo while we run the AP (we could just skip straight to showing the data, but where's the fun in that)
-                powerUp(INIT_EPD);
-                eventUpdateScreen();
-
-                wdt30s();
-                // enter AP mode
-                pr("AP enabled\n");
-                powerUp(INIT_RADIO);
-                eventAPMode();
-                powerDown(INIT_RADIO);
-                pr("AP disabled\n");
-
-                // for good measure, check if the EPD was ready with the picture
-                epdWaitRdy();
-
-                wdt10s();
-                // display new data
-                eventScreen();
-                powerDown(INIT_EPD);
-            } else {
-                // ignore
+            switch ((cmddata >> 4) & 0x03) {
+                case EVENT_CMD_EVENTSCREEN:
+                    if (!((newEventDataID > eventDataID) || (eventDataID - newEventDataID > 128))) break;  // ignore this message, its probably a mesh echo/reflection
+                    doMeshIfNeeded(cmddata);
+                    eventDataID = newEventDataID;
+                    wdt10s();
+                    powerUp(INIT_EPD);
+                    eventScreen();
+                    powerDown(INIT_EPD);
+                    break;
+                case EVENT_CMD_DRAWSCREEN:
+                    if (!((newEventDataID > eventDataID) || (eventDataID - newEventDataID > 128))) break;  // ignore this message, its probably a mesh echo/reflection
+                    doMeshIfNeeded(cmddata);
+                    eventDataID = newEventDataID;
+                    wdt30s();
+                    powerUp(INIT_EPD);
+                    switch (cmddata & 0x0F) {
+                        case 0:
+                            eventStartScreen();
+                            break;
+                        case 1:
+                            wdt60s();
+                            eventEndScreen();
+                            break;
+                        case 2:
+                            eventUpdateScreen();
+                            epdWaitRdy();
+                            break;
+                    }
+                    powerDown(INIT_EPD);
+                    break;
+                case EVENT_CMD_CMD:
+                    if (!((newEventDataID > eventDataID) || (eventDataID - newEventDataID > 128))) break;  // ignore this message, its probably a mesh echo/reflection
+                    switch (cmddata & 0x0F) {
+                        case 0:  // reset
+                            if (eventDataID != 0) {
+                                doMeshIfNeeded(cmddata);
+                                wdtDeviceReset();
+                            }
+                            break;
+                        case 1:  // go to event end
+                            doMeshIfNeeded(cmddata);
+                            failedCount = -1;
+                            break;
+                    }
+                    eventDataID = newEventDataID;
+                    break;
             }
         }
         doSleep(EVENT_POLL_INTERVAL);
@@ -446,13 +492,13 @@ void eventMode() {
     eventEndScreen();
     powerDown(INIT_EPD);
 
-    // sleep, wake every 10 minutes to see if an event has started; 
+    // sleep, wake every 10 minutes to see if an event has started;
     while (1) {
         doSleep(600000);
         wdt10s();
         powerUp(INIT_RADIO);
         struct eventData* __xdata ed = getEventData();
         powerDown(INIT_RADIO);
-        if(ed!=NULL)wdtDeviceReset();
+        if (ed != NULL) wdtDeviceReset();
     }
 }
