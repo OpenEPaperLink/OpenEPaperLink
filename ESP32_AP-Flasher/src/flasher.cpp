@@ -172,7 +172,7 @@ void performDeviceFlash() {
     vTaskDelay(500 / portTICK_PERIOD_MS);
     zbs->set_power(1);
     vTaskDelay(500 / portTICK_PERIOD_MS);
-    //interfaceWorking = zbs.begin();
+    interfaceWorking = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, FLASHER_AP_POWER, 8000000);
     if (!interfaceWorking) {
         Serial.print("I wasn't able to connect to a ZBS tag, please check wiring and definitions in the settings.h file.\n");
         return;

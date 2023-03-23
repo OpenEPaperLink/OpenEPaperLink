@@ -58,7 +58,7 @@ void setup() {
     Serial.printf("Total PSRAM: %d", ESP.getPsramSize());
     Serial.printf("Free PSRAM: %d", ESP.getFreePsram());
 
-    #if (HAS_USB == 1)
+    #ifdef OPENEPAPERLINK_PCB
     xTaskCreate(usbFlasherTask, "flasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
     #endif
 

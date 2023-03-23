@@ -1,16 +1,25 @@
 #include <Arduino.h>
+
+#ifdef OPENEPAPERLINK_PCB
 #include <FastLED.h>
+#endif
 
 #include "settings.h"
 
-QueueHandle_t rgbLedQueue;
+
 QueueHandle_t ledQueue;
+
+#ifdef OPENEPAPERLINK_PCB
+QueueHandle_t rgbLedQueue;
 
 struct ledInstructionRGB {
     CRGB ledColor;
     uint16_t fadeTime;
     uint16_t length;
 };
+
+CRGB leds[1];
+#endif
 
 struct ledInstruction {
     uint16_t value;
@@ -64,19 +73,14 @@ const uint16_t gamma12[256] = {
     3502, 3540, 3578, 3616, 3654, 3693, 3732, 3771, 3810, 3850,
     3890, 3930, 3971, 4013, 4054, 4095};
 
-CRGB leds[1];
+
+
+#ifdef OPENEPAPERLINK_PCB
 
 void addToRGBQueue(struct ledInstructionRGB* rgb) {
     BaseType_t queuestatus = xQueueSend(rgbLedQueue, &rgb, 0);
     if (queuestatus == pdFALSE) {
         delete rgb;
-    }
-}
-
-void addToMonoQueue(struct ledInstruction* mono) {
-    BaseType_t queuestatus = xQueueSend(ledQueue, &mono, 0);
-    if (queuestatus == pdFALSE) {
-        delete mono;
     }
 }
 
@@ -88,13 +92,6 @@ void addFadeColor(CRGB cname) {
     addToRGBQueue(rgb);
 }
 
-void addFadeMono(uint8_t value) {
-    struct ledInstruction* mono = new struct ledInstruction;
-    mono->value = value;
-    mono->fadeTime = 750;
-    mono->length = 0;
-    addToMonoQueue(mono);
-}
 
 void shortBlink(CRGB cname) {
     struct ledInstructionRGB* rgb = new struct ledInstructionRGB;
@@ -118,14 +115,9 @@ void shortBlink(CRGB cname) {
 void showRGB() {
     FastLED.show();
 }
-void showMono(uint8_t brightness) {
-    ledcWrite(7, gamma12[brightness]);
-}
 
-volatile uint16_t rgbIdlePeriod = 800;
-volatile uint16_t monoIdlePeriod = 900;
 volatile CRGB rgbIdleColor = CRGB::Green;
-uint8_t monoValue = 0;
+volatile uint16_t rgbIdlePeriod = 800;
 
 void rgbIdleStep() {
     static bool dirUp = true;
@@ -150,6 +142,33 @@ void rgbIdleStep() {
         showRGB();
     }
 }
+#endif
+
+
+void addToMonoQueue(struct ledInstruction* mono) {
+    BaseType_t queuestatus = xQueueSend(ledQueue, &mono, 0);
+    if (queuestatus == pdFALSE) {
+        delete mono;
+    }
+}
+
+void addFadeMono(uint8_t value) {
+    struct ledInstruction* mono = new struct ledInstruction;
+    mono->value = value;
+    mono->fadeTime = 750;
+    mono->length = 0;
+    addToMonoQueue(mono);
+}
+
+
+
+void showMono(uint8_t brightness) {
+    ledcWrite(7, gamma12[brightness]);
+}
+volatile uint16_t monoIdlePeriod = 900;
+
+uint8_t monoValue = 0;
+
 
 void monoIdleStep() {
     static bool dirUp = true;
@@ -175,11 +194,24 @@ void monoIdleStep() {
 }
 
 void ledTask(void* parameter) {
+#ifdef OPENEPAPERLINK_PCB
     FastLED.addLeds<WS2812B, FLASHER_RGB_LED, GRB>(leds, 1);  // GRB ordering is typical
     leds[0] = CRGB::Blue;
     showRGB();
-
     rgbLedQueue = xQueueCreate(30, sizeof(struct ledInstructionRGB*));
+
+    struct ledInstructionRGB* rgb = nullptr;
+        // open with a nice RGB crossfade
+    addFadeColor(CRGB::Red);
+    addFadeColor(CRGB::Green);
+    addFadeColor(CRGB::Blue);
+    addFadeColor(CRGB::Red);
+    addFadeColor(CRGB::Green);
+    addFadeColor(CRGB::Blue);
+    CRGB oldColor = CRGB::Black;
+    uint16_t rgbInstructionFadeTime = 0;
+#endif
+
     ledQueue = xQueueCreate(30, sizeof(struct ledInstruction*));
 
     digitalWrite(FLASHER_LED, HIGH);
@@ -187,31 +219,20 @@ void ledTask(void* parameter) {
     ledcSetup(7, 9500, 12);  // 141251 okay // 101251 okay
     ledcAttachPin(FLASHER_LED, 7);
 
-    struct ledInstructionRGB* rgb = nullptr;
     struct ledInstruction* monoled = nullptr;
-
-    // open with a nice RGB crossfade
-    addFadeColor(CRGB::Red);
-    addFadeColor(CRGB::Green);
-    addFadeColor(CRGB::Blue);
-    addFadeColor(CRGB::Red);
-    addFadeColor(CRGB::Green);
-    addFadeColor(CRGB::Blue);
 
     addFadeMono(255);
     addFadeMono(127);
     addFadeMono(255);
     addFadeMono(0);
 
-    CRGB oldColor = CRGB::Black;
-
     uint8_t oldBrightness = 0;
 
-    uint16_t rgbInstructionFadeTime = 0;
+
     uint16_t monoInstructionFadeTime = 0;
 
     while (1) {
-
+#ifdef OPENEPAPERLINK_PCB
         // handle RGB led instructions
         if (rgb == nullptr) {
             // fetch a led instruction
@@ -240,7 +261,7 @@ void ledTask(void* parameter) {
                 rgb = nullptr;
             }
         }
-
+#endif
         // handle flasher LED (single color)
         if (monoled == nullptr) {
             BaseType_t q = xQueueReceive(ledQueue, &monoled, 1);

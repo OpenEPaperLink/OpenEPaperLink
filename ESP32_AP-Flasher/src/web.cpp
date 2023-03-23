@@ -2,7 +2,6 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
@@ -13,10 +12,10 @@
 #include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager/tree/feature_asyncwebserver
 
 #include "commstructs.h"
+#include "leds.h"
 #include "newproto.h"
 #include "settings.h"
 #include "tag_db.h"
-#include "leds.h"
 
 extern uint8_t data_to_send[];
 
@@ -52,7 +51,9 @@ void webSocketSendProcess(void *parameter) {
 }
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+#ifdef OPENEPAPERLINK_PCB
     shortBlink(CRGB::BlueViolet);
+#endif
     switch (type) {
         case WS_EVT_CONNECT:
             // client connected
@@ -159,14 +160,12 @@ void wsSendSysteminfo() {
 }
 
 void wsSendTaginfo(uint8_t mac[6]) {
-
     String json = "";
     json = tagDBtoJson(mac);
 
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(json);
     xSemaphoreGive(wsMutex);
-
 }
 
 void init_web() {
@@ -208,7 +207,7 @@ void init_web() {
 
     server.serveStatic("/current", LittleFS, "/current/");
     server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html");
-    
+
     server.on(
         "/imgupload", HTTP_POST, [](AsyncWebServerRequest *request) {
             request->send(200);
@@ -220,15 +219,15 @@ void init_web() {
         if (request->hasParam("mac")) {
             String dst = request->getParam("mac")->value();
             uint8_t mac[6];
-            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5])==6) {
+            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
                 json = tagDBtoJson(mac);
             }
         } else {
-            uint8_t startPos=0;
+            uint8_t startPos = 0;
             if (request->hasParam("pos")) {
                 startPos = atoi(request->getParam("pos")->value().c_str());
             }
-            json = tagDBtoJson(nullptr,startPos);
+            json = tagDBtoJson(nullptr, startPos);
         }
         request->send(200, "application/json", json);
     });
@@ -245,8 +244,8 @@ void init_web() {
                     taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
                     taginfo->contentMode = atoi(request->getParam("contentmode", true)->value().c_str());
                     taginfo->nextupdate = 0;
-                    //memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-                    //memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
+                    // memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
+                    // memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
                     wsSendTaginfo(mac);
                     saveDB("/current/tagDB.json");
                     request->send(200, "text/plain", "Ok, saved");

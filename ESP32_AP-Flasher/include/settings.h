@@ -46,19 +46,19 @@
 
 #if (PINOUT == SIMPLE_AP)
 /* Lolin32 lite connections to AP tag*/
-#define RXD1 16
-#define TXD1 17
-
 #define FLASHER_AP_SS 5
 #define FLASHER_AP_CLK 18
 #define FLASHER_AP_MOSI 23
 #define FLASHER_AP_MISO 19
 #define FLASHER_AP_RESET 2
-#define FLASHER_AP_POWER 13
+//#define FLASHER_AP_POWER 13
 #define FLASHER_AP_POWER2 15
-#define FLASHER_AP_TXD 17
-#define FLASHER_AP_RXD 16
+//#define FLASHER_AP_TXD 17
+//#define FLASHER_AP_RXD 16
 #define FLASHER_AP_TEST -1
+#define FLASHER_AP_TXD 12
+#define FLASHER_AP_RXD 13
+#define FLASHER_AP_POWER 25
 
 #define FLASHER_LED 22
 #endif
