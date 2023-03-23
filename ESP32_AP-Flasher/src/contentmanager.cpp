@@ -217,6 +217,11 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
 void initSprite(TFT_eSprite &spr, int w, int h) {
     spr.setColorDepth(4);  // 4 bits per pixel, uses indexed color
     spr.createSprite(w, h);
+    uint16_t cmap[16];
+    cmap[PAL_BLACK] = TFT_BLACK;
+    cmap[PAL_RED] = TFT_RED;
+    cmap[PAL_WHITE] = TFT_WHITE;
+    spr.createPalette(cmap, 16);
     if (spr.getPointer() == nullptr) {
         wsErr("Failed to create sprite");
     }
