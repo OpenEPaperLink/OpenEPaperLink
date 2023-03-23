@@ -90,7 +90,6 @@ uint8_t pktindex = 0;
 char lastchar = 0;
 uint8_t charindex = 0;
 uint64_t  waitingForVersion = 0;
-uint8_t crashcounter = 0;
 uint16_t version;
 
 void ShortRXWaitLoop() {
@@ -201,12 +200,25 @@ void SerialRXLoop() {
                 break;
             case ZBS_RX_WAIT_VER:
                 waitingForVersion = 0;
-                crashcounter = 0;
                 cmdbuffer[charindex] = lastchar;
                 charindex++;
                 if (charindex == 4) {
                     charindex = 0;
                     version = (uint16_t)strtoul(cmdbuffer, NULL, 16);
+                    /*
+                    uint16_t fsversion;
+                    lookupFirmwareFile(fsversion);
+                    if ((fsversion) && (version != fsversion)) {
+                        Serial.printf("ZBS/Zigbee FW version: %04X, version on SPIFFS: %04X\n", version, fsversion);
+                        Serial.printf("Performing flash update in about 30 seconds");
+                        vTaskDelay(30000 / portTICK_PERIOD_MS);
+                        performDeviceFlash();
+                    } else if (!fsversion) {
+                        Serial.println("No ZBS/Zigbee FW binary found on SPIFFS, please upload a zigbeebase000X.bin - format binary to enable flashing");
+                    } else {
+                        Serial.printf("ZBS/Zigbee FW version: %04X\n", version);
+                    }
+                    */
                     RXState = ZBS_RX_WAIT_HEADER;
                 }
                 break;
@@ -217,14 +229,13 @@ void SerialRXLoop() {
 extern uint8_t* getDataForFile(File* file);
 
 void zbsRxTask(void* parameter) {
-    Serial1.begin(228571, SERIAL_8N1, RXD1, TXD1);
+    Serial1.begin(230400, SERIAL_8N1, RXD1, TXD1);
 
     simplePowerOn();
     bool firstrun = true;
 
     Serial1.print("VER?");
     waitingForVersion = esp_timer_get_time();
-
     while (1) {
         SerialRXLoop();
 
@@ -234,19 +245,14 @@ void zbsRxTask(void* parameter) {
         vTaskDelay(1 / portTICK_PERIOD_MS);
 
         if (waitingForVersion) {
-            if (esp_timer_get_time() - waitingForVersion > 5000*1000ULL) {
+            if (esp_timer_get_time() - waitingForVersion > 10000*1000ULL) {
                 waitingForVersion = 0;
-                wsLog("AP doesn't respond... "+String(crashcounter + 1));
-                if (++crashcounter >= 4) {
-                    crashcounter = 0;
-                    Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
-                    Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
-                    simplePowerOn();
-                    wsErr("The AP tag crashed. Restarting tag, regenerating all pending info.");
-                    refreshAllPending();
-                } else {
-                    Ping();
-                }
+                //performDeviceFlash();
+                Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
+                Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
+                simplePowerOn();
+                wsErr("The AP tag crashed. Restarting tag, regenerating all pending info.");
+                refreshAllPending();
             }
         }
         

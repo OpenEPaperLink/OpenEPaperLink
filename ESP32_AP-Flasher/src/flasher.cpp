@@ -27,6 +27,9 @@ typedef enum {
 uint8_t *infoblock = nullptr;
 uint8_t *flashbuffer = nullptr;
 
+static class ZBS_interface* zbs;
+
+
 // look for the latest version of the firmware file... It's supposed to be something like zigbeebase0003.bin
 String lookupFirmwareFile(uint16_t &version) {
     String filename;
@@ -58,9 +61,9 @@ uint16_t getDeviceType() {
     uint8_t type29[8] = {0x7d, 0x22, 0xff, 0x02, 0xa4, 0x58, 0xf0, 0x90};
     uint8_t type154[8] = {0xa1, 0x23, 0x22, 0x02, 0xa4, 0xc3, 0xe4, 0xf0};
     uint8_t buffer[8] = {0};
-    zbs.select_flash(0);
+    zbs->select_flash(0);
     for (uint8_t c = 0; c < 8; c++) {
-        buffer[c] = zbs.read_flash(0x08 + c);
+        buffer[c] = zbs->read_flash(0x08 + c);
     }
     if (memcmp(buffer, type29, 8) == 0) {
         return 0x3B10;
@@ -73,10 +76,10 @@ uint16_t getDeviceType() {
 
 // extract original mac from firmware and make it 2 bytes longer based on info in settings.h
 uint64_t getOriginalTagMac() {
-    zbs.select_flash(0);
+    zbs->select_flash(0);
     uint8_t mac[8] = {0};
     for (uint8_t c = 0; c < 6; c++) {
-        mac[c + 2] = zbs.read_flash(0xFC06 + c);
+        mac[c + 2] = zbs->read_flash(0xFC06 + c);
     }
     mac[0] = (uint8_t)(CUSTOM_MAC_HDR >> 8);
     mac[1] = (uint8_t)CUSTOM_MAC_HDR;
@@ -96,10 +99,10 @@ uint64_t getOriginalTagMac() {
 
 // extract custom firmware mac from Infoblock
 uint64_t getInfoBlockMac() {
-    zbs.select_flash(1);
+    zbs->select_flash(1);
     uint8_t mac[8] = {0};
     for (uint8_t c = 0; c < 8; c++) {
-        mac[c] = zbs.read_flash(0x10 + c);
+        mac[c] = zbs->read_flash(0x10 + c);
     }
     return *((uint64_t *)(mac));
 }
@@ -110,9 +113,9 @@ void readInfoBlock() {
         // allocate room for infopage
         infoblock = (uint8_t *)calloc(1024, 1);
     }
-    zbs.select_flash(1);  // select info page
+    zbs->select_flash(1);  // select info page
     for (uint16_t c = 0; c < 1024; c++) {
-        infoblock[c] = zbs.read_flash(c);
+        infoblock[c] = zbs->read_flash(c);
     }
 }
 
@@ -121,13 +124,13 @@ void writeInfoBlock() {
     if (infoblock == nullptr) {
         return;
     }
-    zbs.select_flash(1);
-    zbs.erase_infoblock();
-    zbs.select_flash(1);  // select info page
+    zbs->select_flash(1);
+    zbs->erase_infoblock();
+    zbs->select_flash(1);  // select info page
     for (uint16_t c = 0; c < 1024; c++) {
         for (uint8_t i = 0; i < MAX_WRITE_ATTEMPTS; i++) {
-            zbs.write_flash(c, infoblock[c]);
-            if (zbs.read_flash(c) == infoblock[c]) {
+            zbs->write_flash(c, infoblock[c]);
+            if (zbs->read_flash(c) == infoblock[c]) {
                 break;
             }
         }
@@ -139,15 +142,15 @@ void writeFlashBlock(uint16_t size) {
     if (flashbuffer == nullptr) {
         return;
     }
-    zbs.select_flash(0);
-    zbs.erase_flash();
-    zbs.select_flash(0);
+    zbs->select_flash(0);
+    zbs->erase_flash();
+    zbs->select_flash(0);
     Serial.printf("Starting flash, size=%d\n", size);
     uint8_t i = 0;
     for (uint16_t c = 0; c < size; c++) {
         for (i = 0; i < MAX_WRITE_ATTEMPTS; i++) {
-            zbs.write_flash(c, flashbuffer[c]);
-            if (zbs.read_flash(c) == flashbuffer[c]) {
+            zbs->write_flash(c, flashbuffer[c]);
+            if (zbs->read_flash(c) == flashbuffer[c]) {
                 break;
             }
         }
@@ -165,11 +168,11 @@ void writeFlashBlock(uint16_t size) {
 void performDeviceFlash() {
     uint8_t interfaceWorking = 0;
     Serial.printf("Power cycling to get everything up and running...\n");
-    zbs.set_power(0);
+    zbs->set_power(0);
     vTaskDelay(500 / portTICK_PERIOD_MS);
-    zbs.set_power(1);
+    zbs->set_power(1);
     vTaskDelay(500 / portTICK_PERIOD_MS);
-    interfaceWorking = zbs.begin();
+    //interfaceWorking = zbs.begin();
     if (!interfaceWorking) {
         Serial.print("I wasn't able to connect to a ZBS tag, please check wiring and definitions in the settings.h file.\n");
         return;
@@ -182,11 +185,11 @@ void performDeviceFlash() {
     if (*((uint64_t *)(mac)) == 0xFFFFFFFFFFFFFFFF) {
         // mac not set in infopage, get it from the original firmware
         *((uint64_t *)(mac)) = getOriginalTagMac();
-        zbs.select_flash(1);
+        zbs->select_flash(1);
         for (uint8_t c = 0; c < 8; c++) {
             infoblock[0x17 - c] = mac[c];
             // write mac directly to infoblock without erasing; the bytes should all be 0xFF anyway
-            zbs.write_flash(0x17 - c, mac[c]);
+            zbs->write_flash(0x17 - c, mac[c]);
         }
     }
 
@@ -219,6 +222,6 @@ void performDeviceFlash() {
     infoblock = nullptr;
     free(flashbuffer);
     flashbuffer = nullptr;
-    zbs.reset();
-    zbs.set_power(1);
+    zbs->reset();
+    zbs->set_power(1);
 }
