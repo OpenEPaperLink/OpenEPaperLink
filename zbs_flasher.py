@@ -26,9 +26,9 @@ CMD_SAVE_MAC_FROM_FW = 40
 CMD_PASS_THROUGH = 50
 
 def print_arg_manual():
-    print("For use with the OpenEpaperLink PCB - Will use external flasher-header by default, or add 'internalap' to access the Internal AP header")
+    print("For use with the OpenEpaperLink PCB - Will use external flasher-header by default, or add 'internalap'/'altradio' to access the Internal AP header/altradio header")
     print("\n")
-    print("Manual: COM1 [read][readI][write][writeI] file.bin [internalap][slow_spi] baudrate(default 115200) pass at the end for UART Pass Through mode")
+    print("Manual: COM1 [read][readI][write][writeI] file.bin [internalap/altradio][slow_spi] baudrate(default 115200) pass at the end for UART Pass Through mode")
     print("Example: COM1 read file.bin slow_spi 115200 <- will read flash to file.bin with slow SPI and 115200 baud")
     print("Example: COM1 write file.bin <- will write file.bin to flash with fast SPI and default 115200 baud")
     print("Example: COM1 write file.bin internalap <- will write file.bin to the internal AP on the OpenEpaperLink PCB")
@@ -48,7 +48,7 @@ custom_mac = "ffffffffffffffff"
 file = ""
 usedCom = sys.argv[1]  # "COM5"
 read_or_write = sys.argv[2]
-usedBaud = 1000000
+usedBaud = 115200
 mac_folder = "mac_backups/"
 
 if(sys.argv[2].lower() == "mac".lower()):
@@ -83,6 +83,8 @@ if len(sys.argv) >= 5:
         after_work_pass_through = 1
     elif sys.argv[4].lower() == "internalap".lower():
         use_internal_ap = 2
+    elif sys.argv[4].lower() == "altradio".lower():
+        use_internal_ap = 4
 if len(sys.argv) >= 6:
     usedBaud = int(sys.argv[5])
     print("Using custom baudrate: " + str(usedBaud))
@@ -193,7 +195,7 @@ def zbs_init():
     global use_internal_ap
     retry = 3
     while(retry):
-        send_cmd(CMD_ZBS_BEGIN, bytearray([(spi_speed&1)|use_internal_ap&2]))
+        send_cmd(CMD_ZBS_BEGIN, bytearray([(spi_speed&1)|use_internal_ap&6]))
         answer_array = uart_receive_handler()
         #print(' '.join(format(x, '02x') for x in answer_array))
         if answer_array[0] == 0 and answer_array[2] == 1:
