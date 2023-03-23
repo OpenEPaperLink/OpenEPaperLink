@@ -31,6 +31,7 @@ enum contentModes {
     Forecast,
     RSSFeed,
     QRcode,
+    Calendar,
 };
 
 void contentRunner() {
@@ -180,7 +181,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case RSSFeed:
 
-            if (getRSSfeed(filename, cfgobj["url"], cfgobj["title"], taginfo, imageParams)) {
+            if (getRssFeed(filename, cfgobj["url"], cfgobj["title"], taginfo, imageParams)) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
                 updateTagImage(filename, mac, cfgobj["interval"].as<int>(), imageParams);
             } else {
@@ -194,6 +195,17 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             taginfo->nextupdate = now + 12 * 3600;
             updateTagImage(filename, mac, 0, imageParams);
             break;
+
+        case Calendar:
+
+            if (getCalFeed(filename, cfgobj["apps_script_url"], cfgobj["title"], taginfo, imageParams)) {
+                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
+                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), imageParams);
+            } else {
+                taginfo->nextupdate = now + 300;
+            }
+            break;
+
         }
 
     taginfo->modeConfigJson = doc.as<String>();
@@ -595,7 +607,7 @@ bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imagePara
 
 rssClass reader;
 
-bool getRSSfeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
+bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
     // https://github.com/garretlab/shoddyxml2
 
     // http://feeds.feedburner.com/tweakers/nieuws
@@ -640,6 +652,108 @@ bool getRSSfeed(String &filename, String URL, String title, tagRecord *&taginfo,
         for (int i = 0; i < n; i++) {
             u8f.setCursor(5, 34+i*13);  // start writing at this position
             u8f.print(reader.itemData[i]);
+        }
+    }
+
+    spr2buffer(spr, filename, imageParams);
+    spr.deleteSprite();
+
+    return true;
+}
+
+char *epoch_to_display(time_t utc) {
+    static char display[6];
+    struct tm local_tm;
+    localtime_r(&utc, &local_tm);
+    time_t now;
+    time(&now);
+    struct tm now_tm;
+    localtime_r(&now, &now_tm);
+    if (local_tm.tm_year < now_tm.tm_year ||
+        (local_tm.tm_year == now_tm.tm_year && local_tm.tm_mon < now_tm.tm_mon) ||
+        (local_tm.tm_year == now_tm.tm_year && local_tm.tm_mon == now_tm.tm_mon && local_tm.tm_mday < now_tm.tm_mday) ||
+        (local_tm.tm_hour == 0 && local_tm.tm_min == 0)) {
+        strftime(display, sizeof(display), "%d-%m", &local_tm);
+    } else {
+        strftime(display, sizeof(display), "%H:%M", &local_tm);
+    }
+    return display;
+}
+
+bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
+    // google apps scripts method to retrieve calendar
+    // see /data/calendar.txt for description
+
+    wsLog("get calendar");
+
+    time_t now;
+    time(&now);
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+
+    HTTPClient http;
+    http.begin(URL);
+    http.setTimeout(10000);  // timeout in ms
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    int httpCode = http.GET();
+    if (httpCode != 200) {
+        wsErr("http error " + String(httpCode));
+        return false;
+    }
+
+    DynamicJsonDocument doc(5000);
+    DeserializationError error = deserializeJson(doc, http.getString());
+    if (error) {
+        wsErr(error.c_str());
+    }
+    http.end();
+
+    TFT_eSPI tft = TFT_eSPI();
+    TFT_eSprite spr = TFT_eSprite(&tft);
+    U8g2_for_TFT_eSPI u8f;
+    u8f.begin(spr);
+
+    if (taginfo->hwType == SOLUM_29_033) {
+        initSprite(spr, 296, 128);
+        if (title == "" || title == "null") title = "Calendar";
+
+        u8f.setFont(u8g2_font_t0_22b_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+        u8f.setFontMode(0);
+        u8f.setFontDirection(0);
+        u8f.setForegroundColor(PAL_BLACK);
+        u8f.setBackgroundColor(PAL_WHITE);
+        u8f.setCursor(5, 16);
+        u8f.print(title);
+
+        // u8g2_font_nine_by_five_nbp_tr
+        // u8g2_font_7x14_tr
+        // u8g2_font_crox1h_tr
+        // u8g2_font_miranda_nbp_tr
+        // u8g2_font_glasstown_nbp_tr
+        // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+
+        int n = doc.size();
+        if (n>7) n=7;
+        for (int i = 0; i < n; i++) {
+            JsonObject obj = doc[i];
+            String eventtitle = obj["title"];
+            String startz = obj["start"];
+            time_t starttime = obj["start"];
+            time_t endtime = obj["end"];
+            if (starttime<now && endtime>now) {
+                u8f.setFont(u8g2_font_t0_14b_tr);
+                u8f.setForegroundColor(PAL_WHITE);
+                u8f.setBackgroundColor(PAL_RED);
+                spr.fillRect(0, i * 15 + 21, 296, 14, PAL_RED);
+            } else {
+                u8f.setFont(u8g2_font_t0_14_tr);
+                u8f.setForegroundColor(PAL_BLACK);
+                u8f.setBackgroundColor(PAL_WHITE);
+            }
+            u8f.setCursor(5, 32 + i * 15);
+            u8f.print(epoch_to_display(obj["start"]));
+            u8f.setCursor(50, 32 + i * 15);
+            u8f.print(eventtitle);
         }
     }
 

@@ -26,7 +26,8 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo, imgPara
 void drawForecast(String &filename, String location, tagRecord *&taginfo, imgParam &imageParams);
 void drawIdentify(String &filename, tagRecord *&taginfo, imgParam &imageParams);
 bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams);
-bool getRSSfeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams);
+bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams);
+bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams);
 void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams);
 char *formatHttpDate(time_t t);
 String urlEncode(const char *msg);

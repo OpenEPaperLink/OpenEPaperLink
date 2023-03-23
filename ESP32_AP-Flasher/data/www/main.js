@@ -8,7 +8,7 @@ const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
 const WAKEUP_REASON_WDT_RESET = 0xFE;
 
-const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url", "Weather forecast", "RSS feed", "QR code"];
+const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url", "Weather forecast", "RSS feed", "QR code", "Calendar"];
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
 const displaySizeLookup = { 0: [152, 152], 1: [128, 296], 2: [400, 300] };
 const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [255, 0, 0] };
@@ -24,6 +24,7 @@ contentModeOptions[7] = ["url","interval"];
 contentModeOptions[8] = ["location"];
 contentModeOptions[9] = ["title", "url", "interval"];
 contentModeOptions[10] = ["title", "qr-content"];
+contentModeOptions[11] = ["title", "apps_script_url", "interval"];
 
 const imageQueue = [];
 let isProcessing = false;
