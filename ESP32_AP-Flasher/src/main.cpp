@@ -11,7 +11,11 @@
 #include "serial.h"
 #include "settings.h"
 #include "tag_db.h"
+
+#if (HAS_USB == 1)
 #include "usbflasher.h"
+#endif
+
 #include "web.h"
 
 #include "leds.h"
@@ -25,7 +29,7 @@ void timeTask(void* parameter) {
             Serial.println("Waiting for valid time from NTP-server");
         } else {
             if (now % 10 == 0) wsSendSysteminfo();
-            if (now % 60 == 3) Ping();
+            if (now % 30 == 3) Ping();
             if (now % 300 == 6) saveDB("/current/tagDB.json");
 
             contentRunner();
@@ -54,7 +58,9 @@ void setup() {
     Serial.printf("Total PSRAM: %d", ESP.getPsramSize());
     Serial.printf("Free PSRAM: %d", ESP.getFreePsram());
 
+    #if (HAS_USB == 1)
     xTaskCreate(usbFlasherTask, "flasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
+    #endif
 
     configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "0.nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
