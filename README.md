@@ -1,15 +1,18 @@
-# Open EPaper Link
+# OpenEPaperLink
 
 ## ⚠️⚠️⚠️THIS IS NOT PRODUCTION READY!⚠️⚠️⚠️
 This is not a final, polished codebase. Not by a long shot. You'll need some knowledge on the use of these tags. A very good place to start is here: https://github.com/atc1441/ZBS_Flasher. You'll need to fix issues yourself, troubleshoot stuff. Once again: this is not for everyone.
 
-This is an alternative protocol for the ZBS243-based Electronic Shelf Labels - ESL / price tags by Solum / Samsung.
+This is an alternative firmware and protocol for the ZBS243-based Electronic Shelf Labels - ESL / price tags by Solum / Samsung.
+ 
+<img width="600" alt="board" src="https://user-images.githubusercontent.com/2544995/227208651-993d11a2-380f-44ae-847c-f8d90296c8cf.png">
 
 ### Compatibility
 It is currently compatible with the following tags:
 * 4.2"
 * 2.9"
 * 1.54"
+* Segmented (work in progress)
 
 On the 2.9" tags, both the UC8151 and SSD1619 display variants are supported
 
