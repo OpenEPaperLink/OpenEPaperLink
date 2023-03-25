@@ -753,7 +753,7 @@ void main(void) {
     rndSeed(mSelfMac[0] ^ (uint8_t)timerGetLowBits(), mSelfMac[1]);
     // wdtSetResetVal(0xFD0DCF);
     // wdtOn();
-    radioSetChannel(26);
+    radioSetChannel(11);
     radioSetTxPower(10);
     radioRxEnable(true, true);
 
