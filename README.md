@@ -1,5 +1,12 @@
 # OpenEPaperLink
 
+
+
+## FOR HACKADAY BERLIN EVENT ##
+You've found this page! It's pretty hard to find, for some reason. Most of you should've gotten two Epaper-displays: one 1.54" display, one segmented display. You can use the segmented display to make your own accesspoint at home. All you need is an ESP32, and connect that to the debug header on the segmented display, and you should be ready to go. In order to prevent problems during the event, we'll make the pinout to the debug header available after the event has finished. If you do figure it out, congratulations! :)
+
+Also, the specific firmware running on the tag will be published on this repository. It's running a special 'event mode', and will switch to 'normal mode' after the event has ended, and it's detecting an accesspoint
+
 ## ⚠️⚠️⚠️THIS IS NOT PRODUCTION READY!⚠️⚠️⚠️
 This is not a final, polished codebase. Not by a long shot. You'll need some knowledge on the use of these tags. A very good place to start is here: https://github.com/atc1441/ZBS_Flasher. You'll need to fix issues yourself, troubleshoot stuff. Once again: this is not for everyone.
 
