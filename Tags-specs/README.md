@@ -35,12 +35,14 @@
 
 # ZBS 243 SoC (SEM9110)
 <img width="400" alt="board" src="https://user-images.githubusercontent.com/2544995/227795788-249fe764-816e-48da-9932-0b70dad87f47.png">
+
+## Specs 
 * 8051 based core
 * 64kbyte flash
 * 8kbyte XRAM
 * 256 bytes IRAM
 * 16Mhz clock
 * +- 1µA Sleep
-* SPI / UART / I²C / RF Wake (undocumented) / 802.15.4 Radio / 
-Dmitry Grinberg [reverse engineered](https://dmitry.gr/?r=05.Projects&proj=30.%20Reverse%20Engineering%20an%20Unknown%20Microcontroller) almost all parts of this SoC! This project uses his SDK and some of his, and [ATC1441's](https://github.com/atc1441/ZBS_Flasher/)  Some features, such as RF wake and the battery voltage reading are as of now, undocumented
+* SPI / UART / I²C / RF Wake (undocumented) / 802.15.4 Radio
 
+Dmitry Grinberg [reverse engineered](https://dmitry.gr/?r=05.Projects&proj=30.%20Reverse%20Engineering%20an%20Unknown%20Microcontroller) almost all parts of this SoC! This project uses his SDK and some of his, and [ATC1441's](https://github.com/atc1441/ZBS_Flasher/)  Some features, such as RF wake and the battery voltage reading are as of now, undocumented
