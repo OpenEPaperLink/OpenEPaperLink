@@ -42,5 +42,5 @@
 * 16Mhz clock
 * +- 1µA Sleep
 * SPI / UART / I²C / RF Wake (undocumented) / 802.15.4 Radio / 
-Dmitry Grinberg [reverse engineered](https://dmitry.gr/?r=05.Projects&proj=30.%20Reverse%20Engineering%20an%20Unknown%20Microcontroller) almost all parts of this SoC! This project uses his SDK and some of his, and [ATC1441's code](https://github.com/atc1441/ZBS_Flasher/). Some features, such as RF wake and the battery voltage reading are as of now, undocumented
+Dmitry Grinberg [reverse engineered](https://dmitry.gr/?r=05.Projects&proj=30.%20Reverse%20Engineering%20an%20Unknown%20Microcontroller) almost all parts of this SoC! This project uses his SDK and some of his, and [ATC1441's](https://github.com/atc1441/ZBS_Flasher/)  Some features, such as RF wake and the battery voltage reading are as of now, undocumented
 
