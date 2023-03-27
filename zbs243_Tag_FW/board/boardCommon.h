@@ -14,6 +14,7 @@ void boardInit(void);
 __bit boardGetOwnMac(uint8_t __xdata *mac);
 
 
+#ifndef AP_FW
 //some sanity checks
 #include "eeprom.h"
 
@@ -46,9 +47,6 @@ __bit boardGetOwnMac(uint8_t __xdata *mac);
 	#error "images must begin at an integer number of eeprom blocks"
 #endif
 
-
-
-
-
+#endif
 
 #endif

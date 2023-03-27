@@ -13,112 +13,13 @@
 #include "proto.h"
 #include "radio.h"
 #include "timer.h"
+#include "uart.h"
 #include "wdt.h"
 
-struct MacFrameFromMaster {
-    struct MacFcs fcs;
-    uint8_t seq;
-    uint16_t pan;
-    uint8_t dst[8];
-    uint16_t from;
-} __packed;
-
-struct MacFrameNormal {
-    struct MacFcs fcs;
-    uint8_t seq;
-    uint16_t pan;
-    uint8_t dst[8];
-    uint8_t src[8];
-} __packed;
-
-struct MacFrameBcast {
-    struct MacFcs fcs;
-    uint8_t seq;
-    uint16_t dstPan;
-    uint16_t dstAddr;
-    uint16_t srcPan;
-    uint8_t src[8];
-} __packed;
-
-#define PKT_AVAIL_DATA_SHORTREQ 0xE3
-#define PKT_AVAIL_DATA_REQ 0xE5
-#define PKT_AVAIL_DATA_INFO 0xE6
-#define PKT_BLOCK_PARTIAL_REQUEST 0xE7
-#define PKT_BLOCK_REQUEST_ACK 0xE9
-#define PKT_BLOCK_REQUEST 0xE4
-#define PKT_BLOCK_PART 0xE8
-#define PKT_XFER_COMPLETE 0xEA
-#define PKT_XFER_COMPLETE_ACK 0xEB
-#define PKT_CANCEL_XFER 0xEC
-#define PKT_PING 0xED
-#define PKT_PONG 0xEE
-
-struct AvailDataReq {
-    uint8_t checksum;
-    uint8_t lastPacketLQI;
-    int8_t lastPacketRSSI;
-    int8_t temperature;
-    uint16_t batteryMv;
-    uint8_t hwType;
-    uint8_t wakeupReason;
-    uint8_t capabilities;  // undefined, as of now
-} __packed;
-
-#define DATATYPE_NOUPDATE 0
-#define DATATYPE_IMG 1
-#define DATATYPE_IMGRAW 2
-#define DATATYPE_UPDATE 3
-
-struct AvailDataInfo {
-    uint8_t checksum;
-    uint64_t dataVer;  // MD5 of potential traffic
-    uint32_t dataSize;
-    uint8_t dataType;          // allows for different datatypes
-    uint8_t dataTypeArgument;  // extra specification or instruction for the tag (LUT to be used for drawing image)
-    uint16_t nextCheckIn;      // when should the tag check-in again? Measured in minutes
-} __packed;
-
-struct blockPart {
-    uint8_t checksum;
-    uint8_t blockId;
-    uint8_t blockPart;
-    uint8_t data[];
-} __packed;
-
-struct blockData {
-    uint16_t size;
-    uint16_t checksum;
-    uint8_t data[];
-} __packed;
-
-struct pendingData {
-    struct AvailDataInfo availdatainfo;
-    uint16_t attemptsLeft;
-    uint8_t targetMac[8];
-} __packed;
-
-#define BLOCK_PART_DATA_SIZE 99
-#define BLOCK_MAX_PARTS 42
-#define BLOCK_DATA_SIZE 4096
-#define BLOCK_XFER_BUFFER_SIZE BLOCK_DATA_SIZE + sizeof(struct blockData)
-#define BLOCK_REQ_PARTS_BYTES 6  // BLOCK_MAX_PARTS / 8 + 1
-#define MAX_PENDING_MACS 64
+#define MAX_PENDING_MACS 50
 #define HOUSEKEEPING_INTERVAL 60UL
 
 struct pendingData __xdata pendingDataArr[MAX_PENDING_MACS];
-
-struct blockRequest {
-    uint8_t checksum;
-    uint64_t ver;
-    uint8_t blockId;
-    uint8_t type;
-    uint8_t requestedParts[BLOCK_REQ_PARTS_BYTES];
-} __packed;
-
-struct blockRequestAck {
-    uint8_t checksum;
-    uint16_t pleaseWaitMs;
-} __packed;
 
 struct espBlockRequest {
     uint8_t checksum;
@@ -654,22 +555,24 @@ void sendPong(void *__xdata buf) {
     radioTx(radiotxbuffer);
 }
 
+void writeCharEPD(uint8_t c) {
+}
+
 // main loop
 void main(void) {
     clockingAndIntsInit();
     timerInit();
     boardInit();
     P0FUNC = 0b11001111;  // enable uart tx/rx and SPI bus functions
+    uartInit();
     irqsOn();
-    boardInitStage2();
+    wdt60s();
+
     requestedData.blockId = 0xFF;
     if (!boardGetOwnMac(mSelfMac)) {
-        pr("failed to get MAC. Aborting\n");
-        while (1)
-            ;
-    }
-    for (uint8_t c = 0; c < 8; c++) {
-        mSelfMac[c] = c;
+        for (uint8_t c = 0; c < 8; c++) {
+            mSelfMac[c] = c;
+        }
     }
 
     // clear the array with pending information
@@ -682,7 +585,7 @@ void main(void) {
     rndSeed(mSelfMac[0] ^ (uint8_t)timerGetLowBits(), mSelfMac[1]);
     // wdtSetResetVal(0xFD0DCF);
     // wdtOn();
-    radioSetChannel(RADIO_FIRST_CHANNEL);
+    radioSetChannel(11);
     radioSetTxPower(10);
     radioRxEnable(true, true);
 
@@ -744,6 +647,7 @@ void main(void) {
             }
             loopCount--;
             if (loopCount == 0) {
+                wdt10s();
                 loopCount = 10000;
                 // every once in a while, especially when handling a lot of traffic, the radio will hang. Calling this every once in while
                 // alleviates this problem. The radio is set back to 'receive' whenever loopCount overflows

@@ -1,0 +1,115 @@
+replace restart {
+	movx	a,@dptr
+	mov	%1,a
+	inc	dptr
+	movx	a,@dptr
+	mov	%2,a
+	inc	dptr
+	movx	a,@dptr
+	mov	%3,a
+	inc	dptr
+	movx	a,@dptr
+	mov	%4,a
+	clr	c
+	mov	a,%1
+	subb	a,#%5
+	mov	a,%2
+	subb	a,#%6
+	mov	a,%3
+	subb	a,#%7
+	mov	a,%4
+	subb	a,#%8
+	DISABLED XXX
+} by {
+	clr	c
+	movx	a,@dptr
+	mov	%1,a
+	subb	a,#%5
+	inc	dptr
+	movx	a,@dptr
+	mov	%2,a
+	subb	a,#%6
+	inc	dptr
+	movx	a,@dptr
+	mov	%3,a
+	subb	a,#%7
+	inc	dptr
+	movx	a,@dptr
+	mov	%4,a
+	subb	a,#%8	;dmitrygr - optimize dumb xdata handling
+} if notSame(%1 %2),notSame(%1 %3),notSame(%1 %4),notSame(%2 %3),notSame(%3 %4),notSame(%3 %4)
+
+replace {
+	mov	b,%1
+	mov a,%2
+	div	ab
+	mov %3,b
+	mov	b,%1
+	mov a,%2
+	div	ab
+} by {
+	mov	b,%1
+	mov a,%2
+	div	ab
+	mov %3,b ; Peephole dmitrygr.0006 - why divide twice?
+} if notSame(%1 %3),notSame(%2 %3)
+
+
+replace {
+	movx	@dptr,a
+	movx	a,@dptr
+} by {
+	movx	@dptr,a ; Peephole dmitrygr.0005 - SRSLY, WTF?
+}
+
+replace restart {
+	mov	r%1,%2
+	mov	r%3,%4
+	mov	r%5,%6
+	mov	r%7,%8
+	push	%9
+	push	%10
+	mov	%2,r%1
+	mov	%4,r%3
+	mov	%6,r%5
+	mov	%8,r%7
+} by {
+	mov	r%1,%2
+	mov	r%3,%4
+	mov	r%5,%6
+	mov	r%7,%8
+	push	%9
+	push	%10;	Peephole dmitrygr.000 - pointless shuffling when passing 32 from return to param
+} if notSame(%1 %3),notSame(%1 %5),notSame(%1 %7),notSame(%3 %5),notSame(%3 %7),notSame(%5 %7),notSame(%2 %4),notSame(%2 %6),notSame(%2 %8),notSame(%4 %6),notSame(%4 %8),notSame(%6 %8)
+
+
+replace restart {
+%1:
+	mov	dptr,#%2
+	movx	a,@dptr
+	mov	%3,a
+	cjne	%3,#%4,%1
+} by {
+	mov	dptr,#%2
+%1:
+	movx	a,@dptr
+	cjne	a,#%4,%1 ;	Peephole dmitrygr.001 - tighter loop, write extra var just once (i wish we knew if it were dead so we could write it zero times)
+	mov	%3,a
+} if labelRefCount(%1 1)
+
+replace restart {
+	mov	a,#%1
+	add	a,#0x00
+	mov	%2,a
+	mov	a,%3
+} by {
+	mov	%2,#%1
+	mov	a,%3
+	clr c 		;	Peephole dmitrygr.002 - remove pointless A-machinations
+}
+
+replace restart {
+	add	a,#0x00
+} by {
+	clr c ;	Peephole dmitrygr.003 - adding zero is pointless, just clears C
+}

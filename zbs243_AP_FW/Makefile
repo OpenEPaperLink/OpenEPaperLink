@@ -8,6 +8,8 @@ SOURCES		+= comms.c
 
 all:	#make sure it is the first target
 
+FLAGS += -DAP_FW=1
+
 include board/$(BUILD)/make.mk
 include soc/$(SOC)/make.mk
 include cpu/$(CPU)/make.mk

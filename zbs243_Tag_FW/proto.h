@@ -128,6 +128,8 @@ struct AvailDataReq {
 #define DATATYPE_NFC_RAW_CONTENT 0xA0      // raw memory content for the NT3H1101
 #define DATATYPE_NFC_URL_DIRECT 0xA1       // URL format for NT3H1101
 
+
+
 struct AvailDataInfo {
     uint8_t checksum;
     uint64_t dataVer;  // MD5 of potential traffic
@@ -135,6 +137,12 @@ struct AvailDataInfo {
     uint8_t dataType;
     uint8_t dataTypeArgument;  // extra specification or instruction for the tag (LUT to be used for drawing image)
     uint16_t nextCheckIn;      // when should the tag check-in again? Measured in minutes
+} __packed;
+
+struct pendingData {
+    struct AvailDataInfo availdatainfo;
+    uint16_t attemptsLeft;
+    uint8_t targetMac[8];
 } __packed;
 
 struct blockPart {

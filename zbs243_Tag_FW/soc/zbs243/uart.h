@@ -13,6 +13,15 @@ void uartInit(void);
 void uartTx(uint8_t val);
 
 
+#ifdef AP_FW
+void UART_IRQ1(void) __interrupt (0);
+
+#pragma callee_saves uartBytesAvail
+uint8_t uartBytesAvail(void);
+
+#pragma callee_saves uartRX
+uint8_t uartRx();
+#endif
 
 #endif
 
