@@ -259,7 +259,7 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             tempbuffer = (uint8_t*)calloc(cmd->data[0], 1);
             // cmd_buff[0] = len
             // cmd_buff[1] << 8 | cmd_buff[2] = position
-            Serial.printf("Loading %d bytes from %04X \n", cmd->data[0], (cmd->data[1] << 8 | cmd->data[2]));
+            //Serial.printf("Loading %d bytes from %04X \n", cmd->data[0], (cmd->data[1] << 8 | cmd->data[2]));
             for (int i = 0; i < cmd->data[0]; i++) {
                 tempbuffer[i] = zbs->read_flash((cmd->data[1] << 8 | cmd->data[2]) + i);
             }
@@ -275,7 +275,7 @@ void processFlasherCommand(struct flasherCommand* cmd) {
                 sendFlasherAnswer(cmd->command, temp_buff, 1);
                 break;
             }
-            Serial.printf("Writing %d bytes to %04X \n", cmd->data[0], (cmd->data[1] << 8 | cmd->data[2]));
+            //Serial.printf("Writing %d bytes to %04X \n", cmd->data[0], (cmd->data[1] << 8 | cmd->data[2]));
             for (int i = 0; i < cmd->data[0]; i++) {
                 if (cmd->data[3 + i] != 0xff) {
                     for (uint8_t attempts = 0; attempts < 10; attempts++) {
@@ -288,7 +288,6 @@ void processFlasherCommand(struct flasherCommand* cmd) {
                     }
                 flash_fail:
                     temp_buff[0] = 0;
-                    Serial.print("!");
                     sendFlasherAnswer(cmd->command, temp_buff, 1);
                     break;
                 flash_pass:
@@ -297,7 +296,6 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             }
             temp_buff[0] = 1;
             sendFlasherAnswer(cmd->command, temp_buff, 1);
-            Serial.print("#");
             break;
         case CMD_READ_SFR:
             temp_buff[0] = zbs->read_sfr(cmd->data[0]);

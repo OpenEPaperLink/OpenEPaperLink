@@ -19,10 +19,6 @@ void simpleAPPower(bool state) {
 // when drained, will cause the 3v3 rail to sag enough to reset the ESP32. This is obviously not great. To prevent this from happening, we ramp up/down the
 // voltage with PWM. Ramping down really is unnecessary, as the board has a resistor to dump the charge into.
 void rampTagPower(uint8_t pin, bool up) {
-    pinMode(FLASHER_AP_SS, INPUT);
-    pinMode(FLASHER_AP_CLK, INPUT);
-    pinMode(FLASHER_AP_MOSI, INPUT);
-    pinMode(FLASHER_AP_MISO, INPUT);
     pinMode(FLASHER_AP_RESET, OUTPUT);
     digitalWrite(FLASHER_AP_RESET, HIGH);
 #ifdef OPENEPAPERLINK_PCB
