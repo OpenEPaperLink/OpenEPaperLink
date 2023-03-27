@@ -38,8 +38,8 @@ struct espAvailDataReq {
     struct AvailDataReq adr;
 } __packed;
 
-#define TIMER_TICKS_PER_MS 1333UL
-uint16_t __xdata version = 0x0007;
+//#define TIMER_TICKS_PER_MS 1333UL
+uint16_t __xdata version = 0x000E;
 #define RAW_PKT_PADDING 2
 
 static uint8_t __xdata mRxBuf[COMMS_MAX_PACKET_SZ];
@@ -64,10 +64,9 @@ uint8_t __xdata dstMac[8];  // target for the block transfer
 uint16_t __xdata dstPan;    //
 
 static uint32_t __xdata blockStartTimer = 0;          // reference that holds when the AP sends the next block
-extern bool __idata serialBypassActive;               // if the serial bypass is disabled, saves bytes straight to the block buffer
 uint32_t __xdata nextBlockAttempt = 0;                // reference time for when the AP can request a new block from the ESP32
 uint8_t seq = 0;                                      // holds current sequence number for transmission
-uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];  // block transfer buffer
+uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE+5];  // block transfer buffer
 uint8_t lastAckMac[8] = {0};
 
 // these variables hold the current mac were talking to
@@ -184,6 +183,8 @@ void deleteAllPendingDataForVer(const uint8_t *ver) {
 #define ZBS_RX_WAIT_HEADER 0
 #define ZBS_RX_WAIT_SDA 1
 #define ZBS_RX_WAIT_CANCEL 2
+
+extern uint8_t *__idata blockp;
 void processSerial(uint8_t lastchar) {
     // uartTx(lastchar); echo
     switch (RXState) {
@@ -205,6 +206,11 @@ void processSerial(uint8_t lastchar) {
                 serialbufferp = serialbuffer;
                 break;
             }
+            if (strncmp(cmdbuffer+1, ">D>", 3) == 0) {
+                blockp = blockbuffer;
+                pr("ACK>\n");
+            }
+
             if (strncmp(cmdbuffer, "VER?", 4) == 0) {
                 pr("VER>%04X\n", version);
             }
@@ -404,7 +410,6 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     dstPan = rxHeader->pan;
 
     if (requestDataDownload) {
-        serialBypassActive = false;
         espBlockRequest(&requestedData);
         nextBlockAttempt = timerGet();
     }

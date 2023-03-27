@@ -28,7 +28,6 @@ void uartTx(uint8_t val) {
     UARTBUF = val;
 }
 #else
-extern uint8_t __xdata blockbuffer[];
 
 volatile uint8_t txtail = 0;
 volatile uint8_t txhead = 0;
@@ -63,32 +62,15 @@ uint8_t uartBytesAvail() {
 }
 
 uint8_t* __idata blockp;
-uint8_t __idata cmd[3];
-volatile bool __idata serialBypassActive = false;
-
-void checkcommand(uint8_t rx) {
-    for (uint8_t c = 0; c < 2; c++) {
-        cmd[c] = cmd[c + 1];
-    }
-    cmd[2] = rx;
-    if (strncmp(cmd, ">D>", 3) == 0) {
-        blockp = blockbuffer;
-        serialBypassActive = true;
-    }
-}
 
 void UART_IRQ1(void) __interrupt(0) {
     if (UARTSTA & 1) {  // RXC
         UARTSTA &= 0xfe;
-        if (serialBypassActive) {
+        if (P0_2) {
             *blockp++ = UARTBUF;
-            if (blockp == (blockbuffer + 4100)) {
-                serialBypassActive = false;
-            }
         } else {
             rxbuf[rxhead] = UARTBUF;
             rxhead++;
-            checkcommand(UARTBUF);
         }
     }
     if (UARTSTA & 2) {  // TXC
