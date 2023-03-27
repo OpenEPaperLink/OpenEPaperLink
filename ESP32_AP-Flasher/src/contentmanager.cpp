@@ -267,6 +267,13 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
         drawString(spr, Dag[timeinfo.tm_wday], 152 / 2, 10, "fonts/calibrib30", TC_DATUM);
         drawString(spr, String(Maand[timeinfo.tm_mon]), 152 / 2, 120, "fonts/calibrib30", TC_DATUM);
         drawString(spr, String(timeinfo.tm_mday), 152 / 2, 42, "fonts/numbers2-1", TC_DATUM, PAL_RED);
+
+    } else if (taginfo->hwType == SOLUM_42_033) {
+
+        initSprite(spr, 400, 300);
+        drawString(spr, Dag[timeinfo.tm_wday], 400 / 2, 30, "fonts/calibrib62", TC_DATUM, PAL_RED);
+        drawString(spr, String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], 400 / 2, 113, "fonts/calibrib50", TC_DATUM);
+
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -310,6 +317,21 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         spr.drawString(String(count), 152 / 2, 152 / 2 + 7);
         spr.unloadFont();
 
+    } else if (taginfo->hwType == SOLUM_42_033) {
+
+        initSprite(spr, 400, 300);
+        spr.setTextDatum(MC_DATUM);
+        if (count > thresholdred) {
+            spr.setTextColor(PAL_RED, PAL_WHITE);
+        } else {
+            spr.setTextColor(PAL_BLACK, PAL_WHITE);
+        }
+        String font = "fonts/numbers1-2";
+        if (count > 999) font = "fonts/numbers2-2";
+        if (count > 9999) font = "fonts/numbers3-2";
+        spr.loadFont(font, LittleFS);
+        spr.drawString(String(count), 400 / 2, 300 / 2 + 7);
+        spr.unloadFont();
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -444,6 +466,39 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo, imgPara
                 }
                 spr.unloadFont();
 
+            } else if (taginfo->hwType == SOLUM_42_033) {
+
+                initSprite(spr, 400, 300);
+
+                drawString(spr, location, 10, 10, "fonts/bahnschrift30");
+                drawString(spr, String(wind), 280, 10, "fonts/bahnschrift30", TR_DATUM, (wind > 4 ? PAL_RED : PAL_BLACK));
+
+                char tmpOutput[5];
+                dtostrf(temperature, 2, 1, tmpOutput);
+                drawString(spr, String(tmpOutput), 5, 65, "fonts/bahnschrift70", TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
+
+                spr.loadFont("fonts/weathericons70", LittleFS);
+                if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
+                    spr.setTextColor(PAL_RED, PAL_WHITE);
+                } else {
+                    spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                }
+
+                spr.setCursor(185, 32);
+                spr.printToSprite(weatherIcons[weathercode]);
+                spr.unloadFont();
+
+                spr.loadFont("fonts/weathericons30", LittleFS);
+                spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                spr.setCursor(235, -3);
+                spr.printToSprite(windDirectionIcon(winddirection));
+                if (weathercode > 10) {
+                    spr.setTextColor(PAL_RED, PAL_WHITE);
+                    spr.setCursor(190, 0);
+                    spr.printToSprite("\uf084");
+                }
+                spr.unloadFont();
+
             }
 
             spr2buffer(spr, filename, imageParams);
@@ -548,6 +603,51 @@ void drawForecast(String &filename, String location, tagRecord *&taginfo, imgPar
                     }
                 }
 
+            } else if (taginfo->hwType == SOLUM_42_033) {
+
+                initSprite(spr, 400, 300);
+                spr.setTextFont(2);
+                spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                spr.drawString(location, 5, 0);
+
+                for (uint8_t dag = 0; dag < 5; dag++) {
+                    time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
+                    struct tm *datum = localtime(&weatherday);
+                    drawString(spr, String(weekday_name[datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
+
+                    uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
+                    if (weathercode > 40) weathercode -= 40;
+
+                    spr.loadFont("fonts/weathericons30", LittleFS);
+                    if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
+                        spr.setTextColor(PAL_RED, PAL_WHITE);
+                    } else {
+                        spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                    }
+                    spr.setTextDatum(TL_DATUM);
+                    spr.setCursor(12 + dag * 59, 58);
+                    spr.printToSprite(weatherIcons[weathercode]);
+
+                    spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                    spr.setCursor(17 + dag * 59, 27);
+                    spr.printToSprite(windDirectionIcon(doc["daily"]["winddirection_10m_dominant"][dag]));
+                    spr.unloadFont();
+
+                    int8_t tmin = round(doc["daily"]["temperature_2m_min"][dag].as<double>());
+                    int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());
+                    uint8_t wind = windSpeedToBeaufort(doc["daily"]["windspeed_10m_max"][dag].as<double>());
+
+                    spr.loadFont("fonts/GillSC20", LittleFS);
+                    drawString(spr, String(tmin) + " ", dag * 59 + 30, 108, "", TR_DATUM, (tmin < 0 ? PAL_RED : PAL_BLACK));
+                    drawString(spr, String(" ") + String(tmax), dag * 59 + 30, 108, "", TL_DATUM, (tmax < 0 ? PAL_RED : PAL_BLACK));
+                    drawString(spr, String(" ") + String(wind), dag * 59 + 30, 43, "", TL_DATUM, (wind > 5 ? PAL_RED : PAL_BLACK));
+                    spr.unloadFont();
+                    if (dag > 0) {
+                        for (int i = 20; i < 128; i += 3) {
+                            spr.drawPixel(dag * 59, i, PAL_BLACK);
+                        }
+                    }
+                }
             }
             spr2buffer(spr, filename, imageParams);
             spr.deleteSprite();
@@ -570,6 +670,11 @@ void drawIdentify(String &filename, tagRecord *&taginfo, imgParam &imageParams) 
         initSprite(spr, 152, 152);
         drawString(spr, taginfo->alias, 5, 5, "fonts/bahnschrift20");
         drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
+
+    } else if (taginfo->hwType == SOLUM_42_033) {
+        initSprite(spr, 400, 300);
+        drawString(spr, taginfo->alias, 20, 20, "fonts/bahnschrift20");
+        drawString(spr, mac62hex(taginfo->mac), 20, 70, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -622,7 +727,6 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     const char *url = URL.c_str();
     const char *tag = "title";
     const int rssArticleSize = 128;
-    const int rssNumArticle = 8;
 
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
@@ -648,9 +752,29 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         // u8g2_font_miranda_nbp_tr
         u8f.setFont(u8g2_font_glasstown_nbp_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
 
-        int n = reader.getArticles(url, tag, rssArticleSize, rssNumArticle);
+        int n = reader.getArticles(url, tag, rssArticleSize, 8);
         for (int i = 0; i < n; i++) {
             u8f.setCursor(5, 34+i*13);  // start writing at this position
+            u8f.print(reader.itemData[i]);
+        }
+    } else if (taginfo->hwType == SOLUM_42_033) {
+        initSprite(spr, 400, 300);
+        if (title == "" || title == "null") title = "RSS feed";
+        drawString(spr, title, 5, 5, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
+
+        u8f.setFont(u8g2_font_glasstown_nbp_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+        u8f.setFontMode(0);
+        u8f.setFontDirection(0);
+        u8f.setForegroundColor(PAL_BLACK);
+        u8f.setBackgroundColor(PAL_WHITE);
+        u8f.setCursor(220, 20);
+        u8f.print(header);
+
+        u8f.setFont(u8g2_font_glasstown_nbp_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+
+        int n = reader.getArticles(url, tag, rssArticleSize, 10);
+        for (int i = 0; i < n; i++) {
+            u8f.setCursor(5, 34 + i * 14);
             u8f.print(reader.itemData[i]);
         }
     }
@@ -725,13 +849,6 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         u8f.setCursor(5, 16);
         u8f.print(title);
 
-        // u8g2_font_nine_by_five_nbp_tr
-        // u8g2_font_7x14_tr
-        // u8g2_font_crox1h_tr
-        // u8g2_font_miranda_nbp_tr
-        // u8g2_font_glasstown_nbp_tr
-        // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
-
         int n = doc.size();
         if (n>7) n=7;
         for (int i = 0; i < n; i++) {
@@ -741,6 +858,41 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
             time_t starttime = obj["start"];
             time_t endtime = obj["end"];
             if (starttime<now && endtime>now) {
+                u8f.setFont(u8g2_font_t0_14b_tr);
+                u8f.setForegroundColor(PAL_WHITE);
+                u8f.setBackgroundColor(PAL_RED);
+                spr.fillRect(0, i * 15 + 21, 296, 14, PAL_RED);
+            } else {
+                u8f.setFont(u8g2_font_t0_14_tr);
+                u8f.setForegroundColor(PAL_BLACK);
+                u8f.setBackgroundColor(PAL_WHITE);
+            }
+            u8f.setCursor(5, 32 + i * 15);
+            u8f.print(epoch_to_display(obj["start"]));
+            u8f.setCursor(50, 32 + i * 15);
+            u8f.print(eventtitle);
+        }
+    } else if (taginfo->hwType == SOLUM_42_033) {
+        initSprite(spr, 400, 300);
+        if (title == "" || title == "null") title = "Calendar";
+
+        u8f.setFont(u8g2_font_t0_22b_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+        u8f.setFontMode(0);
+        u8f.setFontDirection(0);
+        u8f.setForegroundColor(PAL_BLACK);
+        u8f.setBackgroundColor(PAL_WHITE);
+        u8f.setCursor(5, 16);
+        u8f.print(title);
+
+        int n = doc.size();
+        if (n > 8) n = 8;
+        for (int i = 0; i < n; i++) {
+            JsonObject obj = doc[i];
+            String eventtitle = obj["title"];
+            String startz = obj["start"];
+            time_t starttime = obj["start"];
+            time_t endtime = obj["end"];
+            if (starttime < now && endtime > now) {
                 u8f.setFont(u8g2_font_t0_14b_tr);
                 u8f.setForegroundColor(PAL_WHITE);
                 u8f.setBackgroundColor(PAL_RED);
@@ -790,6 +942,12 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
         dotsize = int((152 - 20) / size);
         xpos = 76 - dotsize*size / 2;
         ypos = 20;
+    } else if (taginfo->hwType == SOLUM_42_033) {
+        initSprite(spr, 400, 300);
+        drawString(spr, title, 10, 10, "fonts/bahnschrift20");
+        dotsize = int((300 - 30) / size);
+        xpos = 200 - dotsize * size / 2;
+        ypos = 30;
     }
 
     for (int y = 0; y < size; y++) {
