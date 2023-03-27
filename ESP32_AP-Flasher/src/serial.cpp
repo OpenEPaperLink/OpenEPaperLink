@@ -5,10 +5,10 @@
 #include "commstructs.h"
 #include "flasher.h"
 #include "newproto.h"
+#include "powermgt.h"
 #include "settings.h"
 #include "web.h"
 #include "zbs_interface.h"
-#include "powermgt.h"
 
 #define ZBS_RX_WAIT_HEADER 0
 #define ZBS_RX_WAIT_PKT_LEN 1
@@ -22,12 +22,15 @@
 #define ZBS_RX_WAIT_JOINNETWORK 10
 #define ZBS_RX_WAIT_XFERTIMEOUT 11
 
+#define ZBS_DMA_PIN FLASHER_AP_MISO
+
 uint8_t restartBlockRequest = 0;
 
 uint16_t sendBlock(const void* data, const uint16_t len) {
     Serial1.print(">D>");
-    delay(10);
-
+    delay(3);
+    digitalWrite(ZBS_DMA_PIN, HIGH);
+    delay(1);
     uint8_t blockbuffer[sizeof(struct blockData)];
     struct blockData* bd = (struct blockData*)blockbuffer;
     bd->size = len;
@@ -52,10 +55,9 @@ uint16_t sendBlock(const void* data, const uint16_t len) {
         Serial1.write(0);
     }
 
-    Serial1.write(0x00);
-    Serial1.write(0x00);
-    Serial1.write(0x00);
-    Serial1.write(0x00);
+    Serial1.write(0xAA);
+    delay(10);
+    digitalWrite(ZBS_DMA_PIN, LOW);
     return bd->checksum;
 }
 
@@ -90,7 +92,7 @@ uint8_t pktlen = 0;
 uint8_t pktindex = 0;
 char lastchar = 0;
 uint8_t charindex = 0;
-uint64_t  waitingForVersion = 0;
+uint64_t waitingForVersion = 0;
 uint8_t crashcounter = 0;
 uint16_t version;
 
@@ -114,7 +116,7 @@ void Ping() {
 void SerialRXLoop() {
     if (Serial1.available()) {
         lastchar = Serial1.read();
-        //Serial.write(lastchar);
+        // Serial.write(lastchar);
         switch (RXState) {
             case ZBS_RX_WAIT_HEADER:
                 Serial.write(lastchar);
@@ -221,6 +223,9 @@ void zbsRxTask(void* parameter) {
     Serial1.begin(228571, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 
     rampTagPower(FLASHER_AP_POWER, true);
+    pinMode(ZBS_DMA_PIN, OUTPUT);
+    digitalWrite(ZBS_DMA_PIN, LOW);
+
     bool firstrun = true;
 
     Serial1.print("VER?");
@@ -235,15 +240,15 @@ void zbsRxTask(void* parameter) {
         vTaskDelay(1 / portTICK_PERIOD_MS);
 
         if (waitingForVersion) {
-            if (esp_timer_get_time() - waitingForVersion > 5000*1000ULL) {
+            if (esp_timer_get_time() - waitingForVersion > 5000 * 1000ULL) {
                 waitingForVersion = 0;
-                wsLog("AP doesn't respond... "+String(crashcounter + 1));
+                wsLog("AP doesn't respond... " + String(crashcounter + 1));
                 if (++crashcounter >= 4) {
                     crashcounter = 0;
                     Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
                     Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
                     rampTagPower(FLASHER_AP_POWER, false);
-                    vTaskDelay(2/portTICK_PERIOD_MS);
+                    vTaskDelay(2 / portTICK_PERIOD_MS);
                     rampTagPower(FLASHER_AP_POWER, true);
                     wsErr("The AP tag crashed. Restarting tag, regenerating all pending info.");
                     refreshAllPending();
@@ -252,7 +257,7 @@ void zbsRxTask(void* parameter) {
                 }
             }
         }
-        
+
         if (version && firstrun) {
             Serial.printf("ZBS/Zigbee FW version: %04X\n", version);
             uint16_t fsversion;
@@ -261,7 +266,13 @@ void zbsRxTask(void* parameter) {
                 Serial.printf("Firmware version on LittleFS: %04X\n", fsversion);
                 Serial.printf("Performing flash update in about 30 seconds");
                 vTaskDelay(30000 / portTICK_PERIOD_MS);
-                performDeviceFlash();
+                if (performDeviceFlash()) {
+                    rampTagPower(FLASHER_AP_POWER, true);
+                    pinMode(ZBS_DMA_PIN, OUTPUT);
+                    digitalWrite(ZBS_DMA_PIN, LOW);
+                } else {
+                    Serial.println("Failed to update version on the AP :(");
+                }
             } else if (!fsversion) {
                 Serial.println("No ZBS/Zigbee FW binary found on SPIFFS, please upload a zigbeebase000X.bin - format binary to enable flashing");
             }
