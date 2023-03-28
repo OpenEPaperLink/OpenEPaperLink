@@ -38,7 +38,7 @@ struct espAvailDataReq {
     struct AvailDataReq adr;
 } __packed;
 
-//#define TIMER_TICKS_PER_MS 1333UL
+// #define TIMER_TICKS_PER_MS 1333UL
 uint16_t __xdata version = 0x000E;
 #define RAW_PKT_PADDING 2
 
@@ -63,10 +63,11 @@ struct blockRequest __xdata requestedData = {0};  // holds which data was reques
 uint8_t __xdata dstMac[8];  // target for the block transfer
 uint16_t __xdata dstPan;    //
 
-static uint32_t __xdata blockStartTimer = 0;          // reference that holds when the AP sends the next block
-uint32_t __xdata nextBlockAttempt = 0;                // reference time for when the AP can request a new block from the ESP32
-uint8_t seq = 0;                                      // holds current sequence number for transmission
-uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE+5];  // block transfer buffer
+static uint32_t __xdata blockStartTimer = 0;              // reference that holds when the AP sends the next block
+extern bool __idata serialBypassActive;                   // if the serial bypass is disabled, saves bytes straight to the block buffer
+uint32_t __xdata nextBlockAttempt = 0;                    // reference time for when the AP can request a new block from the ESP32
+uint8_t seq = 0;                                          // holds current sequence number for transmission
+uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE + 5];  // block transfer buffer
 uint8_t lastAckMac[8] = {0};
 
 // these variables hold the current mac were talking to
@@ -194,6 +195,13 @@ void processSerial(uint8_t lastchar) {
                 cmdbuffer[c] = cmdbuffer[c + 1];
             }
             cmdbuffer[3] = lastchar;
+
+            if (strncmp(cmdbuffer + 1, ">D>", 3) == 0) {
+                blockp = blockbuffer;
+                pr("ACK>\n");
+                serialBypassActive = true;
+            }
+
             if (strncmp(cmdbuffer, "SDA>", 4) == 0) {
                 RXState = ZBS_RX_WAIT_SDA;
                 bytesRemain = sizeof(struct pendingData);
@@ -206,11 +214,6 @@ void processSerial(uint8_t lastchar) {
                 serialbufferp = serialbuffer;
                 break;
             }
-            if (strncmp(cmdbuffer+1, ">D>", 3) == 0) {
-                blockp = blockbuffer;
-                pr("ACK>\n");
-            }
-
             if (strncmp(cmdbuffer, "VER?", 4) == 0) {
                 pr("VER>%04X\n", version);
             }
@@ -410,6 +413,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     dstPan = rxHeader->pan;
 
     if (requestDataDownload) {
+        serialBypassActive = false;
         espBlockRequest(&requestedData);
         nextBlockAttempt = timerGet();
     }
@@ -652,7 +656,7 @@ void main(void) {
             }
             loopCount--;
             if (loopCount == 0) {
-                wdt10s();
+                wdt60s();
                 loopCount = 10000;
                 // every once in a while, especially when handling a lot of traffic, the radio will hang. Calling this every once in while
                 // alleviates this problem. The radio is set back to 'receive' whenever loopCount overflows
