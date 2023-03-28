@@ -17,7 +17,7 @@
 #endif
 
 #include "web.h"
-
+#include "udp.h"
 #include "leds.h"
 
 void timeTask(void* parameter) {
@@ -66,6 +66,8 @@ void setup() {
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 
     init_web();
+    init_udp();
+    
     loadDB("/current/tagDB.json");
 
     xTaskCreate(zbsRxTask, "zbsRX Process", 10000, NULL, 2, NULL);

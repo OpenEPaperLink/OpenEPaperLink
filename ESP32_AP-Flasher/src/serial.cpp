@@ -5,10 +5,11 @@
 #include "commstructs.h"
 #include "flasher.h"
 #include "newproto.h"
+#include "powermgt.h"
 #include "settings.h"
+#include "udp.h"
 #include "web.h"
 #include "zbs_interface.h"
-#include "powermgt.h"
 
 #define ZBS_RX_WAIT_HEADER 0
 #define ZBS_RX_WAIT_PKT_LEN 1
@@ -21,6 +22,8 @@
 #define ZBS_RX_WAIT_DATA_REQ 9
 #define ZBS_RX_WAIT_JOINNETWORK 10
 #define ZBS_RX_WAIT_XFERTIMEOUT 11
+
+extern UDPcomm udpsync;
 
 uint8_t restartBlockRequest = 0;
 
@@ -196,6 +199,7 @@ void SerialRXLoop() {
                 if (pktindex == sizeof(struct espAvailDataReq)) {
                     struct espAvailDataReq* adr = (struct espAvailDataReq*)packetp;
                     processDataReq(adr);
+                    udpsync.processDataReq(adr);
                     free(packetp);
                     RXState = ZBS_RX_WAIT_HEADER;
                 }
