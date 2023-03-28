@@ -354,13 +354,20 @@ void zbsRxTask(void* parameter) {
                 wsLog("AP doesn't respond... " + String(crashcounter + 1));
                 if (++crashcounter >= 4) {
                     crashcounter = 0;
-                    Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
-                    Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
-                    rampTagPower(FLASHER_AP_POWER, false);
-                    vTaskDelay(2 / portTICK_PERIOD_MS);
-                    rampTagPower(FLASHER_AP_POWER, true);
-                    wsErr("The AP tag crashed. Restarting tag, regenerating all pending info.");
-                    refreshAllPending();
+                    if (firstrun) {
+                        Serial.println("I wasn't able to connect to a ZBS tag.");
+                        Serial.println("If this problem persists, please check wiring and definitions in the settings.h file, and presence of the right firmware");
+                        Serial.println("Performing firmware flash in about 10 seconds");
+                        vTaskDelay(10000 / portTICK_PERIOD_MS);
+                        performDeviceFlash();
+                    } else {
+                        Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
+                        rampTagPower(FLASHER_AP_POWER, false);
+                        vTaskDelay(2 / portTICK_PERIOD_MS);
+                        rampTagPower(FLASHER_AP_POWER, true);
+                        wsErr("The AP tag crashed. Restarting tag, regenerating all pending info.");
+                        refreshAllPending();
+                    }
                 } else {
                     Ping();
                 }

@@ -16,7 +16,7 @@
 #define FLASHER_AP_MOSI 7
 #define FLASHER_AP_MISO 6
 #define FLASHER_AP_RESET 15
-#define FLASHER_AP_POWER 0
+#define FLASHER_AP_POWER 0  //switching LOW side; connect to GND of tag
 #define FLASHER_AP_TXD 16
 #define FLASHER_AP_RXD 18
 #define FLASHER_AP_TEST 17
@@ -51,7 +51,7 @@
 #define FLASHER_AP_MOSI 23
 #define FLASHER_AP_MISO 19
 #define FLASHER_AP_RESET 2
-#define FLASHER_AP_POWER 13
+#define FLASHER_AP_POWER 13  // switching HIGH side; connect to 3V3 of tag
 #define FLASHER_AP_POWER2 15
 #define FLASHER_AP_TEST -1
 #define FLASHER_AP_TXD 17

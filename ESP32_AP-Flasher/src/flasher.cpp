@@ -154,10 +154,12 @@ void writeFlashBlock(uint16_t size) {
             }
         }
         if (i == MAX_WRITE_ATTEMPTS) {
-            Serial.printf("\nFailed to write byte at c\n");
+            Serial.printf("x");
+        } else {
+            Serial.printf(".");
         }
         if (c % 256 == 0) {
-            Serial.printf("\rNow flashing, %d/%d...", c, size);
+            Serial.printf("\rNow flashing, %d/%d  ", c, size);
             vTaskDelay(1 / portTICK_PERIOD_MS);
         }
     }
@@ -168,12 +170,6 @@ bool performDeviceFlash() {
     uint8_t interfaceWorking = 0;
     zbs = new ZBS_interface;
     interfaceWorking = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, FLASHER_AP_POWER, 8000000);
-
-    Serial.printf("Power cycling to get everything up and running...\n");
-    zbs->set_power(0);
-    vTaskDelay(500 / portTICK_PERIOD_MS);
-    zbs->set_power(1);
-    vTaskDelay(500 / portTICK_PERIOD_MS);
     if (!interfaceWorking) {
         Serial.print("I wasn't able to connect to a ZBS tag, please check wiring and definitions in the settings.h file.\n");
         delete zbs;
