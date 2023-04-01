@@ -22,8 +22,6 @@
 #define ZBS_RX_WAIT_JOINNETWORK 10
 #define ZBS_RX_WAIT_XFERTIMEOUT 11
 
-#define ZBS_DMA_PIN FLASHER_AP_MISO
-
 QueueHandle_t rxCmdQueue;
 SemaphoreHandle_t txActive;
 
@@ -34,12 +32,15 @@ SemaphoreHandle_t txActive;
 volatile uint8_t cmdReplyValue = CMD_REPLY_WAIT;
 
 bool txStart() {
-    if (xPortInIsrContext()) {
-        if (xSemaphoreTakeFromISR(txActive, NULL) == pdTRUE) return true;
-    } else {
-        if (xSemaphoreTake(txActive, portTICK_PERIOD_MS)) return true;
-    }
-    return false;
+    while (1) {
+        if (xPortInIsrContext()) {
+            if (xSemaphoreTakeFromISR(txActive, NULL) == pdTRUE) return true;
+        } else {
+            if (xSemaphoreTake(txActive, portTICK_PERIOD_MS)) return true;
+        }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+        Serial.println("wait... tx busy");
+    } false;
 }
 
 void txEnd() {
@@ -82,7 +83,6 @@ uint16_t sendBlock(const void* data, const uint16_t len) {
     txEnd();
     return 0;
 blksend:
-    digitalWrite(ZBS_DMA_PIN, HIGH);
     uint8_t blockbuffer[sizeof(struct blockData)];
     struct blockData* bd = (struct blockData*)blockbuffer;
     bd->size = len;
@@ -95,21 +95,25 @@ blksend:
 
     // send blockData header
     for (uint8_t c = 0; c < sizeof(struct blockData); c++) {
-        Serial1.write(blockbuffer[c]);
+        Serial1.write(0xAA ^ blockbuffer[c]);
     }
 
     // send an entire block of data
     uint16_t c;
     for (c = 0; c < len; c++) {
-        Serial1.write(((uint8_t*)data)[c]);
-    }
-    for (; c < BLOCK_DATA_SIZE; c++) {
-        Serial1.write(0);
+        Serial1.write(0xAA ^ ((uint8_t*)data)[c]);
     }
 
-    Serial1.write(0xAA);
+    // fill the rest of the block-length filled with something else (will end up as 0xFF in the buffer)
+    for (; c < BLOCK_DATA_SIZE; c++) {
+        Serial1.write(0x55);
+    }
+
+    // dummy bytes in case some bytes were missed, makes sure the AP gets kicked out of data-loading mode
+    for (c = 0; c < 32; c++) {
+        Serial1.write(0xF5);
+    }
     delay(10);
-    digitalWrite(ZBS_DMA_PIN, LOW);
     txEnd();
     return bd->checksum;
 }
@@ -329,11 +333,9 @@ extern uint8_t* getDataForFile(File* file);
 void zbsRxTask(void* parameter) {
     xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
 
-    Serial1.begin(228571, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
+    Serial1.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 
     rampTagPower(FLASHER_AP_POWER, true);
-    pinMode(ZBS_DMA_PIN, OUTPUT);
-    digitalWrite(ZBS_DMA_PIN, LOW);
 
     bool firstrun = true;
 
@@ -384,8 +386,6 @@ void zbsRxTask(void* parameter) {
                 vTaskDelay(30000 / portTICK_PERIOD_MS);
                 if (performDeviceFlash()) {
                     rampTagPower(FLASHER_AP_POWER, true);
-                    pinMode(ZBS_DMA_PIN, OUTPUT);
-                    digitalWrite(ZBS_DMA_PIN, LOW);
                 } else {
                     Serial.println("Failed to update version on the AP :(");
                 }
