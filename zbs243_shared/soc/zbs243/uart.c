@@ -1,4 +1,5 @@
 #include "uart.h"
+
 #include "cpu.h"
 
 #ifdef AP_FW
@@ -12,9 +13,10 @@ void uartInit(void) {
     // configure baud rate
     UARTBRGH = 0x00;
 #ifdef AP_FW
-    //UARTBRGL = 69;  // nice. 230400 baud
-    UARTBRGL = 70; // 79 == 200k
+    // UARTBRGL = 69;  // nice. 230400 baud
+    //UARTBRGL = 70;  // 79 == 200k
     IEN_UART0 = 1;
+    UARTBRGL = 0x8A;  // config for 115200
 #else
     UARTBRGL = 0x8A;  // config for 115200
 #endif
@@ -83,7 +85,7 @@ void UART_IRQ1(void) __interrupt(0) {
     if (UARTSTA & 1) {  // RXC
         UARTSTA &= 0xfe;
         if (serialBypassActive) {
-            *blockp++ = UARTBUF;
+            *blockp++ = 0xAA ^ UARTBUF;
             if (blockp == (blockbuffer + 4100)) {
                 serialBypassActive = false;
                 blockp = blockbuffer;
@@ -91,7 +93,7 @@ void UART_IRQ1(void) __interrupt(0) {
         } else {
             rxbuf[rxhead] = UARTBUF;
             rxhead++;
-            //checkcommand(UARTBUF);
+            // checkcommand(UARTBUF);
         }
     }
     if (UARTSTA & 2) {  // TXC
