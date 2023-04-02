@@ -24,12 +24,17 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
         filein = "/" + filein;
     }
     TJpgDec.getFsJpgSize(&w, &h, filein, LittleFS);
+    if (w==0 && h==0) {
+        wsErr("invalid jpg");
+        return;
+    }
     Serial.println("jpeg conversion " + String(w) + "x" + String(h));
 
     spr.setColorDepth(8);
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
         //no heap space for 8bpp, fallback to 1bpp
+        wsErr("fallback to 1bpp");
         spr.setColorDepth(1);
         spr.createSprite(w, h);
     }
@@ -124,26 +129,28 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                 redBuffer[byteIndex] |= (1 << bitIndex);
             }
 
-            Error error = {
-                ((float)color.r + error_bufferold[x].r - palette[best_color_index].r) / 16.0f,
-                ((float)color.g + error_bufferold[x].g - palette[best_color_index].g) / 16.0f,
-                ((float)color.b + error_bufferold[x].b - palette[best_color_index].b) / 16.0f};
+            if (imageParams.dither) {
+                Error error = {
+                    ((float)color.r + error_bufferold[x].r - palette[best_color_index].r) / 16.0f,
+                    ((float)color.g + error_bufferold[x].g - palette[best_color_index].g) / 16.0f,
+                    ((float)color.b + error_bufferold[x].b - palette[best_color_index].b) / 16.0f};
 
-            error_buffernew[x].r += error.r * 5.0f;
-            error_buffernew[x].g += error.g * 5.0f;
-            error_buffernew[x].b += error.b * 5.0f;
-            if (x > 0) {
-                error_buffernew[x - 1].r += error.r * 3.0f;
-                error_buffernew[x - 1].g += error.g * 3.0f;
-                error_buffernew[x - 1].b += error.b * 3.0f;
-            }
-            if (x < bufw - 1) {
-                error_buffernew[x + 1].r += error.r * 1.0f;
-                error_buffernew[x + 1].g += error.g * 1.0f;
-                error_buffernew[x + 1].b += error.b * 1.0f;
-                error_bufferold[x + 1].r += error.r * 7.0f;
-                error_bufferold[x + 1].g += error.g * 7.0f;
-                error_bufferold[x + 1].b += error.b * 7.0f;
+                error_buffernew[x].r += error.r * 5.0f;
+                error_buffernew[x].g += error.g * 5.0f;
+                error_buffernew[x].b += error.b * 5.0f;
+                if (x > 0) {
+                    error_buffernew[x - 1].r += error.r * 3.0f;
+                    error_buffernew[x - 1].g += error.g * 3.0f;
+                    error_buffernew[x - 1].b += error.b * 3.0f;
+                }
+                if (x < bufw - 1) {
+                    error_buffernew[x + 1].r += error.r * 1.0f;
+                    error_buffernew[x + 1].g += error.g * 1.0f;
+                    error_buffernew[x + 1].b += error.b * 1.0f;
+                    error_bufferold[x + 1].r += error.r * 7.0f;
+                    error_bufferold[x + 1].g += error.g * 7.0f;
+                    error_bufferold[x + 1].b += error.b * 7.0f;
+                }
             }
         }
         memcpy(error_bufferold, error_buffernew, bufw * sizeof(Error));

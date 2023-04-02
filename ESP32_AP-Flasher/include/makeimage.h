@@ -6,6 +6,7 @@
 struct imgParam {
     bool hasRed;
     uint8_t dataType;
+    bool dither;
 };
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams);

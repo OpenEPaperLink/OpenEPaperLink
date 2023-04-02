@@ -84,11 +84,13 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     imgParam imageParams;
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
+    imageParams.dither = true;
 
-        switch (taginfo->contentMode) {
+    switch (taginfo->contentMode) {
         case Image:
 
             if (cfgobj["filename"].as<String>() && cfgobj["filename"].as<String>() != "null" && !cfgobj["#fetched"].as<bool>()) {
+                if (cfgobj["dither"] && cfgobj["dither"].as<bool>() == false) imageParams.dither = false;
                 jpg2buffer(cfgobj["filename"].as<String>(), filename, imageParams);
                 if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                 if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
