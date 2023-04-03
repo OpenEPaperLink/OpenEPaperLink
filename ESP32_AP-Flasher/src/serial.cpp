@@ -40,7 +40,8 @@ bool txStart() {
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
         Serial.println("wait... tx busy");
-    } false;
+    }
+    return false;
 }
 
 void txEnd() {
@@ -127,8 +128,6 @@ void sendDataAvail(struct pendingData* pending) {
         for (uint8_t c = 0; c < sizeof(struct pendingData); c++) {
             Serial1.write(((uint8_t*)pending)[c]);
         }
-        Serial1.write(0x00);
-        Serial1.write(0x00);
         if (waitCmdReply()) goto sdasend;
         Serial.printf("SDA send failed in try %d\n", attempt);
     }
@@ -149,8 +148,6 @@ void sendCancelPending(struct pendingData* pending) {
         for (uint8_t c = 0; c < sizeof(struct pendingData); c++) {
             Serial1.write(((uint8_t*)pending)[c]);
         }
-        Serial1.write(0x00);
-        Serial1.write(0x00);
         if (waitCmdReply()) goto cxdsend;
         Serial.printf("CXD send failed in try %d\n", attempt);
     }
