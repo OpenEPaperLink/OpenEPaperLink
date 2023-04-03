@@ -4,7 +4,7 @@ BUILD		?= zbs29v033
 #file containing main() must be first!
 SOURCES         += main.c
 SOURCES		+= comms.c
-
+SOURCES		+= APDisplay.c
 
 all:	#make sure it is the first target
 
@@ -19,7 +19,7 @@ FLAGS += -Icpu/$(CPU)
 
 SOURCES += cpu/$(CPU)/cpu.c
 SOURCES += board/$(BUILD)/board.c
-
+SOURCES += board/$(BUILD)/screen.c
 FLAGS += -I.
 
 

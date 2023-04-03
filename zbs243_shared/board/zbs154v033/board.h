@@ -19,6 +19,10 @@
 //till end of eeprom really. do not put anything after - it will be erased at pairing time!!!
 #define EEPROM_PROGRESS_BYTES			(128)
 
+
+#define HAS_EEPROM 1
+#define HAS_SCREEN 1
+
 //hw types
 #define HW_TYPE					        SOLUM_154_033
 

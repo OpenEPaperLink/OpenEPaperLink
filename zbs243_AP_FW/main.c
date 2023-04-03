@@ -16,6 +16,10 @@
 #include "uart.h"
 #include "wdt.h"
 
+#if (HAS_SCREEN == 1)
+#include "APDisplay.h"
+#endif
+
 #define MAX_PENDING_MACS 50
 #define HOUSEKEEPING_INTERVAL 60UL
 
@@ -39,7 +43,8 @@ struct espAvailDataReq {
 } __packed;
 
 // #define TIMER_TICKS_PER_MS 1333UL
-uint16_t __xdata version = 0x000E;
+uint16_t __xdata version = 0x0011;
+
 #define RAW_PKT_PADDING 2
 
 static uint8_t __xdata mRxBuf[COMMS_MAX_PACKET_SZ];
@@ -74,6 +79,11 @@ uint8_t lastAckMac[8] = {0};
 #define CONCURRENT_REQUEST_DELAY 1200UL * TIMER_TICKS_PER_MS
 uint32_t __xdata lastBlockRequest = 0;
 uint8_t __xdata lastBlockMac[8];
+
+uint8_t __xdata curChannel = 11;
+
+uint8_t __xdata curPendingData = 0;
+uint8_t __xdata curNoUpdate = 0;
 
 void sendXferCompleteAck(uint8_t *dst);
 void sendCancelXfer(uint8_t *dst);
@@ -179,6 +189,19 @@ void deleteAllPendingDataForVer(const uint8_t *ver) {
         if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
     } while (slot != -1);
 }
+void countSlots() {
+    curPendingData = 0;
+    curNoUpdate = 0;
+    for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
+        if (pendingDataArr[c].attemptsLeft != 0) {
+            if (pendingDataArr[c].availdatainfo.dataType != 0) {
+                curPendingData++;
+            } else {
+                curNoUpdate++;
+            }
+        }
+    }
+}
 
 // processing serial data
 #define ZBS_RX_WAIT_HEADER 0
@@ -187,6 +210,13 @@ void deleteAllPendingDataForVer(const uint8_t *ver) {
 
 extern uint8_t *__idata blockp;
 void processSerial(uint8_t lastchar) {
+    static uint32_t __xdata lastSerial = 0;
+    if((timerGet() - lastSerial)>(TIMER_TICKS_PER_MS*25)){
+        RXState = ZBS_RX_WAIT_HEADER;
+        lastSerial = timerGet();
+    } else {
+        lastSerial = timerGet();
+    }
     // uartTx(lastchar); echo
     switch (RXState) {
         case ZBS_RX_WAIT_HEADER:
@@ -564,9 +594,6 @@ void sendPong(void *__xdata buf) {
     radioTx(radiotxbuffer);
 }
 
-void writeCharEPD(uint8_t c) {
-}
-
 // main loop
 void main(void) {
     clockingAndIntsInit();
@@ -590,15 +617,21 @@ void main(void) {
     radioInit();
     radioRxFilterCfg(mSelfMac, 0x10000, PROTO_PAN_ID);
 
+#if (HAS_SCREEN == 1)
+    epdInitialize();
+#endif
+
     // init the "random" number generation unit
     rndSeed(mSelfMac[0] ^ (uint8_t)timerGetLowBits(), mSelfMac[1]);
-    // wdtSetResetVal(0xFD0DCF);
-    // wdtOn();
-    radioSetChannel(11);
+    radioSetChannel(curChannel);
     radioSetTxPower(10);
     radioRxEnable(true, true);
 
     pr("RDY>\n");
+
+#if (HAS_SCREEN == 1)
+    epdShowRun();
+#endif
 
     housekeepingTimer = timerGet();
 
@@ -656,6 +689,10 @@ void main(void) {
             }
             loopCount--;
             if (loopCount == 0) {
+                #if (HAS_SCREEN == 1)
+                countSlots();
+                epdShowRun();
+                #endif
                 wdt60s();
                 loopCount = 10000;
                 // every once in a while, especially when handling a lot of traffic, the radio will hang. Calling this every once in while
