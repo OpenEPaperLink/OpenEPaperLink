@@ -569,7 +569,7 @@ static bool getDataBlock(const uint16_t blockSize) {
     pr("failed getting block\n");
     return false;
 }
-
+uint16_t __xdata dataRequestSize = 0;
 static bool downloadFWUpdate(const struct AvailDataInfo *__xdata avail) {
     // check if we already started the transfer of this information & haven't completed it
     if (xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8) && curDataInfo.dataSize) {
@@ -585,7 +585,6 @@ static bool downloadFWUpdate(const struct AvailDataInfo *__xdata avail) {
 
     while (curDataInfo.dataSize) {
         wdt10s();
-        static uint16_t __xdata dataRequestSize;
         if (curDataInfo.dataSize > BLOCK_DATA_SIZE) {
             // more than one block remaining
             dataRequestSize = BLOCK_DATA_SIZE;
@@ -608,8 +607,10 @@ static bool downloadFWUpdate(const struct AvailDataInfo *__xdata avail) {
     // no more data, download complete
     return true;
 }
+
+uint16_t __xdata imageSize = 0;
 static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail) {
-    static uint16_t __xdata imageSize = 0;
+
     // check if we already started the transfer of this information & haven't completed it
     if (xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8) && curDataInfo.dataSize) {
         // looks like we did. We'll carry on where we left off.
@@ -646,7 +647,6 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
 
     while (curDataInfo.dataSize) {
         wdt10s();
-        static uint16_t __xdata dataRequestSize;
         if (curDataInfo.dataSize > BLOCK_DATA_SIZE) {
             // more than one block remaining
             dataRequestSize = BLOCK_DATA_SIZE;

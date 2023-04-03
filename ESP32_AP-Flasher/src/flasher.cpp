@@ -27,8 +27,7 @@ typedef enum {
 uint8_t *infoblock = nullptr;
 uint8_t *flashbuffer = nullptr;
 
-static class ZBS_interface* zbs;
-
+static class ZBS_interface *zbs;
 
 // look for the latest version of the firmware file... It's supposed to be something like zigbeebase0003.bin
 String lookupFirmwareFile(uint16_t &version) {
@@ -155,27 +154,26 @@ void writeFlashBlock(uint16_t size) {
             }
         }
         if (i == MAX_WRITE_ATTEMPTS) {
-            Serial.printf("\nFailed to write byte at c\n");
+            Serial.printf("x");
+        } else {
+            Serial.printf(".");
         }
         if (c % 256 == 0) {
-            Serial.printf("\rNow flashing, %d/%d...", c, size);
+            Serial.printf("\rNow flashing, %d/%d  ", c, size);
             vTaskDelay(1 / portTICK_PERIOD_MS);
         }
     }
 }
 
 // perform device flash, save mac, everything
-void performDeviceFlash() {
+bool performDeviceFlash() {
     uint8_t interfaceWorking = 0;
-    Serial.printf("Power cycling to get everything up and running...\n");
-    zbs->set_power(0);
-    vTaskDelay(500 / portTICK_PERIOD_MS);
-    zbs->set_power(1);
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    zbs = new ZBS_interface;
     interfaceWorking = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, FLASHER_AP_POWER, 8000000);
     if (!interfaceWorking) {
         Serial.print("I wasn't able to connect to a ZBS tag, please check wiring and definitions in the settings.h file.\n");
-        return;
+        delete zbs;
+        return false;
     }
 
     readInfoBlock();
@@ -197,7 +195,8 @@ void performDeviceFlash() {
     File file = LittleFS.open(lookupFirmwareFile(version));
     if (!file) {
         // couldn't find a valid firmware version
-        return;
+        delete zbs;
+        return false;
     } else {
         Serial.printf("Preparing to flash version %04X (%d bytes) to the tag\n", version, file.size());
     }
@@ -224,4 +223,6 @@ void performDeviceFlash() {
     flashbuffer = nullptr;
     zbs->reset();
     zbs->set_power(1);
+    delete zbs;
+    return true;
 }
