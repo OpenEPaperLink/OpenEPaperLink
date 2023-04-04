@@ -1,15 +1,18 @@
 # Cases and jigs
 
 ## Case
-A design for a case and programming jigs have been made for this project.
+Some designs for a cases and programming jigs have been made for this project.
 
 The case fits the ESP32-board and can optionally house two 1.54" tags, in order to make a compact accesspoint with two additional integrated screens.
 
-<img width="400" alt="board" src="https://user-images.githubusercontent.com/2544995/227193477-94142f07-799f-415c-bf27-3f6f0049880e.png"><img width="400" alt="board" src="https://user-images.githubusercontent.com/2544995/227194631-f6dfbbc1-66d5-473b-8230-bf1ced96766f.png">
+<img width="300" alt="board" src="https://user-images.githubusercontent.com/2544995/227193477-94142f07-799f-415c-bf27-3f6f0049880e.png"><img width="300" alt="board" src="https://user-images.githubusercontent.com/2544995/227194631-f6dfbbc1-66d5-473b-8230-bf1ced96766f.png">
+<img width="300" alt="board" src="https://user-images.githubusercontent.com/2544995/229891370-959ecb51-72a7-4d29-8478-05a0d269046c.png">
+
 
 Additionally, two other covers van be printed for this case. One blank cover (useful if you just want a flasher, no AP), and one with room for a segmented tag.
 
-<img width="400" alt="board" src="https://user-images.githubusercontent.com/2544995/227195248-d085a118-3ec1-47a6-8a67-169c40175c10.png">
+<img width="400" alt="board" src="https://user-images.githubusercontent.com/2544995/227195248-d085a118-3ec1-47a6-8a67-169c40175c10.png"><img width="400" alt="board" src="https://user-images.githubusercontent.com/2544995/229890912-bc074daf-6443-4f3d-9c76-1645eb2939e2.png">
+
 
 ## Jigs
 The programming jigs use pogo pins to make a connection to the tag, allowing you to flash the alternative firmware without soldering wires. 
