@@ -32,6 +32,7 @@ This board expects an ESP32-S3 DevkitC1 board. If you want to use it as an AP an
 
 ### Parts ###
 * 1x ESP32-S3 DevkitC1
+  Please note that this board expects 'bootleg' or aftermarket DevkitC1 boards, pinspacing between the rows is 25.4mm. The Espressif branded DevkitC1 apparently uses a smaller pin spacing. This can made to work by bending some pins, but it's not pretty per se. I got my board from [this seller](https://www.ebay.com/itm/255671518333). Not an endorsement or anything like that. More info [here](https://github.com/jjwbruijn/OpenEPaperLink/issues/25)
 * 2x SMD 2x5 male IDC header
 * 1x 90 degree angle 1.27mm 2x5 male IDC header
 * 2x AO3401 P-channel MOSFET
