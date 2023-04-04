@@ -45,7 +45,7 @@ void epdShowRun() {
     epdClear();
     epdSetPos(0);
     epdpr("run");
-    setEPDIcon(EPD_ICON_ARROW|EPD_SIGN_PENCE_SMALL, true);
+    setEPDIcon(EPD_ICON_ARROW | EPD_SIGN_PENCE_SMALL, true);
 
     epdSetPos(4);
     epdpr("%d", curChannel);
@@ -59,8 +59,12 @@ void epdShowRun() {
     if (epdUpdate()) {
         updateCount++;
         if (updateCount == 10) {
+            while (is_drawing()) {
+            };
             epdSetup(true);
         } else if (updateCount == 20) {
+            while (is_drawing()) {
+            };
             epdSetup(false);
             updateCount = 0;
         }
