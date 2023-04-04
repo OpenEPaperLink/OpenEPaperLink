@@ -1,4 +1,4 @@
-# The OpenEpaperLink alternative PCB #
+# alternative PCB for 2.9" flashing#
 
 This is an alternative PCB for flashing 2.9" ESLs
 
