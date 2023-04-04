@@ -60,4 +60,20 @@
 #define FLASHER_LED 22
 #endif
 
+#if (PINOUT == AlternativePCB)
+/* Lolin32 lite connections to AP tag*/
+#define FLASHER_AP_SS 22
+#define FLASHER_AP_CLK 13
+#define FLASHER_AP_MOSI 23
+#define FLASHER_AP_MISO 33
+#define FLASHER_AP_RESET 27
+#define FLASHER_AP_POWER 4
+#define FLASHER_AP_POWER2 4
+#define FLASHER_AP_TEST -1
+#define FLASHER_AP_TXD 26
+#define FLASHER_AP_RXD 25
+
+#define FLASHER_LED 19
+#endif
+
 #define MAX_WRITE_ATTEMPTS 5
