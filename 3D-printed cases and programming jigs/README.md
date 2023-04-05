@@ -13,6 +13,10 @@ Additionally, two other covers van be printed for this case. One blank cover (us
 
 <img width="400" alt="board" src="https://user-images.githubusercontent.com/2544995/227195248-d085a118-3ec1-47a6-8a67-169c40175c10.png"><img width="400" alt="board" src="https://user-images.githubusercontent.com/2544995/229890912-bc074daf-6443-4f3d-9c76-1645eb2939e2.png">
 
+A 20x20mm hole on top of the ESP32 allows you to add [a small heatsink](https://www.ebay.com/itm/314115879146). Very much optional, as the ESP32 shouldn't run all that hot. I kinda like the aesthetics, but you could just make a fully closed case, the ESP32 will be fine. 
+
+<img width="400" alt="heatsink" src="https://user-images.githubusercontent.com/2544995/230223335-6c79c637-fc99-4e7f-818a-c0c983c3431d.png">
+
 
 ## Jigs
 The programming jigs use pogo pins to make a connection to the tag, allowing you to flash the alternative firmware without soldering wires. 
