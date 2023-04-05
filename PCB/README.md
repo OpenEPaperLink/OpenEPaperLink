@@ -62,5 +62,17 @@ You can order the boards from your favorite boardhouse, using the zip file in th
 
 Also, this design uses castellated edges by milling through a debug-header footprint. Some houses don't like that either. I've had success ordering this PCB from DirtyPCBs, but this should not be seen as an endorsement; there's no guarantee they will continue to manufacture this board.
 
+## Components from eBay ##
+Note that I don't especially endorse these sellers; however, the components I bought from them seem to work/fit. Your milage may vary, the links *will* die at some point in time
+* [ESP32-S3-DevKitC1](https://www.ebay.com/itm/255671518333)
+* [20mm Heatsink](https://www.ebay.com/itm/314115879146)
+* [0.635mm pitch IDC cable](https://www.ebay.com/itm/181296373429)
+* [1.27mm pitch 2x5 connector](https://www.ebay.com/itm/171211285035)
+* [1.27mm 2x5 shrouded header male](https://www.ebay.com/itm/172311876086)
+* [1.27mm 2x5 shrouded header male 90 angle](https://www.ebay.com/itm/183736774702)
+* [AO3400](https://www.ebay.com/itm/293687776019)/[AO3401](https://www.ebay.com/itm/293687781401)
+* [1mm pogo pins](https://www.ebay.com/itm/334198324694)
+
+
 ## Disclaimer ##
 There is no guarantee or warranty whatsoever, nor is there any promise or insinuation that this board fill fullfill any particular purpose. This board may very well not work for you, set your hair and/or, but not limited to, pants on fire, incite violance or persuade other countries to invade your country. You're on your own, chief!
