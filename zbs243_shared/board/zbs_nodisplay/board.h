@@ -8,6 +8,7 @@
 #define HAS_EEPROM 0
 #define HAS_SCREEN 0
 #define HW_TYPE SOLUM_NODISPLAY
+#define AP_EMULATE_TAG 0
 
 #include "../boardCommon.h"
 

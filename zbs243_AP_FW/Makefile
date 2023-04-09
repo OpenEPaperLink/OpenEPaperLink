@@ -5,6 +5,8 @@ BUILD		?= zbs29v033
 SOURCES         += main.c
 SOURCES		+= comms.c
 SOURCES		+= APDisplay.c
+SOURCES		+= barcode.c
+SOURCES		+= emulateTag.c
 
 all:	#make sure it is the first target
 

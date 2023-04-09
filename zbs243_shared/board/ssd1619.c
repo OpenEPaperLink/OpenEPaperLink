@@ -10,7 +10,7 @@
 #include "lut.h"
 #include "printf.h"
 #include "screen.h"
-#include "settings.h"
+//#include "settings.h"
 #include "sleep.h"
 #include "spi.h"
 #include "timer.h"

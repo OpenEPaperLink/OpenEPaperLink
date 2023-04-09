@@ -20,6 +20,10 @@
 #include "APDisplay.h"
 #endif
 
+#if (AP_EMULATE_TAG == 1)
+#include "emulateTag.h"
+#endif
+
 #define MAX_PENDING_MACS 50
 #define HOUSEKEEPING_INTERVAL 60UL
 
@@ -74,6 +78,8 @@ uint32_t __xdata nextBlockAttempt = 0;                    // reference time for 
 uint8_t seq = 0;                                          // holds current sequence number for transmission
 uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE + 5];  // block transfer buffer
 uint8_t lastAckMac[8] = {0};
+
+uint8_t *__xdata blockXferBuffer = blockbuffer;
 
 // these variables hold the current mac were talking to
 #define CONCURRENT_REQUEST_DELAY 1200UL * TIMER_TICKS_PER_MS
@@ -211,7 +217,7 @@ void countSlots() {
 extern uint8_t *__idata blockp;
 void processSerial(uint8_t lastchar) {
     static uint32_t __xdata lastSerial = 0;
-    if((timerGet() - lastSerial)>(TIMER_TICKS_PER_MS*25)){
+    if ((timerGet() - lastSerial) > (TIMER_TICKS_PER_MS * 25)) {
         RXState = ZBS_RX_WAIT_HEADER;
         lastSerial = timerGet();
     } else {
@@ -262,14 +268,23 @@ void processSerial(uint8_t lastchar) {
             if (bytesRemain == 0) {
                 if (checkCRC(serialbuffer, sizeof(struct pendingData))) {
                     struct pendingData *pd = (struct pendingData *)serialbuffer;
-                    int8_t slot = findSlotForMac(pd->targetMac);
-                    if (slot == -1) slot = findFreeSlot();
-                    if (slot != -1) {
-                        xMemCopyShort(&(pendingDataArr[slot]), serialbuffer, sizeof(struct pendingData));
+#if (AP_EMULATE_TAG == 1)
+                    if (memcmp(pd->targetMac, fakeTagMac, 8) == 0) {
+                        fakePendingData(pd);
                         pr("ACK>\n");
                     } else {
-                        pr("NOQ>\n");
+#endif
+                        int8_t slot = findSlotForMac(pd->targetMac);
+                        if (slot == -1) slot = findFreeSlot();
+                        if (slot != -1) {
+                            xMemCopyShort(&(pendingDataArr[slot]), serialbuffer, sizeof(struct pendingData));
+                            pr("ACK>\n");
+                        } else {
+                            pr("NOQ>\n");
+                        }
+#if (AP_EMULATE_TAG == 1)
                     }
+#endif
                 } else {
                     pr("NOK>\n");
                 }
@@ -284,8 +299,17 @@ void processSerial(uint8_t lastchar) {
             if (bytesRemain == 0) {
                 if (checkCRC(serialbuffer, sizeof(struct pendingData))) {
                     struct pendingData *pd = (struct pendingData *)serialbuffer;
-                    deleteAllPendingDataForVer((uint8_t *)&pd->availdatainfo.dataVer);
-                    pr("ACK>\n");
+#if (AP_EMULATE_TAG == 1)
+                    if (memcmp(pd->targetMac, fakeTagMac, 8) == 0) {
+                        fakeTagTrafficPending = false;
+                        pr("ACK>\n");
+                    } else {
+#endif
+                        deleteAllPendingDataForVer((uint8_t *)&pd->availdatainfo.dataVer);
+                        pr("ACK>\n");
+#if (AP_EMULATE_TAG == 1)
+                    }
+#endif
                 } else {
                     pr("NOK>\n");
                 }
@@ -367,10 +391,9 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
             // mark this mac as the new current mac we're talking to
             xMemCopyShort((void *__xdata)lastBlockMac, (void *__xdata)rxHeader->src, 8);
             lastBlockRequest = timerGet();
-            // memcpy(lastBlockRequest, rxHeader->src, 8);
         } else {
             // we're talking to another mac, let this mac know we can't accomodate another request right now
-            pr("not accepting traffic from this tag\n");
+            pr("BUSY!\n");
             sendCancelXfer(rxHeader->src);
             return;
         }
@@ -594,13 +617,40 @@ void sendPong(void *__xdata buf) {
     radioTx(radiotxbuffer);
 }
 
+#if (AP_EMULATE_TAG == 1)
+void attemptFakeTagUpdate() {
+    if (memcmp(fakeTagMac, lastBlockMac, 8) == 0) {
+        lastBlockRequest = timerGet();
+        fakeTagGetData();
+    } else {
+        // we weren't talking to this mac, see if there was a transfer in progress from another mac, recently
+        if ((timerGet() - lastBlockRequest) > CONCURRENT_REQUEST_DELAY) {
+            // mark this mac as the new current mac we're talking to
+            xMemCopyShort((void *__xdata)lastBlockMac, (void *__xdata)fakeTagMac, 8);
+            lastBlockRequest = timerGet();
+            fakeTagGetData();
+        } else {
+            // we're talking to another mac, let this mac know we can't accomodate another request right now
+            pr("FAKE TAG BUSY!\n");
+        }
+    }
+}
+#endif
+
 // main loop
 void main(void) {
     clockingAndIntsInit();
     timerInit();
     boardInit();
+
     P0FUNC = 0b11001111;  // enable uart tx/rx and SPI bus functions
+
     uartInit();
+
+#if (HAS_SCREEN == 1)
+    epdInitialize();
+#endif
+
     irqsOn();
     wdt60s();
 
@@ -616,10 +666,6 @@ void main(void) {
 
     radioInit();
     radioRxFilterCfg(mSelfMac, 0x10000, PROTO_PAN_ID);
-
-#if (HAS_SCREEN == 1)
-    epdInitialize();
-#endif
 
     // init the "random" number generation unit
     rndSeed(mSelfMac[0] ^ (uint8_t)timerGetLowBits(), mSelfMac[1]);
@@ -689,10 +735,15 @@ void main(void) {
             }
             loopCount--;
             if (loopCount == 0) {
-                #if (HAS_SCREEN == 1)
+#if (HAS_SCREEN == 1)
+
+#if (AP_EMULATE_TAG == 1)
+                if (fakeTagTrafficPending) attemptFakeTagUpdate();
+#else
                 countSlots();
                 epdShowRun();
-                #endif
+#endif
+#endif
                 wdt60s();
                 loopCount = 10000;
                 // every once in a while, especially when handling a lot of traffic, the radio will hang. Calling this every once in while
@@ -700,7 +751,9 @@ void main(void) {
                 RADIO_command = RADIO_CMD_RECEIVE;
             }
         }
-
+#if (AP_EMULATE_TAG == 1)
+        fakeTagCheckIn();
+#endif
         for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
             if (pendingDataArr[c].attemptsLeft == 1) {
                 espNotifyTimeOut(pendingDataArr[c].targetMac);

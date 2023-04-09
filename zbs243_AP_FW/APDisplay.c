@@ -19,10 +19,12 @@
 #include "uart.h"
 #include "wdt.h"
 
-// #if (HAS_SCREEN == 1)
-
 uint8_t updateCount = 1;
+extern uint8_t __xdata curChannel;
+extern uint8_t __xdata curPendingData;
+extern uint8_t __xdata curNoUpdate;
 
+#if (SCREEN_WIDTH == 1)
 void epdInitialize() {
     epdEnable();
     pr("Setting up EPD\n");
@@ -35,11 +37,6 @@ void epdInitialize() {
     };
     timerDelay(1333);
 }
-
-extern uint8_t __xdata curChannel;
-
-extern uint8_t __xdata curPendingData;
-extern uint8_t __xdata curNoUpdate;
 
 void epdShowRun() {
     epdClear();
@@ -70,5 +67,29 @@ void epdShowRun() {
         }
     }
 }
+
+#endif
+
+#if (SCREEN_WIDTH != 1)
+
+void epdInitialize() {
+    epdConfigGPIO(true);
+    spiInit();
+    epdSetup();
+}
+
+void epdShowRun() {
+    // return;
+    wdt60s();
+    selectLUT(EPD_LUT_NO_REPEATS);
+    clearScreen();
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+    epdPrintBegin(16, 55, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("AP Mode");
+    epdPrintEnd();
+    drawNoWait();
+}
+
+#endif
 
 #endif

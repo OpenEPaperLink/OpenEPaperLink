@@ -21,6 +21,7 @@
 
 #define HAS_EEPROM 1
 #define HAS_SCREEN 1
+#define AP_EMULATE_TAG 1
 
 //hw types
 #define HW_TYPE					        SOLUM_29_033
