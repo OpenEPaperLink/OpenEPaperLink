@@ -13,6 +13,8 @@ static volatile uint8_t __xdata mRxBufs[RX_BUFFER_NUM][RX_BUFFER_SIZE];
 static volatile uint8_t __xdata mLastRSSI, mLastTxedSeq, mRxOn, mRxBufNextR, mRxBufNextW, mRxBufNumFree;
 static volatile __bit mAckTimePassed, mGotAck;
 
+const uint8_t __code channelList[6] = {11, 15, 20, 25, 26, 27};
+
 // some things look like: https://www.ti.com/lit/ds/symlink/cc2430.pdf
 // maybe a licensed and heavily modified version?
 
@@ -30,7 +32,6 @@ void RF_IRQ1(void) __interrupt(4) {
         // radio will report ACK if we (1) got an ack or (2) sent a packet that did not require it
         mAckTimePassed = true;
         mGotAck = !!(cause & 0x10);
-
     }
     if (cause & 0x20) {  // radio has RXed a packet into its internal buffer. vet it quickly and set up DMA
 
@@ -144,11 +145,11 @@ bool radioTx(const void __xdata *packetP)  // waits for tx end
 
     CFGPAGE = bkp;
 
-    //RADIO_unk_C8 = 0xff;  /// stock fw does this but seems unnecessary
+    // RADIO_unk_C8 = 0xff;  /// stock fw does this but seems unnecessary
 
     // wait for tx to start
     wait = 0;
-	wait--;
+    wait--;
     do {
         if (RADIO_curRfState & 0x80)
             break;
@@ -158,12 +159,12 @@ bool radioTx(const void __xdata *packetP)  // waits for tx end
     if (wait) {
         while (!mAckTimePassed)
             ;
-			return true;
+        return true;
     } else {
-		return false;
-	}
+        return false;
+    }
 
-    //RADIO_unk_C8 = 0x7f;  /// stock fw does this but seems unnecessary
+    // RADIO_unk_C8 = 0x7f;  /// stock fw does this but seems unnecessary
 }
 
 void radioRxAckReset(void) {
@@ -212,13 +213,10 @@ void radioSetTxPower(int8_t dBm) {
 }
 
 void radioSetChannel(uint8_t ch) {
-    static const uint8_t perChannelSetting1[] = {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x22, 0x22, 0x22, 0x22, 0x33, 0x33, 0x33, 0x33, 0x33};
-    static const uint8_t perChannelSetting2[] = {4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 2, 2, 2};
+    static const uint8_t perChannelSetting1[] = {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x22, 0x22, 0x22, 0x22, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33};
+    static const uint8_t perChannelSetting2[] = {4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2};
 
-    if (ch < RADIO_FIRST_CHANNEL || ch >= RADIO_FIRST_CHANNEL + RADIO_NUM_CHANNELS)
-        return;
-
-    RADIO_channel = ch;  // configmed to be at least RX channel
+    RADIO_channel = ch;  // confirmed to be at least RX channel
     RADIO_command = RADIO_CMD_RECEIVE;
     RADIO_perChannelSetting1 = perChannelSetting1[ch - 11];
     RADIO_perChannelSetting2 = perChannelSetting2[ch - 11];
