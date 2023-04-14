@@ -332,7 +332,14 @@ void zbsRxTask(void* parameter) {
 
     Serial1.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 
+    pinMode(FLASHER_AP_RESET, OUTPUT);
+    digitalWrite(FLASHER_AP_RESET, LOW);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+    rampTagPower(FLASHER_AP_POWER, false);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
     rampTagPower(FLASHER_AP_POWER, true);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+    digitalWrite(FLASHER_AP_RESET, HIGH);
 
     bool firstrun = true;
 
