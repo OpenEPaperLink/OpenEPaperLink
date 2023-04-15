@@ -32,6 +32,7 @@ This board expects an ESP32-S3 DevkitC1 board. If you want to use it as an AP an
 
 ### Parts ###
 * 1x ESP32-S3 DevkitC1
+  Please note that this board expects 'bootleg' or aftermarket DevkitC1 boards, pinspacing between the rows is 25.4mm. The Espressif branded DevkitC1 apparently uses a smaller pin spacing. This can made to work by bending some pins, but it's not pretty per se. I got my board from [this seller](https://www.ebay.com/itm/255671518333). Not an endorsement or anything like that. More info [here](https://github.com/jjwbruijn/OpenEPaperLink/issues/25)
 * 2x SMD 2x5 male IDC header
 * 1x 90 degree angle 1.27mm 2x5 male IDC header
 * 2x AO3401 P-channel MOSFET
@@ -60,6 +61,18 @@ While there is no current application or code within the project, it's possible 
 You can order the boards from your favorite boardhouse, using the zip file in this repository. Some boardhouses don't like the amount of routing/milling this board requires, or add hefty fees depending on how many 'designs' are included in your board. As-is, according to some boardhouses, the PCB contains 9 different designs.
 
 Also, this design uses castellated edges by milling through a debug-header footprint. Some houses don't like that either. I've had success ordering this PCB from DirtyPCBs, but this should not be seen as an endorsement; there's no guarantee they will continue to manufacture this board.
+
+## Components from eBay ##
+Note that I don't especially endorse these sellers; however, the components I bought from them seem to work/fit. Your milage may vary, the links *will* die at some point in time
+* [ESP32-S3-DevKitC1](https://www.ebay.com/itm/255671518333)
+* [20mm Heatsink](https://www.ebay.com/itm/314115879146)
+* [0.635mm pitch IDC cable](https://www.ebay.com/itm/181296373429)
+* [1.27mm pitch 2x5 connector](https://www.ebay.com/itm/171211285035)
+* [1.27mm 2x5 shrouded header male](https://www.ebay.com/itm/172311876086)
+* [1.27mm 2x5 shrouded header male 90 angle](https://www.ebay.com/itm/183736774702)
+* [AO3400](https://www.ebay.com/itm/293687776019)/[AO3401](https://www.ebay.com/itm/293687781401)
+* [1mm pogo pins](https://www.ebay.com/itm/334198324694)
+
 
 ## Disclaimer ##
 There is no guarantee or warranty whatsoever, nor is there any promise or insinuation that this board fill fullfill any particular purpose. This board may very well not work for you, set your hair and/or, but not limited to, pants on fire, incite violance or persuade other countries to invade your country. You're on your own, chief!

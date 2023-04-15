@@ -210,9 +210,9 @@ void showScanningWindow() {
     epdPrintBegin(2, 275, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("Scanning for APs");
     epdPrintEnd();
-    epdPrintBegin(40, 262, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    epdpr("Channel - Quality");
-    epdPrintEnd();
+    //epdPrintBegin(40, 262, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    //epdpr("Channel - Quality");
+    //epdPrintEnd();
     loadRawBitmap(receive, 36, 24, EPD_COLOR_BLACK);
 #endif
 #if (SCREEN_WIDTH == 152)  // 1.54"
@@ -226,9 +226,9 @@ void showScanningWindow() {
     epdpr("Scanning for APs");
     epdPrintEnd();
 
-    epdPrintBegin(2, 40, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    epdpr("Channel - Quality");
-    epdPrintEnd();
+    //epdPrintBegin(2, 40, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    //epdpr("Channel - Quality");
+    //epdPrintEnd();
     loadRawBitmap(receive, 320, 125, EPD_COLOR_BLACK);
 #endif
 

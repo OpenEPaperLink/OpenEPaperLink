@@ -90,28 +90,25 @@ void displayLoop() {
 }
 
 uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
-    uint8_t __xdata result[16];
+    uint8_t __xdata result[sizeof(channelList)];
     memset(result, 0, sizeof(result));
     showScanningWindow();
+    drawNoWait();
     powerUp(INIT_RADIO);
-    for (uint8_t i = 0; i < 5; i++) {
-        for (uint8_t c = 11; c < 27; c++) {
-            if (detectAP(c)) {
-                if (mLastLqi > result[c - 11]) result[c - 11] = mLastLqi;
-                pr("Channel: %d - LQI: %d RSSI %d\n", c, mLastLqi, mLastRSSI);
+    for (uint8_t i = 0; i < 4; i++) {
+        for (uint8_t c = 0; c < sizeof(channelList); c++) {
+            if (detectAP(channelList[c])) {
+                if (mLastLqi > result[c]) result[c] = mLastLqi;
+                pr("Channel: %d - LQI: %d RSSI %d\n", channelList[c], mLastLqi, mLastRSSI);
             }
         }
-        epdWaitRdy();
-        for (uint8_t c = 0; c < 16; c++) {
-            addScanResult(11 + c, result[c]);
-        }
-        drawNoWait();
     }
+    
     uint8_t __xdata highestLqi = 0;
     uint8_t __xdata highestSlot = 0;
     for (uint8_t c = 0; c < sizeof(result); c++) {
         if (result[c] > highestLqi) {
-            highestSlot = c + 11;
+            highestSlot = channelList[c];
             highestLqi = result[c];
         }
     }
@@ -123,18 +120,20 @@ uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
 uint8_t channelSelect() {  // returns 0 if no accesspoints were found
     uint8_t __xdata result[16];
     memset(result, 0, sizeof(result));
+
     for (uint8_t i = 0; i < 2; i++) {
-        for (uint8_t c = 11; c < 27; c++) {
-            if (detectAP(c)) {
-                if (mLastLqi > result[c - 11]) result[c - 11] = mLastLqi;
+        for (uint8_t c = 0; c < sizeof(channelList); c++) {
+            if (detectAP(channelList[c])) {
+                if (mLastLqi > result[c]) result[c] = mLastLqi;
             }
         }
     }
+
     uint8_t __xdata highestLqi = 0;
     uint8_t __xdata highestSlot = 0;
     for (uint8_t c = 0; c < sizeof(result); c++) {
         if (result[c] > highestLqi) {
-            highestSlot = c + 11;
+            highestSlot = channelList[c];
             highestLqi = result[c];
         }
     }

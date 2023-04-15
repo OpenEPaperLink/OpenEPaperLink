@@ -18,31 +18,6 @@
 #define INIT_TEMPREADING 0x02
 #define INIT_BASE 0x01
 
-#define wdt10s()                    \
-    do {                            \
-        wdtSetResetVal(0xFFF68A1F); \
-        wdtOn();                    \
-    } while (0)
-
-#define wdt30s()                    \
-    do {                            \
-        wdtSetResetVal(0xFFE39E5F); \
-        wdtOn();                    \
-    } while (0)
-
-#define wdt60s()                    \
-    do {                            \
-        wdtSetResetVal(0xFFC73CBF); \
-        wdtOn();                    \
-    } while (0)
-
-
-#define wdt120s()                    \
-    do {                            \
-        wdtSetResetVal(0xFF8E797F); \
-        wdtOn();                    \
-    } while (0)
-
 // power saving algorithm
 #define INTERVAL_BASE 40              // interval (in seconds) (when 1 packet is sent/received) for target current (7.2µA)
 #define INTERVAL_AT_MAX_ATTEMPTS 600  // interval (in seconds) (at max attempts) for target average current
@@ -56,7 +31,7 @@
 
 #define LONG_DATAREQ_INTERVAL 300     // How often (in seconds, approximately) the tag should do a long datareq (including temperature)
 #define VOLTAGE_CHECK_INTERVAL 288    // How often the tag should do a battery voltage check (multiplied by LONG_DATAREQ_INTERVAL)
-#define BATTERY_VOLTAGE_MINIMUM 2600  // 2600 or below is the best we can do on the EPD
+#define BATTERY_VOLTAGE_MINIMUM 2450  // 2600 or below is the best we can do on the EPD
 
 // power saving when no AP's were found (scanning every X)
 #define VOLTAGEREADING_DURING_SCAN_INTERVAL 2  // how often we should read voltages; this is done every scan attempt in interval bracket 3

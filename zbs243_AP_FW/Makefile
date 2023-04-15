@@ -4,9 +4,13 @@ BUILD		?= zbs29v033
 #file containing main() must be first!
 SOURCES         += main.c
 SOURCES		+= comms.c
-
+SOURCES		+= APDisplay.c
+SOURCES		+= barcode.c
+SOURCES		+= emulateTag.c
 
 all:	#make sure it is the first target
+
+FLAGS += -DAP_FW=1
 
 include board/$(BUILD)/make.mk
 include soc/$(SOC)/make.mk
@@ -17,7 +21,7 @@ FLAGS += -Icpu/$(CPU)
 
 SOURCES += cpu/$(CPU)/cpu.c
 SOURCES += board/$(BUILD)/board.c
-
+SOURCES += board/$(BUILD)/screen.c
 FLAGS += -I.
 
 
