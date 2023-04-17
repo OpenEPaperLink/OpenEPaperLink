@@ -1,16 +1,24 @@
 # Troubleshooting Solum ZBS243-based pricetags
 
 While these tags seem to be pretty dependable, there are a few failure modes
+* Failure to (re)boot)
 * Battery
 * EPD Failure
 * EPD voltage driver failure
 * SPI EEPROM failure
 * SOC/Flash failure
 
+## Failure to (re)boot ##
+The SOC/board doesn't have a reliable POR/BOD circuit that we know of. This means that the SOC needs a pretty clean/sharp application of voltage, otherwise it will enter an undefined state where it will consume power, but not do anything useful. This problems is exacerbated by the presence of some pretty large-ish bypass caps in on the tag-boards, and its low sleep current.
+
+To put it simply: just removing the batteries and inserting them again doesn't do anything, as the capacitors will remain charged. To cleanly 'boot' a tag, you'll need to shorten the battery pins to drain the capacitors, and then insert the battery(ies) in a smooth motion. This is a good example right[here.](https://youtu.be/98fOzZs__fc?t=2002)
+
+Removing the batteries and inserting a battery backwards will shorten the contacts just fine, and is a perfectly acceptable way to do it.
+
 ## Battery failure ##
 Dying batteries can be hard to diagnose sometimes. The CR2540 has limited pulse/high current-handling capabilities, and when a battery starts to become drained, its internal resistance will start to increase. This is impossible to see with only a high-impedance meter, as the float voltage will still read about 3v. As soon as a tag boots up, it will try to determine battery voltage, and the only way to reliably do this, is by loading the battery down a bit.
 
-OpenEPaperLink will do this by enabling the radio during the voltage reading. However, if a battery is very bad, the voltage will sag down enough to crash the tag. As a tag doesn't have a brown-out detection circuit that we know of, and doesn't do a power on reset, it's not going to reset/cleanly. The SOC will stay in a partially crashed state, and will consume a few 10's of milliamps. This will drain whatever remains in the battery in a matter of hours.
+OpenEPaperLink will do this by enabling the radio during the voltage reading. However, if a battery is very bad, the voltage will sag down enough to crash the tag. As a tag doesn't have a brown-out detection circuit that we know of, and doesn't do a power on reset, it's not going to reset/cleanly. The SOC will stay in a partially crashed state, and will consume a few 10's of milliamps. This will drain whatever remains in the battery in a matter of hours. This issue will come up earlier for 1.54" tags, as they contain only one battery. That poor battery has to cope with the same current spikes all on its own...
 
 If a tag boots up but hangs during the boot/AP searching process, it's most likely a bad battery. If the battery reads >=2.6v during boot, the battery is probably good enough to continue the boot process. 
 
