@@ -9,9 +9,9 @@ While these tags seem to be pretty dependable, there are a few failure modes
 * SOC/Flash failure
 
 ## Failure to (re)boot ##
-The SOC/board doesn't have a reliable POR/BOD circuit that we know of. This means that the SOC needs a pretty clean/sharp application of voltage, otherwise it will enter an undefined state where it will consume power, but not do anything useful. This problems is exacerbated by the presence of some pretty large-ish bypass caps in on the tag-boards, and its low sleep current.
+The SOC/board doesn't have a reliable POR/BOD circuit that we know of. This means that the SOC needs a pretty clean/sharp application of power, otherwise it will enter an undefined state where it will consume power, but not do anything useful. This problems is exacerbated by the presence of some pretty large-ish bypass caps in on the tag-boards, and its low sleep current.
 
-To put it simply: just removing the batteries and inserting them again doesn't do anything, as the capacitors will remain charged. To cleanly 'boot' a tag, you'll need to shorten the battery pins to drain the capacitors, and then insert the battery(ies) in a smooth motion. This is a good example right[here.](https://youtu.be/98fOzZs__fc?t=2002)
+To put it simply: just removing the batteries and inserting them again doesn't reboot the tag, as the capacitors will remain charged. To cleanly 'boot' a tag, you'll need to shorten the battery pins to drain the capacitors, and then insert the battery(ies) in a smooth motion. This is a good example right[here.](https://youtu.be/98fOzZs__fc?t=2002)
 
 Removing the batteries and inserting a battery backwards will shorten the contacts just fine, and is a perfectly acceptable way to do it.
 
