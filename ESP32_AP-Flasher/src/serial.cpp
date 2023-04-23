@@ -31,6 +31,8 @@ SemaphoreHandle_t txActive;
 #define CMD_REPLY_NOQ 0x03
 volatile uint8_t cmdReplyValue = CMD_REPLY_WAIT;
 
+#define AP_SERIAL_PORT Serial1
+
 bool txStart() {
     while (1) {
         if (xPortInIsrContext()) {
@@ -68,6 +70,7 @@ bool waitCmdReply() {
                 return false;
                 break;
         }
+        vTaskDelay(1 / portTICK_RATE_MS);
     }
     return false;
 }
@@ -76,7 +79,7 @@ uint16_t sendBlock(const void* data, const uint16_t len) {
     if (!txStart()) return 0;
     for (uint8_t attempt = 0; attempt < 5; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
-        Serial1.print(">D>");
+        AP_SERIAL_PORT.print(">D>");
         if (waitCmdReply()) goto blksend;
         Serial.printf("block send failed in try %d\n", attempt);
     }
@@ -96,23 +99,23 @@ blksend:
 
     // send blockData header
     for (uint8_t c = 0; c < sizeof(struct blockData); c++) {
-        Serial1.write(0xAA ^ blockbuffer[c]);
+        AP_SERIAL_PORT.write(0xAA ^ blockbuffer[c]);
     }
 
     // send an entire block of data
     uint16_t c;
     for (c = 0; c < len; c++) {
-        Serial1.write(0xAA ^ ((uint8_t*)data)[c]);
+        AP_SERIAL_PORT.write(0xAA ^ ((uint8_t*)data)[c]);
     }
 
     // fill the rest of the block-length filled with something else (will end up as 0xFF in the buffer)
     for (; c < BLOCK_DATA_SIZE; c++) {
-        Serial1.write(0x55);
+        AP_SERIAL_PORT.write(0x55);
     }
 
     // dummy bytes in case some bytes were missed, makes sure the AP gets kicked out of data-loading mode
     for (c = 0; c < 32; c++) {
-        Serial1.write(0xF5);
+        AP_SERIAL_PORT.write(0xF5);
     }
     delay(10);
     txEnd();
@@ -124,9 +127,9 @@ void sendDataAvail(struct pendingData* pending) {
     addCRC(pending, sizeof(struct pendingData));
     for (uint8_t attempt = 0; attempt < 5; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
-        Serial1.print("SDA>");
+        AP_SERIAL_PORT.print("SDA>");
         for (uint8_t c = 0; c < sizeof(struct pendingData); c++) {
-            Serial1.write(((uint8_t*)pending)[c]);
+            AP_SERIAL_PORT.write(((uint8_t*)pending)[c]);
         }
         if (waitCmdReply()) goto sdasend;
         Serial.printf("SDA send failed in try %d\n", attempt);
@@ -144,14 +147,14 @@ void sendCancelPending(struct pendingData* pending) {
     addCRC(pending, sizeof(struct pendingData));
     for (uint8_t attempt = 0; attempt < 5; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
-        Serial1.print("CXD>");
+        AP_SERIAL_PORT.print("CXD>");
         for (uint8_t c = 0; c < sizeof(struct pendingData); c++) {
-            Serial1.write(((uint8_t*)pending)[c]);
+            AP_SERIAL_PORT.write(((uint8_t*)pending)[c]);
         }
         if (waitCmdReply()) goto cxdsend;
-        Serial.printf("CXD send failed in try %d\n", attempt);
+        AP_SERIAL_PORT.printf("CXD send failed in try %d\n", attempt);
     }
-    Serial.print("CXD failed to send...\n");
+    AP_SERIAL_PORT.print("CXD failed to send...\n");
     txEnd();
     return;
 cxdsend:
@@ -164,7 +167,7 @@ uint16_t version;
 
 void Ping() {
     if (!txStart()) return;
-    Serial1.print("VER?");
+    AP_SERIAL_PORT.print("VER?");
     txEnd();
     waitingForVersion = esp_timer_get_time();
 }
@@ -230,8 +233,8 @@ void SerialRXLoop() {
     static char lastchar = 0;
     static uint8_t charindex = 0;
 
-    while (Serial1.available()) {
-        lastchar = Serial1.read();
+    while (AP_SERIAL_PORT.available()) {
+        lastchar = AP_SERIAL_PORT.read();
         switch (RXState) {
             case ZBS_RX_WAIT_HEADER:
                 Serial.write(lastchar);
@@ -330,7 +333,7 @@ extern uint8_t* getDataForFile(File* file);
 void zbsRxTask(void* parameter) {
     xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
 
-    Serial1.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
+    AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 
     pinMode(FLASHER_AP_RESET, OUTPUT);
     digitalWrite(FLASHER_AP_RESET, LOW);
@@ -343,14 +346,14 @@ void zbsRxTask(void* parameter) {
 
     bool firstrun = true;
 
-    Serial1.print("VER?");
+    AP_SERIAL_PORT.print("VER?");
     waitingForVersion = esp_timer_get_time();
 
     while (1) {
         SerialRXLoop();
 
         if (Serial.available()) {
-            Serial1.write(Serial.read());
+            AP_SERIAL_PORT.write(Serial.read());
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
 

@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_RGB_LED
 #include <FastLED.h>
 #endif
 
@@ -9,7 +9,7 @@
 
 QueueHandle_t ledQueue;
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_RGB_LED
 QueueHandle_t rgbLedQueue;
 
 struct ledInstructionRGB {
@@ -75,7 +75,7 @@ const uint16_t gamma12[256] = {
 
 
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_RGB_LED
 
 void addToRGBQueue(struct ledInstructionRGB* rgb) {
     BaseType_t queuestatus = xQueueSend(rgbLedQueue, &rgb, 0);
@@ -194,7 +194,7 @@ void monoIdleStep() {
 }
 
 void ledTask(void* parameter) {
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_RGB_LED
     FastLED.addLeds<WS2812B, FLASHER_RGB_LED, GRB>(leds, 1);  // GRB ordering is typical
     leds[0] = CRGB::Blue;
     showRGB();
@@ -232,7 +232,7 @@ void ledTask(void* parameter) {
     uint16_t monoInstructionFadeTime = 0;
 
     while (1) {
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_RGB_LED
         // handle RGB led instructions
         if (rgb == nullptr) {
             // fetch a led instruction

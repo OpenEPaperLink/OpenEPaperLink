@@ -5,14 +5,14 @@
 
 #include "contentmanager.h"
 #include "flasher.h"
-#include "hal/wdt_hal.h"
+//#include "hal/wdt_hal.h"
 #include "makeimage.h"
 #include "pendingdata.h"
 #include "serial.h"
 #include "settings.h"
 #include "tag_db.h"
 
-#if (HAS_USB == 1)
+#ifdef HAS_USB
 #include "usbflasher.h"
 #endif
 
@@ -58,7 +58,7 @@ void setup() {
     Serial.printf("Total PSRAM: %d", ESP.getPsramSize());
     Serial.printf("Free PSRAM: %d", ESP.getFreePsram());
 
-    #ifdef OPENEPAPERLINK_PCB
+    #ifdef HAS_USB
     xTaskCreate(usbFlasherTask, "flasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
     #endif
 

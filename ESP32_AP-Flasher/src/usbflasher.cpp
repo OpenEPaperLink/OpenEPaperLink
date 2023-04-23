@@ -2,12 +2,15 @@
 
 #include "USB.h"
 #include "powermgt.h"
+#include "serialconsole.h"
 #include "settings.h"
 #include "zbs_interface.h"
 
 USBCDC USBSerial;
 
 QueueHandle_t flasherCmdQueue;
+
+uint32_t usbConnectedStartTime = 0;
 
 #define FLASHER_WAIT_A 0
 #define FLASHER_WAIT_T 1
@@ -22,6 +25,16 @@ struct flasherCommand {
     uint8_t len = 0;
     uint8_t* data = nullptr;
 };
+
+#define FLASHER_MODE_UNKNOWN 0
+#define FLASHER_MODE_FLASHER 1
+#define FLASHER_MODE_CONSOLE 2
+volatile uint8_t usbFlasherMode = FLASHER_MODE_UNKNOWN;
+
+void enterConsoleMode() {
+    usbFlasherMode = FLASHER_MODE_CONSOLE;
+    xTaskCreate(consoleTask, "consoleTask", 10000, NULL, 2, &consoleTaskHandle);
+}
 
 void sendFlasherAnswer(uint8_t answer_cmd, uint8_t* ans_buff, uint8_t len) {
     uint8_t* answer_buffer = (uint8_t*)calloc(2 + 2 + len + 2, 1);
@@ -61,6 +74,8 @@ void flasherUartHandler(uint8_t* data, uint8_t len) {
                 if (usbbyte == 'A') {
                     flasherSerialState = FLASHER_WAIT_T;
                     flasherLastCmd = millis();
+                } else {
+                    enterConsoleMode();
                 }
                 break;
             case FLASHER_WAIT_T:
@@ -105,6 +120,7 @@ void flasherUartHandler(uint8_t* data, uint8_t len) {
                     Serial.printf("CRC failed for flasher command :( %04X\n", flasherCRC);
                     cmd = nullptr;
                 } else {
+                    if (usbFlasherMode == FLASHER_MODE_UNKNOWN) usbFlasherMode = FLASHER_MODE_FLASHER;
                     BaseType_t queuestatus = xQueueSend(flasherCmdQueue, &cmd, 0);
                     if (queuestatus == pdFALSE) {
                         if (cmd->data != nullptr) free(cmd->data);
@@ -118,15 +134,26 @@ void flasherUartHandler(uint8_t* data, uint8_t len) {
     }
 }
 
+void resetFlasherState() {
+    if (usbFlasherMode != FLASHER_MODE_UNKNOWN) {
+        if (usbFlasherMode == FLASHER_MODE_CONSOLE) consoleStopTask();
+        Serial.print("Resetting flasher state");
+        usbFlasherMode = FLASHER_MODE_UNKNOWN;
+        usbConnectedStartTime = millis();
+    }
+}
+
 static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
     if (event_base == ARDUINO_USB_EVENTS) {
         arduino_usb_event_data_t* data = (arduino_usb_event_data_t*)event_data;
         switch (event_id) {
             case ARDUINO_USB_STARTED_EVENT:
                 Serial.println("USB PLUGGED");
+                resetFlasherState();
                 break;
             case ARDUINO_USB_STOPPED_EVENT:
                 Serial.println("USB UNPLUGGED");
+                resetFlasherState();
                 break;
             case ARDUINO_USB_SUSPEND_EVENT:
                 Serial.printf("USB SUSPENDED: remote_wakeup_en: %u\n", data->suspend.remote_wakeup_en);
@@ -134,31 +161,40 @@ static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t eve
             case ARDUINO_USB_RESUME_EVENT:
                 Serial.println("USB RESUMED");
                 break;
-
             default:
+                ets_printf("other USB event %d\n", event_id);
                 break;
         }
     } else if (event_base == ARDUINO_USB_CDC_EVENTS) {
         arduino_usb_cdc_event_data_t* data = (arduino_usb_cdc_event_data_t*)event_data;
         switch (event_id) {
             case ARDUINO_USB_CDC_CONNECTED_EVENT:
-                Serial.println("CDC CONNECTED");
+                ets_printf("CDC CONNECTED\n");
+                resetFlasherState();
+                usbConnectedStartTime = millis();
                 break;
             case ARDUINO_USB_CDC_DISCONNECTED_EVENT:
-                Serial.println("CDC DISCONNECTED");
+                ets_printf("CDC DISCONNECTED\n");
+                resetFlasherState();
                 break;
             case ARDUINO_USB_CDC_LINE_STATE_EVENT:
-                Serial.printf("CDC LINE STATE: dtr: %u, rts: %u\n", data->line_state.dtr, data->line_state.rts);
+                ets_printf("CDC LINE STATE: dtr: %u, rts: %u\n", data->line_state.dtr, data->line_state.rts);
+                if (data->line_state.dtr == 0) resetFlasherState();
                 break;
             case ARDUINO_USB_CDC_LINE_CODING_EVENT:
-                Serial.printf("CDC LINE CODING: bit_rate: %u, data_bits: %u, stop_bits: %u, parity: %u\n", data->line_coding.bit_rate, data->line_coding.data_bits, data->line_coding.stop_bits, data->line_coding.parity);
+                ets_printf("CDC LINE CODING: bit_rate: %u, data_bits: %u, stop_bits: %u, parity: %u\n", data->line_coding.bit_rate, data->line_coding.data_bits, data->line_coding.stop_bits, data->line_coding.parity);
+                resetFlasherState();
                 break;
             case ARDUINO_USB_CDC_RX_EVENT:
                 // Serial.printf("CDC RX [%u]:", data->rx.len);
                 {
                     uint8_t buf[data->rx.len];
                     size_t len = USBSerial.read(buf, data->rx.len);
-                    flasherUartHandler(buf, len);
+                    if (usbFlasherMode != FLASHER_MODE_CONSOLE) {
+                        flasherUartHandler(buf, len);
+                    } else {
+                        consoleUartHandler(buf, len);
+                    }
                 }
                 break;
             case ARDUINO_USB_CDC_RX_OVERFLOW_EVENT:
@@ -226,9 +262,13 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             if (cmd->data[0] & 2) {
                 temp_buff[0] = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, FLASHER_AP_POWER, spi_speed);
             } else if (cmd->data[0] & 4) {
+                #ifdef OPENEPAPERLINK_PCB
                 temp_buff[0] = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, 255, spi_speed);
+                #endif
             } else {
+                #ifdef OPENEPAPERLINK_PCB
                 temp_buff[0] = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, FLASHER_EXT_POWER, spi_speed);
+                #endif
             }
             sendFlasherAnswer(cmd->command, temp_buff, 1);
             break;
@@ -259,7 +299,7 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             tempbuffer = (uint8_t*)calloc(cmd->data[0], 1);
             // cmd_buff[0] = len
             // cmd_buff[1] << 8 | cmd_buff[2] = position
-            //Serial.printf("Loading %d bytes from %04X \n", cmd->data[0], (cmd->data[1] << 8 | cmd->data[2]));
+            // Serial.printf("Loading %d bytes from %04X \n", cmd->data[0], (cmd->data[1] << 8 | cmd->data[2]));
             for (int i = 0; i < cmd->data[0]; i++) {
                 tempbuffer[i] = zbs->read_flash((cmd->data[1] << 8 | cmd->data[2]) + i);
             }
@@ -275,7 +315,7 @@ void processFlasherCommand(struct flasherCommand* cmd) {
                 sendFlasherAnswer(cmd->command, temp_buff, 1);
                 break;
             }
-            //Serial.printf("Writing %d bytes to %04X \n", cmd->data[0], (cmd->data[1] << 8 | cmd->data[2]));
+            // Serial.printf("Writing %d bytes to %04X \n", cmd->data[0], (cmd->data[1] << 8 | cmd->data[2]));
             for (int i = 0; i < cmd->data[0]; i++) {
                 if (cmd->data[3 + i] != 0xff) {
                     for (uint8_t attempts = 0; attempts < 10; attempts++) {
@@ -324,13 +364,16 @@ void processFlasherCommand(struct flasherCommand* cmd) {
 
 void usbFlasherTask(void* parameter) {
     flasherCmdQueue = xQueueCreate(10, sizeof(struct flasherCommand*));
+    consoleCmdQueue = xQueueCreate(10, sizeof(struct consoleCommand*));
 #if ARDUINO_USB_MODE
 #warning Wrong USB mode is in use, check settings in platformio.ini
 #endif
     USB.onEvent(usbEventCallback);
     USBSerial.onEvent(usbEventCallback);
-    USBSerial.begin();
+    USBSerial.setTimeout(1000);
     USB.begin();
+    USBSerial.begin();
+
     struct flasherCommand* cmd;
     while (true) {
         BaseType_t queuereceive = xQueueReceive(flasherCmdQueue, &cmd, portMAX_DELAY);
