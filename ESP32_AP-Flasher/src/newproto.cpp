@@ -216,7 +216,8 @@ void processBlockRequest(struct espBlockRequest* br) {
     char buffer[150];
     sprintf(buffer, "< Block Request received for file %s block %d, len %d checksum %u\0", pd->filename.c_str(), br->blockId, len, checksum);
     wsLog((String)buffer);
-    Serial.printf("< Block Request received for MD5 %llu, file %s block %d, len %d checksum %u\n", br->ver, pd->filename.c_str(), br->blockId, len, checksum);
+    Serial.printf("< Block Request received for MD5 %llu, file %s block %d, len %d checksum %u", br->ver, pd->filename.c_str(), br->blockId, len, checksum);
+    Serial.printf(" from mac %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", br->src[7],br->src[6],br->src[5],br->src[4],br->src[3],br->src[2],br->src[1],br->src[0]);
 }
 
 void processXferComplete(struct espXferComplete* xfc) {

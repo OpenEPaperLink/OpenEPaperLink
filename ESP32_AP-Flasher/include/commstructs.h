@@ -5,6 +5,7 @@ struct espBlockRequest {
     uint8_t checksum;
     uint64_t ver;
     uint8_t blockId;
+    uint8_t src[8];
 } __packed;
 
 struct espXferComplete {
