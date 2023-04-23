@@ -335,6 +335,7 @@ void zbsRxTask(void* parameter) {
 
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 
+
     pinMode(FLASHER_AP_RESET, OUTPUT);
     digitalWrite(FLASHER_AP_RESET, LOW);
     vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -343,7 +344,9 @@ void zbsRxTask(void* parameter) {
     rampTagPower(FLASHER_AP_POWER, true);
     vTaskDelay(10 / portTICK_PERIOD_MS);
     digitalWrite(FLASHER_AP_RESET, HIGH);
-
+    rampTagPower(FLASHER_AP_POWER, true);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+    //}
     bool firstrun = true;
 
     AP_SERIAL_PORT.print("VER?");
