@@ -39,7 +39,7 @@ void contentRunner() {
     time(&now);
 
     for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = nullptr;
+        tagRecord *taginfo = nullptr;
         taginfo = tagDB.at(c);
 
         if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO)) {
@@ -51,6 +51,7 @@ void contentRunner() {
             drawNew(src, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
             taginfo->wakeupReason = 0;
         }
+        vTaskDelay(1/portTICK_PERIOD_MS); // add a small delay to allow other threads to run
     }
 }
 
@@ -80,7 +81,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
     wsLog("Updating " + dst);
     taginfo->nextupdate = now + 60;
-    
+
     imgParam imageParams;
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
@@ -155,7 +156,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 } else {
                     wsErr("Error accessing " + filename);
                 }
-                cfgobj["filename"]="";
+                cfgobj["filename"] = "";
                 taginfo->nextupdate = 3216153600;
                 taginfo->contentMode = Image;
             } else {
@@ -207,8 +208,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 taginfo->nextupdate = now + 300;
             }
             break;
-
-        }
+    }
 
     taginfo->modeConfigJson = doc.as<String>();
 }
@@ -219,7 +219,7 @@ bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, imgPar
     return true;
 }
 
-void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, byte align,uint16_t color) {
+void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, byte align, uint16_t color) {
     // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,PAL_RED);
     spr.setTextDatum(align);
     if (font != "") spr.loadFont(font, LittleFS);
@@ -250,21 +250,19 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
 
-    String Dag[] = {"zondag","maandag","dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"};
-    String Maand[] = {"januari", "februari", "maart", "april", "mei", "juni","juli", "augustus", "september", "oktober", "november", "december"};
+    String Dag[] = {"zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"};
+    String Maand[] = {"januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"};
     int weekday_number = timeinfo.tm_wday;
     int month_number = timeinfo.tm_mon;
 
     LittleFS.begin();
 
     if (taginfo->hwType == SOLUM_29_033) {
-
-        initSprite(spr,296,128);
+        initSprite(spr, 296, 128);
         drawString(spr, Dag[timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib62", TC_DATUM, PAL_RED);
         drawString(spr, String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], 296 / 2, 73, "fonts/calibrib50", TC_DATUM);
 
     } else if (taginfo->hwType == SOLUM_154_033) {
-
         initSprite(spr, 152, 152);
         drawString(spr, Dag[timeinfo.tm_wday], 152 / 2, 10, "fonts/calibrib30", TC_DATUM);
         drawString(spr, String(Maand[timeinfo.tm_mon]), 152 / 2, 120, "fonts/calibrib30", TC_DATUM);
@@ -288,7 +286,6 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     LittleFS.begin();
 
     if (taginfo->hwType == SOLUM_29_033) {
-
         initSprite(spr, 296, 128);
         spr.setTextDatum(MC_DATUM);
         if (count > thresholdred) {
@@ -304,7 +301,6 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         spr.unloadFont();
 
     } else if (taginfo->hwType == SOLUM_154_033) {
-
         initSprite(spr, 152, 152);
         spr.setTextDatum(MC_DATUM);
         if (count > thresholdred) {
@@ -349,8 +345,10 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo, imgPara
     http.begin("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(location.c_str()) + "&count=1");
     http.setTimeout(5000);  // timeout in ms
     int httpCode = http.GET();
-    if (httpCode == 200) {
+    Serial.printf("Got code %d for this location\n", httpCode);
+    Serial.print(http.errorToString(httpCode));
 
+    if (httpCode == 200) {
         StaticJsonDocument<1000> doc;
         DeserializationError error = deserializeJson(doc, http.getStream());
         http.end();
@@ -358,9 +356,9 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo, imgPara
         http.begin("https://api.open-meteo.com/v1/forecast?latitude=" + doc["results"][0]["latitude"].as<String>() + "&longitude=" + doc["results"][0]["longitude"].as<String>() + "&current_weather=true&windspeed_unit=ms&timezone=" + doc["results"][0]["timezone"].as<String>());
         http.setTimeout(5000);  // timeout in ms
         int httpCode = http.GET();
+        Serial.printf("Got code %d for this OpenMeteo\n", httpCode);
 
         if (httpCode == 200) {
-
             StaticJsonDocument<200> filter;
             filter["current_weather"]["temperature"] = true;
             filter["current_weather"]["windspeed"] = true;
@@ -382,12 +380,12 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo, imgPara
             int wind = windSpeedToBeaufort(windspeed);
 
             String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "-", "-", "\uf014", "-", "-",
-             "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
-             "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
-             "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
-             "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
-             "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
-            if (1==0) {   //nacht
+                                     "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
+                                     "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
+                                     "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
+                                     "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
+                                     "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
+            if (1 == 0) {  // nacht
                 weatherIcons[0] = "\0uf02e";
                 weatherIcons[1] = "\0uf083";
                 weatherIcons[2] = "\0uf086";
@@ -396,10 +394,9 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo, imgPara
             doc.clear();
 
             LittleFS.begin();
-            tft.setTextWrap(false,false);
+            tft.setTextWrap(false, false);
 
             if (taginfo->hwType == SOLUM_29_033) {
-
                 initSprite(spr, 296, 128);
 
                 drawString(spr, location, 5, 5, "fonts/bahnschrift30");
@@ -432,7 +429,6 @@ void drawWeather(String &filename, String location, tagRecord *&taginfo, imgPara
                 spr.unloadFont();
 
             } else if (taginfo->hwType == SOLUM_154_033) {
-
                 initSprite(spr, 152, 152);
                 spr.setTextDatum(TL_DATUM);
 
@@ -540,7 +536,7 @@ void drawForecast(String &filename, String location, tagRecord *&taginfo, imgPar
             filter["daily"]["windspeed_10m_max"][0] = true;
             filter["daily"]["winddirection_10m_dominant"][0] = true;
 
-            //DeserializationError error = deserializeJson(doc, http.getString(), DeserializationOption::Filter(filter));
+            // DeserializationError error = deserializeJson(doc, http.getString(), DeserializationOption::Filter(filter));
             DeserializationError error = deserializeJson(doc, http.getString());
             if (error) {
                 Serial.println(F("deserializeJson() failed: "));
@@ -598,8 +594,8 @@ void drawForecast(String &filename, String location, tagRecord *&taginfo, imgPar
                     drawString(spr, String(" ") + String(tmax), dag * 59 + 30, 108, "", TL_DATUM, (tmax < 0 ? PAL_RED : PAL_BLACK));
                     drawString(spr, String(" ") + String(wind), dag * 59 + 30, 43, "", TL_DATUM, (wind > 5 ? PAL_RED : PAL_BLACK));
                     spr.unloadFont();
-                    if (dag>0) {
-                        for (int i = 20; i < 128; i+=3) {
+                    if (dag > 0) {
+                        for (int i = 20; i < 128; i += 3) {
                             spr.drawPixel(dag * 59, i, PAL_BLACK);
                         }
                     }
@@ -687,12 +683,12 @@ bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imagePara
     // https://images.klari.net/kat-bw29.jpg
 
     LittleFS.begin();
- 
+
     Serial.println("get external " + URL);
     HTTPClient http;
     http.begin(URL);
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
-    http.setTimeout(5000);  //timeout in ms
+    http.setTimeout(5000);  // timeout in ms
     int httpCode = http.GET();
     if (httpCode == 200) {
         File f = LittleFS.open("/temp/temp.jpg", "w");
@@ -702,7 +698,7 @@ bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imagePara
             jpg2buffer("/temp/temp.jpg", filename, imageParams);
         }
     } else {
-        if (httpCode!=304) { 
+        if (httpCode != 304) {
             wsErr("http " + URL + " " + String(httpCode));
         } else {
             wsLog("http " + URL + " " + String(httpCode));
@@ -737,7 +733,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
 
     if (taginfo->hwType == SOLUM_29_033) {
         initSprite(spr, 296, 128);
-        if (title=="" || title=="null") title="RSS feed";
+        if (title == "" || title == "null") title = "RSS feed";
         drawString(spr, title, 5, 3, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
 
         u8f.setFont(u8g2_font_glasstown_nbp_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
@@ -756,7 +752,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
 
         int n = reader.getArticles(url, tag, rssArticleSize, 8);
         for (int i = 0; i < n; i++) {
-            u8f.setCursor(5, 34+i*13);  // start writing at this position
+            u8f.setCursor(5, 34 + i * 13);  // start writing at this position
             u8f.print(reader.itemData[i]);
         }
     } else if (taginfo->hwType == SOLUM_42_033) {
@@ -852,14 +848,14 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         u8f.print(title);
 
         int n = doc.size();
-        if (n>7) n=7;
+        if (n > 7) n = 7;
         for (int i = 0; i < n; i++) {
             JsonObject obj = doc[i];
             String eventtitle = obj["title"];
             String startz = obj["start"];
             time_t starttime = obj["start"];
             time_t endtime = obj["end"];
-            if (starttime<now && endtime>now) {
+            if (starttime < now && endtime > now) {
                 u8f.setFont(u8g2_font_t0_14b_tr);
                 u8f.setForegroundColor(PAL_WHITE);
                 u8f.setBackgroundColor(PAL_RED);
@@ -934,7 +930,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
         initSprite(spr, 296, 128);
         drawString(spr, title, 10, 5, "fonts/bahnschrift20");
         dotsize = int((128 - 25) / size);
-        xpos = 149 - dotsize*size /2;
+        xpos = 149 - dotsize * size / 2;
         ypos = 25;
     } else if (taginfo->hwType == SOLUM_154_033) {
         initSprite(spr, 152, 152);
@@ -942,7 +938,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
         spr.setTextColor(PAL_BLACK, PAL_WHITE);
         spr.drawString(title, 10, 5);
         dotsize = int((152 - 20) / size);
-        xpos = 76 - dotsize*size / 2;
+        xpos = 76 - dotsize * size / 2;
         ypos = 20;
     } else if (taginfo->hwType == SOLUM_42_033) {
         initSprite(spr, 400, 300);

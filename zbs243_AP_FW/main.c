@@ -33,6 +33,7 @@ struct espBlockRequest {
     uint8_t checksum;
     uint64_t ver;
     uint8_t blockId;
+    uint8_t src[8];
 } __packed;
 
 struct espXferComplete {
@@ -47,7 +48,7 @@ struct espAvailDataReq {
 } __packed;
 
 // #define TIMER_TICKS_PER_MS 1333UL
-uint16_t __xdata version = 0x0011;
+uint16_t __xdata version = 0x0012;
 
 #define RAW_PKT_PADDING 2
 
@@ -321,7 +322,7 @@ void processSerial(uint8_t lastchar) {
 }
 
 // sending data to the ESP
-void espBlockRequest(const struct blockRequest *br) {
+void espBlockRequest(const struct blockRequest *br, uint8_t* src) {
     struct espBlockRequest *__xdata ebr = (struct espBlockRequest *)blockbuffer;
     uartTx('R');
     uartTx('Q');
@@ -329,6 +330,7 @@ void espBlockRequest(const struct blockRequest *br) {
     uartTx('>');
     // u64_copy(ebr->ver, br->ver);
     xMemCopy8(&(ebr->ver), &(br->ver));
+    xMemCopy8(&(ebr->src), src);
     ebr->blockId = br->blockId;
     addCRC(ebr, sizeof(struct espBlockRequest));
     for (uint8_t c = 0; c < sizeof(struct espBlockRequest); c++) {
@@ -467,7 +469,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
 
     if (requestDataDownload) {
         serialBypassActive = false;
-        espBlockRequest(&requestedData);
+        espBlockRequest(&requestedData, rxHeader->src);
         nextBlockAttempt = timerGet();
     }
 
