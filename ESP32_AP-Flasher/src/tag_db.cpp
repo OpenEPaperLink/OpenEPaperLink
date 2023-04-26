@@ -88,6 +88,7 @@ void fillNode(JsonObject &tag, tagRecord* &taginfo) {
     tag["wakeupReason"] = taginfo->wakeupReason;
     tag["capabilities"] = taginfo->capabilities;
     tag["modecfgjson"] = taginfo->modeConfigJson;
+    tag["isexternal"] = taginfo->isExternal;
 }
 
 void saveDB(String filename) {
@@ -180,6 +181,7 @@ void loadDB(String filename) {
                     taginfo->wakeupReason = tag["wakeupReason"];
                     taginfo->capabilities = tag["capabilities"];
                     taginfo->modeConfigJson = tag["modecfgjson"].as<String>();
+                    taginfo->isExternal = tag["isexternal"].as<bool>();
                 }
             } else {
                 Serial.print(F("deserializeJson() failed: "));

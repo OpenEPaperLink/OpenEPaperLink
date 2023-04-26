@@ -32,6 +32,7 @@ enum contentModes {
     RSSFeed,
     QRcode,
     Calendar,
+    RemoteAP,
 };
 
 void contentRunner() {
@@ -99,8 +100,8 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 } else {
                     wsErr("Error accessing " + filename);
                 }
-                taginfo->nextupdate = 3216153600;
             }
+            taginfo->nextupdate = 3216153600;
             break;
 
         case Today:
@@ -207,6 +208,11 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             } else {
                 taginfo->nextupdate = now + 300;
             }
+            break;
+
+        case RemoteAP:
+
+            taginfo->nextupdate = 3216153600;
             break;
     }
 

@@ -1,6 +1,9 @@
 #include "newproto.h"
 
 #include <Arduino.h>
+#include <FS.h>
+#include <HTTPClient.h>
+#include <LittleFS.h>
 #include <MD5Builder.h>
 #include <makeimage.h>
 #include <time.h>
@@ -11,9 +14,11 @@
 #include "serial.h"
 #include "settings.h"
 #include "tag_db.h"
+#include "udp.h"
 #include "web.h"
 
 extern uint16_t sendBlock(const void* data, const uint16_t len);
+extern UDPcomm udpsync;
 
 void addCRC(void* p, uint8_t len) {
     uint8_t total = 0;
@@ -138,7 +143,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         LittleFS.rename(*filename, dst_path);
         *filename = String(dst_path);
 
-        wsLog("new image pending: " + String(dst_path));
+        wsLog("new image: " + String(dst_path));
         time_t now;
         time(&now);
         taginfo->pending = true;
@@ -158,7 +163,11 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pending.availdatainfo.dataTypeArgument = lut;
     pending.availdatainfo.nextCheckIn = nextCheckin;
     pending.attemptsLeft = attempts;
-    sendDataAvail(&pending);
+    if (taginfo->isExternal == false) {
+        sendDataAvail(&pending);
+    } else {
+        udpsync.netSendDataAvail(&pending);
+    }
 
     // data for the cache on the esp32; needs to hold the data longer than the maximum timeout on the AP
     pendingdata* pendinginfo = nullptr;
@@ -173,6 +182,72 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     wsSendTaginfo(mac);
 
     return true;
+}
+
+void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
+    uint8_t src[8];
+    *((uint64_t*)src) = swap64(*((uint64_t*)pending->targetMac));
+    uint8_t mac[6];
+    memcpy(mac, src + 2, sizeof(mac));
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo == nullptr) {
+        return;
+    }
+    if (taginfo->isExternal == false) {
+        LittleFS.begin();
+
+        char buffer[64];
+        sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+        String filename = "/current/" + (String)buffer + ".pending";
+        String imageUrl = "http://" + remoteIP.toString() + filename;
+        wsLog("GET " + imageUrl);
+        HTTPClient http;
+        http.begin(imageUrl);
+        int httpCode = http.GET();
+        if (httpCode == 200) {
+            File file = LittleFS.open(filename, "w");
+            http.writeToStream(&file);
+            file.close();
+        }
+        http.end();
+
+        fs::File file = LittleFS.open(filename);
+        uint32_t filesize = file.size();
+        if (filesize == 0) {
+            file.close();
+            wsErr("File has size 0. " + filename);
+            return;
+        }
+
+        uint8_t md5bytes[16];
+        {
+            MD5Builder md5;
+            md5.begin();
+            md5.addStream(file, filesize);
+            md5.calculate();
+            md5.getBytes(md5bytes);
+        }
+
+        file.close();
+        sendDataAvail(pending);
+
+        pendingdata* pendinginfo = nullptr;
+        pendinginfo = new pendingdata;
+        pendinginfo->filename = filename;
+        pendinginfo->ver = *((uint64_t*)md5bytes);
+        pendinginfo->len = filesize;
+        pendinginfo->data = nullptr;
+        pendinginfo->timeout = PENDING_TIMEOUT;
+        pendingfiles.push_back(pendinginfo);
+
+        taginfo->pending = true;
+        memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
+        taginfo->contentMode = 12;
+        taginfo->nextupdate = 3216153600;
+
+        wsSendTaginfo(mac);
+    }
 }
 
 void processBlockRequest(struct espBlockRequest* br) {
@@ -239,9 +314,7 @@ void processXferComplete(struct espXferComplete* xfc) {
     }
     if (LittleFS.exists(src_path)) {
         LittleFS.rename(src_path, dst_path);
-    } else {
-        wsErr("hm, weird, no pending image found after xfercomplete.");
-    }
+    } 
 
     time_t now;
     time(&now);
@@ -306,6 +379,12 @@ void processDataReq(struct espAvailDataReq* eadr) {
     time_t now;
     time(&now);
     taginfo->lastseen = now;
+
+    if (eadr->src[7] == 0xFF) {
+        taginfo->isExternal = true;
+    } else {
+        taginfo->isExternal = false;
+    }
 
     uint16_t minutesUntilNextUpdate = 0;
     if (taginfo->nextupdate > now + 2 * 60) {

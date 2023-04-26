@@ -25,6 +25,7 @@
 
 QueueHandle_t rxCmdQueue;
 SemaphoreHandle_t txActive;
+extern UDPcomm udpsync;
 
 #define CMD_REPLY_WAIT 0x00
 #define CMD_REPLY_ACK 0x01
@@ -198,12 +199,15 @@ void rxCmdProcessor(void* parameter) {
                     break;
                 case RX_CMD_ADR:
                     processDataReq((struct espAvailDataReq*)rxcmd->data);
+                    udpsync.netProcessDataReq((struct espAvailDataReq*)rxcmd->data);
                     break;
                 case RX_CMD_XFC:
                     processXferComplete((struct espXferComplete*)rxcmd->data);
+                    udpsync.netProcessXferComplete((struct espXferComplete*)rxcmd->data);
                     break;
                 case RX_CMD_XTO:
                     processXferTimeout((struct espXferComplete*)rxcmd->data);
+                    udpsync.netProcessXferTimeout((struct espXferComplete*)rxcmd->data);
                     break;
             }
 
