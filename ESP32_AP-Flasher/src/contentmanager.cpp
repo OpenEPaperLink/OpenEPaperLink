@@ -136,14 +136,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             // https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true
             // https://github.com/erikflowers/weather-icons
 
-            drawWeather(filename, cfgobj["location"], taginfo, imageParams);
+            drawWeather(filename, cfgobj, taginfo, imageParams);
             taginfo->nextupdate = now + 3600;
             updateTagImage(filename, mac, 15, imageParams);
             break;
 
         case Forecast:
 
-            drawForecast(filename, cfgobj["location"], taginfo, imageParams);
+            drawForecast(filename, cfgobj, taginfo, imageParams);
             taginfo->nextupdate = now + 3 * 3600;
             updateTagImage(filename, mac, 15, imageParams);
             break;
@@ -342,320 +342,310 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     spr.deleteSprite();
 }
 
-void drawWeather(String &filename, String location, tagRecord *&taginfo, imgParam &imageParams) {
+void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
 
     wsLog("get weather");
+
+    getLocation(cfgobj);
     HTTPClient http;
-    http.begin("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(location.c_str()) + "&count=1");
-    http.setTimeout(5000);  // timeout in ms
+
+    String lat = cfgobj["#lat"];
+    String lon = cfgobj["#lon"];
+    String tz = cfgobj["#tz"];
+    http.begin("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true&windspeed_unit=ms&timezone=" + tz);
+    http.setTimeout(5000);
     int httpCode = http.GET();
-    Serial.printf("Got code %d for this location\n", httpCode);
-    Serial.print(http.errorToString(httpCode));
+    Serial.printf("Got code %d for this OpenMeteo\n", httpCode);
 
     if (httpCode == 200) {
+        StaticJsonDocument<200> filter;
+        filter["current_weather"]["temperature"] = true;
+        filter["current_weather"]["windspeed"] = true;
+        filter["current_weather"]["winddirection"] = true;
+        filter["current_weather"]["weathercode"] = true;
+
         StaticJsonDocument<1000> doc;
-        DeserializationError error = deserializeJson(doc, http.getStream());
-        http.end();
-
-        http.begin("https://api.open-meteo.com/v1/forecast?latitude=" + doc["results"][0]["latitude"].as<String>() + "&longitude=" + doc["results"][0]["longitude"].as<String>() + "&current_weather=true&windspeed_unit=ms&timezone=" + doc["results"][0]["timezone"].as<String>());
-        http.setTimeout(5000);  // timeout in ms
-        int httpCode = http.GET();
-        Serial.printf("Got code %d for this OpenMeteo\n", httpCode);
-
-        if (httpCode == 200) {
-            StaticJsonDocument<200> filter;
-            filter["current_weather"]["temperature"] = true;
-            filter["current_weather"]["windspeed"] = true;
-            filter["current_weather"]["winddirection"] = true;
-            filter["current_weather"]["weathercode"] = true;
-
-            doc.clear();
-            DeserializationError error = deserializeJson(doc, http.getString(), DeserializationOption::Filter(filter));
-            if (error) {
-                Serial.println(F("deserializeJson() failed: "));
-                Serial.println(error.c_str());
-            }
-
-            auto temperature = doc["current_weather"]["temperature"].as<double>();
-            auto windspeed = doc["current_weather"]["windspeed"].as<int>();
-            auto winddirection = doc["current_weather"]["winddirection"].as<int>();
-            uint8_t weathercode = doc["current_weather"]["weathercode"].as<int>();
-            if (weathercode > 40) weathercode -= 40;
-            int wind = windSpeedToBeaufort(windspeed);
-
-            String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "-", "-", "\uf014", "-", "-",
-                                     "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
-                                     "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
-                                     "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
-                                     "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
-                                     "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
-            if (1 == 0) {  // nacht
-                weatherIcons[0] = "\0uf02e";
-                weatherIcons[1] = "\0uf083";
-                weatherIcons[2] = "\0uf086";
-            }
-
-            doc.clear();
-
-            LittleFS.begin();
-            tft.setTextWrap(false, false);
-
-            if (taginfo->hwType == SOLUM_29_033) {
-                initSprite(spr, 296, 128);
-
-                drawString(spr, location, 5, 5, "fonts/bahnschrift30");
-                drawString(spr, String(wind), 280, 5, "fonts/bahnschrift30", TR_DATUM, (wind > 4 ? PAL_RED : PAL_BLACK));
-
-                char tmpOutput[5];
-                dtostrf(temperature, 2, 1, tmpOutput);
-                drawString(spr, String(tmpOutput), 5, 65, "fonts/bahnschrift70", TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
-
-                spr.loadFont("fonts/weathericons70", LittleFS);
-                if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
-                    spr.setTextColor(PAL_RED, PAL_WHITE);
-                } else {
-                    spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                }
-
-                spr.setCursor(185, 32);
-                spr.printToSprite(weatherIcons[weathercode]);
-                spr.unloadFont();
-
-                spr.loadFont("fonts/weathericons30", LittleFS);
-                spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                spr.setCursor(235, -3);
-                spr.printToSprite(windDirectionIcon(winddirection));
-                if (weathercode > 10) {
-                    spr.setTextColor(PAL_RED, PAL_WHITE);
-                    spr.setCursor(190, 0);
-                    spr.printToSprite("\uf084");
-                }
-                spr.unloadFont();
-
-            } else if (taginfo->hwType == SOLUM_154_033) {
-                initSprite(spr, 152, 152);
-                spr.setTextDatum(TL_DATUM);
-
-                spr.setTextFont(2);
-                spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                spr.drawString(location, 10, 130);
-
-                char tmpOutput[5];
-                dtostrf(temperature, 2, 1, tmpOutput);
-                drawString(spr, String(tmpOutput), 10, 10, "fonts/bahnschrift30", TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
-
-                spr.loadFont("fonts/weathericons78", LittleFS);
-                if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
-                    spr.setTextColor(PAL_RED, PAL_WHITE);
-                } else {
-                    spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                }
-
-                spr.setCursor(30, 33);
-                spr.printToSprite(weatherIcons[weathercode]);
-                spr.unloadFont();
-
-                drawString(spr, String(wind), 140, 10, "fonts/bahnschrift30", TR_DATUM, (wind > 4 ? PAL_RED : PAL_BLACK));
-
-                spr.loadFont("fonts/weathericons30", LittleFS);
-                spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                spr.setCursor(100, -2);
-                spr.printToSprite(windDirectionIcon(winddirection));
-                if (weathercode > 10) {
-                    spr.setTextColor(PAL_RED, PAL_WHITE);
-                    spr.setCursor(115, 110);
-                    spr.printToSprite("\uf084");
-                }
-                spr.unloadFont();
-
-            } else if (taginfo->hwType == SOLUM_42_033) {
-
-                initSprite(spr, 400, 300);
-
-                drawString(spr, location, 10, 10, "fonts/bahnschrift30");
-                drawString(spr, String(wind), 280, 10, "fonts/bahnschrift30", TR_DATUM, (wind > 4 ? PAL_RED : PAL_BLACK));
-
-                char tmpOutput[5];
-                dtostrf(temperature, 2, 1, tmpOutput);
-                drawString(spr, String(tmpOutput), 5, 65, "fonts/bahnschrift70", TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
-
-                spr.loadFont("fonts/weathericons70", LittleFS);
-                if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
-                    spr.setTextColor(PAL_RED, PAL_WHITE);
-                } else {
-                    spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                }
-
-                spr.setCursor(185, 32);
-                spr.printToSprite(weatherIcons[weathercode]);
-                spr.unloadFont();
-
-                spr.loadFont("fonts/weathericons30", LittleFS);
-                spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                spr.setCursor(235, -3);
-                spr.printToSprite(windDirectionIcon(winddirection));
-                if (weathercode > 10) {
-                    spr.setTextColor(PAL_RED, PAL_WHITE);
-                    spr.setCursor(190, 0);
-                    spr.printToSprite("\uf084");
-                }
-                spr.unloadFont();
-
-            }
-
-            spr2buffer(spr, filename, imageParams);
-            spr.deleteSprite();
+        DeserializationError error = deserializeJson(doc, http.getString(), DeserializationOption::Filter(filter));
+        if (error) {
+            Serial.println(F("deserializeJson() failed: "));
+            Serial.println(error.c_str());
         }
+
+        auto temperature = doc["current_weather"]["temperature"].as<double>();
+        auto windspeed = doc["current_weather"]["windspeed"].as<int>();
+        auto winddirection = doc["current_weather"]["winddirection"].as<int>();
+        uint8_t weathercode = doc["current_weather"]["weathercode"].as<int>();
+        if (weathercode > 40) weathercode -= 40;
+        int wind = windSpeedToBeaufort(windspeed);
+
+        String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "-", "-", "\uf014", "-", "-",
+                                    "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
+                                    "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
+                                    "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
+                                    "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
+                                    "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
+        if (1 == 0) {  // nacht
+            weatherIcons[0] = "\0uf02e";
+            weatherIcons[1] = "\0uf083";
+            weatherIcons[2] = "\0uf086";
+        }
+
+        doc.clear();
+
+        LittleFS.begin();
+        tft.setTextWrap(false, false);
+
+        if (taginfo->hwType == SOLUM_29_033) {
+            initSprite(spr, 296, 128);
+
+            drawString(spr, cfgobj["location"], 5, 5, "fonts/bahnschrift30");
+            drawString(spr, String(wind), 280, 5, "fonts/bahnschrift30", TR_DATUM, (wind > 4 ? PAL_RED : PAL_BLACK));
+
+            char tmpOutput[5];
+            dtostrf(temperature, 2, 1, tmpOutput);
+            drawString(spr, String(tmpOutput), 5, 65, "fonts/bahnschrift70", TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
+
+            spr.loadFont("fonts/weathericons70", LittleFS);
+            if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
+                spr.setTextColor(PAL_RED, PAL_WHITE);
+            } else {
+                spr.setTextColor(PAL_BLACK, PAL_WHITE);
+            }
+
+            spr.setCursor(185, 32);
+            spr.printToSprite(weatherIcons[weathercode]);
+            spr.unloadFont();
+
+            spr.loadFont("fonts/weathericons30", LittleFS);
+            spr.setTextColor(PAL_BLACK, PAL_WHITE);
+            spr.setCursor(235, -3);
+            spr.printToSprite(windDirectionIcon(winddirection));
+            if (weathercode > 10) {
+                spr.setTextColor(PAL_RED, PAL_WHITE);
+                spr.setCursor(190, 0);
+                spr.printToSprite("\uf084");
+            }
+            spr.unloadFont();
+
+        } else if (taginfo->hwType == SOLUM_154_033) {
+            initSprite(spr, 152, 152);
+            spr.setTextDatum(TL_DATUM);
+
+            spr.setTextFont(2);
+            spr.setTextColor(PAL_BLACK, PAL_WHITE);
+            spr.drawString(cfgobj["location"].as<String>(), 10, 130);
+
+            char tmpOutput[5];
+            dtostrf(temperature, 2, 1, tmpOutput);
+            drawString(spr, String(tmpOutput), 10, 10, "fonts/bahnschrift30", TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
+
+            spr.loadFont("fonts/weathericons78", LittleFS);
+            if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
+                spr.setTextColor(PAL_RED, PAL_WHITE);
+            } else {
+                spr.setTextColor(PAL_BLACK, PAL_WHITE);
+            }
+
+            spr.setCursor(30, 33);
+            spr.printToSprite(weatherIcons[weathercode]);
+            spr.unloadFont();
+
+            drawString(spr, String(wind), 140, 10, "fonts/bahnschrift30", TR_DATUM, (wind > 4 ? PAL_RED : PAL_BLACK));
+
+            spr.loadFont("fonts/weathericons30", LittleFS);
+            spr.setTextColor(PAL_BLACK, PAL_WHITE);
+            spr.setCursor(100, -2);
+            spr.printToSprite(windDirectionIcon(winddirection));
+            if (weathercode > 10) {
+                spr.setTextColor(PAL_RED, PAL_WHITE);
+                spr.setCursor(115, 110);
+                spr.printToSprite("\uf084");
+            }
+            spr.unloadFont();
+
+        } else if (taginfo->hwType == SOLUM_42_033) {
+
+            initSprite(spr, 400, 300);
+
+            drawString(spr, cfgobj["location"], 10, 10, "fonts/bahnschrift30");
+            drawString(spr, String(wind), 280, 10, "fonts/bahnschrift30", TR_DATUM, (wind > 4 ? PAL_RED : PAL_BLACK));
+
+            char tmpOutput[5];
+            dtostrf(temperature, 2, 1, tmpOutput);
+            drawString(spr, String(tmpOutput), 5, 65, "fonts/bahnschrift70", TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
+
+            spr.loadFont("fonts/weathericons70", LittleFS);
+            if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
+                spr.setTextColor(PAL_RED, PAL_WHITE);
+            } else {
+                spr.setTextColor(PAL_BLACK, PAL_WHITE);
+            }
+
+            spr.setCursor(185, 32);
+            spr.printToSprite(weatherIcons[weathercode]);
+            spr.unloadFont();
+
+            spr.loadFont("fonts/weathericons30", LittleFS);
+            spr.setTextColor(PAL_BLACK, PAL_WHITE);
+            spr.setCursor(235, -3);
+            spr.printToSprite(windDirectionIcon(winddirection));
+            if (weathercode > 10) {
+                spr.setTextColor(PAL_RED, PAL_WHITE);
+                spr.setCursor(190, 0);
+                spr.printToSprite("\uf084");
+            }
+            spr.unloadFont();
+
+        }
+
+        spr2buffer(spr, filename, imageParams);
+        spr.deleteSprite();
     }
     http.end();
 }
 
-void drawForecast(String &filename, String location, tagRecord *&taginfo, imgParam &imageParams) {
+void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
 
     wsLog("get weather");
+    getLocation(cfgobj);
     HTTPClient http;
-    http.begin("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(location.c_str()) + "&count=1");
-    http.setTimeout(5000);  // timeout in ms
+
+    String lat = cfgobj["#lat"];
+    String lon = cfgobj["#lon"];
+    String tz = cfgobj["#tz"];
+
+    http.begin("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant&windspeed_unit=ms&timeformat=unixtime&timezone=" + tz);
+
+    http.setTimeout(5000);
     int httpCode = http.GET();
+
     if (httpCode == 200) {
+        StaticJsonDocument<500> filter;
+        filter["daily"]["time"][0] = true;
+        filter["daily"]["weathercode"][0] = true;
+        filter["daily"]["temperature_2m_max"][0] = true;
+        filter["daily"]["temperature_2m_min"][0] = true;
+        filter["daily"]["precipitation_sum"][0] = true;
+        filter["daily"]["windspeed_10m_max"][0] = true;
+        filter["daily"]["winddirection_10m_dominant"][0] = true;
+
         DynamicJsonDocument doc(2000);
-        DeserializationError error = deserializeJson(doc, http.getStream());
-        http.end();
-
-        http.begin("https://api.open-meteo.com/v1/forecast?latitude=" + doc["results"][0]["latitude"].as<String>() + "&longitude=" + doc["results"][0]["longitude"].as<String>() + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant&windspeed_unit=ms&timeformat=unixtime&timezone=" + doc["results"][0]["timezone"].as<String>());
-
-        doc.clear();
-        http.setTimeout(5000);  // timeout in ms
-        int httpCode = http.GET();
-
-        if (httpCode == 200) {
-            StaticJsonDocument<500> filter;
-            filter["daily"]["time"][0] = true;
-            filter["daily"]["weathercode"][0] = true;
-            filter["daily"]["temperature_2m_max"][0] = true;
-            filter["daily"]["temperature_2m_min"][0] = true;
-            filter["daily"]["precipitation_sum"][0] = true;
-            filter["daily"]["windspeed_10m_max"][0] = true;
-            filter["daily"]["winddirection_10m_dominant"][0] = true;
-
-            // DeserializationError error = deserializeJson(doc, http.getString(), DeserializationOption::Filter(filter));
-            DeserializationError error = deserializeJson(doc, http.getString());
-            if (error) {
-                Serial.println(F("deserializeJson() failed: "));
-                Serial.println(error.c_str());
-            }
-
-            static const char *weekday_name[] = {"ZO", "MA", "DI", "WO", "DO", "VR", "ZA"};
-
-            String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "-", "-", "\uf014", "-", "-",
-                                     "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
-                                     "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
-                                     "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
-                                     "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
-                                     "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
-
-            LittleFS.begin();
-            tft.setTextWrap(false, false);
-
-            if (taginfo->hwType == SOLUM_29_033) {
-                initSprite(spr, 296, 128);
-
-                spr.setTextFont(2);
-                spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                spr.drawString(location, 5, 0);
-
-                for (uint8_t dag = 0; dag < 5; dag++) {
-                    time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
-                    struct tm *datum = localtime(&weatherday);
-                    drawString(spr, String(weekday_name[datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
-
-                    uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
-                    if (weathercode > 40) weathercode -= 40;
-
-                    spr.loadFont("fonts/weathericons30", LittleFS);
-                    if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
-                        spr.setTextColor(PAL_RED, PAL_WHITE);
-                    } else {
-                        spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                    }
-                    spr.setTextDatum(TL_DATUM);
-                    spr.setCursor(12 + dag * 59, 58);
-                    spr.printToSprite(weatherIcons[weathercode]);
-
-                    spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                    spr.setCursor(17 + dag * 59, 27);
-                    spr.printToSprite(windDirectionIcon(doc["daily"]["winddirection_10m_dominant"][dag]));
-                    spr.unloadFont();
-
-                    int8_t tmin = round(doc["daily"]["temperature_2m_min"][dag].as<double>());
-                    int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());
-                    uint8_t wind = windSpeedToBeaufort(doc["daily"]["windspeed_10m_max"][dag].as<double>());
-
-                    spr.loadFont("fonts/GillSC20", LittleFS);
-                    drawString(spr, String(tmin) + " ", dag * 59 + 30, 108, "", TR_DATUM, (tmin < 0 ? PAL_RED : PAL_BLACK));
-                    drawString(spr, String(" ") + String(tmax), dag * 59 + 30, 108, "", TL_DATUM, (tmax < 0 ? PAL_RED : PAL_BLACK));
-                    drawString(spr, String(" ") + String(wind), dag * 59 + 30, 43, "", TL_DATUM, (wind > 5 ? PAL_RED : PAL_BLACK));
-                    spr.unloadFont();
-                    if (dag > 0) {
-                        for (int i = 20; i < 128; i += 3) {
-                            spr.drawPixel(dag * 59, i, PAL_BLACK);
-                        }
-                    }
-                }
-
-            } else if (taginfo->hwType == SOLUM_42_033) {
-
-                initSprite(spr, 400, 300);
-                spr.setTextFont(2);
-                spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                spr.drawString(location, 5, 0);
-
-                for (uint8_t dag = 0; dag < 5; dag++) {
-                    time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
-                    struct tm *datum = localtime(&weatherday);
-                    drawString(spr, String(weekday_name[datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
-
-                    uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
-                    if (weathercode > 40) weathercode -= 40;
-
-                    spr.loadFont("fonts/weathericons30", LittleFS);
-                    if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
-                        spr.setTextColor(PAL_RED, PAL_WHITE);
-                    } else {
-                        spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                    }
-                    spr.setTextDatum(TL_DATUM);
-                    spr.setCursor(12 + dag * 59, 58);
-                    spr.printToSprite(weatherIcons[weathercode]);
-
-                    spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                    spr.setCursor(17 + dag * 59, 27);
-                    spr.printToSprite(windDirectionIcon(doc["daily"]["winddirection_10m_dominant"][dag]));
-                    spr.unloadFont();
-
-                    int8_t tmin = round(doc["daily"]["temperature_2m_min"][dag].as<double>());
-                    int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());
-                    uint8_t wind = windSpeedToBeaufort(doc["daily"]["windspeed_10m_max"][dag].as<double>());
-
-                    spr.loadFont("fonts/GillSC20", LittleFS);
-                    drawString(spr, String(tmin) + " ", dag * 59 + 30, 108, "", TR_DATUM, (tmin < 0 ? PAL_RED : PAL_BLACK));
-                    drawString(spr, String(" ") + String(tmax), dag * 59 + 30, 108, "", TL_DATUM, (tmax < 0 ? PAL_RED : PAL_BLACK));
-                    drawString(spr, String(" ") + String(wind), dag * 59 + 30, 43, "", TL_DATUM, (wind > 5 ? PAL_RED : PAL_BLACK));
-                    spr.unloadFont();
-                    if (dag > 0) {
-                        for (int i = 20; i < 128; i += 3) {
-                            spr.drawPixel(dag * 59, i, PAL_BLACK);
-                        }
-                    }
-                }
-            }
-            spr2buffer(spr, filename, imageParams);
-            spr.deleteSprite();
+        DeserializationError error = deserializeJson(doc, http.getString(), DeserializationOption::Filter(filter));
+        if (error) {
+            Serial.println(F("deserializeJson() failed: "));
+            Serial.println(error.c_str());
         }
+
+        static const char *weekday_name[] = {"ZO", "MA", "DI", "WO", "DO", "VR", "ZA"};
+
+        String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "-", "-", "\uf014", "-", "-",
+                                    "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
+                                    "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
+                                    "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
+                                    "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
+                                    "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
+
+        LittleFS.begin();
+        tft.setTextWrap(false, false);
+
+        if (taginfo->hwType == SOLUM_29_033) {
+            initSprite(spr, 296, 128);
+
+            spr.setTextFont(2);
+            spr.setTextColor(PAL_BLACK, PAL_WHITE);
+            spr.drawString(cfgobj["location"].as<String>(), 5, 0);
+
+            for (uint8_t dag = 0; dag < 5; dag++) {
+                time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
+                struct tm *datum = localtime(&weatherday);
+                drawString(spr, String(weekday_name[datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
+
+                uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
+                if (weathercode > 40) weathercode -= 40;
+
+                spr.loadFont("fonts/weathericons30", LittleFS);
+                if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
+                    spr.setTextColor(PAL_RED, PAL_WHITE);
+                } else {
+                    spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                }
+                spr.setTextDatum(TL_DATUM);
+                spr.setCursor(12 + dag * 59, 58);
+                spr.printToSprite(weatherIcons[weathercode]);
+
+                spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                spr.setCursor(17 + dag * 59, 27);
+                spr.printToSprite(windDirectionIcon(doc["daily"]["winddirection_10m_dominant"][dag]));
+                spr.unloadFont();
+
+                int8_t tmin = round(doc["daily"]["temperature_2m_min"][dag].as<double>());
+                int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());
+                uint8_t wind = windSpeedToBeaufort(doc["daily"]["windspeed_10m_max"][dag].as<double>());
+
+                spr.loadFont("fonts/GillSC20", LittleFS);
+                drawString(spr, String(tmin) + " ", dag * 59 + 30, 108, "", TR_DATUM, (tmin < 0 ? PAL_RED : PAL_BLACK));
+                drawString(spr, String(" ") + String(tmax), dag * 59 + 30, 108, "", TL_DATUM, (tmax < 0 ? PAL_RED : PAL_BLACK));
+                drawString(spr, String(" ") + String(wind), dag * 59 + 30, 43, "", TL_DATUM, (wind > 5 ? PAL_RED : PAL_BLACK));
+                spr.unloadFont();
+                if (dag > 0) {
+                    for (int i = 20; i < 128; i += 3) {
+                        spr.drawPixel(dag * 59, i, PAL_BLACK);
+                    }
+                }
+            }
+
+        } else if (taginfo->hwType == SOLUM_42_033) {
+
+            initSprite(spr, 400, 300);
+            spr.setTextFont(2);
+            spr.setTextColor(PAL_BLACK, PAL_WHITE);
+            spr.drawString(cfgobj["location"].as<String>(), 5, 0);
+
+            for (uint8_t dag = 0; dag < 5; dag++) {
+                time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
+                struct tm *datum = localtime(&weatherday);
+                drawString(spr, String(weekday_name[datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
+
+                uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
+                if (weathercode > 40) weathercode -= 40;
+
+                spr.loadFont("fonts/weathericons30", LittleFS);
+                if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
+                    spr.setTextColor(PAL_RED, PAL_WHITE);
+                } else {
+                    spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                }
+                spr.setTextDatum(TL_DATUM);
+                spr.setCursor(12 + dag * 59, 58);
+                spr.printToSprite(weatherIcons[weathercode]);
+
+                spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                spr.setCursor(17 + dag * 59, 27);
+                spr.printToSprite(windDirectionIcon(doc["daily"]["winddirection_10m_dominant"][dag]));
+                spr.unloadFont();
+
+                int8_t tmin = round(doc["daily"]["temperature_2m_min"][dag].as<double>());
+                int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());
+                uint8_t wind = windSpeedToBeaufort(doc["daily"]["windspeed_10m_max"][dag].as<double>());
+
+                spr.loadFont("fonts/GillSC20", LittleFS);
+                drawString(spr, String(tmin) + " ", dag * 59 + 30, 108, "", TR_DATUM, (tmin < 0 ? PAL_RED : PAL_BLACK));
+                drawString(spr, String(" ") + String(tmax), dag * 59 + 30, 108, "", TL_DATUM, (tmax < 0 ? PAL_RED : PAL_BLACK));
+                drawString(spr, String(" ") + String(wind), dag * 59 + 30, 43, "", TL_DATUM, (wind > 5 ? PAL_RED : PAL_BLACK));
+                spr.unloadFont();
+                if (dag > 0) {
+                    for (int i = 20; i < 128; i += 3) {
+                        spr.drawPixel(dag * 59, i, PAL_BLACK);
+                    }
+                }
+            }
+        }
+        spr2buffer(spr, filename, imageParams);
+        spr.deleteSprite();
     }
     http.end();
 }
@@ -1016,4 +1006,32 @@ String mac62hex(uint8_t *mac) {
     char buffer[16];
     sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     return (String)buffer;
+}
+
+void getLocation(JsonObject &cfgobj) {
+    HTTPClient http;
+    StaticJsonDocument<1000> doc;
+
+    String lat = cfgobj["#lat"];
+    String lon = cfgobj["#lon"];
+    String tz = cfgobj["#tz"];
+
+    if (lat == "null" || lon == "null") {
+        http.begin("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(cfgobj["location"]) + "&count=1");
+        http.setTimeout(5000);
+        int httpCode = http.GET();
+        Serial.printf("Got code %d for this location\n", httpCode);
+        Serial.print(http.errorToString(httpCode));
+
+        if (httpCode == 200) {
+            DeserializationError error = deserializeJson(doc, http.getStream());
+            http.end();
+            lat = doc["results"][0]["latitude"].as<String>();
+            lon = doc["results"][0]["longitude"].as<String>();
+            tz = doc["results"][0]["timezone"].as<String>();
+            cfgobj["#lat"] = lat;
+            cfgobj["#lon"] = lon;
+            cfgobj["#tz"] = tz;
+        }
+    }
 }
