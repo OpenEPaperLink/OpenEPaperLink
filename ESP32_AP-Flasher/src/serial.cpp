@@ -391,7 +391,6 @@ void zbsRxTask(void* parameter) {
                         Serial.println("Performing firmware flash in about 10 seconds");
                         vTaskDelay(10000 / portTICK_PERIOD_MS);
                         performDeviceFlash();
-                        //findOriginalFirmwareVersion();
                     } else {
                         Serial.println("I wasn't able to connect to a ZBS tag, trying to reboot the tag.");
                         rampTagPower(FLASHER_AP_POWER, false);
@@ -421,12 +420,6 @@ void zbsRxTask(void* parameter) {
                 }
             } else if (!fsversion) {
                 Serial.println("No ZBS/Zigbee FW binary found on SPIFFS, please upload a zigbeebase000X.bin - format binary to enable flashing");
-               
-                struct espSetChannelPower scp;
-                scp.channel = 20;
-                scp.power = 8;
-                sendChannelPower(&scp);
-
             }
             firstrun = false;
         }
