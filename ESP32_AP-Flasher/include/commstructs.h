@@ -13,6 +13,12 @@ struct espXferComplete {
     uint8_t src[8];
 } __packed;
 
+struct espSetChannelPower {
+    uint8_t checksum;
+    uint8_t channel;
+    uint8_t power;
+} __packed;
+
 struct blockData {
     uint16_t size;
     uint16_t checksum;
