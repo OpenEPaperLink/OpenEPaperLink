@@ -6,3 +6,5 @@ void zbsRxTask(void* parameter);
 void sendCancelPending(struct pendingData* pending);
 void sendDataAvail(struct pendingData* pending);
 void Ping();
+
+bool sendChannelPower(struct espSetChannelPower* scp);

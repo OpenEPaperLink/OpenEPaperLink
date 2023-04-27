@@ -47,6 +47,12 @@ struct espAvailDataReq {
     struct AvailDataReq adr;
 } __packed;
 
+struct espSetChannelPower {
+    uint8_t checksum;
+    uint8_t channel;
+    uint8_t power;
+} __packed;
+
 // #define TIMER_TICKS_PER_MS 1333UL
 uint16_t __xdata version = 0x0012;
 
@@ -196,6 +202,14 @@ void deleteAllPendingDataForVer(const uint8_t *ver) {
         if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
     } while (slot != -1);
 }
+void deleteAllPendingDataForMac(const uint8_t *mac) {
+    int8_t slot = -1;
+    do {
+        slot = findSlotForMac(mac);
+        if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
+    } while (slot != -1);
+}
+
 void countSlots() {
     curPendingData = 0;
     curNoUpdate = 0;
@@ -212,8 +226,9 @@ void countSlots() {
 
 // processing serial data
 #define ZBS_RX_WAIT_HEADER 0
-#define ZBS_RX_WAIT_SDA 1
-#define ZBS_RX_WAIT_CANCEL 2
+#define ZBS_RX_WAIT_SDA 1     // send data avail
+#define ZBS_RX_WAIT_CANCEL 2  // cancel traffic for mac
+#define ZBS_RX_WAIT_SCP 3     // set channel power
 
 extern uint8_t *__idata blockp;
 void processSerial(uint8_t lastchar) {
@@ -251,6 +266,12 @@ void processSerial(uint8_t lastchar) {
                 serialbufferp = serialbuffer;
                 break;
             }
+            if (strncmp(cmdbuffer, "SCP>", 4) == 0) {
+                RXState = ZBS_RX_WAIT_SCP;
+                bytesRemain = sizeof(struct espSetChannelPower);
+                serialbufferp = serialbuffer;
+                break;
+            }
             if (strncmp(cmdbuffer, "VER?", 4) == 0) {
                 pr("VER>%04X\n", version);
             }
@@ -260,6 +281,7 @@ void processSerial(uint8_t lastchar) {
             if (strncmp(cmdbuffer, "RSET", 4) == 0) {
                 wdtDeviceReset();
             }
+
             break;
 
         case ZBS_RX_WAIT_SDA:
@@ -306,7 +328,8 @@ void processSerial(uint8_t lastchar) {
                         pr("ACK>\n");
                     } else {
 #endif
-                        deleteAllPendingDataForVer((uint8_t *)&pd->availdatainfo.dataVer);
+                        // deleteAllPendingDataForVer((uint8_t *)&pd->availdatainfo.dataVer);
+                        deleteAllPendingDataForMac((uint8_t *)&pd->targetMac);
                         pr("ACK>\n");
 #if (AP_EMULATE_TAG == 1)
                     }
@@ -318,11 +341,35 @@ void processSerial(uint8_t lastchar) {
                 RXState = ZBS_RX_WAIT_HEADER;
             }
             break;
+        case ZBS_RX_WAIT_SCP:
+            *serialbufferp = lastchar;
+            serialbufferp++;
+            bytesRemain--;
+            if (bytesRemain == 0) {
+                if (checkCRC(serialbuffer, sizeof(struct espSetChannelPower))) {
+                    struct espSetChannelPower *scp = (struct espSetChannelPower *)serialbuffer;
+                    for (uint8_t c = 0; c < sizeof(channelList); c++) {
+                        if (channelList[c] == scp->channel) goto SCPchannelFound;
+                    }
+                    goto SCPfailed;
+                SCPchannelFound:
+                    curChannel = scp->channel;
+                    radioSetChannel(scp->channel);
+                    radioSetTxPower(scp->power);
+                    radioRxEnable(true, true);
+                    pr("ACK>\n");
+                } else {
+                SCPfailed:
+                    pr("NOK>\n");
+                }
+                RXState = ZBS_RX_WAIT_HEADER;
+            }
+            break;
     }
 }
 
 // sending data to the ESP
-void espBlockRequest(const struct blockRequest *br, uint8_t* src) {
+void espBlockRequest(const struct blockRequest *br, uint8_t *src) {
     struct espBlockRequest *__xdata ebr = (struct espBlockRequest *)blockbuffer;
     uartTx('R');
     uartTx('Q');
@@ -609,7 +656,8 @@ void sendPong(void *__xdata buf) {
     struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
     struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
     radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_PONG;
-    radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + RAW_PKT_PADDING;
+    radiotxbuffer[sizeof(struct MacFrameNormal) + 2] = curChannel;
+    radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + 1 + RAW_PKT_PADDING;
     memcpy(frameHeader->src, mSelfMac, 8);
     memcpy(frameHeader->dst, rxframe->src, 8);
     radiotxbuffer[1] = 0x41;  // fast way to set the appropriate bits
@@ -662,6 +710,10 @@ void main(void) {
             mSelfMac[c] = c;
         }
     }
+
+#if (AP_EMULATE_TAG == 1)
+    xMemCopy8(fakeTagMac, mSelfMac);  //
+#endif
 
     // clear the array with pending information
     memset(pendingDataArr, 0, sizeof(pendingDataArr));

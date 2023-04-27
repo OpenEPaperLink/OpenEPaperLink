@@ -146,21 +146,40 @@ sdasend:
 void sendCancelPending(struct pendingData* pending) {
     if (!txStart()) return;
     addCRC(pending, sizeof(struct pendingData));
-    addCRC(pending, sizeof(struct pendingData));
     for (uint8_t attempt = 0; attempt < 5; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
         AP_SERIAL_PORT.print("CXD>");
         for (uint8_t c = 0; c < sizeof(struct pendingData); c++) {
             AP_SERIAL_PORT.write(((uint8_t*)pending)[c]);
         }
-        if (waitCmdReply()) goto cxdsend;
+        if (waitCmdReply()) goto cxdsent;
         AP_SERIAL_PORT.printf("CXD send failed in try %d\n", attempt);
     }
     AP_SERIAL_PORT.print("CXD failed to send...\n");
     txEnd();
     return;
-cxdsend:
+cxdsent:
     txEnd();
+}
+
+bool sendChannelPower(struct espSetChannelPower* scp) {
+    if (!txStart()) return false;
+    addCRC(scp, sizeof(struct espSetChannelPower));
+    for (uint8_t attempt = 0; attempt < 5; attempt++) {
+        cmdReplyValue = CMD_REPLY_WAIT;
+        AP_SERIAL_PORT.print("SCP>");
+        for (uint8_t c = 0; c < sizeof(struct espSetChannelPower); c++) {
+            AP_SERIAL_PORT.write(((uint8_t*)scp)[c]);
+        }
+        if (waitCmdReply()) goto scpSent;
+        AP_SERIAL_PORT.printf("SCP send failed in try %d\n", attempt);
+    }
+    AP_SERIAL_PORT.print("SCP failed to send...\n");
+    txEnd();
+    return false;
+scpSent:
+    txEnd();
+    return true;
 }
 
 uint64_t waitingForVersion = 0;
