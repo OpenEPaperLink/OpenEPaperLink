@@ -7,7 +7,6 @@
 #include "flasher.h"
 //#include "hal/wdt_hal.h"
 #include "makeimage.h"
-#include "pendingdata.h"
 #include "serial.h"
 #include "settings.h"
 #include "tag_db.h"
@@ -28,7 +27,7 @@ void timeTask(void* parameter) {
         if (!getLocalTime(&tm)) {
             Serial.println("Waiting for valid time from NTP-server");
         } else {
-            if (now % 10 == 0) wsSendSysteminfo();
+            if (now % 5 == 0) wsSendSysteminfo();
             if (now % 30 == 3) Ping();
             if (now % 300 == 6) saveDB("/current/tagDB.json");
 
@@ -71,7 +70,6 @@ void setup() {
     loadDB("/current/tagDB.json");
 
     xTaskCreate(zbsRxTask, "zbsRX Process", 10000, NULL, 2, NULL);
-    xTaskCreate(garbageCollection, "pending-data cleanup", 5000, NULL, 1, NULL);
     xTaskCreate(webSocketSendProcess, "ws", 5000, NULL, configMAX_PRIORITIES - 10, NULL);
     xTaskCreate(timeTask, "timed tasks", 10000, NULL, 2, NULL);
     xTaskCreate(ledTask, "handles leds", 5000, NULL, 10,  NULL);

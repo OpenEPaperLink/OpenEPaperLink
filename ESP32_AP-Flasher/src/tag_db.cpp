@@ -25,6 +25,10 @@ bool deleteRecord(uint8_t mac[6]) {
         tagRecord* tag = nullptr;
         tag = tagDB.at(c);
         if (memcmp(tag->mac, mac, 6) == 0) {
+            if (tag->data != nullptr) {
+                free(tag->data);
+            }
+            tag->data = nullptr;
             delete tagDB[c];
             tagDB.erase(tagDB.begin() + c);
             return true;
@@ -197,4 +201,23 @@ void loadDB(String filename) {
     Serial.println("finished reading file");
 
     return;
+}
+
+uint8_t getTagCount() {
+    uint8_t tagcount = 0;
+    for (int16_t c = 0; c < tagDB.size(); c++) {
+        tagRecord* taginfo = nullptr;
+        taginfo = tagDB.at(c);
+        if (taginfo->isExternal == false) tagcount++;
+    }
+    return tagcount;
+}
+
+void clearPending(tagRecord* taginfo) {
+    if (taginfo->data != nullptr) {
+        free(taginfo->data);
+        Serial.println("free taginfo->data");
+        taginfo->data = nullptr;
+    }
+    taginfo->pending = false;
 }

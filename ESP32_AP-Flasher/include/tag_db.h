@@ -18,7 +18,8 @@
 class tagRecord {
    public:
     uint16_t nextCheckinpending;
-    tagRecord() : mac{0}, alias(""), lastseen(0), nextupdate(0), contentMode(0), pending(false), md5{0}, md5pending{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false) {}
+    tagRecord() : mac{0}, alias(""), lastseen(0), nextupdate(0), contentMode(0), pending(false), md5{0}, md5pending{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false),
+    filename(""), data(nullptr), len(0) {}
 
     uint8_t mac[6];
     String alias;
@@ -39,6 +40,11 @@ class tagRecord {
     uint8_t capabilities;
     uint32_t lastfullupdate;
     bool isExternal;
+
+    String filename;
+    uint8_t* data;
+    uint32_t len;
+
     static tagRecord* findByMAC(uint8_t mac[6]);
 };
 
@@ -48,5 +54,7 @@ bool deleteRecord(uint8_t mac[6]);
 void fillNode(JsonObject &tag, tagRecord* &taginfo);
 void saveDB(String filename);
 void loadDB(String filename);
+uint8_t getTagCount();
+void clearPending(tagRecord* taginfo);
 
 #pragma pack(pop)
