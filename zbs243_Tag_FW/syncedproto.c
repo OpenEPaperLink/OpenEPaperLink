@@ -142,7 +142,8 @@ uint8_t detectAP(const uint8_t channel) {
         while (timerGet() < t) {
             int8_t __xdata ret = commsRxUnencrypted(inBuffer);
             if (ret > 1) {
-                if (getPacketType(inBuffer) == PKT_PONG) {
+                //                dump(inBuffer+sizeof(struct MacFrameNormal),32);
+                if ((inBuffer[sizeof(struct MacFrameNormal) + 1] == channel) && (getPacketType(inBuffer) == PKT_PONG)) {
                     if (pktIsUnicast(inBuffer)) {
                         struct MacFrameNormal *__xdata f = (struct MacFrameNormal *)inBuffer;
                         memcpy(APmac, f->src, 8);
@@ -610,7 +611,6 @@ static bool downloadFWUpdate(const struct AvailDataInfo *__xdata avail) {
 
 uint16_t __xdata imageSize = 0;
 static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail) {
-
     // check if we already started the transfer of this information & haven't completed it
     if (xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8) && curDataInfo.dataSize) {
         // looks like we did. We'll carry on where we left off.

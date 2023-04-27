@@ -19,11 +19,13 @@
 #include "uart.h"
 #include "wdt.h"
 
-extern uint8_t __xdata fakeTagMac[8] = {0x0, 0x00, 0x55, 0xCE, 0xAC, 0x00, 0x00};
+uint8_t __xdata fakeTagMac[8] = {0x0, 0x00, 0x55, 0xCE, 0xAC, 0x00, 0x00};
+
 extern uint8_t __xdata radiorxbuffer[];
 extern uint8_t __xdata blockbuffer[];
+
 extern void espNotifyAvailDataReq(const struct AvailDataReq *adr, const uint8_t *src);
-extern void espBlockRequest(const struct blockRequest *br);
+extern void espBlockRequest(const struct blockRequest *br, uint8_t *src);
 extern void espNotifyXferComplete(const uint8_t *src);
 
 extern void addCRC(void *p, uint8_t len);
@@ -64,7 +66,7 @@ void fakeTagGetData() {
                 struct blockRequest br;
                 br.blockId = blockCount;
                 br.ver = ad.dataVer;
-                espBlockRequest(&br);
+                espBlockRequest(&br, fakeTagMac);
                 dataRequested = true;
             }
         } else {
