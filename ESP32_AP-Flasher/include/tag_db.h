@@ -18,7 +18,7 @@
 class tagRecord {
    public:
     uint16_t nextCheckinpending;
-    tagRecord() : mac{0}, alias(""), lastseen(0), nextupdate(0), contentMode(0), pending(false), md5{0}, md5pending{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false),
+    tagRecord() : mac{0}, alias(""), lastseen(0), nextupdate(0), contentMode(0), pending(false), md5{0}, md5pending{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false), pendingIdle(0),
     filename(""), data(nullptr), len(0) {}
 
     uint8_t mac[6];
@@ -40,6 +40,7 @@ class tagRecord {
     uint8_t capabilities;
     uint32_t lastfullupdate;
     bool isExternal;
+    uint16_t pendingIdle;
 
     String filename;
     uint8_t* data;

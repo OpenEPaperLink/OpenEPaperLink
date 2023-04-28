@@ -13,6 +13,7 @@
 #include "makeimage.h"
 #include "newproto.h"
 #include "qrcode.h"
+#include "settings.h"
 #include "web.h"
 
 #define PAL_BLACK 0
@@ -43,15 +44,26 @@ void contentRunner() {
         tagRecord *taginfo = nullptr;
         taginfo = tagDB.at(c);
 
-        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO)) {
-            uint8_t mac8[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-            memcpy(mac8 + 2, taginfo->mac, 6);
-            uint8_t src[8];
-            *((uint64_t *)src) = swap64(*((uint64_t *)mac8));
+        uint8_t mac8[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+        memcpy(mac8 + 2, taginfo->mac, 6);
+        uint8_t src[8];
+        *((uint64_t *)src) = swap64(*((uint64_t *)mac8));
 
+        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO)) {
             drawNew(src, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
             taginfo->wakeupReason = 0;
         }
+
+        if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pending == false) {
+            uint16_t minutesUntilNextUpdate = 0;
+            minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
+            if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
+            if (minutesUntilNextUpdate > 1) {
+                taginfo->pendingIdle = minutesUntilNextUpdate;
+                prepareIdleReq(src, minutesUntilNextUpdate);
+            }
+        }
+
         vTaskDelay(1/portTICK_PERIOD_MS); // add a small delay to allow other threads to run
     }
 }

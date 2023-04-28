@@ -69,29 +69,26 @@ void prepareCancelPending(uint8_t dst[8]) {
 }
 
 void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
-    if (nextCheckin > MIN_RESPONSE_TIME) {
-        // to prevent very long sleeps of the tag
-        nextCheckin = MIN_RESPONSE_TIME;
+    if (nextCheckin > MIN_RESPONSE_TIME) nextCheckin = MIN_RESPONSE_TIME;
+    if (nextCheckin > 0) {
+        struct pendingData pending = {0};
+        memcpy(pending.targetMac, dst, 8);
+        pending.availdatainfo.dataType = DATATYPE_NOUPDATE;
+        pending.availdatainfo.nextCheckIn = nextCheckin;
+        pending.attemptsLeft = 10 + MIN_RESPONSE_TIME;
+
+        char buffer[64];
+        uint8_t src[8];
+        *((uint64_t*)src) = swap64(*((uint64_t*)dst));
+        sprintf(buffer, "< %02X%02X%02X%02X%02X%02X idle req\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+        Serial.print(buffer);
+
+        sendDataAvail(&pending);
     }
-    struct pendingData pending = {0};
-    memcpy(pending.targetMac, dst, 8);
-    pending.availdatainfo.dataType = DATATYPE_NOUPDATE;
-    pending.availdatainfo.nextCheckIn = nextCheckin;
-    pending.attemptsLeft = 10 + MIN_RESPONSE_TIME;
-
-    char buffer[64];
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)dst));
-    Serial.print(buffer);
-
-    sendDataAvail(&pending);
 }
 
 bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
-    if (nextCheckin > MIN_RESPONSE_TIME) {
-        //to prevent very long sleeps of the tag
-        nextCheckin = MIN_RESPONSE_TIME;
-    }
+    if (nextCheckin > MIN_RESPONSE_TIME) nextCheckin = MIN_RESPONSE_TIME;
 
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)dst));
@@ -324,19 +321,8 @@ void processXferComplete(struct espXferComplete* xfc) {
     tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(mac);
     if (taginfo != nullptr) {
-
-        uint16_t minutesUntilNextUpdate = 0;
-        if (taginfo->nextupdate > now + 2 * 60) {
-            minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
-            if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
-            taginfo->expectedNextCheckin = now + 60 * minutesUntilNextUpdate + 60;
-            if (minutesUntilNextUpdate > 1) prepareIdleReq (xfc->src, minutesUntilNextUpdate);
-        } else {
-            taginfo->expectedNextCheckin = now + 60;
-        }
-
-        clearPending(taginfo);
         memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
+        clearPending(taginfo);
     }
     wsSendTaginfo(mac);
 }
@@ -381,7 +367,6 @@ void processDataReq(struct espAvailDataReq* eadr) {
     }
     time_t now;
     time(&now);
-    taginfo->lastseen = now;
 
     if (eadr->src[7] == 0xFF) {
         taginfo->isExternal = true;
@@ -389,15 +374,13 @@ void processDataReq(struct espAvailDataReq* eadr) {
         taginfo->isExternal = false;
     }
 
-    uint16_t minutesUntilNextUpdate = 0;
-    if (taginfo->nextupdate > now + 2 * 60) {
-        minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
-        if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
-        taginfo->expectedNextCheckin = now + 60 * minutesUntilNextUpdate + 60;
-        if (minutesUntilNextUpdate > 1 && taginfo->pending == false) prepareIdleReq(eadr->src, minutesUntilNextUpdate);
-    } else {
+    if (taginfo->pendingIdle == 0) {
         taginfo->expectedNextCheckin = now + 60;
+    } else {
+        taginfo->expectedNextCheckin = now + 60 * taginfo->pendingIdle;
+        taginfo->pendingIdle = 0;
     }
+    taginfo->lastseen = now;
 
     if (eadr->adr.lastPacketRSSI != 0) {
         taginfo->LQI = eadr->adr.lastPacketLQI;
