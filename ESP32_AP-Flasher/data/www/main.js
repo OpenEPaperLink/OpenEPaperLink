@@ -34,7 +34,14 @@ let servertimediff = 0;
 let socket;
 connect();
 setInterval(updatecards, 1000);
-window.addEventListener("load", function () { loadTags(0) });
+window.addEventListener("load", function () { 
+	fetch("/get_ap_list")
+		.then(response => response.json())
+		.then(data => {
+			if (data.alias) $(".logo").innerHTML = data.alias;
+		})
+	loadTags(0) 
+});
 
 function loadTags(pos) {
 	fetch("/get_db?pos="+pos)
@@ -68,6 +75,14 @@ function connect() {
 		if (msg.sys) {
 			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + msg.sys.dbsize + ' bytes &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; littlefs free: ' + msg.sys.littlefsfree + ' bytes';
 			servertimediff = (Date.now() / 1000) - msg.sys.currtime;
+		}
+		if (msg.apitem) {
+			var row = $("#aptable").insertRow();
+			row.insertCell(0).innerHTML = "<a href=\"http://" + msg.apitem.ip + "\" target=\"_new\">" + msg.apitem.ip + "</a>";
+			row.insertCell(1).innerHTML = msg.apitem.alias;
+			row.insertCell(2).innerHTML = msg.apitem.count;
+			row.insertCell(3).innerHTML = msg.apitem.channel;
+			row.insertCell(4).innerHTML = msg.apitem.version;
 		}
 	});
 
@@ -208,9 +223,11 @@ $('#clearlog').onclick = function () {
 	$('#messages').innerHTML='';
 }
 
-$('.closebtn').onclick = function (event) {
-	event.target.parentNode.style.display='none';
-}
+document.querySelectorAll('.closebtn').forEach(button => {
+	button.addEventListener('click', (event) => {
+		event.target.parentNode.style.display = 'none';
+	});
+});
 
 $('#taglist').addEventListener("click", (event) => {
 	let currentElement = event.target;
@@ -242,7 +259,6 @@ $('#taglist').addEventListener("click", (event) => {
 })
 
 $('#cfgsave').onclick = function () {
-
 	let contentMode = $('#cfgcontent').value;
 	let extraoptions = contentModeOptions[contentMode];
 	let obj={};
@@ -290,6 +306,36 @@ $('#rebootbutton').onclick = function () {
 		method: "POST"
 	});
 	socket.close();
+}
+
+$('#apconfigbutton').onclick = function () {
+	var table = document.getElementById("aptable");
+	var rowCount = table.rows.length;
+	for (var i = rowCount - 1; i > 0; i--) {
+		table.deleteRow(i);
+	}
+	$('#apconfigbox').style.display = 'block'
+	fetch("/get_ap_list")
+		.then(response => response.json())
+		.then(data => {
+			$('#apcfgalias').value = data.alias;
+			$('#apcfgchid').value = data.channel;
+		})
+}
+
+$('#apcfgsave').onclick = function () {
+	let formData = new FormData();
+	formData.append("alias", $('#apcfgalias').value);
+	formData.append("channel", $('#apcfgchid').value);
+	fetch("/save_apcfg", {
+		method: "POST",
+		body: formData
+	})
+		.then(response => response.text())
+		.then(data => showMessage(data))
+		.catch(error => showMessage('Error: ' + error));
+	$(".logo").innerHTML = $('#apcfgalias').value;
+	$('#apconfigbox').style.display = 'none';
 }
 
 function contentselected() {

@@ -35,6 +35,9 @@ volatile uint8_t cmdReplyValue = CMD_REPLY_WAIT;
 
 #define AP_SERIAL_PORT Serial1
 
+uint8_t channelList[6];
+struct espSetChannelPower curChannel = {0, 11, 8};
+
 bool txStart() {
     while (1) {
         if (xPortInIsrContext()) {
@@ -153,9 +156,9 @@ void sendCancelPending(struct pendingData* pending) {
             AP_SERIAL_PORT.write(((uint8_t*)pending)[c]);
         }
         if (waitCmdReply()) goto cxdsent;
-        AP_SERIAL_PORT.printf("CXD send failed in try %d\n", attempt);
+        Serial.printf("CXD send failed in try %d\n", attempt);
     }
-    AP_SERIAL_PORT.print("CXD failed to send...\n");
+    Serial.print("CXD failed to send...\n");
     txEnd();
     return;
 cxdsent:
@@ -172,9 +175,9 @@ bool sendChannelPower(struct espSetChannelPower* scp) {
             AP_SERIAL_PORT.write(((uint8_t*)scp)[c]);
         }
         if (waitCmdReply()) goto scpSent;
-        AP_SERIAL_PORT.printf("SCP send failed in try %d\n", attempt);
+        Serial.printf("SCP send failed in try %d\n", attempt);
     }
-    AP_SERIAL_PORT.print("SCP failed to send...\n");
+    Serial.print("SCP failed to send...\n");
     txEnd();
     return false;
 scpSent:
@@ -402,6 +405,8 @@ void zbsRxTask(void* parameter) {
                         vTaskDelay(2 / portTICK_PERIOD_MS);
                         rampTagPower(FLASHER_AP_POWER, true);
                         wsErr("The AP tag crashed. Restarting tag, regenerating all pending info.");
+                        vTaskDelay(3000 / portTICK_PERIOD_MS);
+                        sendChannelPower(&curChannel);
                         refreshAllPending();
                     }
                 } else {
@@ -423,9 +428,8 @@ void zbsRxTask(void* parameter) {
                 } else {
                     Serial.println("Failed to update version on the AP :(");
                 }
-            } else if (!fsversion) {
-                Serial.println("No ZBS/Zigbee FW binary found on SPIFFS, please upload a zigbeebase000X.bin - format binary to enable flashing");
             }
+            sendChannelPower(&curChannel);
             firstrun = false;
         }
     }

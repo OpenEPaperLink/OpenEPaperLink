@@ -2,12 +2,13 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-
+#include <FS.h>
 #include <vector>
 
 #include "LittleFS.h"
 
 std::vector<tagRecord*> tagDB;
+DynamicJsonDocument APconfig(150);
 
 tagRecord* tagRecord::findByMAC(uint8_t mac[6]) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
@@ -220,4 +221,29 @@ void clearPending(tagRecord* taginfo) {
         taginfo->data = nullptr;
     }
     taginfo->pending = false;
+}
+
+void initAPconfig() {
+    LittleFS.begin(true);
+    File configFile = LittleFS.open("/current/apconfig.json", "r");
+    if (!configFile) {
+        //default values'
+        Serial.println("APconfig not found");
+        APconfig["channel"] = 0;
+        APconfig["alias"] = String();
+        return;
+    }
+    DeserializationError error = deserializeJson(APconfig, configFile);
+    if (error) {
+        configFile.close();
+        Serial.println("apconfig.json file corrupted, or not enough space in apconfig to hold it");
+        return;
+    }
+    configFile.close();
+}
+
+void saveAPconfig() {
+    fs::File configFile = LittleFS.open("/current/apconfig.json", "w");
+    serializeJson(APconfig, configFile);
+    configFile.close();
 }

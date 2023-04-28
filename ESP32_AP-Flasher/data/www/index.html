@@ -47,6 +47,60 @@
 		</p>
 	</div>
 
+	<div id="apconfigbox">
+		<div class="closebtn">&#10006;</div>
+		<h3 id="cfgmac">Access Point config</h3>
+		<p>
+			<label for="apcfgalias">Alias</label>
+			<input id="apcfgalias" type="text">
+		</p>
+		<p>
+			<label for="apcfgchid">Channel</label>
+			<select id="apcfgchid">
+				<option value="0">auto</option>
+				<option value="11">11</option>
+				<option value="15">15</option>
+				<option value="20">20</option>
+				<option value="25">25</option>
+				<option value="26">26</option>
+				<option value="27">27</option>
+			</select>
+		</p>
+		<p>
+			<input type="button" value="Save" id="apcfgsave">
+		</p>
+		<!--
+		<p><pre>
+			work in progress
+			- upload tagDB
+			- update webinterface from github
+			- update APtag FW from github
+			- update all tag FW from github
+			- update esp32 fw 
+		</pre>
+		</p>
+		-->
+		<p>
+			Active access points:<br>
+			<table id="aptable">
+				<tr>
+					<th>ip</th>
+					<th>alias</th>
+					<th>tags</th>
+					<th>ch</th>
+					<th>fw ver</th>
+				</tr>
+			</table>
+		</p>
+		<p>
+			<span id="rebootbutton">reboot AP</span>
+			<a href="/backup_db" id="downloadDBbutton">download tagDB</a>
+		</p>
+		<p>
+			<a href="https://github.com/jjwbruijn/OpenEPaperLink" target="_new">Github OpenEPaperLink</a>
+		</p>
+	</div>
+
 	<form>
 	<div class="container">
 
@@ -55,8 +109,8 @@
 			<div class="actionbox">
 				<div>
 					<div>Currently active tags:</div>
-					<div class="rebootbtn"><span id="rebootbutton">reboot AP</span></div>
-					<div class="editbtn"><a href="/edit" target="littlefs" class="filebutton">edit littleFS</a></div>
+					<div><span id="apconfigbutton">AP config</span></div>
+					<div><a href="/edit" target="littlefs" class="filebutton">edit littleFS</a></div>
 				</div>
 			</div>
 

@@ -433,3 +433,16 @@ void refreshAllPending() {
         }
     }
 };
+
+void setAPchannel() {
+    if (APconfig["channel"].as<int>() == 0) {
+        // trigger channel autoselect
+        UDPcomm udpsync;
+        udpsync.getAPList();
+    } else {
+        if (curChannel.channel != APconfig["channel"].as<int>()) {
+            curChannel.channel = APconfig["channel"].as<int>();
+            if (version) sendChannelPower(&curChannel);
+        }
+    }
+}

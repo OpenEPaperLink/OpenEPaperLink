@@ -11,3 +11,4 @@ extern void processXferComplete(struct espXferComplete* xfc);
 extern void processXferTimeout(struct espXferComplete* xfc);
 extern void processDataReq(struct espAvailDataReq* adr);
 void refreshAllPending();
+void setAPchannel();

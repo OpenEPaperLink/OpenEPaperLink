@@ -1,5 +1,8 @@
 #include <Arduino.h>
 
+extern struct espSetChannelPower curChannel;
+extern uint16_t version;
+
 void zbsTx(uint8_t* packetdata, uint8_t len);
 void zbsRxTask(void* parameter);
 

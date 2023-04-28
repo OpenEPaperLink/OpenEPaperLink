@@ -49,6 +49,7 @@ class tagRecord {
 };
 
 extern std::vector<tagRecord*> tagDB;
+extern DynamicJsonDocument APconfig;
 String tagDBtoJson(uint8_t mac[6] = nullptr, uint8_t startPos = 0);
 bool deleteRecord(uint8_t mac[6]);
 void fillNode(JsonObject &tag, tagRecord* &taginfo);
@@ -56,5 +57,7 @@ void saveDB(String filename);
 void loadDB(String filename);
 uint8_t getTagCount();
 void clearPending(tagRecord* taginfo);
+void initAPconfig();
+void saveAPconfig();
 
 #pragma pack(pop)
