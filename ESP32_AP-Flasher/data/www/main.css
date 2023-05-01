@@ -64,19 +64,12 @@ label {
 	gap: 20px;
 }
 
-#rebootbutton {
+#rebootbutton, #downloadDBbutton, #apconfigbutton, .filebutton {
 	padding: 2px 5px;
 	background-color: #cccccc;
 	text-decoration: none;
 	color: black;
 	cursor: pointer;
-}
-
-.filebutton {
-	padding: 2px 5px;
-	background-color: #cccccc;
-	text-decoration: none;
-	color: black;
 }
 
 .columns div {
@@ -89,14 +82,14 @@ input[type="text"],
 input[type="button"],
 input[type="submit"],
 button {
-	-webkit-appearance: none;
+	appearance: none;
 	border-radius: 0;
 }
 
 input {
 	border: solid 1px #666666;
 	padding: 4px;
-	-webkit-border-radius: 0px;
+	border-radius: 0px;
 }
 
 input[type=button] {
@@ -109,10 +102,10 @@ input[type=button]:hover {
 }
 select {
 	padding: 4px;
-	-webkit-border-radius: 0px;
+	border-radius: 0px;
 }
 
-#configbox {
+#configbox, #apconfigbox {
 	display: none;
 	position: fixed;
 	top: 80px;
@@ -124,22 +117,51 @@ select {
 	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
 }
 
-#configbox p {
+#configbox p, #apconfigbox p {
 	padding: 5px;
 }
 
-#configbox h3 {
+#configbox h3, #apconfigbox h3 {
 	font-size: 1.5em;
 	font-weight: bold;
 }
 
-#configbox input {
+#configbox input, #apconfigbox input {
 	border: solid 1px #666666;
 	padding: 4px;
 }
 
-#configbox label {
+#configbox label, #apconfigbox label {
 	text-transform: capitalize;
+}
+
+#apconfigbox {
+	background-color: #e6f0d3;
+}
+
+#aptable {
+	width: 100%;
+	border-spacing: 0;
+}
+
+#aptable th {
+	text-align: left;
+	background-color: #00000020;
+	padding: 0px 3px;
+}
+
+#aptable th, #aptable td {
+	border-right: 1px solid #000010;
+	padding: 0px 3px;
+}
+
+#aptable td:nth-child(1), #aptable th:nth-child(1) {
+	border-left: 1px solid #000010;
+}
+
+#aptable td:nth-child(3),
+#aptable td:nth-child(4) {
+	text-align: right;
 }
 
 #cfgdelete {

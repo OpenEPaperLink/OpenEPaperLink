@@ -16,6 +16,7 @@
 #include "newproto.h"
 #include "settings.h"
 #include "tag_db.h"
+#include "udp.h"
 
 extern uint8_t data_to_send[];
 
@@ -168,6 +169,24 @@ void wsSendTaginfo(uint8_t mac[6]) {
     xSemaphoreGive(wsMutex);
 }
 
+void wsSendAPitem(struct APlist* apitem) {
+    DynamicJsonDocument doc(250);
+    JsonObject ap = doc.createNestedObject("apitem");
+
+    char version_str[6];
+    sprintf(version_str, "%04X", apitem->version);
+
+    ap["ip"] = ((IPAddress)apitem->src).toString();
+    ap["alias"] = apitem->alias;
+    ap["count"] = apitem->tagCount;
+    ap["channel"] = apitem->channelId;
+    ap["version"] = version_str;
+
+    if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
+    ws.textAll(doc.as<String>());
+    if (wsMutex) xSemaphoreGive(wsMutex);
+}
+
 void init_web() {
     LittleFS.begin(true);
 
@@ -273,6 +292,36 @@ void init_web() {
         }
     });
 
+    server.on("/get_ap_list", HTTP_GET, [](AsyncWebServerRequest *request) {
+        UDPcomm udpsync;
+        udpsync.getAPList();
+        File configFile = LittleFS.open("/current/apconfig.json", "r");
+        if (!configFile) {
+            request->send(500, "text/plain", "Error opening apconfig.json file");
+            return;
+        }
+        request->send(configFile, "application/json");
+        configFile.close();
+    });
+
+    server.on("/save_apcfg", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("alias", true) && request->hasParam("channel", true)) {
+            APconfig["alias"] = request->getParam("alias", true)->value();
+            APconfig["channel"] = request->getParam("channel", true)->value();
+            saveAPconfig();
+            setAPchannel();
+        }
+        request->send(200, "text/plain", "Ok, saved");
+    });
+
+    server.on("/backup_db", HTTP_GET, [](AsyncWebServerRequest *request) {
+        saveDB("/current/tagDB.json");
+        File file = LittleFS.open("/current/tagDB.json", "r");
+        AsyncWebServerResponse *response = request->beginResponse(file, "tagDB.json", String(), true);
+        request->send(response);
+        file.close();
+    });
+
     server.onNotFound([](AsyncWebServerRequest *request) {
         if (request->url() == "/" || request->url() == "index.htm") {
             request->send(200, "text/html", "-");
@@ -291,7 +340,6 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
         } else {
             filename = "unknown.jpg";
         }
-        Serial.print((String) "UploadStart: " + filename);
         request->_tempFile = LittleFS.open("/" + filename, "w");
     }
     if (len) {
@@ -299,7 +347,6 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
         request->_tempFile.write(data, len);
     }
     if (final) {
-        Serial.println((String) " End: " + filename + ", " + index + len);
         request->_tempFile.close();
         if (request->hasParam("mac", true)) {
             String dst = request->getParam("mac", true)->value();

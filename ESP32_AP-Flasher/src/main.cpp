@@ -7,7 +7,6 @@
 #include "flasher.h"
 //#include "hal/wdt_hal.h"
 #include "makeimage.h"
-#include "pendingdata.h"
 #include "serial.h"
 #include "settings.h"
 #include "tag_db.h"
@@ -17,7 +16,7 @@
 #endif
 
 #include "web.h"
-
+#include "udp.h"
 #include "leds.h"
 
 void timeTask(void* parameter) {
@@ -28,7 +27,7 @@ void timeTask(void* parameter) {
         if (!getLocalTime(&tm)) {
             Serial.println("Waiting for valid time from NTP-server");
         } else {
-            if (now % 10 == 0) wsSendSysteminfo();
+            if (now % 5 == 0) wsSendSysteminfo();
             if (now % 30 == 3) Ping();
             if (now % 300 == 6) saveDB("/current/tagDB.json");
 
@@ -51,12 +50,22 @@ void setup() {
     Serial.printf("Flash Size %d, Flash Speed %d\n", ESP.getFlashChipSize(), ESP.getFlashChipSpeed());
     Serial.println("##################################\n\n");
 
-    Serial.println(ESP.getFreeHeap());
+    Serial.printf("Total heap: %d\n", ESP.getHeapSize());
+    Serial.printf("Free heap: %d\n", ESP.getFreeHeap());
+    Serial.printf("Total PSRAM: %d\n", ESP.getPsramSize());
+    Serial.printf("Free PSRAM: %d\n\n", ESP.getFreePsram());
 
-    Serial.printf("Total heap: %d", ESP.getHeapSize());
-    Serial.printf("Free heap: %d", ESP.getFreeHeap());
-    Serial.printf("Total PSRAM: %d", ESP.getPsramSize());
-    Serial.printf("Free PSRAM: %d", ESP.getFreePsram());
+    Serial.printf("ESP32 Partition table:\n");
+    Serial.printf("| Type | Sub |  Offset  |   Size   |       Label      |\n");
+    Serial.printf("| ---- | --- | -------- | -------- | ---------------- |\n");
+    esp_partition_iterator_t pi = esp_partition_find(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, NULL);
+    if (pi != NULL) {
+        do {
+            const esp_partition_t* p = esp_partition_get(pi);
+            Serial.printf("|  %02x  | %02x  | 0x%06X | 0x%06X | %-16s |\r\n",
+                          p->type, p->subtype, p->address, p->size, p->label);
+        } while (pi = (esp_partition_next(pi)));
+    }
 
     #ifdef HAS_USB
     xTaskCreate(usbFlasherTask, "flasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
@@ -65,11 +74,13 @@ void setup() {
     configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "0.nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 
+    initAPconfig();
     init_web();
+    init_udp();
+    
     loadDB("/current/tagDB.json");
 
     xTaskCreate(zbsRxTask, "zbsRX Process", 10000, NULL, 2, NULL);
-    xTaskCreate(garbageCollection, "pending-data cleanup", 5000, NULL, 1, NULL);
     xTaskCreate(webSocketSendProcess, "ws", 5000, NULL, configMAX_PRIORITIES - 10, NULL);
     xTaskCreate(timeTask, "timed tasks", 10000, NULL, 2, NULL);
     xTaskCreate(ledTask, "handles leds", 5000, NULL, 10,  NULL);

@@ -24,27 +24,29 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
         filein = "/" + filein;
     }
     TJpgDec.getFsJpgSize(&w, &h, filein, LittleFS);
+    if (w==0 && h==0) {
+        wsErr("invalid jpg");
+        return;
+    }
     Serial.println("jpeg conversion " + String(w) + "x" + String(h));
 
     spr.setColorDepth(8);
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
+        //no heap space for 8bpp, fallback to 1bpp
+        wsErr("fallback to 1bpp");
+        spr.setColorDepth(1);
+        spr.createSprite(w, h);
+    }
+    if (spr.getPointer() == nullptr) {
         wsErr("Failed to create sprite in jpg2buffer");
-    }
-    spr.fillSprite(TFT_WHITE);
-    TJpgDec.drawFsJpg(0, 0, filein, LittleFS);
+    } else {
+        spr.fillSprite(TFT_WHITE);
+        TJpgDec.drawFsJpg(0, 0, filein, LittleFS);
 
-    spr2buffer(spr, fileout, imageParams);
-    spr.deleteSprite();
-}
-
-static uint32_t repackPackedVals(uint32_t val, uint32_t pixelsPerPackedUnit, uint32_t packedMultiplyVal) {
-    uint32_t ret = 0, i;
-    for (i = 0; i < pixelsPerPackedUnit; i++) {
-        ret = ret * packedMultiplyVal + val % packedMultiplyVal;
-        val /= packedMultiplyVal;
+        spr2buffer(spr, fileout, imageParams);
+        spr.deleteSprite();
     }
-    return ret;
 }
 
 struct Color {
@@ -76,7 +78,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     bool dither = true, rotated = false;
     long bufw = spr.width(), bufh = spr.height();
 
-    if (bufw > bufh) {
+    if (bufw > bufh && bufw!=400 && bufh!=300) {
         rotated = true;
         bufw = spr.height();
         bufh = spr.width();
@@ -95,12 +97,12 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     };
     int num_colors = palette.size();
     Color color;
-    Error error_bufferold[bufw];
-    Error error_buffernew[bufw];
+    Error *error_bufferold = new Error[bufw];
+    Error *error_buffernew = new Error[bufw];
 
-    memset(error_bufferold, 0, sizeof(error_bufferold));
+    memset(error_bufferold, 0, bufw * sizeof(Error));
     for (uint16_t y = 0; y < bufh; y++) {
-        memset(error_buffernew, 0, sizeof(error_buffernew));
+        memset(error_buffernew, 0, bufw * sizeof(Error));
         for (uint16_t x = 0; x < bufw; x++) {
             if (rotated) {
                 color = Color(spr.readPixel(bufh - 1 - y, x));
@@ -127,30 +129,34 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                 redBuffer[byteIndex] |= (1 << bitIndex);
             }
 
-            Error error = {
-                ((float)color.r + error_bufferold[x].r - palette[best_color_index].r) / 16.0f,
-                ((float)color.g + error_bufferold[x].g - palette[best_color_index].g) / 16.0f,
-                ((float)color.b + error_bufferold[x].b - palette[best_color_index].b) / 16.0f};
+            if (imageParams.dither) {
+                Error error = {
+                    ((float)color.r + error_bufferold[x].r - palette[best_color_index].r) / 16.0f,
+                    ((float)color.g + error_bufferold[x].g - palette[best_color_index].g) / 16.0f,
+                    ((float)color.b + error_bufferold[x].b - palette[best_color_index].b) / 16.0f};
 
-            error_buffernew[x].r += error.r * 5.0f;
-            error_buffernew[x].g += error.g * 5.0f;
-            error_buffernew[x].b += error.b * 5.0f;
-            if (x > 0) {
-                error_buffernew[x - 1].r += error.r * 3.0f;
-                error_buffernew[x - 1].g += error.g * 3.0f;
-                error_buffernew[x - 1].b += error.b * 3.0f;
-            }
-            if (x < bufw - 1) {
-                error_buffernew[x + 1].r += error.r * 1.0f;
-                error_buffernew[x + 1].g += error.g * 1.0f;
-                error_buffernew[x + 1].b += error.b * 1.0f;
-                error_bufferold[x + 1].r += error.r * 7.0f;
-                error_bufferold[x + 1].g += error.g * 7.0f;
-                error_bufferold[x + 1].b += error.b * 7.0f;
+                error_buffernew[x].r += error.r * 5.0f;
+                error_buffernew[x].g += error.g * 5.0f;
+                error_buffernew[x].b += error.b * 5.0f;
+                if (x > 0) {
+                    error_buffernew[x - 1].r += error.r * 3.0f;
+                    error_buffernew[x - 1].g += error.g * 3.0f;
+                    error_buffernew[x - 1].b += error.b * 3.0f;
+                }
+                if (x < bufw - 1) {
+                    error_buffernew[x + 1].r += error.r * 1.0f;
+                    error_buffernew[x + 1].g += error.g * 1.0f;
+                    error_buffernew[x + 1].b += error.b * 1.0f;
+                    error_bufferold[x + 1].r += error.r * 7.0f;
+                    error_bufferold[x + 1].g += error.g * 7.0f;
+                    error_bufferold[x + 1].b += error.b * 7.0f;
+                }
             }
         }
-        memcpy(error_bufferold, error_buffernew, sizeof(error_buffernew));
+        memcpy(error_bufferold, error_buffernew, bufw * sizeof(Error));
     }
+    delete[] error_buffernew;
+    delete[] error_bufferold;
 
     f_out.write(blackBuffer, bufferSize);
     if (imageParams.hasRed) f_out.write(redBuffer, bufferSize);

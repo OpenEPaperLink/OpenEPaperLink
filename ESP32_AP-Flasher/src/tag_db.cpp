@@ -2,12 +2,13 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-
+#include <FS.h>
 #include <vector>
 
 #include "LittleFS.h"
 
 std::vector<tagRecord*> tagDB;
+DynamicJsonDocument APconfig(150);
 
 tagRecord* tagRecord::findByMAC(uint8_t mac[6]) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
@@ -25,6 +26,10 @@ bool deleteRecord(uint8_t mac[6]) {
         tagRecord* tag = nullptr;
         tag = tagDB.at(c);
         if (memcmp(tag->mac, mac, 6) == 0) {
+            if (tag->data != nullptr) {
+                free(tag->data);
+            }
+            tag->data = nullptr;
             delete tagDB[c];
             tagDB.erase(tagDB.begin() + c);
             return true;
@@ -88,6 +93,7 @@ void fillNode(JsonObject &tag, tagRecord* &taginfo) {
     tag["wakeupReason"] = taginfo->wakeupReason;
     tag["capabilities"] = taginfo->capabilities;
     tag["modecfgjson"] = taginfo->modeConfigJson;
+    tag["isexternal"] = taginfo->isExternal;
 }
 
 void saveDB(String filename) {
@@ -180,6 +186,7 @@ void loadDB(String filename) {
                     taginfo->wakeupReason = tag["wakeupReason"];
                     taginfo->capabilities = tag["capabilities"];
                     taginfo->modeConfigJson = tag["modecfgjson"].as<String>();
+                    taginfo->isExternal = tag["isexternal"].as<bool>();
                 }
             } else {
                 Serial.print(F("deserializeJson() failed: "));
@@ -195,4 +202,48 @@ void loadDB(String filename) {
     Serial.println("finished reading file");
 
     return;
+}
+
+uint8_t getTagCount() {
+    uint8_t tagcount = 0;
+    for (int16_t c = 0; c < tagDB.size(); c++) {
+        tagRecord* taginfo = nullptr;
+        taginfo = tagDB.at(c);
+        if (taginfo->isExternal == false) tagcount++;
+    }
+    return tagcount;
+}
+
+void clearPending(tagRecord* taginfo) {
+    if (taginfo->data != nullptr) {
+        free(taginfo->data);
+        Serial.println("free taginfo->data");
+        taginfo->data = nullptr;
+    }
+    taginfo->pending = false;
+}
+
+void initAPconfig() {
+    LittleFS.begin(true);
+    File configFile = LittleFS.open("/current/apconfig.json", "r");
+    if (!configFile) {
+        //default values'
+        Serial.println("APconfig not found");
+        APconfig["channel"] = 0;
+        APconfig["alias"] = String();
+        return;
+    }
+    DeserializationError error = deserializeJson(APconfig, configFile);
+    if (error) {
+        configFile.close();
+        Serial.println("apconfig.json file corrupted, or not enough space in apconfig to hold it");
+        return;
+    }
+    configFile.close();
+}
+
+void saveAPconfig() {
+    fs::File configFile = LittleFS.open("/current/apconfig.json", "w");
+    serializeJson(APconfig, configFile);
+    configFile.close();
 }

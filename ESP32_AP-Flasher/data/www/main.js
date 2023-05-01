@@ -8,7 +8,7 @@ const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
 const WAKEUP_REASON_WDT_RESET = 0xFE;
 
-const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url", "Weather forecast", "RSS feed", "QR code", "Calendar"];
+const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url", "Weather forecast", "RSS feed", "QR code", "Calendar", "Remote AP"];
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
 const displaySizeLookup = { 0: [152, 152], 1: [128, 296], 2: [400, 300] };
 const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [255, 0, 0] };
@@ -25,6 +25,7 @@ contentModeOptions[8] = ["location"];
 contentModeOptions[9] = ["title", "url", "interval"];
 contentModeOptions[10] = ["title", "qr-content"];
 contentModeOptions[11] = ["title", "apps_script_url", "interval"];
+contentModeOptions[12] = [];
 
 const imageQueue = [];
 let isProcessing = false;
@@ -33,7 +34,14 @@ let servertimediff = 0;
 let socket;
 connect();
 setInterval(updatecards, 1000);
-window.addEventListener("load", function () { loadTags(0) });
+window.addEventListener("load", function () { 
+	fetch("/get_ap_list")
+		.then(response => response.json())
+		.then(data => {
+			if (data.alias) $(".logo").innerHTML = data.alias;
+		})
+	loadTags(0) 
+});
 
 function loadTags(pos) {
 	fetch("/get_db?pos="+pos)
@@ -67,7 +75,14 @@ function connect() {
 		if (msg.sys) {
 			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + msg.sys.dbsize + ' bytes &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; littlefs free: ' + msg.sys.littlefsfree + ' bytes';
 			servertimediff = (Date.now() / 1000) - msg.sys.currtime;
-			console.log("timediff: " + servertimediff);
+		}
+		if (msg.apitem) {
+			var row = $("#aptable").insertRow();
+			row.insertCell(0).innerHTML = "<a href=\"http://" + msg.apitem.ip + "\" target=\"_new\">" + msg.apitem.ip + "</a>";
+			row.insertCell(1).innerHTML = msg.apitem.alias;
+			row.insertCell(2).innerHTML = msg.apitem.count;
+			row.insertCell(3).innerHTML = msg.apitem.channel;
+			row.insertCell(4).innerHTML = msg.apitem.version;
 		}
 	});
 
@@ -89,12 +104,15 @@ function processTags(tagArray) {
 			div.dataset.mac = tagmac;
 			div.dataset.hwtype = -1;
 			$('#taglist').appendChild(div);
-
-			$('#tag' + tagmac + ' .mac').innerHTML = tagmac;
 		} 
 
 		div.style.display = 'block';
 
+		if (element.isexternal) {
+			$('#tag' + tagmac + ' .mac').innerHTML = tagmac + " via ext AP";
+		} else {
+			$('#tag' + tagmac + ' .mac').innerHTML = tagmac;
+		}
 		let alias = element.alias;
 		if (!alias) alias = tagmac;
 		$('#tag' + tagmac + ' .alias').innerHTML = alias;
@@ -205,9 +223,11 @@ $('#clearlog').onclick = function () {
 	$('#messages').innerHTML='';
 }
 
-$('.closebtn').onclick = function (event) {
-	event.target.parentNode.style.display='none';
-}
+document.querySelectorAll('.closebtn').forEach(button => {
+	button.addEventListener('click', (event) => {
+		event.target.parentNode.style.display = 'none';
+	});
+});
 
 $('#taglist').addEventListener("click", (event) => {
 	let currentElement = event.target;
@@ -227,7 +247,6 @@ $('#taglist').addEventListener("click", (event) => {
 		fetch("/get_db?mac=" + mac)
 			.then(response => response.json())
 			.then(data => {
-				console.log(data);
 				var tagdata = data.tags[0];
 				$('#cfgalias').value = tagdata.alias;
 				$('#cfgcontent').value = tagdata.contentMode;
@@ -240,26 +259,27 @@ $('#taglist').addEventListener("click", (event) => {
 })
 
 $('#cfgsave').onclick = function () {
-
 	let contentMode = $('#cfgcontent').value;
 	let extraoptions = contentModeOptions[contentMode];
 	let obj={};
-	extraoptions.forEach(element => {
-		obj[element] = $('#opt' + element).value;
-	});
+	if (contentMode) {
+		extraoptions.forEach(element => {
+			obj[element] = $('#opt' + element).value;
+		});
 
-	let formData = new FormData();
-	formData.append("mac", $('#cfgmac').dataset.mac);
-	formData.append("alias", $('#cfgalias').value);
-	formData.append("contentmode", contentMode);
-	formData.append("modecfgjson", JSON.stringify(obj));
-	fetch("/save_cfg", {
-		method: "POST",
-		body: formData
-	})
-		.then(response => response.text())
-		.then(data => showMessage(data))
-		.catch(error => showMessage('Error: ' + error));
+		let formData = new FormData();
+		formData.append("mac", $('#cfgmac').dataset.mac);
+		formData.append("alias", $('#cfgalias').value);
+		formData.append("contentmode", contentMode);
+		formData.append("modecfgjson", JSON.stringify(obj));
+		fetch("/save_cfg", {
+			method: "POST",
+			body: formData
+		})
+			.then(response => response.text())
+			.then(data => showMessage(data))
+			.catch(error => showMessage('Error: ' + error));
+	}
 	$('#configbox').style.display = 'none';
 }
 
@@ -288,6 +308,36 @@ $('#rebootbutton').onclick = function () {
 	socket.close();
 }
 
+$('#apconfigbutton').onclick = function () {
+	var table = document.getElementById("aptable");
+	var rowCount = table.rows.length;
+	for (var i = rowCount - 1; i > 0; i--) {
+		table.deleteRow(i);
+	}
+	$('#apconfigbox').style.display = 'block'
+	fetch("/get_ap_list")
+		.then(response => response.json())
+		.then(data => {
+			$('#apcfgalias').value = data.alias;
+			$('#apcfgchid').value = data.channel;
+		})
+}
+
+$('#apcfgsave').onclick = function () {
+	let formData = new FormData();
+	formData.append("alias", $('#apcfgalias').value);
+	formData.append("channel", $('#apcfgchid').value);
+	fetch("/save_apcfg", {
+		method: "POST",
+		body: formData
+	})
+		.then(response => response.text())
+		.then(data => showMessage(data))
+		.catch(error => showMessage('Error: ' + error));
+	$(".logo").innerHTML = $('#apcfgalias').value;
+	$('#apconfigbox').style.display = 'none';
+}
+
 function contentselected() {
 	let contentMode = $('#cfgcontent').value;
 	let extraoptions = contentModeOptions[contentMode];
@@ -296,20 +346,21 @@ function contentselected() {
 	if ($('#cfgcontent').dataset.json && ($('#cfgcontent').dataset.json!="null")) {
 		obj = JSON.parse($('#cfgcontent').dataset.json);
 	}
-	console.log(obj);
-	extraoptions.forEach(element => {
-		var label = document.createElement("label");
-		label.innerHTML = element;
-		label.setAttribute("for", 'opt' + element);
-		var input = document.createElement("input");
-		input.type = "text";
-		input.id = 'opt' + element;
-		if (obj[element]) input.value = obj[element];
-		var p = document.createElement("p");
-		p.appendChild(label);
-		p.appendChild(input);
-		$('#customoptions').appendChild(p);
-	});
+	if (contentMode) {
+		extraoptions.forEach(element => {
+			var label = document.createElement("label");
+			label.innerHTML = element;
+			label.setAttribute("for", 'opt' + element);
+			var input = document.createElement("input");
+			input.type = "text";
+			input.id = 'opt' + element;
+			if (obj[element]) input.value = obj[element];
+			var p = document.createElement("p");
+			p.appendChild(label);
+			p.appendChild(input);
+			$('#customoptions').appendChild(p);
+		});
+	}
 }
 
 function showMessage(message,iserr) {

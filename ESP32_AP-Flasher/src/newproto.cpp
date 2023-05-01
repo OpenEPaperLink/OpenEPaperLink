@@ -1,19 +1,23 @@
 #include "newproto.h"
 
 #include <Arduino.h>
+#include <FS.h>
+#include <HTTPClient.h>
+#include <LittleFS.h>
 #include <MD5Builder.h>
 #include <makeimage.h>
 #include <time.h>
 
 #include "LittleFS.h"
 #include "commstructs.h"
-#include "pendingdata.h"
 #include "serial.h"
 #include "settings.h"
 #include "tag_db.h"
+#include "udp.h"
 #include "web.h"
 
 extern uint16_t sendBlock(const void* data, const uint16_t len);
+extern UDPcomm udpsync;
 
 void addCRC(void* p, uint8_t len) {
     uint8_t total = 0;
@@ -34,6 +38,7 @@ bool checkCRC(void* p, uint8_t len) {
 uint8_t* getDataForFile(fs::File* file) {
     uint8_t* ret = nullptr;
     ret = (uint8_t*)malloc(file->size());
+    Serial.println("malloc " + String(file->size()));
     if (ret) {
         file->seek(0);
         file->readBytes((char*)ret, file->size());
@@ -43,36 +48,47 @@ uint8_t* getDataForFile(fs::File* file) {
     return ret;
 }
 
-void prepareCancelPending(uint64_t ver) {
+void prepareCancelPending(uint8_t dst[8]) {
     struct pendingData pending = {0};
-    pending.availdatainfo.dataVer = ver;
+    memcpy(pending.targetMac, dst, 8);
     sendCancelPending(&pending);
+
+    uint8_t src[8];
+    *((uint64_t*)src) = swap64(*((uint64_t*)dst));
+    uint8_t mac[6];
+    memcpy(mac, src + 2, sizeof(mac));
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo == nullptr) {
+        wsErr("Tag not found, this shouldn't happen.");
+        return;
+    }
+    clearPending(taginfo);
+
+    wsSendTaginfo(mac);
 }
 
 void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
-    if (nextCheckin > MIN_RESPONSE_TIME) {
-        // to prevent very long sleeps of the tag
-        nextCheckin = MIN_RESPONSE_TIME;
+    if (nextCheckin > MIN_RESPONSE_TIME) nextCheckin = MIN_RESPONSE_TIME;
+    if (nextCheckin > 0) {
+        struct pendingData pending = {0};
+        memcpy(pending.targetMac, dst, 8);
+        pending.availdatainfo.dataType = DATATYPE_NOUPDATE;
+        pending.availdatainfo.nextCheckIn = nextCheckin;
+        pending.attemptsLeft = 10 + MIN_RESPONSE_TIME;
+
+        char buffer[64];
+        uint8_t src[8];
+        *((uint64_t*)src) = swap64(*((uint64_t*)dst));
+        sprintf(buffer, "< %02X%02X%02X%02X%02X%02X idle req\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+        Serial.print(buffer);
+
+        sendDataAvail(&pending);
     }
-    struct pendingData pending = {0};
-    memcpy(pending.targetMac, dst, 8);
-    pending.availdatainfo.dataType = DATATYPE_NOUPDATE;
-    pending.availdatainfo.nextCheckIn = nextCheckin;
-    pending.attemptsLeft = 10 + MIN_RESPONSE_TIME;
-
-    char buffer[64];
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)dst));
-    Serial.print(buffer);
-
-    sendDataAvail(&pending);
 }
 
 bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
-    if (nextCheckin > MIN_RESPONSE_TIME) {
-        //to prevent very long sleeps of the tag
-        nextCheckin = MIN_RESPONSE_TIME;
-    }
+    if (nextCheckin > MIN_RESPONSE_TIME) nextCheckin = MIN_RESPONSE_TIME;
 
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)dst));
@@ -138,18 +154,22 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         LittleFS.rename(*filename, dst_path);
         *filename = String(dst_path);
 
-        wsLog("new image pending: " + String(dst_path));
+        wsLog("new image: " + String(dst_path));
         time_t now;
         time(&now);
-        taginfo->pending = true;
         taginfo->expectedNextCheckin = now + nextCheckin * 60 + 60;
+        taginfo->filename = *filename;
+        taginfo->len = filesize;
+        clearPending(taginfo);
+        taginfo->pending = true;
         memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
 
     } else {
         wsLog("firmware upload pending");
+        taginfo->filename = *filename;
+        taginfo->len = filesize;
     }
 
-    // the message that will be sent to the AP to tell the tag there is data pending
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     pending.availdatainfo.dataType = dataType;
@@ -158,21 +178,75 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pending.availdatainfo.dataTypeArgument = lut;
     pending.availdatainfo.nextCheckIn = nextCheckin;
     pending.attemptsLeft = attempts;
-    sendDataAvail(&pending);
-
-    // data for the cache on the esp32; needs to hold the data longer than the maximum timeout on the AP
-    pendingdata* pendinginfo = nullptr;
-    pendinginfo = new pendingdata;
-    pendinginfo->filename = *filename;
-    pendinginfo->ver = pending.availdatainfo.dataVer;
-    pendinginfo->len = pending.availdatainfo.dataSize;
-    pendinginfo->data = nullptr;
-    pendinginfo->timeout = PENDING_TIMEOUT;
-    pendingfiles.push_back(pendinginfo);
+    if (taginfo->isExternal == false) {
+        sendDataAvail(&pending);
+    } else {
+        udpsync.netSendDataAvail(&pending);
+    }
 
     wsSendTaginfo(mac);
 
     return true;
+}
+
+void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
+    uint8_t src[8];
+    *((uint64_t*)src) = swap64(*((uint64_t*)pending->targetMac));
+    uint8_t mac[6];
+    memcpy(mac, src + 2, sizeof(mac));
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo == nullptr) {
+        return;
+    }
+    if (taginfo->isExternal == false) {
+        LittleFS.begin();
+
+        char buffer[64];
+        sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+        String filename = "/current/" + (String)buffer + ".pending";
+        String imageUrl = "http://" + remoteIP.toString() + filename;
+        wsLog("GET " + imageUrl);
+        HTTPClient http;
+        http.begin(imageUrl);
+        int httpCode = http.GET();
+        if (httpCode == 200) {
+            File file = LittleFS.open(filename, "w");
+            http.writeToStream(&file);
+            file.close();
+        }
+        http.end();
+
+        fs::File file = LittleFS.open(filename);
+        uint32_t filesize = file.size();
+        if (filesize == 0) {
+            file.close();
+            wsErr("File has size 0. " + filename);
+            return;
+        }
+
+        uint8_t md5bytes[16];
+        {
+            MD5Builder md5;
+            md5.begin();
+            md5.addStream(file, filesize);
+            md5.calculate();
+            md5.getBytes(md5bytes);
+        }
+
+        file.close();
+        sendDataAvail(pending);
+
+        taginfo->filename = filename;
+        taginfo->len = filesize;
+        clearPending(taginfo);
+        taginfo->pending = true;
+        memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
+        taginfo->contentMode = 12;
+        taginfo->nextupdate = 3216153600;
+
+        wsSendTaginfo(mac);
+    }
 }
 
 void processBlockRequest(struct espBlockRequest* br) {
@@ -181,43 +255,44 @@ void processBlockRequest(struct espBlockRequest* br) {
         return;
     }
 
-    pendingdata* pd = pendingdata::findByVer(br->ver);
-    if (pd == nullptr) {
-        prepareCancelPending(br->ver);
-        Serial.printf("Couldn't find pendingdata info for ver %llu", br->ver);
+    uint8_t src[8];
+    *((uint64_t*)src) = swap64(*((uint64_t*)br->src));
+    uint8_t mac[6];
+    memcpy(mac, src + 2, sizeof(mac));
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo == nullptr) {
+        prepareCancelPending(br->src);
+        Serial.printf("blockrequest: couldn't find taginfo %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
         return;
-    } else {
-        if (pd->data == nullptr) {
-            // not cached. open file, cache the data
-            fs::File file = LittleFS.open(pd->filename);
-            if (!file) {
-                Serial.print("Dunno how this happened... File pending but deleted in the meantime?\n");
-                prepareCancelPending(br->ver);
-                return;
-            }
-            pd->data = getDataForFile(&file);
-            pd->datatimeout = PENDING_DATA_TIMEOUT;
-            file.close();
-        } else {
-            // file is already cached, refresh the timeout
-            //pd->datatimeout = PENDING_DATA_TIMEOUT;
-        }
     }
+
+    if (taginfo->data == nullptr) {
+        // not cached. open file, cache the data
+        fs::File file = LittleFS.open(taginfo->filename);
+        if (!file) {
+            Serial.print("Dunno how this happened... File pending but deleted in the meantime?\n");
+            prepareCancelPending(br->src);
+            return;
+        }
+        taginfo->data = getDataForFile(&file);
+        file.close();
+    }
+
     // check if we're not exceeding max blocks (to prevent sendBlock from exceeding its boundary)
-    uint8_t totalblocks = (pd->len / BLOCK_DATA_SIZE);
-    if (pd->len % BLOCK_DATA_SIZE) totalblocks++;
+    uint8_t totalblocks = (taginfo->len / BLOCK_DATA_SIZE);
+    if (taginfo->len % BLOCK_DATA_SIZE) totalblocks++;
     if (br->blockId >= totalblocks) {
         br->blockId = totalblocks - 1;
     }
 
-    uint32_t len = pd->len - (BLOCK_DATA_SIZE * br->blockId);
+    uint32_t len = taginfo->len - (BLOCK_DATA_SIZE * br->blockId);
     if (len > BLOCK_DATA_SIZE) len = BLOCK_DATA_SIZE;
-    uint16_t checksum = sendBlock(pd->data + (br->blockId * BLOCK_DATA_SIZE), len);
+    uint16_t checksum = sendBlock(taginfo->data + (br->blockId * BLOCK_DATA_SIZE), len);
     char buffer[150];
-    sprintf(buffer, "< Block Request received for file %s block %d, len %d checksum %u\0", pd->filename.c_str(), br->blockId, len, checksum);
+    sprintf(buffer, "< Block Request received for file %s block %d, len %d checksum %u\0", taginfo->filename.c_str(), br->blockId, len, checksum);
     wsLog((String)buffer);
-    Serial.printf("< Block Request received for MD5 %llu, file %s block %d, len %d checksum %u", br->ver, pd->filename.c_str(), br->blockId, len, checksum);
-    Serial.printf(" from mac %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", br->src[7],br->src[6],br->src[5],br->src[4],br->src[3],br->src[2],br->src[1],br->src[0]);
+    Serial.printf("< Block Request received for file %s block %d, len %d checksum %u\0", taginfo->filename.c_str(), br->blockId, len, checksum);
 }
 
 void processXferComplete(struct espXferComplete* xfc) {
@@ -239,28 +314,15 @@ void processXferComplete(struct espXferComplete* xfc) {
     }
     if (LittleFS.exists(src_path)) {
         LittleFS.rename(src_path, dst_path);
-    } else {
-        wsErr("hm, weird, no pending image found after xfercomplete.");
-    }
+    } 
 
     time_t now;
     time(&now);
     tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(mac);
     if (taginfo != nullptr) {
-
-        uint16_t minutesUntilNextUpdate = 0;
-        if (taginfo->nextupdate > now + 2 * 60) {
-            minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
-            if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
-            taginfo->expectedNextCheckin = now + 60 * minutesUntilNextUpdate + 60;
-            if (minutesUntilNextUpdate > 1) prepareIdleReq (xfc->src, minutesUntilNextUpdate);
-        } else {
-            taginfo->expectedNextCheckin = now + 60;
-        }
-
-        taginfo->pending = false;
         memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
+        clearPending(taginfo);
     }
     wsSendTaginfo(mac);
 }
@@ -281,8 +343,8 @@ void processXferTimeout(struct espXferComplete* xfc) {
     taginfo = tagRecord::findByMAC(mac);
     if (taginfo != nullptr) {
         taginfo->expectedNextCheckin = now + 60;
-        taginfo->pending = false;
         memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
+        clearPending(taginfo);
     }
     wsSendTaginfo(mac);
 }
@@ -305,17 +367,20 @@ void processDataReq(struct espAvailDataReq* eadr) {
     }
     time_t now;
     time(&now);
-    taginfo->lastseen = now;
 
-    uint16_t minutesUntilNextUpdate = 0;
-    if (taginfo->nextupdate > now + 2 * 60) {
-        minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
-        if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
-        taginfo->expectedNextCheckin = now + 60 * minutesUntilNextUpdate + 60;
-        if (minutesUntilNextUpdate > 1 && taginfo->pending == false) prepareIdleReq(eadr->src, minutesUntilNextUpdate);
+    if (eadr->src[7] == 0xFF) {
+        taginfo->isExternal = true;
     } else {
-        taginfo->expectedNextCheckin = now + 60;
+        taginfo->isExternal = false;
     }
+
+    if (taginfo->pendingIdle == 0) {
+        taginfo->expectedNextCheckin = now + 60;
+    } else {
+        taginfo->expectedNextCheckin = now + 60 * taginfo->pendingIdle;
+        taginfo->pendingIdle = 0;
+    }
+    taginfo->lastseen = now;
 
     if (eadr->adr.lastPacketRSSI != 0) {
         taginfo->LQI = eadr->adr.lastPacketLQI;
@@ -343,7 +408,7 @@ void refreshAllPending() {
         tagRecord* taginfo = nullptr;
         taginfo = tagDB.at(c);
         if (taginfo->pending) {
-            taginfo->pending = false;
+            clearPending(taginfo);
             taginfo->nextupdate = 0;
             memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
             memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
@@ -351,3 +416,16 @@ void refreshAllPending() {
         }
     }
 };
+
+void setAPchannel() {
+    if (APconfig["channel"].as<int>() == 0) {
+        // trigger channel autoselect
+        UDPcomm udpsync;
+        udpsync.getAPList();
+    } else {
+        if (curChannel.channel != APconfig["channel"].as<int>()) {
+            curChannel.channel = APconfig["channel"].as<int>();
+            if (version) sendChannelPower(&curChannel);
+        }
+    }
+}

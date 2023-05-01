@@ -22,8 +22,8 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
 void initSprite(TFT_eSprite &spr, int w, int h);
 void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams);
 void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo, imgParam &imageParams);
-void drawWeather(String &filename, String location, tagRecord *&taginfo, imgParam &imageParams);
-void drawForecast(String &filename, String location, tagRecord *&taginfo, imgParam &imageParams);
+void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
+void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
 void drawIdentify(String &filename, tagRecord *&taginfo, imgParam &imageParams);
 bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams);
 bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams);
@@ -34,3 +34,4 @@ String urlEncode(const char *msg);
 int windSpeedToBeaufort(float windSpeed);
 String windDirectionIcon(int degrees);
 String mac62hex(uint8_t *mac);
+void getLocation(JsonObject &cfgobj);
