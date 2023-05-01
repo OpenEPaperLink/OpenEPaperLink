@@ -188,7 +188,7 @@ void powerUp(const uint8_t parts) {
         radioInit();
         radioRxFilterCfg(mSelfMac, 0x10000, PROTO_PAN_ID);
         radioSetTxPower(10);
-        if (currentChannel >= 11 && currentChannel <= 25) {
+        if (currentChannel >= 11 && currentChannel <= 27) {
             radioSetChannel(currentChannel);
         } else {
             radioSetChannel(RADIO_FIRST_CHANNEL);

@@ -615,6 +615,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
     if (xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8) && curDataInfo.dataSize) {
         // looks like we did. We'll carry on where we left off.
         pr("restarting image download");
+        curImgSlot = nextImgSlot;
     } else {
         // go to the next image slot
         nextImgSlot++;
@@ -657,6 +658,9 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
         if (getDataBlock(dataRequestSize)) {
             // succesfully downloaded datablock, save to eeprom
             powerUp(INIT_EEPROM);
+#ifdef DEBUGBLOCKS
+            pr("Saving block %d to slot %d\n", curBlock.blockId, curImgSlot);
+#endif
             saveImgBlockData(curImgSlot, curBlock.blockId);
             powerDown(INIT_EEPROM);
             curBlock.blockId++;
@@ -676,6 +680,9 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
     eih->size = imageSize;
     eih->dataType = curDataInfo.dataType;
 
+#ifdef DEBUGBLOCKS
+    pr("Now writing datatype 0x%02X to slot %d\n", curDataInfo.dataType, curImgSlot);
+#endif
     powerUp(INIT_EEPROM);
     eepromWrite(getAddressForSlot(curImgSlot), eih, sizeof(struct EepromImageHeader));
     powerDown(INIT_EEPROM);
