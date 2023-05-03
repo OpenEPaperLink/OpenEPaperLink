@@ -3,6 +3,8 @@
 #define __packed
 #include <stdint.h>
 
+#include "../tag_types.h"
+
 enum TagScreenType {
     TagScreenEink_BW_1bpp,
     TagScreenEink_BW_2bpp,
@@ -29,11 +31,6 @@ enum TagScreenType {
     TagScreenTypeOther = 0x7f,
 };
 
-#define SOLUM_154_033 0
-#define SOLUM_29_033 1
-#define SOLUM_42_033 2
-#define SOLUM_SEG_UK 0xF0
-#define SOLUM_NODISPLAY 0xFF
 
 #ifndef __packed
 #define __packed __attribute__((packed))
@@ -116,21 +113,6 @@ struct AvailDataReq {
     uint8_t capabilities;  // undefined, as of now
 } __packed;
 
-#define CAPABILITY_HAS_WAKE_BUTTON 0x20
-#define CAPABILITY_HAS_NFC 0x40
-#define CAPABILITY_NFC_WAKE 0x80
-
-#define DATATYPE_NOUPDATE 0
-#define DATATYPE_IMG_BMP 2
-#define DATATYPE_FW_UPDATE 3
-#define DATATYPE_IMG_DIFF 0x10             // always 1BPP
-#define DATATYPE_IMG_RAW_1BPP 0x20         // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
-#define DATATYPE_IMG_RAW_2BPP 0x21         // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2"
-#define DATATYPE_IMG_RAW_1BPP_DIRECT 0x3F  // only for 1.54", don't write to EEPROM, but straightaway to the EPD
-#define DATATYPE_NFC_RAW_CONTENT 0xA0      // raw memory content for the NT3H1101
-#define DATATYPE_NFC_URL_DIRECT 0xA1       // URL format for NT3H1101
-
-
 
 struct AvailDataInfo {
     uint8_t checksum;
@@ -183,6 +165,31 @@ struct blockRequestAck {
     uint8_t checksum;
     uint16_t pleaseWaitMs;
 } __packed;
+
+struct espBlockRequest {
+    uint8_t checksum;
+    uint64_t ver;
+    uint8_t blockId;
+    uint8_t src[8];
+} __packed;
+
+struct espXferComplete {
+    uint8_t checksum;
+    uint8_t src[8];
+} __packed;
+
+struct espAvailDataReq {
+    uint8_t checksum;
+    uint8_t src[8];
+    struct AvailDataReq adr;
+} __packed;
+
+struct espSetChannelPower {
+    uint8_t checksum;
+    uint8_t channel;
+    uint8_t power;
+} __packed;
+
 
 #define MACFMT "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
 #define MACCVT(x) ((const uint8_t*)(x))[7], ((const uint8_t*)(x))[6], ((const uint8_t*)(x))[5], ((const uint8_t*)(x))[4], ((const uint8_t*)(x))[3], ((const uint8_t*)(x))[2], ((const uint8_t*)(x))[1], ((const uint8_t*)(x))[0]

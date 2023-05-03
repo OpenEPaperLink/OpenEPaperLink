@@ -24,37 +24,13 @@
 #include "emulateTag.h"
 #endif
 
-#define MAX_PENDING_MACS 50
+#define MAX_PENDING_MACS 55
 #define HOUSEKEEPING_INTERVAL 60UL
 
 struct pendingData __xdata pendingDataArr[MAX_PENDING_MACS];
 
-struct espBlockRequest {
-    uint8_t checksum;
-    uint64_t ver;
-    uint8_t blockId;
-    uint8_t src[8];
-} __packed;
-
-struct espXferComplete {
-    uint8_t checksum;
-    uint8_t src[8];
-} __packed;
-
-struct espAvailDataReq {
-    uint8_t checksum;
-    uint8_t src[8];
-    struct AvailDataReq adr;
-} __packed;
-
-struct espSetChannelPower {
-    uint8_t checksum;
-    uint8_t channel;
-    uint8_t power;
-} __packed;
-
-// #define TIMER_TICKS_PER_MS 1333UL
-uint16_t __xdata version = 0x0012;
+// VERSION GOES HERE!
+uint16_t __xdata version = 0x0013;
 
 #define RAW_PKT_PADDING 2
 
@@ -64,13 +40,6 @@ uint8_t __xdata radiotxbuffer[128];
 uint8_t __xdata radiorxbuffer[128];
 
 uint8_t __xdata mSelfMac[8];
-
-// serial stuff
-uint8_t __xdata cmdbuffer[4];
-uint8_t __xdata RXState = 0;
-uint8_t __xdata serialbuffer[48];
-uint8_t *__xdata serialbufferp;
-uint8_t __xdata bytesRemain = 0;
 
 static uint32_t __xdata housekeepingTimer;
 
@@ -94,12 +63,14 @@ uint32_t __xdata lastBlockRequest = 0;
 uint8_t __xdata lastBlockMac[8];
 
 uint8_t __xdata curChannel = 11;
+uint8_t __xdata curPower = 10;
 
 uint8_t __xdata curPendingData = 0;
 uint8_t __xdata curNoUpdate = 0;
 
 void sendXferCompleteAck(uint8_t *dst);
 void sendCancelXfer(uint8_t *dst);
+void espNotifyAPInfo();
 
 // tools
 void addCRC(void *p, uint8_t len) {
@@ -232,6 +203,12 @@ void countSlots() {
 
 extern uint8_t *__idata blockp;
 void processSerial(uint8_t lastchar) {
+    static uint8_t __xdata cmdbuffer[4];
+    static uint8_t __xdata RXState = 0;
+    static uint8_t __xdata serialbuffer[48];
+    static uint8_t *__xdata serialbufferp;
+    static uint8_t __xdata bytesRemain = 0;
+
     static uint32_t __xdata lastSerial = 0;
     if ((timerGet() - lastSerial) > (TIMER_TICKS_PER_MS * 25)) {
         RXState = ZBS_RX_WAIT_HEADER;
@@ -272,16 +249,18 @@ void processSerial(uint8_t lastchar) {
                 serialbufferp = serialbuffer;
                 break;
             }
-            if (strncmp(cmdbuffer, "VER?", 4) == 0) {
-                pr("VER>%04X\n", version);
+            if (strncmp(cmdbuffer, "NFO?", 4) == 0) {
+                pr("ACK>");
+                espNotifyAPInfo();
             }
             if (strncmp(cmdbuffer, "RDY?", 4) == 0) {
-                pr("RDY>");
+                pr("ACK>");
             }
             if (strncmp(cmdbuffer, "RSET", 4) == 0) {
+                pr("ACK>");
+                timerDelay(TIMER_TICKS_PER_MS * 100);
                 wdtDeviceReset();
             }
-
             break;
 
         case ZBS_RX_WAIT_SDA:
@@ -354,6 +333,7 @@ void processSerial(uint8_t lastchar) {
                     goto SCPfailed;
                 SCPchannelFound:
                     curChannel = scp->channel;
+                    curPower = scp->power;
                     radioSetChannel(scp->channel);
                     radioSetTxPower(scp->power);
                     radioRxEnable(true, true);
@@ -423,6 +403,19 @@ void espNotifyTimeOut(const uint8_t *src) {
     for (uint8_t c = 0; c < sizeof(exfc); c++) {
         uartTx(((uint8_t *)exfc)[c]);
     }
+}
+void espNotifyAPInfo() {
+    pr("TYP>%02X\n", HW_TYPE);
+    pr("VER>%04X\n", version);
+    pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
+    pr("%02X%02X", mSelfMac[2], mSelfMac[3]);
+    pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
+    pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
+    pr("ZCH>%02X\n", curChannel);
+    pr("ZPW>%02X\n", curPower);
+    countSlots();
+    pr("PEN>%02X\n", curPendingData);
+    pr("NOP>%02X\n", curNoUpdate);
 }
 
 // process data from tag
@@ -726,22 +719,20 @@ void main(void) {
     radioSetChannel(curChannel);
     radioSetTxPower(10);
     radioRxEnable(true, true);
-
-    pr("RDY>\n");
-
+    timerDelay(TIMER_TICKS_PER_MS * 100);
 #if (HAS_SCREEN == 1)
     epdShowRun();
 #endif
 
+    pr("RES>\n");
+    pr("RDY>\n");
+#if (AP_EMULATE_TAG == 1)
+    fakeTagCheckIn();
+#endif
+
     housekeepingTimer = timerGet();
 
-    pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
-    pr("%02X%02X", mSelfMac[2], mSelfMac[3]);
-    pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
-    pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
-
     uint16_t __xdata loopCount = 1;
-    pr("VER>%04X\n", version);
     while (1) {
         while ((timerGet() - housekeepingTimer) < ((TIMER_TICKS_PER_SECOND * HOUSEKEEPING_INTERVAL) - 100 * TIMER_TICKS_PER_MS)) {
             int8_t ret = commsRxUnencrypted(radiorxbuffer);

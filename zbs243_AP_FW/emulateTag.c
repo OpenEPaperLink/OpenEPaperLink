@@ -50,7 +50,7 @@ uint16_t epdByteCounter = 0;
 void epdWriteByte(uint8_t b) {
     epdSend(b);
     epdByteCounter++;
-    // check if we need to switch to a 
+    // check if we need to switch to a
     if (epdByteCounter == (SCREEN_HEIGHT * SCREEN_WIDTH / 8)) {
         epdDeselect();
         endWriteFramebuffer();
@@ -111,6 +111,7 @@ void fakePendingData(struct pendingData *pd) {
 }
 
 void fakeTagCheckIn() {
+    static bool __xdata firstboot = true;
     struct AvailDataReq *adr = (struct AvailDataReq *)radiorxbuffer;
 
     memset(adr, 0, sizeof(struct AvailDataReq));
@@ -118,7 +119,12 @@ void fakeTagCheckIn() {
     adr->hwType = HW_TYPE;
     adr->lastPacketLQI = 100;
     adr->lastPacketRSSI = 100;
-    adr->wakeupReason = 0;
+    if (firstboot) {
+        adr->wakeupReason = 0xFC;
+        firstboot = false;
+    } else {
+        adr->wakeupReason = 0;
+    }
     addCRC(adr, sizeof(struct AvailDataReq));
     espNotifyAvailDataReq(adr, fakeTagMac);
 }

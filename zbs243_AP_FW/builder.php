@@ -23,7 +23,8 @@ $stackdisturbed = false;
 $mem = checkmem();
 while(1){
 	$errlist = array();
-	exec("make BUILD=zbs154v033 CPU=8051 SOC=zbs243 2>&1 | grep error | grep -v make", $errlist);
+	//exec("make BUILD=zbs154v033 CPU=8051 SOC=zbs243 2>&1 | grep error | grep -v make", $errlist);
+        exec("make BUILD=zbs_segmented_uk CPU=8051 SOC=zbs243 2>&1 | grep error | grep -v make", $errlist);
 	if(checkmem()!=$mem){
 		$stackdisturbed = true;
 		echo "Stack size was $mem, is now ".checkmem()." !!!\n";

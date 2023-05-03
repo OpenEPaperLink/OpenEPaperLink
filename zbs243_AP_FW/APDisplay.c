@@ -87,7 +87,7 @@ void epdShowRun() {
     epdPrintBegin(16, 55, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("AP Mode");
     epdPrintEnd();
-    drawNoWait();
+    draw();
 }
 
 #endif
