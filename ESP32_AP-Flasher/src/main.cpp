@@ -5,9 +5,9 @@
 
 #include "contentmanager.h"
 #include "flasher.h"
-//#include "hal/wdt_hal.h"
+// #include "hal/wdt_hal.h"
 #include "makeimage.h"
-#include "serial.h"
+#include "serialap.h"
 #include "settings.h"
 #include "tag_db.h"
 
@@ -15,9 +15,9 @@
 #include "usbflasher.h"
 #endif
 
-#include "web.h"
-#include "udp.h"
 #include "leds.h"
+#include "udp.h"
+#include "web.h"
 
 void timeTask(void* parameter) {
     while (1) {
@@ -28,7 +28,6 @@ void timeTask(void* parameter) {
             Serial.println("Waiting for valid time from NTP-server");
         } else {
             if (now % 5 == 0) wsSendSysteminfo();
-            if (now % 30 == 3) Ping();
             if (now % 300 == 6) saveDB("/current/tagDB.json");
 
             contentRunner();
@@ -38,6 +37,9 @@ void timeTask(void* parameter) {
 }
 
 void setup() {
+#ifdef OPENEPAPERLINK_MINI_AP_PCB
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
+#endif
     Serial.begin(115200);
     Serial.print(">\n");
 
@@ -67,9 +69,9 @@ void setup() {
         } while (pi = (esp_partition_next(pi)));
     }
 
-    #ifdef HAS_USB
+#ifdef HAS_USB
     xTaskCreate(usbFlasherTask, "flasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
-    #endif
+#endif
 
     configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "0.nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
@@ -77,13 +79,13 @@ void setup() {
     initAPconfig();
     init_web();
     init_udp();
-    
+
     loadDB("/current/tagDB.json");
 
-    xTaskCreate(zbsRxTask, "zbsRX Process", 10000, NULL, 2, NULL);
+    xTaskCreate(APTask, "AP Process", 10000, NULL, 2, NULL);
     xTaskCreate(webSocketSendProcess, "ws", 5000, NULL, configMAX_PRIORITIES - 10, NULL);
     xTaskCreate(timeTask, "timed tasks", 10000, NULL, 2, NULL);
-    xTaskCreate(ledTask, "handles leds", 5000, NULL, 10,  NULL);
+    xTaskCreate(ledTask, "ledhandler", 5000, NULL, 3, NULL);
 }
 
 void loop() {

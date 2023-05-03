@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #pragma pack(push, 1)
 
+#include "../../tag_types.h"
+
 struct espBlockRequest {
     uint8_t checksum;
     uint64_t ver;
@@ -25,17 +27,6 @@ struct blockData {
     uint8_t data[];
 } __packed;
 
-#define SOLUM_154_033 0
-#define SOLUM_29_033 1
-#define SOLUM_42_033 2
-
-#define WAKEUP_REASON_TIMED 0
-#define WAKEUP_REASON_GPIO 2
-#define WAKEUP_REASON_NFC 3
-#define WAKEUP_REASON_FIRSTBOOT 0xFC
-#define WAKEUP_REASON_NETWORK_SCAN 0xFD
-#define WAKEUP_REASON_WDT_RESET 0xFE
-
 struct AvailDataReq {
     uint8_t checksum;
     uint8_t lastPacketLQI;
@@ -52,16 +43,6 @@ struct espAvailDataReq {
     uint8_t src[8];
     struct AvailDataReq adr;
 } __packed;
-
-#define DATATYPE_NOUPDATE 0
-#define DATATYPE_IMG_BMP 2
-#define DATATYPE_FW_UPDATE 3
-#define DATATYPE_IMG_DIFF 0x10             // always 1BPP
-#define DATATYPE_IMG_RAW_1BPP 0x20         // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
-#define DATATYPE_IMG_RAW_2BPP 0x21         // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2"
-#define DATATYPE_IMG_RAW_1BPP_DIRECT 0x3F  // only for 1.54", don't write to EEPROM, but straightaway to the EPD
-#define DATATYPE_NFC_RAW_CONTENT 0xA0      // raw memory content for the NT3H1101
-#define DATATYPE_NFC_URL_DIRECT 0xA1       // URL format for NT3H1101
 
 #define EPD_LUT_DEFAULT 0
 #define EPD_LUT_NO_REPEATS 1

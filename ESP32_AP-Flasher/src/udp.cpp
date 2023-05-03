@@ -6,7 +6,7 @@
 #include "newproto.h"
 #include "tag_db.h"
 #include "web.h"
-#include "serial.h"
+#include "serialap.h"
 
 #define UDPIP IPAddress(239, 10, 0, 1)
 #define UDPPORT 16033
@@ -15,7 +15,6 @@ UDPcomm udpsync;
 
 extern uint8_t channelList[6];
 extern espSetChannelPower curChannel;
-extern uint16_t version;
 
 void init_udp() {
     udpsync.init();
@@ -44,18 +43,17 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
     switch (packet.data()[0]) {
         case PKT_AVAIL_DATA_INFO: {
             espAvailDataReq* adr = (espAvailDataReq*)&packet.data()[1];
-            adr->src[7] = 0xFF;
-            processDataReq(adr);
+            processDataReq(adr, false);
             break;
         }
         case PKT_XFER_COMPLETE: {
             espXferComplete* xfc = (espXferComplete*)&packet.data()[1];
-            processXferComplete(xfc);
+            processXferComplete(xfc, false);
             break;
         }
         case PKT_XFER_TIMEOUT: {
             espXferComplete* xfc = (espXferComplete*)&packet.data()[1];
-            processXferTimeout(xfc);
+            processXferTimeout(xfc, false);
             break;
         }
         case PKT_AVAIL_DATA_REQ: {
@@ -71,7 +69,7 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
             strcpy(APitem.alias, APconfig["alias"]);
             APitem.channelId = curChannel.channel;
             APitem.tagCount = getTagCount();
-            APitem.version = version;
+            APitem.version = apInfo.version;
 
             uint8_t buffer[sizeof(struct APlist) + 1];
             buffer[0] = PKT_APLIST_REPLY;
@@ -111,7 +109,7 @@ void autoselect(void* pvParameters) {
     APconfig["channel"] = curChannel.channel;
     do {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-    } while (!version);
+    } while (!apInfo.isOnline);
 
     sendChannelPower(&curChannel);
     saveAPconfig();
@@ -126,7 +124,7 @@ void UDPcomm::getAPList() {
     strcpy(APitem.alias, APconfig["alias"]);
     APitem.channelId = curChannel.channel;
     APitem.tagCount = getTagCount();
-    APitem.version = version;
+    APitem.version = apInfo.version;
     wsSendAPitem(&APitem);
 
     if (APconfig["channel"].as<int>() == 0) {

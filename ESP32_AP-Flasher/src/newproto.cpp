@@ -10,7 +10,7 @@
 
 #include "LittleFS.h"
 #include "commstructs.h"
-#include "serial.h"
+#include "serialap.h"
 #include "settings.h"
 #include "tag_db.h"
 #include "udp.h"
@@ -38,7 +38,6 @@ bool checkCRC(void* p, uint8_t len) {
 uint8_t* getDataForFile(fs::File* file) {
     uint8_t* ret = nullptr;
     ret = (uint8_t*)malloc(file->size());
-    Serial.println("malloc " + String(file->size()));
     if (ret) {
         file->seek(0);
         file->readBytes((char*)ret, file->size());
@@ -80,9 +79,8 @@ void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
         char buffer[64];
         uint8_t src[8];
         *((uint64_t*)src) = swap64(*((uint64_t*)dst));
-        sprintf(buffer, "< %02X%02X%02X%02X%02X%02X idle req\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+        sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X NOP\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
         Serial.print(buffer);
-
         sendDataAvail(&pending);
     }
 }
@@ -145,7 +143,6 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     }
 
     if (dataType != DATATYPE_FW_UPDATE) {
-
         char dst_path[64];
         sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
         if (LittleFS.exists(dst_path)) {
@@ -179,6 +176,11 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pending.availdatainfo.nextCheckIn = nextCheckin;
     pending.attemptsLeft = attempts;
     if (taginfo->isExternal == false) {
+        char buffer[64];
+        uint8_t src[8];
+        *((uint64_t*)src) = swap64(*((uint64_t*)dst));
+        sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X TYPE 0x%02X\n\0", src[2], src[3], src[4], src[5], src[6], src[7], pending.availdatainfo.dataType);
+        Serial.print(buffer);
         sendDataAvail(&pending);
     } else {
         udpsync.netSendDataAvail(&pending);
@@ -292,16 +294,21 @@ void processBlockRequest(struct espBlockRequest* br) {
     char buffer[150];
     sprintf(buffer, "< Block Request received for file %s block %d, len %d checksum %u\0", taginfo->filename.c_str(), br->blockId, len, checksum);
     wsLog((String)buffer);
-    Serial.printf("< Block Request received for file %s block %d, len %d checksum %u\0", taginfo->filename.c_str(), br->blockId, len, checksum);
+    Serial.printf("<RQB file %s block %d, len %d checksum %u\n\0", taginfo->filename.c_str(), br->blockId, len, checksum);
 }
 
-void processXferComplete(struct espXferComplete* xfc) {
+void processXferComplete(struct espXferComplete* xfc, bool local) {
     char buffer[64];
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)xfc->src));
     sprintf(buffer, "< %02X%02X%02X%02X%02X%02X reports xfer complete\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
     wsLog((String)buffer);
-    Serial.print(buffer);
+
+    if (local) {
+        Serial.printf("<XFC %02X%02X%02X%02X%02X%02\n", src[2], src[3], src[4], src[5], src[6], src[7]);
+    } else {
+        Serial.printf("<REMOTE XFC %02X%02X%02X%02X%02X%02\n", src[2], src[3], src[4], src[5], src[6], src[7]);
+    }
     uint8_t mac[6];
     memcpy(mac, src + 2, sizeof(mac));
 
@@ -314,7 +321,7 @@ void processXferComplete(struct espXferComplete* xfc) {
     }
     if (LittleFS.exists(src_path)) {
         LittleFS.rename(src_path, dst_path);
-    } 
+    }
 
     time_t now;
     time(&now);
@@ -325,15 +332,21 @@ void processXferComplete(struct espXferComplete* xfc) {
         clearPending(taginfo);
     }
     wsSendTaginfo(mac);
+    if (local) udpsync.netProcessXferComplete(xfc);
 }
 
-void processXferTimeout(struct espXferComplete* xfc) {
+void processXferTimeout(struct espXferComplete* xfc, bool local) {
     char buffer[64];
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)xfc->src));
     sprintf(buffer, "< %02X%02X%02X%02X%02X%02X xfer timeout\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
     wsErr((String)buffer);
-    Serial.print(buffer);
+
+    if (local) {
+        Serial.printf("<XTO %02X%02X%02X%02X%02X%02\n", src[2], src[3], src[4], src[5], src[6], src[7]);
+    } else {
+        Serial.printf("<REMOTE XTO %02X%02X%02X%02X%02X%02\n", src[2], src[3], src[4], src[5], src[6], src[7]);
+    }
     uint8_t mac[6];
     memcpy(mac, src + 2, sizeof(mac));
 
@@ -347,9 +360,10 @@ void processXferTimeout(struct espXferComplete* xfc) {
         clearPending(taginfo);
     }
     wsSendTaginfo(mac);
+    if (local) udpsync.netProcessXferTimeout(xfc);
 }
 
-void processDataReq(struct espAvailDataReq* eadr) {
+void processDataReq(struct espAvailDataReq* eadr, bool local) {
     char buffer[64];
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)eadr->src));
@@ -368,7 +382,7 @@ void processDataReq(struct espAvailDataReq* eadr) {
     time_t now;
     time(&now);
 
-    if (eadr->src[7] == 0xFF) {
+    if (!local) {
         taginfo->isExternal = true;
     } else {
         taginfo->isExternal = false;
@@ -397,10 +411,15 @@ void processDataReq(struct espAvailDataReq* eadr) {
             memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
         }
     }
+    if (local) {
+        sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    } else {
+        sprintf(buffer, "<REMOTE ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    }
 
-    sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Serial.print(buffer);
     wsSendTaginfo(mac);
+    if (local) udpsync.netProcessDataReq(eadr);
 }
 
 void refreshAllPending() {
@@ -425,7 +444,7 @@ void setAPchannel() {
     } else {
         if (curChannel.channel != APconfig["channel"].as<int>()) {
             curChannel.channel = APconfig["channel"].as<int>();
-            if (version) sendChannelPower(&curChannel);
+            sendChannelPower(&curChannel);
         }
     }
 }

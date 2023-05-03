@@ -2,32 +2,76 @@
 
 #include <Arduino.h>
 #include <LittleFS.h>
+#include <MD5Builder.h>
 
 #include "settings.h"
 #include "time.h"
 #include "zbs_interface.h"
 
-typedef enum {
-    CMD_GET_VERSION = 1,
-    CMD_RESET_ESP = 2,
-    CMD_ZBS_BEGIN = 10,
-    CMD_RESET_ZBS = 11,
-    CMD_SELECT_PAGE = 12,
-    CMD_SET_POWER = 13,
-    CMD_READ_RAM = 20,
-    CMD_WRITE_RAM = 21,
-    CMD_READ_FLASH = 22,
-    CMD_WRITE_FLASH = 23,
-    CMD_READ_SFR = 24,
-    CMD_WRITE_SFR = 25,
-    CMD_ERASE_FLASH = 26,
-    CMD_ERASE_INFOBLOCK = 27,
-} ZBS_UART_PROTO;
+#define FINGERPRINT_FLASH_SIZE 10240
 
 uint8_t *infoblock = nullptr;
 uint8_t *flashbuffer = nullptr;
 
 static class ZBS_interface *zbs;
+
+void getFirmwareMD5(class ZBS_interface* zbs, uint8_t* md5p) {
+    uint8_t *buffer = (uint8_t *)malloc(FINGERPRINT_FLASH_SIZE);
+
+    /*
+    zbs = new ZBS_interface;
+    bool interfaceWorking = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, FLASHER_EXT_POWER, 8000000);
+    if (!interfaceWorking) {
+        Serial.print("I wasn't able to connect to a ZBS tag, please check wiring and definitions in the settings.h file.\n");
+        delete zbs;
+        return;
+    }
+    */
+
+    zbs->select_flash(0);
+    for (uint16_t c = 0; c < FINGERPRINT_FLASH_SIZE; c++) {
+        buffer[c] = zbs->read_flash(c);
+    }
+
+    {
+        MD5Builder md5;
+        md5.begin();
+        md5.add(buffer, FINGERPRINT_FLASH_SIZE);
+        md5.calculate();
+        md5.getBytes(md5p);
+    }
+
+    Serial.printf("MD5=");
+    for (uint8_t c = 0; c < 16; c++) {
+        Serial.printf("%02X", md5p[c]);
+    }
+    Serial.printf("\n");
+    free(buffer);
+}
+
+void getInfoPageMac(class ZBS_interface* zbs, uint8_t* mac){
+    zbs->select_flash(1);
+    for (uint16_t c = 0; c < 8; c++) {
+        mac[c] = zbs->read_flash(c+0x10);
+    }
+    Serial.printf("Infopage mac=");
+    for (uint8_t c = 0; c < 8; c++) {
+        Serial.printf("%02X", mac[c]);
+    }
+    Serial.printf("\n");
+}
+
+
+#ifdef OPENEPAPERLINK_PCB
+bool extTagConnected() {
+    // checks if the TEST (P1.0) pin on the ZBS243 will come up high. If it doesn't, there's probably a tag connected.
+    pinMode(FLASHER_EXT_TEST, INPUT_PULLDOWN);
+    vTaskDelay(5 / portTICK_PERIOD_MS);
+    pinMode(FLASHER_EXT_TEST, INPUT_PULLUP);
+    vTaskDelay(5 / portTICK_PERIOD_MS);
+    return !digitalRead(FLASHER_EXT_TEST);
+}
+#endif
 
 // look for the latest version of the firmware file... It's supposed to be something like zigbeebase0003.bin
 String lookupFirmwareFile(uint16_t &version) {
@@ -54,6 +98,8 @@ String lookupFirmwareFile(uint16_t &version) {
         return "";
     }
 }
+
+
 
 // guess device type based on flash memory contents
 uint16_t getDeviceType() {
@@ -221,8 +267,8 @@ bool performDeviceFlash() {
     infoblock = nullptr;
     free(flashbuffer);
     flashbuffer = nullptr;
-    zbs->reset();
-    zbs->set_power(1);
+    //zbs->reset();
+    vTaskDelay(100/portTICK_PERIOD_MS);
     delete zbs;
     return true;
 }

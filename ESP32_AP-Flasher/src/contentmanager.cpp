@@ -60,11 +60,11 @@ void contentRunner() {
             if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
             if (minutesUntilNextUpdate > 1) {
                 taginfo->pendingIdle = minutesUntilNextUpdate;
-                prepareIdleReq(src, minutesUntilNextUpdate);
+                if (taginfo->isExternal == false) prepareIdleReq(src, minutesUntilNextUpdate);
             }
         }
 
-        vTaskDelay(1/portTICK_PERIOD_MS); // add a small delay to allow other threads to run
+        vTaskDelay(1 / portTICK_PERIOD_MS);  // add a small delay to allow other threads to run
     }
 }
 
@@ -287,11 +287,9 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
         drawString(spr, String(timeinfo.tm_mday), 152 / 2, 42, "fonts/numbers2-1", TC_DATUM, PAL_RED);
 
     } else if (taginfo->hwType == SOLUM_42_033) {
-
         initSprite(spr, 400, 300);
         drawString(spr, Dag[timeinfo.tm_wday], 400 / 2, 30, "fonts/calibrib62", TC_DATUM, PAL_RED);
         drawString(spr, String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], 400 / 2, 113, "fonts/calibrib50", TC_DATUM);
-
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -334,7 +332,6 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         spr.unloadFont();
 
     } else if (taginfo->hwType == SOLUM_42_033) {
-
         initSprite(spr, 400, 300);
         spr.setTextDatum(MC_DATUM);
         if (count > thresholdred) {
@@ -393,11 +390,11 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         int wind = windSpeedToBeaufort(windspeed);
 
         String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "-", "-", "\uf014", "-", "-",
-                                    "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
-                                    "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
-                                    "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
-                                    "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
-                                    "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
+                                 "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
+                                 "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
+                                 "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
+                                 "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
+                                 "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
         if (1 == 0) {  // nacht
             weatherIcons[0] = "\0uf02e";
             weatherIcons[1] = "\0uf083";
@@ -478,7 +475,6 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
             spr.unloadFont();
 
         } else if (taginfo->hwType == SOLUM_42_033) {
-
             initSprite(spr, 400, 300);
 
             drawString(spr, cfgobj["location"], 10, 10, "fonts/bahnschrift30");
@@ -509,7 +505,6 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
                 spr.printToSprite("\uf084");
             }
             spr.unloadFont();
-
         }
 
         spr2buffer(spr, filename, imageParams);
@@ -555,11 +550,11 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
         static const char *weekday_name[] = {"ZO", "MA", "DI", "WO", "DO", "VR", "ZA"};
 
         String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "-", "-", "\uf014", "-", "-",
-                                    "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
-                                    "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
-                                    "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
-                                    "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
-                                    "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
+                                 "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
+                                 "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
+                                 "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
+                                 "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
+                                 "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
 
         LittleFS.begin();
         tft.setTextWrap(false, false);
@@ -611,7 +606,6 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
             }
 
         } else if (taginfo->hwType == SOLUM_42_033) {
-
             initSprite(spr, 400, 300);
             spr.setTextFont(2);
             spr.setTextColor(PAL_BLACK, PAL_WHITE);

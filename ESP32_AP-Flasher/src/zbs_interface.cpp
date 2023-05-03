@@ -46,7 +46,7 @@ void ZBS_interface::setSpeed(uint32_t speed) {
 }
 
 ZBS_interface::~ZBS_interface() {
-    delete spi;
+    if(spi)delete spi;
 }
 void ZBS_interface::set_power(uint8_t state) {
     if (_POWER_PIN != 255) {
