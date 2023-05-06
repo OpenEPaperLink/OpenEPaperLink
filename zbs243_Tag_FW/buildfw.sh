@@ -20,3 +20,5 @@ echo -e "\n\nBuilding 2.9 (UC8151) version..."
 make BUILD=zbs29_uc8151 CPU=8051 SOC=zbs243 > /dev/null
 mv main.bin ../binaries/Tag_FW_2.9-uc8151.bin -v
 make clean > /dev/null
+
+php packagebinaries.php
