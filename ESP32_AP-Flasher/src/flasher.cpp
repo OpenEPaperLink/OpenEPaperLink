@@ -1,66 +1,16 @@
 #include "flasher.h"
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <LittleFS.h>
 #include <MD5Builder.h>
+// #include <FS.h>
 
 #include "settings.h"
 #include "time.h"
 #include "zbs_interface.h"
 
 #define FINGERPRINT_FLASH_SIZE 10240
-
-uint8_t *infoblock = nullptr;
-uint8_t *flashbuffer = nullptr;
-
-static class ZBS_interface *zbs;
-
-void getFirmwareMD5(class ZBS_interface* zbs, uint8_t* md5p) {
-    uint8_t *buffer = (uint8_t *)malloc(FINGERPRINT_FLASH_SIZE);
-
-    /*
-    zbs = new ZBS_interface;
-    bool interfaceWorking = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, FLASHER_EXT_POWER, 8000000);
-    if (!interfaceWorking) {
-        Serial.print("I wasn't able to connect to a ZBS tag, please check wiring and definitions in the settings.h file.\n");
-        delete zbs;
-        return;
-    }
-    */
-
-    zbs->select_flash(0);
-    for (uint16_t c = 0; c < FINGERPRINT_FLASH_SIZE; c++) {
-        buffer[c] = zbs->read_flash(c);
-    }
-
-    {
-        MD5Builder md5;
-        md5.begin();
-        md5.add(buffer, FINGERPRINT_FLASH_SIZE);
-        md5.calculate();
-        md5.getBytes(md5p);
-    }
-
-    Serial.printf("MD5=");
-    for (uint8_t c = 0; c < 16; c++) {
-        Serial.printf("%02X", md5p[c]);
-    }
-    Serial.printf("\n");
-    free(buffer);
-}
-
-void getInfoPageMac(class ZBS_interface* zbs, uint8_t* mac){
-    zbs->select_flash(1);
-    for (uint16_t c = 0; c < 8; c++) {
-        mac[c] = zbs->read_flash(c+0x10);
-    }
-    Serial.printf("Infopage mac=");
-    for (uint8_t c = 0; c < 8; c++) {
-        Serial.printf("%02X", mac[c]);
-    }
-    Serial.printf("\n");
-}
-
 
 #ifdef OPENEPAPERLINK_PCB
 bool extTagConnected() {
@@ -73,65 +23,276 @@ bool extTagConnected() {
 }
 #endif
 
-// look for the latest version of the firmware file... It's supposed to be something like zigbeebase0003.bin
-String lookupFirmwareFile(uint16_t &version) {
-    String filename;
-    File root = LittleFS.open("/");
-    File file = root.openNextFile();
-    while (file) {
-        if (strncmp(file.name(), "zigbeebase", 10) == 0) {
-            filename = "/" + ((String)file.name());
+void dump(uint8_t *a, uint16_t l) {
+    if (a == nullptr) {
+        Serial.print("Tried to dump the contents of a nullptr, this is probably not what you want.\n");
+    }
+    Serial.printf("        ");
+#define ROWS 16
+    for (uint8_t c = 0; c < ROWS; c++) {
+        Serial.printf(" %02X", c);
+    }
+    Serial.printf("\n--------");
+    for (uint8_t c = 0; c < ROWS; c++) {
+        Serial.printf("---");
+    }
+    for (uint16_t c = 0; c < l; c++) {
+        if ((c % ROWS) == 0) {
+            Serial.printf("\n0x%04X | ", c);
         }
-        file.close();
-        file = root.openNextFile();
+        Serial.printf("%02X ", a[c]);
     }
-    if (filename.length()) {
-        char buffer[16];
-        memset(buffer, 0, 16);
-        strncpy(buffer, filename.c_str() + 11, 4);
-        version = strtoul(buffer, NULL, 16);
-        root.close();
-        return filename;
-    } else {
-        version = 0;
-        root.close();
-        return "";
+    Serial.printf("\n--------");
+    for (uint8_t c = 0; c < ROWS; c++) {
+        Serial.printf("---");
     }
+    Serial.printf("\n");
 }
 
+class flasher {
+   public:
+    class ZBS_interface *zbs = nullptr;
+    uint8_t md5[16] = {0};
+    char md5char[34];
+    uint8_t tagtype;
+    uint8_t *infoblock = nullptr;
 
+    // Infoblock structure:
+    // 0x00-0x0F - Calibration data
+    // 0x10-0x17 - MAC
+    // 0x19      - OpenEPaperLink Type
+    // 0x30      - Original firmware MD5
 
-// guess device type based on flash memory contents
-uint16_t getDeviceType() {
-    uint8_t type29[8] = {0x7d, 0x22, 0xff, 0x02, 0xa4, 0x58, 0xf0, 0x90};
-    uint8_t type154[8] = {0xa1, 0x23, 0x22, 0x02, 0xa4, 0xc3, 0xe4, 0xf0};
-    uint8_t buffer[8] = {0};
-    zbs->select_flash(0);
-    for (uint8_t c = 0; c < 8; c++) {
-        buffer[c] = zbs->read_flash(0x08 + c);
-    }
-    if (memcmp(buffer, type29, 8) == 0) {
-        return 0x3B10;
-    }
-    if (memcmp(buffer, type154, 8) == 0) {
-        return 0x3410;
-    }
-    return 0xFFF0;
-}
-
-// extract original mac from firmware and make it 2 bytes longer based on info in settings.h
-uint64_t getOriginalTagMac() {
-    zbs->select_flash(0);
     uint8_t mac[8] = {0};
+    uint8_t mac_format = 0;
+    uint16_t mac_suffix = 0;
+    uint16_t mac_offset = 0;
+
+    flasher();
+    ~flasher();
+    bool connectTag(uint8_t port);
+    void getFirmwareMD5();
+    bool getFirmwareMac();
+    bool findTagByMD5();
+    bool findTagByType(uint8_t type);
+    bool getInfoBlockMD5();
+    bool getInfoBlockMac();
+    bool getInfoBlockType();
+    void getMacFromWiFi();
+    bool prepareInfoBlock();
+
+    bool writeFlash(uint8_t *flashbuffer, uint16_t size);
+    bool writeFlashFromPack(String filename, uint8_t type);
+    bool writeFlashFromPackOffset(fs::File *file, uint16_t length);
+
+    bool readInfoBlock();
+    bool writeInfoBlock();
+
+   protected:
+    bool writeBlock256(uint16_t offset, uint8_t *flashbuffer);
+    void get_mac_format1();
+    void get_mac_format2();
+};
+
+flasher::flasher() {
+    zbs = new ZBS_interface;
+}
+flasher::~flasher() {
+    delete zbs;
+}
+
+bool flasher::connectTag(uint8_t port) {
+    bool result;
+    switch (port) {
+        case 0:
+            result = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, FLASHER_AP_POWER, 8000000);
+            break;
+#ifdef OPENEPAPERLINK_PCB
+        case 1:
+            result = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, FLASHER_EXT_POWER, 8000000);
+            break;
+        case 2:
+            result = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, 255, 8000000);
+            break;
+#endif
+        default:
+            Serial.printf("Tried to connect to port %d, but this port isn't available. Some dev borked it up, probably Jelmer.\n", port);
+            return false;
+    }
+    if (!result) Serial.printf("I tried connecting to port, but I couldn't establish a link to the tag. That's all I know.\n");
+    return result;
+}
+
+void flasher::getFirmwareMD5() {
+    uint8_t *buffer = (uint8_t *)malloc(FINGERPRINT_FLASH_SIZE);
+    if (buffer == nullptr) {
+        Serial.print("couldn't malloc bytes for firmware MD5\n");
+        return;
+    }
+
+    zbs->select_flash(0);
+    for (uint16_t c = 0; c < FINGERPRINT_FLASH_SIZE; c++) {
+        buffer[c] = zbs->read_flash(c);
+    }
+
+    {
+        MD5Builder md5calc;
+        md5calc.begin();
+        md5calc.add(buffer, FINGERPRINT_FLASH_SIZE);
+        md5calc.calculate();
+        md5calc.getBytes(md5);
+    }
+
+    for (uint8_t c = 0; c < 16; c++) {
+        sprintf(md5char + (2 * c), "%02X", md5[c]);
+    }
+    Serial.printf("MD5=%s\n", md5char);
+    free(buffer);
+}
+
+bool flasher::getInfoBlockMac() {
+    if (!zbs->select_flash(1)) return false;
+    for (uint16_t c = 7; c < 8; c--) {
+        mac[7 - c] = zbs->read_flash(c + 0x10);
+    }
+    Serial.printf("Infopage mac=");
+    uint16_t macsum = 0;
+    for (uint8_t c = 0; c < 8; c++) {
+        macsum += mac[c];
+        Serial.printf("%02X", mac[c]);
+    }
+    Serial.printf("\n");
+    if (macsum == 0) return false;
+    if (macsum > 0x5F9) return false;
+    return true;
+}
+
+bool flasher::getInfoBlockMD5() {
+    if (!zbs->select_flash(1)) return false;
+    for (uint16_t c = 0; c < 16; c++) {
+        md5[c] = zbs->read_flash(c + 0x30);
+    }
+    uint16_t macsum = 0;
+    for (uint8_t c = 0; c < 16; c++) {
+        macsum += md5[c];
+        sprintf(md5char + (2 * c), "%02X", md5[c]);
+    }
+    Serial.printf("Infoblock MD5=%s\n", md5char);
+    if (macsum == 0) return false;     // invalid mac
+    if (macsum > 0xF00) return false;  // *probably* an invalid mac
+    return true;
+}
+
+bool flasher::getInfoBlockType() {
+    if (!zbs->select_flash(1)) return false;
+    tagtype = zbs->read_flash(0x19);
+    return true;
+}
+
+bool flasher::findTagByMD5() {
+    StaticJsonDocument<3000> doc;
+    DynamicJsonDocument APconfig(600);
+    fs::File readfile = LittleFS.open("/tag_md5_db.json", "r");
+    DeserializationError err = deserializeJson(doc, readfile);
+    if (!err) {
+        for (JsonObject elem : doc.as<JsonArray>()) {
+            const char *jsonmd5 = elem["MD5"];
+            if (jsonmd5 != nullptr) {
+                if (strncmp(md5char, jsonmd5, 32) == 0) {
+                    Serial.print("MD5 Matches > ");
+                    const char *name = elem["name"];
+                    Serial.println(name);
+                    mac_suffix = strtoul(elem["mac_suffix"], 0, 16);
+                    mac_format = elem["mac_format"];
+                    mac_offset = elem["mac_offset"];
+                    tagtype = elem["type"];
+                    readfile.close();
+                    return true;
+                }
+            }
+        }
+        Serial.print("Failed to find this tag's current firmware MD5 in the json database. If this tag is already OpenEpaperLink, this is to be expected.\n");
+    } else {
+        Serial.print("Failed to read json file\n");
+    }
+    readfile.close();
+    return false;
+}
+
+bool flasher::findTagByType(uint8_t type) {
+    StaticJsonDocument<3000> doc;
+    DynamicJsonDocument APconfig(600);
+    fs::File readfile = LittleFS.open("/tag_md5_db.json", "r");
+    DeserializationError err = deserializeJson(doc, readfile);
+    if (!err) {
+        for (JsonObject elem : doc.as<JsonArray>()) {
+            if (elem["type"] != nullptr) {
+                uint8_t jtype = elem["type"];
+                if (jtype == type) {
+                    Serial.print("Type Matches > ");
+                    const char *name = elem["name"];
+                    Serial.println(name);
+                    const char *jsonmd5 = elem["MD5"];
+
+                    for (uint8_t c = 0; c < 16; c++) {
+                        uint32_t n = 0;
+                        sscanf(jsonmd5 + (2 * c), "%02X", &n);
+                        md5[c] = (uint8_t)n;
+                    }
+
+                    for (uint8_t c = 0; c < 16; c++) {
+                        sprintf(md5char + (2 * c), "%02X", md5[c]);
+                    }
+
+                    mac_suffix = strtoul(elem["mac_suffix"], 0, 16);
+                    mac_format = elem["mac_format"];
+                    mac_offset = elem["mac_offset"];
+                    tagtype = elem["type"];
+                    readfile.close();
+                    return true;
+                }
+            }
+        }
+        Serial.print("Failed to find this tag's type in the json database.\n");
+    } else {
+        Serial.print("Failed to read json file\n");
+    }
+    readfile.close();
+    return false;
+}
+
+bool flasher::getFirmwareMac() {
+    if (!mac_offset) return false;
+    switch (mac_format) {
+        case 1:
+            get_mac_format1();
+            break;
+        case 2:
+            get_mac_format2();
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
+void flasher::getMacFromWiFi() {
+    mac[0] = 0x00;
+    mac[1] = 0x00;
+    esp_read_mac(mac + 2, ESP_MAC_WIFI_SOFTAP);
+}
+
+// extract original mac from firmware (1.54" and 2.9") and make it 2 bytes longer based on info in settings.h
+void flasher::get_mac_format1() {
+    zbs->select_flash(0);
     for (uint8_t c = 0; c < 6; c++) {
-        mac[c + 2] = zbs->read_flash(0xFC06 + c);
+        mac[c + 2] = zbs->read_flash(mac_offset + c);  // 0xFC06
     }
     mac[0] = (uint8_t)(CUSTOM_MAC_HDR >> 8);
     mac[1] = (uint8_t)CUSTOM_MAC_HDR;
 
-    uint16_t type = getDeviceType();
-    mac[6] = (uint8_t)(type >> 8);
-    mac[7] = (uint8_t)(type & 0xFF);
+    mac[6] = (uint8_t)(mac_suffix >> 8);
+    mac[7] = (uint8_t)(mac_suffix & 0xFF);
 
     uint8_t xorchk = 0;
     for (uint8_t c = 2; c < 8; c++) {
@@ -139,136 +300,328 @@ uint64_t getOriginalTagMac() {
         xorchk ^= (mac[c] >> 4);
     }
     mac[7] |= xorchk;
-    return *((uint64_t *)(mac));
 }
 
-// extract custom firmware mac from Infoblock
-uint64_t getInfoBlockMac() {
-    zbs->select_flash(1);
-    uint8_t mac[8] = {0};
-    for (uint8_t c = 0; c < 8; c++) {
-        mac[c] = zbs->read_flash(0x10 + c);
-    }
-    return *((uint64_t *)(mac));
-}
+// extract original mac from segmented tag
+void flasher::get_mac_format2() {
+    zbs->select_flash(0);
 
-// get info from infoblock (eeprom flash, kinda)
-void readInfoBlock() {
-    if (infoblock == nullptr) {
-        // allocate room for infopage
-        infoblock = (uint8_t *)calloc(1024, 1);
+    for (uint8_t c = 0; c < 3; c++) {
+        mac[c] = zbs->read_flash(mac_offset + c);  // 0x7802
     }
-    zbs->select_flash(1);  // select info page
-    for (uint16_t c = 0; c < 1024; c++) {
-        infoblock[c] = zbs->read_flash(c);
+    for (uint8_t c = 3; c < 6; c++) {
+        mac[c] = zbs->read_flash(mac_offset + 2 + c);
     }
-}
 
-// write info to infoblock
-void writeInfoBlock() {
-    if (infoblock == nullptr) {
-        return;
-    }
-    zbs->select_flash(1);
-    zbs->erase_infoblock();
-    zbs->select_flash(1);  // select info page
-    for (uint16_t c = 0; c < 1024; c++) {
-        for (uint8_t i = 0; i < MAX_WRITE_ATTEMPTS; i++) {
-            zbs->write_flash(c, infoblock[c]);
-            if (zbs->read_flash(c) == infoblock[c]) {
-                break;
-            }
-        }
-    }
+    uint16_t type = mac_suffix;
+    mac[6] = (uint8_t)(type >> 8);
+    mac[7] = (uint8_t)(type & 0xFF);
 }
 
 // erase flash and program from flash buffer
-void writeFlashBlock(uint16_t size) {
-    if (flashbuffer == nullptr) {
-        return;
-    }
-    zbs->select_flash(0);
+bool flasher::writeFlash(uint8_t *flashbuffer, uint16_t size) {
+    if (!zbs->select_flash(0)) return false;
     zbs->erase_flash();
-    zbs->select_flash(0);
+    if (!zbs->select_flash(0)) return false;
     Serial.printf("Starting flash, size=%d\n", size);
-    uint8_t i = 0;
     for (uint16_t c = 0; c < size; c++) {
-        for (i = 0; i < MAX_WRITE_ATTEMPTS; i++) {
+        if (flashbuffer[c] == 0xFF) goto flashWriteSuccess;
+        for (uint8_t i = 0; i < MAX_WRITE_ATTEMPTS; i++) {
             zbs->write_flash(c, flashbuffer[c]);
             if (zbs->read_flash(c) == flashbuffer[c]) {
-                break;
+                goto flashWriteSuccess;
             }
         }
-        if (i == MAX_WRITE_ATTEMPTS) {
-            Serial.printf("x");
-        } else {
-            Serial.printf(".");
-        }
+        return false;
+    flashWriteSuccess:
         if (c % 256 == 0) {
             Serial.printf("\rNow flashing, %d/%d  ", c, size);
             vTaskDelay(1 / portTICK_PERIOD_MS);
         }
     }
+    return true;
+}
+
+bool flasher::writeBlock256(uint16_t offset, uint8_t *flashbuffer) {
+    for (uint16_t c = 0; c < 256; c++) {
+        if (flashbuffer[c] == 0xFF) goto flashWriteSuccess;
+        for (uint8_t i = 0; i < MAX_WRITE_ATTEMPTS; i++) {
+            zbs->write_flash(offset + c, flashbuffer[c]);
+            if (zbs->read_flash(offset + c) == flashbuffer[c]) {
+                goto flashWriteSuccess;
+            }
+        }
+        return false;
+    flashWriteSuccess:
+        continue;
+    }
+    return true;
+}
+
+// get info from infoblock (eeprom flash, kinda)
+bool flasher::readInfoBlock() {
+    if (!zbs->select_flash(1)) return false;
+    if (infoblock == nullptr) {
+        infoblock = (uint8_t *)malloc(1024);
+        if (infoblock == nullptr) return false;
+    }
+    for (uint16_t c = 0; c < 1024; c++) {
+        infoblock[c] = zbs->read_flash(c);
+    }
+    return true;
+}
+
+// write info to infoblock
+bool flasher::writeInfoBlock() {
+    if (infoblock == nullptr) return false;
+    if (!zbs->select_flash(1)) return false;
+    zbs->erase_infoblock();
+    if (!zbs->select_flash(1)) return false;
+    // select info page
+
+    for (uint16_t c = 0; c < 1024; c++) {
+        if (infoblock[c] == 0xFF) goto ifBlockWriteSuccess;
+        for (uint8_t i = 0; i < MAX_WRITE_ATTEMPTS; i++) {
+            zbs->write_flash(c, infoblock[c]);
+            if (zbs->read_flash(c) == infoblock[c]) {
+                goto ifBlockWriteSuccess;
+            }
+        }
+        return false;
+    ifBlockWriteSuccess:
+        continue;
+    }
+    return true;
+}
+
+bool flasher::prepareInfoBlock() {
+    if (infoblock == nullptr) return false;
+    for (uint8_t c = 7; c < 8; c--) {
+        infoblock[0x10 + (7 - c)] = mac[c];
+    }
+    infoblock[0x19] = tagtype;
+    for (uint8_t c = 0; c < 16; c++) {
+        infoblock[0x30 + c] = md5[c];
+    }
+    return true;
+}
+
+bool flasher::writeFlashFromPackOffset(fs::File *file, uint16_t length) {
+    if (!zbs->select_flash(0)) return false;
+    zbs->erase_flash();
+    if (!zbs->select_flash(0)) return false;
+    Serial.printf("Starting flash, size=%d\n", length);
+
+    uint8_t *buf = (uint8_t *)malloc(256);
+    uint16_t offset = 0;
+    while (length) {
+        if (length > 256) {
+            file->read(buf, 256);
+            length -= 256;
+        } else {
+            file->read(buf, length);
+            length = 0;
+        }
+        Serial.printf("\rFlashing, %d bytes left     ", length);
+        bool res = writeBlock256(offset, buf);
+        offset += 256;
+        if (!res) {
+            Serial.printf("Failed writing block to tag, probably a hardware failure\n");
+            return false;
+        }
+        vTaskDelay(1 / portTICK_PERIOD_MS);
+    }
+    Serial.printf("\nFlashing done\n");
+    return true;
+}
+
+bool flasher::writeFlashFromPack(String filename, uint8_t type) {
+    StaticJsonDocument<512> doc;
+    DynamicJsonDocument APconfig(512);
+    fs::File readfile = LittleFS.open(filename, "r");
+    DeserializationError err = deserializeJson(doc, readfile);
+    if (!err) {
+        for (JsonObject elem : doc.as<JsonArray>()) {
+            if (elem["type"] != nullptr) {
+                uint8_t jtype = elem["type"];
+                if (jtype == type) {
+                    const char *name = elem["name"];
+                    Serial.print("Flashing from FW pack: ");
+                    Serial.println(name);
+
+                    uint32_t offset = elem["offset"];
+                    uint16_t length = elem["length"];
+                    readfile.seek(offset);
+                    bool result = writeFlashFromPackOffset(&readfile, length);
+                    readfile.close();
+                    return result;
+                }
+            }
+        }
+        Serial.print("Failed to find this tag's type in the FW pack database.\n");
+    } else {
+        Serial.print("Failed to read json header from FW pack\n");
+    }
+    readfile.close();
+    return false;
+}
+
+uint16_t getAPUpdateVersion(uint8_t type) {
+    StaticJsonDocument<512> doc;
+    DynamicJsonDocument APconfig(512);
+    fs::File readfile = LittleFS.open("/AP_FW_Pack.bin", "r");
+    DeserializationError err = deserializeJson(doc, readfile);
+    if (!err) {
+        for (JsonObject elem : doc.as<JsonArray>()) {
+            if (elem["type"] != nullptr) {
+                uint8_t jtype = elem["type"];
+                if (jtype == type) {
+                    const char *name = elem["name"];
+                    uint32_t version = elem["version"];
+                    Serial.printf("AP FW version %04X - %s found in FW pack\n", version, name);
+                    readfile.close();
+                    return version;
+                }
+            }
+        }
+        Serial.print("Failed to find this tag's type in the AP FW pack database.\n");
+    } else {
+        Serial.print("Failed to read json header from FW pack\n");
+    }
+    readfile.close();
+    return 0;
+}
+
+bool checkForcedAPFlash() {
+    return LittleFS.exists("/AP_force_flash.bin");
+}
+
+bool doForcedAPFlash() {
+    Serial.printf("Doing a forced AP Flash!\n");
+    class flasher *f = new flasher();
+    if (!f->connectTag(0)) {
+        Serial.printf("Sorry, failed to connect to this tag...\n");
+        delete f;
+        return false;
+    }
+
+    // we're going to overwrite the contents of the tag, so if we haven't set the mac already, we can forget about it. We'll set the mac to the wifi mac
+    if(!f->getInfoBlockMac()){
+        f->readInfoBlock();
+        f->getMacFromWiFi();
+        f->prepareInfoBlock();
+        f->writeInfoBlock();
+    }
+
+    fs::File readfile = LittleFS.open("/AP_force_flash.bin", "r");
+    bool res = f->writeFlashFromPackOffset(&readfile, readfile.size());
+    readfile.close();
+    if(res) LittleFS.remove("/AP_force_flash.bin");
+    f->zbs->reset();
+    delete f;
+    return res;
+}
+
+bool doAPFlash() {
+    // This function expects a tag in stock configuration, to be used as an AP. It can also work with 'dead' AP's.
+    class flasher *f = new flasher();
+    if (!f->connectTag(0)) {
+        Serial.printf("Sorry, failed to connect to this tag...\n");
+        delete f;
+        return false;
+    }
+
+    f->getFirmwareMD5();
+
+    if (f->findTagByMD5()) {
+        // fresh tag for AP
+        Serial.printf("Found an original fw tag, flashing it for use with OpenEPaperLink\n");
+        f->readInfoBlock();
+        f->getFirmwareMac();
+        f->prepareInfoBlock();
+        f->writeInfoBlock();
+    } else if (f->getInfoBlockMD5() && f->findTagByMD5()) {
+        // used tag, but recognized
+    } else {
+        // unknown tag, bailing out.
+        Serial.printf("Found a tag, but don't know what to do with it. Consider flashing using a file called \"AP_force_flash.bin\"\n");
+        delete f;
+        return false;
+    }
+    bool res = f->writeFlashFromPack("/AP_FW_Pack.bin", f->tagtype);
+    f->zbs->reset();
+    delete f;
+    return res;
+}
+
+bool doAPUpdate(uint8_t type) {
+    // this function expects the tag to be already flashed with some version of the OpenEpaperLink Firmware, and that it correctly reported its type
+    class flasher *f = new flasher();
+    if (!f->connectTag(0)) {
+        Serial.printf("Sorry, failed to connect to this tag...\n");
+        delete f;
+        return false;
+    }
+
+    f->readInfoBlock();
+    if (f->getInfoBlockMD5() && f->findTagByMD5()) {
+        // header (MD5) was correctly set. We'll use the type set there, instead of the provided 'type' in the argument
+        type = f->tagtype;
+    } else {
+        f->readInfoBlock();
+        // Couldn't recognize the firmware, maybe it was already used for OpenEPaperLink?
+        if (!f->getInfoBlockMac()) {
+            // infoblock mac was incorrectly configured, we skipped it in an earlier version. We'll consider it lost, and overwrite it with the wifi mac.
+            f->getMacFromWiFi();
+        }
+        // we'll try to update the MD5, searching for it by type.
+        f->findTagByType(type);
+        f->writeInfoBlock();
+    }
+    // TODO: DO THE ACTUAL FLASHING!
+    bool res = f->writeFlashFromPack("/AP_FW_Pack.bin", f->tagtype);
+    if(res)f->zbs->reset();
+    delete f;
+    return res;
 }
 
 // perform device flash, save mac, everything
-bool performDeviceFlash() {
-    uint8_t interfaceWorking = 0;
-    zbs = new ZBS_interface;
-    interfaceWorking = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, FLASHER_AP_POWER, 8000000);
-    if (!interfaceWorking) {
-        Serial.print("I wasn't able to connect to a ZBS tag, please check wiring and definitions in the settings.h file.\n");
-        delete zbs;
+bool doTagFlash() {
+    class flasher *f = new flasher();
+    if (!f->connectTag(1)) {
+        Serial.printf("Sorry, failed to connect to this tag...\n");
         return false;
     }
 
-    readInfoBlock();
-    uint8_t mac[8] = {0};
-    *((uint64_t *)(mac)) = getInfoBlockMac();
-    // check if the mac has been set at all, 0xFF- is not allowed
-    if (*((uint64_t *)(mac)) == 0xFFFFFFFFFFFFFFFF) {
-        // mac not set in infopage, get it from the original firmware
-        *((uint64_t *)(mac)) = getOriginalTagMac();
-        zbs->select_flash(1);
-        for (uint8_t c = 0; c < 8; c++) {
-            infoblock[0x17 - c] = mac[c];
-            // write mac directly to infoblock without erasing; the bytes should all be 0xFF anyway
-            zbs->write_flash(0x17 - c, mac[c]);
+    f->getFirmwareMD5();
+
+    if (f->findTagByMD5()) {
+        // this tag currently contains original firmware, found its fingerprint
+        Serial.printf("Found original firmware tag, recognized its fingerprint (%s)\n", f->md5char);
+        f->readInfoBlock();
+        f->getFirmwareMac();
+        f->prepareInfoBlock();
+        f->writeInfoBlock();
+        f->writeFlashFromPack("/Tag_FW_Pack.bin", f->tagtype);
+    } else if (f->getInfoBlockMD5()) {
+        // did find an infoblock MD5 that looks valid
+        if (f->findTagByMD5()) {
+            // did find the md5 in the database
+            Serial.printf("Found an already-flashed tag, recognized its fingerprint (%s)\n", f->md5char);
+            f->getInfoBlockMac();
+            f->getInfoBlockType();
+            f->readInfoBlock();
+            f->writeFlashFromPack("/Tag_FW_Pack.bin", f->tagtype);
+        } else {
+            // couldn't find the md5 from the infoblock
+            Serial.printf("Found an already-flashed tag, but we couldn't find its fingerprint (%s) in the database\n", f->md5char);
+            return false;
         }
-    }
-
-    uint16_t version = 0;
-    File file = LittleFS.open(lookupFirmwareFile(version));
-    if (!file) {
-        // couldn't find a valid firmware version
-        delete zbs;
-        return false;
     } else {
-        Serial.printf("Preparing to flash version %04X (%d bytes) to the tag\n", version, file.size());
+        // We couldn't recognize the tag from it's fingerprint...
+        Serial.printf("Found a tag but didn't recognize its fingerprint\n", f->md5char);
     }
 
-    // load buffer with zbs firmware
-    uint16_t flashbuffersize = file.size();
-    flashbuffer = (uint8_t *)calloc(flashbuffersize, 1);
-    uint32_t index = 0;
-    while (file.available()) {
-        flashbuffer[index] = file.read();
-        index++;
-        portYIELD();
-    }
-
-    // write firmware from buffer and finish by rewriting the info block again
-    writeFlashBlock(flashbuffersize);
-    writeInfoBlock();
-    Serial.print("All done with flashing\n");
-
-    file.close();
-    free(infoblock);
-    infoblock = nullptr;
-    free(flashbuffer);
-    flashbuffer = nullptr;
-    //zbs->reset();
-    vTaskDelay(100/portTICK_PERIOD_MS);
-    delete zbs;
-    return true;
+    delete f;
+    return false;
 }

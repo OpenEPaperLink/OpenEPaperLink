@@ -27,7 +27,9 @@ void timeTask(void* parameter) {
         if (!getLocalTime(&tm)) {
             Serial.println("Waiting for valid time from NTP-server");
         } else {
-            if (now % 5 == 0) wsSendSysteminfo();
+            if (now % 5 == 0) {
+                wsSendSysteminfo();
+            }
             if (now % 300 == 6) saveDB("/current/tagDB.json");
 
             contentRunner();
@@ -89,5 +91,9 @@ void setup() {
 }
 
 void loop() {
-    vTaskDelay(30000 / portTICK_PERIOD_MS);
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
+    //performDeviceFlash();
+    while (1) {
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
+    }
 }

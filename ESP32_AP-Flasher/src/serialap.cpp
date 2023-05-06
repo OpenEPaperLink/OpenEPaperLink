@@ -9,7 +9,6 @@
 #include "newproto.h"
 #include "powermgt.h"
 #include "settings.h"
-
 #include "web.h"
 #include "zbs_interface.h"
 
@@ -537,43 +536,46 @@ void APTask(void* parameter) {
 
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
+
+    if(checkForcedAPFlash())doForcedAPFlash();
+
     if (bringAPOnline()) {
         // AP works
-
         ShowAPInfo();
         uint16_t fsversion;
-        lookupFirmwareFile(fsversion);
+        fsversion = getAPUpdateVersion(apInfo.type);
         if ((fsversion) && (apInfo.version != fsversion)) {
             Serial.printf("Firmware version on LittleFS: %04X\n", fsversion);
-            Serial.printf("Performing flash update in about 30 seconds");
+            Serial.printf("Performing flash update in about 30 seconds\n");
             vTaskDelay(30000 / portTICK_PERIOD_MS);
             apInfo.isOnline = false;
             apInfo.state = AP_STATE_FLASHING;
-            if (performDeviceFlash()) {
-                Serial.printf("Flash completed, let's try to boot the AP!");
+            if (doAPUpdate(apInfo.type)) {
+                Serial.printf("Flash completed, let's try to boot the AP!\n");
                 if (bringAPOnline()) {
                     // AP works
                     ShowAPInfo();
                     setAPchannel();
                 } else {
-                    Serial.printf("Failed to bring up the AP after flashing... That's not supposed to happen!");
+                    Serial.printf("Failed to bring up the AP after flashing... That's not supposed to happen!\n");
                     apInfo.isOnline = false;
                     apInfo.state = AP_STATE_FAILED;
                 }
             } else {
                 apInfo.isOnline = false;
                 apInfo.state = AP_STATE_FAILED;
-                Serial.println("Failed to update version on the AP :(");
+                Serial.println("Failed to update version on the AP :(\n");
             }
         }
     } else {
         // AP unavailable, maybe time to flash?
         apInfo.isOnline = false;
         apInfo.state = AP_STATE_OFFLINE;
-        Serial.println("I wasn't able to connect to a ZBS tag. This could be the first time this AP is booted and the AP-tag may be unflashed. We'll try to flash it!");
-        Serial.println("Performing firmware flash in about 10 seconds");
+        Serial.println("I wasn't able to connect to a ZBS tag. This could be the first time this AP is booted and the AP-tag may be unflashed. We'll try to flash it!\n");
+        Serial.println("Performing firmware flash in about 10 seconds\n");
         vTaskDelay(10000 / portTICK_PERIOD_MS);
-        if (performDeviceFlash()) {
+        if (doAPFlash()) {
             if (bringAPOnline()) {
                 // AP works
                 ShowAPInfo();

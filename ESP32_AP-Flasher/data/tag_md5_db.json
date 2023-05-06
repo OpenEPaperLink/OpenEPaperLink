@@ -1,0 +1,74 @@
+[
+    {
+      "name":"1.54 White",
+      "mac_offset":64518,
+      "mac_format":1,
+      "mac_suffix":"3410",
+      "MD5":"EC4CF26432B8E250BD3C56EFA0B6E852",
+      "type":0,
+      "note":"White 1.54 033"
+    },
+    {
+      "name":"1.54 Black NFC",
+      "mac_offset":64518,
+      "mac_format":1,
+      "mac_suffix":"3430",
+      "MD5":"F77F2BDA76EC584CFF143DFD74654354",
+      "type":0,
+      "note":"Black 1.54 032 w/NFC"
+    },
+    {
+      "name":"Segmented UK",
+      "mac_offset":30722,
+      "mac_format":2,
+      "mac_suffix":"0131",
+      "MD5":"A27D978C48888FA045E8D3F90DC27029",
+      "type":240,
+      "note":"Segmented, UK, TSC0 Ebie"
+    },
+    {
+      "name":"4.2 Black + NFC",
+      "mac_offset":64518,
+      "mac_format":1,
+      "mac_suffix":"4830",
+      "MD5":"A7E30D170AC8F2569F4D7E815594FB9F",
+      "type":2,
+      "note":"4.2 v033 FW"
+    },
+    {
+      "name":"2.9 White",
+      "mac_offset":64518,
+      "mac_format":1,
+      "mac_suffix":"3B10",
+      "MD5":"A41315C16017BA64CF5BE12DFCA0F781",
+      "type":1,
+      "note":"2.9 v033 FW"
+    },
+    {
+      "name":"2.9 White + NFC UC8151",
+      "mac_offset":64518,
+      "mac_format":1,
+      "mac_suffix":"3B30",
+      "MD5":"F707C29A240D7DD237C3C1265FAF4B68",
+      "type":17,
+      "note":"2.9 White + NFC UC8151 V032 FW"
+    },
+      {
+      "name":"2.9 White + NFC UC8151",
+      "mac_offset":64518,
+      "mac_format":1,
+      "mac_suffix":"3B30",
+      "MD5":"D7E45FEECA144BB4ED750BEADE2CAD0A",
+      "type":17,
+      "note":"2.9 White + NFC UC8151 V033 FW"
+    },
+          {
+      "name":"2.9 White + NFC UC8151",
+      "mac_offset":64518,
+      "mac_format":1,
+      "mac_suffix":"3B30",
+      "MD5":"4643F4F74321FC9B4F9F0ECBD93B74AB",
+      "type":17,
+      "note":"2.9 White + NFC UC8151 V025 FW"
+    }
+  ]
