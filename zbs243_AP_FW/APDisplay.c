@@ -84,7 +84,11 @@ void epdShowRun() {
     selectLUT(EPD_LUT_NO_REPEATS);
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+#if (SCREEN_HEIGHT == 296)
+    epdPrintBegin(56, 200, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+#else
     epdPrintBegin(16, 55, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+#endif
     epdpr("AP Mode");
     epdPrintEnd();
     draw();
