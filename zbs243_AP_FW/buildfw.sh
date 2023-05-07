@@ -17,4 +17,9 @@ make BUILD=zbs154v033 CPU=8051 SOC=zbs243 > /dev/null
 mv main.bin ../binaries/AP_FW_1.54.bin -v
 make clean > /dev/null
 
+echo -e "\n\nBuilding 2.9 version..."
+make BUILD=zbs29v033 CPU=8051 SOC=zbs243 > /dev/null
+mv main.bin ../binaries/AP_FW_2.9.bin -v
+make clean > /dev/null
+
 php packagebinaries.php

@@ -51,7 +51,7 @@ void epdWriteByte(uint8_t b) {
     epdSend(b);
     epdByteCounter++;
     // check if we need to switch to a
-    if (epdByteCounter == (SCREEN_HEIGHT * SCREEN_WIDTH / 8)) {
+    if (epdByteCounter == (SCREEN_HEIGHT * (SCREEN_WIDTH / 8))) {
         epdDeselect();
         endWriteFramebuffer();
         beginWriteFramebuffer(EPD_COLOR_RED);
