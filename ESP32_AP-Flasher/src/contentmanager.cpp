@@ -1000,7 +1000,7 @@ int windSpeedToBeaufort(float windSpeed) {
 }
 
 String windDirectionIcon(int degrees) {
-    String directions[] = {"\uf044", "\uf088", "\uf04d", "\uf057", "\uf058", "\uf087", "\uf048", "\uf043"};
+    String directions[] = {"\uf058", "\uf087", "\uf048", "\uf043", "\uf044", "\uf088", "\uf04d", "\uf057"};
     int index = (degrees + 22) / 45;
     if (index >= 8) {
         index = 0;
