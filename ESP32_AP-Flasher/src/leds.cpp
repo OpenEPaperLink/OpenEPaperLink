@@ -6,7 +6,6 @@
 
 #include "settings.h"
 
-
 QueueHandle_t ledQueue;
 
 #ifdef HAS_RGB_LED
@@ -16,15 +15,18 @@ struct ledInstructionRGB {
     CRGB ledColor;
     uint16_t fadeTime;
     uint16_t length;
+    bool reQueue = false;
 };
 
 CRGB leds[1];
+volatile bool rgbQueueFlush = false;
 #endif
 
 struct ledInstruction {
     uint16_t value;
     uint16_t fadeTime;
     uint16_t length;
+    bool reQueue = false;
 };
 
 const uint8_t PROGMEM gamma8[] = {
@@ -73,11 +75,10 @@ const uint16_t gamma12[256] = {
     3502, 3540, 3578, 3616, 3654, 3693, 3732, 3771, 3810, 3850,
     3890, 3930, 3971, 4013, 4054, 4095};
 
-
-
 #ifdef HAS_RGB_LED
 
-void addToRGBQueue(struct ledInstructionRGB* rgb) {
+void addToRGBQueue(struct ledInstructionRGB* rgb, bool requeue) {
+    rgb->reQueue = requeue;
     BaseType_t queuestatus = xQueueSend(rgbLedQueue, &rgb, 0);
     if (queuestatus == pdFALSE) {
         delete rgb;
@@ -89,27 +90,67 @@ void addFadeColor(CRGB cname) {
     rgb->ledColor = cname;
     rgb->fadeTime = 750;
     rgb->length = 0;
-    addToRGBQueue(rgb);
+    addToRGBQueue(rgb, false);
 }
-
 
 void shortBlink(CRGB cname) {
     struct ledInstructionRGB* rgb = new struct ledInstructionRGB;
     rgb->ledColor = CRGB::Black;
     rgb->fadeTime = 0;
     rgb->length = 3;
-    addToRGBQueue(rgb);
+    addToRGBQueue(rgb, false);
     rgb = new struct ledInstructionRGB;
     rgb->ledColor = cname;
     rgb->ledColor.maximizeBrightness(0x80);
     rgb->fadeTime = 0;
     rgb->length = 10;
-    addToRGBQueue(rgb);
+    addToRGBQueue(rgb, false);
     rgb = new struct ledInstructionRGB;
     rgb->ledColor = CRGB::Black;
     rgb->fadeTime = 0;
     rgb->length = 3;
-    addToRGBQueue(rgb);
+    addToRGBQueue(rgb, false);
+}
+
+void flushRGBQueue() {
+    rgbQueueFlush = true;
+}
+
+void rgbIdle() {
+    flushRGBQueue();
+}
+
+void showColorPattern(CRGB colorone, CRGB colortwo, CRGB colorthree) {
+    struct ledInstructionRGB* rgb = new struct ledInstructionRGB;
+    rgb->ledColor = CRGB::Black;
+    rgb->fadeTime = 0;
+    rgb->length = 600;
+    addToRGBQueue(rgb, true);
+    rgb = new struct ledInstructionRGB;
+    rgb->ledColor = colorone;
+    rgb->fadeTime = 0;
+    rgb->length = 120;
+    addToRGBQueue(rgb, true);
+    rgb = new struct ledInstructionRGB;
+    rgb->ledColor = CRGB::Black;
+    rgb->fadeTime = 0;
+    rgb->length = 200;
+    addToRGBQueue(rgb, true);
+    rgb = new struct ledInstructionRGB;
+    rgb->ledColor = colortwo;
+    rgb->fadeTime = 0;
+    rgb->length = 120;
+    addToRGBQueue(rgb, true);
+    rgb = new struct ledInstructionRGB;
+    rgb->ledColor = CRGB::Black;
+    rgb->fadeTime = 0;
+    rgb->length = 200;
+    addToRGBQueue(rgb, true);
+    rgb = new struct ledInstructionRGB;
+    rgb->ledColor = colorthree;
+    rgb->fadeTime = 0;
+    rgb->length = 120;
+    addToRGBQueue(rgb, true);
 }
 
 void showRGB() {
@@ -144,7 +185,6 @@ void rgbIdleStep() {
 }
 #endif
 
-
 void addToMonoQueue(struct ledInstruction* mono) {
     BaseType_t queuestatus = xQueueSend(ledQueue, &mono, 0);
     if (queuestatus == pdFALSE) {
@@ -160,15 +200,12 @@ void addFadeMono(uint8_t value) {
     addToMonoQueue(mono);
 }
 
-
-
 void showMono(uint8_t brightness) {
     ledcWrite(7, gamma12[brightness]);
 }
 volatile uint16_t monoIdlePeriod = 900;
 
 uint8_t monoValue = 0;
-
 
 void monoIdleStep() {
     static bool dirUp = true;
@@ -201,7 +238,7 @@ void ledTask(void* parameter) {
     rgbLedQueue = xQueueCreate(30, sizeof(struct ledInstructionRGB*));
 
     struct ledInstructionRGB* rgb = nullptr;
-        // open with a nice RGB crossfade
+    // open with a nice RGB crossfade
     addFadeColor(CRGB::Red);
     addFadeColor(CRGB::Green);
     addFadeColor(CRGB::Blue);
@@ -228,7 +265,6 @@ void ledTask(void* parameter) {
 
     uint8_t oldBrightness = 0;
 
-
     uint16_t monoInstructionFadeTime = 0;
 
     while (1) {
@@ -238,12 +274,27 @@ void ledTask(void* parameter) {
             // fetch a led instruction
             BaseType_t q = xQueueReceive(rgbLedQueue, &rgb, 1);
             if (q == pdTRUE) {
-                rgbInstructionFadeTime = rgb->fadeTime;
-                if (rgb->fadeTime <= 1) {
-                    leds[0] = rgb->ledColor;
-                    showRGB();
+                if (rgb->reQueue && !rgbQueueFlush) {
+                    // requeue this instruction at the end of the queue, caveman style.
+                    struct ledInstructionRGB* requeue = new ledInstructionRGB;
+                    requeue->fadeTime = rgb->fadeTime;
+                    requeue->ledColor = rgb->ledColor;
+                    requeue->length = rgb->length;
+                    addToRGBQueue(requeue, true);
+                }
+
+                if (rgbQueueFlush) {
+                    delete rgb;
+                    rgb=nullptr;
+                } else {
+                    rgbInstructionFadeTime = rgb->fadeTime;
+                    if (rgb->fadeTime <= 1) {
+                        leds[0] = rgb->ledColor;
+                        showRGB();
+                    }
                 }
             } else {
+                rgbQueueFlush = false;
                 // no commands, run idle led task
                 rgbIdleStep();
             }

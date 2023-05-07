@@ -6,6 +6,7 @@
 
 #include "commstructs.h"
 #include "flasher.h"
+#include "leds.h"
 #include "newproto.h"
 #include "powermgt.h"
 #include "settings.h"
@@ -108,11 +109,11 @@ bool waitCmdReply() {
     return false;
 }
 
-
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
 #define AP_RESET_PIN FLASHER_AP_RESET
 #define AP_POWER_PIN FLASHER_AP_POWER
 #endif
+#ifdef OPENEPAPERLINK_PCB
 #if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
 #define AP_RESET_PIN FLASHER_EXT_RESET
 #define AP_POWER_PIN FLASHER_EXT_POWER
@@ -120,6 +121,7 @@ bool waitCmdReply() {
 #if (AP_PROCESS_PORT == FLASHER_ALTRADIO_PORT)
 #define AP_RESET_PIN FLASHER_ALT_RESET
 #define AP_POWER_PIN FLASHER_ALT_POWER
+#endif
 #endif
 
 // Reset the tag
@@ -296,12 +298,21 @@ void rxCmdProcessor(void* parameter) {
             switch (rxcmd->type) {
                 case RX_CMD_RQB:
                     processBlockRequest((struct espBlockRequest*)rxcmd->data);
+#ifdef HAS_RGB_LED
+                    shortBlink(CRGB::Blue);
+#endif
                     break;
                 case RX_CMD_ADR:
                     processDataReq((struct espAvailDataReq*)rxcmd->data, true);
+#ifdef HAS_RGB_LED
+                    shortBlink(CRGB::Aqua);
+#endif
                     break;
                 case RX_CMD_XFC:
                     processXferComplete((struct espXferComplete*)rxcmd->data, true);
+#ifdef HAS_RGB_LED
+                    shortBlink(CRGB::Purple);
+#endif
                     break;
                 case RX_CMD_XTO:
                     processXferTimeout((struct espXferComplete*)rxcmd->data, true);
@@ -551,17 +562,29 @@ void APTask(void* parameter) {
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 #endif
+#ifdef OPENEPAPERLINK_PCB
 #if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
 #endif
 #if (AP_PROCESS_PORT == FLASHER_ALTRADIO_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 #endif
+#endif
 
     vTaskDelay(3000 / portTICK_PERIOD_MS);
 
-    if (checkForcedAPFlash()){
+    if (checkForcedAPFlash()) {
         doForcedAPFlash();
+#if (FLASHER_AP_POWER == -1)
+        // If we have no soft power control, we'll now hang.
+        Serial.printf("Please power-cycle your device\n");
+#ifdef HAS_RGB_LED
+        showColorPattern(CRGB::Aqua, CRGB::Aqua, CRGB::Red);
+#endif
+        while (1) {
+            vTaskDelay(3000 / portTICK_PERIOD_MS);
+        }
+#endif
     }
 
     if (bringAPOnline()) {
@@ -576,6 +599,16 @@ void APTask(void* parameter) {
             apInfo.isOnline = false;
             apInfo.state = AP_STATE_FLASHING;
             if (doAPUpdate(apInfo.type)) {
+#if (FLASHER_AP_POWER == -1)
+                // If we have no soft power control, we'll now hang.
+                Serial.printf("Please power-cycle your device\n");
+#ifdef HAS_RGB_LED
+                showColorPattern(CRGB::Aqua, CRGB::Aqua, CRGB::Red);
+#endif
+                while (1) {
+                    vTaskDelay(3000 / portTICK_PERIOD_MS);
+                }
+#endif
                 Serial.printf("Flash completed, let's try to boot the AP!\n");
                 if (bringAPOnline()) {
                     // AP works
@@ -600,6 +633,16 @@ void APTask(void* parameter) {
         Serial.println("Performing firmware flash in about 10 seconds\n");
         vTaskDelay(10000 / portTICK_PERIOD_MS);
         if (doAPFlash()) {
+#if (FLASHER_AP_POWER == -1)
+            // If we have no soft power control, we'll now hang.
+            Serial.printf("Please power-cycle your device\n");
+#ifdef HAS_RGB_LED
+            showColorPattern(CRGB::Aqua, CRGB::Aqua, CRGB::Red);
+#endif
+            while (1) {
+                vTaskDelay(3000 / portTICK_PERIOD_MS);
+            }
+#endif
             if (bringAPOnline()) {
                 // AP works
                 ShowAPInfo();

@@ -6,6 +6,7 @@
 #include <MD5Builder.h>
 // #include <FS.h>
 
+#include "leds.h"
 #include "settings.h"
 #include "time.h"
 #include "zbs_interface.h"
@@ -335,6 +336,9 @@ bool flasher::writeFlash(uint8_t *flashbuffer, uint16_t size) {
         return false;
     flashWriteSuccess:
         if (c % 256 == 0) {
+#ifdef HAS_RGB_LED
+            shortBlink(CRGB::Yellow);
+#endif
             Serial.printf("\rNow flashing, %d/%d  ", c, size);
             vTaskDelay(1 / portTICK_PERIOD_MS);
         }
@@ -422,6 +426,9 @@ bool flasher::writeFlashFromPackOffset(fs::File *file, uint16_t length) {
             file->read(buf, length);
             length = 0;
         }
+#ifdef HAS_RGB_LED
+        shortBlink(CRGB::Yellow);
+#endif
         Serial.printf("\rFlashing, %d bytes left     ", length);
         bool res = writeBlock256(offset, buf);
         offset += 256;
@@ -432,6 +439,9 @@ bool flasher::writeFlashFromPackOffset(fs::File *file, uint16_t length) {
         vTaskDelay(1 / portTICK_PERIOD_MS);
     }
     Serial.printf("\nFlashing done\n");
+    #ifdef HAS_RGB_LED
+    addFadeColor(CRGB::Green);
+    #endif
     return true;
 }
 
@@ -506,7 +516,7 @@ bool doForcedAPFlash() {
     }
 
     // we're going to overwrite the contents of the tag, so if we haven't set the mac already, we can forget about it. We'll set the mac to the wifi mac
-    if(!f->getInfoBlockMac()){
+    if (!f->getInfoBlockMac()) {
         f->readInfoBlock();
         f->getMacFromWiFi();
         f->prepareInfoBlock();
@@ -516,7 +526,7 @@ bool doForcedAPFlash() {
     fs::File readfile = LittleFS.open("/AP_force_flash.bin", "r");
     bool res = f->writeFlashFromPackOffset(&readfile, readfile.size());
     readfile.close();
-    if(res) LittleFS.remove("/AP_force_flash.bin");
+    if (res) LittleFS.remove("/AP_force_flash.bin");
     f->zbs->reset();
     delete f;
     return res;
@@ -579,11 +589,12 @@ bool doAPUpdate(uint8_t type) {
         f->writeInfoBlock();
     }
     bool res = f->writeFlashFromPack("/AP_FW_Pack.bin", f->tagtype);
-    if(res)f->zbs->reset();
+    if (res) f->zbs->reset();
     delete f;
     return res;
 }
 
+#ifdef OPENEPAPERLINK_PCB
 // perform device flash, save mac, everything
 bool doTagFlash() {
     class flasher *f = new flasher();
@@ -624,3 +635,4 @@ bool doTagFlash() {
     delete f;
     return false;
 }
+#endif

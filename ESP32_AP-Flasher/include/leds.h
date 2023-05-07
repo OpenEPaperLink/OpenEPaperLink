@@ -1,11 +1,14 @@
 #include <Arduino.h>
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_RGB_LED
 #include <FastLED.h>
 #endif 
 
 void ledTask(void* parameter);
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_RGB_LED
 void shortBlink(CRGB cname);
+void showColorPattern(CRGB colorone, CRGB colortwo, CRGB colorthree);
+void rgbIdle();
+void addFadeColor(CRGB cname);
 #endif

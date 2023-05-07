@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <time.h>
+
 #include "contentmanager.h"
 #include "flasher.h"
 #include "makeimage.h"
@@ -38,6 +39,7 @@ void timeTask(void* parameter) {
 
 void setup() {
 #ifdef OPENEPAPERLINK_MINI_AP_PCB
+    // this allows us to view the booting process. After connecting to USB, you have 3 seconds to open a terminal on the COM port
     vTaskDelay(3000 / portTICK_PERIOD_MS);
 #endif
     Serial.begin(115200);
@@ -70,27 +72,37 @@ void setup() {
     }
 
 #ifdef HAS_USB
-    xTaskCreate(usbFlasherTask, "flasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
+    xTaskCreate(usbFlasherTask, "usbflasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
 #endif
+
+    xTaskCreate(ledTask, "ledhandler", 5000, NULL, 2, NULL);
 
     configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "0.nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 
+#ifdef HAS_RGB_LED
+    showColorPattern(CRGB::Aqua, CRGB::Green, CRGB::Blue);
+#endif
+
     initAPconfig();
+
     init_web();
     init_udp();
+
+#ifdef HAS_RGB_LED
+    rgbIdle();
+#endif
 
     loadDB("/current/tagDB.json");
 
     xTaskCreate(APTask, "AP Process", 10000, NULL, 2, NULL);
     xTaskCreate(webSocketSendProcess, "ws", 5000, NULL, configMAX_PRIORITIES - 10, NULL);
     xTaskCreate(timeTask, "timed tasks", 10000, NULL, 2, NULL);
-    xTaskCreate(ledTask, "ledhandler", 5000, NULL, 3, NULL);
 }
 
 void loop() {
     vTaskDelay(10000 / portTICK_PERIOD_MS);
-    //performDeviceFlash();
+    // performDeviceFlash();
     while (1) {
         vTaskDelay(10000 / portTICK_PERIOD_MS);
     }
