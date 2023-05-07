@@ -119,7 +119,7 @@ bool flasher::connectTag(uint8_t port) {
             Serial.printf("Tried to connect to port %d, but this port isn't available. Some dev borked it up, probably Jelmer.\n", port);
             return false;
     }
-    if (!result) Serial.printf("I tried connecting to port, but I couldn't establish a link to the tag. That's all I know.\n");
+    if (!result) Serial.printf("I tried connecting to port %d, but I couldn't establish a link to the tag. That's all I know.\n", port);
     return result;
 }
 
@@ -499,7 +499,7 @@ bool checkForcedAPFlash() {
 bool doForcedAPFlash() {
     Serial.printf("Doing a forced AP Flash!\n");
     class flasher *f = new flasher();
-    if (!f->connectTag(0)) {
+    if (!f->connectTag(AP_PROCESS_PORT)) {
         Serial.printf("Sorry, failed to connect to this tag...\n");
         delete f;
         return false;
@@ -525,7 +525,7 @@ bool doForcedAPFlash() {
 bool doAPFlash() {
     // This function expects a tag in stock configuration, to be used as an AP. It can also work with 'dead' AP's.
     class flasher *f = new flasher();
-    if (!f->connectTag(0)) {
+    if (!f->connectTag(AP_PROCESS_PORT)) {
         Serial.printf("Sorry, failed to connect to this tag...\n");
         delete f;
         return false;
@@ -557,7 +557,7 @@ bool doAPFlash() {
 bool doAPUpdate(uint8_t type) {
     // this function expects the tag to be already flashed with some version of the OpenEpaperLink Firmware, and that it correctly reported its type
     class flasher *f = new flasher();
-    if (!f->connectTag(0)) {
+    if (!f->connectTag(AP_PROCESS_PORT)) {
         Serial.printf("Sorry, failed to connect to this tag...\n");
         delete f;
         return false;
@@ -578,7 +578,6 @@ bool doAPUpdate(uint8_t type) {
         f->findTagByType(type);
         f->writeInfoBlock();
     }
-    // TODO: DO THE ACTUAL FLASHING!
     bool res = f->writeFlashFromPack("/AP_FW_Pack.bin", f->tagtype);
     if(res)f->zbs->reset();
     delete f;
@@ -588,7 +587,7 @@ bool doAPUpdate(uint8_t type) {
 // perform device flash, save mac, everything
 bool doTagFlash() {
     class flasher *f = new flasher();
-    if (!f->connectTag(1)) {
+    if (!f->connectTag(FLASHER_EXT_PORT)) {
         Serial.printf("Sorry, failed to connect to this tag...\n");
         return false;
     }

@@ -108,17 +108,31 @@ bool waitCmdReply() {
     return false;
 }
 
+
+#if (AP_PROCESS_PORT == FLASHER_AP_PORT)
+#define AP_RESET_PIN FLASHER_AP_RESET
+#define AP_POWER_PIN FLASHER_AP_POWER
+#endif
+#if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
+#define AP_RESET_PIN FLASHER_EXT_RESET
+#define AP_POWER_PIN FLASHER_EXT_POWER
+#endif
+#if (AP_PROCESS_PORT == FLASHER_ALTRADIO_PORT)
+#define AP_RESET_PIN FLASHER_ALT_RESET
+#define AP_POWER_PIN FLASHER_ALT_POWER
+#endif
+
 // Reset the tag
 void APTagReset() {
-    pinMode(FLASHER_AP_RESET, OUTPUT);
-    digitalWrite(FLASHER_AP_RESET, LOW);
+    pinMode(AP_RESET_PIN, OUTPUT);
+    digitalWrite(AP_RESET_PIN, LOW);
     vTaskDelay(10 / portTICK_PERIOD_MS);
-    rampTagPower(FLASHER_AP_POWER, false);
+    rampTagPower(AP_POWER_PIN, false);
     vTaskDelay(100 / portTICK_PERIOD_MS);
-    rampTagPower(FLASHER_AP_POWER, true);
+    rampTagPower(AP_POWER_PIN, true);
     vTaskDelay(10 / portTICK_PERIOD_MS);
-    digitalWrite(FLASHER_AP_RESET, HIGH);
-    rampTagPower(FLASHER_AP_POWER, true);
+    digitalWrite(AP_RESET_PIN, HIGH);
+    rampTagPower(AP_POWER_PIN, true);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 }
 
@@ -534,11 +548,21 @@ void APTask(void* parameter) {
     xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
     xTaskCreate(rxSerialTask, "rxSerialTask", 4000, NULL, configMAX_PRIORITIES - 4, NULL);
 
+#if (AP_PROCESS_PORT == FLASHER_AP_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
+#endif
+#if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
+    AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
+#endif
+#if (AP_PROCESS_PORT == FLASHER_ALTRADIO_PORT)
+    AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
+#endif
 
     vTaskDelay(3000 / portTICK_PERIOD_MS);
 
-    if(checkForcedAPFlash())doForcedAPFlash();
+    if (checkForcedAPFlash()){
+        doForcedAPFlash();
+    }
 
     if (bringAPOnline()) {
         // AP works

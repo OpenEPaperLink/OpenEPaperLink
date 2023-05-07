@@ -2,10 +2,8 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <time.h>
-
 #include "contentmanager.h"
 #include "flasher.h"
-// #include "hal/wdt_hal.h"
 #include "makeimage.h"
 #include "serialap.h"
 #include "settings.h"
