@@ -7,7 +7,7 @@
 
 #define HAS_EEPROM 0
 #define HAS_SCREEN 1
-#define AP_EMULATE_TAG 0
+#define AP_EMULATE_TAG 1
 
 #define HW_TYPE SOLUM_SEG_UK
 

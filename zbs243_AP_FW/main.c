@@ -30,7 +30,7 @@
 struct pendingData __xdata pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t __xdata version = 0x0013;
+uint16_t __xdata version = 0x0014;
 
 #define RAW_PKT_PADDING 2
 
@@ -272,8 +272,8 @@ void processSerial(uint8_t lastchar) {
                     struct pendingData *pd = (struct pendingData *)serialbuffer;
 #if (AP_EMULATE_TAG == 1)
                     if (memcmp(pd->targetMac, fakeTagMac, 8) == 0) {
-                        fakePendingData(pd);
                         pr("ACK>\n");
+                        fakePendingData(pd);
                     } else {
 #endif
                         int8_t slot = findSlotForMac(pd->targetMac);
@@ -301,7 +301,7 @@ void processSerial(uint8_t lastchar) {
             if (bytesRemain == 0) {
                 if (checkCRC(serialbuffer, sizeof(struct pendingData))) {
                     struct pendingData *pd = (struct pendingData *)serialbuffer;
-#if (AP_EMULATE_TAG == 1)
+#if (AP_EMULATE_TAG == 1 && HAS_EEPROM == 1)
                     if (memcmp(pd->targetMac, fakeTagMac, 8) == 0) {
                         fakeTagTrafficPending = false;
                         pr("ACK>\n");
@@ -310,7 +310,7 @@ void processSerial(uint8_t lastchar) {
                         // deleteAllPendingDataForVer((uint8_t *)&pd->availdatainfo.dataVer);
                         deleteAllPendingDataForMac((uint8_t *)&pd->targetMac);
                         pr("ACK>\n");
-#if (AP_EMULATE_TAG == 1)
+#if (AP_EMULATE_TAG == 1 && HAS_EEPROM == 1)
                     }
 #endif
                 } else {
@@ -416,6 +416,9 @@ void espNotifyAPInfo() {
     countSlots();
     pr("PEN>%02X\n", curPendingData);
     pr("NOP>%02X\n", curNoUpdate);
+#if (AP_EMULATE_TAG == 1)
+    fakeTagCheckIn();
+#endif
 }
 
 // process data from tag
@@ -660,7 +663,7 @@ void sendPong(void *__xdata buf) {
     radioTx(radiotxbuffer);
 }
 
-#if (AP_EMULATE_TAG == 1)
+#if (AP_EMULATE_TAG == 1 && HAS_EEPROM == 1)
 void attemptFakeTagUpdate() {
     if (memcmp(fakeTagMac, lastBlockMac, 8) == 0) {
         lastBlockRequest = timerGet();
@@ -726,9 +729,6 @@ void main(void) {
 
     pr("RES>\n");
     pr("RDY>\n");
-#if (AP_EMULATE_TAG == 1)
-    fakeTagCheckIn();
-#endif
 
     housekeepingTimer = timerGet();
 
@@ -781,8 +781,7 @@ void main(void) {
             loopCount--;
             if (loopCount == 0) {
 #if (HAS_SCREEN == 1)
-
-#if (AP_EMULATE_TAG == 1)
+#if (AP_EMULATE_TAG == 1 && HAS_EEPROM == 1)
                 if (fakeTagTrafficPending) attemptFakeTagUpdate();
 #else
                 countSlots();

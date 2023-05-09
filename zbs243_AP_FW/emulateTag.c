@@ -36,6 +36,13 @@ static uint8_t blockCount = 0;
 static uint32_t __xdata lastRequest = 0;
 static bool dataRequested = false;
 
+#if (SCREEN_WIDTH == 1)
+extern bool __xdata showAPDisplay;
+extern bool __xdata SisInverted;
+extern uint8_t __xdata epdSegmentData[12];
+#endif
+
+#if (HAS_EEPROM == 1)
 static bool validateBlockData() {
     struct blockData *bd = (struct blockData *)blockbuffer;
     // pr("expected len = %04X, checksum=%04X\n", bd->size, bd->checksum);
@@ -60,6 +67,7 @@ void epdWriteByte(uint8_t b) {
 }
 
 void fakeTagGetData() {
+    // non-segmented
     if ((timerGet() - lastRequest) > (1200UL * 1333)) {
         if (dataRequested == false) {
             if (ad.dataSize) {
@@ -100,14 +108,49 @@ void fakeTagGetData() {
         }
     }
 }
+#endif
 
 void fakePendingData(struct pendingData *pd) {
+#if (SCREEN_WIDTH == 1)
+    // segmented data, this contains all the info. No block transfers
+    if (pd->availdatainfo.dataType == DATATYPE_UK_SEGMENTED) {
+        if (pd->availdatainfo.dataVer == 0 && pd->availdatainfo.dataSize == 0) {
+            showAPDisplay = true;
+        } else {
+            showAPDisplay = false;
+            // check if we should re-init the EPD for the correct image (inverted or not)
+            //if (SisInverted != (pd->availdatainfo.dataTypeArgument & 0x01)) {
+                if (pd->availdatainfo.dataTypeArgument & 0x01) {
+                    SisInverted = true;
+                } else {
+                    SisInverted = false;
+                }
+                epdSetup(SisInverted);
+            //}
+            epdSetPos(0);
+
+            char *epdp = (char *)&(pd->availdatainfo.dataVer);
+
+            for (uint8_t c = 0; c < 10; c++) {
+                writeCharEPD(epdp[c]);
+            }
+            setEPDIcon(0xFFFF, false);
+            // memcpy(epdSegmentData, &(pd->availdatainfo.dataVer), 12);
+            setEPDIcon(*((uint16_t *)(epdp + 10)), true);
+            epdUpdate();
+        }
+        espNotifyXferComplete(fakeTagMac);
+    }
+
+#else
+    // non-segmented tags, we'll have to do a block transfer here
     if ((pd->availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP) || (pd->availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP) || (pd->availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP_DIRECT)) {
         memcpy(&ad, &(pd->availdatainfo), sizeof(struct AvailDataInfo));
         blockCount = 0;
         fakeTagTrafficPending = true;
         dataRequested = false;
     }
+#endif
 }
 
 void fakeTagCheckIn() {
@@ -119,6 +162,7 @@ void fakeTagCheckIn() {
     adr->hwType = HW_TYPE;
     adr->lastPacketLQI = 100;
     adr->lastPacketRSSI = 100;
+    adr->capabilities |= CAPABILITY_HAS_EXT_POWER;
     if (firstboot) {
         adr->wakeupReason = 0xFC;
         firstboot = false;

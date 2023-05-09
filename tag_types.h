@@ -4,6 +4,7 @@
 #define SOLUM_SEG_UK 0xF0
 #define SOLUM_NODISPLAY 0xFF
 
+#define CAPABILITY_HAS_EXT_POWER 0x10
 #define CAPABILITY_HAS_WAKE_BUTTON 0x20
 #define CAPABILITY_HAS_NFC 0x40
 #define CAPABILITY_NFC_WAKE 0x80
@@ -17,3 +18,4 @@
 #define DATATYPE_IMG_RAW_1BPP_DIRECT 0x3F  // only for 1.54", don't write to EEPROM, but straightaway to the EPD
 #define DATATYPE_NFC_RAW_CONTENT 0xA0      // raw memory content for the NT3H1101
 #define DATATYPE_NFC_URL_DIRECT 0xA1       // URL format for NT3H1101
+#define DATATYPE_UK_SEGMENTED 0x51         // Segmented data for the UK Segmented display type

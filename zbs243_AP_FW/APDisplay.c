@@ -25,10 +25,15 @@ extern uint8_t __xdata curPendingData;
 extern uint8_t __xdata curNoUpdate;
 
 #if (SCREEN_WIDTH == 1)
+// Segmented display type
+
+bool __xdata showAPDisplay = true;
+bool __xdata SisInverted = true;
+
 void epdInitialize() {
     epdEnable();
     pr("Setting up EPD\n");
-    if (!epdSetup(false)) pr("EPD setup failed\n");
+    if (!epdSetup(true)) pr("EPD setup failed\n");
     epdSetPos(0);
     epdpr("boot");
     setEPDIcon(EPD_ICON_DIAMOND, true);
@@ -39,6 +44,7 @@ void epdInitialize() {
 }
 
 void epdShowRun() {
+    if(!showAPDisplay) return;
     epdClear();
     epdSetPos(0);
     epdpr("run");
@@ -58,11 +64,13 @@ void epdShowRun() {
         if (updateCount == 10) {
             while (is_drawing()) {
             };
-            epdSetup(true);
+            epdSetup(false);
+            SisInverted = false;
         } else if (updateCount == 20) {
             while (is_drawing()) {
             };
-            epdSetup(false);
+            epdSetup(true);
+            SisInverted = true;
             updateCount = 0;
         }
     }
