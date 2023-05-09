@@ -39,6 +39,7 @@ void timeTask(void* parameter) {
 
 void setup() {
 #ifdef OPENEPAPERLINK_MINI_AP_PCB
+    APEnterEarlyReset();
     // this allows us to view the booting process. After connecting to USB, you have 3 seconds to open a terminal on the COM port
     vTaskDelay(3000 / portTICK_PERIOD_MS);
 #endif

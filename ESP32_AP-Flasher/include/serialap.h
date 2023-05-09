@@ -30,4 +30,6 @@ bool sendCancelPending(struct pendingData* pending);
 bool sendDataAvail(struct pendingData* pending);
 bool sendPing();
 
+void APEnterEarlyReset();
+
 bool sendChannelPower(struct espSetChannelPower* scp);

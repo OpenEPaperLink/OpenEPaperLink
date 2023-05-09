@@ -124,6 +124,11 @@ bool waitCmdReply() {
 #endif
 #endif
 
+void APEnterEarlyReset(){
+    pinMode(AP_RESET_PIN, OUTPUT);
+    digitalWrite(AP_RESET_PIN, LOW);
+}
+
 // Reset the tag
 void APTagReset() {
     pinMode(AP_RESET_PIN, OUTPUT);
