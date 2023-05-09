@@ -448,3 +448,37 @@ void setAPchannel() {
         }
     }
 }
+
+bool sendAPSegmentedData(uint8_t* dst, String data, uint16_t icons, bool inverted) {
+    struct pendingData pending = {0};
+    memcpy(pending.targetMac, dst, 8);
+    pending.availdatainfo.dataType = 0x51;
+    pending.availdatainfo.dataSize = icons << 16;
+    memcpy((void*)&(pending.availdatainfo.dataVer), data.c_str(), 10);
+    pending.availdatainfo.dataTypeArgument = inverted;
+    pending.availdatainfo.nextCheckIn = 0;
+    pending.attemptsLeft = 120;
+    char buffer[64];
+    uint8_t srcc[8];
+    *((uint64_t*)srcc) = swap64(*((uint64_t*)dst));
+    sprintf(buffer, ">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", srcc[0], srcc[1], srcc[2], srcc[3], srcc[4], srcc[5], srcc[6], srcc[7]);
+    Serial.print(buffer);
+    return sendDataAvail(&pending);
+}
+
+bool showAPSegmentedInfo(uint8_t* dst) {
+    struct pendingData pending = {0};
+    memcpy(pending.targetMac, dst, 8);
+    pending.availdatainfo.dataType = 0x51;
+    pending.availdatainfo.dataSize = 0x00;
+    pending.availdatainfo.dataVer = 0x00;
+    pending.availdatainfo.dataTypeArgument = 0;
+    pending.availdatainfo.nextCheckIn = 0;
+    pending.attemptsLeft = 120;
+    char buffer[64];
+    uint8_t srcc[8];
+    *((uint64_t*)srcc) = swap64(*((uint64_t*)dst));
+    sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", srcc[0], srcc[1], srcc[2], srcc[3], srcc[4], srcc[5], srcc[6], srcc[7]);
+    Serial.print(buffer);
+    return sendDataAvail(&pending);
+}

@@ -439,9 +439,6 @@ bool flasher::writeFlashFromPackOffset(fs::File *file, uint16_t length) {
         vTaskDelay(1 / portTICK_PERIOD_MS);
     }
     Serial.printf("\nFlashing done\n");
-    #ifdef HAS_RGB_LED
-    addFadeColor(CRGB::Green);
-    #endif
     return true;
 }
 
@@ -507,10 +504,8 @@ bool checkForcedAPFlash() {
 }
 
 bool doForcedAPFlash() {
-    Serial.printf("Doing a forced AP Flash!\n");
     class flasher *f = new flasher();
     if (!f->connectTag(AP_PROCESS_PORT)) {
-        Serial.printf("Sorry, failed to connect to this tag...\n");
         delete f;
         return false;
     }
@@ -525,6 +520,10 @@ bool doForcedAPFlash() {
 
     fs::File readfile = LittleFS.open("/AP_force_flash.bin", "r");
     bool res = f->writeFlashFromPackOffset(&readfile, readfile.size());
+#ifdef HAS_RGB_LED
+    if (res) addFadeColor(CRGB::Green);
+    if (!res) addFadeColor(CRGB::Red);
+#endif
     readfile.close();
     if (res) LittleFS.remove("/AP_force_flash.bin");
     f->zbs->reset();
@@ -589,9 +588,21 @@ bool doAPUpdate(uint8_t type) {
         f->writeInfoBlock();
     }
     bool res = f->writeFlashFromPack("/AP_FW_Pack.bin", f->tagtype);
+#ifdef HAS_RGB_LED
+    if (res) addFadeColor(CRGB::Green);
+    if (!res) addFadeColor(CRGB::Red);
+#endif
     if (res) f->zbs->reset();
     delete f;
     return res;
+}
+
+void flashCountDown(uint8_t c) {
+    Serial.printf("\r%d  ", c);
+    for (c -= 1; c < 254; c--) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        Serial.printf("\r%d  ", c);
+    }
 }
 
 #ifdef OPENEPAPERLINK_PCB

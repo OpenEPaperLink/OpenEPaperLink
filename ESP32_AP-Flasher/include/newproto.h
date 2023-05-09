@@ -10,5 +10,9 @@ extern void prepareExternalDataAvail(struct pendingData* pending, IPAddress remo
 extern void processXferComplete(struct espXferComplete* xfc, bool local);
 extern void processXferTimeout(struct espXferComplete* xfc,bool local);
 extern void processDataReq(struct espAvailDataReq* adr, bool local);
+
+extern bool sendAPSegmentedData(uint8_t* dst, String data, uint16_t icons, bool inverted);
+extern bool showAPSegmentedInfo(uint8_t* dst);
+
 void refreshAllPending();
 void setAPchannel();

@@ -527,11 +527,50 @@ void ShowAPInfo() {
     Serial.printf("+----------------------------+\n");
 }
 
+void notifySegmentedFlash() {
+    sendAPSegmentedData(apInfo.mac, (String) "Fl     ash", 0x0800, false);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+#if (FLASHER_AP_POWER == -1)
+    sendAPSegmentedData(apInfo.mac, (String) "If    done", 0x0800, false);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    sendAPSegmentedData(apInfo.mac, (String) "RE    boot", 0x0800, false);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+#endif
+}
+void checkWaitPowerCycle() {
+    // check if we should wait for a power cycle. If we do, try to inform the user the best we can, and hang.
+#if (FLASHER_AP_POWER == -1)
+    apInfo.isOnline = false;
+    apInfo.state = AP_STATE_REQUIRED_POWER_CYCLE;
+    // If we have no soft power control, we'll now wait until the device is power-cycled
+    Serial.printf("Please power-cycle your AP/device\n");
+#ifdef HAS_RGB_LED
+    showColorPattern(CRGB::Aqua, CRGB::Aqua, CRGB::Red);
+#endif
+    while (1) {
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+    }
+#endif
+}
+void segmentedShowIp() {
+    IPAddress IP = WiFi.localIP();
+    char temp[12];
+    sprintf(temp, "%03d IP %03d", IP[0], IP[1]);
+    sendAPSegmentedData(apInfo.mac, (String) "IP    Addr", 0x0200, true);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    sprintf(temp, "%03d IP %03d", IP[0], IP[1]);
+    sendAPSegmentedData(apInfo.mac, (String)temp, 0x0200, true);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    sprintf(temp, "%03d IP %03d", IP[2], IP[3]);
+    sendAPSegmentedData(apInfo.mac, (String)temp, 0x0200, true);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+}
+
 bool bringAPOnline() {
     apInfo.isOnline = false;
     apInfo.state = AP_STATE_OFFLINE;
     APTagReset();
-    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     uint32_t bootTimeout = millis();
     bool APrdy = false;
     while ((!APrdy) && (millis() - bootTimeout < 5 * 1000)) {
@@ -543,11 +582,12 @@ bool bringAPOnline() {
     } else {
         apInfo.state = AP_STATE_COMING_ONLINE;
         sendChannelPower(&curChannel);
-        vTaskDelay(300 / portTICK_PERIOD_MS);
+        vTaskDelay(200 / portTICK_PERIOD_MS);
         if (!sendGetInfo()) {
             apInfo.state = AP_STATE_OFFLINE;
             return false;
         }
+        vTaskDelay(200 / portTICK_PERIOD_MS);
         apInfo.isOnline = true;
         apInfo.state = AP_STATE_ONLINE;
         refreshAllPending();
@@ -571,90 +611,125 @@ void APTask(void* parameter) {
 #endif
 #endif
 
-    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    bringAPOnline();
 
     if (checkForcedAPFlash()) {
-        doForcedAPFlash();
-#if (FLASHER_AP_POWER == -1)
-        // If we have no soft power control, we'll now hang.
-        Serial.printf("Please power-cycle your device\n");
-#ifdef HAS_RGB_LED
-        showColorPattern(CRGB::Aqua, CRGB::Aqua, CRGB::Red);
-#endif
-        while (1) {
-            vTaskDelay(3000 / portTICK_PERIOD_MS);
+        if (apInfo.type == SOLUM_SEG_UK && apInfo.isOnline) {
+            Serial.printf("Showing some stuff on the segmented display about our intentions to flash...\n");
+            notifySegmentedFlash();
         }
-#endif
+        Serial.printf("We're going to try to perform an 'AP forced flash' in\n");
+        flashCountDown(10);
+        Serial.printf("\nPerforming force flash of the AP\n");
+        apInfo.isOnline = false;
+        apInfo.state = AP_STATE_FLASHING;
+        doForcedAPFlash();
+        checkWaitPowerCycle();
+        bringAPOnline();
     }
 
-    if (bringAPOnline()) {
-        // AP works
+    if (apInfo.isOnline) {
+        // AP works!
         ShowAPInfo();
+
+        if (apInfo.type == SOLUM_SEG_UK) {
+            segmentedShowIp();
+            showAPSegmentedInfo(apInfo.mac);
+        }
+
         uint16_t fsversion;
         fsversion = getAPUpdateVersion(apInfo.type);
         if ((fsversion) && (apInfo.version != fsversion)) {
             Serial.printf("Firmware version on LittleFS: %04X\n", fsversion);
-            Serial.printf("Performing flash update in about 30 seconds\n");
-            vTaskDelay(30000 / portTICK_PERIOD_MS);
+
+            Serial.printf("We're going to try to update the AP's FW in\n");
+            flashCountDown(30);
+            Serial.printf("\n");
+
             apInfo.isOnline = false;
             apInfo.state = AP_STATE_FLASHING;
             if (doAPUpdate(apInfo.type)) {
-#if (FLASHER_AP_POWER == -1)
-                // If we have no soft power control, we'll now hang.
-                Serial.printf("Please power-cycle your device\n");
-#ifdef HAS_RGB_LED
-                showColorPattern(CRGB::Aqua, CRGB::Aqua, CRGB::Red);
-#endif
-                while (1) {
-                    vTaskDelay(3000 / portTICK_PERIOD_MS);
-                }
-#endif
+                checkWaitPowerCycle();
                 Serial.printf("Flash completed, let's try to boot the AP!\n");
                 if (bringAPOnline()) {
                     // AP works
                     ShowAPInfo();
                     setAPchannel();
                 } else {
-                    Serial.printf("Failed to bring up the AP after flashing... That's not supposed to happen!\n");
-                    apInfo.isOnline = false;
+                    Serial.printf("Failed to bring up the AP after flashing seemed successful... That's not supposed to happen!\n");
+                    Serial.printf("This can be caused by a bad AP firmware, failed or failing hardware, or the inability to fully power-cycle the AP\n");
                     apInfo.state = AP_STATE_FAILED;
+#ifdef HAS_RGB_LED
+                    showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
+#endif
                 }
             } else {
-                apInfo.isOnline = false;
                 apInfo.state = AP_STATE_FAILED;
+                checkWaitPowerCycle();
                 Serial.println("Failed to update version on the AP :(\n");
+#ifdef HAS_RGB_LED
+                showColorPattern(CRGB::Red, CRGB::Red, CRGB::Red);
+#endif
             }
         }
     } else {
         // AP unavailable, maybe time to flash?
         apInfo.isOnline = false;
         apInfo.state = AP_STATE_OFFLINE;
-        Serial.println("I wasn't able to connect to a ZBS tag. This could be the first time this AP is booted and the AP-tag may be unflashed. We'll try to flash it!\n");
-        Serial.println("Performing firmware flash in about 10 seconds\n");
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
+        Serial.println("I wasn't able to connect to a ZBS (AP) tag.\n");
+        Serial.printf("This could be the first time this AP is booted and the AP-tag may be unflashed. We'll try to flash it!\n");
+        Serial.printf("If this tag was previously flashed succesfully but this message still shows up, there's probably something wrong with the serial connections.\n");
+        Serial.printf("The build of this firmware expects an AP tag with RXD/TXD on ESP32 pins %d and %d, does this match with your wiring?\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
+        Serial.println("Performing firmware flash in about 30 seconds!\n");
+        flashCountDown(30);
         if (doAPFlash()) {
-#if (FLASHER_AP_POWER == -1)
-            // If we have no soft power control, we'll now hang.
-            Serial.printf("Please power-cycle your device\n");
-#ifdef HAS_RGB_LED
-            showColorPattern(CRGB::Aqua, CRGB::Aqua, CRGB::Red);
-#endif
-            while (1) {
-                vTaskDelay(3000 / portTICK_PERIOD_MS);
-            }
-#endif
+            checkWaitPowerCycle();
             if (bringAPOnline()) {
                 // AP works
                 ShowAPInfo();
+                if (apInfo.type == SOLUM_SEG_UK) {
+                    segmentedShowIp();
+                    showAPSegmentedInfo(apInfo.mac);
+                }
             } else {
-                Serial.printf("Failed to bring up the AP after flashing... That's not supposed to happen!");
+                Serial.printf("Failed to bring up the AP after successful flashing... That's not supposed to happen!\n");
+                Serial.printf("This generally means that the flasher connections (MISO/MOSI/CLK/RESET/CS) are okay,\n");
+                Serial.printf("but we can't (yet) talk to the AP over serial lines. Verify the pins mentioned above.\n\n");
+
+                if (FLASHER_AP_POWER != -1) {
+                    Serial.printf("The firmware you're using expects soft power control over the AP tag; if it can't\n");
+                    Serial.printf("power-cycle the AP-tag using GPIO pin %d, this can cause this very same issue.\n", FLASHER_AP_POWER);
+                }
+#ifdef HAS_RGB_LED
+                showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
+#endif
                 apInfo.isOnline = false;
                 apInfo.state = AP_STATE_FAILED;
             }
         } else {
+            // failed to flash
+#ifdef HAS_RGB_LED
+            showColorPattern(CRGB::Red, CRGB::Red, CRGB::Red);
+#endif
             apInfo.isOnline = false;
             apInfo.state = AP_STATE_FAILED;
-            Serial.println("Failed flash the AP :(");
+            Serial.println("Failed to flash the AP :(");
+            Serial.println("Seems like you're running into some issues with the wiring, or (very small chance) the tag itself");
+            Serial.println("This ESP32-build expects the following pins connected to the ZBS243:");
+            Serial.println("---  ZBS243 based tag              ESP32  ---");
+            Serial.printf("       RXD     ----------------     %02d\n", FLASHER_AP_RXD);
+            Serial.printf("       TXD     ----------------     %02d\n", FLASHER_AP_TXD);
+            Serial.printf("       CS/SS   ----------------     %02d\n", FLASHER_AP_SS);
+            Serial.printf("       MOSI    ----------------     %02d\n", FLASHER_AP_MOSI);
+            Serial.printf("       MISO    ----------------     %02d\n", FLASHER_AP_MISO);
+            Serial.printf("       CLK     ----------------     %02d\n", FLASHER_AP_CLK);
+            Serial.printf("       RSET    ----------------     %02d\n", FLASHER_AP_RESET);
+#if (FLASHER_AP_POWER == -1)
+            Serial.printf("Your firmware is configured without soft power control. This means you'll have to manually power-cycle the tag after flashing.\n");
+#else
+            Serial.printf("       POWER   ----------------     %02d\n", FLASHER_AP_POWER);
+#endif
+            Serial.println("Please verify your wiring and try again!");
         }
     }
 
@@ -673,7 +748,9 @@ void APTask(void* parameter) {
                 if (!bringAPOnline()) {
                     // tried to reset the AP, but we failed... Maybe the AP-Tag died?
                     apInfo.state = AP_STATE_FAILED;
-                    apInfo.isOnline = false;
+#ifdef HAS_RGB_LED
+                    showColorPattern(CRGB::Yellow, CRGB::Yellow, CRGB::Red);
+#endif
                 } else {
                     apInfo.state = AP_STATE_ONLINE;
                     apInfo.isOnline = true;
