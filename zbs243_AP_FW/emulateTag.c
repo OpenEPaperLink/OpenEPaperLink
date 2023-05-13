@@ -119,14 +119,14 @@ void fakePendingData(struct pendingData *pd) {
         } else {
             showAPDisplay = false;
             // check if we should re-init the EPD for the correct image (inverted or not)
-            //if (SisInverted != (pd->availdatainfo.dataTypeArgument & 0x01)) {
+            if (SisInverted != (pd->availdatainfo.dataTypeArgument & 0x01)) {
                 if (pd->availdatainfo.dataTypeArgument & 0x01) {
                     SisInverted = true;
                 } else {
                     SisInverted = false;
                 }
                 epdSetup(SisInverted);
-            //}
+            }
             epdSetPos(0);
 
             char *epdp = (char *)&(pd->availdatainfo.dataVer);

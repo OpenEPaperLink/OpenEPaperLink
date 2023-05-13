@@ -30,7 +30,7 @@
 struct pendingData __xdata pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t __xdata version = 0x0014;
+uint16_t __xdata version = 0x0015;
 
 #define RAW_PKT_PADDING 2
 
@@ -740,7 +740,9 @@ void main(void) {
                 // received a packet, lets see what it is
                 switch (getPacketType(radiorxbuffer)) {
                     case PKT_AVAIL_DATA_REQ:
-                        processAvailDataReq(radiorxbuffer);
+                        if (ret == 28) {
+                            processAvailDataReq(radiorxbuffer);
+                        }
                         break;
                     case PKT_BLOCK_REQUEST:
                         processBlockRequest(radiorxbuffer, 1);
