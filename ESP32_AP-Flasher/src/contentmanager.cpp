@@ -17,6 +17,7 @@
 #include "tag_db.h"
 #include "settings.h"
 #include "web.h"
+#include "language.h"
 
 #define PAL_BLACK 0
 #define PAL_WHITE 9
@@ -270,8 +271,6 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
 
-    String Dag[] = {"zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"};
-    String Maand[] = {"januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"};
     int weekday_number = timeinfo.tm_wday;
     int month_number = timeinfo.tm_mon;
 
@@ -279,19 +278,19 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
 
     if (taginfo->hwType == SOLUM_29_033) {
         initSprite(spr, 296, 128);
-        drawString(spr, Dag[timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib62", TC_DATUM, PAL_RED);
-        drawString(spr, String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], 296 / 2, 73, "fonts/calibrib50", TC_DATUM);
+        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib62", TC_DATUM, PAL_RED);
+        drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], 296 / 2, 73, "fonts/calibrib50", TC_DATUM);
 
     } else if (taginfo->hwType == SOLUM_154_033) {
         initSprite(spr, 152, 152);
-        drawString(spr, Dag[timeinfo.tm_wday], 152 / 2, 10, "fonts/calibrib30", TC_DATUM);
-        drawString(spr, String(Maand[timeinfo.tm_mon]), 152 / 2, 120, "fonts/calibrib30", TC_DATUM);
+        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 152 / 2, 10, "fonts/calibrib30", TC_DATUM);
+        drawString(spr, String(languageMonth[getCurrentLanguage()][timeinfo.tm_mon]), 152 / 2, 120, "fonts/calibrib30", TC_DATUM);
         drawString(spr, String(timeinfo.tm_mday), 152 / 2, 42, "fonts/numbers2-1", TC_DATUM, PAL_RED);
 
     } else if (taginfo->hwType == SOLUM_42_033) {
         initSprite(spr, 400, 300);
-        drawString(spr, Dag[timeinfo.tm_wday], 400 / 2, 30, "fonts/calibrib62", TC_DATUM, PAL_RED);
-        drawString(spr, String(timeinfo.tm_mday) + " " + Maand[timeinfo.tm_mon], 400 / 2, 113, "fonts/calibrib50", TC_DATUM);
+        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 400 / 2, 30, "fonts/calibrib62", TC_DATUM, PAL_RED);
+        drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], 400 / 2, 113, "fonts/calibrib50", TC_DATUM);
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -549,8 +548,6 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
             Serial.println(error.c_str());
         }
 
-        static const char *weekday_name[] = {"ZO", "MA", "DI", "WO", "DO", "VR", "ZA"};
-
         String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "-", "-", "\uf014", "-", "-",
                                  "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
                                  "\uf019", "-", "\uf019", "-", "\uf019", "\uf015", "\uf015", "-", "-", "-",
@@ -571,7 +568,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
             for (uint8_t dag = 0; dag < 5; dag++) {
                 time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
                 struct tm *datum = localtime(&weatherday);
-                drawString(spr, String(weekday_name[datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
+                drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
 
                 uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
                 if (weathercode > 40) weathercode -= 40;
@@ -616,7 +613,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
             for (uint8_t dag = 0; dag < 5; dag++) {
                 time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
                 struct tm *datum = localtime(&weatherday);
-                drawString(spr, String(weekday_name[datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
+                drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
 
                 uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
                 if (weathercode > 40) weathercode -= 40;

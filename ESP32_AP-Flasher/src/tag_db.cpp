@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "LittleFS.h"
+#include "language.h"
 
 std::vector<tagRecord*> tagDB;
 DynamicJsonDocument APconfig(150);
@@ -232,6 +233,7 @@ void initAPconfig() {
         APconfig["channel"] = 0;
         APconfig["alias"] = String();
         APconfig["ledbrightness"] = 100;
+        APconfig["language"] = getDefaultLanguage();
         return;
     }
     DeserializationError error = deserializeJson(APconfig, configFile);

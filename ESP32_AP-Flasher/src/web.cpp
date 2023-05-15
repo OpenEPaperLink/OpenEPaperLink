@@ -12,6 +12,7 @@
 #include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager/tree/feature_asyncwebserver
 
 #include "commstructs.h"
+#include "language.h"
 #include "leds.h"
 #include "newproto.h"
 #include "settings.h"
@@ -312,10 +313,16 @@ void init_web() {
         if (request->hasParam("alias", true) && request->hasParam("channel", true)) {
             APconfig["alias"] = request->getParam("alias", true)->value();
             APconfig["channel"] = request->getParam("channel", true)->value();
-            APconfig["ledbrightness"] = request->getParam("ledbrightness", true)->value();
 #ifdef HAS_RGB_LED
-            updateBrightnessFromConfig();
+            if (request->hasParam("ledbrightness", true)) {
+                APconfig["ledbrightness"] = request->getParam("ledbrightness", true)->value();
+                updateBrightnessFromConfig();
+            }
 #endif
+            if (request->hasParam("language", true)) {
+                APconfig["language"] = request->getParam("language", true)->value();
+                updateLanguageFromConfig();
+            }
             saveAPconfig();
             setAPchannel();
         }

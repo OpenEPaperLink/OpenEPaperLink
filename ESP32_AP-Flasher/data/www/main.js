@@ -322,6 +322,7 @@ $('#apconfigbutton').onclick = function () {
             $('#apcfgalias').value = data.alias;
             $('#apcfgchid').value = data.channel;
             $("#apcfgledbrightness").value = data.ledbrightness;
+            $("#apcfglanguage").value = data.language;
         })
 }
 
@@ -330,6 +331,7 @@ $('#apcfgsave').onclick = function () {
 	formData.append("alias", $('#apcfgalias').value);
     formData.append("channel", $('#apcfgchid').value);
     formData.append('ledbrightness', $('#apcfgledbrightness').value);
+    formData.append('language', $('#apcfglanguage').value);
 	fetch("/save_apcfg", {
 		method: "POST",
 		body: formData

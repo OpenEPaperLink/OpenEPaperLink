@@ -14,6 +14,7 @@
 #include "usbflasher.h"
 #endif
 
+#include "language.h"
 #include "leds.h"
 #include "udp.h"
 #include "web.h"
@@ -109,6 +110,7 @@ void setup() {
 
     initAPconfig();
 
+    updateLanguageFromConfig();
 #ifdef HAS_RGB_LED
     updateBrightnessFromConfig();
 #endif
