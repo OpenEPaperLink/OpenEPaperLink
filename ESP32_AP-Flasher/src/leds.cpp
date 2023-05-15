@@ -80,6 +80,10 @@ const uint16_t gamma12[256] = {
 
 void addToRGBQueue(struct ledInstructionRGB* rgb, bool requeue) {
     rgb->reQueue = requeue;
+    if (!rgbLedQueue) {
+        delete rgb;
+        return;
+    }
     BaseType_t queuestatus = xQueueSend(rgbLedQueue, &rgb, 0);
     if (queuestatus == pdFALSE) {
         delete rgb;
@@ -286,7 +290,7 @@ void ledTask(void* parameter) {
 
                 if (rgbQueueFlush) {
                     delete rgb;
-                    rgb=nullptr;
+                    rgb = nullptr;
                 } else {
                     rgbInstructionFadeTime = rgb->fadeTime;
                     if (rgb->fadeTime <= 1) {

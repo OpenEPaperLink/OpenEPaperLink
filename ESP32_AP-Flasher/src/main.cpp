@@ -38,15 +38,42 @@ void timeTask(void* parameter) {
 }
 
 void setup() {
+    // starts the led task/state machine
+    xTaskCreate(ledTask, "ledhandler", 2000, NULL, 2, NULL);
+    vTaskDelay(10/portTICK_PERIOD_MS);
+    
+    // show a nice pattern to indicate the AP is booting / waiting for WiFi setup
+#ifdef HAS_RGB_LED
+    showColorPattern(CRGB::Aqua, CRGB::Green, CRGB::Blue);
+#endif
+
 #ifdef OPENEPAPERLINK_MINI_AP_PCB
     APEnterEarlyReset();
-    // this allows us to view the booting process. After connecting to USB, you have 3 seconds to open a terminal on the COM port
+    // this allows us to view the booting process. After the device showing up, you have 3 seconds to open a terminal on the COM port
     vTaskDelay(3000 / portTICK_PERIOD_MS);
+#ifdef DEBUG_VERSION
+    // Specifically for the Mini-version (using an ESP32-S2), use another serial port for debug output. Makes it possible to see core dumps
+    Serial0.begin(115200, SERIAL_8N1, 38, 37);
+    Serial0.printf("Started debug output...\n");
+    Serial0.setDebugOutput(true);
 #endif
+#endif
+
     Serial.begin(115200);
     Serial.print(">\n");
 
-    psramInit();
+#ifdef BOARD_HAS_PSRAM
+    if (!psramInit()) {
+        Serial.printf("This build of the AP expects PSRAM, but we couldn't find/init any. Something is terribly wrong here! System halted.");
+#ifdef HAS_RGB_LED
+        showColorPattern(CRGB::Yellow, CRGB::Red, CRGB::Red);
+#endif
+        while (1) {
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        }
+    };
+    heap_caps_malloc_extmem_enable(64);
+#endif
 
     Serial.println("\n\n##################################");
     Serial.printf("Internal Total heap %d, internal Free Heap %d\n", ESP.getHeapSize(), ESP.getFreeHeap());
@@ -73,32 +100,24 @@ void setup() {
     }
 
 #ifdef HAS_USB
+    // We'll need to start the 'usbflasher' task for boards with a second (USB) port. This can be used as a 'flasher' interface, using a python script on the host
     xTaskCreate(usbFlasherTask, "usbflasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
 #endif
-
-    xTaskCreate(ledTask, "ledhandler", 5000, NULL, 2, NULL);
 
     configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "0.nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 
-#ifdef HAS_RGB_LED
-    showColorPattern(CRGB::Aqua, CRGB::Green, CRGB::Blue);
-#endif
-
     initAPconfig();
-
     init_web();
     init_udp();
 
 #ifdef HAS_RGB_LED
     rgbIdle();
 #endif
-
     loadDB("/current/tagDB.json");
-
-    xTaskCreate(APTask, "AP Process", 10000, NULL, 2, NULL);
-    xTaskCreate(webSocketSendProcess, "ws", 5000, NULL, configMAX_PRIORITIES - 10, NULL);
-    xTaskCreate(timeTask, "timed tasks", 10000, NULL, 2, NULL);
+    xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
+    xTaskCreate(webSocketSendProcess, "ws", 2000, NULL, configMAX_PRIORITIES - 10, NULL);
+    xTaskCreate(timeTask, "timed tasks", 12000, NULL, 2, NULL);
 }
 
 void loop() {

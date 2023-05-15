@@ -124,7 +124,7 @@ bool waitCmdReply() {
 #endif
 #endif
 
-void APEnterEarlyReset(){
+void APEnterEarlyReset() {
     pinMode(AP_RESET_PIN, OUTPUT);
     digitalWrite(AP_RESET_PIN, LOW);
 }
@@ -601,8 +601,8 @@ bool bringAPOnline() {
 }
 
 void APTask(void* parameter) {
-    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
-    xTaskCreate(rxSerialTask, "rxSerialTask", 4000, NULL, configMAX_PRIORITIES - 4, NULL);
+    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 3000, NULL, configMAX_PRIORITIES - 10, NULL);
+    xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, configMAX_PRIORITIES - 4, NULL);
 
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
@@ -650,7 +650,7 @@ void APTask(void* parameter) {
             Serial.printf("We're going to try to update the AP's FW in\n");
             flashCountDown(30);
             Serial.printf("\n");
-
+            notifySegmentedFlash();
             apInfo.isOnline = false;
             apInfo.state = AP_STATE_FLASHING;
             if (doAPUpdate(apInfo.type)) {
