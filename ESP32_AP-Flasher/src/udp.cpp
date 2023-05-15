@@ -129,7 +129,7 @@ void UDPcomm::getAPList() {
     wsSendAPitem(&APitem);
 
     if (APconfig["channel"].as<int>() == 0) {
-        xTaskCreate(autoselect, "autoselect", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
+        xTaskCreate(autoselect, "autoselect", 5000, NULL, configMAX_PRIORITIES - 10, NULL);
     }
 
     uint8_t buffer[sizeof(struct APlist) + 1];

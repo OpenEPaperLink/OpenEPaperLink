@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #ifdef HAS_RGB_LED
+#define FASTLED_INTERNAL
 #include <FastLED.h>
 #endif 
 

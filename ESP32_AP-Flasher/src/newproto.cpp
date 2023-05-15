@@ -165,6 +165,8 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         wsLog("firmware upload pending");
         taginfo->filename = *filename;
         taginfo->len = filesize;
+        clearPending(taginfo);
+        taginfo->pending = true;
     }
 
     struct pendingData pending = {0};
@@ -330,6 +332,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     if (taginfo != nullptr) {
         memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
         clearPending(taginfo);
+        taginfo->wakeupReason = 0;
     }
     wsSendTaginfo(mac);
     if (local) udpsync.netProcessXferComplete(xfc);
