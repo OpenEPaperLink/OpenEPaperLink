@@ -41,7 +41,7 @@ void setup() {
     // starts the led task/state machine
     xTaskCreate(ledTask, "ledhandler", 2000, NULL, 2, NULL);
     vTaskDelay(10/portTICK_PERIOD_MS);
-    
+
     // show a nice pattern to indicate the AP is booting / waiting for WiFi setup
 #ifdef HAS_RGB_LED
     showColorPattern(CRGB::Aqua, CRGB::Green, CRGB::Blue);
@@ -109,7 +109,9 @@ void setup() {
 
     initAPconfig();
 
+#ifdef HAS_RGB_LED
     updateBrightnessFromConfig();
+#endif
 
     init_web();
     init_udp();

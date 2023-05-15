@@ -190,6 +190,23 @@ void rgbIdleStep() {
         showRGB();
     }
 }
+
+void setBrightness(int brightness) {
+    maxledbrightness = brightness;
+#ifdef HAS_RGB_LED
+    FastLED.setBrightness(maxledbrightness);
+#endif
+}
+
+void updateBrightnessFromConfig() {
+    if (APconfig["ledbrightness"].as<int>() != 0) {
+        int newbrightness = APconfig["ledbrightness"].as<int>();
+        if (newbrightness < 0) newbrightness = 0;
+        if (newbrightness != maxledbrightness) {
+            setBrightness(newbrightness);
+        }
+    }
+}
 #endif
 
 void addToMonoQueue(struct ledInstruction* mono) {
@@ -234,23 +251,6 @@ void monoIdleStep() {
     if (newvalue != monoValue) {
         monoValue = newvalue;
         showMono(newvalue);
-    }
-}
-
-void setBrightness(int brightness) {
-    maxledbrightness = brightness;
-#ifdef HAS_RGB_LED
-    FastLED.setBrightness(maxledbrightness);
-#endif
-}
-
-void updateBrightnessFromConfig() {
-    if (APconfig["ledbrightness"].as<int>() != 0) {
-        int newbrightness = APconfig["ledbrightness"].as<int>();
-        if (newbrightness < 0) newbrightness = 0;
-        if (newbrightness != maxledbrightness) {
-            setBrightness(newbrightness);
-        }
     }
 }
 

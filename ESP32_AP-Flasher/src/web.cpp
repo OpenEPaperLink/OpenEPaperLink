@@ -169,7 +169,7 @@ void wsSendTaginfo(uint8_t mac[6]) {
     xSemaphoreGive(wsMutex);
 }
 
-void wsSendAPitem(struct APlist* apitem) {
+void wsSendAPitem(struct APlist *apitem) {
     DynamicJsonDocument doc(250);
     JsonObject ap = doc.createNestedObject("apitem");
 
@@ -313,7 +313,9 @@ void init_web() {
             APconfig["alias"] = request->getParam("alias", true)->value();
             APconfig["channel"] = request->getParam("channel", true)->value();
             APconfig["ledbrightness"] = request->getParam("ledbrightness", true)->value();
+#ifdef HAS_RGB_LED
             updateBrightnessFromConfig();
+#endif
             saveAPconfig();
             setAPchannel();
         }
