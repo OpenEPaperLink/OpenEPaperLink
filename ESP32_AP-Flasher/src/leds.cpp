@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #ifdef HAS_RGB_LED
+#define FASTLED_INTERNAL
 #include <FastLED.h>
 #endif
 
@@ -81,6 +82,10 @@ const uint16_t gamma12[256] = {
 
 void addToRGBQueue(struct ledInstructionRGB* rgb, bool requeue) {
     rgb->reQueue = requeue;
+    if (!rgbLedQueue) {
+        delete rgb;
+        return;
+    }
     BaseType_t queuestatus = xQueueSend(rgbLedQueue, &rgb, 0);
     if (queuestatus == pdFALSE) {
         delete rgb;

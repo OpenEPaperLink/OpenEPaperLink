@@ -7,12 +7,14 @@
 #include <locale.h>
 #include <rssClass.h>
 #include <time.h>
+#include <LittleFS.h>
 
 #include "U8g2_for_TFT_eSPI.h"
 #include "commstructs.h"
 #include "makeimage.h"
 #include "newproto.h"
 #include "qrcode.h"
+#include "tag_db.h"
 #include "settings.h"
 #include "web.h"
 
@@ -58,7 +60,7 @@ void contentRunner() {
             uint16_t minutesUntilNextUpdate = 0;
             minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
             if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
-            if (minutesUntilNextUpdate > 1) {
+            if (minutesUntilNextUpdate > 1 && wsClientCount() == 0) {
                 taginfo->pendingIdle = minutesUntilNextUpdate;
                 if (taginfo->isExternal == false) prepareIdleReq(src, minutesUntilNextUpdate);
             }

@@ -12,6 +12,7 @@ void wsErr(String text);
 void wsSendTaginfo(uint8_t mac[6]);
 void wsSendSysteminfo();
 void wsSendAPitem(struct APlist* apitem);
+uint8_t wsClientCount();
 
 extern uint64_t swap64(uint64_t x);
 extern AsyncWebSocket ws;
