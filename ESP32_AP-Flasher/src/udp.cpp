@@ -7,6 +7,7 @@
 #include "tag_db.h"
 #include "web.h"
 #include "serialap.h"
+#include "udp.h"
 
 #define UDPIP IPAddress(239, 10, 0, 1)
 #define UDPPORT 16033
