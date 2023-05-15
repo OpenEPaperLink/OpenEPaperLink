@@ -188,7 +188,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case ImageUrl:
 
-            if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams)) {
+            if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams, dst)) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
                 updateTagImage(filename, mac, cfgobj["interval"].as<int>(), imageParams);
                 cfgobj["#fetched"] = now;
@@ -683,7 +683,7 @@ void drawIdentify(String &filename, tagRecord *&taginfo, imgParam &imageParams) 
     spr.deleteSprite();
 }
 
-bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams) {
+bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams, String MAC) {
     // https://images.klari.net/kat-bw29.jpg
 
     LittleFS.begin();
@@ -692,6 +692,7 @@ bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imagePara
     HTTPClient http;
     http.begin(URL);
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
+    http.addHeader("X-ESL-MAC", MAC);
     http.setTimeout(5000);  // timeout in ms
     int httpCode = http.GET();
     if (httpCode == 200) {

@@ -316,18 +316,20 @@ $('#apconfigbutton').onclick = function () {
 		table.deleteRow(i);
 	}
 	$('#apconfigbox').style.display = 'block'
-	fetch("/get_ap_list")
-		.then(response => response.json())
-		.then(data => {
-			$('#apcfgalias').value = data.alias;
-			$('#apcfgchid').value = data.channel;
-		})
+    fetch("/get_ap_list")
+        .then(response => response.json())
+        .then(data => {
+            $('#apcfgalias').value = data.alias;
+            $('#apcfgchid').value = data.channel;
+            $("#apcfgledbrightness").value = data.ledbrightness;
+        })
 }
 
 $('#apcfgsave').onclick = function () {
 	let formData = new FormData();
 	formData.append("alias", $('#apcfgalias').value);
-	formData.append("channel", $('#apcfgchid').value);
+    formData.append("channel", $('#apcfgchid').value);
+    formData.append('ledbrightness', $('#apcfgledbrightness').value);
 	fetch("/save_apcfg", {
 		method: "POST",
 		body: formData

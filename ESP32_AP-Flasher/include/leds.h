@@ -3,9 +3,11 @@
 #ifdef HAS_RGB_LED
 #define FASTLED_INTERNAL
 #include <FastLED.h>
-#endif 
+#endif
 
 void ledTask(void* parameter);
+void setBrightness(int brightness);
+void updateBrightnessFromConfig();
 
 #ifdef HAS_RGB_LED
 void shortBlink(CRGB cname);
