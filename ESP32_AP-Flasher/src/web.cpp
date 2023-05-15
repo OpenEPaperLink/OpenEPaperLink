@@ -187,6 +187,10 @@ void wsSendAPitem(struct APlist* apitem) {
     if (wsMutex) xSemaphoreGive(wsMutex);
 }
 
+uint8_t wsClientCount() {
+    return ws.count();
+}
+
 void init_web() {
     LittleFS.begin(true);
 

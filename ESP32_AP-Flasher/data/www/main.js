@@ -10,6 +10,7 @@ const WAKEUP_REASON_WDT_RESET = 0xFE;
 
 const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url", "Weather forecast", "RSS feed", "QR code", "Calendar", "Remote AP"];
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
+models[240] = "Segmented tag"
 const displaySizeLookup = { 0: [152, 152], 1: [128, 296], 2: [400, 300] };
 const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [255, 0, 0] };
 const contentModeOptions = [];
@@ -423,6 +424,9 @@ function processQueue() {
 
 			ctx.putImageData(imageData, 0, 0);
 			processQueue();
+		})
+  		.catch (error => {
+				processQueue();			
 		});
 }
 
