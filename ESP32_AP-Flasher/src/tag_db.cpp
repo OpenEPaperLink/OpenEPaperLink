@@ -227,10 +227,11 @@ void initAPconfig() {
     LittleFS.begin(true);
     File configFile = LittleFS.open("/current/apconfig.json", "r");
     if (!configFile) {
-        //default values'
+        // default values'
         Serial.println("APconfig not found");
         APconfig["channel"] = 0;
         APconfig["alias"] = String();
+        APconfig["ledbrightness"] = 100;
         return;
     }
     DeserializationError error = deserializeJson(APconfig, configFile);

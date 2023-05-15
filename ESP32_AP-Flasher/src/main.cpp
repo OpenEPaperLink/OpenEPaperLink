@@ -87,6 +87,8 @@ void setup() {
 
     initAPconfig();
 
+    updateBrightnessFromConfig();
+
     init_web();
     init_udp();
 

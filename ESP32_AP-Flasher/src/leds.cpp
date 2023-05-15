@@ -5,8 +5,10 @@
 #endif
 
 #include "settings.h"
+#include "tag_db.h"
 
 QueueHandle_t ledQueue;
+int maxledbrightness = 255;
 
 #ifdef HAS_RGB_LED
 QueueHandle_t rgbLedQueue;
@@ -230,6 +232,23 @@ void monoIdleStep() {
     }
 }
 
+void setBrightness(int brightness) {
+    maxledbrightness = brightness;
+#ifdef HAS_RGB_LED
+    FastLED.setBrightness(maxledbrightness);
+#endif
+}
+
+void updateBrightnessFromConfig() {
+    if (APconfig["ledbrightness"].as<int>() != 0) {
+        int newbrightness = APconfig["ledbrightness"].as<int>();
+        if (newbrightness < 0) newbrightness = 0;
+        if (newbrightness != maxledbrightness) {
+            setBrightness(newbrightness);
+        }
+    }
+}
+
 void ledTask(void* parameter) {
 #ifdef HAS_RGB_LED
     FastLED.addLeds<WS2812B, FLASHER_RGB_LED, GRB>(leds, 1);  // GRB ordering is typical
@@ -285,7 +304,7 @@ void ledTask(void* parameter) {
 
                 if (rgbQueueFlush) {
                     delete rgb;
-                    rgb=nullptr;
+                    rgb = nullptr;
                 } else {
                     rgbInstructionFadeTime = rgb->fadeTime;
                     if (rgb->fadeTime <= 1) {

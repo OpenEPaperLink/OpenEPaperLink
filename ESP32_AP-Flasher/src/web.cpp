@@ -308,6 +308,8 @@ void init_web() {
         if (request->hasParam("alias", true) && request->hasParam("channel", true)) {
             APconfig["alias"] = request->getParam("alias", true)->value();
             APconfig["channel"] = request->getParam("channel", true)->value();
+            APconfig["ledbrightness"] = request->getParam("ledbrightness", true)->value();
+            updateBrightnessFromConfig();
             saveAPconfig();
             setAPchannel();
         }
