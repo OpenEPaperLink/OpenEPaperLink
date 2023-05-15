@@ -232,7 +232,7 @@ void initAPconfig() {
         Serial.println("APconfig not found");
         APconfig["channel"] = 0;
         APconfig["alias"] = String();
-        APconfig["ledbrightness"] = 100;
+        APconfig["ledbrightness"] = 255;
         APconfig["language"] = getDefaultLanguage();
         return;
     }
