@@ -31,6 +31,7 @@ contentModeOptions[12] = [];
 const imageQueue = [];
 let isProcessing = false;
 let servertimediff = 0;
+let paintLoaded = false, paintShow = false;
 
 let socket;
 connect();
@@ -343,6 +344,40 @@ $('#apcfgsave').onclick = function () {
 	$('#apconfigbox').style.display = 'none';
 }
 
+$('#paintbutton').onclick = function () {
+	if (paintShow) {
+		paintShow = false;
+		$('#cfgsave').parentNode.style.display = 'block';
+		contentselected();
+	} else {
+		paintShow = true;
+		$('#cfgsave').parentNode.style.display = 'none';
+		$('#customoptions').innerHTML = "<div id=\"buttonbar\"></div><div id=\"canvasdiv\"></div><div id=\"layersdiv\"></div><p id=\"savebar\"></p>";
+		const mac = $('#cfgmac').dataset.mac
+		const hwtype = $('#tag' + mac).dataset.hwtype;
+		var [width, height] = displaySizeLookup[hwtype] || [0, 0];
+		if (height > width) [width, height] = [height, width];
+		if (paintLoaded) {
+			startPainter(mac, width, height);
+		} else {
+			loadScript('painter.js', function () {
+				startPainter(mac, width, height);
+			});
+		}
+	}
+}
+
+function loadScript(url, callback) {
+	var script = document.createElement('script');
+	script.src = url;
+	script.onload = function () {
+		if (callback) {
+			callback();
+		}
+	};
+	document.head.appendChild(script);
+}
+
 function contentselected() {
 	let contentMode = $('#cfgcontent').value;
 	let extraoptions = contentModeOptions[contentMode];
@@ -352,6 +387,7 @@ function contentselected() {
 		obj = JSON.parse($('#cfgcontent').dataset.json);
 	}
 	if (contentMode) {
+		$('#paintbutton').style.display = (contentMode == 0 ? 'inline-block' : 'none');
 		extraoptions.forEach(element => {
 			var label = document.createElement("label");
 			label.innerHTML = element;
@@ -366,6 +402,8 @@ function contentselected() {
 			$('#customoptions').appendChild(p);
 		});
 	}
+	paintShow = false;
+	$('#cfgsave').parentNode.style.display = 'block';
 }
 
 function showMessage(message,iserr) {

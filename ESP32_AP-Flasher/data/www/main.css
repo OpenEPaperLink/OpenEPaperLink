@@ -92,14 +92,17 @@ input {
 	border-radius: 0px;
 }
 
-input[type=button] {
+input[type=button], button {
 	border: 0px;
 	padding: 4px 10px;
 	cursor:pointer;
 }
-input[type=button]:hover {
+
+input[type=button]:hover,
+button:hover {
 	background-color:#aaaaaa;
 }
+
 select {
 	padding: 4px;
 	border-radius: 0px;
@@ -128,7 +131,7 @@ select {
 
 #configbox input, #apconfigbox input {
 	border: solid 1px #666666;
-	padding: 4px;
+	/*padding: 4px;*/
 }
 
 #configbox label, #apconfigbox label {
@@ -324,6 +327,81 @@ ul.messages li.new {
 
 .error {
 	color: red;
+}
+
+#paintbutton {
+	padding: 1px 3px;
+	border: 1px solid black;
+	font-size: 1.3em;
+	vertical-align: top;
+	margin-left:12px;
+	cursor: pointer;
+}
+
+#paintbutton:hover {
+	background-color: #aaaaaa;
+}
+
+/* painter */
+
+#canvasdiv {
+	padding: 5px;
+}
+
+#canvasdiv canvas {
+	border: 1px solid black;
+}
+
+#buttonbar {
+	padding: 5px;
+	display: flex;
+	gap: 5px;
+}
+
+#buttonbar button,
+#layersdiv button {
+	padding: 1px 2px;
+	border: 1px solid #cccccc;
+	background-color: #dddddd;
+	width: 40px;
+}
+#buttonbar button {
+	font-size: 1.2em;
+	font-weight: bold;
+}
+
+#buttonbar .active {
+	background-color: #ffffff;
+	cursor: pointer;
+}
+
+#buttonbar button:hover,
+#layersdiv button:hover {
+	background-color: #cccccc;
+	cursor: pointer;
+}
+
+#layersdiv {
+	padding: 0px 5px;
+}
+
+#layersdiv>div {
+	display: flex;
+	gap: 5px;
+	margin-bottom: 5px;
+}
+
+#layersdiv input,
+#layersdiv select {
+	padding: 2px;
+}
+
+#font-select {
+	width: 150px;
+}
+
+#savebar button {
+	border: solid 1px #666666;
 }
 
 

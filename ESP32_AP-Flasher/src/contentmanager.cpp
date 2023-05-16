@@ -107,7 +107,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case Image:
 
             if (cfgobj["filename"].as<String>() && cfgobj["filename"].as<String>() != "null" && !cfgobj["#fetched"].as<bool>()) {
-                if (cfgobj["dither"] && cfgobj["dither"].as<bool>() == false) imageParams.dither = false;
+                if (cfgobj["dither"] && cfgobj["dither"] == "0") imageParams.dither = false;
                 jpg2buffer(cfgobj["filename"].as<String>(), filename, imageParams);
                 if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                 if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
