@@ -87,7 +87,8 @@ void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
 
 bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
     if (nextCheckin > MIN_RESPONSE_TIME) nextCheckin = MIN_RESPONSE_TIME;
-
+    if (wsClientCount()) nextCheckin=0;
+    
     uint8_t src[8];
     *((uint64_t*)src) = swap64(*((uint64_t*)dst));
     uint8_t mac[6];
