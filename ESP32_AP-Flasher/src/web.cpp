@@ -365,12 +365,16 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
         request->_tempFile.close();
         if (request->hasParam("mac", true)) {
             String dst = request->getParam("mac", true)->value();
+            bool dither = true;
+            if (request->hasParam("dither", true)) {
+                if (request->getParam("dither", true)->value() == "0") dither = false;
+            }
             uint8_t mac[6];
             if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
                 tagRecord *taginfo = nullptr;
                 taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
-                    taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"0\"}";
+                    taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"0\",\"dither\":\"" + String(dither) + "\"}";
                     taginfo->contentMode = 0;
                     taginfo->nextupdate = 0;
                     wsSendTaginfo(mac);
