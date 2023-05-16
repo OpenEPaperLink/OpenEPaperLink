@@ -25,9 +25,9 @@ On the 2.9" tags, both the UC8151 and SSD1619 display variants are supported
 
 The entire setup requires a few tags, and an ESP32. A tag is used as an 802.15.4 radio for the ESP32. You'll need a ZBS_Flasher in order to flash the tags. Using the 'mac' option on ZBS_Flasher makes sure a tag flashed with a custom firmware has a valid mac address; it used the stock mac address assigned to the tag if it hasn't been flashed before. If you want to set it yourself, you can edit the mac address in the infopage. The AP expects a tag with a mac that starts with 00:00, followed by 6 bytes.
 
-You can hook the AP tag up to the ESP32 with mod wires or a flex pcb. The esp will flash the AP fitmware to the Tag automatically. In some case, a power off on cicle is reqired. Please check the serial console output for status information.
+You can hook the AP tag up to the ESP32 with mod wires or a flex pcb. The esp will flash the AP firmware to the Tag automatically. In some cases, a power off/on cycle is required. Please check the serial console output for status information.
 
-You can access the ESP32 with any web browser after connecting it to your WiFi Network. The file browser is located at <ip>/edit. For sending data to tags, you'll need to upload the information in 'data' to the ESP32's filesystem or over HTTP. After uploading, you can access the status screen at <ip>/index.html. If everything is working, you should be able to see tags synchronising to the network. After uploading a suitable .bmp file to the filesystem, this file can be sent to the tag by entering it's 6-byte mac address and filename.
+You can access the ESP32 with any web browser after connecting it to your WiFi Network. The file browser is located at <ip>/edit. For sending data to tags, you'll need to upload the information in 'data' to the ESP32's filesystem or over HTTP. After uploading, you can access the status screen at <ip>/index.html. If everything is working, you should be able to see tags synchronising to the network. After uploading a suitable .jpg file to the filesystem, this file can be sent to the tag by entering it's 6-byte mac address and filename.
 
 ## The protocol explained
 - The tag checks in with the AP every 40+ seconds. Actual check-in interval is highly dependent on RF conditions
@@ -51,12 +51,11 @@ You can access the ESP32 with any web browser after connecting it to your WiFi N
 ### AP:
 - Important! The AP needs to be able to tell a tag to try again later if it's already doing comms with another tag. The AP can't handle concurrent checkins/download due to memory constraints!
 - More reliable serial comms (sometimes bytes are dropped)
-- Include source mac with blockrequest struct 
 ### ESP32:
 - Do more with status info as sent by the tags
 
 ## Known issues:
-- Some tags work better as AP's than others. Your range may suck. The boards on these tags are tiny and fragile. For instance, a dab of hot-glue on a board is enough to warp it pretty severely, and will damage the components that are soldered on there. Reportedly, segmented-display solum tags work well. 
+- Some tags work better as AP's than others. Your range may suck. The boards on these tags are tiny and fragile. For instance, a dab of hot-glue on a board is enough to warp it pretty severely, and will damage the components that are soldered on there. Reportedly, segmented-display Solum tags work well. 
 
 ## Hints and excuses:
 - I'm sorry if reading this spaghetti code makes you lose your mind. <sub>'Of all the things I've lost, I miss my mind the most'</sub> I know it is pretty unreadable. I could blame SDCC for a lot of things, but it's mostly me.
@@ -73,7 +72,7 @@ You can access the ESP32 with any web browser after connecting it to your WiFi N
 Hats off to these legends!
  
 ## Automated Builds
-- After a PR gets merged to the main branch, the esp 32 code will automatically be compiled. This can take up to 20 minutes.
+- After a PR gets merged to the main branch, the ESP32 code will automatically be compiled. This can take up to 20 minutes.
 - Information about the latest builds can be found below
 <img alt="builds" src="https://openepaperlink.de/build/img.php">
 
