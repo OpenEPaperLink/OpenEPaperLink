@@ -112,6 +112,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                 if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
+                    if (cfgobj["delete"].as<String>()) LittleFS.remove("/"+cfgobj["filename"].as<String>());
                 } else {
                     wsErr("Error accessing " + filename);
                 }

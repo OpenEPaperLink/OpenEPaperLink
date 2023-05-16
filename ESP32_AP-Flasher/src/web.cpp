@@ -374,7 +374,7 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
                 tagRecord *taginfo = nullptr;
                 taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
-                    taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"0\",\"dither\":\"" + String(dither) + "\"}";
+                    taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"0\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\"}";
                     taginfo->contentMode = 0;
                     taginfo->nextupdate = 0;
                     wsSendTaginfo(mac);

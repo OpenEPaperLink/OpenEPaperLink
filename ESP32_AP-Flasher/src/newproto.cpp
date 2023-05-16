@@ -132,6 +132,9 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
         wsLog("new image is the same as current or already pending image. not updating tag.");
         wsSendTaginfo(mac);
+        if (LittleFS.exists(*filename)) {
+            LittleFS.remove(*filename);
+        }
         return true;
     }
 
