@@ -7,6 +7,7 @@ This is an alternative firmware and protocol for the ZBS243-based Electronic She
  
 <img width="600" alt="board" src="https://user-images.githubusercontent.com/2544995/227208651-993d11a2-380f-44ae-847c-f8d90296c8cf.png">
 
+
 ### Compatibility
 It is currently compatible with the following tags:
 * 4.2"
