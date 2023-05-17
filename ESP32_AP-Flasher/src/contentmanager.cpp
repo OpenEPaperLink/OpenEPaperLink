@@ -815,6 +815,8 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     time(&now);
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
+    static char dateString[40];
+    strftime(dateString, sizeof(dateString), " - %d.%m.%Y", &timeinfo);
 
     HTTPClient http;
     http.begin(URL);
@@ -849,6 +851,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         u8f.setBackgroundColor(PAL_WHITE);
         u8f.setCursor(5, 16);
         u8f.print(title);
+        u8f.print(dateString);
 
         int n = doc.size();
         if (n > 7) n = 7;
@@ -884,6 +887,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         u8f.setBackgroundColor(PAL_WHITE);
         u8f.setCursor(5, 16);
         u8f.print(title);
+        u8f.print(dateString);
 
         int n = doc.size();
         if (n > 8) n = 8;
