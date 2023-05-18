@@ -107,11 +107,12 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case Image:
 
             if (cfgobj["filename"].as<String>() && cfgobj["filename"].as<String>() != "null" && !cfgobj["#fetched"].as<bool>()) {
-                if (cfgobj["dither"] && cfgobj["dither"].as<bool>() == false) imageParams.dither = false;
+                if (cfgobj["dither"] && cfgobj["dither"] == "0") imageParams.dither = false;
                 jpg2buffer(cfgobj["filename"].as<String>(), filename, imageParams);
                 if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                 if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
+                    if (cfgobj["delete"].as<String>()) LittleFS.remove("/"+cfgobj["filename"].as<String>());
                 } else {
                     wsErr("Error accessing " + filename);
                 }
@@ -814,6 +815,8 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     time(&now);
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
+    static char dateString[40];
+    strftime(dateString, sizeof(dateString), " - %d.%m.%Y", &timeinfo);
 
     HTTPClient http;
     http.begin(URL);
@@ -848,6 +851,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         u8f.setBackgroundColor(PAL_WHITE);
         u8f.setCursor(5, 16);
         u8f.print(title);
+        u8f.print(dateString);
 
         int n = doc.size();
         if (n > 7) n = 7;
@@ -883,6 +887,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         u8f.setBackgroundColor(PAL_WHITE);
         u8f.setCursor(5, 16);
         u8f.print(title);
+        u8f.print(dateString);
 
         int n = doc.size();
         if (n > 8) n = 8;

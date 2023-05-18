@@ -10,6 +10,8 @@
 	<form method="post" enctype="multipart/form-data" action="/imgupload">
 		<label for="mac">Enter a 6 byte MAC address:</label><br>
 		<input type="text" id="mac" name="mac"><br>
+		<label for="dither">Floyd Steinberg dithering (0=off, 1=on)</label><br>
+		<input type="text" id="dither" name="dither"><br>
 		<label for="image">Select an image to upload. Must have the correct resolution for the tag (rotating is allowed):</label><br>
 		<input type="file" id="image" name="file"><br>
 		<input type="submit" value="Upload">
