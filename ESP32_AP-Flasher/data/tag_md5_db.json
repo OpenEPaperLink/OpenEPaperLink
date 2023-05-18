@@ -45,6 +45,15 @@
       "note":"2.9 v033 FW"
     },
     {
+      "name":"2.9 White - 2nd",
+      "mac_offset":64518,
+      "mac_format":1,
+      "mac_suffix":"3B10",
+      "MD5":"4FFCE4402E1540824BDDA62BC93FC3D9",
+      "type":1,
+      "note":"2.9 v033 FW - 2nd version"
+    },
+    {
       "name":"2.9 White + NFC UC8151",
       "mac_offset":64518,
       "mac_format":1,

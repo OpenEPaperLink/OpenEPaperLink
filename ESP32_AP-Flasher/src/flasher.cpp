@@ -82,6 +82,8 @@ class flasher {
     void getMacFromWiFi();
     bool prepareInfoBlock();
 
+    bool backupFlash();
+
     bool writeFlash(uint8_t *flashbuffer, uint16_t size);
     bool writeFlashFromPack(String filename, uint8_t type);
     bool writeFlashFromPackOffset(fs::File *file, uint16_t length);
@@ -281,6 +283,18 @@ void flasher::getMacFromWiFi() {
     mac[0] = 0x00;
     mac[1] = 0x00;
     esp_read_mac(mac + 2, ESP_MAC_WIFI_SOFTAP);
+}
+
+bool flasher::backupFlash() {
+    getFirmwareMD5();
+    if (!zbs->select_flash(0)) return false;
+    md5char[16]=0x00;
+    fs::File backup = LittleFS.open("/" + (String)md5char + "_backup.bin", "w", true);
+    for (uint32_t c = 0; c < 65535; c++) {
+        backup.write(zbs->read_flash(c));
+    }
+    backup.close();
+    return true;
 }
 
 // extract original mac from firmware (1.54" and 2.9") and make it 2 bytes longer based on info in settings.h
@@ -553,6 +567,8 @@ bool doAPFlash() {
         // used tag, but recognized
     } else {
         // unknown tag, bailing out.
+        f->backupFlash();
+
         Serial.printf("Found a tag, but don't know what to do with it. Consider flashing using a file called \"AP_force_flash.bin\"\n");
         delete f;
         return false;
@@ -624,6 +640,7 @@ bool doTagFlash() {
         f->prepareInfoBlock();
         f->writeInfoBlock();
         f->writeFlashFromPack("/Tag_FW_Pack.bin", f->tagtype);
+        f->zbs->reset();
     } else if (f->getInfoBlockMD5()) {
         // did find an infoblock MD5 that looks valid
         if (f->findTagByMD5()) {
@@ -641,8 +658,9 @@ bool doTagFlash() {
     } else {
         // We couldn't recognize the tag from it's fingerprint...
         Serial.printf("Found a tag but didn't recognize its fingerprint\n", f->md5char);
+        f->backupFlash();
+        Serial.printf("Saved this MD5 binary to filesystem\n");
     }
-
     delete f;
     return false;
 }
