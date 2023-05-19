@@ -205,7 +205,7 @@ void init_web() {
     WiFi.mode(WIFI_STA);
     WiFiManager wm;
     bool res;
-    res = wm.autoConnect("AutoConnectAP");
+    res = wm.autoConnect("OpenEPaperLink Setup");
     if (!res) {
         Serial.println("Failed to connect");
         ESP.restart();
