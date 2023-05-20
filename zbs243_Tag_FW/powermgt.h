@@ -9,6 +9,10 @@
 #define WAKEUP_REASON_NETWORK_SCAN 0xFD
 #define WAKEUP_REASON_WDT_RESET 0xFE
 
+#define DETECT_P1_0_NOTHING 0
+#define DETECT_P1_0_BUTTON 1
+#define DETECT_P1_0_JIG 2
+
 #define INIT_EPD_VOLTREADING 0x80
 #define INIT_RADIO 0x40
 #define INIT_I2C 0x20
@@ -40,6 +44,8 @@
 #define INTERVAL_2_TIME 7200UL                 // Try every 2 hours
 #define INTERVAL_2_ATTEMPTS 12                 // for 12 attempts (an additional day)
 #define INTERVAL_3_TIME 86400UL                // Finally, try every day
+
+extern uint8_t checkButtonOrJig();
 
 extern void setupPortsInitial();
 

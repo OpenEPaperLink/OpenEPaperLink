@@ -103,7 +103,7 @@ uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
             }
         }
     }
-    
+
     uint8_t __xdata highestLqi = 0;
     uint8_t __xdata highestSlot = 0;
     for (uint8_t c = 0; c < sizeof(result); c++) {
@@ -154,6 +154,19 @@ void main() {
         wakeUpReason = WAKEUP_REASON_FIRSTBOOT;
     }
 
+    switch (checkButtonOrJig()) {
+        case DETECT_P1_0_NOTHING:
+            break;
+        case DETECT_P1_0_BUTTON:
+            capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
+            break;
+        case DETECT_P1_0_JIG:
+            // show splash screen?
+            break;
+        default:
+            break;
+    }
+
     wdt10s();
 
     boardGetOwnMac(mSelfMac);
@@ -179,9 +192,6 @@ void main() {
 
     pr("BOOTED>  %d.%d.%d%s\n", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
 
-#ifdef HAS_BUTTON
-    capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
-#endif
     powerUp(INIT_I2C);
     if (i2cCheckDevice(0x55)) {
         powerDown(INIT_I2C);

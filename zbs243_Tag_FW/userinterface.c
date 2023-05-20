@@ -14,13 +14,13 @@
 #include "lut.h"
 #include "powermgt.h"
 #include "printf.h"
+#include "proto.h"
 #include "screen.h"
 #include "settings.h"
 #include "sleep.h"
 #include "spi.h"
 #include "syncedproto.h"  // for APmac / Channel
 #include "timer.h"
-#include "proto.h"
 
 // extern uint8_t __xdata mSelfMac[8];
 // extern uint8_t __xdata currentChannel;
@@ -36,12 +36,17 @@ bool __xdata lowBatteryShown = false;
 bool __xdata noAPShown = false;
 
 void addCapabilities() {
-    epdpr("Options: ");
+    if (capabilities) epdpr("Options: ");
     if (capabilities & CAPABILITY_HAS_NFC) {
-        epdpr("-NFC ");
+        epdpr("-NFC");
+        if (capabilities & CAPABILITY_NFC_WAKE) {
+            epdpr("+WAKE");
+        } else {
+            epdpr(" ");
+        }
     }
     if (capabilities & CAPABILITY_HAS_WAKE_BUTTON) {
-        epdpr("-WAKE BUTTON" );
+        epdpr("-WAKE BUTTON");
     }
 }
 
@@ -112,7 +117,6 @@ void showSplashScreen() {
     epdpr("Starting");
     epdPrintEnd();
 
-
     epdPrintBegin(64, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     addCapabilities();
     epdPrintEnd();
@@ -127,7 +131,6 @@ void showSplashScreen() {
     epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
     epdpr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
-
 
     uint8_t __xdata buffer[17];
     spr(buffer, "%02X%02X", mSelfMac[7], mSelfMac[6]);
@@ -210,9 +213,9 @@ void showScanningWindow() {
     epdPrintBegin(2, 275, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("Scanning for APs");
     epdPrintEnd();
-    //epdPrintBegin(40, 262, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    //epdpr("Channel - Quality");
-    //epdPrintEnd();
+    // epdPrintBegin(40, 262, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    // epdpr("Channel - Quality");
+    // epdPrintEnd();
     loadRawBitmap(receive, 36, 24, EPD_COLOR_BLACK);
 #endif
 #if (SCREEN_WIDTH == 152)  // 1.54"
@@ -226,9 +229,9 @@ void showScanningWindow() {
     epdpr("Scanning for APs");
     epdPrintEnd();
 
-    //epdPrintBegin(2, 40, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    //epdpr("Channel - Quality");
-    //epdPrintEnd();
+    // epdPrintBegin(2, 40, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    // epdpr("Channel - Quality");
+    // epdPrintEnd();
     loadRawBitmap(receive, 320, 125, EPD_COLOR_BLACK);
 #endif
 

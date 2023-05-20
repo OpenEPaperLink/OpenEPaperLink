@@ -47,6 +47,30 @@ bool __xdata eepromActive = false;
 bool __xdata i2cActive = false;
 extern int8_t adcSampleTemperature(void);  // in degrees C
 
+uint8_t checkButtonOrJig() {
+    P1FUNC &= ~(1 << 0);
+    P1DIR &= ~(1 << 0);
+    P1_0 = 0;
+    timerDelay(TIMER_TICKS_PER_MS * 10);
+    P1DIR |= (1 << 0);
+    P1PULL |= (1 << 0);
+    uint16_t loopcount = 0;
+    while (loopcount < 20000) {
+        if (P1_0) {
+            goto buttonWentHigh;
+        }
+        loopcount++;
+    }
+    pr("Jig detected (P1.0 low during boot)\n");
+    return DETECT_P1_0_JIG;
+buttonWentHigh:
+    if (loopcount > 130) {  // 10nF, or thereabout
+        pr("Detected about %d nF capacitance on P1.0, probably a button\n", loopcount / 13);
+        return DETECT_P1_0_BUTTON;
+    }
+    return DETECT_P1_0_NOTHING;
+}
+
 void setupPortsInitial() {
     P0INTEN = 0;
     P1INTEN = 0;
@@ -259,15 +283,15 @@ void doSleep(const uint32_t __xdata t) {
     uartActive = false;
     eepromActive = false;
 
-#ifdef HAS_BUTTON
-    // Button setup on TEST pin 1.0 (input pullup)
+    if (capabilities & CAPABILITY_HAS_WAKE_BUTTON) {
+        // Button setup on TEST pin 1.0 (input pullup)
         P1FUNC &= ~(1 << 0);
         P1DIR |= (1 << 0);
         P1PULL |= (1 << 0);
         P1LVLSEL |= (1 << 0);
         P1INTEN = (1 << 0);
         P1CHSTA &= ~(1 << 0);
-#endif
+    }
 
     if (capabilities & CAPABILITY_NFC_WAKE) {
         P1FUNC &= ~(1 << 3);
@@ -280,18 +304,16 @@ void doSleep(const uint32_t __xdata t) {
 
     // sleepy
     sleepForMsec(t);
-#ifdef HAS_BUTTON
     P1INTEN = 0;
-    if (P1CHSTA && (1 << 0)) {
+    if ((P1CHSTA & (1 << 0)) && (capabilities & CAPABILITY_HAS_WAKE_BUTTON)) {
         wakeUpReason = WAKEUP_REASON_GPIO;
         P1CHSTA &= ~(1 << 0);
     }
 
-    if (P1CHSTA && (1 << 3) && capabilities & CAPABILITY_NFC_WAKE) {
+    if ((P1CHSTA & (1 << 3)) && (capabilities & CAPABILITY_NFC_WAKE)) {
         wakeUpReason = WAKEUP_REASON_NFC;
         P1CHSTA &= ~(1 << 3);
     }
-#endif
 }
 
 uint32_t getNextScanSleep(const bool increment) {
