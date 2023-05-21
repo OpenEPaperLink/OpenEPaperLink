@@ -1,0 +1,51 @@
+name: ESP32 build
+
+on: [push,pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build firmware for ESP32
+        run: |
+          cd ESP32_AP-Flasher
+          pio run --environment Simple_AP
+        
+      - name: Build filesystem for ESP32
+        run: |
+          cd ESP32_AP-Flasher
+          pio run --target buildfs --environment Simple_AP
+          
+      - name: Build firmware for ESP32-S2
+        run: |
+          cd ESP32_AP-Flasher
+          pio run --environment OpenEPaperLink_Mini_AP
+        
+      - name: Build filesystem for ESP32-S2
+        run: |
+          cd ESP32_AP-Flasher
+          pio run --target buildfs --environment OpenEPaperLink_Mini_AP
+          
+      - name: Build firmware for ESP32-S3
+        run: |
+          cd ESP32_AP-Flasher
+          pio run --environment OpenEPaperLink_AP_and_Flasher
+        
+      - name: Build filesystem for ESP32-S3
+        run: |
+          cd ESP32_AP-Flasher
+          pio run --target buildfs --environment OpenEPaperLink_AP_and_Flasher
