@@ -358,6 +358,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
     TFT_eSprite spr = TFT_eSprite(&tft);
 
     wsLog("get weather");
+    // icons: https://erikflowers.github.io/weather-icons/
 
     getLocation(cfgobj);
     HTTPClient http;
@@ -739,7 +740,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         if (title == "" || title == "null") title = "RSS feed";
         drawString(spr, title, 5, 3, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
 
-        u8f.setFont(u8g2_font_glasstown_nbp_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+        u8f.setFont(u8g2_font_glasstown_nbp_tr);
         u8f.setFontMode(0);
         u8f.setFontDirection(0);
         u8f.setForegroundColor(PAL_BLACK);
@@ -751,11 +752,11 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         // u8g2_font_7x14_tr
         // u8g2_font_crox1h_tr
         // u8g2_font_miranda_nbp_tr
-        u8f.setFont(u8g2_font_glasstown_nbp_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+        u8f.setFont(u8g2_font_glasstown_nbp_tr);
 
         int n = reader.getArticles(url, tag, rssArticleSize, 8);
         for (int i = 0; i < n; i++) {
-            u8f.setCursor(5, 34 + i * 13);  // start writing at this position
+            u8f.setCursor(5, 34 + i * 13);
             u8f.print(reader.itemData[i]);
         }
     } else if (taginfo->hwType == SOLUM_42_033) {
@@ -763,7 +764,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         if (title == "" || title == "null") title = "RSS feed";
         drawString(spr, title, 5, 5, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
 
-        u8f.setFont(u8g2_font_glasstown_nbp_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+        u8f.setFont(u8g2_font_glasstown_nbp_tr);
         u8f.setFontMode(0);
         u8f.setFontDirection(0);
         u8f.setForegroundColor(PAL_BLACK);
@@ -771,7 +772,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         u8f.setCursor(220, 20);
         u8f.print(header);
 
-        u8f.setFont(u8g2_font_glasstown_nbp_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+        u8f.setFont(u8g2_font_glasstown_nbp_tr);
 
         int n = reader.getArticles(url, tag, rssArticleSize, 10);
         for (int i = 0; i < n; i++) {
@@ -880,7 +881,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         initSprite(spr, 400, 300);
         if (title == "" || title == "null") title = "Calendar";
 
-        u8f.setFont(u8g2_font_t0_22b_tr);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+        u8f.setFont(u8g2_font_t0_22b_tr);
         u8f.setFontMode(0);
         u8f.setFontDirection(0);
         u8f.setForegroundColor(PAL_BLACK);
@@ -1005,7 +1006,7 @@ int windSpeedToBeaufort(float windSpeed) {
 }
 
 String windDirectionIcon(int degrees) {
-    String directions[] = {"\uf058", "\uf087", "\uf048", "\uf043", "\uf044", "\uf088", "\uf04d", "\uf057"};
+    String directions[] = {"\uf044", "\uf043", "\uf048", "\uf087", "\uf058", "\uf057", "\uf04d", "\uf088"};
     int index = (degrees + 22) / 45;
     if (index >= 8) {
         index = 0;
