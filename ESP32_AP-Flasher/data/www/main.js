@@ -8,51 +8,47 @@ const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
 const WAKEUP_REASON_WDT_RESET = 0xFE;
 
-const contentModes = ["Static image", "Current date", "Counting days", "Counting hours", "Current weather", "Firmware update", "Memo text", "Image url", "Weather forecast", "RSS feed", "QR code", "Calendar", "Remote AP"];
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
 models[240] = "Segmented tag"
 const displaySizeLookup = { 0: [152, 152], 1: [128, 296], 2: [400, 300] };
 const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [255, 0, 0] };
-const contentModeOptions = [];
-contentModeOptions[0] = ["filename","timetolive"];
-contentModeOptions[1] = [];
-contentModeOptions[2] = ["counter", "thresholdred"];
-contentModeOptions[3] = ["counter", "thresholdred"];
-contentModeOptions[4] = ["location"];
-contentModeOptions[5] = ["filename"];
-contentModeOptions[6] = ["text"];
-contentModeOptions[7] = ["url","interval"];
-contentModeOptions[8] = ["location"];
-contentModeOptions[9] = ["title", "url", "interval"];
-contentModeOptions[10] = ["title", "qr-content"];
-contentModeOptions[11] = ["title", "apps_script_url", "interval"];
-contentModeOptions[12] = [];
 
 const imageQueue = [];
 let isProcessing = false;
 let servertimediff = 0;
 let paintLoaded = false, paintShow = false;
+var cardconfig;
 
-let socket;
-connect();
-setInterval(updatecards, 1000);
-window.addEventListener("load", function () { 
+window.addEventListener("load", function () {
 	fetch("/get_ap_list")
 		.then(response => response.json())
 		.then(data => {
 			if (data.alias) $(".logo").innerHTML = data.alias;
 		})
-	loadTags(0) 
+	fetch('/content_cards.json')
+		.then(response => response.json())
+		.then(data => {
+			cardconfig = data;
+			loadTags(0);
+		})
+		.catch(error => {
+			console.error('Error:', error);
+			alert("I can\'t load /www/content_cards.json.\r\nHave you upload it to the data partition?");
+		});
 });
 
+let socket;
+connect();
+setInterval(updatecards, 1000);
+
 function loadTags(pos) {
-	fetch("/get_db?pos="+pos)
+	fetch("/get_db?pos=" + pos)
 		.then(response => response.json())
 		.then(data => {
 			processTags(data.tags);
-			if (data.continu && data.continu>pos) loadTags(data.continu);
+			if (data.continu && data.continu > pos) loadTags(data.continu);
 		})
-		//.catch(error => showMessage('loadTags error: ' + error));
+	//.catch(error => showMessage('loadTags error: ' + error));
 }
 
 function connect() {
@@ -63,13 +59,12 @@ function connect() {
 	});
 
 	socket.addEventListener("message", (event) => {
-		console.log(event.data);
 		const msg = JSON.parse(event.data);
 		if (msg.logMsg) {
-			showMessage(msg.logMsg,false);
+			showMessage(msg.logMsg, false);
 		}
 		if (msg.errMsg) {
-			showMessage(msg.errMsg,true);
+			showMessage(msg.errMsg, true);
 		}
 		if (msg.tags) {
 			processTags(msg.tags);
@@ -102,11 +97,11 @@ function processTags(tagArray) {
 		if (div == null) {
 
 			div = $('#tagtemplate').cloneNode(true);
-			div.setAttribute('id', 'tag'+tagmac);
+			div.setAttribute('id', 'tag' + tagmac);
 			div.dataset.mac = tagmac;
 			div.dataset.hwtype = -1;
 			$('#taglist').appendChild(div);
-		} 
+		}
 
 		div.style.display = 'block';
 
@@ -119,14 +114,15 @@ function processTags(tagArray) {
 		if (!alias) alias = tagmac;
 		$('#tag' + tagmac + ' .alias').innerHTML = alias;
 
-		$('#tag' + tagmac + ' .contentmode').innerHTML = contentModes[element.contentMode];
+		let contentDefObj = getContentDefById(element.contentMode);
+		if (contentDefObj) $('#tag' + tagmac + ' .contentmode').innerHTML = contentDefObj.name;
 		if (element.RSSI) {
 			div.dataset.hwtype = element.hwType;
 			$('#tag' + tagmac + ' .model').innerHTML = models[element.hwType];
 			$('#tag' + tagmac + ' .rssi').innerHTML = element.RSSI;
 			$('#tag' + tagmac + ' .lqi').innerHTML = element.LQI;
 			$('#tag' + tagmac + ' .temperature').innerHTML = element.temperature;
-			$('#tag' + tagmac + ' .batt').innerHTML = element.batteryMv/1000;
+			$('#tag' + tagmac + ' .batt').innerHTML = element.batteryMv / 1000;
 			$('#tag' + tagmac + ' .received').style.opacity = "1";
 		} else {
 			$('#tag' + tagmac + ' .model').innerHTML = "waiting for hardware type";
@@ -138,7 +134,7 @@ function processTags(tagArray) {
 			div.dataset.hash = element.hash;
 		}
 
-		if (element.nextupdate > 1672531200 && element.nextupdate!=3216153600) {
+		if (element.nextupdate > 1672531200 && element.nextupdate != 3216153600) {
 			var date = new Date(element.nextupdate * 1000);
 			var options = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
 			$('#tag' + tagmac + ' .nextupdate').innerHTML = "<span>next update</span>" + date.toLocaleString('nl-NL', options);
@@ -187,7 +183,7 @@ function processTags(tagArray) {
 		}
 		$('#tag' + tagmac + ' .pendingicon').style.display = (element.pending ? 'inline-block' : 'none');
 		div.classList.add("tagflash");
-		(function(tagmac) {
+		(function (tagmac) {
 			setTimeout(function () { $('#tag' + tagmac).classList.remove("tagflash"); }, 1400);
 		})(tagmac);
 		if (element.pending) div.classList.add("tagpending");
@@ -200,13 +196,13 @@ function updatecards() {
 
 		if (item.dataset.lastseen && item.dataset.lastseen > 1672531200) {
 			let idletime = (Date.now() / 1000) - servertimediff - item.dataset.lastseen;
-			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>"+displayTime(Math.floor(idletime))+" ago";
+			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>" + displayTime(Math.floor(idletime)) + " ago";
 			if ((Date.now() / 1000) - servertimediff - 300 > item.dataset.nextcheckin) {
-				$('#tag' + tagmac + ' .warningicon').style.display='inline-block';
+				$('#tag' + tagmac + ' .warningicon').style.display = 'inline-block';
 				$('#tag' + tagmac).classList.remove("tagpending")
 				$('#tag' + tagmac).style.background = '#ffffcc';
 			}
-			if (idletime > 24*3600) {
+			if (idletime > 24 * 3600) {
 				$('#tag' + tagmac).style.opacity = '.5';
 				$('#tag' + tagmac + ' .lastseen').style.color = "red";
 			}
@@ -214,7 +210,7 @@ function updatecards() {
 			$('#tag' + tagmac + ' .lastseen').innerHTML = ""
 		}
 
-		if (item.dataset.nextcheckin > 1672531200 && parseInt(item.dataset.wakeupreason)==0) {
+		if (item.dataset.nextcheckin > 1672531200 && parseInt(item.dataset.wakeupreason) == 0) {
 			let nextcheckin = item.dataset.nextcheckin - ((Date.now() / 1000) - servertimediff);
 			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<span>expected checkin</span>" + displayTime(Math.floor(nextcheckin));
 		}
@@ -222,7 +218,7 @@ function updatecards() {
 }
 
 $('#clearlog').onclick = function () {
-	$('#messages').innerHTML='';
+	$('#messages').innerHTML = '';
 }
 
 document.querySelectorAll('.closebtn').forEach(button => {
@@ -231,6 +227,7 @@ document.querySelectorAll('.closebtn').forEach(button => {
 	});
 });
 
+//clicking on a tag: load config dialog for tag
 $('#taglist').addEventListener("click", (event) => {
 	let currentElement = event.target;
 	while (currentElement !== $('#taglist')) {
@@ -243,45 +240,58 @@ $('#taglist').addEventListener("click", (event) => {
 		return;
 	}
 	const mac = currentElement.dataset.mac;
-	//if (event.target.classList.contains("configicon")) {
-		$('#cfgmac').innerHTML = mac;
-		$('#cfgmac').dataset.mac = mac;
-		fetch("/get_db?mac=" + mac)
-			.then(response => response.json())
-			.then(data => {
-				var tagdata = data.tags[0];
-				$('#cfgalias').value = tagdata.alias;
+	$('#cfgmac').innerHTML = mac;
+	$('#cfgmac').dataset.mac = mac;
+	fetch("/get_db?mac=" + mac)
+		.then(response => response.json())
+		.then(data => {
+			var tagdata = data.tags[0];
+			$('#cfgalias').value = tagdata.alias;
+			if (populateSelectTag(tagdata.hwType)) {
+				$('#cfgcontent').parentNode.style.display = "block";				
 				$('#cfgcontent').value = tagdata.contentMode;
 				$('#cfgcontent').dataset.json = tagdata.modecfgjson;
 				contentselected();
-				$('#configbox').style.display = 'block';
-			})
-			//.catch(error => showMessage('Error: ' + error));
-	//}
+			} else {
+				$('#customoptions').innerHTML = "";
+				$('#cfgcontent').parentNode.style.display = "none";
+			}
+			$('#configbox').style.display = 'block';
+		})
 })
 
 $('#cfgsave').onclick = function () {
 	let contentMode = $('#cfgcontent').value;
-	let extraoptions = contentModeOptions[contentMode];
-	let obj={};
+	let contentDef = getContentDefById(contentMode);
+	let extraoptions = contentDef?.param ?? null;
+	let obj = {};
+
+	let formData = new FormData();
+	formData.append("mac", $('#cfgmac').dataset.mac);
+	formData.append("alias", $('#cfgalias').value);
+
 	if (contentMode) {
 		extraoptions.forEach(element => {
-			obj[element] = $('#opt' + element).value;
+			if ($('#opt' + element.key)) {
+				obj[element.key] = $('#opt' + element.key).value;
+			}
 		});
 
-		let formData = new FormData();
-		formData.append("mac", $('#cfgmac').dataset.mac);
-		formData.append("alias", $('#cfgalias').value);
 		formData.append("contentmode", contentMode);
 		formData.append("modecfgjson", JSON.stringify(obj));
-		fetch("/save_cfg", {
-			method: "POST",
-			body: formData
-		})
-			.then(response => response.text())
-			.then(data => showMessage(data))
-			.catch(error => showMessage('Error: ' + error));
+	} else {
+		formData.append("contentmode", "0");
+		formData.append("modecfgjson", String());
 	}
+
+	fetch("/save_cfg", {
+		method: "POST",
+		body: formData
+	})
+		.then(response => response.text())
+		.then(data => showMessage(data))
+		.catch(error => showMessage('Error: ' + error));
+
 	$('#configbox').style.display = 'none';
 }
 
@@ -303,7 +313,7 @@ $('#cfgdelete').onclick = function () {
 }
 
 $('#rebootbutton').onclick = function () {
-	showMessage("rebooting AP....",true);
+	showMessage("rebooting AP....", true);
 	fetch("/reboot", {
 		method: "POST"
 	});
@@ -317,22 +327,22 @@ $('#apconfigbutton').onclick = function () {
 		table.deleteRow(i);
 	}
 	$('#apconfigbox').style.display = 'block'
-    fetch("/get_ap_list")
-        .then(response => response.json())
-        .then(data => {
-            $('#apcfgalias').value = data.alias;
-            $('#apcfgchid').value = data.channel;
-            $("#apcfgledbrightness").value = data.ledbrightness;
-            $("#apcfglanguage").value = data.language;
-        })
+	fetch("/get_ap_list")
+		.then(response => response.json())
+		.then(data => {
+			$('#apcfgalias').value = data.alias;
+			$('#apcfgchid').value = data.channel;
+			$("#apcfgledbrightness").value = data.ledbrightness;
+			$("#apcfglanguage").value = data.language;
+		})
 }
 
 $('#apcfgsave').onclick = function () {
 	let formData = new FormData();
 	formData.append("alias", $('#apcfgalias').value);
-    formData.append("channel", $('#apcfgchid').value);
-    formData.append('ledbrightness', $('#apcfgledbrightness').value);
-    formData.append('language', $('#apcfglanguage').value);
+	formData.append("channel", $('#apcfgchid').value);
+	formData.append('ledbrightness', $('#apcfgledbrightness').value);
+	formData.append('language', $('#apcfglanguage').value);
 	fetch("/save_apcfg", {
 		method: "POST",
 		body: formData
@@ -380,22 +390,44 @@ function loadScript(url, callback) {
 
 function contentselected() {
 	let contentMode = $('#cfgcontent').value;
-	let extraoptions = contentModeOptions[contentMode];
-	$('#customoptions').innerHTML="";
+	$('#customoptions').innerHTML = "";
 	var obj = {};
-	if ($('#cfgcontent').dataset.json && ($('#cfgcontent').dataset.json!="null")) {
+	if ($('#cfgcontent').dataset.json && ($('#cfgcontent').dataset.json != "null")) {
 		obj = JSON.parse($('#cfgcontent').dataset.json);
 	}
+	$('#paintbutton').style.display = 'none';
+
 	if (contentMode) {
+		let contentDef = getContentDefById(contentMode);
+		if (contentDef) {
+			$('#customoptions').innerHTML = "<p>" + contentDef?.desc + "</p>"
+		}
 		$('#paintbutton').style.display = (contentMode == 0 ? 'inline-block' : 'none');
+		let extraoptions = contentDef?.param ?? null;
 		extraoptions.forEach(element => {
 			var label = document.createElement("label");
-			label.innerHTML = element;
-			label.setAttribute("for", 'opt' + element);
+			label.innerHTML = element.name;
+			label.setAttribute("for", 'opt' + element.key);
+			if (element.desc) {
+				label.style.cursor = 'help';
+				label.title = element.desc;
+			}
 			var input = document.createElement("input");
-			input.type = "text";
-			input.id = 'opt' + element;
-			if (obj[element]) input.value = obj[element];
+			switch (element.type) {
+				case 'text':
+					input.type = "text";
+					break;
+				case 'int':
+					input.type = "number";
+					break;
+				case 'ro':
+					input.type = "text";
+					input.disabled = true;
+					break;
+			}
+			input.id = 'opt' + element.key;
+			input.title = element.desc;
+			if (obj[element.key]) input.value = obj[element.key];
 			var p = document.createElement("p");
 			p.appendChild(label);
 			p.appendChild(input);
@@ -406,14 +438,37 @@ function contentselected() {
 	$('#cfgsave').parentNode.style.display = 'block';
 }
 
-function showMessage(message,iserr) {
+function populateSelectTag(hwtype) {
+	var selectTag = $("#cfgcontent");
+	selectTag.innerHTML = "";
+	var optionsAdded = false;
+	cardconfig.forEach(item => {
+		var hwtypeArray = item.hwtype;
+		if (hwtypeArray.includes(hwtype)) {
+			var option = document.createElement("option");
+			option.value = item.id;
+			option.text = item.name;
+			selectTag.appendChild(option);
+			optionsAdded = true;
+		}
+	});
+	return optionsAdded;
+}
+
+function getContentDefById(id) {
+	if (id == null) return null;
+	var obj = cardconfig.find(item => item.id == id);
+	return obj ? obj : null;
+}
+
+function showMessage(message, iserr) {
 	const messages = $('#messages');
 	var date = new Date(),
-        time = date.toLocaleTimeString('nl-NL', {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'});
+		time = date.toLocaleTimeString('nl-NL', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 	if (iserr) {
 		messages.insertAdjacentHTML("afterbegin", '<li class="new error">' + htmlEncode(time + ' ' + message) + '</li>');
 	} else {
-		messages.insertAdjacentHTML("afterbegin", '<li class="new">'+htmlEncode(time+' '+message)+'</li>');
+		messages.insertAdjacentHTML("afterbegin", '<li class="new">' + htmlEncode(time + ' ' + message) + '</li>');
 	}
 }
 
@@ -439,11 +494,11 @@ function processQueue() {
 	const { id, imageSrc } = imageQueue.shift();
 	const canvas = $('#tag' + id + ' .tagimg');
 	const hwtype = $('#tag' + id).dataset.hwtype;
-	
+
 	fetch(imageSrc)
 		.then(response => response.arrayBuffer())
 		.then(buffer => {
-			[canvas.width, canvas.height] = displaySizeLookup[hwtype] || [0,0];
+			[canvas.width, canvas.height] = displaySizeLookup[hwtype] || [0, 0];
 			const ctx = canvas.getContext('2d');
 			const imageData = ctx.createImageData(canvas.width, canvas.height);
 			const data = new Uint8ClampedArray(buffer);
@@ -467,8 +522,8 @@ function processQueue() {
 			ctx.putImageData(imageData, 0, 0);
 			processQueue();
 		})
-  		.catch (error => {
-				processQueue();			
+		.catch(error => {
+			processQueue();
 		});
 }
 

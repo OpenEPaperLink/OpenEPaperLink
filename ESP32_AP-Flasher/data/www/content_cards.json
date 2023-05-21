@@ -1,0 +1,302 @@
+[
+  {
+    "id": 0,
+    "name": "Static image",
+    "desc": "Shows a static image, from file system, painter or external source",
+    "hwtype": [
+      0,
+      1,
+      2
+    ],
+    "param": [
+      {
+        "key": "filename",
+        "name": "Filename",
+        "desc": "Local filename on the littlefs drive",
+        "type": "text"
+      },
+      {
+        "key": "timetolive",
+        "name": "TimeToLive",
+        "desc": "Amount (minutes) that this image will stay valid. The tag might not respond meanwhile",
+        "type": "int"
+      }
+    ]
+  },
+  {
+    "id": 1,
+    "name": "Current date",
+    "desc": "Shows the current date",
+    "hwtype": [
+      0,
+      1,
+      2
+    ],
+    "param": []
+  },
+  {
+    "id": 2,
+    "name": "Count days",
+    "desc": "Counts days, starting with the value below. If the count value gets higher than the threshold, the number is displayed in red, otherwise it's black",
+    "hwtype": [
+      0,
+      1,
+      2
+    ],
+    "param": [
+      {
+        "key": "counter",
+        "name": "Counter value",
+        "desc": "Current value",
+        "type": "int"
+      },
+      {
+        "key": "thresholdred",
+        "name": "Threshold",
+        "desc": "Value is displayed in red if higher than the threshold",
+        "type": "int"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Count hours",
+    "desc": "Counts hours, starting with the value below. If the count value gets higher than the threshold, the number is displayed in red, otherwise it's black",
+    "hwtype": [
+      0,
+      1,
+      2
+    ],
+    "param": [
+      {
+        "key": "counter",
+        "name": "Counter",
+        "desc": "Current value",
+        "type": "int"
+      },
+      {
+        "key": "thresholdred",
+        "name": "Threshold",
+        "desc": "Value is displayed in red if higher than the threshold",
+        "type": "int"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Current weather",
+    "desc": "Current weather. Weather data by Open-Meteo.com",
+    "hwtype": [
+      0,
+      1,
+      2
+    ],
+    "param": [
+      {
+        "key": "location",
+        "name": "Location",
+        "desc": "Name of the city. This is used to lookup the lat/long data, and to display as the title",
+        "type": "text"
+      },
+      {
+        "key": "#lat",
+        "name": "Lat",
+        "desc": "Latitude (set automatic when generating image)",
+        "type": "ro"
+      },
+      {
+        "key": "#lon",
+        "name": "Lon",
+        "desc": "Longitude (set automatic when generating image)",
+        "type": "ro"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "name": "Weather forecast",
+    "desc": "Weather forecast for the next five days. Weather data by Open-Meteo.com",
+    "hwtype": [
+      1,
+      2
+    ],
+    "param": [
+      {
+        "key": "location",
+        "name": "Location",
+        "desc": "Name of the city. This is used to lookup the lat/long data, and to display as the title",
+        "type": "text"
+      },
+      {
+        "key": "#lat",
+        "name": "Lat",
+        "desc": "Latitude (set automatic when generating image)",
+        "type": "ro"
+      },
+      {
+        "key": "#lon",
+        "name": "Lon",
+        "desc": "Longitude (set automatic when generating image)",
+        "type": "ro"
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "name": "RSS feed",
+    "desc": "Gets an RSS feed, and display the first few lines of it",
+    "hwtype": [
+      1,
+      2
+    ],
+    "param": [
+      {
+        "key": "title",
+        "name": "Title",
+        "desc": "Displayed title",
+        "type": "text"
+      },
+      {
+        "key": "url",
+        "name": "URL",
+        "desc": "Full URL of the RSS feed",
+        "type": "text"
+      },
+      {
+        "key": "interval",
+        "name": "Interval",
+        "desc": "How often (in minutes) the feed is being refreshed",
+        "type": "int"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "name": "Image URL",
+    "desc": "Gets an external image and displays it",
+    "hwtype": [
+      0,
+      1,
+      2
+    ],
+    "param": [
+      {
+        "key": "url",
+        "name": "URL",
+        "desc": "Full URL of the image. Image should be in jpeg format (non-progressive), and with exactly the right resolution for the screen (eg 128x296 or 152x152). Will be auto-rotated. Colors will be dithered",
+        "type": "text"
+      },
+      {
+        "key": "interval",
+        "name": "Interval",
+        "desc": "How often (in minutes) the image is being fetched",
+        "type": "int"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "name": "QR code",
+    "desc": "Displayes a full screen QR code",
+    "hwtype": [
+      0,
+      1,
+      2
+    ],
+    "param": [
+      {
+        "key": "title",
+        "name": "Title",
+        "desc": "Displayed title",
+        "type": "text"
+      },
+      {
+        "key": "qr-content",
+        "name": "QR content",
+        "desc": "Any content that can be coded into a QR code",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "name": "Google calendar",
+    "desc": "Displays the current and upcoming appointments (next 24 hours) from a Google calendar. To let this work, you need a small Google Apps Script to interface with your calendar. See documentation on github how to do that",
+    "hwtype": [
+      1,
+      2
+    ],
+    "param": [
+      {
+        "key": "title",
+        "name": "Title",
+        "desc": "Displayed title",
+        "type": "text"
+      },
+      {
+        "key": "apps_script_url",
+        "name": "Apps Script URL",
+        "desc": "URL given by Google Apps Script",
+        "type": "text"
+      },
+      {
+        "key": "interval",
+        "name": "Interval",
+        "desc": "How often (in minutes) the calendar is being refreshed",
+        "type": "int"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Firmware update",
+    "desc": "To update tag firmware",
+    "hwtype": [
+      0,
+      1,
+      2
+    ],
+    "param": [
+      {
+        "key": "filename",
+        "name": "Filename",
+        "desc": "Local file on littlefs partition",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "name": "Set segments",
+    "desc": "Work in progress",
+    "hwtype": [
+      240
+    ],
+    "param": [
+      {
+        "key": "line1",
+        "name": "line 1",
+        "desc": "8888",
+        "type": "text"
+      },
+      {
+        "key": "line2",
+        "name": "line 2",
+        "desc": "8888",
+        "type": "text"
+      },
+      {
+        "key": "line3",
+        "name": "line 3",
+        "desc": "88",
+        "type": "text"
+      },
+      {
+        "key": "symbols",
+        "name": "symbols",
+        "desc": "",
+        "type": "text"
+      }
+    ]
+  }  
+]

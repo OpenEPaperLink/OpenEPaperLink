@@ -138,6 +138,10 @@ select {
 	text-transform: capitalize;
 }
 
+#configbox input[type=number] {
+	width: 80px;
+}
+
 #apconfigbox {
 	background-color: #e6f0d3;
 }
