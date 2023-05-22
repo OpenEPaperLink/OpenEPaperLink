@@ -249,7 +249,8 @@ void epdSetup() {
     commandEnd();
 
     // shortCommand1(CMD_DATA_ENTRY_MODE, 0x03);
-    shortCommand1(CMD_BORDER_WAVEFORM_CTRL, 0xC0);
+    //shortCommand1(CMD_BORDER_WAVEFORM_CTRL, 0xC0); // blurry edges
+    shortCommand1(CMD_BORDER_WAVEFORM_CTRL, 0x01);
     shortCommand1(CMD_TEMP_SENSOR_CONTROL, 0x80);
     shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1 (i2C)
     // shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB9);  // mode 2?
