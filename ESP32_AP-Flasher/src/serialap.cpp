@@ -533,12 +533,12 @@ void ShowAPInfo() {
 }
 
 void notifySegmentedFlash() {
-    sendAPSegmentedData(apInfo.mac, (String) "Fl     ash", 0x0800, false);
+    sendAPSegmentedData(apInfo.mac, (String) "Fl     ash", 0x0800, false, true);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
 #if (FLASHER_AP_POWER == -1)
-    sendAPSegmentedData(apInfo.mac, (String) "If    done", 0x0800, false);
+    sendAPSegmentedData(apInfo.mac, (String) "If    done", 0x0800, false, true);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
-    sendAPSegmentedData(apInfo.mac, (String) "RE    boot", 0x0800, false);
+    sendAPSegmentedData(apInfo.mac, (String) "RE    boot", 0x0800, false, true);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 #endif
 }
@@ -560,14 +560,13 @@ void checkWaitPowerCycle() {
 void segmentedShowIp() {
     IPAddress IP = WiFi.localIP();
     char temp[12];
-    sprintf(temp, "%03d IP %03d", IP[0], IP[1]);
-    sendAPSegmentedData(apInfo.mac, (String) "IP    Addr", 0x0200, true);
+    sendAPSegmentedData(apInfo.mac, (String) "IP    Addr", 0x0200, true, true);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
     sprintf(temp, "%03d IP %03d", IP[0], IP[1]);
-    sendAPSegmentedData(apInfo.mac, (String)temp, 0x0200, true);
+    sendAPSegmentedData(apInfo.mac, (String)temp, 0x0200, true, true);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
     sprintf(temp, "%03d IP %03d", IP[2], IP[3]);
-    sendAPSegmentedData(apInfo.mac, (String)temp, 0x0200, true);
+    sendAPSegmentedData(apInfo.mac, (String)temp, 0x0200, true, true);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
 }
 
@@ -639,7 +638,7 @@ void APTask(void* parameter) {
 
         if (apInfo.type == SOLUM_SEG_UK) {
             segmentedShowIp();
-            showAPSegmentedInfo(apInfo.mac);
+            showAPSegmentedInfo(apInfo.mac, true);
         }
 
         uint16_t fsversion;
@@ -694,7 +693,7 @@ void APTask(void* parameter) {
                 ShowAPInfo();
                 if (apInfo.type == SOLUM_SEG_UK) {
                     segmentedShowIp();
-                    showAPSegmentedInfo(apInfo.mac);
+                    showAPSegmentedInfo(apInfo.mac, true);
                 }
             } else {
                 Serial.printf("Failed to bring up the AP after successful flashing... That's not supposed to happen!\n");

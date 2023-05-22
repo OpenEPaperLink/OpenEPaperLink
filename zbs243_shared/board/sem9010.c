@@ -63,7 +63,7 @@ static uint8_t charDecode(uint8_t c) {
         0b11000010,
         0b00011100,
         0b00000110,
-        0b00000000,
+        0b10101100,
         0b10001100,
         0b10001110,
         0b01111100,
@@ -73,7 +73,7 @@ static uint8_t charDecode(uint8_t c) {
         0b00011110,
         0b10000110,
         0b10010110,
-        0b11000110,
+        0b01011010,
         0b10001000,
         0b11011010,
         0b01101110,
@@ -92,7 +92,7 @@ static uint8_t charDecode(uint8_t c) {
         0b11000010,
         0b00011100,
         0b00010110,
-        0b00000000,
+        0b10101100,
         0b11110100,
         0b11110110,
         0b01111100,
@@ -102,7 +102,7 @@ static uint8_t charDecode(uint8_t c) {
         0b00011110,
         0b11010110,
         0b10010110,
-        0b11000110,
+        0b01011010,
         0b10001000,
         0b11011010,
         0b01101110,
@@ -147,7 +147,7 @@ static uint8_t charDecode(uint8_t c) {
         case 0x5F:  // _
             return 0b00000010;
         case 0x5E:  // ^
-            return 0b01110000;
+            return 0b01111000;
         case 0x3D:  // =
             return 0b00001010;
         case 0x23:  // #

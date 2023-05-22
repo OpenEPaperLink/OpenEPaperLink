@@ -83,4 +83,17 @@ struct APlist {
     uint16_t version;
 } __packed;
 
+struct TagInfo {
+    uint8_t mac[6];
+    char alias[32];
+    uint32_t lastseen;
+    uint32_t nextupdate;
+    bool pending;
+    uint32_t expectedNextCheckin;
+    uint8_t hwType;
+    uint8_t wakeupReason;
+    uint8_t capabilities;
+    uint16_t pendingIdle;
+} __packed;
+
 #pragma pack(pop)

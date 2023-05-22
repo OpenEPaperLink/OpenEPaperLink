@@ -7,6 +7,9 @@ struct imgParam {
     bool hasRed;
     uint8_t dataType;
     bool dither;
+    char segments[12];
+    uint16_t symbols;
+    bool invert;
 };
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams);

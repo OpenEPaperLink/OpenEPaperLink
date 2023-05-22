@@ -208,50 +208,51 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
         return;
     }
     if (taginfo->isExternal == false) {
-        LittleFS.begin();
+        if (pending->availdatainfo.dataType != DATATYPE_UK_SEGMENTED) {
+            LittleFS.begin();
 
-        char buffer[64];
-        sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", src[2], src[3], src[4], src[5], src[6], src[7]);
-        String filename = "/current/" + (String)buffer + ".pending";
-        String imageUrl = "http://" + remoteIP.toString() + filename;
-        wsLog("GET " + imageUrl);
-        HTTPClient http;
-        http.begin(imageUrl);
-        int httpCode = http.GET();
-        if (httpCode == 200) {
-            File file = LittleFS.open(filename, "w");
-            http.writeToStream(&file);
+            char buffer[64];
+            sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+            String filename = "/current/" + (String)buffer + ".pending";
+            String imageUrl = "http://" + remoteIP.toString() + filename;
+            wsLog("GET " + imageUrl);
+            HTTPClient http;
+            http.begin(imageUrl);
+            int httpCode = http.GET();
+            if (httpCode == 200) {
+                File file = LittleFS.open(filename, "w");
+                http.writeToStream(&file);
+                file.close();
+            }
+            http.end();
+
+            fs::File file = LittleFS.open(filename);
+            uint32_t filesize = file.size();
+            if (filesize == 0) {
+                file.close();
+                wsErr("File has size 0. " + filename);
+                return;
+            }
+
+            uint8_t md5bytes[16];
+            {
+                MD5Builder md5;
+                md5.begin();
+                md5.addStream(file, filesize);
+                md5.calculate();
+                md5.getBytes(md5bytes);
+            }
+
             file.close();
+            taginfo->filename = filename;
+            taginfo->len = filesize;
+            clearPending(taginfo);
+            taginfo->pending = true;
+            memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
         }
-        http.end();
-
-        fs::File file = LittleFS.open(filename);
-        uint32_t filesize = file.size();
-        if (filesize == 0) {
-            file.close();
-            wsErr("File has size 0. " + filename);
-            return;
-        }
-
-        uint8_t md5bytes[16];
-        {
-            MD5Builder md5;
-            md5.begin();
-            md5.addStream(file, filesize);
-            md5.calculate();
-            md5.getBytes(md5bytes);
-        }
-
-        file.close();
-        sendDataAvail(pending);
-
-        taginfo->filename = filename;
-        taginfo->len = filesize;
-        clearPending(taginfo);
-        taginfo->pending = true;
-        memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
         taginfo->contentMode = 12;
         taginfo->nextupdate = 3216153600;
+        sendDataAvail(pending);
 
         wsSendTaginfo(mac);
     }
@@ -456,10 +457,10 @@ void setAPchannel() {
     }
 }
 
-bool sendAPSegmentedData(uint8_t* dst, String data, uint16_t icons, bool inverted) {
+bool sendAPSegmentedData(uint8_t* dst, String data, uint16_t icons, bool inverted, bool local) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
-    pending.availdatainfo.dataType = 0x51;
+    pending.availdatainfo.dataType = DATATYPE_UK_SEGMENTED;
     pending.availdatainfo.dataSize = icons << 16;
     memcpy((void*)&(pending.availdatainfo.dataVer), data.c_str(), 10);
     pending.availdatainfo.dataTypeArgument = inverted;
@@ -470,13 +471,18 @@ bool sendAPSegmentedData(uint8_t* dst, String data, uint16_t icons, bool inverte
     *((uint64_t*)srcc) = swap64(*((uint64_t*)dst));
     sprintf(buffer, ">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", srcc[0], srcc[1], srcc[2], srcc[3], srcc[4], srcc[5], srcc[6], srcc[7]);
     Serial.print(buffer);
-    return sendDataAvail(&pending);
+    if (local) {
+        return sendDataAvail(&pending);
+    } else {
+        udpsync.netSendDataAvail(&pending);
+        return true;
+    }
 }
 
-bool showAPSegmentedInfo(uint8_t* dst) {
+bool showAPSegmentedInfo(uint8_t* dst, bool local) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
-    pending.availdatainfo.dataType = 0x51;
+    pending.availdatainfo.dataType = DATATYPE_UK_SEGMENTED;
     pending.availdatainfo.dataSize = 0x00;
     pending.availdatainfo.dataVer = 0x00;
     pending.availdatainfo.dataTypeArgument = 0;
@@ -487,5 +493,10 @@ bool showAPSegmentedInfo(uint8_t* dst) {
     *((uint64_t*)srcc) = swap64(*((uint64_t*)dst));
     sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", srcc[0], srcc[1], srcc[2], srcc[3], srcc[4], srcc[5], srcc[6], srcc[7]);
     Serial.print(buffer);
-    return sendDataAvail(&pending);
+    if (local) {
+        return sendDataAvail(&pending);
+    } else {
+        udpsync.netSendDataAvail(&pending);
+        return true;
+    }
 }

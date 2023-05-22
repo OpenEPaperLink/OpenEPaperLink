@@ -37,6 +37,7 @@ enum contentModes {
     QRcode,
     Calendar,
     RemoteAP,
+    SegStatic,
 };
 
 void contentRunner() {
@@ -103,6 +104,9 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
     imageParams.dither = true;
 
+    imageParams.invert = false;
+    imageParams.symbols = 0;
+
     switch (taginfo->contentMode) {
         case Image:
 
@@ -124,7 +128,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             drawDate(filename, taginfo, imageParams);
             taginfo->nextupdate = midnight;
-            updateTagImage(filename, mac, (midnight - now) / 60 - 10, imageParams);
+            updateTagImage(filename, mac, (midnight - now) / 60 - 10, taginfo, imageParams);
             break;
 
         case CountDays:
@@ -132,7 +136,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             if (buttonPressed) cfgobj["counter"] = 0;
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo, imageParams);
             taginfo->nextupdate = midnight;
-            updateTagImage(filename, mac, (buttonPressed ? 0 : 15), imageParams);
+            updateTagImage(filename, mac, (buttonPressed ? 0 : 15), taginfo, imageParams);
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             break;
 
@@ -141,7 +145,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             if (buttonPressed) cfgobj["counter"] = 0;
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo, imageParams);
             taginfo->nextupdate = now + 3600;
-            updateTagImage(filename, mac, (buttonPressed ? 0 : 5), imageParams);
+            updateTagImage(filename, mac, (buttonPressed ? 0 : 5), taginfo, imageParams);
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             break;
 
@@ -154,14 +158,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             drawWeather(filename, cfgobj, taginfo, imageParams);
             taginfo->nextupdate = now + 3600;
-            updateTagImage(filename, mac, 15, imageParams);
+            updateTagImage(filename, mac, 15, taginfo, imageParams);
             break;
 
         case Forecast:
 
             drawForecast(filename, cfgobj, taginfo, imageParams);
             taginfo->nextupdate = now + 3 * 3600;
-            updateTagImage(filename, mac, 15, imageParams);
+            updateTagImage(filename, mac, 15, taginfo, imageParams);
             break;
 
         case Firmware:
@@ -185,14 +189,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             drawIdentify(filename, taginfo, imageParams);
             taginfo->nextupdate = now + 12 * 3600;
-            updateTagImage(filename, mac, 0, imageParams);
+            updateTagImage(filename, mac, 0, taginfo, imageParams);
             break;
 
         case ImageUrl:
 
             if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams, dst)) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
-                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), imageParams);
+                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
                 cfgobj["#fetched"] = now;
             } else {
                 taginfo->nextupdate = now + 300;
@@ -203,7 +207,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             if (getRssFeed(filename, cfgobj["url"], cfgobj["title"], taginfo, imageParams)) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
-                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), imageParams);
+                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
             } else {
                 taginfo->nextupdate = now + 300;
             }
@@ -213,14 +217,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             drawQR(filename, cfgobj["qr-content"], cfgobj["title"], taginfo, imageParams);
             taginfo->nextupdate = now + 12 * 3600;
-            updateTagImage(filename, mac, 0, imageParams);
+            updateTagImage(filename, mac, 0, taginfo, imageParams);
             break;
 
         case Calendar:
 
             if (getCalFeed(filename, cfgobj["apps_script_url"], cfgobj["title"], taginfo, imageParams)) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
-                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), imageParams);
+                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
             } else {
                 taginfo->nextupdate = now + 300;
             }
@@ -230,14 +234,25 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
             taginfo->nextupdate = 3216153600;
             break;
+
+        case SegStatic:
+
+            sprintf(buffer, "%-4.4s%-2.2s%-4.4s", cfgobj["line1"].as<const char *>(), cfgobj["line2"].as<const char *>(), cfgobj["line3"].as<const char *>());
+            sendAPSegmentedData(mac, (String)buffer, 0x0000, false, (taginfo->isExternal == false));
+            taginfo->nextupdate = 3216153600;
+            break;
     }
 
     taginfo->modeConfigJson = doc.as<String>();
 }
 
-bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, imgParam &imageParams) {
-    if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
-    prepareDataAvail(&filename, imageParams.dataType, dst, nextCheckin);
+bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, tagRecord *&taginfo, imgParam &imageParams) {
+    if (taginfo->hwType == SOLUM_SEG_UK) {
+        sendAPSegmentedData(dst, (String)imageParams.segments, imageParams.symbols, imageParams.invert, (taginfo->isExternal == false));
+    } else {
+        if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
+        prepareDataAvail(&filename, imageParams.dataType, dst, nextCheckin);
+    }
     return true;
 }
 
@@ -265,8 +280,6 @@ void initSprite(TFT_eSprite &spr, int w, int h) {
 }
 
 void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
-    TFT_eSPI tft = TFT_eSPI();
-    TFT_eSprite spr = TFT_eSprite(&tft);
     time_t now;
     time(&now);
     struct tm timeinfo;
@@ -274,7 +287,16 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
 
     int weekday_number = timeinfo.tm_wday;
     int month_number = timeinfo.tm_mon;
+    int year_number = timeinfo.tm_year + 1900;
 
+    if (taginfo->hwType == SOLUM_SEG_UK) {
+        sprintf(imageParams.segments, "%2d%2d%-2.2s%04d", timeinfo.tm_mday, month_number + 1, languageDays[getCurrentLanguage()][timeinfo.tm_wday], year_number);
+        imageParams.symbols = 0x04;
+        return;
+    }
+
+    TFT_eSPI tft = TFT_eSPI();
+    TFT_eSprite spr = TFT_eSprite(&tft);
     LittleFS.begin();
 
     if (taginfo->hwType == SOLUM_29_033) {
@@ -299,6 +321,30 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
 }
 
 void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo, imgParam &imageParams) {
+
+    if (taginfo->hwType == SOLUM_SEG_UK) {
+        imageParams.symbols = 0x00;
+        if (count > 19999) {
+            sprintf(imageParams.segments, "over  flow");
+        } else {
+            if (count > 9999) {
+                imageParams.symbols = 0x02;
+                if (taginfo->contentMode == CountHours) {
+                    sprintf(imageParams.segments, "%04d  hour", count - 10000);
+                } else {
+                    sprintf(imageParams.segments, "%04d  days", count - 10000);
+                }
+            } else {
+                if (taginfo->contentMode == CountHours) {
+                    sprintf(imageParams.segments, "%4d  hour", count);
+                } else {
+                    sprintf(imageParams.segments, "%4d  days", count);
+                }
+            }
+        }
+        return;
+    }
+
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     LittleFS.begin();
@@ -354,11 +400,8 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
 }
 
 void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
-    TFT_eSPI tft = TFT_eSPI();
-    TFT_eSprite spr = TFT_eSprite(&tft);
 
     wsLog("get weather");
-    // icons: https://erikflowers.github.io/weather-icons/
 
     getLocation(cfgobj);
     HTTPClient http;
@@ -389,8 +432,29 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         auto windspeed = doc["current_weather"]["windspeed"].as<int>();
         auto winddirection = doc["current_weather"]["winddirection"].as<int>();
         uint8_t weathercode = doc["current_weather"]["weathercode"].as<int>();
+        uint8_t isday = doc["current_weather"]["is_day"].as<int>();
         if (weathercode > 40) weathercode -= 40;
         int wind = windSpeedToBeaufort(windspeed);
+
+        doc.clear();
+
+        if (taginfo->hwType == SOLUM_SEG_UK) {
+            String weatherText[] = {"sun", "sun", "sun", "cldy", "cldy", "fog", "", "", "fog", "", "",
+                                    "drzl", "", "drzl", "", "drzl", "ice", "ice", "", "", "",
+                                    "rain", "", "rain", "", "rain", "ice", "ice", "", "", "",
+                                    "snow", "", "snow", "", "snow", "", "snow", "", "", "rain",
+                                    "rain", "rain", "", "", "snow", "snow", "", "", "", "",
+                                    "", "", "", "", "strm", "hail", "", "", "hail"};
+            if (temperature < -9.9) {
+                sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature), wind, weatherText[weathercode].c_str());
+                imageParams.symbols = 0x00;
+            } else {
+                sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature * 10), wind, weatherText[weathercode].c_str());
+                imageParams.symbols = 0x04;
+            }
+            http.end();
+            return;
+        }
 
         String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "-", "-", "\uf014", "-", "-",
                                  "\uf01a", "-", "\uf01a", "-", "\uf01a", "\uf017", "\uf017", "-", "-", "-",
@@ -398,14 +462,14 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
                                  "\uf01b", "-", "\uf01b", "-", "\uf01b", "-", "\uf076", "-", "-", "\uf01a",
                                  "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
                                  "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
-        if (1 == 0) {  // nacht
+        if (isday == 0) {
             weatherIcons[0] = "\0uf02e";
             weatherIcons[1] = "\0uf083";
             weatherIcons[2] = "\0uf086";
         }
 
-        doc.clear();
-
+        TFT_eSPI tft = TFT_eSPI();
+        TFT_eSprite spr = TFT_eSprite(&tft);
         LittleFS.begin();
         tft.setTextWrap(false, false);
 

@@ -339,7 +339,7 @@ void init_web() {
 
     server.onNotFound([](AsyncWebServerRequest *request) {
         if (request->url() == "/" || request->url() == "index.htm") {
-            request->send(200, "text/html", "-");
+            request->send(200, "text/html", "index.html not found. Did you forget to upload the littlefs partition?");
             return;
         }
         request->send(404);
