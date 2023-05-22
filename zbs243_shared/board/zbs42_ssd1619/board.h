@@ -25,7 +25,7 @@
 #define AP_EMULATE_TAG 1
 
 //hw types
-#define HW_TYPE					        SOLUM_42_033
+#define HW_TYPE					        SOLUM_42_SSD1619
 
 #include "../boardCommon.h"
 

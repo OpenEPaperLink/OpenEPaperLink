@@ -4,6 +4,7 @@
 
 void addOverlay();
 
+void afterFlashScreenSaver();
 void showSplashScreen();
 void showApplyUpdate();
 void showScanningWindow();

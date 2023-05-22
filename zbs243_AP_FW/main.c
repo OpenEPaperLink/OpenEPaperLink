@@ -30,7 +30,7 @@
 struct pendingData __xdata pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t __xdata version = 0x0015;
+uint16_t __xdata version = 0x0016;
 
 #define RAW_PKT_PADDING 2
 
@@ -802,7 +802,9 @@ void main(void) {
 #endif
         for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
             if (pendingDataArr[c].attemptsLeft == 1) {
-                espNotifyTimeOut(pendingDataArr[c].targetMac);
+                if (pendingDataArr[c].availdatainfo.dataType != DATATYPE_NOUPDATE) {
+                    espNotifyTimeOut(pendingDataArr[c].targetMac);
+                }
                 pendingDataArr[c].attemptsLeft = 0;
             } else if (pendingDataArr[c].attemptsLeft > 1) {
                 pendingDataArr[c].attemptsLeft--;

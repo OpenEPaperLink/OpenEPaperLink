@@ -81,6 +81,32 @@ void addOverlay() {
     }
 }
 
+
+void afterFlashScreenSaver() {
+    selectLUT(EPD_LUT_DEFAULT);
+    clearScreen();
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+
+#if (SCREEN_WIDTH == 152)  // 1.54"
+    epdPrintBegin(2, 2, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("OpenEPaperLink");
+    epdPrintEnd();
+#endif
+
+#if (SCREEN_WIDTH == 128)  // 2.9"
+    epdPrintBegin(0, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("OpenEPaperLink");
+    epdPrintEnd();
+#endif
+#if (SCREEN_WIDTH == 400)  // 4.2"
+    epdPrintBegin(3, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("OpenEPaperLink");
+    epdPrintEnd();
+#endif
+    drawWithSleep();
+}
+
+
 void showSplashScreen() {
     selectLUT(EPD_LUT_NO_REPEATS);
     clearScreen();

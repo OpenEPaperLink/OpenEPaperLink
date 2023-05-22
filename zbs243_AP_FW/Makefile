@@ -1,5 +1,5 @@
 
-BUILD		?= zbs29v033
+BUILD		?= zbs29_ssd1619
 
 #file containing main() must be first!
 SOURCES         += main.c

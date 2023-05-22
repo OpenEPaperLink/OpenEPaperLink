@@ -154,19 +154,6 @@ void main() {
         wakeUpReason = WAKEUP_REASON_FIRSTBOOT;
     }
 
-    switch (checkButtonOrJig()) {
-        case DETECT_P1_0_NOTHING:
-            break;
-        case DETECT_P1_0_BUTTON:
-            capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
-            break;
-        case DETECT_P1_0_JIG:
-            // show splash screen?
-            break;
-        default:
-            break;
-    }
-
     wdt10s();
 
     boardGetOwnMac(mSelfMac);
@@ -217,6 +204,24 @@ void main() {
     // get the highest slot number, number of slots
     initializeProto();
     powerDown(INIT_EEPROM);
+
+    switch (checkButtonOrJig()) {
+        case DETECT_P1_0_BUTTON:
+            capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
+            break;
+        case DETECT_P1_0_JIG:
+            wdt120s();
+            // show the screensaver (minimal text to prevent image burn-in)
+            powerUp(INIT_EPD);
+            afterFlashScreenSaver();
+            while (1)
+                ;
+            break;
+        case DETECT_P1_0_NOTHING:
+            break;
+        default:
+            break;
+    }
 
     // show the splashscreen
     powerUp(INIT_EPD);
