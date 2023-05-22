@@ -218,7 +218,6 @@ uint8_t getTagCount() {
 void clearPending(tagRecord* taginfo) {
     if (taginfo->data != nullptr) {
         free(taginfo->data);
-        Serial.println("free taginfo->data");
         taginfo->data = nullptr;
     }
     taginfo->pending = false;

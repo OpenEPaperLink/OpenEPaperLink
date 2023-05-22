@@ -10,7 +10,9 @@ const WAKEUP_REASON_WDT_RESET = 0xFE;
 
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
 models[240] = "Segmented tag"
+models[17] = "2.9\" 296x128px (UC8151)"
 const displaySizeLookup = { 0: [152, 152], 1: [128, 296], 2: [400, 300] };
+displaySizeLookup[17] = [128, 296];
 const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [255, 0, 0] };
 
 const imageQueue = [];
@@ -247,7 +249,7 @@ $('#taglist').addEventListener("click", (event) => {
 		.then(data => {
 			var tagdata = data.tags[0];
 			$('#cfgalias').value = tagdata.alias;
-			if (populateSelectTag(tagdata.hwType)) {
+			if (populateSelectTag(tagdata.hwType, tagdata.capabilities)) {
 				$('#cfgcontent').parentNode.style.display = "block";				
 				$('#cfgcontent').value = tagdata.contentMode;
 				$('#cfgcontent').dataset.json = tagdata.modecfgjson;
@@ -438,13 +440,14 @@ function contentselected() {
 	$('#cfgsave').parentNode.style.display = 'block';
 }
 
-function populateSelectTag(hwtype) {
+function populateSelectTag(hwtype, capabilities) {
 	var selectTag = $("#cfgcontent");
 	selectTag.innerHTML = "";
 	var optionsAdded = false;
 	cardconfig.forEach(item => {
+		var capcheck = item.capabilities ?? 0;
 		var hwtypeArray = item.hwtype;
-		if (hwtypeArray.includes(hwtype)) {
+		if (hwtypeArray.includes(hwtype) && (capabilities & capcheck || capcheck == 0)) {
 			var option = document.createElement("option");
 			option.value = item.id;
 			option.text = item.name;

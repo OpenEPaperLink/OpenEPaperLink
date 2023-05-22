@@ -85,6 +85,54 @@ void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
     }
 }
 
+void prepareNFCReq(uint8_t* dst, const char* url) {
+    uint8_t src[8];
+    *((uint64_t*)src) = swap64(*((uint64_t*)dst));
+    uint8_t mac[6];
+    memcpy(mac, src + 2, sizeof(mac));
+
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(mac);
+    if (taginfo == nullptr) {
+        wsErr("Tag not found, this shouldn't happen.");
+        return;
+    }
+
+    clearPending(taginfo);
+    size_t len = strlen(url);
+    taginfo->data = new uint8_t[len + 8];
+
+    // TLV
+    taginfo->data[0] = 0x03;  // NDEF message (TLV type)
+    taginfo->data[1] = 4 + len + 1;
+
+    // ndef record
+    taginfo->data[2] = 0xD1;
+    taginfo->data[3] = 0x01;  // well known record type
+    taginfo->data[4] = len + 1;  // payload length
+    taginfo->data[5] = 0x55;     // payload type (URI record)
+    taginfo->data[6] = 0x00;     // URI identifier code (no prepending)
+
+    memcpy(taginfo->data + 7, reinterpret_cast<const uint8_t*>(url), len);
+    len = 7 + len;
+    taginfo->data[len] = 0xFE;
+    len = 1 + len;
+
+    taginfo->pending = true;
+    taginfo->len = len;
+
+    struct pendingData pending = {0};
+    memcpy(pending.targetMac, dst, 8);
+    pending.availdatainfo.dataSize = len;
+    pending.availdatainfo.dataType = DATATYPE_NFC_RAW_CONTENT;
+    pending.availdatainfo.nextCheckIn = 0;
+    pending.availdatainfo.dataVer = millis();
+    pending.attemptsLeft = 10;
+
+    sendDataAvail(&pending);
+    wsSendTaginfo(mac);
+}
+
 bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
     if (nextCheckin > MIN_RESPONSE_TIME) nextCheckin = MIN_RESPONSE_TIME;
     if (wsClientCount()) nextCheckin=0;
@@ -141,7 +189,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     time_t now;
     time(&now);
     time_t last_midnight = now - now % (24 * 60 * 60) + 3 * 3600;  // somewhere in the middle of the night
-    if (taginfo->lastfullupdate < last_midnight) {
+    if (taginfo->lastfullupdate < last_midnight || taginfo->hwType == SOLUM_29_UC8151) {
         lut = EPD_LUT_DEFAULT;  // full update once a day
         taginfo->lastfullupdate = now;
     }
@@ -164,7 +212,6 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         clearPending(taginfo);
         taginfo->pending = true;
         memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
-
     } else {
         wsLog("firmware upload pending");
         taginfo->filename = *filename;

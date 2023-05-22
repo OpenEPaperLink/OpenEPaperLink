@@ -6,10 +6,6 @@
 #pragma pack(push, 1)
 #pragma once
 
-#define SOLUM_154_033 0
-#define SOLUM_29_033 1
-#define SOLUM_42_033 2
-
 #define WAKEUP_REASON_TIMED 0
 #define WAKEUP_REASON_BOOTUP 1
 #define WAKEUP_REASON_GPIO 2

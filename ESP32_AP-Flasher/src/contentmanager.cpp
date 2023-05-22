@@ -53,7 +53,7 @@ void contentRunner() {
         uint8_t src[8];
         *((uint64_t *)src) = swap64(*((uint64_t *)mac8));
 
-        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO)) {
+        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC)) {
             drawNew(src, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
             taginfo->wakeupReason = 0;
         }
@@ -241,6 +241,12 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             sendAPSegmentedData(mac, (String)buffer, 0x0000, false, (taginfo->isExternal == false));
             taginfo->nextupdate = 3216153600;
             break;
+
+        case 14:  // NFC URL
+
+            prepareNFCReq(mac, cfgobj["url"].as<const char *>());
+            taginfo->nextupdate = 3216153600;
+            break;
     }
 
     taginfo->modeConfigJson = doc.as<String>();
@@ -299,18 +305,18 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSprite spr = TFT_eSprite(&tft);
     LittleFS.begin();
 
-    if (taginfo->hwType == SOLUM_29_033) {
+    if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
         initSprite(spr, 296, 128);
         drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib62", TC_DATUM, PAL_RED);
         drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], 296 / 2, 73, "fonts/calibrib50", TC_DATUM);
 
-    } else if (taginfo->hwType == SOLUM_154_033) {
+    } else if (taginfo->hwType == SOLUM_154_SSD1619) {
         initSprite(spr, 152, 152);
         drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 152 / 2, 10, "fonts/calibrib30", TC_DATUM);
         drawString(spr, String(languageMonth[getCurrentLanguage()][timeinfo.tm_mon]), 152 / 2, 120, "fonts/calibrib30", TC_DATUM);
         drawString(spr, String(timeinfo.tm_mday), 152 / 2, 42, "fonts/numbers2-1", TC_DATUM, PAL_RED);
 
-    } else if (taginfo->hwType == SOLUM_42_033) {
+    } else if (taginfo->hwType == SOLUM_42_SSD1619) {
         initSprite(spr, 400, 300);
         drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 400 / 2, 30, "fonts/calibrib62", TC_DATUM, PAL_RED);
         drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], 400 / 2, 113, "fonts/calibrib50", TC_DATUM);
@@ -349,7 +355,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     TFT_eSprite spr = TFT_eSprite(&tft);
     LittleFS.begin();
 
-    if (taginfo->hwType == SOLUM_29_033) {
+    if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
         initSprite(spr, 296, 128);
         spr.setTextDatum(MC_DATUM);
         if (count > thresholdred) {
@@ -364,7 +370,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         spr.drawString(String(count), 296 / 2, 128 / 2 + 10);
         spr.unloadFont();
 
-    } else if (taginfo->hwType == SOLUM_154_033) {
+    } else if (taginfo->hwType == SOLUM_154_SSD1619) {
         initSprite(spr, 152, 152);
         spr.setTextDatum(MC_DATUM);
         if (count > thresholdred) {
@@ -379,7 +385,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         spr.drawString(String(count), 152 / 2, 152 / 2 + 7);
         spr.unloadFont();
 
-    } else if (taginfo->hwType == SOLUM_42_033) {
+    } else if (taginfo->hwType == SOLUM_42_SSD1619) {
         initSprite(spr, 400, 300);
         spr.setTextDatum(MC_DATUM);
         if (count > thresholdred) {
@@ -420,6 +426,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         filter["current_weather"]["windspeed"] = true;
         filter["current_weather"]["winddirection"] = true;
         filter["current_weather"]["weathercode"] = true;
+        filter["current_weather"]["is_day"] = true;
 
         StaticJsonDocument<1000> doc;
         DeserializationError error = deserializeJson(doc, http.getString(), DeserializationOption::Filter(filter));
@@ -463,9 +470,9 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
                                  "\uf01a", "\uf01a", "-", "-", "\uf064", "\uf064", "-", "-", "-", "-",
                                  "-", "-", "-", "-", "\uf01e", "\uf01d", "-", "-", "\uf01e"};
         if (isday == 0) {
-            weatherIcons[0] = "\0uf02e";
-            weatherIcons[1] = "\0uf083";
-            weatherIcons[2] = "\0uf086";
+            weatherIcons[0] = "\uf02e";
+            weatherIcons[1] = "\uf083";
+            weatherIcons[2] = "\uf086";
         }
 
         TFT_eSPI tft = TFT_eSPI();
@@ -473,7 +480,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         LittleFS.begin();
         tft.setTextWrap(false, false);
 
-        if (taginfo->hwType == SOLUM_29_033) {
+        if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
             initSprite(spr, 296, 128);
 
             drawString(spr, cfgobj["location"], 5, 5, "fonts/bahnschrift30");
@@ -505,7 +512,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
             }
             spr.unloadFont();
 
-        } else if (taginfo->hwType == SOLUM_154_033) {
+        } else if (taginfo->hwType == SOLUM_154_SSD1619) {
             initSprite(spr, 152, 152);
             spr.setTextDatum(TL_DATUM);
 
@@ -541,7 +548,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
             }
             spr.unloadFont();
 
-        } else if (taginfo->hwType == SOLUM_42_033) {
+        } else if (taginfo->hwType == SOLUM_42_SSD1619) {
             initSprite(spr, 400, 300);
 
             drawString(spr, cfgobj["location"], 10, 10, "fonts/bahnschrift30");
@@ -624,7 +631,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
         LittleFS.begin();
         tft.setTextWrap(false, false);
 
-        if (taginfo->hwType == SOLUM_29_033) {
+        if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
             initSprite(spr, 296, 128);
 
             spr.setTextFont(2);
@@ -670,7 +677,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
                 }
             }
 
-        } else if (taginfo->hwType == SOLUM_42_033) {
+        } else if (taginfo->hwType == SOLUM_42_SSD1619) {
             initSprite(spr, 400, 300);
             spr.setTextFont(2);
             spr.setTextColor(PAL_BLACK, PAL_WHITE);
@@ -726,17 +733,17 @@ void drawIdentify(String &filename, tagRecord *&taginfo, imgParam &imageParams) 
     TFT_eSprite spr = TFT_eSprite(&tft);
     LittleFS.begin();
 
-    if (taginfo->hwType == SOLUM_29_033) {
+    if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
         initSprite(spr, 296, 128);
         drawString(spr, taginfo->alias, 10, 10, "fonts/bahnschrift20");
         drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
 
-    } else if (taginfo->hwType == SOLUM_154_033) {
+    } else if (taginfo->hwType == SOLUM_154_SSD1619) {
         initSprite(spr, 152, 152);
         drawString(spr, taginfo->alias, 5, 5, "fonts/bahnschrift20");
         drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
 
-    } else if (taginfo->hwType == SOLUM_42_033) {
+    } else if (taginfo->hwType == SOLUM_42_SSD1619) {
         initSprite(spr, 400, 300);
         drawString(spr, taginfo->alias, 20, 20, "fonts/bahnschrift20");
         drawString(spr, mac62hex(taginfo->mac), 20, 70, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
@@ -799,7 +806,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     U8g2_for_TFT_eSPI u8f;
     u8f.begin(spr);
 
-    if (taginfo->hwType == SOLUM_29_033) {
+    if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
         initSprite(spr, 296, 128);
         if (title == "" || title == "null") title = "RSS feed";
         drawString(spr, title, 5, 3, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
@@ -823,7 +830,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
             u8f.setCursor(5, 34 + i * 13);
             u8f.print(reader.itemData[i]);
         }
-    } else if (taginfo->hwType == SOLUM_42_033) {
+    } else if (taginfo->hwType == SOLUM_42_SSD1619) {
         initSprite(spr, 400, 300);
         if (title == "" || title == "null") title = "RSS feed";
         drawString(spr, title, 5, 5, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
@@ -905,7 +912,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     U8g2_for_TFT_eSPI u8f;
     u8f.begin(spr);
 
-    if (taginfo->hwType == SOLUM_29_033) {
+    if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
         initSprite(spr, 296, 128);
         if (title == "" || title == "null") title = "Calendar";
 
@@ -941,7 +948,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
             u8f.setCursor(50, 32 + i * 15);
             u8f.print(eventtitle);
         }
-    } else if (taginfo->hwType == SOLUM_42_033) {
+    } else if (taginfo->hwType == SOLUM_42_SSD1619) {
         initSprite(spr, 400, 300);
         if (title == "" || title == "null") title = "Calendar";
 
@@ -998,13 +1005,13 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
     int size = qrcode.size;
     int xpos = 0, ypos = 0, dotsize = 1;
 
-    if (taginfo->hwType == SOLUM_29_033) {
+    if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
         initSprite(spr, 296, 128);
         drawString(spr, title, 10, 5, "fonts/bahnschrift20");
         dotsize = int((128 - 25) / size);
         xpos = 149 - dotsize * size / 2;
         ypos = 25;
-    } else if (taginfo->hwType == SOLUM_154_033) {
+    } else if (taginfo->hwType == SOLUM_154_SSD1619) {
         initSprite(spr, 152, 152);
         spr.setTextFont(2);
         spr.setTextColor(PAL_BLACK, PAL_WHITE);
@@ -1012,7 +1019,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
         dotsize = int((152 - 20) / size);
         xpos = 76 - dotsize * size / 2;
         ypos = 20;
-    } else if (taginfo->hwType == SOLUM_42_033) {
+    } else if (taginfo->hwType == SOLUM_42_SSD1619) {
         initSprite(spr, 400, 300);
         drawString(spr, title, 10, 10, "fonts/bahnschrift20");
         dotsize = int((300 - 30) / size);
