@@ -17,6 +17,7 @@
 #include "i2c.h"
 #include "printf.h"
 #include "timer.h"
+#include "proto.h"
 
 extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when done
 
@@ -53,7 +54,7 @@ void loadRawNTag(uint16_t blocksize) {
         i2ctrans.deviceAddr = (uint8_t)0x55 << 1;
         i2ctrans.bytes = i2cbuffer;
         i2cbuffer[0] = c + 1;
-        memcpy(i2cbuffer + 1, blockXferBuffer + (c * 16), 16);
+        memcpy(i2cbuffer + 1, sizeof(struct blockData) + blockXferBuffer + (c * 16), 16);
         uint8_t res = i2cTransact(&i2ctrans, 1);
         timerDelay(133300);
     }
@@ -65,7 +66,7 @@ void loadURLtoNTag() {
     uint8_t __xdata i2cbuffer[18];
     __xdata uint8_t* tempbuffer = blockXferBuffer + 2048;
 
-    strncpy(tempbuffer + 7, blockXferBuffer, 245);
+    strncpy(tempbuffer + 7, blockXferBuffer + sizeof(struct blockData), 245);
     uint8_t __xdata len = strlen(tempbuffer + 7);
     struct I2cTransaction __xdata i2ctrans;
 
