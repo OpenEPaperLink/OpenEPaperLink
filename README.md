@@ -1,13 +1,13 @@
 # OpenEPaperLink
 
-## ⚠️⚠️⚠️THIS IS NOT PRODUCTION READY!⚠️⚠️⚠️
-This is not a final, polished codebase. Not by a long shot. You'll need some knowledge on the use of these tags. A very good place to start is here: https://github.com/atc1441/ZBS_Flasher. You'll need to fix issues yourself, troubleshoot stuff. Once again: this is not for everyone.
+This is an alternative firmware and protocol for the ZBS243-based Electronic Shelf Labels - ESL / price tags by Solum / Samsung. It can be used to setup E-Paper tags and supply them with content.
 
-This is an alternative firmware and protocol for the ZBS243-based Electronic Shelf Labels - ESL / price tags by Solum / Samsung.
+The software in this project consists of two parts: Accesspoint-firmware and Tag firmware.
+Additionally, there are various hardware designs for accesspoints and flasher-interfaces to program the tags, preferably using programming jigs
  
-<img width="600" alt="board" src="https://user-images.githubusercontent.com/2544995/227208651-993d11a2-380f-44ae-847c-f8d90296c8cf.png">
+<img width="400" alt="board" src="https://user-images.githubusercontent.com/2544995/227208651-993d11a2-380f-44ae-847c-f8d90296c8cf.png">
 
-### Compatibility
+## Compatibility
 It is currently compatible with the following tags:
 * 4.2"
 * 2.9"
@@ -16,21 +16,30 @@ It is currently compatible with the following tags:
 
 On the 2.9" tags, both the UC8151 and SSD1619 display variants are supported
 
-### Aims
+## Aims
 - Low power (currently around 9µA with a minimum of 40 second latency)
 - Even lower power when there's no AP around
 - Low latency (tags can check for new data every 40 seconds)
 - High transfer speeds - It can do about 5kbyte/s in favorable RF conditions. This allows for lower power
 - RF-friendly - We don't need to acknowledge EVERY packet, and we don't need to transfer data we already have
 
-The entire setup requires a few tags, and an ESP32. A tag is used as an 802.15.4 radio for the ESP32. You'll need a ZBS_Flasher in order to flash the tags. Using the 'mac' option on ZBS_Flasher makes sure a tag flashed with a custom firmware has a valid mac address; it used the stock mac address assigned to the tag if it hasn't been flashed before. If you want to set it yourself, you can edit the mac address in the infopage. The AP expects a tag with a mac that starts with 00:00, followed by 6 bytes.
+## What is required to set up OpenEPaperLink
+
+The entire setup requires a few tags, and an ESP32. A tag is used as an 802.15.4 radio for the ESP32. You'll need a ZBS_Flasher in order to flash the tags. Using the 'mac' option on ZBS_Flasher makes sure a tag flashed with a custom firmware has a valid mac address; it used the stock mac address assigned to the tag if it hasn't been flashed before. If you want to set it yourself, you can edit the mac address in the infopage.
 
 You can hook the AP tag up to the ESP32 with mod wires or a flex pcb. The esp will flash the AP firmware to the Tag automatically. In some cases, a power off/on cycle is required. Please check the serial console output for status information.
 
-You can access the ESP32 with any web browser after connecting it to your WiFi Network. The file browser is located at <ip>/edit. For sending data to tags, you'll need to upload the information in 'data' to the ESP32's filesystem or over HTTP. After uploading, you can access the status screen at <ip>/index.html. If everything is working, you should be able to see tags synchronising to the network. After uploading a suitable .jpg file to the filesystem, this file can be sent to the tag by entering it's 6-byte mac address and filename.
+After programming the ESP32, make sure to also program the filesystem. This will upload the 'data' folder to the ESP32, with the webinterface.
+
+## OpenEPaperLink Parts and links
+* [Mini AP](https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Hardware/OpenEPaperLink%20Mini%20AP)
+* [Combined Flasher and AP](https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Hardware/OpenEPaperLink%20AP%20and%20Flasher)
+* [ATC1441's ZBS flasher page](https://github.com/atc1441/ZBS_Flasher)
+* [Tags specs](https://github.com/jjwbruijn/OpenEPaperLink/blob/master/Tags-specs/)
+* [Tags troubleshooting](https://github.com/jjwbruijn/OpenEPaperLink/blob/master/Tags-specs/troubleshooting.md)
 
 ## The protocol explained
-- The tag checks in with the AP every 40+ seconds. Actual check-in interval is highly dependent on RF conditions
+- The tag checks in with the AP every 40+ seconds. Actual check-in interval is highly dependent on RF conditions, or if the AP tells the tag to delay the next check-in
 - The AP holds a list with tag MAC's that have pending transfers.
 - If a tag checks in, the AP replies with either no data, or information about a pending transfer
 - The tag checks if this information is already downloaded to EEPROM, or is already displayed. If this is the case, the transfer is immediately cancelled by issuing a 'transfer complete' packet to the AP.
@@ -44,25 +53,14 @@ You can access the ESP32 with any web browser after connecting it to your WiFi N
 - If all blocks are received, the tag will send a 'transfer complete'. 
 - The AP will report the completed transfer to the ESP32, and removes the pendingData for this transfer from the queue
 
-## Todo:
-- Code cleanup... Splitting into different files, for instance. It's a mess.
-### Tags:
-- Implement NFC for URL's
-### AP:
-- Important! The AP needs to be able to tell a tag to try again later if it's already doing comms with another tag. The AP can't handle concurrent checkins/download due to memory constraints!
-- More reliable serial comms (sometimes bytes are dropped)
-### ESP32:
-- Do more with status info as sent by the tags
-
 ## Known issues:
 - Some tags work better as AP's than others. Your range may suck. The boards on these tags are tiny and fragile. For instance, a dab of hot-glue on a board is enough to warp it pretty severely, and will damage the components that are soldered on there. Reportedly, segmented-display Solum tags work well. 
 
 ## Hints and excuses:
-- I'm sorry if reading this spaghetti code makes you lose your mind. <sub>'Of all the things I've lost, I miss my mind the most'</sub> I know it is pretty unreadable. I could blame SDCC for a lot of things, but it's mostly me.
 - There is no warranty whatsoever. Nothing. Not implied or otherwise suggested. This code isn't fit for anything. Please don't use this code to do nasty things.
 - Do a ```make clean``` between building for different boards. It really helps!
 - This repo builds on SDCC 4.2.0 for Linux. Different SDCC versions can behave VERY differently.
-- I am happy and honored to accept pull requests! But please, no code/indent style changes :)
+- We are happy and honored to see your pull requests! But please, no code/indent style changes :)
 
 ## Credits
 ### Large parts of this repo are based on code written by, and wouldn't be possible without the hard work of:
