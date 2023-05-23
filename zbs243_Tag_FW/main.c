@@ -180,6 +180,9 @@ void main() {
     pr("BOOTED>  %d.%d.%d%s\n", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
 
     powerUp(INIT_I2C);
+
+    //i2cBusScan();
+
     if (i2cCheckDevice(0x55)) {
         powerDown(INIT_I2C);
         capabilities |= CAPABILITY_HAS_NFC;

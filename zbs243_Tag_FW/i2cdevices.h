@@ -6,5 +6,6 @@ bool supportsNFCWake();
 void loadURLtoNTag();
 void loadRawNTag(uint16_t blocksize);
 bool i2cCheckDevice(uint8_t address);
+void i2cBusScan();
 
 #endif

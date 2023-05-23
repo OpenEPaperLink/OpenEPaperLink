@@ -822,15 +822,14 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
                 powerDown(INIT_RADIO);
                 return true;
             }
+            curBlock.blockId = 0;
+            xMemCopy8(&(curBlock.ver), &(avail->dataVer));
+            curBlock.type = avail->dataType;
             xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
             uint16_t __xdata nfcsize = avail->dataSize;
+            wdt10s();
             if (getDataBlock(avail->dataSize)) {
-                powerUp(INIT_RADIO);
-                sendXferComplete();
-                powerDown(INIT_RADIO);
-
                 curDataInfo.dataSize = 0;  // mark as transfer not pending
-
                 powerUp(INIT_I2C);
                 if (avail->dataType == DATATYPE_NFC_URL_DIRECT) {
                     // only one URL (handle NDEF records on the tag)
@@ -839,7 +838,11 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
                     // raw NFC data upload to the NFC IC
                     loadRawNTag(nfcsize);
                 }
+                timerDelay(13330);
                 powerDown(INIT_I2C);
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
                 return true;
             }
             return false;
@@ -864,14 +867,17 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
                 powerDown(INIT_RADIO);
                 return true;
             }
+            curBlock.blockId = 0;
+            xMemCopy8(&(curBlock.ver), &(avail->dataVer));
+            curBlock.type = avail->dataType;
             xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
-
+            wdt10s();
             if (getDataBlock(avail->dataSize)) {
+                curDataInfo.dataSize = 0;  // mark as transfer not pending
+                memcpy(customLUT, sizeof(struct blockData) + blockXferBuffer, dispLutSize * 10);
                 powerUp(INIT_RADIO);
                 sendXferComplete();
                 powerDown(INIT_RADIO);
-                curDataInfo.dataSize = 0;  // mark as transfer not pending
-                memcpy(customLUT, sizeof(struct blockData) + blockXferBuffer, dispLutSize * 10);
                 return true;
             }
 #endif
