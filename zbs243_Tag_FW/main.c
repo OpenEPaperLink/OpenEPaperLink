@@ -227,6 +227,14 @@ void main() {
     powerUp(INIT_EPD);
     showSplashScreen();
 
+// we've now displayed something on the screen; for the SSD1619, we are now aware of the lut-size
+#ifdef EPD_SSD1619
+    capabilities |= CAPABILITY_SUPPORTS_CUSTOM_LUTS;
+    if (dispLutSize != 7) {
+        capabilities |= CAPABILITY_ALT_LUT_SIZE;
+    }
+#endif
+
     powerUp(INIT_EPD);
     wdt30s();
     currentChannel = showChannelSelect();

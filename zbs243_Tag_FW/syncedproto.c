@@ -844,6 +844,39 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             }
             return false;
             break;
+        case DATATYPE_CUSTOM_LUT_OTA:
+            // Handle data for the NFC IC (if we have it)
+
+            // check if we actually have the capability to do OTA Luts
+            if (!(capabilities & CAPABILITY_SUPPORTS_CUSTOM_LUTS)) {
+                // looks like we don't. mark as complete and then bail!
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+                return true;
+            }
+#ifdef EPD_SSD1619
+            pr("OTA LUT received\n");
+            if (curDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8)) {
+                pr("this was the same as the last transfer, disregard\n");
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+                return true;
+            }
+            xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+
+            if (getDataBlock(avail->dataSize)) {
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+                curDataInfo.dataSize = 0;  // mark as transfer not pending
+                memcpy(customLUT, sizeof(struct blockData) + blockXferBuffer, dispLutSize * 10);
+                return true;
+            }
+#endif
+            return false;
+            break;
     }
     return true;
 }

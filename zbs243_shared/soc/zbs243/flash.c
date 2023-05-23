@@ -25,8 +25,6 @@ static uint8_t flashAddrCheck(uint32_t flashAddr, uint16_t len) __reentrant /* t
 			break;
 		
 		case 0x80:
-			if (pgNo)//hmm
-				return 0xff;
 			pgNo = 0x80;
 			break;
 		

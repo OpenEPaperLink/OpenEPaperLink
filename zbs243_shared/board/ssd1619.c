@@ -1,3 +1,5 @@
+#include "ssd1619.h"
+
 #include <stdbool.h>
 #include <string.h>
 
@@ -5,12 +7,11 @@
 #include "barcode.h"
 #include "board.h"
 #include "cpu.h"
-#include "ssd1619.h"
 #include "font.h"
 #include "lut.h"
 #include "printf.h"
 #include "screen.h"
-//#include "settings.h"
+// #include "settings.h"
 #include "sleep.h"
 #include "spi.h"
 #include "timer.h"
@@ -74,14 +75,16 @@ static uint8_t __xdata rbuffer[32];       // used to rotate bits around
 static uint16_t __xdata fontCurXpos = 0;  // current X value we're working with
 static uint16_t __xdata fontCurYpos = 0;  // current Y value we're working with
 static uint8_t __xdata currentLut = 0;
-static uint8_t __xdata dispLutSize = 0;
+uint8_t __xdata dispLutSize = 0;  // we'll need to expose this in the 'capabilities' flag
 
 static bool __xdata isInited = false;
 
 bool __xdata epdGPIOActive = false;
 
 #define LUT_BUFFER_SIZE 128
-uint8_t waveformbuffer[LUT_BUFFER_SIZE];
+static uint8_t waveformbuffer[LUT_BUFFER_SIZE];
+uint8_t __xdata customLUT[LUT_BUFFER_SIZE] =  {0};
+
 struct waveform10* __xdata waveform10 = (struct waveform10*)waveformbuffer;  // holds the LUT/waveform
 struct waveform* __xdata waveform7 = (struct waveform*)waveformbuffer;       // holds the LUT/waveform
 
@@ -249,7 +252,7 @@ void epdSetup() {
     commandEnd();
 
     // shortCommand1(CMD_DATA_ENTRY_MODE, 0x03);
-    //shortCommand1(CMD_BORDER_WAVEFORM_CTRL, 0xC0); // blurry edges
+    // shortCommand1(CMD_BORDER_WAVEFORM_CTRL, 0xC0); // blurry edges
     shortCommand1(CMD_BORDER_WAVEFORM_CTRL, 0x01);
     shortCommand1(CMD_TEMP_SENSOR_CONTROL, 0x80);
     shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1 (i2C)
@@ -375,6 +378,14 @@ void selectLUT(uint8_t lut) {
         return;
     }
 
+    // Handling if we received an OTA LUT
+    if (lut == EPD_LUT_OTA) {
+        memcpy(waveformbuffer, customLUT, dispLutSize * 10);
+        writeLut();
+        currentLut = lut;
+        return;
+    }
+
     if (currentLut != EPD_LUT_DEFAULT) {
         // load the 'default' LUT for the current temperature in the EPD lut register
         shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1?
@@ -399,9 +410,11 @@ void selectLUT(uint8_t lut) {
 #ifdef PRINT_LUT
         dump(waveformbuffer, LUT_BUFFER_SIZE);
 #endif
+        memcpy(customLUT, waveformbuffer, dispLutSize * 10);
     }
 
     switch (lut) {
+        default:
         case EPD_LUT_NO_REPEATS:
             lutGroupDisable(LUTGROUP_NEGATIVE);
             lutGroupDisable(LUTGROUP_FASTBLINK);

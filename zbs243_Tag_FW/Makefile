@@ -48,6 +48,13 @@ main.elf: $(OBJS)
 	objcopy $^ $@ -I ihex -O binary
 
 .PHONY: clean
+
+SOURCES += board/zbs29_ssd1619/screen.c
+SOURCES += board/zbs42_ssd1619/screen.c
+SOURCES += board/zbs154_ssd1619/screen.c
+SOURCES += board/zbs29_uc8151/screen.c
+
+
 clean:
 	rm -f $(patsubst %.c,%.asm,$(SOURCES))
 	rm -f $(patsubst %.c,%.lst,$(SOURCES))

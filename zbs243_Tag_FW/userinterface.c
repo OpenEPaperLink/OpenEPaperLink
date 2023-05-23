@@ -217,7 +217,7 @@ void showApplyUpdate() {
     epdPrintBegin(12, 60, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
 #endif
 #if (SCREEN_WIDTH == 128)
-    epdPrintBegin(48, 86, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdPrintBegin(48, 220, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
 #endif
 
 #if (SCREEN_WIDTH == 400)

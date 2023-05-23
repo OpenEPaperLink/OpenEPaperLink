@@ -457,6 +457,7 @@ static void lutGroupRepeatReduce(uint8_t group, uint8_t factor) {
 void selectLUT(uint8_t lut) {
     // implement alternative LUTs here. Currently just reset the watchdog to two minutes,
     // to ensure it doesn't reset during the much longer bootup procedure
+    lut+=1; // make the compiler a happy camper
     wdtSetResetVal(0xFF8E797F);  // 120 s
     wdtOn();
     return;
@@ -476,6 +477,9 @@ void setWindowXY(uint16_t xstart, uint16_t xend, uint16_t ystart, uint16_t yend)
 }
 
 void setColorMode(uint8_t red, uint8_t bw) {
+    // this does exactly nothing, just keeps the compiler from barking
+    red=1;
+    bw=0;
     return;
 }
 void clearScreen() {

@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define EPD_SSD1619
+
 #define epdSend spiTXByte
 #define EPD_DIRECTION_X false
 #define EPD_DIRECTION_Y true
@@ -21,6 +23,7 @@
 #define EPD_LUT_NO_REPEATS 1
 #define EPD_LUT_FAST_NO_REDS 2
 #define EPD_LUT_FAST 3
+#define EPD_LUT_OTA 0x10
 
 #define epdSelect() \
     do {            \
@@ -38,6 +41,8 @@ uint16_t epdGetBattery();
 void epdConfigGPIO(bool setup);
 
 extern bool __xdata epdGPIOActive;
+extern uint8_t __xdata dispLutSize;
+extern uint8_t __xdata customLUT[];
 
 void setWindowX(uint16_t start, uint16_t end);
 void setWindowY(uint16_t start, uint16_t end);
