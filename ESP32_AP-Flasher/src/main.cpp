@@ -41,7 +41,7 @@ void timeTask(void* parameter) {
 void setup() {
     // starts the led task/state machine
     xTaskCreate(ledTask, "ledhandler", 2000, NULL, 2, NULL);
-    vTaskDelay(10/portTICK_PERIOD_MS);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 
     // show a nice pattern to indicate the AP is booting / waiting for WiFi setup
 #ifdef HAS_RGB_LED
@@ -128,6 +128,20 @@ void loop() {
     vTaskDelay(10000 / portTICK_PERIOD_MS);
     // performDeviceFlash();
     while (1) {
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
+#ifdef OPENEPAPERLINK_PCB
+        if (extTagConnected()) {
+            flashCountDown(3);
+
+            pinMode(FLASHER_EXT_TEST, OUTPUT);
+            digitalWrite(FLASHER_EXT_TEST, LOW);
+
+            doTagFlash();
+
+            vTaskDelay(10000 / portTICK_PERIOD_MS);
+            pinMode(FLASHER_EXT_TEST, INPUT);
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        }
+#endif
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }

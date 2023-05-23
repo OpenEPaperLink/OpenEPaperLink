@@ -24,7 +24,16 @@
       "mac_suffix":"0131",
       "MD5":"A27D978C48888FA045E8D3F90DC27029",
       "type":240,
-      "note":"Segmented, UK, TSC0 Ebie"
+      "note":"Segmented, UK"
+    },
+    {
+      "name":"NoDisplay ZBS243 AP",
+      "mac_offset":0,
+      "mac_format":0,
+      "mac_suffix":"0000",
+      "MD5":"ABBAABBAD3ADD0D0CAFED3F90DC27029",
+      "type":255,
+      "note":"NoDisplay ZBS243 AP"
     },
     {
       "name":"4.2 Black + NFC",
