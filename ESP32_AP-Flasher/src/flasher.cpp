@@ -288,7 +288,7 @@ void flasher::getMacFromWiFi() {
 bool flasher::backupFlash() {
     getFirmwareMD5();
     if (!zbs->select_flash(0)) return false;
-    md5char[16]=0x00;
+    md5char[16] = 0x00;
     fs::File backup = LittleFS.open("/" + (String)md5char + "_backup.bin", "w", true);
     for (uint32_t c = 0; c < 65535; c++) {
         backup.write(zbs->read_flash(c));
@@ -650,6 +650,7 @@ bool doTagFlash() {
             f->getInfoBlockType();
             f->readInfoBlock();
             f->writeFlashFromPack("/Tag_FW_Pack.bin", f->tagtype);
+            f->zbs->reset();
         } else {
             // couldn't find the md5 from the infoblock
             Serial.printf("Found an already-flashed tag, but we couldn't find its fingerprint (%s) in the database\n", f->md5char);
