@@ -11,22 +11,22 @@
 std::vector<tagRecord*> tagDB;
 DynamicJsonDocument APconfig(150);
 
-tagRecord* tagRecord::findByMAC(uint8_t mac[6]) {
+tagRecord* tagRecord::findByMAC(uint8_t mac[8]) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = nullptr;
         tag = tagDB.at(c);
-        if (memcmp(tag->mac, mac, 6) == 0) {
+        if (memcmp(tag->mac, mac, 8) == 0) {
             return tag;
         }
     }
     return nullptr;
 }
 
-bool deleteRecord(uint8_t mac[6]) {
+bool deleteRecord(uint8_t mac[8]) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = nullptr;
         tag = tagDB.at(c);
-        if (memcmp(tag->mac, mac, 6) == 0) {
+        if (memcmp(tag->mac, mac, 8) == 0) {
             if (tag->data != nullptr) {
                 free(tag->data);
             }
@@ -39,7 +39,28 @@ bool deleteRecord(uint8_t mac[6]) {
     return false;
 }
 
-String tagDBtoJson(uint8_t mac[6], uint8_t startPos) {
+void mac2hex(uint8_t* mac, char* hexBuffer) {
+    sprintf(hexBuffer, "%02X%02X%02X%02X%02X%02X%02X%02X",
+            mac[7], mac[6], mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
+}
+
+bool hex2mac(const String& hexString, uint8_t* mac) {
+    size_t hexLength = hexString.length();
+    if (hexLength != 12 && hexLength != 16) {
+        return false;
+    }
+    if (hexLength / 2 == 6) {
+        mac[6] = 0;
+        mac[7] = 0;
+        return (sscanf(hexString.c_str(), "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX",
+                        &mac[5], &mac[4], &mac[3], &mac[2], &mac[1], &mac[0]) == 6);
+    } else {
+        return (sscanf(hexString.c_str(), "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX",
+                        &mac[7], &mac[6], &mac[5], &mac[4], &mac[3], &mac[2], &mac[1], &mac[0]) == 8);
+    }
+}
+
+String tagDBtoJson(uint8_t mac[8], uint8_t startPos) {
     DynamicJsonDocument doc(2500);
     JsonArray tags = doc.createNestedArray("tags");
 
@@ -49,7 +70,7 @@ String tagDBtoJson(uint8_t mac[6], uint8_t startPos) {
 
         bool select = false;
         if (mac) {
-            if (memcmp(taginfo->mac, mac, 6) == 0) {
+            if (memcmp(taginfo->mac, mac, 8) == 0) {
                 select = true;
             }
         } else {
@@ -71,10 +92,9 @@ String tagDBtoJson(uint8_t mac[6], uint8_t startPos) {
 }
 
 void fillNode(JsonObject &tag, tagRecord* &taginfo) {
-    char buffer[16];
-    sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", taginfo->mac[0], taginfo->mac[1], taginfo->mac[2], taginfo->mac[3], taginfo->mac[4], taginfo->mac[5]);
-    tag["mac"] = (String)buffer;
-    
+    char hexmac[17];
+    mac2hex(taginfo->mac, hexmac);
+    tag["mac"] = String(hexmac);
     char hex[33];
     for (uint8_t i = 0; i < 16; i++) {
         sprintf(hex + (i * 2), "%02x", taginfo->md5[i]);
@@ -154,8 +174,8 @@ void loadDB(String filename) {
             if (!err) {
                 JsonObject tag = doc[0];
                 String dst = tag["mac"].as<String>();
-                uint8_t mac[12];
-                if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
+                uint8_t mac[8];
+                if (hex2mac(dst, mac)) {
                     tagRecord* taginfo = nullptr;
                     taginfo = tagRecord::findByMAC(mac);
                     if (taginfo == nullptr) {

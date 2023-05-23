@@ -48,13 +48,8 @@ void contentRunner() {
         tagRecord *taginfo = nullptr;
         taginfo = tagDB.at(c);
 
-        uint8_t mac8[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-        memcpy(mac8 + 2, taginfo->mac, 6);
-        uint8_t src[8];
-        *((uint64_t *)src) = swap64(*((uint64_t *)mac8));
-
         if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC)) {
-            drawNew(src, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
+            drawNew(taginfo->mac, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
             taginfo->wakeupReason = 0;
         }
 
@@ -64,7 +59,7 @@ void contentRunner() {
             if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
             if (minutesUntilNextUpdate > 1 && wsClientCount() == 0) {
                 taginfo->pendingIdle = minutesUntilNextUpdate;
-                if (taginfo->isExternal == false) prepareIdleReq(src, minutesUntilNextUpdate);
+                if (taginfo->isExternal == false) prepareIdleReq(taginfo->mac, minutesUntilNextUpdate);
             }
         }
 
@@ -76,13 +71,9 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     time_t now;
     time(&now);
 
-    char buffer[64];
-    uint8_t src[8];
-    *((uint64_t *)src) = swap64(*((uint64_t *)mac));
-    sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", src[2], src[3], src[4], src[5], src[6], src[7]);
-    String dst = (String)buffer;
-
-    String filename = "/" + dst + ".raw";
+    char hexmac[17];
+    mac2hex(mac, hexmac);
+    String filename = "/" + String(hexmac) + ".raw";
 
     struct tm time_info;
     getLocalTime(&time_info);
@@ -95,8 +86,9 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     DynamicJsonDocument doc(500);
     deserializeJson(doc, taginfo->modeConfigJson);
     JsonObject cfgobj = doc.as<JsonObject>();
+    char buffer[64];
 
-    wsLog("Updating " + dst);
+    wsLog("Updating " + String(hexmac));
     taginfo->nextupdate = now + 60;
 
     imgParam imageParams;
@@ -194,7 +186,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case ImageUrl:
 
-            if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams, dst)) {
+            if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams, String(hexmac))) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
                 updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
                 cfgobj["#fetched"] = now;
@@ -733,20 +725,22 @@ void drawIdentify(String &filename, tagRecord *&taginfo, imgParam &imageParams) 
     TFT_eSprite spr = TFT_eSprite(&tft);
     LittleFS.begin();
 
+    char hexmac[17];
+    mac2hex(taginfo->mac, hexmac);
     if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
         initSprite(spr, 296, 128);
         drawString(spr, taginfo->alias, 10, 10, "fonts/bahnschrift20");
-        drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
+        drawString(spr, String(hexmac), 10, 50, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
 
     } else if (taginfo->hwType == SOLUM_154_SSD1619) {
         initSprite(spr, 152, 152);
         drawString(spr, taginfo->alias, 5, 5, "fonts/bahnschrift20");
-        drawString(spr, mac62hex(taginfo->mac), 10, 50, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
+        drawString(spr, String(hexmac), 10, 50, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
 
     } else if (taginfo->hwType == SOLUM_42_SSD1619) {
         initSprite(spr, 400, 300);
         drawString(spr, taginfo->alias, 20, 20, "fonts/bahnschrift20");
-        drawString(spr, mac62hex(taginfo->mac), 20, 70, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
+        drawString(spr, String(hexmac), 20, 70, "fonts/bahnschrift20", TL_DATUM, PAL_RED);
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -1083,12 +1077,6 @@ String windDirectionIcon(int degrees) {
         index = 0;
     }
     return directions[index];
-}
-
-String mac62hex(uint8_t *mac) {
-    char buffer[16];
-    sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    return (String)buffer;
 }
 
 void getLocation(JsonObject &cfgobj) {

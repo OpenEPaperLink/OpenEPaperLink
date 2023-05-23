@@ -113,7 +113,7 @@ function processTags(tagArray) {
 			$('#tag' + tagmac + ' .mac').innerHTML = tagmac;
 		}
 		let alias = element.alias;
-		if (!alias) alias = tagmac;
+		if (!alias) alias = tagmac.replace(/^0{1,4}/, '');
 		$('#tag' + tagmac + ' .alias').innerHTML = alias;
 
 		let contentDefObj = getContentDefById(element.contentMode);

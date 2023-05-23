@@ -52,19 +52,15 @@ void prepareCancelPending(uint8_t dst[8]) {
     memcpy(pending.targetMac, dst, 8);
     sendCancelPending(&pending);
 
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)dst));
-    uint8_t mac[6];
-    memcpy(mac, src + 2, sizeof(mac));
     tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(mac);
+    taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
         wsErr("Tag not found, this shouldn't happen.");
         return;
     }
     clearPending(taginfo);
 
-    wsSendTaginfo(mac);
+    wsSendTaginfo(dst);
 }
 
 void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
@@ -77,22 +73,15 @@ void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
         pending.attemptsLeft = 10 + MIN_RESPONSE_TIME;
 
         char buffer[64];
-        uint8_t src[8];
-        *((uint64_t*)src) = swap64(*((uint64_t*)dst));
-        sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X NOP\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+        sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X NOP\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
         Serial.print(buffer);
         sendDataAvail(&pending);
     }
 }
 
 void prepareNFCReq(uint8_t* dst, const char* url) {
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)dst));
-    uint8_t mac[6];
-    memcpy(mac, src + 2, sizeof(mac));
-
     tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(mac);
+    taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
         wsErr("Tag not found, this shouldn't happen.");
         return;
@@ -130,19 +119,15 @@ void prepareNFCReq(uint8_t* dst, const char* url) {
     pending.attemptsLeft = 10;
 
     sendDataAvail(&pending);
-    wsSendTaginfo(mac);
+    wsSendTaginfo(dst);
 }
 
 bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
     if (nextCheckin > MIN_RESPONSE_TIME) nextCheckin = MIN_RESPONSE_TIME;
     if (wsClientCount()) nextCheckin=0;
     
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)dst));
-    uint8_t mac[6];
-    memcpy(mac, src + 2, sizeof(mac));
     tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(mac);
+    taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
         wsErr("Tag not found, this shouldn't happen.");
         return true;
@@ -179,7 +164,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
 
     if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
         wsLog("new image is the same as current or already pending image. not updating tag.");
-        wsSendTaginfo(mac);
+        wsSendTaginfo(dst);
         if (LittleFS.exists(*filename)) {
             LittleFS.remove(*filename);
         }
@@ -196,7 +181,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
 
     if (dataType != DATATYPE_FW_UPDATE) {
         char dst_path[64];
-        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
         if (LittleFS.exists(dst_path)) {
             LittleFS.remove(dst_path);
         }
@@ -230,27 +215,21 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pending.attemptsLeft = attempts;
     if (taginfo->isExternal == false) {
         char buffer[64];
-        uint8_t src[8];
-        *((uint64_t*)src) = swap64(*((uint64_t*)dst));
-        sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X TYPE 0x%02X\n\0", src[2], src[3], src[4], src[5], src[6], src[7], pending.availdatainfo.dataType);
+        sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X TYPE 0x%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], pending.availdatainfo.dataType);
         Serial.print(buffer);
         sendDataAvail(&pending);
     } else {
         udpsync.netSendDataAvail(&pending);
     }
 
-    wsSendTaginfo(mac);
+    wsSendTaginfo(dst);
 
     return true;
 }
 
 void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)pending->targetMac));
-    uint8_t mac[6];
-    memcpy(mac, src + 2, sizeof(mac));
     tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(mac);
+    taginfo = tagRecord::findByMAC(pending->targetMac);
     if (taginfo == nullptr) {
         return;
     }
@@ -258,9 +237,9 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
         if (pending->availdatainfo.dataType != DATATYPE_UK_SEGMENTED) {
             LittleFS.begin();
 
-            char buffer[64];
-            sprintf(buffer, "%02X%02X%02X%02X%02X%02X\0", src[2], src[3], src[4], src[5], src[6], src[7]);
-            String filename = "/current/" + (String)buffer + ".pending";
+            char hexmac[17];
+            mac2hex(pending->targetMac, hexmac);
+            String filename = "/current/" + String(hexmac) + ".pending";
             String imageUrl = "http://" + remoteIP.toString() + filename;
             wsLog("GET " + imageUrl);
             HTTPClient http;
@@ -277,7 +256,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
             uint32_t filesize = file.size();
             if (filesize == 0) {
                 file.close();
-                wsErr("File has size 0. " + filename);
+                wsErr("Remote file not found. " + filename);
                 return;
             }
 
@@ -301,7 +280,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
         taginfo->nextupdate = 3216153600;
         sendDataAvail(pending);
 
-        wsSendTaginfo(mac);
+        wsSendTaginfo(pending->targetMac);
     }
 }
 
@@ -311,15 +290,11 @@ void processBlockRequest(struct espBlockRequest* br) {
         return;
     }
 
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)br->src));
-    uint8_t mac[6];
-    memcpy(mac, src + 2, sizeof(mac));
     tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(mac);
+    taginfo = tagRecord::findByMAC(br->src);
     if (taginfo == nullptr) {
         prepareCancelPending(br->src);
-        Serial.printf("blockrequest: couldn't find taginfo %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
+        Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
         return;
     }
 
@@ -353,23 +328,19 @@ void processBlockRequest(struct espBlockRequest* br) {
 
 void processXferComplete(struct espXferComplete* xfc, bool local) {
     char buffer[64];
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)xfc->src));
-    sprintf(buffer, "< %02X%02X%02X%02X%02X%02X reports xfer complete\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+    sprintf(buffer, "< %02X%02X%02X%02X%02X%02X%02X%02X reports xfer complete\n\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     wsLog((String)buffer);
 
     if (local) {
-        Serial.printf("<XFC %02X%02X%02X%02X%02X%02\n", src[2], src[3], src[4], src[5], src[6], src[7]);
+        Serial.printf("<XFC %02X%02X%02X%02X%02X%02X%02X%02X\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     } else {
-        Serial.printf("<REMOTE XFC %02X%02X%02X%02X%02X%02\n", src[2], src[3], src[4], src[5], src[6], src[7]);
+        Serial.printf("<REMOTE XFC %02X%02X%02X%02X%02X%02X%02X%02X\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     }
-    uint8_t mac[6];
-    memcpy(mac, src + 2, sizeof(mac));
 
     char src_path[64];
     char dst_path[64];
-    sprintf(src_path, "/current/%02X%02X%02X%02X%02X%02X.pending\0", src[2], src[3], src[4], src[5], src[6], src[7]);
-    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X.raw\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+    sprintf(src_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
+    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     if (LittleFS.exists(dst_path) && LittleFS.exists(src_path)) {
         LittleFS.remove(dst_path);
     }
@@ -380,57 +351,48 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     time_t now;
     time(&now);
     tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(mac);
+    taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
         clearPending(taginfo);
         taginfo->wakeupReason = 0;
     }
-    wsSendTaginfo(mac);
+    wsSendTaginfo(xfc->src);
     if (local) udpsync.netProcessXferComplete(xfc);
 }
 
 void processXferTimeout(struct espXferComplete* xfc, bool local) {
     char buffer[64];
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)xfc->src));
-    sprintf(buffer, "< %02X%02X%02X%02X%02X%02X xfer timeout\n\0", src[2], src[3], src[4], src[5], src[6], src[7]);
+    sprintf(buffer, "< %02X%02X%02X%02X%02X%02X%02X%02X xfer timeout\n\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     wsErr((String)buffer);
 
     if (local) {
-        Serial.printf("<XTO %02X%02X%02X%02X%02X%02\n", src[2], src[3], src[4], src[5], src[6], src[7]);
+        Serial.printf("<XTO %02X%02X%02X%02X%02X%02X%02X%02X\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     } else {
-        Serial.printf("<REMOTE XTO %02X%02X%02X%02X%02X%02\n", src[2], src[3], src[4], src[5], src[6], src[7]);
+        Serial.printf("<REMOTE XTO %02X%02X%02X%02X%02X%02X%02X%02X\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     }
-    uint8_t mac[6];
-    memcpy(mac, src + 2, sizeof(mac));
 
     time_t now;
     time(&now);
     tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(mac);
+    taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         taginfo->expectedNextCheckin = now + 60;
         memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
         clearPending(taginfo);
     }
-    wsSendTaginfo(mac);
+    wsSendTaginfo(xfc->src);
     if (local) udpsync.netProcessXferTimeout(xfc);
 }
 
 void processDataReq(struct espAvailDataReq* eadr, bool local) {
     char buffer[64];
-    uint8_t src[8];
-    *((uint64_t*)src) = swap64(*((uint64_t*)eadr->src));
 
     tagRecord* taginfo = nullptr;
-    uint8_t mac[6];
-    memcpy(mac, src + 2, sizeof(mac));
-
-    taginfo = tagRecord::findByMAC(mac);
+    taginfo = tagRecord::findByMAC(eadr->src);
     if (taginfo == nullptr) {
         taginfo = new tagRecord;
-        memcpy(taginfo->mac, src + 2, sizeof(taginfo->mac));
+        memcpy(taginfo->mac, eadr->src, sizeof(taginfo->mac));
         taginfo->pending = false;
         tagDB.push_back(taginfo);
     }
@@ -467,13 +429,13 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
         }
     }
     if (local) {
-        sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
     } else {
-        sprintf(buffer, "<REMOTE ADR %02X%02X%02X%02X%02X%02X\n\0", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        sprintf(buffer, "<REMOTE ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
     }
 
     Serial.print(buffer);
-    wsSendTaginfo(mac);
+    wsSendTaginfo(eadr->src);
     if (local) udpsync.netProcessDataReq(eadr);
 }
 
@@ -514,9 +476,7 @@ bool sendAPSegmentedData(uint8_t* dst, String data, uint16_t icons, bool inverte
     pending.availdatainfo.nextCheckIn = 0;
     pending.attemptsLeft = 120;
     char buffer[64];
-    uint8_t srcc[8];
-    *((uint64_t*)srcc) = swap64(*((uint64_t*)dst));
-    sprintf(buffer, ">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", srcc[0], srcc[1], srcc[2], srcc[3], srcc[4], srcc[5], srcc[6], srcc[7]);
+    sprintf(buffer, ">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     Serial.print(buffer);
     if (local) {
         return sendDataAvail(&pending);
@@ -536,9 +496,7 @@ bool showAPSegmentedInfo(uint8_t* dst, bool local) {
     pending.availdatainfo.nextCheckIn = 0;
     pending.attemptsLeft = 120;
     char buffer[64];
-    uint8_t srcc[8];
-    *((uint64_t*)srcc) = swap64(*((uint64_t*)dst));
-    sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", srcc[0], srcc[1], srcc[2], srcc[3], srcc[4], srcc[5], srcc[6], srcc[7]);
+    sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     Serial.print(buffer);
     if (local) {
         return sendDataAvail(&pending);

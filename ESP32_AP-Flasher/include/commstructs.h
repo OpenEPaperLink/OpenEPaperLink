@@ -84,7 +84,7 @@ struct APlist {
 } __packed;
 
 struct TagInfo {
-    uint8_t mac[6];
+    uint8_t mac[8];
     char alias[32];
     uint32_t lastseen;
     uint32_t nextupdate;

@@ -16,7 +16,7 @@ class tagRecord {
     tagRecord() : mac{0}, alias(""), lastseen(0), nextupdate(0), contentMode(0), pending(false), md5{0}, md5pending{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false), pendingIdle(0),
     filename(""), data(nullptr), len(0) {}
 
-    uint8_t mac[6];
+    uint8_t mac[8];
     String alias;
     uint32_t lastseen;
     uint32_t nextupdate;
@@ -41,17 +41,19 @@ class tagRecord {
     uint8_t* data;
     uint32_t len;
 
-    static tagRecord* findByMAC(uint8_t mac[6]);
+    static tagRecord* findByMAC(uint8_t mac[8]);
 };
 
 extern std::vector<tagRecord*> tagDB;
 extern DynamicJsonDocument APconfig;
-String tagDBtoJson(uint8_t mac[6] = nullptr, uint8_t startPos = 0);
-bool deleteRecord(uint8_t mac[6]);
+String tagDBtoJson(uint8_t mac[8] = nullptr, uint8_t startPos = 0);
+bool deleteRecord(uint8_t mac[8]);
 void fillNode(JsonObject &tag, tagRecord* &taginfo);
 void saveDB(String filename);
 void loadDB(String filename);
 uint8_t getTagCount();
+void mac2hex(uint8_t* mac, char* hexBuffer);
+bool hex2mac(const String& hexString, uint8_t* mac);
 void clearPending(tagRecord* taginfo);
 void initAPconfig();
 void saveAPconfig();

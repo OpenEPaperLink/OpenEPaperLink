@@ -29,20 +29,6 @@ AsyncWebSocket ws("/ws");
 SemaphoreHandle_t wsMutex;
 TaskHandle_t websocketUpdater;
 
-uint64_t swap64(uint64_t x) {
-    uint64_t byte1 = x & 0xff00000000000000;
-    uint64_t byte2 = x & 0x00ff000000000000;
-    uint64_t byte3 = x & 0x0000ff0000000000;
-    uint64_t byte4 = x & 0x000000ff00000000;
-    uint64_t byte5 = x & 0x00000000ff000000;
-    uint64_t byte6 = x & 0x0000000000ff0000;
-    uint64_t byte7 = x & 0x000000000000ff00;
-    uint64_t byte8 = x & 0x00000000000000ff;
-
-    return (uint64_t)(byte1 >> 56 | byte2 >> 40 | byte3 >> 24 | byte4 >> 8 |
-                      byte5 << 8 | byte6 << 24 | byte7 << 40 | byte8 << 56);
-}
-
 void webSocketSendProcess(void *parameter) {
     websocketUpdater = xTaskGetCurrentTaskHandle();
     wsMutex = xSemaphoreCreateMutex();
@@ -161,7 +147,7 @@ void wsSendSysteminfo() {
     xSemaphoreGive(wsMutex);
 }
 
-void wsSendTaginfo(uint8_t mac[6]) {
+void wsSendTaginfo(uint8_t *mac) {
     String json = "";
     json = tagDBtoJson(mac);
 
@@ -242,8 +228,8 @@ void init_web() {
         String json = "";
         if (request->hasParam("mac")) {
             String dst = request->getParam("mac")->value();
-            uint8_t mac[6];
-            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
+            uint8_t mac[8];
+            if (hex2mac(dst,mac)) {
                 json = tagDBtoJson(mac);
             }
         } else {
@@ -259,8 +245,8 @@ void init_web() {
     server.on("/save_cfg", HTTP_POST, [](AsyncWebServerRequest *request) {
         if (request->hasParam("mac", true)) {
             String dst = request->getParam("mac", true)->value();
-            uint8_t mac[6];
-            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
+            uint8_t mac[8];
+            if (hex2mac(dst, mac)) {
                 tagRecord *taginfo = nullptr;
                 taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
@@ -284,8 +270,8 @@ void init_web() {
     server.on("/delete_cfg", HTTP_POST, [](AsyncWebServerRequest *request) {
         if (request->hasParam("mac", true)) {
             String dst = request->getParam("mac", true)->value();
-            uint8_t mac[6];
-            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
+            uint8_t mac[8];
+            if (hex2mac(dst, mac)) {
                 if (deleteRecord(mac)) {
                     request->send(200, "text/plain", "Ok, deleted");
                 } else {
@@ -367,8 +353,8 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
             if (request->hasParam("dither", true)) {
                 if (request->getParam("dither", true)->value() == "0") dither = false;
             }
-            uint8_t mac[6];
-            if (sscanf(dst.c_str(), "%02X%02X%02X%02X%02X%02X", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
+            uint8_t mac[8];
+            if (hex2mac(dst, mac)) {
                 tagRecord *taginfo = nullptr;
                 taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
