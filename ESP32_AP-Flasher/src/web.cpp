@@ -313,12 +313,10 @@ void init_web() {
         if (request->hasParam("alias", true) && request->hasParam("channel", true)) {
             APconfig["alias"] = request->getParam("alias", true)->value();
             APconfig["channel"] = request->getParam("channel", true)->value();
-#ifdef HAS_RGB_LED
             if (request->hasParam("ledbrightness", true)) {
                 APconfig["ledbrightness"] = request->getParam("ledbrightness", true)->value();
                 updateBrightnessFromConfig();
             }
-#endif
             if (request->hasParam("language", true)) {
                 APconfig["language"] = request->getParam("language", true)->value();
                 updateLanguageFromConfig();

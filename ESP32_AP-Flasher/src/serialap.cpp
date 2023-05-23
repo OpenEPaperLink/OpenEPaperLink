@@ -305,12 +305,16 @@ void rxCmdProcessor(void* parameter) {
                     processBlockRequest((struct espBlockRequest*)rxcmd->data);
 #ifdef HAS_RGB_LED
                     shortBlink(CRGB::Blue);
+#else
+                    quickBlink(3);
 #endif
                     break;
                 case RX_CMD_ADR:
                     processDataReq((struct espAvailDataReq*)rxcmd->data, true);
 #ifdef HAS_RGB_LED
                     shortBlink(CRGB::Aqua);
+#else
+                    quickBlink(1);
 #endif
                     break;
                 case RX_CMD_XFC:

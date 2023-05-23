@@ -50,34 +50,6 @@ const uint8_t PROGMEM gamma8[] = {
     177, 180, 182, 184, 186, 189, 191, 193, 196, 198, 200, 203, 205, 208, 210, 213,
     215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255};
 
-const uint16_t gamma12[256] = {
-    0, 2, 4, 6, 8, 10, 12, 13, 15, 17,
-    19, 21, 23, 25, 27, 29, 31, 33, 35, 36,
-    38, 37, 39, 41, 43, 45, 47, 49, 52, 54,
-    56, 59, 61, 64, 66, 69, 72, 74, 77, 80,
-    83, 87, 90, 93, 96, 100, 103, 107, 111, 115,
-    118, 122, 126, 131, 135, 139, 143, 148, 153, 157,
-    162, 167, 172, 177, 182, 187, 193, 198, 204, 209,
-    215, 221, 227, 233, 239, 246, 252, 259, 265, 272,
-    279, 286, 293, 300, 307, 315, 322, 330, 338, 346,
-    354, 362, 370, 379, 387, 396, 405, 414, 423, 432,
-    442, 451, 461, 470, 480, 490, 500, 511, 521, 532,
-    542, 553, 564, 575, 587, 598, 610, 622, 633, 645,
-    658, 670, 683, 695, 708, 721, 734, 747, 761, 774,
-    788, 802, 816, 830, 845, 859, 874, 889, 904, 919,
-    935, 950, 966, 982, 998, 1015, 1031, 1048, 1065, 1082,
-    1099, 1116, 1134, 1151, 1169, 1187, 1206, 1224, 1243, 1262,
-    1281, 1300, 1319, 1339, 1359, 1379, 1399, 1419, 1440, 1461,
-    1482, 1503, 1524, 1546, 1568, 1590, 1612, 1634, 1657, 1680,
-    1703, 1726, 1749, 1773, 1797, 1821, 1845, 1870, 1895, 1920,
-    1945, 1970, 1996, 2022, 2048, 2074, 2100, 2127, 2154, 2181,
-    2209, 2236, 2264, 2292, 2321, 2349, 2378, 2407, 2436, 2466,
-    2495, 2525, 2556, 2586, 2617, 2648, 2679, 2710, 2742, 2774,
-    2806, 2838, 2871, 2904, 2937, 2970, 3004, 3038, 3072, 3107,
-    3141, 3176, 3211, 3247, 3283, 3319, 3355, 3391, 3428, 3465,
-    3502, 3540, 3578, 3616, 3654, 3693, 3732, 3771, 3810, 3850,
-    3890, 3930, 3971, 4013, 4054, 4095};
-
 #ifdef HAS_RGB_LED
 
 void addToRGBQueue(struct ledInstructionRGB* rgb, bool requeue) {
@@ -190,6 +162,7 @@ void rgbIdleStep() {
         showRGB();
     }
 }
+#endif
 
 void setBrightness(int brightness) {
     maxledbrightness = brightness;
@@ -207,7 +180,6 @@ void updateBrightnessFromConfig() {
         }
     }
 }
-#endif
 
 void addToMonoQueue(struct ledInstruction* mono) {
     BaseType_t queuestatus = xQueueSend(ledQueue, &mono, 0);
@@ -225,8 +197,24 @@ void addFadeMono(uint8_t value) {
 }
 
 void showMono(uint8_t brightness) {
-    ledcWrite(7, gamma12[brightness]);
+    ledcWrite(7, 255 - gamma8[brightness]);
 }
+
+void quickBlink(uint8_t repeat) {
+    for (int i = 0; i < repeat; i++) {
+        struct ledInstruction* mono = new struct ledInstruction;
+        mono->value = maxledbrightness;
+        mono->fadeTime = 120 / repeat;
+        mono->length = 0;
+        addToMonoQueue(mono);
+        mono = new struct ledInstruction;
+        mono->value = 0;
+        mono->fadeTime = 120 / repeat;
+        mono->length = 0;
+        addToMonoQueue(mono);
+    }
+}
+
 volatile uint16_t monoIdlePeriod = 900;
 
 uint8_t monoValue = 0;
@@ -247,7 +235,7 @@ void monoIdleStep() {
             dirUp = true;
         }
     }
-    uint8_t newvalue = map(step, 0, monoIdlePeriod, 0, 255);
+    uint8_t newvalue = map(step, 0, monoIdlePeriod, 0, maxledbrightness);
     if (newvalue != monoValue) {
         monoValue = newvalue;
         showMono(newvalue);
@@ -277,14 +265,13 @@ void ledTask(void* parameter) {
 
     digitalWrite(FLASHER_LED, HIGH);
     pinMode(FLASHER_LED, OUTPUT);
-    ledcSetup(7, 9500, 12);  // 141251 okay // 101251 okay
+    ledcSetup(7, 5000, 8);
     ledcAttachPin(FLASHER_LED, 7);
 
     struct ledInstruction* monoled = nullptr;
 
-    addFadeMono(255);
-    addFadeMono(127);
-    addFadeMono(255);
+    addFadeMono(0);
+    addFadeMono(maxledbrightness);
     addFadeMono(0);
 
     uint8_t oldBrightness = 0;
@@ -343,10 +330,10 @@ void ledTask(void* parameter) {
             if (q == pdTRUE) {
                 monoInstructionFadeTime = monoled->fadeTime;
                 if (monoled->fadeTime <= 1) {
-                    showMono(gamma12[monoled->value]);
+                    showMono(monoled->value);
                 }
             } else {
-                monoIdleStep();
+                //monoIdleStep();
             }
         } else {
             if (monoled->fadeTime) {

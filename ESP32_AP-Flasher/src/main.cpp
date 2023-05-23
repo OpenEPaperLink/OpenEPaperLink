@@ -109,11 +109,8 @@ void setup() {
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 
     initAPconfig();
-
     updateLanguageFromConfig();
-#ifdef HAS_RGB_LED
     updateBrightnessFromConfig();
-#endif
 
     init_web();
     init_udp();

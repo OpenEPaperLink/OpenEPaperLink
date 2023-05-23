@@ -352,6 +352,8 @@ bool flasher::writeFlash(uint8_t *flashbuffer, uint16_t size) {
         if (c % 256 == 0) {
 #ifdef HAS_RGB_LED
             shortBlink(CRGB::Yellow);
+#else
+            quickBlink(2);
 #endif
             Serial.printf("\rNow flashing, %d/%d  ", c, size);
             vTaskDelay(1 / portTICK_PERIOD_MS);
@@ -442,6 +444,8 @@ bool flasher::writeFlashFromPackOffset(fs::File *file, uint16_t length) {
         }
 #ifdef HAS_RGB_LED
         shortBlink(CRGB::Yellow);
+#else
+        quickBlink(2);
 #endif
         Serial.printf("\rFlashing, %d bytes left     ", length);
         bool res = writeBlock256(offset, buf);

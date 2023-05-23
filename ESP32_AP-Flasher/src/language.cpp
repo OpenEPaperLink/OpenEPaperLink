@@ -14,7 +14,6 @@ void updateLanguageFromConfig() {
         return;
     }
     currentLanguage = tempLang;
-    Serial.println("New set Language: " + languageList[currentLanguage]);
 }
 
 int getDefaultLanguage() {
