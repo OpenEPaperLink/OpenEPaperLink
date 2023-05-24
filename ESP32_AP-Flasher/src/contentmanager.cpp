@@ -440,12 +440,12 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         doc.clear();
 
         if (taginfo->hwType == SOLUM_SEG_UK) {
-            String weatherText[] = {"sun", "sun", "sun", "cldy", "cldy", "fog", "", "", "fog", "", "",
-                                    "drzl", "", "drzl", "", "drzl", "ice", "ice", "", "", "",
+            String weatherText[] = {"sun", "sun", "sun", "CLDY", "CLDY", "FOG", "", "", "FOG", "", "",
+                                    "DRZL", "", "DRZL", "", "DRZL", "ice", "ice", "", "", "",
                                     "rain", "", "rain", "", "rain", "ice", "ice", "", "", "",
-                                    "snow", "", "snow", "", "snow", "", "snow", "", "", "rain",
-                                    "rain", "rain", "", "", "snow", "snow", "", "", "", "",
-                                    "", "", "", "", "strm", "hail", "", "", "hail"};
+                                    "SNOW", "", "SNOW", "", "SNOW", "", "SNOW", "", "", "rain",
+                                    "rain", "rain", "", "", "SNOW", "SNOW", "", "", "", "",
+                                    "", "", "", "", "STRM", "HAIL", "", "", "HAIL"};
             if (temperature < -9.9) {
                 sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature), wind, weatherText[weathercode].c_str());
                 imageParams.symbols = 0x00;
@@ -525,7 +525,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
                 spr.setTextColor(PAL_BLACK, PAL_WHITE);
             }
 
-            spr.setCursor(30, 33);
+            spr.setCursor(33, 33);
             spr.printToSprite(weatherIcons[weathercode]);
             spr.unloadFont();
 

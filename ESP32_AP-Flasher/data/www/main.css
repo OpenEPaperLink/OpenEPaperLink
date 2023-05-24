@@ -20,14 +20,12 @@ body {
 	font-size: 12px;
 	font-family: Helvetica, Arial, Verdana, sans-serif;
 	line-height: 1.5;
-	background-color: #e8f1f9;
-	background-color: #f1f1f1;
-	/*background-image: linear-gradient(315deg, #dde1ee 0%, #e8f1f9 100%);*/
+	background-color: #e4e4e0;
 }
 
 header {
 	height: 50px;
-	background-color: #666;
+	background-color: #646260;
 }
 
 label {
@@ -222,13 +220,15 @@ select {
 	min-height: 170px;
 	margin: 5px;
 	padding: 5px;
-	background-color: #dddddd;
-	border: 1px solid #cccccc;}
+	background-color: #ffffff;
+	border: 1px solid #cccccc;
+	transition: box-shadow 0.3s ease;
+}
 
 .tagcard:hover {
 	cursor:pointer;
-	background-color: #eeeeee;
 	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
+	filter: brightness(1.02);
 }
 
 .tagflash {
@@ -236,7 +236,7 @@ select {
 }
 
 .tagpending {
-	animation: pending 2s ease-in-out infinite;
+	animation: pending 1s ease infinite;
 }
 
 .currimg {
@@ -245,6 +245,7 @@ select {
 
 .currimg img, .currimg canvas {
 	max-width: 50px;
+	border: 1px solid #c0c0c0;
 }
 
 .mac {
@@ -440,9 +441,9 @@ ul.messages li.new {
 }
 
 @keyframes pending {
-	0% { background-color: lightgray;}
-	50% { background-color: lightblue;}
-	100% { background-color: lightgray;}
+	0% { background-color: #d0d0e0;}
+	50% { background-color: #b0b0e0;}
+	100% { background-color: #d0d0e0;}
 }
 
 @media screen and (max-width: 480px) {

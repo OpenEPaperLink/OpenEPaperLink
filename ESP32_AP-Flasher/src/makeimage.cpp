@@ -87,7 +87,7 @@ uint32_t colorDistance(const Color &c1, const Color &c2, const Error &e1) {
     float r_diff = gamma_lut[c1.r] + e1.r - gamma_lut[c2.r];
     float g_diff = gamma_lut[c1.g] + e1.g - gamma_lut[c2.g];
     float b_diff = gamma_lut[c1.b] + e1.b - gamma_lut[c2.b];
-    return round(r_diff * r_diff + g_diff * g_diff + b_diff * b_diff);
+    return round(0.26 * r_diff * r_diff + 0.70 * g_diff * g_diff + 0.04 * b_diff * b_diff);
 }
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {

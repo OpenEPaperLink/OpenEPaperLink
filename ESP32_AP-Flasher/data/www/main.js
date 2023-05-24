@@ -25,7 +25,10 @@ window.addEventListener("load", function () {
 	fetch("/get_ap_list")
 		.then(response => response.json())
 		.then(data => {
-			if (data.alias) $(".logo").innerHTML = data.alias;
+			if (data.alias) {
+				$(".logo").innerHTML = data.alias;
+				this.document.title = data.alias;
+			}
 		})
 	fetch('/content_cards.json')
 		.then(response => response.json())
@@ -166,13 +169,14 @@ function processTags(tagArray) {
 		div.dataset.lastseen = element.lastseen;
 		div.dataset.wakeupreason = element.wakeupReason;
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
-		$('#tag' + tagmac).style.background = "inherit";
+		$('#tag' + tagmac).style.background = "#ffffff";
+		if (element.contentMode == 12) $('#tag' + tagmac).style.background = "#e4e4e0";
 		switch (parseInt(element.wakeupReason)) {
 			case WAKEUP_REASON_TIMED:
 				break;
 			case WAKEUP_REASON_BOOT:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>First boot</font>"
-				$('#tag' + tagmac).style.background = "#40c040";
+				$('#tag' + tagmac).style.background = "#b0d0b0";
 				break;
 			case WAKEUP_REASON_GPIO:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "GPIO wakeup"
@@ -182,15 +186,15 @@ function processTags(tagArray) {
 				break;
 			case WAKEUP_REASON_FIRSTBOOT:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>First boot</font>"
-				$('#tag' + tagmac).style.background = "#40c040";
+				$('#tag' + tagmac).style.background = "#b0d0b0";
 				break;
 			case WAKEUP_REASON_NETWORK_SCAN:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>Network scan</font>"
-				$('#tag' + tagmac).style.background = "#4040c0";
+				$('#tag' + tagmac).style.background = "#c0c0d0";
 				break;
 			case WAKEUP_REASON_WDT_RESET:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Watchdog reset!"
-				$('#tag' + tagmac).style.background = "#c04040";
+				$('#tag' + tagmac).style.background = "#d0a0a0";
 				break;
 		}
 		$('#tag' + tagmac + ' .pendingicon').style.display = (element.pending ? 'inline-block' : 'none');
@@ -212,7 +216,7 @@ function updatecards() {
 			if ((Date.now() / 1000) - servertimediff - 300 > item.dataset.nextcheckin) {
 				$('#tag' + tagmac + ' .warningicon').style.display = 'inline-block';
 				$('#tag' + tagmac).classList.remove("tagpending")
-				$('#tag' + tagmac).style.background = '#ffffcc';
+				$('#tag' + tagmac).style.background = '#e0e0a0';
 			}
 			if (idletime > 24 * 3600) {
 				$('#tag' + tagmac).style.opacity = '.5';
