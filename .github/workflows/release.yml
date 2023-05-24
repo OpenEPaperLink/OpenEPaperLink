@@ -1,4 +1,4 @@
-name: Release binarys
+name: Release binaries
 
 on:
   push:
@@ -30,38 +30,74 @@ jobs:
       - name: Build firmware for ESP32
         run: |
           cd ESP32_AP-Flasher
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_ESPTYPE=ESP32 -D BUILD_VERSION=${{ github.ref }}"
           pio run --environment Simple_AP
-        
+          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/boot_app0.bin
+          cp .pio/build/Simple_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/firmware.bin
+          cp .pio/build/Simple_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/bootloader.bin
+          cp .pio/build/Simple_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/partitions.bin
+          
       - name: Build filesystem for ESP32
         run: |
           cd ESP32_AP-Flasher
           pio run --target buildfs --environment Simple_AP
+          cp .pio/build/Simple_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/littlefs.bin
+          
+      - name: Combine binaries for ESP32
+        run: |
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw
+          esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 40m --flash_size 4MB 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin
           
       - name: Build firmware for ESP32-S2
         run: |
           cd ESP32_AP-Flasher
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_ESPTYPE=ESP32S2 -D BUILD_VERSION=${{ github.ref }}"
           pio run --environment OpenEPaperLink_Mini_AP
+          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/boot_app0.bin
+          cp .pio/build/OpenEPaperLink_Mini_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/firmware.bin
+          cp .pio/build/OpenEPaperLink_Mini_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/bootloader.bin
+          cp .pio/build/OpenEPaperLink_Mini_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/partitions.bin
         
       - name: Build filesystem for ESP32-S2
         run: |
           cd ESP32_AP-Flasher
           pio run --target buildfs --environment OpenEPaperLink_Mini_AP
+          cp .pio/build/OpenEPaperLink_Mini_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/littlefs.bin
+          
+      - name: Combine binaries for ESP32-S2
+        run: |
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw
+          esptool.py --chip esp32-s2 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 4MB 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x290000 littlefs.bin
           
       - name: Build firmware for ESP32-S3
         run: |
           cd ESP32_AP-Flasher
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_ESPTYPE=ESP32S3 -D BUILD_VERSION=${{ github.ref }}"
           pio run --environment OpenEPaperLink_AP_and_Flasher
+          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/boot_app0.bin
+          cp .pio/build/OpenEPaperLink_AP_and_Flasher/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/firmware.bin
+          cp .pio/build/OpenEPaperLink_AP_and_Flasher/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/bootloader.bin
+          cp .pio/build/OpenEPaperLink_AP_and_Flasher/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/partitions.bin
         
       - name: Build filesystem for ESP32-S3
         run: |
           cd ESP32_AP-Flasher
           pio run --target buildfs --environment OpenEPaperLink_AP_and_Flasher
+          cp .pio/build/OpenEPaperLink_AP_and_Flasher/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/littlefs.bin
+          
+      - name: Combine binaries for ESP32-S3
+        run: |
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw
+          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00c90000 littlefs.bin
           
       - name: Add ESP32 binary to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ESP32_AP-Flasher/.pio/build/Simple_AP/firmware.bin
+          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/firmware.bin
           asset_name: ESP32firmware.bin
           tag: ${{ github.ref }}
           overwrite: true
@@ -71,18 +107,48 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ESP32_AP-Flasher/.pio/build/OpenEPaperLink_Mini_AP/firmware.bin
+          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/firmware.bin
           asset_name: ESP32S2firmware.bin
           tag: ${{ github.ref }}
           overwrite: true
-          body: "ESP32 firmware binary"
+          body: "ESP32-S2 firmware binary"
     
       - name: Add ESP32-S3 binary to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ESP32_AP-Flasher/.pio/build/OpenEPaperLink_AP_and_Flasher/firmware.bin
+          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/firmware.bin
           asset_name: ESP32S3firmware.bin
           tag: ${{ github.ref }}
           overwrite: true
-          body: "ESP32 firmware binary"
+          body: "ESP32-S3 firmware binary"
+          
+      - name: Add ESP32 full system to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/merged-firmware.bin
+          asset_name: ESP32full.bin
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "ESP32 full binary"
+      
+      - name: Add ESP32-S2 full system to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/merged-firmware.bin
+          asset_name: ESP32S2full.bin
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "ESP32-S2 full binary"
+    
+      - name: Add ESP32-S3 full system to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/merged-firmware.bin
+          asset_name: ESP32S3full.bin
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "ESP32-S3 full binary"
