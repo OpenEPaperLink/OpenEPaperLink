@@ -60,7 +60,7 @@ void prepareCancelPending(uint8_t dst[8]) {
     }
     clearPending(taginfo);
 
-    wsSendTaginfo(dst);
+    wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
 void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
@@ -118,8 +118,12 @@ void prepareNFCReq(uint8_t* dst, const char* url) {
     pending.availdatainfo.dataVer = millis();
     pending.attemptsLeft = 10;
 
-    sendDataAvail(&pending);
-    wsSendTaginfo(dst);
+    if (taginfo->isExternal) {
+        udpsync.netSendDataAvail(&pending);
+    } else {
+        sendDataAvail(&pending);
+    }
+    wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
 bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
@@ -164,7 +168,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
 
     if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
         wsLog("new image is the same as current or already pending image. not updating tag.");
-        wsSendTaginfo(dst);
+        wsSendTaginfo(dst, SYNC_TAGSTATUS);
         if (LittleFS.exists(*filename)) {
             LittleFS.remove(*filename);
         }
@@ -222,7 +226,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         udpsync.netSendDataAvail(&pending);
     }
 
-    wsSendTaginfo(dst);
+    wsSendTaginfo(dst, SYNC_TAGSTATUS);
 
     return true;
 }
@@ -234,53 +238,86 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
         return;
     }
     if (taginfo->isExternal == false) {
-        if (pending->availdatainfo.dataType != DATATYPE_UK_SEGMENTED) {
-            LittleFS.begin();
+        switch (pending->availdatainfo.dataType) {
+            case DATATYPE_IMG_DIFF:
+            case DATATYPE_IMG_RAW_1BPP:
+            case DATATYPE_IMG_RAW_2BPP:
+            case DATATYPE_IMG_RAW_1BPP_DIRECT: {
+                LittleFS.begin();
 
-            char hexmac[17];
-            mac2hex(pending->targetMac, hexmac);
-            String filename = "/current/" + String(hexmac) + ".pending";
-            String imageUrl = "http://" + remoteIP.toString() + filename;
-            wsLog("GET " + imageUrl);
-            HTTPClient http;
-            http.begin(imageUrl);
-            int httpCode = http.GET();
-            if (httpCode == 200) {
-                File file = LittleFS.open(filename, "w");
-                http.writeToStream(&file);
+                char hexmac[17];
+                mac2hex(pending->targetMac, hexmac);
+                String filename = "/current/" + String(hexmac) + ".pending";
+                String imageUrl = "http://" + remoteIP.toString() + filename;
+                wsLog("GET " + imageUrl);
+                HTTPClient http;
+                http.begin(imageUrl);
+                int httpCode = http.GET();
+                if (httpCode == 200) {
+                    File file = LittleFS.open(filename, "w");
+                    http.writeToStream(&file);
+                    file.close();
+                }
+                http.end();
+
+                fs::File file = LittleFS.open(filename);
+                uint32_t filesize = file.size();
+                if (filesize == 0) {
+                    file.close();
+                    wsErr("Remote file not found. " + filename);
+                    return;
+                }
+
+                uint8_t md5bytes[16];
+                {
+                    MD5Builder md5;
+                    md5.begin();
+                    md5.addStream(file, filesize);
+                    md5.calculate();
+                    md5.getBytes(md5bytes);
+                }
+
                 file.close();
+                taginfo->filename = filename;
+                taginfo->len = filesize;
+                clearPending(taginfo);
+                taginfo->pending = true;
+                memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
+                break;
             }
-            http.end();
-
-            fs::File file = LittleFS.open(filename);
-            uint32_t filesize = file.size();
-            if (filesize == 0) {
-                file.close();
-                wsErr("Remote file not found. " + filename);
+            case DATATYPE_NFC_RAW_CONTENT:
+            case DATATYPE_NFC_URL_DIRECT:
+            case DATATYPE_CUSTOM_LUT_OTA: {
+                char hexmac[17];
+                mac2hex(pending->targetMac, hexmac);
+                String dataUrl = "http://" + remoteIP.toString() + "/getdata?mac=" + String(hexmac);
+                wsLog("GET " + dataUrl);
+                HTTPClient http;
+                http.begin(dataUrl);
+                int httpCode = http.GET();
+                if (httpCode == 200) {
+                    size_t len = http.getSize();
+                    if (len > 0) {
+                        clearPending(taginfo);
+                        taginfo->data = new uint8_t[len];
+                        WiFiClient* stream = http.getStreamPtr();
+                        stream->readBytes(taginfo->data, len);
+                        taginfo->pending = true;
+                        taginfo->len = len;
+                    } 
+                }
+                http.end();
+                break;
+            }
+            case DATATYPE_FW_UPDATE: {
                 return;
             }
-
-            uint8_t md5bytes[16];
-            {
-                MD5Builder md5;
-                md5.begin();
-                md5.addStream(file, filesize);
-                md5.calculate();
-                md5.getBytes(md5bytes);
-            }
-
-            file.close();
-            taginfo->filename = filename;
-            taginfo->len = filesize;
-            clearPending(taginfo);
-            taginfo->pending = true;
-            memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
         }
         taginfo->contentMode = 12;
         taginfo->nextupdate = 3216153600;
         sendDataAvail(pending);
 
-        wsSendTaginfo(pending->targetMac);
+        wsSendTaginfo(pending->targetMac, SYNC_NOSYNC);
     }
 }
 
@@ -356,8 +393,13 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
         clearPending(taginfo);
         taginfo->wakeupReason = 0;
+        if (taginfo->contentMode == 12 && local == false) {
+            if (LittleFS.exists(dst_path)) {
+                LittleFS.remove(dst_path);
+            }
+        }
     }
-    wsSendTaginfo(xfc->src);
+    wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferComplete(xfc);
 }
 
@@ -381,7 +423,7 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
         memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
         clearPending(taginfo);
     }
-    wsSendTaginfo(xfc->src);
+    wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferTimeout(xfc);
 }
 
@@ -399,9 +441,18 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
     time_t now;
     time(&now);
 
+    char hexmac[17];
+    mac2hex(eadr->src, hexmac);
+
     if (!local) {
+        if (taginfo->isExternal == false) {
+            wsLog("moved AP from local to external " + String(hexmac));
+        }
         taginfo->isExternal = true;
     } else {
+        if (taginfo->isExternal == true) {
+            wsLog("moved AP from external to local " + String(hexmac));
+        }
         taginfo->isExternal = false;
     }
 
@@ -435,8 +486,10 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
     }
 
     Serial.print(buffer);
-    wsSendTaginfo(eadr->src);
-    if (local) udpsync.netProcessDataReq(eadr);
+    wsSendTaginfo(eadr->src, SYNC_TAGSTATUS);
+    if (local) {
+        udpsync.netProcessDataReq(eadr);
+    }
 }
 
 void refreshAllPending() {
@@ -448,7 +501,7 @@ void refreshAllPending() {
             taginfo->nextupdate = 0;
             memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
             memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
-            wsSendTaginfo(taginfo->mac);
+            wsSendTaginfo(taginfo->mac, SYNC_TAGSTATUS);
         }
     }
 };
@@ -503,5 +556,53 @@ bool showAPSegmentedInfo(uint8_t* dst, bool local) {
     } else {
         udpsync.netSendDataAvail(&pending);
         return true;
+    }
+}
+
+void updateTaginfoitem(struct TagInfo* taginfoitem) {
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(taginfoitem->mac);
+
+    if (taginfo == nullptr) {
+        taginfo = new tagRecord;
+        memcpy(taginfo->mac, taginfoitem->mac, sizeof(taginfo->mac));
+        taginfo->pending = false;
+        tagDB.push_back(taginfo);
+    }
+    tagRecord initialTagInfo = *taginfo;
+
+    switch (taginfoitem->syncMode) {
+        case SYNC_USERCFG:
+            taginfo->alias = String(taginfoitem->alias);
+            taginfo->nextupdate = taginfoitem->nextupdate;
+            break;
+        case SYNC_TAGSTATUS:
+            taginfo->lastseen = taginfoitem->lastseen;
+            taginfo->nextupdate = taginfoitem->nextupdate;
+            taginfo->pending = taginfoitem->pending;
+            taginfo->expectedNextCheckin = taginfoitem->expectedNextCheckin;
+            taginfo->hwType = taginfoitem->hwType;
+            taginfo->wakeupReason = taginfoitem->wakeupReason;
+            taginfo->capabilities = taginfoitem->capabilities;
+            taginfo->pendingIdle = taginfoitem->pendingIdle;
+            break;
+    }
+
+    char hexmac[17];
+    mac2hex(taginfo->mac, hexmac);
+    if (taginfo->contentMode != 12 && taginfoitem->contentMode != 12) {
+        wsLog("Remote AP takes control over tag " + String(hexmac));
+        taginfo->contentMode = 12;
+    }
+
+    if (taginfoitem->syncMode == SYNC_DELETE) {
+        taginfo->contentMode = 255;
+        wsSendTaginfo(taginfo->mac, SYNC_NOSYNC);
+        deleteRecord(taginfoitem->mac);
+    } else {
+        bool hasChanges = (memcmp(&initialTagInfo, taginfo, sizeof(tagRecord)) != 0);
+        if (hasChanges) {
+            wsSendTaginfo(taginfo->mac, SYNC_NOSYNC);
+        }
     }
 }

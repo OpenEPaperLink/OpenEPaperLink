@@ -598,7 +598,6 @@ bool bringAPOnline() {
         vTaskDelay(200 / portTICK_PERIOD_MS);
         apInfo.isOnline = true;
         apInfo.state = AP_STATE_ONLINE;
-        refreshAllPending();
         return true;
     }
 }
@@ -680,6 +679,7 @@ void APTask(void* parameter) {
 #endif
             }
         }
+        refreshAllPending();
     } else {
         // AP unavailable, maybe time to flash?
         apInfo.isOnline = false;
@@ -699,6 +699,7 @@ void APTask(void* parameter) {
                     segmentedShowIp();
                     showAPSegmentedInfo(apInfo.mac, true);
                 }
+                refreshAllPending();
             } else {
                 Serial.printf("Failed to bring up the AP after successful flashing... That's not supposed to happen!\n");
                 Serial.printf("This generally means that the flasher connections (MISO/MOSI/CLK/RESET/CS) are okay,\n");
@@ -763,6 +764,7 @@ void APTask(void* parameter) {
                     apInfo.state = AP_STATE_ONLINE;
                     apInfo.isOnline = true;
                     attempts = 0;
+                    refreshAllPending();
                 }
             }
         }

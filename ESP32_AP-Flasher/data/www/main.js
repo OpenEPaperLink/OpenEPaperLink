@@ -61,6 +61,7 @@ function connect() {
 	});
 
 	socket.addEventListener("message", (event) => {
+		//console.log(event.data)
 		const msg = JSON.parse(event.data);
 		if (msg.logMsg) {
 			showMessage(msg.logMsg, false);
@@ -97,7 +98,6 @@ function processTags(tagArray) {
 
 		var div = $('#tag' + tagmac);
 		if (div == null) {
-
 			div = $('#tagtemplate').cloneNode(true);
 			div.setAttribute('id', 'tag' + tagmac);
 			div.dataset.mac = tagmac;
@@ -107,6 +107,12 @@ function processTags(tagArray) {
 
 		div.style.display = 'block';
 
+		if (element.contentMode == 255) {
+			div.remove();
+			showMessage(tagmac + " removed by remote AP");
+			continue;
+		}
+
 		if (element.isexternal) {
 			$('#tag' + tagmac + ' .mac').innerHTML = tagmac + " via ext AP";
 		} else {
@@ -114,7 +120,10 @@ function processTags(tagArray) {
 		}
 		let alias = element.alias;
 		if (!alias) alias = tagmac.replace(/^0{1,4}/, '');
-		$('#tag' + tagmac + ' .alias').innerHTML = alias;
+		if ($('#tag' + tagmac + ' .alias').innerHTML != alias) {
+			$('#tag' + tagmac + ' .alias').innerHTML = alias;
+			sortGrid();
+		}
 
 		let contentDefObj = getContentDefById(element.contentMode);
 		if (contentDefObj) $('#tag' + tagmac + ' .contentmode').innerHTML = contentDefObj.name;
@@ -131,10 +140,11 @@ function processTags(tagArray) {
 			$('#tag' + tagmac + ' .received').style.opacity = "0";
 		}
 
-		if (div.dataset.hash != element.hash && div.dataset.hwtype > -1) {
+		if (div.dataset.hash != element.hash && div.dataset.hwtype > -1 && (element.isexternal == false || element.contentMode != 12)) {
 			loadImage(tagmac, '/current/' + tagmac + '.raw?' + (new Date()).getTime());
 			div.dataset.hash = element.hash;
 		}
+		if (element.isexternal == true && element.contentMode == 12) $('#tag' + tagmac + ' .tagimg').style.display = 'none';
 
 		if (element.nextupdate > 1672531200 && element.nextupdate != 3216153600) {
 			var date = new Date(element.nextupdate * 1000);
@@ -193,7 +203,7 @@ function processTags(tagArray) {
 }
 
 function updatecards() {
-	document.querySelectorAll('[data-mac]').forEach(item => {
+	$('#taglist').querySelectorAll('[data-mac]').forEach(item => {
 		let tagmac = item.dataset.mac;
 
 		if (item.dataset.lastseen && item.dataset.lastseen > 1672531200) {
@@ -209,7 +219,11 @@ function updatecards() {
 				$('#tag' + tagmac + ' .lastseen').style.color = "red";
 			}
 		} else {
-			$('#tag' + tagmac + ' .lastseen').innerHTML = ""
+			if ($('#tag' + tagmac + ' .lastseen')) {
+				$('#tag' + tagmac + ' .lastseen').innerHTML = ""
+			} else {
+				console.log(tagmac + " not found")
+			}
 		}
 
 		if (item.dataset.nextcheckin > 1672531200 && parseInt(item.dataset.wakeupreason) == 0) {
@@ -496,6 +510,7 @@ function processQueue() {
 	isProcessing = true;
 	const { id, imageSrc } = imageQueue.shift();
 	const canvas = $('#tag' + id + ' .tagimg');
+	canvas.style.display = 'block';
 	const hwtype = $('#tag' + id).dataset.hwtype;
 
 	fetch(imageSrc)
@@ -535,4 +550,17 @@ function displayTime(seconds) {
 	let minutes = Math.floor((Math.abs(seconds) % 3600) / 60);
 	let remainingSeconds = Math.abs(seconds) % 60;
 	return (seconds < 0 ? '-' : '') + (hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}` : `${minutes}`) + `:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function sortGrid() {
+	const sortableGrid = $('#taglist');
+	const gridItems = Array.from(sortableGrid.getElementsByClassName('tagcard'));
+	gridItems.sort((a, b) => {
+		const macA = a.querySelector('.alias').innerHTML;
+		const macB = b.querySelector('.alias').innerHTML;
+		if (macA < macB) return -1;
+		if (macA > macB) return 1;
+		return 0;
+	});
+	gridItems.forEach((item) => sortableGrid.appendChild(item));
 }

@@ -230,14 +230,16 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case SegStatic:
 
             sprintf(buffer, "%-4.4s%-2.2s%-4.4s", cfgobj["line1"].as<const char *>(), cfgobj["line2"].as<const char *>(), cfgobj["line3"].as<const char *>());
-            sendAPSegmentedData(mac, (String)buffer, 0x0000, false, (taginfo->isExternal == false));
             taginfo->nextupdate = 3216153600;
+            sendAPSegmentedData(mac, (String)buffer, 0x0000, false, (taginfo->isExternal == false));
             break;
 
         case 14:  // NFC URL
 
-            prepareNFCReq(mac, cfgobj["url"].as<const char *>());
             taginfo->nextupdate = 3216153600;
+            memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
+            memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
+            prepareNFCReq(mac, cfgobj["url"].as<const char *>());
             break;
     }
 

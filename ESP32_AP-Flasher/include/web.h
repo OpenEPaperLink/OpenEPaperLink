@@ -9,7 +9,7 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
 extern void webSocketSendProcess(void *parameter);
 void wsLog(String text);
 void wsErr(String text);
-void wsSendTaginfo(uint8_t *mac);
+void wsSendTaginfo(uint8_t *mac, uint8_t syncMode);
 void wsSendSysteminfo();
 void wsSendAPitem(struct APlist* apitem);
 uint8_t wsClientCount();

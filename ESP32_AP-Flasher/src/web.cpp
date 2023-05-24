@@ -44,26 +44,21 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 #endif
     switch (type) {
         case WS_EVT_CONNECT:
-            // client connected
             ets_printf("ws[%s][%u] connect\n", server->url(), client->id());
             xTaskNotify(websocketUpdater, 2, eSetBits);
             // client->ping();
             break;
         case WS_EVT_DISCONNECT:
-            // client disconnected
             ets_printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
             break;
         case WS_EVT_ERROR:
-            // error was received from the other end
             ets_printf("WS Error received :(\n\n");
             // ets_printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *)arg), (char *)data);
             break;
         case WS_EVT_PONG:
-            // pong message was received (in response to a ping request maybe)
             ets_printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len) ? (char *)data : "");
             break;
         case WS_EVT_DATA:
-            // data packet
             AwsFrameInfo *info = (AwsFrameInfo *)arg;
             if (info->final && info->index == 0 && info->len == len) {
                 // the whole message is in a single frame and we got all of it's data
@@ -147,13 +142,43 @@ void wsSendSysteminfo() {
     xSemaphoreGive(wsMutex);
 }
 
-void wsSendTaginfo(uint8_t *mac) {
-    String json = "";
-    json = tagDBtoJson(mac);
-
-    xSemaphoreTake(wsMutex, portMAX_DELAY);
-    ws.textAll(json);
-    xSemaphoreGive(wsMutex);
+void wsSendTaginfo(uint8_t *mac, uint8_t syncMode) {
+    if (syncMode != SYNC_DELETE) {
+        String json = "";
+        json = tagDBtoJson(mac);
+        xSemaphoreTake(wsMutex, portMAX_DELAY);
+        ws.textAll(json);
+        xSemaphoreGive(wsMutex);
+    }
+    if (syncMode > SYNC_NOSYNC) {
+        tagRecord *taginfo = nullptr;
+        taginfo = tagRecord::findByMAC(mac);
+        if (taginfo != nullptr) {
+            if (taginfo->contentMode != 12 || syncMode == SYNC_DELETE) {
+                UDPcomm udpsync;
+                struct TagInfo taginfoitem;
+                memcpy(taginfoitem.mac, taginfo->mac, sizeof(taginfoitem.mac));
+                taginfoitem.syncMode = syncMode;
+                taginfoitem.contentMode = taginfo->contentMode;
+                if (syncMode == SYNC_USERCFG) {
+                    strncpy(taginfoitem.alias, taginfo->alias.c_str(), sizeof(taginfoitem.alias) - 1);
+                    taginfoitem.alias[sizeof(taginfoitem.alias) - 1] = '\0';
+                    taginfoitem.nextupdate = taginfo->nextupdate;
+                }
+                if (syncMode == SYNC_TAGSTATUS) {
+                    taginfoitem.lastseen = taginfo->lastseen;
+                    taginfoitem.nextupdate = taginfo->nextupdate;
+                    taginfoitem.pending = taginfo->pending;
+                    taginfoitem.expectedNextCheckin = taginfo->expectedNextCheckin;
+                    taginfoitem.hwType = taginfo->hwType;
+                    taginfoitem.wakeupReason = taginfo->wakeupReason;
+                    taginfoitem.capabilities = taginfo->capabilities;
+                    taginfoitem.pendingIdle = taginfo->pendingIdle;
+                }
+                udpsync.netTaginfo(&taginfoitem);
+            }
+        }
+    }
 }
 
 void wsSendAPitem(struct APlist *apitem) {
@@ -242,6 +267,24 @@ void init_web() {
         request->send(200, "application/json", json);
     });
 
+    server.on("/getdata", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("mac")) {
+            String dst = request->getParam("mac")->value();
+            uint8_t mac[8];
+            if (hex2mac(dst, mac)) {
+                tagRecord *taginfo = nullptr;
+                taginfo = tagRecord::findByMAC(mac);
+                if (taginfo != nullptr) {
+                    if (taginfo->pending == true) {
+                        request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
+                        return;
+                    }
+                }
+            }
+        }
+        request->send(400, "text/plain", "No data available");
+    });
+
     server.on("/save_cfg", HTTP_POST, [](AsyncWebServerRequest *request) {
         if (request->hasParam("mac", true)) {
             String dst = request->getParam("mac", true)->value();
@@ -256,7 +299,7 @@ void init_web() {
                     taginfo->nextupdate = 0;
                     // memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
                     // memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
-                    wsSendTaginfo(mac);
+                    wsSendTaginfo(mac, SYNC_USERCFG);
                     saveDB("/current/tagDB.json");
                     request->send(200, "text/plain", "Ok, saved");
                 } else {
@@ -272,6 +315,7 @@ void init_web() {
             String dst = request->getParam("mac", true)->value();
             uint8_t mac[8];
             if (hex2mac(dst, mac)) {
+                wsSendTaginfo(mac, SYNC_DELETE);
                 if (deleteRecord(mac)) {
                     request->send(200, "text/plain", "Ok, deleted");
                 } else {
@@ -361,7 +405,7 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
                     taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"0\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\"}";
                     taginfo->contentMode = 0;
                     taginfo->nextupdate = 0;
-                    wsSendTaginfo(mac);
+                    wsSendTaginfo(mac, SYNC_USERCFG);
                     request->send(200, "text/plain", "Ok, saved");
                 } else {
                     request->send(200, "text/plain", "Error while saving: mac not found");

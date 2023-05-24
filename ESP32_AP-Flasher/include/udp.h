@@ -15,7 +15,7 @@ class UDPcomm {
 		void netProcessXferComplete(struct espXferComplete* xfc);
 		void netProcessXferTimeout(struct espXferComplete* xfc);
 		void netSendDataAvail(struct pendingData* pending);
-
+		void netTaginfo(struct TagInfo* taginfoitem);
     private:
 		AsyncUDP udp;
 		void processPacket(AsyncUDPPacket packet);

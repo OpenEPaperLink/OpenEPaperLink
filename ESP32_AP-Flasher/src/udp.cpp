@@ -87,6 +87,15 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
             wsSendAPitem(APreply);
             break;
         }
+        case PKT_TAGINFO: {
+            uint16_t syncversion = (packet.data()[2] << 8) | packet.data()[1];
+            if (syncversion != SYNC_VERSION) {
+                Serial.println("Got a packet from " + packet.remoteIP().toString() + " with mismatched udp sync version. Update firmware!");
+            } else {
+                TagInfo* taginfoitem = (TagInfo*)&packet.data()[1];
+                updateTaginfoitem(taginfoitem);
+            }
+        }
     }
 }
 
@@ -163,5 +172,12 @@ void UDPcomm::netSendDataAvail(struct pendingData* pending) {
     uint8_t buffer[sizeof(struct pendingData) + 1];
     buffer[0] = PKT_AVAIL_DATA_REQ;
     memcpy(buffer + 1, pending, sizeof(struct pendingData));
+    udp.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
+}
+
+void UDPcomm::netTaginfo(struct TagInfo* taginfoitem) {
+    uint8_t buffer[sizeof(struct TagInfo) + 1];
+    buffer[0] = PKT_TAGINFO;
+    memcpy(buffer + 1, taginfoitem, sizeof(struct TagInfo));
     udp.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
 }
