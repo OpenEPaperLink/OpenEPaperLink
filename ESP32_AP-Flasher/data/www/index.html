@@ -38,7 +38,7 @@
 
 	<div id="apconfigbox">
 		<div class="closebtn">&#10006;</div>
-		<h3 id="cfgmac">Access Point config</h3>
+		<h3>Access Point config</h3>
 		<p>
 			<label for="apcfgalias">Alias</label>
 			<input id="apcfgalias" type="text">
@@ -56,7 +56,7 @@
 			</select>
 		</p>
 		<p>
-			<label for="apcfgledbrightness">LED Brightness</label>
+			<label for="apcfgledbrightness">LED brightness</label>
 			<select id="apcfgledbrightness">
 				<option value="-1">off</option>
 				<option value="64">25%</option>
@@ -66,27 +66,37 @@
 			</select>
 		</p>
 		<p>
-			<label for="apcfglanguage">Content Language</label>
+			<label for="apcfglanguage">Content language</label>
 			<select id="apcfglanguage">
 				<option value="0">EN English</option>
 				<option value="1">NL Nederlands</option>
 				<option value="2">DE Deutsch</option>
 			</select>
 		</p>
+		<p title="Depending on the content, a tag can sleep for
+longer periods when no updates are expected
+(like a date display). This setting specifies
+the maximum sleep time.">
+			<label for="apclatency">Maximum sleep</label>
+			<select id="apclatency">
+				<option value="0">shortest (40 sec)</option>
+				<option value="5">5 minutes</option>
+				<option value="10">10 minute</option>
+				<option value="30">30 minutes</option>
+				<option value="60">1 hour</option>
+			</select>
+		</p>
+		<p title="If connected to the website, don't sleep extra.
+Latency will be around 40 seconds.">
+			<label for="apcpreventsleep">Shorten latency during config</label>
+			<select id="apcpreventsleep">
+				<option value="0">no</option>
+				<option value="1">yes</option>
+			</select>
+		</p>
 		<p>
 			<input type="button" value="Save" id="apcfgsave">
 		</p>
-		<!--
-		<p><pre>
-			work in progress
-			- upload tagDB
-			- update webinterface from github
-			- update APtag FW from github
-			- update all tag FW from github
-			- update esp32 fw 
-		</pre>
-		</p>
-		-->
 		<p>
 			Active access points:<br>
 			<table id="aptable">
@@ -102,10 +112,33 @@
 		<p>
 			<span id="rebootbutton">reboot AP</span>
 			<a href="/backup_db" id="downloadDBbutton">download tagDB</a>
+			<!--<span id="updatebutton">update</span>-->
 		</p>
 		<p>
 			<a href="https://github.com/jjwbruijn/OpenEPaperLink" target="_new">Github OpenEPaperLink</a>
 		</p>
+	</div>
+
+	<div id="apupdatebox">
+		<div class="closebtn">&#10006;</div>
+		<h3>Firmware updates</h3>
+		<p>
+			test
+		</p>
+		<p>
+			<input type="button" value="Save" id="apfwsave">
+		</p>
+		<!--
+		<p><pre>
+			work in progress
+			- upload tagDB
+			- update webinterface from github
+			- update APtag FW from github
+			- update all tag FW from github
+			- update esp32 fw 
+		</pre>
+		</p>
+		-->
 	</div>
 
 	<form>

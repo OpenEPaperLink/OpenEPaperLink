@@ -44,6 +44,16 @@ class tagRecord {
     static tagRecord* findByMAC(uint8_t mac[8]);
 };
 
+struct Config {
+    uint8_t channel;
+    char alias[32];
+    int16_t led;
+    uint8_t language;
+    uint8_t maxsleep;
+    uint8_t stopsleep;
+};
+
+extern Config config;
 extern std::vector<tagRecord*> tagDB;
 extern DynamicJsonDocument APconfig;
 String tagDBtoJson(uint8_t mac[8] = nullptr, uint8_t startPos = 0);

@@ -8,7 +8,7 @@
 int currentLanguage = defaultLanguage;
 
 void updateLanguageFromConfig() {
-    int tempLang = APconfig["language"].as<int>();
+    int tempLang = config.language;
     if (tempLang < 0 || tempLang >= sizeof(languageList)) {
         Serial.println("Language not supported");
         return;

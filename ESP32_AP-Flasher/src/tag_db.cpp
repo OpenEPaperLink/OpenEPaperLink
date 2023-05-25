@@ -9,7 +9,8 @@
 #include "language.h"
 
 std::vector<tagRecord*> tagDB;
-DynamicJsonDocument APconfig(150);
+
+Config config;
 
 tagRecord* tagRecord::findByMAC(uint8_t mac[8]) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
@@ -245,27 +246,32 @@ void clearPending(tagRecord* taginfo) {
 
 void initAPconfig() {
     LittleFS.begin(true);
+    DynamicJsonDocument APconfig(150);
     File configFile = LittleFS.open("/current/apconfig.json", "r");
-    if (!configFile) {
-        // default values'
-        Serial.println("APconfig not found");
-        APconfig["channel"] = 0;
-        APconfig["alias"] = String();
-        APconfig["ledbrightness"] = 255;
-        APconfig["language"] = getDefaultLanguage();
-        return;
-    }
     DeserializationError error = deserializeJson(APconfig, configFile);
     if (error) {
         configFile.close();
-        Serial.println("apconfig.json file corrupted, or not enough space in apconfig to hold it");
-        return;
+        Serial.println("failed to read apconfig.json. Using default config");
     }
     configFile.close();
+
+    config.channel = APconfig["channel"] | 25;
+    strlcpy(config.alias, APconfig["alias"], sizeof(config.alias));
+    config.led = APconfig["led"] | 255;
+    config.language = APconfig["language"] | getDefaultLanguage();
+    config.maxsleep = APconfig["maxsleep"] | 10;
+    config.stopsleep = APconfig["stopsleep"] | 1;
 }
 
 void saveAPconfig() {
     fs::File configFile = LittleFS.open("/current/apconfig.json", "w");
+    DynamicJsonDocument APconfig(150);
+    APconfig["channel"] = config.channel;
+    APconfig["alias"] = config.alias;
+    APconfig["led"] = config.led;
+    APconfig["language"] = config.language;
+    APconfig["maxsleep"] = config.maxsleep;
+    APconfig["stopsleep"] = config.stopsleep;
     serializeJson(APconfig, configFile);
     configFile.close();
 }

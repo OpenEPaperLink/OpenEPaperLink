@@ -67,7 +67,7 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
 
             APlist APitem;
             APitem.src = WiFi.localIP();
-            strcpy(APitem.alias, APconfig["alias"]);
+            strcpy(APitem.alias, config.alias);
             APitem.channelId = curChannel.channel;
             APitem.tagCount = getTagCount();
             APitem.version = apInfo.version;
@@ -116,7 +116,7 @@ void autoselect(void* pvParameters) {
     if (curChannel.channel == 0) {
         curChannel.channel = 11;
     } 
-    APconfig["channel"] = curChannel.channel;
+    config.channel = curChannel.channel;
     do {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     } while (!apInfo.isOnline);
@@ -131,13 +131,13 @@ void autoselect(void* pvParameters) {
 void UDPcomm::getAPList() {
     APlist APitem;
     APitem.src = WiFi.localIP();
-    strcpy(APitem.alias, APconfig["alias"]);
+    strcpy(APitem.alias, config.alias);
     APitem.channelId = curChannel.channel;
     APitem.tagCount = getTagCount();
     APitem.version = apInfo.version;
     wsSendAPitem(&APitem);
 
-    if (APconfig["channel"].as<int>() == 0) {
+    if (config.alias == 0) {
         xTaskCreate(autoselect, "autoselect", 5000, NULL, configMAX_PRIORITIES - 10, NULL);
     }
 

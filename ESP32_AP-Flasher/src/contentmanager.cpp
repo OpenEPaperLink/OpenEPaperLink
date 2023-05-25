@@ -56,8 +56,8 @@ void contentRunner() {
         if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pending == false) {
             uint16_t minutesUntilNextUpdate = 0;
             minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
-            if (minutesUntilNextUpdate > MIN_RESPONSE_TIME) minutesUntilNextUpdate = MIN_RESPONSE_TIME;
-            if (minutesUntilNextUpdate > 1 && wsClientCount() == 0) {
+            if (minutesUntilNextUpdate > config.maxsleep) minutesUntilNextUpdate = config.maxsleep;
+            if (minutesUntilNextUpdate > 1 && (wsClientCount() == 0 || config.stopsleep == 0)) {
                 taginfo->pendingIdle = minutesUntilNextUpdate;
                 if (taginfo->isExternal == false) prepareIdleReq(taginfo->mac, minutesUntilNextUpdate);
             }
@@ -301,7 +301,11 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
 
     if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
         initSprite(spr, 296, 128);
-        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib62", TC_DATUM, PAL_RED);
+        if (getCurrentLanguage() == 0 && timeinfo.tm_wday == 3) {
+            drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib50", TC_DATUM, PAL_RED);
+        } else {
+            drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib62", TC_DATUM, PAL_RED);
+        }
         drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], 296 / 2, 73, "fonts/calibrib50", TC_DATUM);
 
     } else if (taginfo->hwType == SOLUM_154_SSD1619) {

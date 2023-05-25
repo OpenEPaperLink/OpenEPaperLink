@@ -29,8 +29,10 @@ header {
 }
 
 label {
-	width:100px;
+	width: 120px;
 	display: inline-block;
+	vertical-align: top;
+	padding: 3px 0px;
 }
 
 .logo {
@@ -62,7 +64,7 @@ label {
 	gap: 20px;
 }
 
-#rebootbutton, #downloadDBbutton, #apconfigbutton, .filebutton {
+#rebootbutton, #updatebutton, #downloadDBbutton, #apconfigbutton, .filebutton {
 	padding: 2px 5px;
 	background-color: #cccccc;
 	text-decoration: none;
@@ -85,7 +87,7 @@ button {
 }
 
 input {
-	border: solid 1px #666666;
+	border: solid 1px #cccccc;
 	padding: 4px;
 	border-radius: 0px;
 }
@@ -102,11 +104,12 @@ button:hover {
 }
 
 select {
-	padding: 4px;
+	padding: 3px 4px;
 	border-radius: 0px;
+	border: solid 1px #cccccc;
 }
 
-#configbox, #apconfigbox {
+#configbox, #apconfigbox, #apupdatebox {
 	display: none;
 	position: fixed;
 	top: 80px;
@@ -118,22 +121,17 @@ select {
 	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
 }
 
-#configbox p, #apconfigbox p {
+#configbox p, #apconfigbox p, #apupdatebox p {
 	padding: 5px;
 }
 
-#configbox h3, #apconfigbox h3 {
+#configbox h3, #apconfigbox h3, #apupdatebox h3 {
 	font-size: 1.5em;
 	font-weight: bold;
 }
 
 #configbox input, #apconfigbox input {
-	border: solid 1px #666666;
-	/*padding: 4px;*/
-}
-
-#configbox label, #apconfigbox label {
-	text-transform: capitalize;
+	border: solid 1px #cccccc;
 }
 
 #configbox input[type=number] {
@@ -167,6 +165,10 @@ select {
 #aptable td:nth-child(3),
 #aptable td:nth-child(4) {
 	text-align: right;
+}
+
+#apupdatebox {
+	background-color: #f0e0d0;
 }
 
 #cfgdelete {

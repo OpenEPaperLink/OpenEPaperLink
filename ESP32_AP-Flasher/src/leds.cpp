@@ -172,8 +172,8 @@ void setBrightness(int brightness) {
 }
 
 void updateBrightnessFromConfig() {
-    if (APconfig["ledbrightness"].as<int>() != 0) {
-        int newbrightness = APconfig["ledbrightness"].as<int>();
+    if (config.led != 0) {
+        int newbrightness = config.led;
         if (newbrightness < 0) newbrightness = 0;
         if (newbrightness != maxledbrightness) {
             setBrightness(newbrightness);

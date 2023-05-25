@@ -21,8 +21,8 @@
 
 extern uint8_t data_to_send[];
 
-const char *http_username = "admin";
-const char *http_password = "admin";
+//const char *http_username = "admin";
+//const char *http_password = "admin";
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
@@ -224,7 +224,8 @@ void init_web() {
     Serial.print("Connected! IP address: ");
     Serial.println(WiFi.localIP());
 
-    server.addHandler(new SPIFFSEditor(LittleFS, http_username, http_password));
+    //server.addHandler(new SPIFFSEditor(LittleFS, http_username, http_password));
+    server.addHandler(new SPIFFSEditor(LittleFS));
 
     ws.onEvent(onEvent);
     server.addHandler(&ws);
@@ -341,15 +342,27 @@ void init_web() {
 
     server.on("/save_apcfg", HTTP_POST, [](AsyncWebServerRequest *request) {
         if (request->hasParam("alias", true) && request->hasParam("channel", true)) {
-            APconfig["alias"] = request->getParam("alias", true)->value();
-            APconfig["channel"] = request->getParam("channel", true)->value();
-            if (request->hasParam("ledbrightness", true)) {
-                APconfig["ledbrightness"] = request->getParam("ledbrightness", true)->value();
+
+            String aliasValue = request->getParam("alias", true)->value();
+            size_t aliasLength = aliasValue.length();
+            if (aliasLength > 31) aliasLength = 31;
+            aliasValue.toCharArray(config.alias, aliasLength + 1);
+            config.alias[aliasLength] = '\0';
+
+            config.channel = static_cast<uint8_t>(request->getParam("channel", true)->value().toInt());
+            if (request->hasParam("led", true)) {
+                config.led = static_cast<int16_t>(request->getParam("led", true)->value().toInt());
                 updateBrightnessFromConfig();
             }
             if (request->hasParam("language", true)) {
-                APconfig["language"] = request->getParam("language", true)->value();
+                config.language = static_cast<uint8_t>(request->getParam("language", true)->value().toInt());
                 updateLanguageFromConfig();
+            }
+            if (request->hasParam("maxsleep", true)) {
+                config.maxsleep = static_cast<uint8_t>(request->getParam("maxsleep", true)->value().toInt());
+            }
+            if (request->hasParam("stopsleep", true)) {
+                config.stopsleep = static_cast<uint8_t>(request->getParam("stopsleep", true)->value().toInt());
             }
             saveAPconfig();
             setAPchannel();

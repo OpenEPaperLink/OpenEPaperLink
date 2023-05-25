@@ -346,23 +346,27 @@ $('#apconfigbutton').onclick = function () {
 	for (var i = rowCount - 1; i > 0; i--) {
 		table.deleteRow(i);
 	}
-	$('#apconfigbox').style.display = 'block'
 	fetch("/get_ap_list")
 		.then(response => response.json())
 		.then(data => {
 			$('#apcfgalias').value = data.alias;
 			$('#apcfgchid').value = data.channel;
-			$("#apcfgledbrightness").value = data.ledbrightness;
+			$("#apcfgledbrightness").value = data.led;
 			$("#apcfglanguage").value = data.language;
+			$("#apclatency").value = data.maxsleep;
+			$("#apcpreventsleep").value = data.stopsleep;
 		})
+	$('#apconfigbox').style.display = 'block'
 }
 
 $('#apcfgsave').onclick = function () {
 	let formData = new FormData();
 	formData.append("alias", $('#apcfgalias').value);
 	formData.append("channel", $('#apcfgchid').value);
-	formData.append('ledbrightness', $('#apcfgledbrightness').value);
+	formData.append('led', $('#apcfgledbrightness').value);
 	formData.append('language', $('#apcfglanguage').value);
+	formData.append('maxsleep', $('#apclatency').value);
+	formData.append('stopsleep', $('#apcpreventsleep').value);
 	fetch("/save_apcfg", {
 		method: "POST",
 		body: formData
@@ -372,6 +376,12 @@ $('#apcfgsave').onclick = function () {
 		.catch(error => showMessage('Error: ' + error));
 	$(".logo").innerHTML = $('#apcfgalias').value;
 	$('#apconfigbox').style.display = 'none';
+}
+
+$('#updatebutton').onclick = function () {
+	$('#apconfigbox').style.display = 'none';
+	$('#apupdatebox').style.display = 'block';
+	//https://api.github.com/repos/jjwbruijn/OpenEPaperLink/commits
 }
 
 $('#paintbutton').onclick = function () {

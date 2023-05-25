@@ -64,13 +64,13 @@ void prepareCancelPending(uint8_t dst[8]) {
 }
 
 void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
-    if (nextCheckin > MIN_RESPONSE_TIME) nextCheckin = MIN_RESPONSE_TIME;
+    if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
     if (nextCheckin > 0) {
         struct pendingData pending = {0};
         memcpy(pending.targetMac, dst, 8);
         pending.availdatainfo.dataType = DATATYPE_NOUPDATE;
         pending.availdatainfo.nextCheckIn = nextCheckin;
-        pending.attemptsLeft = 10 + MIN_RESPONSE_TIME;
+        pending.attemptsLeft = 10 + config.maxsleep;
 
         char buffer[64];
         sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X NOP\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
@@ -127,8 +127,8 @@ void prepareNFCReq(uint8_t* dst, const char* url) {
 }
 
 bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
-    if (nextCheckin > MIN_RESPONSE_TIME) nextCheckin = MIN_RESPONSE_TIME;
-    if (wsClientCount()) nextCheckin=0;
+    if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
+    if (wsClientCount() && config.stopsleep == 1) nextCheckin=0;
     
     tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(dst);
@@ -507,13 +507,13 @@ void refreshAllPending() {
 };
 
 void setAPchannel() {
-    if (APconfig["channel"].as<int>() == 0) {
+    if (config.channel == 0) {
         // trigger channel autoselect
         UDPcomm udpsync;
         udpsync.getAPList();
     } else {
-        if (curChannel.channel != APconfig["channel"].as<int>()) {
-            curChannel.channel = APconfig["channel"].as<int>();
+        if (curChannel.channel != config.channel) {
+            curChannel.channel = config.channel;
             sendChannelPower(&curChannel);
         }
     }
