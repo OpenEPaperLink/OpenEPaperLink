@@ -26,11 +26,35 @@ jobs:
 
       - name: Install esptool
         run: pip install esptool
-        
+          
+#      - name: Add www folder to release
+#        uses: svenstaro/upload-release-action@v2
+#        with:
+#          repo_token: ${{ secrets.GITHUB_TOKEN }}
+#          file: ESP32_AP-Flasher/data/www/*
+#          tag: ${{ github.ref }}
+#          file_glob: true
+          
+#      - name: Add fonts folder to release
+#        uses: svenstaro/upload-release-action@v2
+#        with:
+#          repo_token: ${{ secrets.GITHUB_TOKEN }}
+#          file: ESP32_AP-Flasher/data/fonts/*
+#          tag: ${{ github.ref }}
+#          file_glob: true
+          
+#      - name: Add data folder to release
+#        uses: svenstaro/upload-release-action@v2
+#        with:
+#          repo_token: ${{ secrets.GITHUB_TOKEN }}
+#          file: ESP32_AP-Flasher/data/*
+#          tag: ${{ github.ref }}
+#          file_glob: true
+          
       - name: Build firmware for ESP32
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_ESPTYPE=ESP32 -D BUILD_VERSION=${{ github.ref }}"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref }} -D SHA=$GITHUB_SHA"
           pio run --environment Simple_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/boot_app0.bin
@@ -52,7 +76,7 @@ jobs:
       - name: Build firmware for ESP32-S2
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_ESPTYPE=ESP32S2 -D BUILD_VERSION=${{ github.ref }}"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref }} -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_Mini_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/boot_app0.bin
@@ -74,7 +98,7 @@ jobs:
       - name: Build firmware for ESP32-S3
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_ESPTYPE=ESP32S3 -D BUILD_VERSION=${{ github.ref }}"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref }} -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_AP_and_Flasher
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/boot_app0.bin
@@ -93,62 +117,44 @@ jobs:
           cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw
           esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00c90000 littlefs.bin
           
-      - name: Add ESP32 binary to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/firmware.bin
-          asset_name: ESP32firmware.bin
-          tag: ${{ github.ref }}
-          overwrite: true
-          body: "ESP32 firmware binary"
-      
-      - name: Add ESP32-S2 binary to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/firmware.bin
-          asset_name: ESP32S2firmware.bin
-          tag: ${{ github.ref }}
-          overwrite: true
-          body: "ESP32-S2 firmware binary"
-    
-      - name: Add ESP32-S3 binary to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/firmware.bin
-          asset_name: ESP32S3firmware.bin
-          tag: ${{ github.ref }}
-          overwrite: true
-          body: "ESP32-S3 firmware binary"
+      - name: move binaries
+        run: |
+          mkdir espbinaries
+          cp esp32fw/firmware.bin espbinaries/Simple_AP.bin
+          cp esp32s2fw/firmware.bin espbinaries/OpenEPaperLink_Mini_AP.bin
+          cp esp32s3fw/firmware.bin espbinaries/OpenEPaperLink_AP_and_Flasher.bin
+          cp esp32fw/merged-firmware.bin espbinaries/Simple_AP_full.bin
+          cp esp32s2fw/merged-firmware.bin espbinaries/OpenEPaperLink_Mini_AP_full.bin
+          cp esp32s3fw/merged-firmware.bin espbinaries/OpenEPaperLink_AP_and_Flasher_full.bin
           
-      - name: Add ESP32 full system to release
+      - name: generate releas json file
+        run: |
+          python genfilelist.py -v"${{ github.ref }}" $GITHUB_REPOSITORY $GITHUB_SHA
+          
+      - name: Add file list to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/merged-firmware.bin
-          asset_name: ESP32full.bin
+          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/files.json
+          asset_name: files.json
           tag: ${{ github.ref }}
           overwrite: true
-          body: "ESP32 full binary"
-      
-      - name: Add ESP32-S2 full system to release
+          body: "file list"
+          
+      - name: Add esp bins to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/merged-firmware.bin
-          asset_name: ESP32S2full.bin
+          file: espbinaries/*
           tag: ${{ github.ref }}
+          file_glob: true
           overwrite: true
-          body: "ESP32-S2 full binary"
-    
-      - name: Add ESP32-S3 full system to release
+        
+      - name: Add tag bins to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/merged-firmware.bin
-          asset_name: ESP32S3full.bin
+          file: binaries/*
           tag: ${{ github.ref }}
+          file_glob: true
           overwrite: true
-          body: "ESP32-S3 full binary"
