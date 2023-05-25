@@ -357,7 +357,7 @@
       {
         "key": "bytes",
         "name": "bytes",
-        "desc": "70 bytes, formatted as 0x00,0x00,...",
+        "desc": "76 bytes, formatted as 0x00,0x00,...",
         "type": "text"
       }      
     ]

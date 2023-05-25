@@ -248,15 +248,16 @@ void initAPconfig() {
     LittleFS.begin(true);
     DynamicJsonDocument APconfig(150);
     File configFile = LittleFS.open("/current/apconfig.json", "r");
-    DeserializationError error = deserializeJson(APconfig, configFile);
-    if (error) {
+    if (configFile) {
+        DeserializationError error = deserializeJson(APconfig, configFile);
+        if (error) {
+            configFile.close();
+            Serial.println("failed to read apconfig.json. Using default config");
+        }
         configFile.close();
-        Serial.println("failed to read apconfig.json. Using default config");
     }
-    configFile.close();
-
     config.channel = APconfig["channel"] | 25;
-    strlcpy(config.alias, APconfig["alias"], sizeof(config.alias));
+    if (APconfig["alias"]) strlcpy(config.alias, APconfig["alias"], sizeof(config.alias));
     config.led = APconfig["led"] | 255;
     config.language = APconfig["language"] | getDefaultLanguage();
     config.maxsleep = APconfig["maxsleep"] | 10;
