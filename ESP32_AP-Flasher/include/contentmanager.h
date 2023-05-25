@@ -33,5 +33,6 @@ char *formatHttpDate(time_t t);
 String urlEncode(const char *msg);
 int windSpeedToBeaufort(float windSpeed);
 String windDirectionIcon(int degrees);
-String mac62hex(uint8_t *mac);
 void getLocation(JsonObject &cfgobj);
+void prepareNFCReq(uint8_t* dst, const char* url);
+void prepareLUTreq(uint8_t *dst, String input);

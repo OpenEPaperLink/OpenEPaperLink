@@ -13,7 +13,7 @@ models[240] = "Segmented tag"
 models[17] = "2.9\" 296x128px (UC8151)"
 const displaySizeLookup = { 0: [152, 152], 1: [128, 296], 2: [400, 300] };
 displaySizeLookup[17] = [128, 296];
-const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [255, 0, 0] };
+const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [150, 150, 150] };
 
 const imageQueue = [];
 let isProcessing = false;
@@ -64,7 +64,7 @@ function connect() {
 	});
 
 	socket.addEventListener("message", (event) => {
-		//console.log(event.data)
+		console.log(event.data)
 		const msg = JSON.parse(event.data);
 		if (msg.logMsg) {
 			showMessage(msg.logMsg, false);
@@ -213,7 +213,7 @@ function updatecards() {
 		if (item.dataset.lastseen && item.dataset.lastseen > 1672531200) {
 			let idletime = (Date.now() / 1000) - servertimediff - item.dataset.lastseen;
 			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>" + displayTime(Math.floor(idletime)) + " ago";
-			if ((Date.now() / 1000) - servertimediff - 300 > item.dataset.nextcheckin) {
+			if ((Date.now() / 1000) - servertimediff - 600 > item.dataset.nextcheckin) {
 				$('#tag' + tagmac + ' .warningicon').style.display = 'inline-block';
 				$('#tag' + tagmac).classList.remove("tagpending")
 				$('#tag' + tagmac).style.background = '#e0e0a0';

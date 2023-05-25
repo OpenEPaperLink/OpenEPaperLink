@@ -116,6 +116,11 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
         {0, 0, 0},        // Black
         {255, 0, 0}       // Red
     };
+    if (imageParams.grayLut) {
+        Color newColor = {150, 150, 150};
+        palette.push_back(newColor);
+        Serial.println("rendering with gray");
+    }
     int num_colors = palette.size();
     Color color;
     Error *error_bufferold = new Error[bufw];
@@ -143,12 +148,39 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
 
             uint16_t bitIndex = 7 - (x % 8);
             uint16_t byteIndex = (y * bufw + x) / 8;
+
+            // this looks a bit ugly, but it's performing better than shorter notations
+            switch (best_color_index) {
+                case 1:
+                    blackBuffer[byteIndex] |= (1 << bitIndex);
+                    break;
+                case 2:
+                    imageParams.hasRed = true;
+                    redBuffer[byteIndex] |= (1 << bitIndex);
+                    break;
+                case 3:
+                    blackBuffer[byteIndex] |= (1 << bitIndex);
+                    redBuffer[byteIndex] |= (1 << bitIndex);
+                    imageParams.hasRed = true;
+                    break;
+            }
+            /*
+            alt 1:
+
             if (best_color_index & 1) {
                 blackBuffer[byteIndex] |= (1 << bitIndex);
-            } else if (best_color_index & 2) {
+            }
+            if (best_color_index & 2) {
                 imageParams.hasRed = true;
                 redBuffer[byteIndex] |= (1 << bitIndex);
             }
+
+            alt 2:
+
+            blackBuffer[byteIndex] |= ((best_color_index & 1) << bitIndex);
+            redBuffer[byteIndex] |= ((best_color_index & 2) << bitIndex);
+            imageParams.hasRed |= (best_color_index & 2);
+            */
 
             if (imageParams.dither) {
                 Error error = {

@@ -1,19 +1,30 @@
 #include "contentmanager.h"
 
+// possibility to turn off, to save space if needed
+#define CONTENT_QR
+#define CONTENT_RSS
+#define CONTENT_CAL
+
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <MD5Builder.h>
 #include <locale.h>
+#ifdef CONTENT_RSS
 #include <rssClass.h>
+#endif
 #include <time.h>
 #include <LittleFS.h>
 
+#if defined CONTENT_RSS || defined CONTENT_CAL
 #include "U8g2_for_TFT_eSPI.h"
+#endif
 #include "commstructs.h"
 #include "makeimage.h"
 #include "newproto.h"
+#ifdef CONTENT_QR
 #include "qrcode.h"
+#endif
 #include "tag_db.h"
 #include "settings.h"
 #include "web.h"
@@ -95,6 +106,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
     imageParams.dither = true;
+    if (taginfo->hasCustomLUT) imageParams.grayLut = true;
 
     imageParams.invert = false;
     imageParams.symbols = 0;
@@ -108,7 +120,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                 if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
-                    if (cfgobj["delete"].as<String>()) LittleFS.remove("/"+cfgobj["filename"].as<String>());
+                    if (cfgobj["delete"].as<String>()=="1") LittleFS.remove("/"+cfgobj["filename"].as<String>());
                 } else {
                     wsErr("Error accessing " + filename);
                 }
@@ -237,9 +249,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case 14:  // NFC URL
 
             taginfo->nextupdate = 3216153600;
-            memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-            memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
             prepareNFCReq(mac, cfgobj["url"].as<const char *>());
+            break;
+
+        case 15:  // send gray LUT
+
+            taginfo->nextupdate = 3216153600;
+            prepareLUTreq(mac, cfgobj["bytes"]);
+            taginfo->hasCustomLUT = true;
             break;
     }
 
@@ -783,9 +800,12 @@ bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imagePara
     return (httpCode == 200 || httpCode == 304);
 }
 
+#ifdef CONTENT_RSS
 rssClass reader;
+#endif
 
 bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
+#ifdef CONTENT_RSS
     // https://github.com/garretlab/shoddyxml2
 
     // http://feeds.feedburner.com/tweakers/nieuws
@@ -854,6 +874,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
+#endif
 
     return true;
 }
@@ -878,6 +899,7 @@ char *epoch_to_display(time_t utc) {
 }
 
 bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
+#ifdef CONTENT_CAL
     // google apps scripts method to retrieve calendar
     // see /data/calendar.txt for description
 
@@ -988,11 +1010,12 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
-
+#endif
     return true;
 }
 
 void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams) {
+#ifdef CONTENT_QR
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     LittleFS.begin();
@@ -1037,6 +1060,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
+#endif
 }
 
 char *formatHttpDate(time_t t) {
@@ -1111,4 +1135,41 @@ void getLocation(JsonObject &cfgobj) {
             cfgobj["#tz"] = tz;
         }
     }
+}
+
+void prepareNFCReq(uint8_t *dst, const char *url) {
+    uint8_t *data;
+    size_t len = strlen(url);
+    data = new uint8_t[len + 8];
+
+    // TLV
+    data[0] = 0x03;  // NDEF message (TLV type)
+    data[1] = 4 + len + 1;
+    // ndef record
+    data[2] = 0xD1;
+    data[3] = 0x01;     // well known record type
+    data[4] = len + 1;  // payload length
+    data[5] = 0x55;     // payload type (URI record)
+    data[6] = 0x00;     // URI identifier code (no prepending)
+
+    memcpy(data + 7, reinterpret_cast<const uint8_t *>(url), len);
+    len = 7 + len;
+    data[len] = 0xFE;
+    len = 1 + len;
+    prepareDataAvail(data, len, DATATYPE_NFC_RAW_CONTENT, dst);
+}
+
+void prepareLUTreq(uint8_t *dst, String input) {
+    const char *delimiters = ", \t";
+    const int maxValues = 70;
+    uint8_t waveform[maxValues];
+    char *ptr = strtok(const_cast<char *>(input.c_str()), delimiters);
+    int i = 0;
+    while (ptr != nullptr && i < maxValues) {
+        waveform[i++] = static_cast<uint8_t>(strtol(ptr, nullptr, 16));
+        ptr = strtok(nullptr, delimiters);
+    }
+    Serial.println(String(i) + " bytes found");
+    size_t waveformLen = sizeof(waveform);
+    prepareDataAvail(waveform, waveformLen, DATATYPE_CUSTOM_LUT_OTA, dst);
 }

@@ -344,5 +344,22 @@
         "type": "text"
       }
     ]
+  },
+  {
+    "id": 15,
+    "name": "Send custom LUT",
+    "desc": "EXPERIMENTAL. Don't use. YOU RISK DAMAGING YOUR SCREEN.",
+    "hwtype": [
+      1
+    ],
+    "capabilities": 4,
+    "param": [
+      {
+        "key": "bytes",
+        "name": "bytes",
+        "desc": "70 bytes, formatted as 0x00,0x00,...",
+        "type": "text"
+      }      
+    ]
   }
 ]

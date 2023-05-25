@@ -7,6 +7,8 @@ struct imgParam {
     bool hasRed;
     uint8_t dataType;
     bool dither;
+    bool grayLut = false;
+
     char segments[12];
     uint16_t symbols;
     bool invert;

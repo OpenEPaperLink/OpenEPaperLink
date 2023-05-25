@@ -79,7 +79,7 @@ void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
     }
 }
 
-void prepareNFCReq(uint8_t* dst, const char* url) {
+void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, uint8_t* dst) {
     tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
@@ -88,32 +88,22 @@ void prepareNFCReq(uint8_t* dst, const char* url) {
     }
 
     clearPending(taginfo);
-    size_t len = strlen(url);
-    taginfo->data = new uint8_t[len + 8];
-
-    // TLV
-    taginfo->data[0] = 0x03;  // NDEF message (TLV type)
-    taginfo->data[1] = 4 + len + 1;
-
-    // ndef record
-    taginfo->data[2] = 0xD1;
-    taginfo->data[3] = 0x01;  // well known record type
-    taginfo->data[4] = len + 1;  // payload length
-    taginfo->data[5] = 0x55;     // payload type (URI record)
-    taginfo->data[6] = 0x00;     // URI identifier code (no prepending)
-
-    memcpy(taginfo->data + 7, reinterpret_cast<const uint8_t*>(url), len);
-    len = 7 + len;
-    taginfo->data[len] = 0xFE;
-    len = 1 + len;
-
+    taginfo->data = (uint8_t*)malloc(len);
+    if (taginfo->data == nullptr) {
+        wsErr("no memory allocation for data");
+        return;
+    }
+    memcpy(taginfo->data, data, len);
     taginfo->pending = true;
     taginfo->len = len;
+    taginfo->expectedNextCheckin = 0;
+    taginfo->filename = String();
+    memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
 
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     pending.availdatainfo.dataSize = len;
-    pending.availdatainfo.dataType = DATATYPE_NFC_RAW_CONTENT;
+    pending.availdatainfo.dataType = dataType;
     pending.availdatainfo.nextCheckIn = 0;
     pending.availdatainfo.dataVer = millis();
     pending.attemptsLeft = 10;
@@ -181,6 +171,10 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     if (taginfo->lastfullupdate < last_midnight || taginfo->hwType == SOLUM_29_UC8151) {
         lut = EPD_LUT_DEFAULT;  // full update once a day
         taginfo->lastfullupdate = now;
+    }
+    if (taginfo->hasCustomLUT && taginfo->capabilities & CAPABILITY_SUPPORTS_CUSTOM_LUTS) {
+        Serial.println("using custom LUT");
+        lut = EPD_LUT_OTA;
     }
 
     if (dataType != DATATYPE_FW_UPDATE) {
