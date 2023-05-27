@@ -164,6 +164,40 @@
     ]
   },
   {
+    "id": 16,
+    "name": "Buienradar",
+    "desc": "Dutch rain predictions for the next two hours. Only works for Dutch locations.",
+    "hwtype": [
+      1
+    ],
+    "param": [
+      {
+        "key": "location",
+        "name": "Location",
+        "desc": "Name of the city. This is used to lookup the lat/long data, and to display as the title",
+        "type": "text"
+      },
+      {
+        "key": "ttl",
+        "name": "Time To Live",
+        "desc": "How often (in minutes) should this be refreshed. Minimum is 5 minutes, but will shorten battery lifetime",
+        "type": "int"
+      },
+      {
+        "key": "#lat",
+        "name": "Lat",
+        "desc": "Latitude (set automatic when generating image)",
+        "type": "ro"
+      },
+      {
+        "key": "#lon",
+        "name": "Lon",
+        "desc": "Longitude (set automatic when generating image)",
+        "type": "ro"
+      }
+    ]
+  },
+  {
     "id": 9,
     "name": "RSS feed",
     "desc": "Gets an RSS feed, and display the first few lines of it",
