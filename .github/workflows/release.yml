@@ -127,9 +127,9 @@ jobs:
           cp esp32s2fw/merged-firmware.bin espbinaries/OpenEPaperLink_Mini_AP_full.bin
           cp esp32s3fw/merged-firmware.bin espbinaries/OpenEPaperLink_AP_and_Flasher_full.bin
           
-      - name: generate releas json file
+      - name: generate release json file
         run: |
-          python genfilelist.py -v"${{ github.ref }}" $GITHUB_REPOSITORY $GITHUB_SHA
+          python genfilelist.py ${{ github.ref }} $GITHUB_REPOSITORY $GITHUB_SHA
           
       - name: Add file list to release
         uses: svenstaro/upload-release-action@v2
