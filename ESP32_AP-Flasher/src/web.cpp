@@ -15,6 +15,8 @@
 #include "language.h"
 #include "leds.h"
 #include "newproto.h"
+#include "ota.h"
+#include "serialap.h"
 #include "settings.h"
 #include "tag_db.h"
 #include "udp.h"
@@ -27,10 +29,8 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 SemaphoreHandle_t wsMutex;
-TaskHandle_t websocketUpdater;
 
 void webSocketSendProcess(void *parameter) {
-    websocketUpdater = xTaskGetCurrentTaskHandle();
     wsMutex = xSemaphoreCreateMutex();
     while (true) {
         ws.cleanupClients();
@@ -45,7 +45,6 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     switch (type) {
         case WS_EVT_CONNECT:
             ets_printf("ws[%s][%u] connect\n", server->url(), client->id());
-            xTaskNotify(websocketUpdater, 2, eSetBits);
             // client->ping();
             break;
         case WS_EVT_DISCONNECT:
@@ -59,6 +58,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
             ets_printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len) ? (char *)data : "");
             break;
         case WS_EVT_DATA:
+            /*
             AwsFrameInfo *info = (AwsFrameInfo *)arg;
             if (info->final && info->index == 0 && info->len == len) {
                 // the whole message is in a single frame and we got all of it's data
@@ -105,13 +105,13 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
                             client->binary("{\"status\":\"received\"}");
                     }
                 }
-            }
+            } */
             break;
     }
 }
 
 void wsLog(String text) {
-    StaticJsonDocument<500> doc;
+    StaticJsonDocument<250> doc;
     doc["logMsg"] = text;
     if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -119,7 +119,7 @@ void wsLog(String text) {
 }
 
 void wsErr(String text) {
-    StaticJsonDocument<500> doc;
+    StaticJsonDocument<250> doc;
     doc["errMsg"] = text;
     if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -127,7 +127,7 @@ void wsErr(String text) {
 }
 
 void wsSendSysteminfo() {
-    DynamicJsonDocument doc(250);
+    DynamicJsonDocument doc(150);
     JsonObject sys = doc.createNestedObject("sys");
     time_t now;
     time(&now);
@@ -136,6 +136,7 @@ void wsSendSysteminfo() {
     sys["recordcount"] = tagDB.size();
     sys["dbsize"] = tagDB.size() * sizeof(tagRecord);
     sys["littlefsfree"] = LittleFS.totalBytes() - LittleFS.usedBytes();
+    sys["apstate"] = apInfo.state; 
 
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -199,6 +200,15 @@ void wsSendAPitem(struct APlist *apitem) {
     if (wsMutex) xSemaphoreGive(wsMutex);
 }
 
+void wsSerial(String text) {
+    StaticJsonDocument<250> doc;
+    doc["console"] = text;
+    Serial.print(text);
+    if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
+    ws.textAll(doc.as<String>());
+    if (wsMutex) xSemaphoreGive(wsMutex);
+}
+
 uint8_t wsClientCount() {
     return ws.count();
 }
@@ -214,6 +224,7 @@ void init_web() {
     }
 
     WiFi.mode(WIFI_STA);
+
     WiFiManager wm;
     bool res;
     res = wm.autoConnect("OpenEPaperLink Setup");
@@ -328,7 +339,7 @@ void init_web() {
         }
     });
 
-    server.on("/get_ap_list", HTTP_GET, [](AsyncWebServerRequest *request) {
+    server.on("/get_ap_config", HTTP_GET, [](AsyncWebServerRequest *request) {
         UDPcomm udpsync;
         udpsync.getAPList();
         File configFile = LittleFS.open("/current/apconfig.json", "r");
@@ -377,6 +388,20 @@ void init_web() {
         request->send(response);
         file.close();
     });
+
+    server.on("/sysinfo", HTTP_GET, handleSysinfoRequest);
+    server.on("/check_file", HTTP_GET, handleCheckFile);
+    server.on("/getexturl", HTTP_GET, handleGetExtUrl);
+    server.on("/update_ota", HTTP_POST, [](AsyncWebServerRequest *request) {
+        handleUpdateOTA(request);
+    });
+    server.on("/rollback", HTTP_POST, handleRollback);
+
+    server.on(
+        "/littlefs_put", HTTP_POST, [](AsyncWebServerRequest *request) {
+            request->send(200);
+        },
+        handleLittleFSUpload);
 
     server.onNotFound([](AsyncWebServerRequest *request) {
         if (request->url() == "/" || request->url() == "index.htm") {

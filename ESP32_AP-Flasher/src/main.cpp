@@ -27,12 +27,12 @@ void timeTask(void* parameter) {
         if (!getLocalTime(&tm)) {
             Serial.println("Waiting for valid time from NTP-server");
         } else {
-            if (now % 5 == 0) {
+            if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE) {
                 wsSendSysteminfo();
             }
             if (now % 300 == 6) saveDB("/current/tagDB.json");
 
-            contentRunner();
+            if (apInfo.isOnline) contentRunner();
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -76,6 +76,7 @@ void setup() {
     heap_caps_malloc_extmem_enable(64);
 #endif
 
+    /*
     Serial.println("\n\n##################################");
     Serial.printf("Internal Total heap %d, internal Free Heap %d\n", ESP.getHeapSize(), ESP.getFreeHeap());
     Serial.printf("SPIRam Total heap %d, SPIRam Free Heap %d\n", ESP.getPsramSize(), ESP.getFreePsram());
@@ -99,6 +100,7 @@ void setup() {
                           p->type, p->subtype, p->address, p->size, p->label);
         } while (pi = (esp_partition_next(pi)));
     }
+    */
 
 #ifdef HAS_USB
     // We'll need to start the 'usbflasher' task for boards with a second (USB) port. This can be used as a 'flasher' interface, using a python script on the host

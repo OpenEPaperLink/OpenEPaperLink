@@ -30,9 +30,12 @@
 #include "web.h"
 #include "language.h"
 
-#define PAL_BLACK 0
-#define PAL_WHITE 9
-#define PAL_RED 2
+// #define PAL_BLACK 0
+// #define PAL_WHITE 9
+// #define PAL_RED 2
+#define PAL_BLACK TFT_BLACK
+#define PAL_WHITE TFT_WHITE
+#define PAL_RED TFT_RED
 
 enum contentModes {
     Image,
@@ -105,7 +108,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     imgParam imageParams;
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
-    imageParams.dither = true;
+    imageParams.dither = false;
     if (taginfo->hasCustomLUT) imageParams.grayLut = true;
 
     imageParams.invert = false;
@@ -115,7 +118,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case Image:
 
             if (cfgobj["filename"].as<String>() && cfgobj["filename"].as<String>() != "null" && !cfgobj["#fetched"].as<bool>()) {
-                if (cfgobj["dither"] && cfgobj["dither"] == "0") imageParams.dither = false;
+                if (cfgobj["dither"] && cfgobj["dither"] == "1") imageParams.dither = true;
                 jpg2buffer(cfgobj["filename"].as<String>(), filename, imageParams);
                 if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                 if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
@@ -283,13 +286,16 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
 }
 
 void initSprite(TFT_eSprite &spr, int w, int h) {
-    spr.setColorDepth(4);  // 4 bits per pixel, uses indexed color
+    // spr.setColorDepth(4);  // 4 bits per pixel, uses indexed color
+    spr.setColorDepth(8);
     spr.createSprite(w, h);
+    /*
     uint16_t cmap[16];
     cmap[PAL_BLACK] = TFT_BLACK;
     cmap[PAL_RED] = TFT_RED;
     cmap[PAL_WHITE] = TFT_WHITE;
     spr.createPalette(cmap, 16);
+    */
     if (spr.getPointer() == nullptr) {
         wsErr("Failed to create sprite");
     }
@@ -815,7 +821,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     struct tm timeInfo;
     char header[32];
     getLocalTime(&timeInfo);
-    sprintf(header, "%02d-%02d-%04d %02d:%02d", timeInfo.tm_mday, timeInfo.tm_mon + 1, timeInfo.tm_year + 1900, timeInfo.tm_hour, timeInfo.tm_min);
+    //sprintf(header, "%02d-%02d-%04d %02d:%02d", timeInfo.tm_mday, timeInfo.tm_mon + 1, timeInfo.tm_year + 1900, timeInfo.tm_hour, timeInfo.tm_min);
 
     const char *url = URL.c_str();
     const char *tag = "title";
@@ -1161,7 +1167,7 @@ void prepareNFCReq(uint8_t *dst, const char *url) {
 
 void prepareLUTreq(uint8_t *dst, String input) {
     const char *delimiters = ", \t";
-    const int maxValues = 70;
+    const int maxValues = 76;
     uint8_t waveform[maxValues];
     char *ptr = strtok(const_cast<char *>(input.c_str()), delimiters);
     int i = 0;

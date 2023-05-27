@@ -70,6 +70,7 @@ label {
 	text-decoration: none;
 	color: black;
 	cursor: pointer;
+	white-space: nowrap;
 }
 
 .columns div {
@@ -112,8 +113,8 @@ select {
 #configbox, #apconfigbox, #apupdatebox {
 	display: none;
 	position: fixed;
-	top: 80px;
-	left: 50px;
+	top: 65px;
+	left: 15px;
 	width: 380px;
 	padding: 15px;
 	background-color: #f0e6d3;
@@ -168,7 +169,10 @@ select {
 }
 
 #apupdatebox {
-	background-color: #f0e0d0;
+	background-color: #f0d0c8;
+	width: 700px;
+	padding-bottom: 20px;
+	border: 1px solid #d0b0a8;
 }
 
 #cfgdelete {
@@ -414,6 +418,54 @@ ul.messages li.new {
 	border: solid 1px #666666;
 }
 
+/* updatescreens */
+
+#releasetable {
+	margin: 10px 0px;
+}
+
+#releasetable table {
+	border-spacing: 1px;
+}
+
+#releasetable th {
+	text-align: left;
+	background-color: #ffffff;
+	padding: 1px 5px;
+}
+
+#releasetable td {
+	background-color: #ffffff;
+	padding: 1px 5px;
+	min-width: 70px;
+}
+
+#releasetable button {
+	padding: 3px 10px;
+	background-color: #e0e0e0;
+}
+
+#releasetable button:hover {
+	background-color: #a0a0a0;
+}
+
+.console {
+	width: 100%;
+	background-color: black;
+	font-family: 'lucida console','ui-monospace';
+	color: white;
+	padding: 5px 10px;
+	margin: 20px 0px;
+	padding-bottom: 25px;
+	height: 400px;
+	overflow-y: scroll;
+	white-space: break-spaces;
+}
+.console div {
+	word-break: break-all;
+}
+
+/* media */
 
 @media(max-width: 460px) {
 	.messages li div, ul.messages li div.date, ul.messages li div.message {
@@ -452,7 +504,7 @@ ul.messages li.new {
 	/* styles for mobile devices in portrait mode */
 
 	body {
-		font-size: 14px;
+		font-size: 13px;
 	}
 
 	.tagcard {
@@ -489,4 +541,7 @@ ul.messages li.new {
 		text-align: center;
 	}
 
+	.actionbox>div {
+		gap: 5px;
+	}
 }

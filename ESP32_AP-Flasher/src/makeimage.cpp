@@ -30,7 +30,7 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
     }
     Serial.println("jpeg conversion " + String(w) + "x" + String(h));
 
-    spr.setColorDepth(8);
+    spr.setColorDepth(16);
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
         //no heap space for 8bpp, fallback to 1bpp
@@ -62,32 +62,11 @@ struct Error {
     float b;
 };
 
-// Gamma brightness lookup table <https://victornpb.github.io/gamma-table-generator>
-// gamma = 1.50 steps = 256 range = 0-255
-const uint8_t gamma_lut[256] PROGMEM = {
-     0,   0,   0,   0,   1,   1,   1,   1,   1,   2,   2,   2,   3,   3,   3,   4,
-     4,   4,   5,   5,   6,   6,   6,   7,   7,   8,   8,   9,   9,  10,  10,  11,
-    11,  12,  12,  13,  14,  14,  15,  15,  16,  16,  17,  18,  18,  19,  20,  20,
-    21,  21,  22,  23,  23,  24,  25,  26,  26,  27,  28,  28,  29,  30,  31,  31,
-    32,  33,  34,  34,  35,  36,  37,  37,  38,  39,  40,  41,  41,  42,  43,  44,
-    45,  46,  46,  47,  48,  49,  50,  51,  52,  53,  53,  54,  55,  56,  57,  58,
-    59,  60,  61,  62,  63,  64,  65,  65,  66,  67,  68,  69,  70,  71,  72,  73,
-    74,  75,  76,  77,  78,  79,  80,  81,  82,  83,  84,  85,  86,  88,  89,  90,
-    91,  92,  93,  94,  95,  96,  97,  98,  99, 100, 102, 103, 104, 105, 106, 107,
-    108, 109, 110, 112, 113, 114, 115, 116, 117, 119, 120, 121, 122, 123, 124, 126,
-    127, 128, 129, 130, 132, 133, 134, 135, 136, 138, 139, 140, 141, 142, 144, 145,
-    146, 147, 149, 150, 151, 152, 154, 155, 156, 158, 159, 160, 161, 163, 164, 165,
-    167, 168, 169, 171, 172, 173, 174, 176, 177, 178, 180, 181, 182, 184, 185, 187,
-    188, 189, 191, 192, 193, 195, 196, 197, 199, 200, 202, 203, 204, 206, 207, 209,
-    210, 211, 213, 214, 216, 217, 218, 220, 221, 223, 224, 226, 227, 228, 230, 231,
-    233, 234, 236, 237, 239, 240, 242, 243, 245, 246, 248, 249, 251, 252, 254, 255,
-};
-
 uint32_t colorDistance(const Color &c1, const Color &c2, const Error &e1) {
-    float r_diff = gamma_lut[c1.r] + e1.r - gamma_lut[c2.r];
-    float g_diff = gamma_lut[c1.g] + e1.g - gamma_lut[c2.g];
-    float b_diff = gamma_lut[c1.b] + e1.b - gamma_lut[c2.b];
-    return round(0.26 * r_diff * r_diff + 0.70 * g_diff * g_diff + 0.04 * b_diff * b_diff);
+    int32_t r_diff = c1.r + e1.r - c2.r;
+    int32_t g_diff = c1.g + e1.g - c2.g;
+    int32_t b_diff = c1.b + e1.b - c2.b;
+    return 3 * r_diff * r_diff + 6 * g_diff * g_diff + 1 * b_diff * b_diff;
 }
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
@@ -117,14 +96,14 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
         {255, 0, 0}       // Red
     };
     if (imageParams.grayLut) {
-        Color newColor = {150, 150, 150};
+        Color newColor = {160, 160, 160};
         palette.push_back(newColor);
         Serial.println("rendering with gray");
     }
     int num_colors = palette.size();
     Color color;
-    Error *error_bufferold = new Error[bufw];
-    Error *error_buffernew = new Error[bufw];
+    Error *error_bufferold = new Error[bufw + 4];
+    Error *error_buffernew = new Error[bufw + 4];
 
     memset(error_bufferold, 0, bufw * sizeof(Error));
     for (uint16_t y = 0; y < bufh; y++) {
@@ -146,7 +125,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                 }
             }
 
-            uint16_t bitIndex = 7 - (x % 8);
+            uint8_t bitIndex = 7 - (x % 8);
             uint16_t byteIndex = (y * bufw + x) / 8;
 
             // this looks a bit ugly, but it's performing better than shorter notations
@@ -164,46 +143,42 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                     imageParams.hasRed = true;
                     break;
             }
-            /*
-            alt 1:
-
-            if (best_color_index & 1) {
-                blackBuffer[byteIndex] |= (1 << bitIndex);
-            }
-            if (best_color_index & 2) {
-                imageParams.hasRed = true;
-                redBuffer[byteIndex] |= (1 << bitIndex);
-            }
-
-            alt 2:
-
-            blackBuffer[byteIndex] |= ((best_color_index & 1) << bitIndex);
-            redBuffer[byteIndex] |= ((best_color_index & 2) << bitIndex);
-            imageParams.hasRed |= (best_color_index & 2);
-            */
 
             if (imageParams.dither) {
                 Error error = {
-                    ((float)color.r + error_bufferold[x].r - palette[best_color_index].r) / 16.0f,
-                    ((float)color.g + error_bufferold[x].g - palette[best_color_index].g) / 16.0f,
-                    ((float)color.b + error_bufferold[x].b - palette[best_color_index].b) / 16.0f};
+                    static_cast<float>(color.r) + error_bufferold[x].r - static_cast<float>(palette[best_color_index].r),
+                    static_cast<float>(color.g) + error_bufferold[x].g - static_cast<float>(palette[best_color_index].g),
+                    static_cast<float>(color.b) + error_bufferold[x].b - static_cast<float>(palette[best_color_index].b) };
 
-                error_buffernew[x].r += error.r * 5.0f;
-                error_buffernew[x].g += error.g * 5.0f;
-                error_buffernew[x].b += error.b * 5.0f;
+                // Burkes Dithering
+                error_buffernew[x].r += error.r / 4.0f;
+                error_buffernew[x].g += error.g / 4.0f;
+                error_buffernew[x].b += error.b / 4.0f;
                 if (x > 0) {
-                    error_buffernew[x - 1].r += error.r * 3.0f;
-                    error_buffernew[x - 1].g += error.g * 3.0f;
-                    error_buffernew[x - 1].b += error.b * 3.0f;
+                    error_buffernew[x - 1].r += error.r / 8.0f;
+                    error_buffernew[x - 1].g += error.g / 8.0f;
+                    error_buffernew[x - 1].b += error.b / 8.0f;
                 }
-                if (x < bufw - 1) {
-                    error_buffernew[x + 1].r += error.r * 1.0f;
-                    error_buffernew[x + 1].g += error.g * 1.0f;
-                    error_buffernew[x + 1].b += error.b * 1.0f;
-                    error_bufferold[x + 1].r += error.r * 7.0f;
-                    error_bufferold[x + 1].g += error.g * 7.0f;
-                    error_bufferold[x + 1].b += error.b * 7.0f;
+                if (x > 1) {
+                    error_buffernew[x - 2].r += error.r / 16.0f;
+                    error_buffernew[x - 2].g += error.g / 16.0f;
+                    error_buffernew[x - 2].b += error.b / 16.0f;
                 }
+                error_buffernew[x + 1].r += error.r / 8.0f;
+                error_buffernew[x + 1].g += error.g / 8.0f;
+                error_buffernew[x + 1].b += error.b / 8.0f;
+
+                error_bufferold[x + 1].r += error.r / 4.0f;
+                error_bufferold[x + 1].g += error.g / 4.0f;
+                error_bufferold[x + 1].b += error.b / 4.0f;
+
+                error_buffernew[x + 2].r += error.r / 16.0f;
+                error_buffernew[x + 2].g += error.g / 16.0f;
+                error_buffernew[x + 2].b += error.b / 16.0f;
+
+                error_bufferold[x + 2].r += error.r / 8.0f;
+                error_bufferold[x + 2].g += error.g / 8.0f;
+                error_bufferold[x + 2].b += error.b / 8.0f;
             }
         }
         memcpy(error_bufferold, error_buffernew, bufw * sizeof(Error));

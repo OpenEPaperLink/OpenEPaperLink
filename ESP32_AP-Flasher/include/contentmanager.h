@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <LittleFS.h>
-#define DISABLE_ALL_LIBRARY_WARNINGS 
 #include <TFT_eSPI.h>
 
 #include "makeimage.h"

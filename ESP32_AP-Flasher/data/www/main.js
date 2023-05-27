@@ -15,26 +15,39 @@ const displaySizeLookup = { 0: [152, 152], 1: [128, 296], 2: [400, 300] };
 displaySizeLookup[17] = [128, 296];
 const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [150, 150, 150] };
 
+const apstate = [
+	{ state: "offline", color: "red" },
+	{ state: "online", color: "green" },
+	{ state: "flashing", color: "orange" },
+	{ state: "wait for reset", color: "blue" },
+	{ state: "requires power cycle", color: "purple" },
+	{ state: "failed", color: "red" },
+	{ state: "coming online", color: "yellow" }
+]; 
+
 const imageQueue = [];
 let isProcessing = false;
 let servertimediff = 0;
 let paintLoaded = false, paintShow = false;
 var cardconfig;
+let otamodule;
 
 window.addEventListener("load", function () {
-	fetch("/get_ap_list")
+	fetch("/get_ap_config")
 		.then(response => response.json())
 		.then(data => {
 			if (data.alias) {
 				$(".logo").innerHTML = data.alias;
 				this.document.title = data.alias;
 			}
-		})
-	fetch('/content_cards.json')
+		});
+		fetch('/content_cards.json')
 		.then(response => response.json())
 		.then(data => {
 			cardconfig = data;
 			loadTags(0);
+			connect();
+			setInterval(updatecards, 1000);
 		})
 		.catch(error => {
 			console.error('Error:', error);
@@ -43,8 +56,6 @@ window.addEventListener("load", function () {
 });
 
 let socket;
-connect();
-setInterval(updatecards, 1000);
 
 function loadTags(pos) {
 	fetch("/get_db?pos=" + pos)
@@ -77,6 +88,10 @@ function connect() {
 		}
 		if (msg.sys) {
 			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + msg.sys.dbsize + ' bytes &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; littlefs free: ' + msg.sys.littlefsfree + ' bytes';
+			if (msg.sys.apstate) {
+				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
+				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;
+			}
 			servertimediff = (Date.now() / 1000) - msg.sys.currtime;
 		}
 		if (msg.apitem) {
@@ -86,6 +101,16 @@ function connect() {
 			row.insertCell(2).innerHTML = msg.apitem.count;
 			row.insertCell(3).innerHTML = msg.apitem.channel;
 			row.insertCell(4).innerHTML = msg.apitem.version;
+		}
+		if (msg.console) {
+			console.log(otamodule);
+			if (otamodule && typeof(otamodule.print) === "function") {
+				let color = "#c0c0c0";
+				if (msg.console.startsWith("Fail") || msg.console.startsWith("Err")) {
+					color = "red";
+				}
+				otamodule.print(msg.console, color);
+			}
 		}
 	});
 
@@ -346,7 +371,7 @@ $('#apconfigbutton').onclick = function () {
 	for (var i = rowCount - 1; i > 0; i--) {
 		table.deleteRow(i);
 	}
-	fetch("/get_ap_list")
+	fetch("/get_ap_config")
 		.then(response => response.json())
 		.then(data => {
 			$('#apcfgalias').value = data.alias;
@@ -381,7 +406,12 @@ $('#apcfgsave').onclick = function () {
 $('#updatebutton').onclick = function () {
 	$('#apconfigbox').style.display = 'none';
 	$('#apupdatebox').style.display = 'block';
-	//https://api.github.com/repos/jjwbruijn/OpenEPaperLink/commits
+	loadOTA();
+}
+
+async function loadOTA() {
+	otamodule = await import('./ota.js?v=' + Date.now());
+	otamodule.initUpdate();
 }
 
 $('#paintbutton').onclick = function () {
@@ -578,3 +608,4 @@ function sortGrid() {
 	});
 	gridItems.forEach((item) => sortableGrid.appendChild(item));
 }
+
