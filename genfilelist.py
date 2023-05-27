@@ -50,8 +50,7 @@ rp = os.getcwd()
 now = datetime.now()
 dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
 tag = sys.argv[1]
-match = re.search(r'\d+\.\d+', tag)
-tag = match.group()
+tag = tag[10:]
 
 binaries = generate_file_hashes2(rp + "/espbinaries",tag)
 tagota = generate_file_hashes2(rp + "/binaries",tag)
