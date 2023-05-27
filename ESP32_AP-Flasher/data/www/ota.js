@@ -94,6 +94,7 @@ export function updateWebpage(fileUrl) {
     disableButtons(true);
     running = true;
     errors = 0;
+    const consoleDiv = document.getElementById('updateconsole');
     consoleDiv.scrollTop = consoleDiv.scrollHeight;
 
     print("Updating littleFS partition...");
@@ -150,6 +151,7 @@ export async function updateESP(fileUrl) {
     disableButtons(true);
     running = true;
     errors = 0;
+    const consoleDiv = document.getElementById('updateconsole');
     consoleDiv.scrollTop = consoleDiv.scrollHeight;
 
     print("Updating firmware...");
@@ -201,11 +203,11 @@ export async function updateESP(fileUrl) {
 
 $('#rollbackBtn').onclick = function () {
     if (running) return;
-    if (!confirm("Confirm switching to previeous firmware")) return;
 
     disableButtons(true);
     running = true;
     errors = 0;
+    const consoleDiv = document.getElementById('updateconsole');
     consoleDiv.scrollTop = consoleDiv.scrollHeight;
     
     print("Rolling back...");
