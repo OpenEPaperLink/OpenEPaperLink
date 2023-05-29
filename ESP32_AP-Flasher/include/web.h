@@ -12,9 +12,9 @@ void wsErr(String text);
 void wsSendTaginfo(uint8_t *mac, uint8_t syncMode);
 void wsSendSysteminfo();
 void wsSendAPitem(struct APlist* apitem);
+void wsSerial(String text);
 uint8_t wsClientCount();
 
 extern AsyncWebSocket ws;
 
 extern SemaphoreHandle_t wsMutex;
-extern TaskHandle_t websocketUpdater;

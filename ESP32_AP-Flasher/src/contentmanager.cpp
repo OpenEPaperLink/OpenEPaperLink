@@ -30,9 +30,12 @@
 #include "web.h"
 #include "language.h"
 
-#define PAL_BLACK 0
-#define PAL_WHITE 9
-#define PAL_RED 2
+// #define PAL_BLACK 0
+// #define PAL_WHITE 9
+// #define PAL_RED 2
+#define PAL_BLACK TFT_BLACK
+#define PAL_WHITE TFT_WHITE
+#define PAL_RED TFT_RED
 
 enum contentModes {
     Image,
@@ -105,7 +108,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     imgParam imageParams;
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
-    imageParams.dither = true;
+    imageParams.dither = false;
     if (taginfo->hasCustomLUT) imageParams.grayLut = true;
 
     imageParams.invert = false;
@@ -115,7 +118,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case Image:
 
             if (cfgobj["filename"].as<String>() && cfgobj["filename"].as<String>() != "null" && !cfgobj["#fetched"].as<bool>()) {
-                if (cfgobj["dither"] && cfgobj["dither"] == "0") imageParams.dither = false;
+                if (cfgobj["dither"] && cfgobj["dither"] == "1") imageParams.dither = true;
                 jpg2buffer(cfgobj["filename"].as<String>(), filename, imageParams);
                 if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                 if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
@@ -258,7 +261,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             prepareLUTreq(mac, cfgobj["bytes"]);
             taginfo->hasCustomLUT = true;
             break;
-    }
+
+        case 16:  // buienradar
+
+            drawBuienradar(filename, cfgobj, taginfo, imageParams);
+            taginfo->nextupdate = now + (cfgobj["timetolive"].as<int>() < 5 ? 5 : cfgobj["timetolive"].as<int>())* 60;
+            updateTagImage(filename, mac, (cfgobj["timetolive"].as<int>() < 5 ? 5 : cfgobj["timetolive"].as<int>()), taginfo, imageParams);
+            break;
+        }
 
     taginfo->modeConfigJson = doc.as<String>();
 }
@@ -283,13 +293,16 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
 }
 
 void initSprite(TFT_eSprite &spr, int w, int h) {
-    spr.setColorDepth(4);  // 4 bits per pixel, uses indexed color
+    // spr.setColorDepth(4);  // 4 bits per pixel, uses indexed color
+    spr.setColorDepth(8);
     spr.createSprite(w, h);
+    /*
     uint16_t cmap[16];
     cmap[PAL_BLACK] = TFT_BLACK;
     cmap[PAL_RED] = TFT_RED;
     cmap[PAL_WHITE] = TFT_WHITE;
     spr.createPalette(cmap, 16);
+    */
     if (spr.getPointer() == nullptr) {
         wsErr("Failed to create sprite");
     }
@@ -815,7 +828,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     struct tm timeInfo;
     char header[32];
     getLocalTime(&timeInfo);
-    sprintf(header, "%02d-%02d-%04d %02d:%02d", timeInfo.tm_mday, timeInfo.tm_mon + 1, timeInfo.tm_year + 1900, timeInfo.tm_hour, timeInfo.tm_min);
+    //sprintf(header, "%02d-%02d-%04d %02d:%02d", timeInfo.tm_mday, timeInfo.tm_mon + 1, timeInfo.tm_year + 1900, timeInfo.tm_hour, timeInfo.tm_min);
 
     const char *url = URL.c_str();
     const char *tag = "title";
@@ -914,7 +927,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
 
     HTTPClient http;
     http.begin(URL);
-    http.setTimeout(10000);  // timeout in ms
+    http.setTimeout(10000); 
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     int httpCode = http.GET();
     if (httpCode != 200) {
@@ -1063,6 +1076,78 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
 #endif
 }
 
+void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
+
+    wsLog("get weather");
+
+    getLocation(cfgobj);
+    HTTPClient http;
+
+    String lat = cfgobj["#lat"];
+    String lon = cfgobj["#lon"];
+    http.begin("https://gps.buienradar.nl/getrr.php?lat=" + lat + "&lon=" + lon);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    http.setTimeout(5000);
+    int httpCode = http.GET();
+    Serial.printf("Got code %d for Buienradar\n", httpCode);
+
+    if (httpCode == 200) {
+        TFT_eSPI tft = TFT_eSPI();
+        TFT_eSprite spr = TFT_eSprite(&tft);
+        U8g2_for_TFT_eSPI u8f;
+        u8f.begin(spr);
+
+        tft.setTextWrap(false, false);
+
+        String response = http.getString();
+
+        if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
+
+            initSprite(spr, 296, 128);
+            drawString(spr, cfgobj["location"], 5, 5, "fonts/bahnschrift30");
+
+            for (int i = 0; i < 295; i += 4) {
+                spr.drawPixel(i, 110, PAL_BLACK);
+                spr.drawPixel(i, 81, PAL_BLACK);
+                spr.drawPixel(i, 72, PAL_BLACK);
+                spr.drawPixel(i, 62, PAL_BLACK);
+                spr.drawPixel(i, 52, PAL_BLACK);
+                spr.drawPixel(i, 46, PAL_BLACK);
+                spr.drawPixel(i, 42, PAL_BLACK);
+            }
+
+            u8f.setFont(u8g2_font_glasstown_nbp_tr);
+            u8f.setFontMode(0);
+            u8f.setFontDirection(0);
+            u8f.setForegroundColor(PAL_BLACK);
+            u8f.setBackgroundColor(PAL_WHITE);
+            u8f.setCursor(247, 11);
+            u8f.print("Buienradar");
+
+            for (int i = 0; i < 24; i++) {
+                int startPos = i * 11;
+                
+                uint8_t value = response.substring(startPos, startPos + 3).toInt();
+                String timestring = response.substring(startPos + 4, startPos + 9);
+                int minutes = timestring.substring(3).toInt();
+                if (value < 60) value = 60;
+                if (value > 170) value = 170;
+
+                spr.fillRect(i * 12 + 5, 111 - (value - 60), 10, (value - 60), (value > 130 ? PAL_RED : PAL_BLACK));
+
+                spr.setTextFont(2);
+                spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                u8f.setCursor(i * 12 + 1, 125);
+                if (minutes % 15 == 0) u8f.print(timestring);
+            }
+        }
+        spr2buffer(spr, filename, imageParams);
+        spr.deleteSprite();
+    }
+    http.end();
+
+}
+
 char *formatHttpDate(time_t t) {
     static char buf[40];
     struct tm *timeinfo;
@@ -1161,7 +1246,7 @@ void prepareNFCReq(uint8_t *dst, const char *url) {
 
 void prepareLUTreq(uint8_t *dst, String input) {
     const char *delimiters = ", \t";
-    const int maxValues = 70;
+    const int maxValues = 76;
     uint8_t waveform[maxValues];
     char *ptr = strtok(const_cast<char *>(input.c_str()), delimiters);
     int i = 0;

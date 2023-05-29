@@ -54,7 +54,7 @@ jobs:
       - name: Build firmware for ESP32
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
           pio run --environment Simple_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32fw/boot_app0.bin
@@ -76,7 +76,7 @@ jobs:
       - name: Build firmware for ESP32-S2
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_Mini_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s2fw/boot_app0.bin
@@ -98,7 +98,7 @@ jobs:
       - name: Build firmware for ESP32-S3
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_AP_and_Flasher
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/esp32s3fw/boot_app0.bin
@@ -129,7 +129,7 @@ jobs:
           
       - name: generate release json file
         run: |
-          python genfilelist.py ${{ github.ref }} $GITHUB_REPOSITORY $GITHUB_SHA
+          python genfilelist.py ${{ github.ref_name }} $GITHUB_REPOSITORY $GITHUB_SHA
           
       - name: Add file list to release
         uses: svenstaro/upload-release-action@v2

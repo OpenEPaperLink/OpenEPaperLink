@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <LittleFS.h>
-#define DISABLE_ALL_LIBRARY_WARNINGS 
 #include <TFT_eSPI.h>
 
 #include "makeimage.h"
@@ -29,6 +28,7 @@ bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imagePara
 bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams);
 bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams);
 void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams);
+void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
 char *formatHttpDate(time_t t);
 String urlEncode(const char *msg);
 int windSpeedToBeaufort(float windSpeed);

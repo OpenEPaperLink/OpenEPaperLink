@@ -112,7 +112,7 @@ Latency will be around 40 seconds.">
 		<p>
 			<span id="rebootbutton">reboot AP</span>
 			<a href="/backup_db" id="downloadDBbutton">download tagDB</a>
-			<!--<span id="updatebutton">update</span>-->
+			<span id="updatebutton">update</span>
 		</p>
 		<p>
 			<a href="https://github.com/jjwbruijn/OpenEPaperLink" target="_new">Github OpenEPaperLink</a>
@@ -121,24 +121,12 @@ Latency will be around 40 seconds.">
 
 	<div id="apupdatebox">
 		<div class="closebtn">&#10006;</div>
-		<h3>Firmware updates</h3>
-		<p>
-			test
-		</p>
-		<p>
-			<input type="button" value="Save" id="apfwsave">
-		</p>
-		<!--
-		<p><pre>
-			work in progress
-			- upload tagDB
-			- update webinterface from github
-			- update APtag FW from github
-			- update all tag FW from github
-			- update esp32 fw 
-		</pre>
-		</p>
-		-->
+		<h3>Update dashboard</h3>
+		<div id="easyupdate"></div>
+		<div id="advanceddiv">
+			<div id="releasetable"></div>
+			<div id="rollbackOption" style="display:none"><button id="rollbackBtn">Rollback to previous firmware</button></div>
+		</div>
 	</div>
 
 	<form>
@@ -149,6 +137,7 @@ Latency will be around 40 seconds.">
 			<div class="actionbox">
 				<div>
 					<div>Currently active tags:</div>
+					<div><span id="apstatecolor">&#11044;</span> <span id="apstate">loading</span></div>
 					<div><span id="apconfigbutton">AP config</span></div>
 					<div><a href="/edit" target="littlefs" class="filebutton">edit littleFS</a></div>
 				</div>

@@ -256,7 +256,7 @@ void initAPconfig() {
         }
         configFile.close();
     }
-    config.channel = APconfig["channel"] | 25;
+    config.channel = APconfig["channel"] | 0;
     if (APconfig["alias"]) strlcpy(config.alias, APconfig["alias"], sizeof(config.alias));
     config.led = APconfig["led"] | 255;
     config.language = APconfig["language"] | getDefaultLanguage();

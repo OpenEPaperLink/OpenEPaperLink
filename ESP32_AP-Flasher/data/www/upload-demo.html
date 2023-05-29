@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<title>Image Upload Form</title>
+</head>
+
+<body>
+	<h3>demo upload form</h3>
+	<p>You can use this as an example how to push images to a tag by an external server/script.</p>
+	<p>
+		<form method="POST" enctype="multipart/form-data" action="/imgupload">
+
+			<p>
+			<label for="mac">Enter a 6 or 8 byte MAC address:</label><br>
+			<input type="text" id="mac" name="mac">
+			</p>
+
+			<p>
+			<label for="dither">Floyd Steinberg dithering (0=off, 1=on)</label><br>
+			<input type="text" id="dither" name="dither">
+			</p>
+
+			<p>
+			<label for="image">Select an image to upload. Must have the correct resolution for the tag (rotating is allowed):</label><br>
+			<input type="file" id="image" name="file">
+			</p>
+
+			<p>
+			<input type="submit" value="Upload">
+			</p>
+
+		</form>
+	</p>
+</body>
+
+</html>
