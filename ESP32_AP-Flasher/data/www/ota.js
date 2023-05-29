@@ -1,4 +1,4 @@
-const repoUrl = 'https://api.github.com/repos/nlimper/OpenEPaperLink/releases';
+const repoUrl = 'https://api.github.com/repos/jjwbruijn/OpenEPaperLink/releases';
 
 const $ = document.querySelector.bind(document);
 
