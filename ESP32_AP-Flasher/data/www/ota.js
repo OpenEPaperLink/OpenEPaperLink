@@ -4,10 +4,10 @@ const $ = document.querySelector.bind(document);
 
 let running = false;
 let errors = 0;
-let env = '';
+let env = '', currentVer = '', currentBuildtime = 0;
 let buttonState = false;
 
-export function initUpdate() {
+export async function initUpdate() {
     if (!$("#updateconsole")) {
         const consoleDiv = document.createElement('div');
         consoleDiv.classList.add('console');
@@ -15,6 +15,10 @@ export function initUpdate() {
         $('#apupdatebox').appendChild(consoleDiv);
     }
     $("#updateconsole").innerHTML = "";
+
+    const response = await fetch("/version.txt");
+    let filesystemversion = await response.text();
+    if (!filesystemversion) filesystemversion = "unknown";
 
     fetch("/sysinfo")
         .then(response => {
@@ -35,11 +39,14 @@ export function initUpdate() {
                 print(`env:        ${data.env}`);
                 print(`build date: ${formatEpoch(data.buildtime)}`);
                 print(`version:    ${data.buildversion}`);
+                print(`filesystem: ${filesystemversion}`);
                 print(`sha:        ${data.sha}`);
                 print(`psram size: ${data.psramsize}`);
                 print(`flash size: ${data.flashsize}`);
                 print("--------------------------","gray");
                 env = data.env;
+                currentVer = data.buildversion;
+                currentBuildtime = data.buildtime;
                 if (data.rollback) $("#rollbackOption").display = 'block';
             }
         })
@@ -67,14 +74,42 @@ export function initUpdate() {
                 };
             });
 
+            const easyupdate = $('#easyupdate');
+
+            if (releaseDetails.length === 0) {
+                easyupdate.innerHTML = ("No releases found.");
+            } else {
+                const release = releaseDetails[0];
+                if (release.tag_name == currentVer) {
+                    easyupdate.innerHTML = `Version ${currentVer}. You are up to date`;
+                } else if (release.date < formatEpoch(currentBuildtime)) {
+                    easyupdate.innerHTML = `Your version is newer than the latest release date. Are you the developer? :-)`;
+                } else {
+                    easyupdate.innerHTML = `Update from version ${currentVer} to version ${release.tag_name} available.<button onclick="otamodule.updateall('${release.file_url}','${release.tag_name}')">Update now!</button>`;
+                }
+
+                tableRow.innerHTML = tablerow;
+                table.appendChild(tableRow);
+
+                return release;
+            }
+
             const table = document.createElement('table');
             const tableHeader = document.createElement('tr');
-            tableHeader.innerHTML = '<th>Release</th><th>Date</th><th>Name</th><th>Author</th><th colspan="2">Update:</th>';
+            tableHeader.innerHTML = '<th>Release</th><th>Date</th><th>Name</th><th>Author</th><th colspan="2">Update:</th><th>Remark</th>';
             table.appendChild(tableHeader);
 
             releaseDetails.forEach(release => {
                 const tableRow = document.createElement('tr');
-                tableRow.innerHTML = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td>${release.author}</td><td><button onclick="otamodule.updateESP('${release.file_url}')">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}')">Filesystem</button></td>`;
+                let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td>${release.author}</td><td><button onclick="otamodule.updateESP('${release.file_url}')">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td>`;
+                if (release.tag_name == currentVer) {
+                    tablerow += "<td>current version</td>";
+                } else if (release.date < formatEpoch(currentBuildtime)) {
+                    tablerow += "<td>older</td>";
+                } else {
+                    tablerow += "<td>newer</td>";
+                }
+                tableRow.innerHTML = tablerow;
                 table.appendChild(tableRow);
             });
 
@@ -87,7 +122,12 @@ export function initUpdate() {
         });
 }
 
-export function updateWebpage(fileUrl) {
+export function updateAll(fileUrl, tagname) {
+    otamodule.updateWebpage(fileUrl, tagname, false);
+    otamodule.updateESP(fileUrl)
+}
+
+export function updateWebpage(fileUrl, tagname, showReload) {
     if (running) return;
     if (!confirm("Confirm updating the littleFS storage")) return;
 
@@ -131,20 +171,23 @@ export function updateWebpage(fileUrl) {
                 errors++;
             }
         }
+        writeVersion(tagname, "version.txt", "/www/version.txt")
         running = false;
         if (errors) {
             print("------", "gray");
             print(`Finished updating with ${errors} errors.`, "red");
         } else {
             print("------", "gray");
-            print("Update succesful, reload now.");
+            print("Update succesful.");
         }
         disableButtons(false);
 
-        const newLine = document.createElement('div');
-        newLine.innerHTML = "<button onclick=\"window.reload()\">Reload this page</button>";
-        consoleDiv.appendChild(newLine);
-        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        if (showReload) {
+            const newLine = document.createElement('div');
+            newLine.innerHTML = "<button onclick=\"window.reload()\">Reload this page</button>";
+            consoleDiv.appendChild(newLine);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
     }; 
 }
 
@@ -257,8 +300,9 @@ function formatEpoch(epochTime) {
 }
 
 function formatDateTime(utcDateString) {
+    const localTimeZoneOffset = new Date().getTimezoneOffset();
     const date = new Date(utcDateString);
-
+    date.setMinutes(date.getMinutes() - localTimeZoneOffset);
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     const day = String(date.getUTCDate()).padStart(2, '0');
@@ -278,6 +322,30 @@ const fetchAndPost = async (url, name, path) => {
         const formData = new FormData();
         formData.append('path', path);
         formData.append('file', fileContent, name);
+
+        const uploadResponse = await fetch('/littlefs_put', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!uploadResponse.ok) {
+            print(`${response.status} ${response.body}`, "red");
+            errors++;
+        }
+    } catch (error) {
+        print('error: ' + error, "red");
+        errors++;
+    }
+};
+
+const writeVersion = async (content, name, path) => {
+    try {
+        print("uploading " + path);
+
+        const formData = new FormData();
+        formData.append('path', path);
+        const blob = new Blob([content]);
+        formData.append('file', blob, name);
 
         const uploadResponse = await fetch('/littlefs_put', {
             method: 'POST',

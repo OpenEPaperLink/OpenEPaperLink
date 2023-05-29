@@ -124,6 +124,9 @@ select {
 
 #configbox p, #apconfigbox p, #apupdatebox p {
 	padding: 5px;
+	display: flex;
+	gap: 5px;
+	align-items: flex-start;
 }
 
 #configbox h3, #apconfigbox h3, #apupdatebox h3 {
@@ -419,6 +422,11 @@ ul.messages li.new {
 }
 
 /* updatescreens */
+
+#easyupdate{
+	margin-top: 10px;
+	font-size: 1.5em;
+}
 
 #releasetable {
 	margin: 10px 0px;

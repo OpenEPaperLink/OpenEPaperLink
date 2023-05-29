@@ -293,7 +293,7 @@ $('#taglist').addEventListener("click", (event) => {
 			var tagdata = data.tags[0];
 			$('#cfgalias').value = tagdata.alias;
 			if (populateSelectTag(tagdata.hwType, tagdata.capabilities)) {
-				$('#cfgcontent').parentNode.style.display = "block";				
+				$('#cfgcontent').parentNode.style.display = "flex";				
 				$('#cfgcontent').value = tagdata.contentMode;
 				$('#cfgcontent').dataset.json = tagdata.modecfgjson;
 				contentselected();
