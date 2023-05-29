@@ -74,7 +74,7 @@ export function initUpdate() {
 
             releaseDetails.forEach(release => {
                 const tableRow = document.createElement('tr');
-                tableRow.innerHTML = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td>${release.author}</td><td><button onclick="otamodule.updateESP('${release.file_url}')">MCU</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}')">Filesystem</button></td>`;
+                tableRow.innerHTML = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td>${release.author}</td><td><button onclick="otamodule.updateESP('${release.file_url}')">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}')">Filesystem</button></td>`;
                 table.appendChild(tableRow);
             });
 
@@ -137,10 +137,14 @@ export function updateWebpage(fileUrl) {
             print(`Finished updating with ${errors} errors.`, "red");
         } else {
             print("------", "gray");
-            print("Update succesfull.");
+            print("Update succesful, reload now.");
         }
         disableButtons(false);
 
+        const newLine = document.createElement('div');
+        newLine.innerHTML = "<button onclick=\"window.reload()\">Reload this page</button>";
+        consoleDiv.appendChild(newLine);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
     }; 
 }
 
@@ -228,7 +232,11 @@ export function print(line, color = "white") {
         const isScrolledToBottom = consoleDiv.scrollHeight - consoleDiv.clientHeight <= consoleDiv.scrollTop;
         const newLine = document.createElement('div');
         newLine.style.color = color;
-        newLine.textContent = line;
+        if (line == "[reboot]") {
+            newLine.innerHTML = "<button onclick=\"fetch(\"/reboot\",{method: \"POST\"}); \">Reboot</button>";
+        } else {
+            newLine.textContent = line;
+        }
         consoleDiv.appendChild(newLine);
         if (isScrolledToBottom) {
             consoleDiv.scrollTop = consoleDiv.scrollHeight;

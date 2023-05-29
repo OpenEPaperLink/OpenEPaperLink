@@ -202,7 +202,8 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
             if (written == httpClient.getSize()) {
                 if (Update.end(true)) {
                     wsSerial("Firmware update successful");
-                    wsSerial("Restarting system...");
+                    wsSerial("Reboot system now");
+                    wsSerial("[reboot]");
                     vTaskDelay(1000 / portTICK_PERIOD_MS);
                     ESP.restart();
                 } else {
@@ -228,8 +229,8 @@ void handleRollback(AsyncWebServerRequest* request) {
     if (Update.canRollBack()) {
         bool rollbackSuccess = Update.rollBack();
         if (rollbackSuccess) {
-            request->send(200, "Rollback successfull");
-            wsSerial("Rollback successfull");
+            request->send(200, "Rollback successful");
+            wsSerial("Rollback successful");
             wsSerial("Restarting system...");
             vTaskDelay(1000 / portTICK_PERIOD_MS);
             ESP.restart();

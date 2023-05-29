@@ -1,4 +1,9 @@
+import requests
 from PIL import Image, ImageDraw, ImageFont
+
+mac = "00000197E5CB3B38"   # destination mac address
+dither = 0   # set dither to 1 is you're sending photos etc
+apip = "192.168.178.192"   # ip address of your access point
 
 # Create a new paletted image with indexed colors
 image = Image.new('P', (296, 128))
@@ -40,4 +45,20 @@ draw.text(text_position_line2, line2, fill=1, font=font_line2)  # Use palette in
 rgb_image = image.convert('RGB')
 
 # Save the image as JPEG with maximum quality
-rgb_image.save('output.jpg', 'JPEG', quality="maximum")
+image_path = 'output.jpg'
+rgb_image.save(image_path, 'JPEG', quality="maximum")
+
+# Prepare the HTTP POST request
+url = "http://" + apip + "/imgupload"
+payload = {"dither": dither, "mac": mac}  # Additional POST parameter
+files = {"file": open(image_path, "rb")}  # File to be uploaded
+
+# Send the HTTP POST request
+response = requests.post(url, data=payload, files=files)
+
+# Check the response status
+if response.status_code == 200:
+    print("Image uploaded successfully!")
+else:
+    print("Failed to upload the image.")
+
