@@ -36,18 +36,20 @@ export async function initUpdate() {
         })
         .then(data => {
             if (data.env) {
-                print(`env:        ${data.env}`);
-                print(`build date: ${formatEpoch(data.buildtime)}`);
-                print(`version:    ${data.buildversion}`);
-                print(`filesystem: ${filesystemversion}`);
-                print(`sha:        ${data.sha}`);
-                print(`psram size: ${data.psramsize}`);
-                print(`flash size: ${data.flashsize}`);
+                let matchtest='';
+                if (data.buildversion != filesystemversion && filesystemversion != "custom" && data.buildversion != "custom") matchtest = " <- not matching!"
+                print(`env:                ${data.env}`);
+                print(`build date:         ${formatEpoch(data.buildtime)}`);
+                print(`esp32 version:      ${data.buildversion}`);
+                print(`filesystem version: ${filesystemversion}` + matchtest);
+                print(`sha:                ${data.sha}`);
+                print(`psram size:         ${data.psramsize}`);
+                print(`flash size:         ${data.flashsize}`);
                 print("--------------------------","gray");
                 env = data.env;
                 currentVer = data.buildversion;
                 currentBuildtime = data.buildtime;
-                if (data.rollback) $("#rollbackOption").display = 'block';
+                if (data.rollback) $("#rollbackOption").style.display = 'block';
             }
         })
         .catch(error => {
@@ -75,24 +77,21 @@ export async function initUpdate() {
             });
 
             const easyupdate = $('#easyupdate');
-
             if (releaseDetails.length === 0) {
                 easyupdate.innerHTML = ("No releases found.");
             } else {
                 const release = releaseDetails[0];
-                if (release.tag_name == currentVer) {
-                    easyupdate.innerHTML = `Version ${currentVer}. You are up to date`;
-                } else if (release.date < formatEpoch(currentBuildtime)) {
-                    easyupdate.innerHTML = `Your version is newer than the latest release date. Are you the developer? :-)`;
-                } else {
-                    easyupdate.innerHTML = `Update from version ${currentVer} to version ${release.tag_name} available.<button onclick="otamodule.updateall('${release.file_url}','${release.tag_name}')">Update now!</button>`;
+                if (release.tag_name) {
+                    if (release.tag_name == currentVer) {
+                        easyupdate.innerHTML = `Version ${currentVer}. You are up to date`;
+                    } else if (release.date < formatEpoch(currentBuildtime)) {
+                        easyupdate.innerHTML = `Your version is newer than the latest release date.<br>Are you the developer? :-)`;
+                    } else {
+                        easyupdate.innerHTML = `An update from version ${currentVer} to version ${release.tag_name} is available.<button onclick="otamodule.updateAll('${release.file_url}','${release.tag_name}')">Update now!</button>`;
+                    }
                 }
-
-                tableRow.innerHTML = tablerow;
-                table.appendChild(tableRow);
-
-                return release;
             }
+            easyupdate.innerHTML += "<br><a onclick=\"$('#advanceddiv').style.display='block'\">advanced options</a>"
 
             const table = document.createElement('table');
             const tableHeader = document.createElement('tr');
@@ -100,17 +99,19 @@ export async function initUpdate() {
             table.appendChild(tableHeader);
 
             releaseDetails.forEach(release => {
-                const tableRow = document.createElement('tr');
-                let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td>${release.author}</td><td><button onclick="otamodule.updateESP('${release.file_url}')">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td>`;
-                if (release.tag_name == currentVer) {
-                    tablerow += "<td>current version</td>";
-                } else if (release.date < formatEpoch(currentBuildtime)) {
-                    tablerow += "<td>older</td>";
-                } else {
-                    tablerow += "<td>newer</td>";
+                if (release && release.html_url) {
+                    const tableRow = document.createElement('tr');
+                    let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td>${release.author}</td><td><button onclick="otamodule.updateESP('${release.file_url}', true)">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td>`;
+                    if (release.tag_name == currentVer) {
+                        tablerow += "<td>current version</td>";
+                    } else if (release.date < formatEpoch(currentBuildtime)) {
+                        tablerow += "<td>older</td>";
+                    } else {
+                        tablerow += "<td>newer</td>";
+                    }
+                    tableRow.innerHTML = tablerow;
+                    table.appendChild(tableRow);
                 }
-                tableRow.innerHTML = tablerow;
-                table.appendChild(tableRow);
             });
 
             $('#releasetable').innerHTML = "";
@@ -123,77 +124,100 @@ export async function initUpdate() {
 }
 
 export function updateAll(fileUrl, tagname) {
-    otamodule.updateWebpage(fileUrl, tagname, false);
-    otamodule.updateESP(fileUrl)
-}
-
-export function updateWebpage(fileUrl, tagname, showReload) {
-    if (running) return;
-    if (!confirm("Confirm updating the littleFS storage")) return;
-
-    disableButtons(true);
-    running = true;
-    errors = 0;
-    const consoleDiv = document.getElementById('updateconsole');
-    consoleDiv.scrollTop = consoleDiv.scrollHeight;
-
-    print("Updating littleFS partition...");
-
-    fetch("/getexturl?url=" + fileUrl)
-        .then(response => response.json())
-        .then(data => {
-            checkfiles(data.files);
+    updateWebpage(fileUrl, tagname, false)
+        .then(() => {
+            updateESP(fileUrl, false);
         })
         .catch(error => {
-            print('Error fetching data:' + error, "red");
+            console.error(error);
         });
-
-    const checkfiles = async (files) => {
-        for (const file of files) {
-            try {
-                const url = "/check_file?path=" + encodeURIComponent(file.path);
-                const response = await fetch(url);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.filesize == file.size && data.md5 == file.md5) {
-                        print(`file ${file.path} is up to date`, "green");
-                    } else if (data.filesize == 0) {
-                        await fetchAndPost(file.url, file.name, file.path);
-                    } else {
-                        await fetchAndPost(file.url, file.name, file.path);
-                    }
-                } else {
-                    print(`error checking file ${file.path}: ${response.status}`, "red");
-                    errors++;
-                }
-            } catch (error) {
-                console.error(`error checking file ${file.path}:` + error, "red");
-                errors++;
-            }
-        }
-        writeVersion(tagname, "version.txt", "/www/version.txt")
-        running = false;
-        if (errors) {
-            print("------", "gray");
-            print(`Finished updating with ${errors} errors.`, "red");
-        } else {
-            print("------", "gray");
-            print("Update succesful.");
-        }
-        disableButtons(false);
-
-        if (showReload) {
-            const newLine = document.createElement('div');
-            newLine.innerHTML = "<button onclick=\"window.reload()\">Reload this page</button>";
-            consoleDiv.appendChild(newLine);
-            consoleDiv.scrollTop = consoleDiv.scrollHeight;
-        }
-    }; 
 }
 
-export async function updateESP(fileUrl) {
+export async function updateWebpage(fileUrl, tagname, showReload) {
+    return new Promise((resolve, reject) => {
+        (async function () {
+            try {
+                if (running) return;
+                if (showReload) {
+                    if (!confirm("Confirm updating the filesystem")) return;
+                } else {
+                    if (!confirm("Confirm updating the esp32 and filesystem")) return;
+                }
+
+                disableButtons(true);
+                running = true;
+                errors = 0;
+                const consoleDiv = document.getElementById('updateconsole');
+                consoleDiv.scrollTop = consoleDiv.scrollHeight;
+
+                print("Updating littleFS partition...");
+                fetch("/getexturl?url=" + fileUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        checkfiles(data.files);
+                    })
+                    .catch(error => {
+                        print('Error fetching data:' + error, "red");
+                    });
+
+                const checkfiles = async (files) => {
+                    for (const file of files) {
+                        try {
+                            const url = "/check_file?path=" + encodeURIComponent(file.path);
+                            const response = await fetch(url);
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.filesize == file.size && data.md5 == file.md5) {
+                                    print(`file ${file.path} is up to date`, "green");
+                                } else if (data.filesize == 0) {
+                                    await fetchAndPost(file.url, file.name, file.path);
+                                } else {
+                                    await fetchAndPost(file.url, file.name, file.path);
+                                }
+                            } else {
+                                print(`error checking file ${file.path}: ${response.status}`, "red");
+                                errors++;
+                            }
+                        } catch (error) {
+                            console.error(`error checking file ${file.path}:` + error, "red");
+                            errors++;
+                        }
+                    }
+                    writeVersion(tagname, "version.txt", "/www/version.txt")
+                    running = false;
+                    if (errors) {
+                        print("------", "gray");
+                        print(`Finished updating with ${errors} errors.`, "red");
+                        reject(error);
+                    } else {
+                        print("------", "gray");
+                        print("Update succesful.");
+                        resolve();
+                    }
+                    disableButtons(false);
+
+                    if (showReload) {
+                        const newLine = document.createElement('div');
+                        newLine.innerHTML = "<button onclick=\"location.reload()\">Reload this page</button>";
+                        consoleDiv.appendChild(newLine);
+                        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                    }
+                }; 
+            } catch (error) {
+                print('Error: ' + error, "red");
+                errors++;
+                reject(error); 
+            }            
+        })();
+    });
+}
+
+export async function updateESP(fileUrl, showConfirm) {
+    print(running);
     if (running) return;
-    if (!confirm("Confirm updating the microcontroller")) return;
+    if (showConfirm) {
+        if (!confirm("Confirm updating the esp32")) return;
+    }
 
     disableButtons(true);
     running = true;
@@ -261,7 +285,7 @@ $('#rollbackBtn').onclick = function () {
     
     fetch("/rollback", {
         method: "POST",
-        body: formData
+        body: ''
     })
 
     running = false;
@@ -276,7 +300,7 @@ export function print(line, color = "white") {
         const newLine = document.createElement('div');
         newLine.style.color = color;
         if (line == "[reboot]") {
-            newLine.innerHTML = "<button onclick=\"fetch(\"/reboot\",{method: \"POST\"}); \">Reboot</button>";
+            newLine.innerHTML = "<button onclick=\"reboot()\">Reboot</button>";
         } else {
             newLine.textContent = line;
         }
@@ -285,6 +309,14 @@ export function print(line, color = "white") {
             consoleDiv.scrollTop = consoleDiv.scrollHeight;
         }
     }
+}
+
+function reboot() {
+    print("Rebooting now... Reloading webpagina in 5 seconds...", "yellow");
+    fetch("/reboot",{method: "POST"});
+    setTimeout(() => {
+        location.reload();
+    }, 5000);
 }
 
 function formatEpoch(epochTime) {

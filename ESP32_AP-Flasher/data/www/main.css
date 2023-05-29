@@ -425,7 +425,21 @@ ul.messages li.new {
 
 #easyupdate{
 	margin-top: 10px;
-	font-size: 1.5em;
+}
+
+#easyupdate button {
+	display: block;
+	margin: 15px 40px;
+	padding: 10px 20px;
+}
+
+#easyupdate a {
+	cursor: pointer;
+	text-decoration: underline;
+}
+
+#advanceddiv {
+	display: none;
 }
 
 #releasetable {

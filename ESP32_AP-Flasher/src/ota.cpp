@@ -231,9 +231,10 @@ void handleRollback(AsyncWebServerRequest* request) {
         if (rollbackSuccess) {
             request->send(200, "Rollback successful");
             wsSerial("Rollback successful");
-            wsSerial("Restarting system...");
+            wsSerial("Reboot system now");
+            wsSerial("[reboot]");
             vTaskDelay(1000 / portTICK_PERIOD_MS);
-            ESP.restart();
+            //ESP.restart();
         } else {
             wsSerial("Rollback failed");
             request->send(400, "Rollback failed");
