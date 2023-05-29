@@ -81,7 +81,7 @@ export async function initUpdate() {
                 easyupdate.innerHTML = ("No releases found.");
             } else {
                 const release = releaseDetails[0];
-                if (release.tag_name) {
+                if (release && release.tag_name) {
                     if (release.tag_name == currentVer) {
                         easyupdate.innerHTML = `Version ${currentVer}. You are up to date`;
                     } else if (release.date < formatEpoch(currentBuildtime)) {
@@ -213,7 +213,6 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
 }
 
 export async function updateESP(fileUrl, showConfirm) {
-    print(running);
     if (running) return;
     if (showConfirm) {
         if (!confirm("Confirm updating the esp32")) return;
@@ -300,7 +299,7 @@ export function print(line, color = "white") {
         const newLine = document.createElement('div');
         newLine.style.color = color;
         if (line == "[reboot]") {
-            newLine.innerHTML = "<button onclick=\"reboot()\">Reboot</button>";
+            newLine.innerHTML = "<button onclick=\"otamodule.reboot()\">Reboot</button>";
         } else {
             newLine.textContent = line;
         }
@@ -311,7 +310,7 @@ export function print(line, color = "white") {
     }
 }
 
-function reboot() {
+export function reboot() {
     print("Rebooting now... Reloading webpagina in 5 seconds...", "yellow");
     fetch("/reboot",{method: "POST"});
     setTimeout(() => {
