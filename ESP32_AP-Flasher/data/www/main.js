@@ -103,7 +103,6 @@ function connect() {
 			row.insertCell(4).innerHTML = msg.apitem.version;
 		}
 		if (msg.console) {
-			console.log(otamodule);
 			if (otamodule && typeof(otamodule.print) === "function") {
 				let color = "#c0c0c0";
 				if (msg.console.startsWith("Fail") || msg.console.startsWith("Err")) {

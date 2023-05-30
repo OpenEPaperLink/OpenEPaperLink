@@ -102,6 +102,7 @@ void handleGetExtUrl(AsyncWebServerRequest* request) {
             }
         } else {
             request->send(httpResponseCode, "text/plain", "Failed to fetch URL");
+            wsSerial(http.errorToString(httpResponseCode));
         }
         http.end();
     } else {
@@ -147,14 +148,11 @@ struct FirmwareUpdateParams {
 
 void handleUpdateOTA(AsyncWebServerRequest* request) {
     if (request->hasParam("url", true) && request->hasParam("md5", true) && request->hasParam("size", true)) {
-        saveDB("/current/tagDB.json");
-
         FirmwareUpdateParams* params = new FirmwareUpdateParams;
         params->url = request->getParam("url", true)->value();
         params->md5 = request->getParam("md5", true)->value();
         params->size = request->getParam("size", true)->value().toInt();
-
-        xTaskCreatePinnedToCore(firmwareUpdateTask, "OTAUpdateTask", 8192, params, 1, NULL, 1);
+        xTaskCreate(firmwareUpdateTask, "OTAUpdateTask", 6144, params, 10, NULL);
 
         request->send(200, "text/plain", "In progress");
     } else {
@@ -165,16 +163,30 @@ void handleUpdateOTA(AsyncWebServerRequest* request) {
 void firmwareUpdateTask(void* parameter) {
     FirmwareUpdateParams* params = reinterpret_cast<FirmwareUpdateParams*>(parameter);
 
-    const char* url = params->url.c_str();
-    const char* md5 = params->md5.c_str();
-    size_t size = params->size;
-    updateFirmware(url, md5, size);
+    if (ESP.getMaxAllocHeap() < 22000) {
+        wsSerial("Error: Not enough memory left. Restart the esp32 and try updating again.");
+        wsSerial("[reboot]");
+    } else {
+        const char* url = params->url.c_str();
+        const char* md5 = params->md5.c_str();
+        size_t size = params->size;
+        updateFirmware(url, md5, size);
+    }
 
     delete params;
     vTaskDelete(NULL);
 }
 
 void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
+    uint32_t freeStack = uxTaskGetStackHighWaterMark(NULL);
+    Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
+
+    config.runStatus = RUNSTATUS_STOP;
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    //xSemaphoreTake(tagDBOwner, portMAX_DELAY);
+    saveDB("/current/tagDB.json");
+    //destroyDB();
+
     HTTPClient httpClient;
 
     wsSerial("start downloading");
@@ -182,7 +194,11 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
 
     httpClient.begin(url);
     httpClient.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+    freeStack = uxTaskGetStackHighWaterMark(NULL);
+    Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
     int httpCode = httpClient.GET();
+    freeStack = uxTaskGetStackHighWaterMark(NULL);
+    Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
 
     if (httpCode == HTTP_CODE_OK) {
         if (Update.begin(size)) {
@@ -192,9 +208,10 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
             Update.onProgress([&progressTimer](size_t progress, size_t total) {
                 if (millis() - progressTimer > 500 || progress == total) {
                     char buffer[50];
-                    sprintf(buffer, "Progress: %u%% %d %d\r\n", progress * 100 / total, progress, total);
+                    sprintf(buffer, "Progress: %u%% %d %d", progress * 100 / total, progress, total);
                     wsSerial(String(buffer));
                     progressTimer = millis();
+                    vTaskDelay(1 / portTICK_PERIOD_MS);
                 }
             });
 
@@ -205,7 +222,7 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
                     wsSerial("Reboot system now");
                     wsSerial("[reboot]");
                     vTaskDelay(1000 / portTICK_PERIOD_MS);
-                    ESP.restart();
+                    //ESP.restart();
                 } else {
                     wsSerial("Error updating firmware:");
                     wsSerial(Update.errorString());
@@ -220,9 +237,13 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
         }
     } else {
         wsSerial("Failed to download firmware file (HTTP code " + String(httpCode) + ")");
+        wsSerial(httpClient.errorToString(httpCode));
     }
 
     httpClient.end();
+    //loadDB("/current/tagDB.json");
+    config.runStatus = RUNSTATUS_RUN;
+    //xSemaphoreGive(tagDBOwner);
 }
 
 void handleRollback(AsyncWebServerRequest* request) {

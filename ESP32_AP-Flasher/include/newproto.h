@@ -17,4 +17,5 @@ extern bool showAPSegmentedInfo(uint8_t* dst, bool local);
 extern void updateTaginfoitem(struct TagInfo* taginfoitem);
 
 void refreshAllPending();
+void updateContent(uint8_t* dst);
 void setAPchannel();

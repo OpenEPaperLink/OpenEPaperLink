@@ -11,6 +11,7 @@
 std::vector<tagRecord*> tagDB;
 
 Config config;
+SemaphoreHandle_t tagDBOwner;
 
 tagRecord* tagRecord::findByMAC(uint8_t mac[8]) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
@@ -224,6 +225,22 @@ void loadDB(String filename) {
     Serial.println("finished reading file");
 
     return;
+}
+
+void destroyDB() {
+    Serial.println("destoying DB");
+    Serial.printf("before, free heap: %d\n", ESP.getFreeHeap());
+    for (int16_t c = 0; c < tagDB.size(); c++) {
+        tagRecord* tag = nullptr;
+        tag = tagDB.at(c);
+        if (tag->data != nullptr) {
+            free(tag->data);
+        }
+        tag->data = nullptr;
+        delete tagDB[c];
+        tagDB.erase(tagDB.begin() + c);
+    }
+    Serial.printf("after, free heap: %d\n", ESP.getFreeHeap());
 }
 
 uint8_t getTagCount() {

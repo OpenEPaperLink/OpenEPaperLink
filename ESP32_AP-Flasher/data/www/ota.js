@@ -311,7 +311,7 @@ export function print(line, color = "white") {
 }
 
 export function reboot() {
-    print("Rebooting now... Reloading webpagina in 5 seconds...", "yellow");
+    print("Rebooting now... Reloading webpage in 5 seconds...", "yellow");
     fetch("/reboot",{method: "POST"});
     setTimeout(() => {
         location.reload();

@@ -41,6 +41,9 @@ void UDPcomm::init() {
 }
 
 void UDPcomm::processPacket(AsyncUDPPacket packet) {
+
+    if (config.runStatus == RUNSTATUS_STOP) return;
+
     switch (packet.data()[0]) {
         case PKT_AVAIL_DATA_INFO: {
             espAvailDataReq* adr = (espAvailDataReq*)&packet.data()[1];

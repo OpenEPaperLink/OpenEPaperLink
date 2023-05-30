@@ -137,6 +137,7 @@ void wsSendSysteminfo() {
     sys["dbsize"] = tagDB.size() * sizeof(tagRecord);
     sys["littlefsfree"] = LittleFS.totalBytes() - LittleFS.usedBytes();
     sys["apstate"] = apInfo.state; 
+    sys["runstate"] = config.runStatus; 
 
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -203,7 +204,7 @@ void wsSendAPitem(struct APlist *apitem) {
 void wsSerial(String text) {
     StaticJsonDocument<250> doc;
     doc["console"] = text;
-    Serial.print(text);
+    Serial.println(text);
     if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
     if (wsMutex) xSemaphoreGive(wsMutex);

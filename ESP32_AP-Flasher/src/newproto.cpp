@@ -316,6 +316,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
 }
 
 void processBlockRequest(struct espBlockRequest* br) {
+    if (config.runStatus == RUNSTATUS_STOP) return;
     if (!checkCRC(br, sizeof(struct espBlockRequest))) {
         Serial.print("Failed CRC on a blockrequest received by the AP");
         return;
@@ -358,6 +359,7 @@ void processBlockRequest(struct espBlockRequest* br) {
 }
 
 void processXferComplete(struct espXferComplete* xfc, bool local) {
+    if (config.runStatus == RUNSTATUS_STOP) return;
     char buffer[64];
     sprintf(buffer, "< %02X%02X%02X%02X%02X%02X%02X%02X reports xfer complete\n\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     wsLog((String)buffer);
@@ -398,6 +400,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
 }
 
 void processXferTimeout(struct espXferComplete* xfc, bool local) {
+    if (config.runStatus == RUNSTATUS_STOP) return;
     char buffer[64];
     sprintf(buffer, "< %02X%02X%02X%02X%02X%02X%02X%02X xfer timeout\n\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     wsErr((String)buffer);
@@ -422,6 +425,7 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
 }
 
 void processDataReq(struct espAvailDataReq* eadr, bool local) {
+    if (config.runStatus == RUNSTATUS_STOP) return;
     char buffer[64];
 
     tagRecord* taginfo = nullptr;
@@ -499,6 +503,18 @@ void refreshAllPending() {
         }
     }
 };
+
+void updateContent(uint8_t* dst) {
+    tagRecord* taginfo = nullptr;
+    taginfo = tagRecord::findByMAC(dst);
+    if (taginfo != nullptr) {
+        clearPending(taginfo);
+        taginfo->nextupdate = 0;
+        memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
+        memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
+        wsSendTaginfo(taginfo->mac, SYNC_TAGSTATUS);
+    }
+}
 
 void setAPchannel() {
     if (config.channel == 0) {

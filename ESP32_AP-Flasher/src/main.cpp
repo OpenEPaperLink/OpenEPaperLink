@@ -20,6 +20,9 @@
 #include "web.h"
 
 void timeTask(void* parameter) {
+    config.runStatus = RUNSTATUS_RUN;
+    esp_reset_reason_t resetReason = esp_reset_reason();
+    // if (resetReason == ESP_RST_PANIC) config.runStatus = RUNSTATUS_PAUSE;
     while (1) {
         time_t now;
         time(&now);
@@ -30,9 +33,9 @@ void timeTask(void* parameter) {
             if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE) {
                 wsSendSysteminfo();
             }
-            if (now % 300 == 6) saveDB("/current/tagDB.json");
+            if (now % 300 == 6 && config.runStatus != RUNSTATUS_STOP) saveDB("/current/tagDB.json");
 
-            if (apInfo.isOnline) contentRunner();
+            if (apInfo.state == AP_STATE_ONLINE) contentRunner();
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -121,6 +124,7 @@ void setup() {
     rgbIdle();
 #endif
     loadDB("/current/tagDB.json");
+    tagDBOwner = xSemaphoreCreateMutex();
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
     xTaskCreate(webSocketSendProcess, "ws", 2000, NULL, configMAX_PRIORITIES - 10, NULL);
     xTaskCreate(timeTask, "timed tasks", 12000, NULL, 2, NULL);

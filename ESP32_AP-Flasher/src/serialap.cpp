@@ -564,6 +564,7 @@ void checkWaitPowerCycle() {
 void segmentedShowIp() {
     IPAddress IP = WiFi.localIP();
     char temp[12];
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
     sendAPSegmentedData(apInfo.mac, (String) "IP    Addr", 0x0200, true, true);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
     sprintf(temp, "%03d IP %03d", IP[0], IP[1]);
@@ -640,8 +641,11 @@ void APTask(void* parameter) {
         ShowAPInfo();
 
         if (apInfo.type == SOLUM_SEG_UK) {
+            apInfo.state = AP_STATE_COMING_ONLINE;
             segmentedShowIp();
             showAPSegmentedInfo(apInfo.mac, true);
+            apInfo.state = AP_STATE_ONLINE;
+            updateContent(apInfo.mac);
         }
 
         uint16_t fsversion;

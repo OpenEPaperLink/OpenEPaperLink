@@ -55,14 +55,18 @@ enum contentModes {
 };
 
 void contentRunner() {
+
+    if (config.runStatus == RUNSTATUS_STOP) return;
+
     time_t now;
     time(&now);
 
+    //xSemaphoreTake(tagDBOwner, portMAX_DELAY);
     for (int16_t c = 0; c < tagDB.size(); c++) {
         tagRecord *taginfo = nullptr;
         taginfo = tagDB.at(c);
 
-        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC)) {
+        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC) && config.runStatus == RUNSTATUS_RUN) {
             drawNew(taginfo->mac, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
             taginfo->wakeupReason = 0;
         }
@@ -79,6 +83,7 @@ void contentRunner() {
 
         vTaskDelay(1 / portTICK_PERIOD_MS);  // add a small delay to allow other threads to run
     }
+    //xSemaphoreGive(tagDBOwner);
 }
 
 void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
