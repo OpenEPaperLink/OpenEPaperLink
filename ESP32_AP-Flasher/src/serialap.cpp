@@ -133,14 +133,13 @@ void APEnterEarlyReset() {
 void APTagReset() {
     pinMode(AP_RESET_PIN, OUTPUT);
     digitalWrite(AP_RESET_PIN, LOW);
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
     rampTagPower(AP_POWER_PIN, false);
+    vTaskDelay(300 / portTICK_PERIOD_MS);
+    rampTagPower(AP_POWER_PIN, true);
     vTaskDelay(100 / portTICK_PERIOD_MS);
-    rampTagPower(AP_POWER_PIN, true);
-    vTaskDelay(10 / portTICK_PERIOD_MS);
     digitalWrite(AP_RESET_PIN, HIGH);
-    rampTagPower(AP_POWER_PIN, true);
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
 }
 
 // Send data to the AP
@@ -582,7 +581,7 @@ bool bringAPOnline() {
     vTaskDelay(500 / portTICK_PERIOD_MS);
     uint32_t bootTimeout = millis();
     bool APrdy = false;
-    while ((!APrdy) && (millis() - bootTimeout < 5 * 1000)) {
+    while ((!APrdy) && (millis() - bootTimeout < 10 * 1000)) {
         APrdy = sendPing();
         vTaskDelay(300 / portTICK_PERIOD_MS);
     }
