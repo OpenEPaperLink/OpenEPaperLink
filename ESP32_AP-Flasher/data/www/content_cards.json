@@ -166,7 +166,7 @@
   {
     "id": 16,
     "name": "Buienradar",
-    "desc": "Dutch rain predictions for the next two hours. Only works for Dutch locations.",
+    "desc": "Dutch rain predictions for the next two hours. Only works for locations in the Netherlands and Belgium.",
     "hwtype": [
       1
     ],

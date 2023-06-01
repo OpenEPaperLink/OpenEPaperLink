@@ -156,7 +156,7 @@ void saveDB(String filename) {
 void loadDB(String filename) {
     StaticJsonDocument<1000> doc;
 
-    Serial.println("start reading DB from file");
+    Serial.println("reading DB from file");
     long t = millis();
 
     LittleFS.begin();
@@ -221,9 +221,6 @@ void loadDB(String filename) {
     }
 
     readfile.close();
-    Serial.println(millis() - t);
-    Serial.println("finished reading file");
-
     return;
 }
 
@@ -290,6 +287,6 @@ void saveAPconfig() {
     APconfig["language"] = config.language;
     APconfig["maxsleep"] = config.maxsleep;
     APconfig["stopsleep"] = config.stopsleep;
-    serializeJson(APconfig, configFile);
+    serializeJsonPretty(APconfig, configFile);
     configFile.close();
 }

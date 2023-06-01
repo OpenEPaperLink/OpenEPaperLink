@@ -265,6 +265,7 @@ export async function updateESP(fileUrl, showConfirm) {
         }
     } catch (error) {
         print('Error: ' + error, "red");
+        print("Something went wrong, try again.");
     }
 
     running = false;

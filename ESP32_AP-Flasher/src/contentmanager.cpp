@@ -30,12 +30,15 @@
 #include "web.h"
 #include "language.h"
 
-// #define PAL_BLACK 0
-// #define PAL_WHITE 9
-// #define PAL_RED 2
+#ifdef BOARD_HAS_PSRAM
 #define PAL_BLACK TFT_BLACK
 #define PAL_WHITE TFT_WHITE
 #define PAL_RED TFT_RED
+#else
+#define PAL_BLACK 0
+#define PAL_WHITE 9
+#define PAL_RED 2
+#endif
 
 enum contentModes {
     Image,
@@ -206,14 +209,19 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case ImageUrl:
 
-            if (getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams, String(hexmac))) {
-                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 5 ? 5 : cfgobj["interval"].as<int>());
+            {
+            int httpcode = getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams, String(hexmac));
+            if (httpcode == 200) {
+                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 3 : cfgobj["interval"].as<int>());
                 updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
                 cfgobj["#fetched"] = now;
+            } else if (httpcode == 304) {
+                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 3 : cfgobj["interval"].as<int>());
             } else {
                 taginfo->nextupdate = now + 300;
             }
-            break;
+                break;
+            }
 
         case RSSFeed:
 
@@ -270,8 +278,8 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         case 16:  // buienradar
 
             drawBuienradar(filename, cfgobj, taginfo, imageParams);
-            taginfo->nextupdate = now + (cfgobj["timetolive"].as<int>() < 5 ? 5 : cfgobj["timetolive"].as<int>())* 60;
-            updateTagImage(filename, mac, (cfgobj["timetolive"].as<int>() < 5 ? 5 : cfgobj["timetolive"].as<int>()), taginfo, imageParams);
+            taginfo->nextupdate = now + (cfgobj["ttl"].as<int>() < 5 ? 5 : cfgobj["ttl"].as<int>()) * 60;
+            updateTagImage(filename, mac, (cfgobj["ttl"].as<int>() < 5 ? 5 : cfgobj["ttl"].as<int>()), taginfo, imageParams);
             break;
         }
 
@@ -298,16 +306,18 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
 }
 
 void initSprite(TFT_eSprite &spr, int w, int h) {
-    // spr.setColorDepth(4);  // 4 bits per pixel, uses indexed color
+#ifdef BOARD_HAS_PSRAM
     spr.setColorDepth(8);
     spr.createSprite(w, h);
-    /*
+#else
+    spr.setColorDepth(4);  // 4 bits per pixel, uses indexed color
+    spr.createSprite(w, h);
     uint16_t cmap[16];
     cmap[PAL_BLACK] = TFT_BLACK;
     cmap[PAL_RED] = TFT_RED;
     cmap[PAL_WHITE] = TFT_WHITE;
     spr.createPalette(cmap, 16);
-    */
+#endif
     if (spr.getPointer() == nullptr) {
         wsErr("Failed to create sprite");
     }
@@ -360,26 +370,21 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
 }
 
 void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo, imgParam &imageParams) {
-
     if (taginfo->hwType == SOLUM_SEG_UK) {
         imageParams.symbols = 0x00;
         if (count > 19999) {
             sprintf(imageParams.segments, "over  flow");
+            return;
+        } else if (count > 9999) {
+            imageParams.symbols = 0x02;
+            sprintf(imageParams.segments, "%04d", count - 10000);
         } else {
-            if (count > 9999) {
-                imageParams.symbols = 0x02;
-                if (taginfo->contentMode == CountHours) {
-                    sprintf(imageParams.segments, "%04d  hour", count - 10000);
-                } else {
-                    sprintf(imageParams.segments, "%04d  days", count - 10000);
-                }
-            } else {
-                if (taginfo->contentMode == CountHours) {
-                    sprintf(imageParams.segments, "%4d  hour", count);
-                } else {
-                    sprintf(imageParams.segments, "%4d  days", count);
-                }
-            }
+            sprintf(imageParams.segments, "%4d", count);
+        }
+        if (taginfo->contentMode == CountHours) {
+            strcat(imageParams.segments, "  hour");
+        } else {
+            strcat(imageParams.segments, "  days");
         }
         return;
     }
@@ -788,7 +793,7 @@ void drawIdentify(String &filename, tagRecord *&taginfo, imgParam &imageParams) 
     spr.deleteSprite();
 }
 
-bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams, String MAC) {
+int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams, String MAC) {
     // https://images.klari.net/kat-bw29.jpg
 
     LittleFS.begin();
@@ -811,11 +816,11 @@ bool getImgURL(String &filename, String URL, time_t fetched, imgParam &imagePara
         if (httpCode != 304) {
             wsErr("http " + URL + " " + String(httpCode));
         } else {
-            wsLog("http " + URL + " " + String(httpCode));
+            Serial.println("http 304, image is not changed " + URL);
         }
     }
     http.end();
-    return (httpCode == 200 || httpCode == 304);
+    return httpCode;
 }
 
 #ifdef CONTENT_RSS
@@ -928,7 +933,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
     static char dateString[40];
-    strftime(dateString, sizeof(dateString), " - %d.%m.%Y", &timeinfo);
+    strftime(dateString, sizeof(dateString), "%d.%m.%Y", &timeinfo);
 
     HTTPClient http;
     http.begin(URL);
@@ -963,6 +968,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         u8f.setBackgroundColor(PAL_WHITE);
         u8f.setCursor(5, 16);
         u8f.print(title);
+        u8f.setCursor(180, 16);
         u8f.print(dateString);
 
         int n = doc.size();
@@ -999,6 +1005,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         u8f.setBackgroundColor(PAL_WHITE);
         u8f.setCursor(5, 16);
         u8f.print(title);
+        u8f.setCursor(280, 16);
         u8f.print(dateString);
 
         int n = doc.size();
@@ -1156,7 +1163,9 @@ void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, i
 char *formatHttpDate(time_t t) {
     static char buf[40];
     struct tm *timeinfo;
-    timeinfo = gmtime(&t);
+    timeinfo = localtime(&t);           // Get the local time
+    time_t utcTime = mktime(timeinfo);  // Convert to UTC
+    timeinfo = gmtime(&utcTime);
     strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
     return buf;
 }

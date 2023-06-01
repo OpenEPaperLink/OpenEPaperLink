@@ -30,7 +30,11 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
     }
     Serial.println("jpeg conversion " + String(w) + "x" + String(h));
 
+#ifdef BOARD_HAS_PSRAM
     spr.setColorDepth(16);
+#else
+    spr.setColorDepth(8);
+#endif
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
         //no heap space for 8bpp, fallback to 1bpp

@@ -11,12 +11,14 @@
 
 #ifdef SIMPLE_AP
 void simpleAPPower(bool state) {
-    pinMode(FLASHER_AP_POWER, INPUT);
-    pinMode(FLASHER_AP_POWER2, INPUT);
-    digitalWrite(FLASHER_AP_POWER, state);
-    digitalWrite(FLASHER_AP_POWER2, state);
-    pinMode(FLASHER_AP_POWER, OUTPUT);
-    pinMode(FLASHER_AP_POWER2, OUTPUT);
+    if (FLASHER_AP_POWER >= 0 && FLASHER_AP_POWER2 >= 0) {
+        pinMode(FLASHER_AP_POWER, INPUT);
+        pinMode(FLASHER_AP_POWER2, INPUT);
+        digitalWrite(FLASHER_AP_POWER, state);
+        digitalWrite(FLASHER_AP_POWER2, state);
+        pinMode(FLASHER_AP_POWER, OUTPUT);
+        pinMode(FLASHER_AP_POWER2, OUTPUT);
+    }
 }
 #endif
 

@@ -86,7 +86,7 @@ void handleGetExtUrl(AsyncWebServerRequest* request) {
         String url = request->getParam("url")->value();
         HTTPClient http;
         http.begin(url);
-        http.setConnectTimeout(4000);
+        http.setConnectTimeout(5000);
         http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
         int httpResponseCode = http.GET();
         if (httpResponseCode > 0) {
