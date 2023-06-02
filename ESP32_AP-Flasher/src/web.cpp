@@ -23,8 +23,8 @@
 
 extern uint8_t data_to_send[];
 
-//const char *http_username = "admin";
-//const char *http_password = "admin";
+// const char *http_username = "admin";
+// const char *http_password = "admin";
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
@@ -136,8 +136,8 @@ void wsSendSysteminfo() {
     sys["recordcount"] = tagDB.size();
     sys["dbsize"] = tagDB.size() * sizeof(tagRecord);
     sys["littlefsfree"] = LittleFS.totalBytes() - LittleFS.usedBytes();
-    sys["apstate"] = apInfo.state; 
-    sys["runstate"] = config.runStatus; 
+    sys["apstate"] = apInfo.state;
+    sys["runstate"] = config.runStatus;
 
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -228,15 +228,21 @@ void init_web() {
 
     WiFiManager wm;
     bool res;
+#ifdef OPENEPAPERLINK_MINI_AP_PCB
+    WiFi.setTxPower(WIFI_POWER_15dBm);
+#endif
     res = wm.autoConnect("OpenEPaperLink Setup");
     if (!res) {
         Serial.println("Failed to connect");
         ESP.restart();
     }
+#ifdef OPENEPAPERLINK_MINI_AP_PCB
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
+#endif
     Serial.print("Connected! IP address: ");
     Serial.println(WiFi.localIP());
 
-    //server.addHandler(new SPIFFSEditor(LittleFS, http_username, http_password));
+    // server.addHandler(new SPIFFSEditor(LittleFS, http_username, http_password));
     server.addHandler(new SPIFFSEditor(LittleFS));
 
     ws.onEvent(onEvent);
@@ -267,7 +273,7 @@ void init_web() {
         if (request->hasParam("mac")) {
             String dst = request->getParam("mac")->value();
             uint8_t mac[8];
-            if (hex2mac(dst,mac)) {
+            if (hex2mac(dst, mac)) {
                 json = tagDBtoJson(mac);
             }
         } else {
@@ -354,7 +360,6 @@ void init_web() {
 
     server.on("/save_apcfg", HTTP_POST, [](AsyncWebServerRequest *request) {
         if (request->hasParam("alias", true) && request->hasParam("channel", true)) {
-
             String aliasValue = request->getParam("alias", true)->value();
             size_t aliasLength = aliasValue.length();
             if (aliasLength > 31) aliasLength = 31;
