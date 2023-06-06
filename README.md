@@ -35,8 +35,8 @@ After programming the ESP32, make sure to also program the filesystem. This will
 * [Mini AP](https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Hardware/OpenEPaperLink%20Mini%20AP)
 * [Combined Flasher and AP](https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Hardware/OpenEPaperLink%20AP%20and%20Flasher)
 * [ATC1441's ZBS flasher page](https://github.com/atc1441/ZBS_Flasher)
-* [Tags specs](https://github.com/jjwbruijn/OpenEPaperLink/blob/master/Tags-specs/)
-* [Tags troubleshooting](https://github.com/jjwbruijn/OpenEPaperLink/blob/master/Tags-specs/troubleshooting.md)
+* [Tags specs](https://github.com/jjwbruijn/OpenEPaperLink/wiki#tags)
+* [Tags troubleshooting](https://github.com/jjwbruijn/OpenEPaperLink/wiki/Troubleshooting-Tags)
 
 ## The protocol explained
 - The tag checks in with the AP every 40+ seconds. Actual check-in interval is highly dependent on RF conditions, or if the AP tells the tag to delay the next check-in
