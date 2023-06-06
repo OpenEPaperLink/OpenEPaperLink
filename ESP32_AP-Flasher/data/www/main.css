@@ -276,10 +276,7 @@ select {
 	padding-bottom: 5px;
 }
 .received div {
-	padding-left: 3px;
-	padding-right: 1px;
 	display: inline-block;
-	font-weight: bold;
 }
 
 .contentmode {

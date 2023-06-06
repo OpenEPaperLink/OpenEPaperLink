@@ -275,6 +275,8 @@ void init_web() {
             uint8_t mac[8];
             if (hex2mac(dst, mac)) {
                 json = tagDBtoJson(mac);
+            } else {
+                json = "{\"error\": \"malformatted parameter\"}";
             }
         } else {
             uint8_t startPos = 0;
@@ -398,11 +400,11 @@ void init_web() {
     server.on("/sysinfo", HTTP_GET, handleSysinfoRequest);
     server.on("/check_file", HTTP_GET, handleCheckFile);
     server.on("/getexturl", HTTP_GET, handleGetExtUrl);
+    server.on("/rollback", HTTP_POST, handleRollback);
+    server.on("/update_actions", HTTP_POST, handleUpdateActions);
     server.on("/update_ota", HTTP_POST, [](AsyncWebServerRequest *request) {
         handleUpdateOTA(request);
     });
-    server.on("/rollback", HTTP_POST, handleRollback);
-
     server.on(
         "/littlefs_put", HTTP_POST, [](AsyncWebServerRequest *request) {
             request->send(200);

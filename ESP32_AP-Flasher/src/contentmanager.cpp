@@ -30,15 +30,9 @@
 #include "web.h"
 #include "language.h"
 
-#ifdef BOARD_HAS_PSRAM
 #define PAL_BLACK TFT_BLACK
 #define PAL_WHITE TFT_WHITE
 #define PAL_RED TFT_RED
-#else
-#define PAL_BLACK 0
-#define PAL_WHITE 9
-#define PAL_RED 2
-#endif
 
 enum contentModes {
     Image,
@@ -306,18 +300,8 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
 }
 
 void initSprite(TFT_eSprite &spr, int w, int h) {
-#ifdef BOARD_HAS_PSRAM
     spr.setColorDepth(8);
     spr.createSprite(w, h);
-#else
-    spr.setColorDepth(4);  // 4 bits per pixel, uses indexed color
-    spr.createSprite(w, h);
-    uint16_t cmap[16];
-    cmap[PAL_BLACK] = TFT_BLACK;
-    cmap[PAL_RED] = TFT_RED;
-    cmap[PAL_WHITE] = TFT_WHITE;
-    spr.createPalette(cmap, 16);
-#endif
     if (spr.getPointer() == nullptr) {
         wsErr("Failed to create sprite");
     }
@@ -346,22 +330,18 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
 
     if (taginfo->hwType == SOLUM_29_SSD1619 || taginfo->hwType == SOLUM_29_UC8151) {
         initSprite(spr, 296, 128);
-        if (getCurrentLanguage() == 0 && timeinfo.tm_wday == 3) {
-            drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib50", TC_DATUM, PAL_RED);
-        } else {
-            drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib62", TC_DATUM, PAL_RED);
-        }
+        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 296 / 2, 10, "fonts/calibrib60", TC_DATUM, PAL_RED);
         drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], 296 / 2, 73, "fonts/calibrib50", TC_DATUM);
 
     } else if (taginfo->hwType == SOLUM_154_SSD1619) {
         initSprite(spr, 152, 152);
         drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 152 / 2, 10, "fonts/calibrib30", TC_DATUM);
         drawString(spr, String(languageMonth[getCurrentLanguage()][timeinfo.tm_mon]), 152 / 2, 120, "fonts/calibrib30", TC_DATUM);
-        drawString(spr, String(timeinfo.tm_mday), 152 / 2, 42, "fonts/numbers2-1", TC_DATUM, PAL_RED);
+        drawString(spr, String(timeinfo.tm_mday), 152 / 2, 42, "fonts/calibrib100", TC_DATUM, PAL_RED);
 
     } else if (taginfo->hwType == SOLUM_42_SSD1619) {
         initSprite(spr, 400, 300);
-        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 400 / 2, 30, "fonts/calibrib62", TC_DATUM, PAL_RED);
+        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], 400 / 2, 30, "fonts/calibrib60", TC_DATUM, PAL_RED);
         drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], 400 / 2, 113, "fonts/calibrib50", TC_DATUM);
     }
 
@@ -401,9 +381,10 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         } else {
             spr.setTextColor(PAL_BLACK, PAL_WHITE);
         }
-        String font = "fonts/numbers1-2";
-        if (count > 999) font = "fonts/numbers2-2";
-        if (count > 9999) font = "fonts/numbers3-2";
+        String font = "fonts/calibrib150";
+        if (count > 99) font = "fonts/calibrib150";
+        if (count > 999) font = "fonts/calibrib120";
+        if (count > 9999) font = "fonts/calibrib100";
         spr.loadFont(font, LittleFS);
         spr.drawString(String(count), 296 / 2, 128 / 2 + 10);
         spr.unloadFont();
@@ -416,9 +397,10 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         } else {
             spr.setTextColor(PAL_BLACK, PAL_WHITE);
         }
-        String font = "fonts/numbers1-1";
-        if (count > 99) font = "fonts/numbers2-1";
-        if (count > 999) font = "fonts/numbers3-1";
+        String font = "fonts/calibrib120";
+        if (count > 99) font = "fonts/calibrib80";
+        if (count > 999) font = "fonts/calibrib50";
+        if (count > 9999) font = "fonts/calibrib50";
         spr.loadFont(font, LittleFS);
         spr.drawString(String(count), 152 / 2, 152 / 2 + 7);
         spr.unloadFont();
@@ -431,9 +413,10 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         } else {
             spr.setTextColor(PAL_BLACK, PAL_WHITE);
         }
-        String font = "fonts/numbers1-2";
-        if (count > 999) font = "fonts/numbers2-2";
-        if (count > 9999) font = "fonts/numbers3-2";
+        String font = "fonts/calibrib150";
+        if (count > 99) font = "fonts/calibrib150";
+        if (count > 999) font = "fonts/calibrib120";
+        if (count > 9999) font = "fonts/calibrib100";
         spr.loadFont(font, LittleFS);
         spr.drawString(String(count), 400 / 2, 300 / 2 + 7);
         spr.unloadFont();
@@ -679,7 +662,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
             for (uint8_t dag = 0; dag < 5; dag++) {
                 time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
                 struct tm *datum = localtime(&weatherday);
-                drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
+                drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * 59 + 30, 18, "fonts/twcondensed20", TC_DATUM, PAL_BLACK);
 
                 uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
                 if (weathercode > 40) weathercode -= 40;
@@ -703,7 +686,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
                 int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());
                 uint8_t wind = windSpeedToBeaufort(doc["daily"]["windspeed_10m_max"][dag].as<double>());
 
-                spr.loadFont("fonts/GillSC20", LittleFS);
+                spr.loadFont("fonts/twcondensed20", LittleFS);
                 drawString(spr, String(tmin) + " ", dag * 59 + 30, 108, "", TR_DATUM, (tmin < 0 ? PAL_RED : PAL_BLACK));
                 drawString(spr, String(" ") + String(tmax), dag * 59 + 30, 108, "", TL_DATUM, (tmax < 0 ? PAL_RED : PAL_BLACK));
                 drawString(spr, String(" ") + String(wind), dag * 59 + 30, 43, "", TL_DATUM, (wind > 5 ? PAL_RED : PAL_BLACK));
@@ -724,7 +707,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
             for (uint8_t dag = 0; dag < 5; dag++) {
                 time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
                 struct tm *datum = localtime(&weatherday);
-                drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * 59 + 30, 18, "fonts/twbold20", TC_DATUM, PAL_BLACK);
+                drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * 59 + 30, 18, "fonts/twcondensed20", TC_DATUM, PAL_BLACK);
 
                 uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
                 if (weathercode > 40) weathercode -= 40;
@@ -748,7 +731,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
                 int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());
                 uint8_t wind = windSpeedToBeaufort(doc["daily"]["windspeed_10m_max"][dag].as<double>());
 
-                spr.loadFont("fonts/GillSC20", LittleFS);
+                spr.loadFont("fonts/twcondensed20", LittleFS);
                 drawString(spr, String(tmin) + " ", dag * 59 + 30, 108, "", TR_DATUM, (tmin < 0 ? PAL_RED : PAL_BLACK));
                 drawString(spr, String(" ") + String(tmax), dag * 59 + 30, 108, "", TL_DATUM, (tmax < 0 ? PAL_RED : PAL_BLACK));
                 drawString(spr, String(" ") + String(wind), dag * 59 + 30, 43, "", TL_DATUM, (wind > 5 ? PAL_RED : PAL_BLACK));

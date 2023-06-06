@@ -143,7 +143,7 @@ void saveDB(String filename) {
         if (c > 0) {
             file.write(',');
         }
-        serializeJson(doc, file);
+        serializeJsonPretty(doc, file);
     }
     file.write(']');
 

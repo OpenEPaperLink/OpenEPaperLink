@@ -10,3 +10,4 @@ void handleUpdateOTA(AsyncWebServerRequest* request);
 void firmwareUpdateTask(void* parameter);
 void updateFirmware(const char* url, const char* expectedMd5, size_t size);
 void handleRollback(AsyncWebServerRequest* request);
+void handleUpdateActions(AsyncWebServerRequest* request);

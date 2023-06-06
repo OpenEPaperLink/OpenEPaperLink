@@ -151,6 +151,23 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
                 consoleDiv.scrollTop = consoleDiv.scrollHeight;
 
                 print("Updating littleFS partition...");
+
+                try {
+                    const response = await fetch("/update_actions", {
+                        method: "POST",
+                        body: ''
+                    });
+                    if (response.ok) {
+                        const data = await response.text();
+                    } else {
+                        print(`error performing update actions: ${response.status}`, "red");
+                        errors++;
+                    }
+                } catch (error) {
+                    console.error(`error calling update actions:` + error, "red");
+                    errors++;
+                }
+
                 fetch("/getexturl?url=" + fileUrl)
                     .then(response => response.json())
                     .then(data => {

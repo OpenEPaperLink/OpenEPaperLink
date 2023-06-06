@@ -159,8 +159,12 @@ function processTags(tagArray) {
 			$('#tag' + tagmac + ' .model').innerHTML = models[element.hwType];
 			$('#tag' + tagmac + ' .rssi').innerHTML = element.RSSI;
 			$('#tag' + tagmac + ' .lqi').innerHTML = element.LQI;
-			$('#tag' + tagmac + ' .temperature').innerHTML = element.temperature;
-			$('#tag' + tagmac + ' .batt').innerHTML = element.batteryMv / 1000;
+			$('#tag' + tagmac + ' .temperature').innerHTML = (element.temperature > 0 ? ", " + element.temperature + "&deg;C": "");
+			if (element.batteryMv == 0 || element.batteryMv == 1337) {
+				$('#tag' + tagmac + ' .batt').innerHTML = "";
+			} else {
+				$('#tag' + tagmac + ' .batt').innerHTML = ", " + (element.batteryMv >= 2600 ? "&#x2265;" : "") + (element.batteryMv / 1000) + "V";
+			}
 			$('#tag' + tagmac + ' .received').style.opacity = "1";
 		} else {
 			$('#tag' + tagmac + ' .model').innerHTML = "waiting for hardware type";

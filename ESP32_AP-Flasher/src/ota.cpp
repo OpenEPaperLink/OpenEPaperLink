@@ -39,12 +39,12 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["rollback"] = Update.canRollBack();
 
     size_t bufferSize = measureJson(doc) + 1;
-    AsyncResponseStream *response = request->beginResponseStream("application/json", bufferSize);
+    AsyncResponseStream* response = request->beginResponseStream("application/json", bufferSize);
     serializeJson(doc, *response);
     request->send(response);
 };
 
-void handleCheckFile(AsyncWebServerRequest *request) {
+void handleCheckFile(AsyncWebServerRequest* request) {
     if (!request->hasParam("path")) {
         request->send(400);
         return;
@@ -110,7 +110,7 @@ void handleGetExtUrl(AsyncWebServerRequest* request) {
     }
 }
 
-void handleLittleFSUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final) {
     bool error = false;
     if (!index) {
         String path;
@@ -183,9 +183,9 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
 
     config.runStatus = RUNSTATUS_STOP;
     vTaskDelay(3000 / portTICK_PERIOD_MS);
-    //xSemaphoreTake(tagDBOwner, portMAX_DELAY);
+    // xSemaphoreTake(tagDBOwner, portMAX_DELAY);
     saveDB("/current/tagDB.json");
-    //destroyDB();
+    // destroyDB();
 
     HTTPClient httpClient;
 
@@ -222,7 +222,7 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
                     wsSerial("Reboot system now");
                     wsSerial("[reboot]");
                     vTaskDelay(1000 / portTICK_PERIOD_MS);
-                    //ESP.restart();
+                    // ESP.restart();
                 } else {
                     wsSerial("Error updating firmware:");
                     wsSerial(Update.errorString());
@@ -241,9 +241,9 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
     }
 
     httpClient.end();
-    //loadDB("/current/tagDB.json");
+    // loadDB("/current/tagDB.json");
     config.runStatus = RUNSTATUS_RUN;
-    //xSemaphoreGive(tagDBOwner);
+    // xSemaphoreGive(tagDBOwner);
 }
 
 void handleRollback(AsyncWebServerRequest* request) {
@@ -255,7 +255,7 @@ void handleRollback(AsyncWebServerRequest* request) {
             wsSerial("Reboot system now");
             wsSerial("[reboot]");
             vTaskDelay(1000 / portTICK_PERIOD_MS);
-            //ESP.restart();
+            // ESP.restart();
         } else {
             wsSerial("Rollback failed");
             request->send(400, "Rollback failed");
@@ -264,4 +264,26 @@ void handleRollback(AsyncWebServerRequest* request) {
         wsSerial("Rollback not allowed");
         request->send(400, "Rollback not allowed");
     }
+}
+
+void handleUpdateActions(AsyncWebServerRequest* request) {
+    wsSerial("Performing cleanup");
+    File file = LittleFS.open("/update_actions.json", "r");
+    if (!file) {
+        wsSerial("No update_actions.json present");
+        request->send(200, "No update actions needed");
+        return;
+    }
+    StaticJsonDocument<1000> doc;
+    DeserializationError error = deserializeJson(doc, file);
+    JsonArray deleteFiles = doc["deletefile"].as<JsonArray>();
+    for (const auto& filePath : deleteFiles) {
+        if (LittleFS.remove(filePath.as<const char*>())) {
+            wsSerial("deleted file: " + filePath.as<String>());
+        }
+    }
+    file.close();
+    wsSerial("Cleanup finished");
+    request->send(200, "Clean up finished");
+    LittleFS.remove("/update_actions.json");
 }
