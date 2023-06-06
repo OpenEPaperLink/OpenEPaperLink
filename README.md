@@ -70,7 +70,9 @@ After programming the ESP32, make sure to also program the filesystem. This will
 Hats off to these legends!
  
 ## Automated Builds
-- After a PR gets merged to the main branch, the ESP32 code will automatically be compiled. This can take up to 20 minutes.
-- Information about the latest builds can be found below
-<img alt="builds" src="https://openepaperlink.de/build/img.php">
+- After a PR gets merged to the main branch, the ESP32 code will automatically be compiled.
+- On release, files are added to enable OTA
 
+![Test](https://github.com/jjwbruijn/OpenEPaperLink/actions/workflows/build-esp32.yml/badge.svg)
+
+![Release](https://github.com/jjwbruijn/OpenEPaperLink/actions/workflows/release.yml/badge.svg)
