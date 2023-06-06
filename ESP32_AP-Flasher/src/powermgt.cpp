@@ -22,6 +22,25 @@ void simpleAPPower(bool state) {
 }
 #endif
 
+#ifdef OPENEPAPERLINK_NANO_AP_PCB
+void simpleAPPower(bool state) {
+    if (FLASHER_AP_POWER >= 0 && FLASHER_AP_POWER2 >= 0 && FLASHER_AP_POWER3 >= 0 && FLASHER_AP_POWER4 >= 0) {
+        pinMode(FLASHER_AP_POWER, INPUT);
+        pinMode(FLASHER_AP_POWER2, INPUT);
+        pinMode(FLASHER_AP_POWER3, INPUT);
+        pinMode(FLASHER_AP_POWER4, INPUT);
+        digitalWrite(FLASHER_AP_POWER, state);
+        digitalWrite(FLASHER_AP_POWER2, state);
+        digitalWrite(FLASHER_AP_POWER3, state);
+        digitalWrite(FLASHER_AP_POWER4, state);
+        pinMode(FLASHER_AP_POWER, OUTPUT);
+        pinMode(FLASHER_AP_POWER2, OUTPUT);
+        pinMode(FLASHER_AP_POWER3, OUTPUT);
+        pinMode(FLASHER_AP_POWER4, OUTPUT);
+    }
+}
+#endif
+
 // On the OpenEPaperLink board, there is no in-rush current limiting. The tags that can be connected to the board can have significant capacity, which,
 // when drained if the board applies power, will cause the 3v3 rail to sag enough to reset the ESP32. This is obviously not great. To prevent this from happening,
 // we ramp up/down the voltage with PWM. Ramping down really is unnecessary, as the board has a resistor to dump the charge into.
@@ -53,6 +72,11 @@ void rampTagPower(uint8_t pin, bool up) {
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1);
 #endif
 #ifdef SIMPLE_AP
+    simpleAPPower(false);
+    delay(500);
+    simpleAPPower(up);
+#endif
+#ifdef OPENEPAPERLINK_NANO_AP_PCB
     simpleAPPower(false);
     delay(500);
     simpleAPPower(up);

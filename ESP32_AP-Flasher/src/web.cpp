@@ -228,15 +228,16 @@ void init_web() {
 
     WiFiManager wm;
     bool res;
-#ifdef OPENEPAPERLINK_MINI_AP_PCB
+#if defined(OPENEPAPERLINK_MINI_AP_PCB) || defined(OPENEPAPERLINK_NANO_AP_PCB)
     WiFi.setTxPower(WIFI_POWER_15dBm);
 #endif
+    wm.setWiFiAutoReconnect(true);
     res = wm.autoConnect("OpenEPaperLink Setup");
     if (!res) {
         Serial.println("Failed to connect");
         ESP.restart();
     }
-#ifdef OPENEPAPERLINK_MINI_AP_PCB
+#if defined(OPENEPAPERLINK_MINI_AP_PCB) || defined(OPENEPAPERLINK_NANO_AP_PCB)
     WiFi.setTxPower(WIFI_POWER_19_5dBm);
 #endif
     Serial.print("Connected! IP address: ");

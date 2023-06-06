@@ -51,7 +51,7 @@ void setup() {
     showColorPattern(CRGB::Aqua, CRGB::Green, CRGB::Blue);
 #endif
 
-#ifdef OPENEPAPERLINK_MINI_AP_PCB
+#if defined(OPENEPAPERLINK_MINI_AP_PCB) || defined(OPENEPAPERLINK_NANO_AP_PCB)
     APEnterEarlyReset();
     // this allows us to view the booting process. After the device showing up, you have 3 seconds to open a terminal on the COM port
     vTaskDelay(3000 / portTICK_PERIOD_MS);
