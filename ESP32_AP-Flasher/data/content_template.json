@@ -1,0 +1,129 @@
+{
+ "1": {
+  "0": {
+   "weekday": [ 76, 10, "fonts/calibrib30" ],
+   "month": [ 76, 120, "fonts/calibrib30" ],
+   "day": [ 76, 42, "fonts/calibrib100" ]
+  },
+  "1": {
+   "weekday": [ 148, 10, "fonts/calibrib60" ],
+   "date": [ 148, 73, "fonts/calibrib50" ]
+  },
+  "2": {
+   "weekday": [ 200, 25, "fonts/calibrib60" ],
+   "month": [ 200, 225, "fonts/calibrib60" ],
+   "day": [ 200, 95, "fonts/calibrib150" ]
+  }
+ },
+ "2": {
+  "0": {
+   "fonts": [ "fonts/calibrib120", "fonts/calibrib80", "fonts/calibrib50", "fonts/calibrib50" ],
+   "xy": [ 76, 83 ]
+  },
+  "1": {
+   "fonts": [ "fonts/calibrib150", "fonts/calibrib150", "fonts/calibrib120", "fonts/calibrib100" ],
+   "xy": [ 148, 74 ]
+  },
+  "2": {
+   "fonts": [ "fonts/calibrib150", "fonts/calibrib150", "fonts/calibrib150", "fonts/calibrib120" ],
+   "xy": [ 200, 148 ]
+  }
+ },
+ "4": {
+  "0": {
+   "location": [ 10, 130, 2 ],
+   "wind": [ 140, 10, "fonts/bahnschrift30" ],
+   "temp": [ 10, 10, "fonts/bahnschrift30" ],
+   "icon": [ 33, 33, "fonts/weathericons78" ],
+   "dir": [ 100, -2, "fonts/weathericons30" ],
+   "umbrella": [ 115, 110 ]
+  },
+  "1": {
+   "location": [ 5, 5, "fonts/bahnschrift30" ],
+   "wind": [ 280, 5, "fonts/bahnschrift30" ],
+   "temp": [ 5, 65, "fonts/bahnschrift70" ],
+   "icon": [ 185, 32, "fonts/weathericons70" ],
+   "dir": [ 240, -3, "fonts/weathericons30" ],
+   "umbrella": [ 190, 0 ]
+  },
+  "2": {
+   "location": [ 20, 20, "fonts/calibrib30" ],
+   "wind": [ 290, 83, "fonts/calibrib60" ],
+   "temp": [ 20, 170, "fonts/calibrib150" ],
+   "icon": [ 100, 50, "fonts/weathericons78" ],
+   "dir": [ 220, 50, "fonts/weathericons78" ],
+   "umbrella": [ 330, 10 ]
+  }
+ },
+ "8": {
+  "1": {
+   "location": [ 5, 0, 2 ],
+   "column": [ 5, 59 ],
+   "day": [ 30, 18, "fonts/twcondensed20", 41, 108 ],
+   "icon": [ 12, 58, "fonts/weathericons30" ],
+   "wind": [ 17, 25 ],
+   "line": [ 20, 128 ]
+  },
+  "2": {
+   "location": [ 10, 10, "fonts/calibrib30" ],
+   "column": [ 6, 66 ],
+   "day": [ 33, 60, "fonts/bahnschrift20", 104, 230 ],
+   "rain": [ 34, 260 ],
+   "icon": [ 15, 145, "fonts/weathericons30" ],
+   "wind": [ 17, 90 ],
+   "line": [ 50, 300 ]
+  }
+ },
+ "9": {
+  "1": {
+   "title": [ 5, 3, "fonts/bahnschrift20" ],
+   "items": 8,
+   "line": [ 5, 34, 13 ],
+   "font": "glasstown_nbp_tf"
+  },
+  "2": {
+   "title": [ 10, 10, "fonts/calibrib30" ],
+   "items": 12,
+   "line": [ 10, 60, 20 ],
+   "font": "7x14_tf"
+  }
+ },
+ "10": {
+  "0": {
+   "title": [ 10, 3, 2 ],
+   "pos": [ 76, 20 ]
+  },
+  "1": {
+   "title": [ 10, 5, "fonts/bahnschrift20" ],
+   "pos": [ 149, 25 ]
+  },
+  "2": {
+   "title": [ 10, 10, "fonts/bahnschrift20" ],
+   "pos": [ 200, 30 ]
+  }
+ },
+ "11": {
+  "1": {
+   "title": [ 5, 2, "fonts/bahnschrift20" ],
+   "date": [ 290, 2 ],
+   "items": 7,
+   "red": [ 0, 21, 296, 14 ],
+   "line": [ 5, 32, 15, "t0_14b_tf", 50 ]
+  },
+  "2": {
+   "title": [ 10, 10, "fonts/bahnschrift30" ],
+   "date": [ 390, 10 ],
+   "items": 12,
+   "red": [ 0, 48, 400, 17 ],
+   "line": [ 10, 61, 18, "7x14_tf", 60 ]
+  }
+ },
+ "16": {
+  "1": {
+   "location": [ 5, 5, "fonts/bahnschrift30" ],
+   "title": [ 247, 11, "glasstown_nbp_tf" ],
+   "cols": [ 1, 125, 12 ],
+   "bars": [ 5, 111, 10 ]
+  }
+ }
+}

@@ -487,6 +487,15 @@ function contentselected() {
 					input.type = "text";
 					input.disabled = true;
 					break;
+				case 'select':
+					input = document.createElement("select");
+					for (const key in element.options) {
+						const optionElement = document.createElement("option");
+						optionElement.value = key;
+						optionElement.text = element.options[key];
+						input.appendChild(optionElement);
+					}
+					break;
 			}
 			input.id = 'opt' + element.key;
 			input.title = element.desc;

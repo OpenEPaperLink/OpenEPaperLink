@@ -19,10 +19,22 @@
 #include "udp.h"
 #include "web.h"
 
+void delayedStart(void* parameter) {
+    vTaskDelay(30000 / portTICK_PERIOD_MS);
+    Serial.println("Resuming content generation");
+    wsLog("resuming content generation");
+    config.runStatus = RUNSTATUS_RUN;
+    vTaskDelete(NULL);
+}
+
 void timeTask(void* parameter) {
     config.runStatus = RUNSTATUS_RUN;
     esp_reset_reason_t resetReason = esp_reset_reason();
-    // if (resetReason == ESP_RST_PANIC) config.runStatus = RUNSTATUS_PAUSE;
+    if (resetReason == ESP_RST_PANIC) {
+        Serial.println("Panic! Pausing content generation for 60 seconds");
+        config.runStatus = RUNSTATUS_PAUSE;
+        xTaskCreate(delayedStart, "delaystart", 2000, NULL, 2, NULL);
+    }
     while (1) {
         time_t now;
         time(&now);

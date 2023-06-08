@@ -21,6 +21,16 @@
         "name": "TimeToLive",
         "desc": "Amount (minutes) that this image will stay valid. The tag might not respond meanwhile",
         "type": "int"
+      },
+      {
+        "key": "dither",
+        "name": "Dithering",
+        "desc": "Turn halftone dithering on or off. Turn it on when displaying photos. For texts, you better leave if off",
+        "type": "select",
+        "options": {
+          "0": "off",
+          "1": "on"
+        }
       }
     ]
   },

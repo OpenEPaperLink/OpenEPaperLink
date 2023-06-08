@@ -37,9 +37,10 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
 #endif
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
-        //no heap space for 8bpp, fallback to 1bpp
-        wsErr("fallback to 1bpp");
+        wsErr("low on memory. Fallback to 1bpp");
         spr.setColorDepth(1);
+        spr.setBitmapColor(TFT_WHITE, TFT_BLACK);
+        imageParams.bpp = 1;
         spr.createSprite(w, h);
     }
     if (spr.getPointer() == nullptr) {
@@ -105,6 +106,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
         Serial.println("rendering with gray");
     }
     int num_colors = palette.size();
+    if (imageParams.bpp == 1) num_colors = 2;
     Color color;
     Error *error_bufferold = new Error[bufw + 4];
     Error *error_buffernew = new Error[bufw + 4];

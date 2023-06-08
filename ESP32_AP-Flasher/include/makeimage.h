@@ -8,6 +8,7 @@ struct imgParam {
     uint8_t dataType;
     bool dither;
     bool grayLut = false;
+    uint8_t bpp = 8;
 
     char segments[12];
     uint16_t symbols;

@@ -260,13 +260,14 @@ void clearPending(tagRecord* taginfo) {
 
 void initAPconfig() {
     LittleFS.begin(true);
-    DynamicJsonDocument APconfig(150);
+    DynamicJsonDocument APconfig(500);
     File configFile = LittleFS.open("/current/apconfig.json", "r");
     if (configFile) {
         DeserializationError error = deserializeJson(APconfig, configFile);
         if (error) {
             configFile.close();
             Serial.println("failed to read apconfig.json. Using default config");
+            Serial.println(error.c_str());
         }
         configFile.close();
     }
@@ -280,7 +281,7 @@ void initAPconfig() {
 
 void saveAPconfig() {
     fs::File configFile = LittleFS.open("/current/apconfig.json", "w");
-    DynamicJsonDocument APconfig(150);
+    DynamicJsonDocument APconfig(500);
     APconfig["channel"] = config.channel;
     APconfig["alias"] = config.alias;
     APconfig["led"] = config.led;

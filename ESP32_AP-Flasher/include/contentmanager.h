@@ -2,6 +2,7 @@
 #include <LittleFS.h>
 #include <TFT_eSPI.h>
 
+#include "U8g2_for_TFT_eSPI.h"
 #include "makeimage.h"
 #include "tag_db.h"
 
@@ -18,7 +19,7 @@ void contentRunner();
 void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo);
 bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, tagRecord *&taginfo, imgParam &imageParams);
 void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, byte align = 0, uint16_t color = TFT_BLACK);
-void initSprite(TFT_eSprite &spr, int w, int h);
+void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams);
 void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams);
 void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo, imgParam &imageParams);
 void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
@@ -36,3 +37,5 @@ String windDirectionIcon(int degrees);
 void getLocation(JsonObject &cfgobj);
 void prepareNFCReq(uint8_t* dst, const char* url);
 void prepareLUTreq(uint8_t *dst, String input);
+void getTemplate(JsonDocument &json, const char *filePath, uint8_t id, uint8_t hwtype);
+void setU8G2Font(const String &title, U8g2_for_TFT_eSPI &u8f);
