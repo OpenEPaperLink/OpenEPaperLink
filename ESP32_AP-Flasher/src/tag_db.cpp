@@ -117,6 +117,8 @@ void fillNode(JsonObject &tag, tagRecord* &taginfo) {
     tag["capabilities"] = taginfo->capabilities;
     tag["modecfgjson"] = taginfo->modeConfigJson;
     tag["isexternal"] = taginfo->isExternal;
+    tag["rotate"] = taginfo->rotate;
+    tag["lut"] = taginfo->lut;
 }
 
 void saveDB(String filename) {
@@ -210,6 +212,8 @@ void loadDB(String filename) {
                     taginfo->capabilities = tag["capabilities"];
                     taginfo->modeConfigJson = tag["modecfgjson"].as<String>();
                     taginfo->isExternal = tag["isexternal"].as<bool>();
+                    taginfo->rotate = tag["rotate"] | 0;
+                    taginfo->lut = tag["lut"] | 0;
                 }
             } else {
                 Serial.print(F("deserializeJson() failed: "));
@@ -251,6 +255,7 @@ uint8_t getTagCount() {
 }
 
 void clearPending(tagRecord* taginfo) {
+    taginfo->filename = String();
     if (taginfo->data != nullptr) {
         free(taginfo->data);
         taginfo->data = nullptr;

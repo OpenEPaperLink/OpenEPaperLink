@@ -11,8 +11,9 @@ const WAKEUP_REASON_WDT_RESET = 0xFE;
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
 models[240] = "Segmented tag"
 models[17] = "2.9\" 296x128px (UC8151)"
-const displaySizeLookup = { 0: [152, 152], 1: [128, 296], 2: [400, 300] };
-displaySizeLookup[17] = [128, 296];
+const displaySizeLookup = { 0: [152, 152, 4], 1: [128, 296, 2], 2: [400, 300, 2] };  // w, h, rotate
+displaySizeLookup[17] = [128, 296, 2];
+displaySizeLookup[240] = [0, 0, 0];
 const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [150, 150, 150] };
 
 const apstate = [
@@ -272,6 +273,7 @@ $('#clearlog').onclick = function () {
 document.querySelectorAll('.closebtn').forEach(button => {
 	button.addEventListener('click', (event) => {
 		event.target.parentNode.style.display = 'none';
+		$('#advancedoptions').style.height = '0px';
 	});
 });
 
@@ -295,18 +297,28 @@ $('#taglist').addEventListener("click", (event) => {
 		.then(data => {
 			var tagdata = data.tags[0];
 			$('#cfgalias').value = tagdata.alias;
+			$('#cfgmore').style.display = "none";
 			if (populateSelectTag(tagdata.hwType, tagdata.capabilities)) {
 				$('#cfgcontent').parentNode.style.display = "flex";				
 				$('#cfgcontent').value = tagdata.contentMode;
 				$('#cfgcontent').dataset.json = tagdata.modecfgjson;
 				contentselected();
+				if (tagdata.contentMode != 12) $('#cfgmore').style.display = 'block';
 			} else {
 				$('#customoptions').innerHTML = "";
 				$('#cfgcontent').parentNode.style.display = "none";
 			}
+			$('#cfgrotate').value = tagdata.rotate;
+			$('#cfglut').value = tagdata.lut;
+			$('#cfgmore').innerHTML = '&#x1f783;';
 			$('#configbox').style.display = 'block';
 		})
 })
+
+$('#cfgmore').onclick = function () {
+	$('#cfgmore').innerHTML = $('#advancedoptions').style.height == '0px' ? '&#x1f781;' : '&#x1f783;';
+	$('#advancedoptions').style.height = $('#advancedoptions').style.height == '0px' ? $('#advancedoptions').scrollHeight + 'px' : '0px';
+};
 
 $('#cfgsave').onclick = function () {
 	let contentMode = $('#cfgcontent').value;
@@ -332,6 +344,9 @@ $('#cfgsave').onclick = function () {
 		formData.append("modecfgjson", String());
 	}
 
+	formData.append("rotate", $('#cfgrotate').value);
+	formData.append("lut", $('#cfglut').value);
+	
 	fetch("/save_cfg", {
 		method: "POST",
 		body: formData
@@ -340,24 +355,39 @@ $('#cfgsave').onclick = function () {
 		.then(data => showMessage(data))
 		.catch(error => showMessage('Error: ' + error));
 
+	$('#advancedoptions').style.height = '0px';
 	$('#configbox').style.display = 'none';
 }
 
-$('#cfgdelete').onclick = function () {
+function sendCmd(mac, cmd) {
 	let formData = new FormData();
-	formData.append("mac", $('#cfgmac').dataset.mac);
-	fetch("/delete_cfg", {
+	formData.append("mac", mac);
+	formData.append("cmd", cmd);
+	fetch("/tag_cmd", {
 		method: "POST",
 		body: formData
 	})
 		.then(response => response.text())
 		.then(data => {
 			var div = $('#tag' + $('#cfgmac').dataset.mac);
-			div.remove();
+			if (cmd == "del") div.remove();
 			showMessage(data);
 		})
 		.catch(error => showMessage('Error: ' + error));
+	$('#advancedoptions').style.height = '0px';
 	$('#configbox').style.display = 'none';
+}
+
+$('#cfgdelete').onclick = function () {
+	sendCmd($('#cfgmac').dataset.mac, "del");
+}
+
+$('#cfgclrpending').onclick = function () {
+	sendCmd($('#cfgmac').dataset.mac, "clear");
+}
+
+$('#cfgrefresh').onclick = function () {
+	sendCmd($('#cfgmac').dataset.mac, "refresh");
 }
 
 $('#rebootbutton').onclick = function () {
@@ -459,7 +489,6 @@ function contentselected() {
 		obj = JSON.parse($('#cfgcontent').dataset.json);
 	}
 	$('#paintbutton').style.display = 'none';
-
 	if (contentMode) {
 		let contentDef = getContentDefById(contentMode);
 		if (contentDef) {
@@ -514,17 +543,46 @@ function populateSelectTag(hwtype, capabilities) {
 	var selectTag = $("#cfgcontent");
 	selectTag.innerHTML = "";
 	var optionsAdded = false;
+	var option;
 	cardconfig.forEach(item => {
 		var capcheck = item.capabilities ?? 0;
 		var hwtypeArray = item.hwtype;
 		if (hwtypeArray.includes(hwtype) && (capabilities & capcheck || capcheck == 0)) {
-			var option = document.createElement("option");
+			option = document.createElement("option");
 			option.value = item.id;
 			option.text = item.name;
 			selectTag.appendChild(option);
 			optionsAdded = true;
 		}
 	});
+
+	var rotateTag = $("#cfgrotate");
+	rotateTag.innerHTML = "";
+
+	for (let i = 0; i < 4; i++) {
+		if (i == 0 || displaySizeLookup[hwtype][2] == 4 || (i == 2 && displaySizeLookup[hwtype][2] == 2)) {
+			option = document.createElement("option");
+			option.value = i;
+			option.text = (i * 90) + " degrees";
+			rotateTag.appendChild(option);
+		}
+	}
+
+	var lutTag = $("#cfglut");
+	lutTag.innerHTML = "";
+
+	option = document.createElement("option");
+	option.value = "0";
+	option.text = "auto";
+	lutTag.appendChild(option);
+
+	if (hwtype != 240) {
+		option = document.createElement("option");
+		option.value = "1";
+		option.text = "Always full refresh";
+		lutTag.appendChild(option);
+	}
+
 	return optionsAdded;
 }
 

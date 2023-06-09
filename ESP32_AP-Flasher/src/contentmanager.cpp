@@ -128,10 +128,11 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
     imageParams.dither = false;
-    if (taginfo->hasCustomLUT) imageParams.grayLut = true;
+    if (taginfo->hasCustomLUT && taginfo->lut != 1) imageParams.grayLut = true;
 
     imageParams.invert = false;
     imageParams.symbols = 0;
+    imageParams.rotate = taginfo->rotate;
 
     switch (taginfo->contentMode) {
         case Image:
@@ -1002,7 +1003,7 @@ void prepareLUTreq(uint8_t *dst, String input) {
 void getTemplate(JsonDocument &json, const char *filePath, uint8_t id, uint8_t hwtype) {
     File jsonFile = LittleFS.open(filePath, "r");
     if (!jsonFile) {
-        Serial.println("Failed to open JSON file");
+        Serial.println("Failed to open content template file " + String(filePath));
         return;
     }
 

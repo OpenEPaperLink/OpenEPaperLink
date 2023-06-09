@@ -690,7 +690,7 @@ void APTask(void* parameter) {
         Serial.println("I wasn't able to connect to a ZBS (AP) tag.\n");
         Serial.printf("This could be the first time this AP is booted and the AP-tag may be unflashed. We'll try to flash it!\n");
         Serial.printf("If this tag was previously flashed succesfully but this message still shows up, there's probably something wrong with the serial connections.\n");
-        Serial.printf("The build of this firmware expects an AP tag with RXD/TXD on ESP32 pins %d and %d, does this match with your wiring?\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
+        Serial.printf("The build of this firmware expects an AP tag with TXD/RXD on ESP32 pins %d and %d, does this match with your wiring?\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
         Serial.println("Performing firmware flash in about 30 seconds!\n");
         flashCountDown(30);
         if (doAPFlash()) {
@@ -729,8 +729,8 @@ void APTask(void* parameter) {
             Serial.println("Seems like you're running into some issues with the wiring, or (very small chance) the tag itself");
             Serial.println("This ESP32-build expects the following pins connected to the ZBS243:");
             Serial.println("---  ZBS243 based tag              ESP32  ---");
-            Serial.printf("       RXD     ----------------     %02d\n", FLASHER_AP_RXD);
-            Serial.printf("       TXD     ----------------     %02d\n", FLASHER_AP_TXD);
+            Serial.printf("       TXD     ----------------     %02d\n", FLASHER_AP_RXD);
+            Serial.printf("       RXD     ----------------     %02d\n", FLASHER_AP_TXD);
             Serial.printf("       CS/SS   ----------------     %02d\n", FLASHER_AP_SS);
             Serial.printf("       MOSI    ----------------     %02d\n", FLASHER_AP_MOSI);
             Serial.printf("       MISO    ----------------     %02d\n", FLASHER_AP_MISO);

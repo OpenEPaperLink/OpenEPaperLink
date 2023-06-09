@@ -98,6 +98,7 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, uint8_t* ds
     taginfo->len = len;
     taginfo->expectedNextCheckin = 0;
     taginfo->filename = String();
+    taginfo->dataType = dataType;
     memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
 
     struct pendingData pending = {0};
@@ -168,11 +169,11 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     time_t now;
     time(&now);
     time_t last_midnight = now - now % (24 * 60 * 60) + 3 * 3600;  // somewhere in the middle of the night
-    if (taginfo->lastfullupdate < last_midnight || taginfo->hwType == SOLUM_29_UC8151) {
+    if (taginfo->lastfullupdate < last_midnight || taginfo->hwType == SOLUM_29_UC8151 || taginfo->lut == 1) {
         lut = EPD_LUT_DEFAULT;  // full update once a day
         taginfo->lastfullupdate = now;
     }
-    if (taginfo->hasCustomLUT && taginfo->capabilities & CAPABILITY_SUPPORTS_CUSTOM_LUTS) {
+    if (taginfo->hasCustomLUT && taginfo->capabilities & CAPABILITY_SUPPORTS_CUSTOM_LUTS && taginfo->lut != 1) {
         Serial.println("using custom LUT");
         lut = EPD_LUT_OTA;
     }
@@ -190,16 +191,18 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
         time_t now;
         time(&now);
         taginfo->expectedNextCheckin = now + nextCheckin * 60 + 60;
+        clearPending(taginfo);
         taginfo->filename = *filename;
         taginfo->len = filesize;
-        clearPending(taginfo);
+        taginfo->dataType = dataType;
         taginfo->pending = true;
         memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
     } else {
         wsLog("firmware upload pending");
+        clearPending(taginfo);
         taginfo->filename = *filename;
         taginfo->len = filesize;
-        clearPending(taginfo);
+        taginfo->dataType = dataType;
         taginfo->pending = true;
     }
 
@@ -272,9 +275,10 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 }
 
                 file.close();
+                clearPending(taginfo);
                 taginfo->filename = filename;
                 taginfo->len = filesize;
-                clearPending(taginfo);
+                taginfo->dataType = pending->availdatainfo.dataType;
                 taginfo->pending = true;
                 memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
                 break;
@@ -296,6 +300,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                         taginfo->data = new uint8_t[len];
                         WiFiClient* stream = http.getStreamPtr();
                         stream->readBytes(taginfo->data, len);
+                        taginfo->dataType = pending->availdatainfo.dataType;
                         taginfo->pending = true;
                         taginfo->len = len;
                     } 
@@ -334,7 +339,7 @@ void processBlockRequest(struct espBlockRequest* br) {
         // not cached. open file, cache the data
         fs::File file = LittleFS.open(taginfo->filename);
         if (!file) {
-            Serial.print("Dunno how this happened... File pending but deleted in the meantime?\n");
+            Serial.print("No current file. Canceling request\n");
             prepareCancelPending(br->src);
             return;
         }

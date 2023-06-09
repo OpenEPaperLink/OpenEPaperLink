@@ -142,6 +142,33 @@ select {
 	width: 80px;
 }
 
+#advancedoptions {
+	overflow: hidden;
+	transition: height 0.3s ease;
+}
+
+#advancedoptions p:first-child {
+	font-weight: 700;
+	font-size: 1.2em;
+}
+
+#savebar {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+}
+
+#savebar:first-child {
+	flex-grow: 2;
+}
+
+#cfgmore {
+	padding: 2px 5px;
+	font-weight: 700;
+	font-size: 1.2em;
+	cursor: pointer;
+}
+
 #apconfigbox {
 	background-color: #e6f0d3;
 }
@@ -179,10 +206,8 @@ select {
 }
 
 #cfgdelete {
-	position: absolute;
-	bottom: 15px;
-	right: 15px;
-	cursor:pointer;
+	cursor: pointer;
+	padding: 2px 10px;
 }
 
 .closebtn {

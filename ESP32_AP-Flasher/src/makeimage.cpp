@@ -80,11 +80,12 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
 
     fs::File f_out = LittleFS.open(fileout, "w");
 
-    bool dither = true, rotated = false;
+    bool dither = true;
+    uint8_t rotate = imageParams.rotate;
     long bufw = spr.width(), bufh = spr.height();
 
     if (bufw > bufh && bufw!=400 && bufh!=300) {
-        rotated = true;
+        rotate = (rotate + 3) % 4;
         bufw = spr.height();
         bufh = spr.width();
     }
@@ -115,10 +116,19 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     for (uint16_t y = 0; y < bufh; y++) {
         memset(error_buffernew, 0, bufw * sizeof(Error));
         for (uint16_t x = 0; x < bufw; x++) {
-            if (rotated) {
-                color = Color(spr.readPixel(bufh - 1 - y, x));
-            } else {
-                color = Color(spr.readPixel(x, y));
+            switch (rotate) {
+                case 0:
+                    color = Color(spr.readPixel(x, y));
+                    break;
+                case 1:
+                    color = Color(spr.readPixel(y, bufw - 1 - x));
+                    break;
+                case 2:
+                    color = Color(spr.readPixel(bufw - 1 - x, bufh - 1 - y));
+                    break;
+                case 3:
+                    color = Color(spr.readPixel(bufh - 1 - y, x));
+                    break;
             }
 
             int best_color_index = 0;

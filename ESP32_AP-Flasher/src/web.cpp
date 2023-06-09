@@ -319,6 +319,12 @@ void init_web() {
                     taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
                     taginfo->contentMode = atoi(request->getParam("contentmode", true)->value().c_str());
                     taginfo->nextupdate = 0;
+                    if (request->hasParam("rotate", true)) {
+                        taginfo->rotate = atoi(request->getParam("rotate", true)->value().c_str());
+                    }
+                    if (request->hasParam("lut", true)) {
+                        taginfo->lut = atoi(request->getParam("lut", true)->value().c_str());
+                    }
                     // memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
                     // memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
                     wsSendTaginfo(mac, SYNC_USERCFG);
@@ -332,20 +338,33 @@ void init_web() {
         request->send(200, "text/plain", "Ok, saved");
     });
 
-    server.on("/delete_cfg", HTTP_POST, [](AsyncWebServerRequest *request) {
-        if (request->hasParam("mac", true)) {
-            String dst = request->getParam("mac", true)->value();
+    server.on("/tag_cmd", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("mac", true) && request->hasParam("cmd", true)) {
             uint8_t mac[8];
-            if (hex2mac(dst, mac)) {
-                wsSendTaginfo(mac, SYNC_DELETE);
-                if (deleteRecord(mac)) {
-                    request->send(200, "text/plain", "Ok, deleted");
+            if (hex2mac(request->getParam("mac", true)->value(), mac)) {
+                tagRecord *taginfo = nullptr;
+                taginfo = tagRecord::findByMAC(mac);
+                if (taginfo != nullptr) {
+                    const char *cmdValue = request->getParam("cmd", true)->value().c_str();
+                    if (strcmp(cmdValue, "del") == 0) {
+                        wsSendTaginfo(mac, SYNC_DELETE);
+                        deleteRecord(mac);
+                    }
+                    if (strcmp(cmdValue, "clear") == 0) {
+                        clearPending(taginfo);
+                        memcpy(taginfo->md5pending, taginfo->md5, sizeof(taginfo->md5pending));
+                        wsSendTaginfo(mac, SYNC_TAGSTATUS);
+                    }
+                    if (strcmp(cmdValue, "refresh") == 0) {
+                        updateContent(mac);
+                    }
+                    request->send(200, "text/plain", "Ok, done");
                 } else {
-                    request->send(200, "text/plain", "Error while saving: mac not found");
+                    request->send(200, "text/plain", "Error: mac not found");
                 }
             }
         } else {
-            request->send(500, "text/plain", "no mac");
+            request->send(500, "text/plain", "param error");
         }
     });
 

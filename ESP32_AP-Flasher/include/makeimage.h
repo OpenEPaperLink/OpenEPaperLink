@@ -9,6 +9,7 @@ struct imgParam {
     bool dither;
     bool grayLut = false;
     uint8_t bpp = 8;
+    uint8_t rotate = 0;
 
     char segments[12];
     uint16_t symbols;
