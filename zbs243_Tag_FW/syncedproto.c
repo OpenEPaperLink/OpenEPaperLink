@@ -874,7 +874,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             wdt10s();
             if (getDataBlock(avail->dataSize)) {
                 curDataInfo.dataSize = 0;  // mark as transfer not pending
-                memcpy(customLUT, sizeof(struct blockData) + blockXferBuffer, dispLutSize * 10);
+                memcpy(customLUT, sizeof(struct blockData) + blockXferBuffer, 6+(dispLutSize * 10));
                 powerUp(INIT_RADIO);
                 sendXferComplete();
                 powerDown(INIT_RADIO);

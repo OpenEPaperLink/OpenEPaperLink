@@ -23,6 +23,9 @@
 
 // #define DEBUG_MODE
 
+static const uint64_t __code __at (0x008b) mVersionRom = 0x1000011300000000ull;
+
+
 void displayLoop() {
     powerUp(INIT_BASE | INIT_UART);
 
