@@ -19,6 +19,8 @@
 #include "udp.h"
 #include "web.h"
 
+void pinTest();
+
 void delayedStart(void* parameter) {
     vTaskDelay(30000 / portTICK_PERIOD_MS);
     Serial.println("Resuming content generation");
@@ -78,6 +80,8 @@ void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
 
+
+            pinTest();
 #ifdef BOARD_HAS_PSRAM
     if (!psramInit()) {
         Serial.printf("This build of the AP expects PSRAM, but we couldn't find/init any. Something is terribly wrong here! System halted.");
@@ -146,6 +150,11 @@ void loop() {
     vTaskDelay(10000 / portTICK_PERIOD_MS);
     // performDeviceFlash();
     while (1) {
+       // pinTest();
+        while (1) {
+            vTaskDelay(10000 / portTICK_PERIOD_MS);
+            //pinTest();
+        }
 #ifdef OPENEPAPERLINK_PCB
         if (extTagConnected()) {
             flashCountDown(3);

@@ -110,15 +110,18 @@ bool waitCmdReply() {
 }
 
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
+int8_t APpowerPins[] = FLASHER_AP_POWER;
 #define AP_RESET_PIN FLASHER_AP_RESET
 #define AP_POWER_PIN FLASHER_AP_POWER
 #endif
 #ifdef OPENEPAPERLINK_PCB
 #if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
+int8_t APpowerPins[] = FLASHER_EXT_POWER;
 #define AP_RESET_PIN FLASHER_EXT_RESET
 #define AP_POWER_PIN FLASHER_EXT_POWER
 #endif
 #if (AP_PROCESS_PORT == FLASHER_ALTRADIO_PORT)
+int8_t APpowerPins[] = FLASHER_ALT_POWER;
 #define AP_RESET_PIN FLASHER_ALT_RESET
 #define AP_POWER_PIN FLASHER_ALT_POWER
 #endif
@@ -134,9 +137,9 @@ void APTagReset() {
     pinMode(AP_RESET_PIN, OUTPUT);
     digitalWrite(AP_RESET_PIN, LOW);
     vTaskDelay(50 / portTICK_PERIOD_MS);
-    rampTagPower(AP_POWER_PIN, false);
+    powerControl(false, (uint8_t*)APpowerPins, sizeof(APpowerPins));
     vTaskDelay(300 / portTICK_PERIOD_MS);
-    rampTagPower(AP_POWER_PIN, true);
+    powerControl(true, (uint8_t*)APpowerPins, sizeof(APpowerPins));
     vTaskDelay(100 / portTICK_PERIOD_MS);
     digitalWrite(AP_RESET_PIN, HIGH);
     vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -538,7 +541,7 @@ void ShowAPInfo() {
 void notifySegmentedFlash() {
     sendAPSegmentedData(apInfo.mac, (String) "Fl     ash", 0x0800, false, true);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
-#if (FLASHER_AP_POWER == -1)
+#ifdef POWER_NO_SOFT_POWER
     sendAPSegmentedData(apInfo.mac, (String) "If    done", 0x0800, false, true);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
     sendAPSegmentedData(apInfo.mac, (String) "RE    boot", 0x0800, false, true);
@@ -547,7 +550,7 @@ void notifySegmentedFlash() {
 }
 void checkWaitPowerCycle() {
     // check if we should wait for a power cycle. If we do, try to inform the user the best we can, and hang.
-#if (FLASHER_AP_POWER == -1)
+#ifdef POWER_NO_SOFT_POWER
     apInfo.isOnline = false;
     apInfo.state = AP_STATE_REQUIRED_POWER_CYCLE;
     // If we have no soft power control, we'll now wait until the device is power-cycled
@@ -708,10 +711,11 @@ void APTask(void* parameter) {
                 Serial.printf("This generally means that the flasher connections (MISO/MOSI/CLK/RESET/CS) are okay,\n");
                 Serial.printf("but we can't (yet) talk to the AP over serial lines. Verify the pins mentioned above.\n\n");
 
-                if (FLASHER_AP_POWER != -1) {
-                    Serial.printf("The firmware you're using expects soft power control over the AP tag; if it can't\n");
-                    Serial.printf("power-cycle the AP-tag using GPIO pin %d, this can cause this very same issue.\n", FLASHER_AP_POWER);
-                }
+#ifndef POWER_NO_SOFT_POWER
+                Serial.printf("The firmware you're using expects soft power control over the AP tag; if it can't\n");
+                Serial.printf("power-cycle the AP-tag using GPIO pin %d, this can cause this very same issue.\n", APpowerPins[0]);
+#endif
+
 #ifdef HAS_RGB_LED
                 showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
 #endif
@@ -736,10 +740,10 @@ void APTask(void* parameter) {
             Serial.printf("       MISO    ----------------     %02d\n", FLASHER_AP_MISO);
             Serial.printf("       CLK     ----------------     %02d\n", FLASHER_AP_CLK);
             Serial.printf("       RSET    ----------------     %02d\n", FLASHER_AP_RESET);
-#if (FLASHER_AP_POWER == -1)
+#ifdef POWER_NO_SOFT_POWER
             Serial.printf("Your firmware is configured without soft power control. This means you'll have to manually power-cycle the tag after flashing.\n");
 #else
-            Serial.printf("       POWER   ----------------     %02d\n", FLASHER_AP_POWER);
+            Serial.printf("       POWER   ----------------     %02d\n", APpowerPins[0]);
 #endif
             Serial.println("Please verify your wiring and try again!");
         }

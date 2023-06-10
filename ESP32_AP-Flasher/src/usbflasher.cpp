@@ -36,6 +36,12 @@ void enterConsoleMode() {
     xTaskCreate(consoleTask, "consoleTask", 10000, NULL, 2, &consoleTaskHandle);
 }
 
+int8_t powerPins[] = FLASHER_AP_POWER;
+#ifdef OPENEPAPERLINK_PCB
+int8_t powerPins2[] = FLASHER_EXT_POWER;
+int8_t powerPins3[] = FLASHER_ALT_POWER;
+#endif
+
 void sendFlasherAnswer(uint8_t answer_cmd, uint8_t* ans_buff, uint8_t len) {
     uint8_t* answer_buffer = (uint8_t*)calloc(2 + 2 + len + 2, 1);
     if (answer_buffer == nullptr) return;
@@ -259,16 +265,17 @@ void processFlasherCommand(struct flasherCommand* cmd) {
                 spi_speed = 8000000;
             }
             curspeed = spi_speed;
+
             if (cmd->data[0] & 2) {
-                temp_buff[0] = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, FLASHER_AP_POWER, spi_speed);
+                temp_buff[0] = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, (uint8_t*)powerPins, spi_speed);
             } else if (cmd->data[0] & 4) {
-                #ifdef OPENEPAPERLINK_PCB
-                temp_buff[0] = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, 255, spi_speed);
-                #endif
+#ifdef OPENEPAPERLINK_PCB
+                temp_buff[0] = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, (uint8_t*)powerPins3, spi_speed);
+#endif
             } else {
-                #ifdef OPENEPAPERLINK_PCB
-                temp_buff[0] = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, FLASHER_EXT_POWER, spi_speed);
-                #endif
+#ifdef OPENEPAPERLINK_PCB
+                temp_buff[0] = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, (uint8_t*)powerPins2, spi_speed);
+#endif
             }
             sendFlasherAnswer(cmd->command, temp_buff, 1);
             break;

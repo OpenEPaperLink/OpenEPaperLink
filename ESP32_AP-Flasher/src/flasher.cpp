@@ -50,6 +50,16 @@ void dump(uint8_t *a, uint16_t l) {
     Serial.printf("\n");
 }
 
+int8_t powerPinsAP[] = FLASHER_AP_POWER;
+int8_t pinsAP[] = {FLASHER_AP_CLK, FLASHER_AP_MISO, FLASHER_AP_MOSI, FLASHER_AP_RESET, FLASHER_AP_RXD, FLASHER_AP_SS, FLASHER_AP_TEST, FLASHER_AP_TXD};
+
+#ifdef OPENEPAPERLINK_PCB
+int8_t powerPinsExt[] = FLASHER_EXT_POWER;
+int8_t powerPinsAlt[] = FLASHER_ALT_POWER;
+uint8_t pinsExt[] = {FLASHER_EXT_CLK, FLASHER_EXT_MISO, FLASHER_EXT_MOSI, FLASHER_EXT_RESET, FLASHER_EXT_RXD, FLASHER_EXT_SS, FLASHER_EXT_TEST, FLASHER_EXT_TXD};
+
+#endif
+
 class flasher {
    public:
     class ZBS_interface *zbs = nullptr;
@@ -106,16 +116,17 @@ flasher::~flasher() {
 
 bool flasher::connectTag(uint8_t port) {
     bool result;
+
     switch (port) {
         case 0:
-            result = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, FLASHER_AP_POWER, 8000000);
+            result = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, (uint8_t *)powerPinsAP, sizeof(powerPinsAP), 8000000);
             break;
 #ifdef OPENEPAPERLINK_PCB
         case 1:
-            result = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, FLASHER_EXT_POWER, 8000000);
+            result = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, (uint8_t *)powerPinsExt, sizeof(powerPinsExt), 8000000);
             break;
         case 2:
-            result = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, 255, 8000000);
+            result = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, (uint8_t *)powerPinsAlt, sizeof(powerPinsAlt), 8000000);
             break;
 #endif
         default:
@@ -622,6 +633,42 @@ void flashCountDown(uint8_t c) {
     for (c -= 1; c < 254; c--) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         Serial.printf("\r%d  ", c);
+    }
+}
+
+void pinTest() {
+    uint8_t *pintest;
+    pintest = (uint8_t *)pinsAP;
+    for (uint8_t c = 0; c < 8; c++) {
+        if (pintest[c] != -1) {
+            pinMode(pintest[c], INPUT_PULLDOWN);
+            vTaskDelay(10 / portTICK_PERIOD_MS);
+            if (digitalRead(pintest[c])) {
+                Serial.printf("Pin %d failed to become low\n", c);
+            } else {
+                pinMode(pintest[c], INPUT_PULLUP);
+                bool pinChange = false;
+                uint16_t pinTime = 0;
+                for (uint16_t t = 0; t < 65535; t++) {
+                    if (digitalRead(pintest[c])) {
+                        pinChange = true;
+                        pinTime = t;
+                        break;
+                    }
+                    ets_delay_us(1);
+                }
+                if (pinChange) {
+                    Serial.printf("Pin %d went high in %d µS\n", pintest[c], pinTime);
+                } else {
+                    Serial.printf("Pin %d timeout becoming high\n", pintest[c]);
+                }
+            }
+        }
+    }
+    for (uint8_t c = 0; c < 8; c++) {
+        if (pintest[c] != -1) {
+            pinMode(pintest[c], INPUT_PULLDOWN);
+        }
     }
 }
 

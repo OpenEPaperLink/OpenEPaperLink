@@ -9,7 +9,7 @@
 
 #include "powermgt.h"
 
-uint8_t ZBS_interface::begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO, uint8_t RESET, uint8_t POWER, uint32_t spi_speed) {
+uint8_t ZBS_interface::begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO, uint8_t RESET, uint8_t* POWER, uint8_t powerPins, uint32_t spi_speed) {
     _SS_PIN = SS;
     _CLK_PIN = CLK;
     _MOSI_PIN = MOSI;
@@ -49,9 +49,7 @@ ZBS_interface::~ZBS_interface() {
     if(spi)delete spi;
 }
 void ZBS_interface::set_power(uint8_t state) {
-    if (_POWER_PIN != 255) {
-        rampTagPower(_POWER_PIN, state);
-    }
+    powerControl(state, _POWER_PIN, _POWER_PINS);
 }
 
 void ZBS_interface::enable_debug() {
