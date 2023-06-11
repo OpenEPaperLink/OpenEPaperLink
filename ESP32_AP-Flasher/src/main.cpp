@@ -8,6 +8,7 @@
 #include "makeimage.h"
 #include "serialap.h"
 #include "settings.h"
+#include "system.h"
 #include "tag_db.h"
 
 #ifdef HAS_USB
@@ -26,31 +27,20 @@ void delayedStart(void* parameter) {
     Serial.println("Resuming content generation");
     wsLog("resuming content generation");
     config.runStatus = RUNSTATUS_RUN;
+    vTaskDelay(10 / portTICK_PERIOD_MS);
     vTaskDelete(NULL);
 }
 
 void timeTask(void* parameter) {
-    config.runStatus = RUNSTATUS_RUN;
-    esp_reset_reason_t resetReason = esp_reset_reason();
-    if (resetReason == ESP_RST_PANIC) {
-        Serial.println("Panic! Pausing content generation for 60 seconds");
-        config.runStatus = RUNSTATUS_PAUSE;
-        xTaskCreate(delayedStart, "delaystart", 2000, NULL, 2, NULL);
-    }
+    wsSendSysteminfo();
     while (1) {
         time_t now;
         time(&now);
-        tm tm;
-        if (!getLocalTime(&tm)) {
-            Serial.println("Waiting for valid time from NTP-server");
-        } else {
-            if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE) {
-                wsSendSysteminfo();
-            }
-            if (now % 300 == 6 && config.runStatus != RUNSTATUS_STOP) saveDB("/current/tagDB.json");
 
-            if (apInfo.state == AP_STATE_ONLINE) contentRunner();
-        }
+        if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE || config.runStatus != RUNSTATUS_RUN) wsSendSysteminfo();
+        if (now % 300 == 6 && config.runStatus != RUNSTATUS_STOP) saveDB("/current/tagDB.json");
+        if (apInfo.state == AP_STATE_ONLINE) contentRunner();
+
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
@@ -80,8 +70,7 @@ void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
 
-
-            pinTest();
+    pinTest();
 #ifdef BOARD_HAS_PSRAM
     if (!psramInit()) {
         Serial.printf("This build of the AP expects PSRAM, but we couldn't find/init any. Something is terribly wrong here! System halted.");
@@ -140,20 +129,36 @@ void setup() {
     rgbIdle();
 #endif
     loadDB("/current/tagDB.json");
-    tagDBOwner = xSemaphoreCreateMutex();
+    // tagDBOwner = xSemaphoreCreateMutex();
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
     xTaskCreate(webSocketSendProcess, "ws", 2000, NULL, configMAX_PRIORITIES - 10, NULL);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+
+    config.runStatus = RUNSTATUS_INIT;
+
     xTaskCreate(timeTask, "timed tasks", 12000, NULL, 2, NULL);
+
+    init_time();
+    logStartUp();
+
+    esp_reset_reason_t resetReason = esp_reset_reason();
+    if (resetReason == ESP_RST_PANIC) {
+        Serial.println("Panic! Pausing content generation for 30 seconds");
+        config.runStatus = RUNSTATUS_PAUSE;
+        xTaskCreate(delayedStart, "delaystart", 2000, NULL, 2, NULL);
+    } else {
+        config.runStatus = RUNSTATUS_RUN;
+    }
 }
 
 void loop() {
     vTaskDelay(10000 / portTICK_PERIOD_MS);
     // performDeviceFlash();
     while (1) {
-       // pinTest();
+        // pinTest();
         while (1) {
             vTaskDelay(10000 / portTICK_PERIOD_MS);
-            //pinTest();
+            // pinTest();
         }
 #ifdef OPENEPAPERLINK_PCB
         if (extTagConnected()) {

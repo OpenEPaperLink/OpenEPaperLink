@@ -25,6 +25,12 @@ const apstate = [
 	{ state: "failed", color: "red" },
 	{ state: "coming online", color: "yellow" }
 ]; 
+const runstate = [
+	{ state: "⏹︎ stopped" },
+	{ state: "⏸pause" },
+	{ state: "" }, // hide running
+	{ state: "⏳︎ init" }
+]; 
 
 const imageQueue = [];
 let isProcessing = false;
@@ -92,6 +98,7 @@ function connect() {
 			if (msg.sys.apstate) {
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
 				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;
+				$("#runstate").innerHTML = runstate[msg.sys.runstate].state;
 			}
 			servertimediff = (Date.now() / 1000) - msg.sys.currtime;
 		}
@@ -209,6 +216,7 @@ function processTags(tagArray) {
 				break;
 			case WAKEUP_REASON_GPIO:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "GPIO wakeup"
+				$('#tag' + tagmac).style.background = "#c8f1bb";
 				break;
 			case WAKEUP_REASON_NFC:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "NFC wakeup"

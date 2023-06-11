@@ -11,7 +11,7 @@
 std::vector<tagRecord*> tagDB;
 
 Config config;
-SemaphoreHandle_t tagDBOwner;
+// SemaphoreHandle_t tagDBOwner;
 
 tagRecord* tagRecord::findByMAC(uint8_t mac[8]) {
     for (int16_t c = 0; c < tagDB.size(); c++) {

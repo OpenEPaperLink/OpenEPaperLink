@@ -12,6 +12,7 @@
 #include "commstructs.h"
 #include "serialap.h"
 #include "settings.h"
+#include "system.h"
 #include "tag_db.h"
 #include "udp.h"
 #include "web.h"
@@ -468,6 +469,23 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
     taginfo->lastseen = now;
 
     if (eadr->adr.lastPacketRSSI != 0) {
+        if (eadr->adr.wakeupReason >= 0xF0) {
+            if (!taginfo->pending) taginfo->nextupdate = 0;
+            memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
+            memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
+
+            const char* reason = "";
+            if (eadr->adr.wakeupReason == WAKEUP_REASON_FIRSTBOOT) reason = "Booting";
+            else if (eadr->adr.wakeupReason == WAKEUP_REASON_NETWORK_SCAN) reason = "Network scan";
+            else if (eadr->adr.wakeupReason == WAKEUP_REASON_WDT_RESET) reason = "Watchdog reset";
+            sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X %s", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0], reason);
+            logLine(buffer);
+        }
+        if (taginfo->batteryMv != eadr->adr.batteryMv) {
+            sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X battery went from %.2fV to %.2fV", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0], static_cast<float>(taginfo->batteryMv) / 1000.0, static_cast<float>(eadr->adr.batteryMv) / 1000.0);
+            logLine(buffer);
+        }
+
         taginfo->LQI = eadr->adr.lastPacketLQI;
         taginfo->hwType = eadr->adr.hwType;
         taginfo->RSSI = eadr->adr.lastPacketRSSI;
@@ -476,11 +494,6 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
         taginfo->hwType = eadr->adr.hwType;
         taginfo->wakeupReason = eadr->adr.wakeupReason;
         taginfo->capabilities = eadr->adr.capabilities;
-        if (eadr->adr.wakeupReason >= 0xF0) {
-            if (!taginfo->pending) taginfo->nextupdate = 0;
-            memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-            memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
-        }
     }
     if (local) {
         sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);

@@ -270,7 +270,7 @@ select {
 }
 
 .tagpending {
-	animation: pending 1s ease infinite;
+	animation: pending 1.5s ease infinite;
 }
 
 .currimg {
@@ -539,9 +539,9 @@ ul.messages li.new {
 }
 
 @keyframes pending {
-	0% { background-color: #d0d0e0;}
-	50% { background-color: #b0b0e0;}
-	100% { background-color: #d0d0e0;}
+	0% { }
+	50% { background-color: #d4d4f5;}
+	100% { }
 }
 
 @media screen and (max-width: 480px) {
@@ -587,5 +587,10 @@ ul.messages li.new {
 
 	.actionbox>div {
 		gap: 5px;
+		flex-flow: wrap;
+	}
+
+	.actionbox>div:first-child>div:first-child {
+		flex-basis: 100%;
 	}
 }

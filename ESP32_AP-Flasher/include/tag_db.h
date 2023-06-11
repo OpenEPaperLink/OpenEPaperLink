@@ -14,6 +14,7 @@
 #define RUNSTATUS_STOP 0
 #define RUNSTATUS_PAUSE 1
 #define RUNSTATUS_RUN 2
+#define RUNSTATUS_INIT 3
 
 class tagRecord {
    public:
@@ -62,7 +63,7 @@ struct Config {
     uint8_t runStatus;
 };
 
-extern SemaphoreHandle_t tagDBOwner;
+// extern SemaphoreHandle_t tagDBOwner;
 extern Config config;
 extern std::vector<tagRecord*> tagDB;
 extern DynamicJsonDocument APconfig;

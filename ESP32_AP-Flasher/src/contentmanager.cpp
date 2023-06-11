@@ -184,14 +184,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             // https://github.com/erikflowers/weather-icons
 
             drawWeather(filename, cfgobj, taginfo, imageParams);
-            taginfo->nextupdate = now + 3600;
+            taginfo->nextupdate = now + 1800;
             updateTagImage(filename, mac, 15, taginfo, imageParams);
             break;
 
         case Forecast:
 
             drawForecast(filename, cfgobj, taginfo, imageParams);
-            taginfo->nextupdate = now + 3 * 3600;
+            taginfo->nextupdate = now + 3600;
             updateTagImage(filename, mac, 15, taginfo, imageParams);
             break;
 
