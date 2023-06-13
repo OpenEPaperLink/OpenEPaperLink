@@ -67,6 +67,14 @@ jsonarray = {
     "tagota": tagota,
     }
 
-json_file_path = "files.json"
-with open(json_file_path, "w") as json_file:
+with open("jsonfiles/binaries.json", "w") as json_file:
+    json.dump(binaries, json_file, indent=4)
+    
+with open("jsonfiles/files.json", "w") as json_file:
     json.dump(jsonarray, json_file, indent=4)
+    
+with open("jsonfiles/tagota.json", "w") as json_file:
+    json.dump(tagota, json_file, indent=4)
+    
+with open("jsonfiles/filesystem.json", "w") as json_file:
+    json.dump(files1, json_file, indent=4)
