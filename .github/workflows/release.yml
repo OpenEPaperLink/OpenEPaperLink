@@ -71,7 +71,7 @@ jobs:
       - name: Combine binaries for Simple_AP
         run: |
           cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/Simple_AP
-          esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 40m --flash_size 4MB 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin
+          esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 40m --flash_size 4MB 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x290000 littlefs.bin
           
       - name: Build firmware for OpenEPaperLink_Mini_AP
         run: |
@@ -153,17 +153,17 @@ jobs:
           
       - name: generate release json file
         run: |
+          mkdir jsonfiles
           python genfilelist.py ${{ github.ref_name }} $GITHUB_REPOSITORY $GITHUB_SHA
           
-      - name: Add file list to release
+      - name: Add file lists to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: /home/runner/work/OpenEPaperLink/OpenEPaperLink/files.json
-          asset_name: files.json
+          file: jsonfiles/*
           tag: ${{ github.ref }}
+          file_glob: true
           overwrite: true
-          body: "file list"
           
       - name: Add esp bins to release
         uses: svenstaro/upload-release-action@v2
