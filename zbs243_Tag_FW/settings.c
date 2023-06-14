@@ -18,18 +18,11 @@ uint8_t* __xdata infopageTempBuffer = 1024 + blockXferBuffer;
 
 #define INFOPAGE_SETTINGS_OFFSET 0x50
 
-#define DEFAULT_SETTING_FASTBOOT 0
-#define DEFAULT_SETTING_RFWAKE 0
-#define DEFAULT_SETTING_TAGROAMING 0
-#define DEFAULT_SETTING_SCANFORAP 1
-#define DEFAULT_SETTING_LOWBATSYMBOL 1
-#define DEFAULT_SETTING_NORFSYMBOL 1
-
 void loadDefaultSettings() {
     tagSettings.settingsVer = SETTINGS_STRUCT_VERSION;
     tagSettings.enableFastBoot = DEFAULT_SETTING_FASTBOOT;
     tagSettings.enableRFWake = DEFAULT_SETTING_RFWAKE;
-    tagSettings.enableTagRoaming = DEFAULT_SETTING_TAGROAMING;  // unimplemented, for now
+    tagSettings.enableTagRoaming = DEFAULT_SETTING_TAGROAMING;
     tagSettings.enableScanForAPAfterTimeout = DEFAULT_SETTING_SCANFORAP;
     tagSettings.enableLowBatSymbol = DEFAULT_SETTING_LOWBATSYMBOL;
     tagSettings.enableNoRFSymbol = DEFAULT_SETTING_NORFSYMBOL;
