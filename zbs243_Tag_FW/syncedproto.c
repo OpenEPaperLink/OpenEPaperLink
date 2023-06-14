@@ -50,6 +50,8 @@ uint8_t __xdata currentChannel = 0;
 static uint8_t __xdata inBuffer[128] = {0};
 static uint8_t __xdata outBuffer[128] = {0};
 
+extern void executeCommand(uint8_t cmd); // this is defined in main.c
+
 // tools
 static uint8_t __xdata getPacketType(const void *__xdata buffer) {
     const struct MacFcs *__xdata fcs = buffer;
@@ -471,6 +473,7 @@ static uint32_t getHighSlotId() {
     return temp;
 }
 
+// data transfer stuff
 static uint8_t __xdata partsThisBlock = 0;
 static uint8_t __xdata blockAttempts = 0;  // these CAN be local to the function, but for some reason, they won't survive sleep?
                                            // they get overwritten with  7F 32 44 20 00 00 00 00 11, I don't know why.
@@ -570,6 +573,7 @@ static bool getDataBlock(const uint16_t blockSize) {
     pr("failed getting block\n");
     return false;
 }
+
 uint16_t __xdata dataRequestSize = 0;
 static bool downloadFWUpdate(const struct AvailDataInfo *__xdata avail) {
     // check if we already started the transfer of this information & haven't completed it
@@ -847,6 +851,37 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             }
             return false;
             break;
+        case DATATYPE_TAG_CONFIG_DATA:
+            if (curDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8)) {
+                pr("this was the same as the last transfer, disregard\n");
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+                return true;
+            }
+            curBlock.blockId = 0;
+            xMemCopy8(&(curBlock.ver), &(avail->dataVer));
+            curBlock.type = avail->dataType;
+            xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+            wdt10s();
+            if (getDataBlock(avail->dataSize)) {
+                curDataInfo.dataSize = 0;  // mark as transfer not pending
+                loadSettingsFromBuffer(sizeof(struct blockData) + blockXferBuffer);
+                powerUp(INIT_RADIO);
+                sendXferComplete();
+                powerDown(INIT_RADIO);
+                return true;
+            }
+            return false;
+            break;
+        case DATATYPE_COMMAND_DATA:
+            pr("CMD received\n");
+            powerUp(INIT_RADIO);
+            sendXferComplete();
+            powerDown(INIT_RADIO);
+            executeCommand(avail->dataTypeArgument);
+            return true;
+            break;
         case DATATYPE_CUSTOM_LUT_OTA:
             // Handle data for the NFC IC (if we have it)
 
@@ -874,7 +909,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             wdt10s();
             if (getDataBlock(avail->dataSize)) {
                 curDataInfo.dataSize = 0;  // mark as transfer not pending
-                memcpy(customLUT, sizeof(struct blockData) + blockXferBuffer, 6+(dispLutSize * 10));
+                memcpy(customLUT, sizeof(struct blockData) + blockXferBuffer, 6 + (dispLutSize * 10));
                 powerUp(INIT_RADIO);
                 sendXferComplete();
                 powerDown(INIT_RADIO);
@@ -888,6 +923,8 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
 }
 
 void initializeProto() {
+    powerUp(INIT_EEPROM);
     getNumSlots();
     curHighSlotId = getHighSlotId();
+    powerDown(INIT_EEPROM);
 }

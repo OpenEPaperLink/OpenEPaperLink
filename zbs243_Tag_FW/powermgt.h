@@ -55,6 +55,8 @@ extern void powerDown(const uint8_t parts);
 extern void initAfterWake();
 extern void doSleep(const uint32_t __xdata t);
 
+void doVoltageReading();
+
 extern void addAverageValue();
 extern uint16_t getNextSleep();
 

@@ -24,6 +24,7 @@ userinterface.rel
 powermgt.rel
 barcode.rel
 i2cdevices.rel
+settings.rel
 soc/zbs243/soc.rel
 soc/zbs243/wdt.rel
 soc/zbs243/sleep.rel
