@@ -173,16 +173,17 @@ uint8_t getFirstWakeUpReason() {
 }
 void checkI2C() {
     powerUp(INIT_I2C);
-    // i2cBusScan();
+//  i2cBusScan();
     if (i2cCheckDevice(0x55)) {
         powerDown(INIT_I2C);
         // found something!
         capabilities |= CAPABILITY_HAS_NFC;
         if (supportsNFCWake()) {
-            pr("This board supports NFC wake!\n");
+            pr("NFC: NFC Wake Supported\n");
             capabilities |= CAPABILITY_NFC_WAKE;
         }
     } else {
+        pr("I2C: No devices found");
         // didn't find a NFC chip on the expected ID
         powerDown(INIT_I2C);
     }
@@ -392,8 +393,10 @@ void main() {
         // validate the mac address; this will display a warning on the screen if the mac address is invalid
         validateMacAddress();
 
+#if (NFC_TYPE == 1)
         // initialize I2C
         checkI2C();
+#endif
 
         // Get a voltage reading on the tag, loading down the battery with the radio
         doVoltageReading();
@@ -402,6 +405,7 @@ void main() {
         detectButtonOrJig();
 
         // show the splashscreen
+        pr("EPD: First powerup\n");
         powerUp(INIT_EPD);
         showSplashScreen();
 

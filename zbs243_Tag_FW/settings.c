@@ -44,6 +44,7 @@ void loadSettingsFromBuffer(uint8_t* p) {
             pr("SETTINGS: received something we couldn't really process, version %d\n");
         break;
     }
+    tagSettings.fastBootCapabilities = capabilities;
     writeSettings();
 }
 

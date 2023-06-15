@@ -34,7 +34,7 @@ bool supportsNFCWake() {
     }
     if (pcount < 10000) {
         // P1_3 (Field Detect) dropped to 'low' pretty fast, this means the load on this pin is high
-        pr("This tag currently does not support NFC wake, load on the FD pin (P1.3) is pretty high.\nOn some boards, a pull-up resistor backpowers the NFC IC. Consider removing it!\n");
+        pr("NFC: This tag currently does not support NFC wake, load on the FD pin (P1.3) is pretty high.\nOn some boards, a pull-up resistor backpowers the NFC IC. Consider removing it!\n");
         return false;
     } else {
         // No reason to believe this pin is currently loaded down severely
@@ -121,7 +121,7 @@ bool i2cCheckDevice(uint8_t address) {
     iictest.deviceAddr = address << 1;
     uint8_t res = i2cTransact(&iictest, 1);
     if (res == 0) {
-        pr("Found i2c device at 0x%02X\n", address);
+        pr("I2C: Device found at 0x%02X\n", address);
         return true;
     }
     return false;

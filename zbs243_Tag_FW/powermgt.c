@@ -153,10 +153,11 @@ static void configI2C(const bool setup) {
     if (setup) {
         P1DIR &= ~(1 << 6);
         P1_6 = 1;
+        timerDelay(13330);
         P1FUNC |= (1 << 4) | (1 << 5);
         P1PULL |= (1 << 4) | (1 << 5);
         i2cInit();
-        i2cCheckDevice(0x50);  // first transaction after init fails, this makes sure everything is ready for the first transaction
+        // i2cCheckDevice(0x50);  // first transaction after init fails, this makes sure everything is ready for the first transaction
     } else {
         P1DIR |= (1 << 6);
         P1_6 = 0;
@@ -238,7 +239,6 @@ void powerDown(const uint8_t parts) {
         RADIO_command = 0xCA;
         RADIO_command = 0xC5;
         CFGPAGE = cfgPg;
-        RADIO_RadioPowerCtl &= 0xFB;
     }
     if (parts & INIT_EEPROM) {
         eepromDeepPowerDown();
