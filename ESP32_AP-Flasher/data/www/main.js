@@ -24,13 +24,13 @@ const apstate = [
 	{ state: "requires power cycle", color: "purple" },
 	{ state: "failed", color: "red" },
 	{ state: "coming online", color: "yellow" }
-]; 
+];
 const runstate = [
 	{ state: "⏹︎ stopped" },
 	{ state: "⏸pause" },
 	{ state: "" }, // hide running
 	{ state: "⏳︎ init" }
-]; 
+];
 
 const imageQueue = [];
 let isProcessing = false;
@@ -48,7 +48,7 @@ window.addEventListener("load", function () {
 				this.document.title = data.alias;
 			}
 		});
-		fetch('/content_cards.json')
+	fetch('/content_cards.json')
 		.then(response => response.json())
 		.then(data => {
 			cardconfig = data;
@@ -307,7 +307,7 @@ $('#taglist').addEventListener("click", (event) => {
 			$('#cfgalias').value = tagdata.alias;
 			$('#cfgmore').style.display = "none";
 			if (populateSelectTag(tagdata.hwType, tagdata.capabilities)) {
-				$('#cfgcontent').parentNode.style.display = "flex";				
+				$('#cfgcontent').parentNode.style.display = "flex";
 				$('#cfgcontent').value = tagdata.contentMode;
 				$('#cfgcontent').dataset.json = tagdata.modecfgjson;
 				contentselected();
@@ -354,7 +354,7 @@ $('#cfgsave').onclick = function () {
 
 	formData.append("rotate", $('#cfgrotate').value);
 	formData.append("lut", $('#cfglut').value);
-	
+
 	fetch("/save_cfg", {
 		method: "POST",
 		body: formData
@@ -530,6 +530,12 @@ function contentselected() {
 						const optionElement = document.createElement("option");
 						optionElement.value = key;
 						optionElement.text = element.options[key];
+						if (element.options[key].substring(0,1)=="-") {
+							optionElement.text = element.options[key].substring(1);
+							optionElement.selected = true;
+						} else {
+							optionElement.selected = false;
+						}
 						input.appendChild(optionElement);
 					}
 					break;

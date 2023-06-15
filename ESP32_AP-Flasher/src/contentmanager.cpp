@@ -286,6 +286,19 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             taginfo->nextupdate = now + (cfgobj["ttl"].as<int>() < 5 ? 5 : cfgobj["ttl"].as<int>()) * 60;
             updateTagImage(filename, mac, (cfgobj["ttl"].as<int>() < 5 ? 5 : cfgobj["ttl"].as<int>()), taginfo, imageParams);
             break;
+
+        case 17:  // tag command
+            sendTagCommand(mac, cfgobj["cmd"].as<int>(), (taginfo->isExternal == false));
+            cfgobj["filename"] = "";
+            taginfo->nextupdate = 3216153600;
+            taginfo->contentMode = Image;
+            break;
+        case 18:
+            prepareConfigFile(mac, cfgobj);
+            cfgobj["filename"] = "";
+            taginfo->nextupdate = 3216153600;
+            taginfo->contentMode = Image;
+            break;
     }
 
     taginfo->modeConfigJson = doc.as<String>();
@@ -998,6 +1011,23 @@ void prepareLUTreq(uint8_t *dst, String input) {
     Serial.println(String(i) + " bytes found");
     size_t waveformLen = sizeof(waveform);
     prepareDataAvail(waveform, waveformLen, DATATYPE_CUSTOM_LUT_OTA, dst);
+}
+
+void prepareConfigFile(uint8_t *dst, JsonObject config) {
+    struct tagsettings tagSettings;
+    tagSettings.settingsVer = 1;
+    tagSettings.enableFastBoot = config["fastboot"].as<int>();
+    tagSettings.enableRFWake = config["rfwake"].as<int>();
+    tagSettings.enableTagRoaming = config["tagroaming"].as<int>();
+    tagSettings.enableScanForAPAfterTimeout = config["tagscanontimeout"].as<int>();
+    tagSettings.enableLowBatSymbol = config["showlowbat"].as<int>();
+    tagSettings.enableNoRFSymbol = config["shownorf"].as<int>();
+    tagSettings.customMode = 0;
+    tagSettings.fastBootCapabilities = 0;
+    tagSettings.minimumCheckInTime = 1;
+    tagSettings.fixedChannel = config["fixedchannel"].as<int>();
+    tagSettings.batLowVoltage = config["lowvoltage"].as<int>();
+    prepareDataAvail((uint8_t *)&tagSettings, sizeof(tagSettings), 0xA8, dst);
 }
 
 void getTemplate(JsonDocument &json, const char *filePath, uint8_t id, uint8_t hwtype) {

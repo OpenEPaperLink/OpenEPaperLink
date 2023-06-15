@@ -606,7 +606,7 @@ bool bringAPOnline() {
 }
 
 void APTask(void* parameter) {
-    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 3000, NULL, configMAX_PRIORITIES - 10, NULL);
+    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 4000, NULL, configMAX_PRIORITIES - 10, NULL);
     xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, configMAX_PRIORITIES - 4, NULL);
 
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)

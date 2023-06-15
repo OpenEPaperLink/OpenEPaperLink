@@ -587,6 +587,26 @@ bool showAPSegmentedInfo(uint8_t* dst, bool local) {
     }
 }
 
+bool sendTagCommand(uint8_t* dst, uint8_t cmd, bool local) {
+    struct pendingData pending = {0};
+    memcpy(pending.targetMac, dst, 8);
+    pending.availdatainfo.dataType = 0xAF;
+    pending.availdatainfo.dataTypeArgument = cmd;
+    pending.availdatainfo.nextCheckIn = 0;
+    pending.attemptsLeft = 120;
+    char buffer[64];
+    sprintf(buffer, ">Tag CMD %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+    Serial.print(buffer);
+    if (local) {
+        return sendDataAvail(&pending);
+    } else {
+        udpsync.netSendDataAvail(&pending);
+        return true;
+    }
+}
+
+
+
 void updateTaginfoitem(struct TagInfo* taginfoitem) {
     tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(taginfoitem->mac);

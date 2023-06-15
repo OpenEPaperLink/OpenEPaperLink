@@ -406,5 +406,132 @@
         "type": "text"
       }
     ]
+  },
+  {
+    "id": 17,
+    "name": "Send Command",
+    "desc": "Send a command to a tag to execute",
+    "hwtype": [
+      0,
+      1,
+      2,
+      17,
+      240
+    ],
+    "param": [
+      {
+        "key": "cmd",
+        "name": "CMD",
+        "desc": "Action",
+        "type": "select",
+        "options": {
+          "0": "Reboot",
+          "1": "Scan Channels",
+          "2": "Clear settings"
+        }
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "name": "Set Tag Config",
+    "desc": "Sets tag options. The options you see below are the default options. This may or may not match current tag settings",
+    "hwtype": [
+      0,
+      1,
+      2,
+      17,
+      240
+    ],
+    "param": [
+      {
+        "key": "fastboot",
+        "name": "Boot method",
+        "desc": "How the tag should boot, fast or normal",
+        "type": "select",
+        "options": {
+          "0": "-Normal boot",
+          "1": "Fast boot"
+        }
+      },
+      {
+        "key": "rfwake",
+        "name": "RF Wake",
+        "desc": "If the tag should support RF wake or not. This adds a 0.9µA current draw",
+        "type": "select",
+        "options": {
+          "0": "-Disabled",
+          "1": "Enabled"
+        }
+      },
+      {
+        "key": "tagroaming",
+        "name": "Tag Roaming",
+        "desc": "If enabled, the tag will periodically scan for AP's and will switch to a different channel if a stronger signal is found",
+        "type": "select",
+        "options": {
+          "0": "-Disabled",
+          "1": "Enabled"
+        }
+      },
+      {
+        "key": "tagscanontimeout",
+        "name": "Scan for AP on timeout",
+        "desc": "If a tag hasn't found an AP for an hour, should it rescan the channels for another AP?",
+        "type": "select",
+        "options": {
+          "1": "-Enabled",
+          "0": "Disabled"
+        }
+      },
+      {
+        "key": "showlowbat",
+        "name": "Low Battery symbol",
+        "desc": "Should the tag display the 'low battery' symbol if the battery a voltage threshold has been reached?",
+        "type": "select",
+        "options": {
+          "1": "-Enabled",
+          "0": "Disabled"
+        }
+      },
+      {
+        "key": "shownorf",
+        "name": "No AP symbol",
+        "desc": "Should the tag display the 'No-signal/AP' symbol if it hasn't been able to contact an AP?",
+        "type": "select",
+        "options": {
+          "1": "-Enabled",
+          "0": "Disabled"
+        }
+      },
+      {
+        "key": "lowvoltage",
+        "name": "Low voltage threshold",
+        "desc": "Below what voltage should the tag display the 'low bat' symbol?",
+        "type": "select",
+        "options": {
+          "2600": "-2.6v",
+          "2500": "2.5v",
+          "2400": "2.4v",
+          "2300": "2.3v",
+          "2200": "2.2v"
+        }
+      },
+      {
+        "key": "fixedchannel",
+        "name": "Fixed Channel",
+        "desc": "What channel should the tag initially join?",
+        "type": "select",
+        "options": {
+          "0": "-Auto",
+          "11": "11",
+          "15": "15",
+          "20": "20",
+          "25": "25",
+          "26": "26",
+          "27": "27"
+        }
+      }
+    ]
   }
 ]
