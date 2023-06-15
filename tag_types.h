@@ -20,7 +20,14 @@
 #define DATATYPE_IMG_RAW_1BPP 0x20         // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
 #define DATATYPE_IMG_RAW_2BPP 0x21         // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2"
 #define DATATYPE_IMG_RAW_1BPP_DIRECT 0x3F  // only for 1.54", don't write to EEPROM, but straightaway to the EPD
-#define DATATYPE_UK_SEGMENTED 0x51         // Segmented data for the UK Segmented display type
+#define DATATYPE_UK_SEGMENTED 0x51         // Segmented data for the UK Segmented display type (contained in availableData Reply)
+#define DATATYPE_EU_SEGMENTED 0x52         // Segmented data for the EU/DE Segmented display type (contained in availableData Reply)
 #define DATATYPE_NFC_RAW_CONTENT 0xA0      // raw memory content for the NT3H1101
 #define DATATYPE_NFC_URL_DIRECT 0xA1       // URL format for NT3H1101
+#define DATATYPE_TAG_CONFIG_DATA 0xA8      // Config data for tag
+#define DATATYPE_COMMAND_DATA 0xAF         // Command for the tag to execute  (contained in availableData Reply)
 #define DATATYPE_CUSTOM_LUT_OTA 0xB0       // Custom OTA updated LUT
+
+#define CMD_DO_REBOOT 0
+#define CMD_DO_SCAN 1
+#define CMD_DO_RESET_SETTINGS 2

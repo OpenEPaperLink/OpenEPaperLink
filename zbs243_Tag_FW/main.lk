@@ -1,0 +1,45 @@
+-muwx
+-i main.ihx
+-M
+-X 0x2000
+-C 0xfc00
+-b HOME = 0x0000
+-b XSEG = 0xe000
+-b PSEG = 0xe000
+-b ISEG = 0x0000
+-b BSEG = 0x0000
+-k /usr/local/bin/../share/sdcc/lib/large
+-k /usr/local/share/sdcc/lib/large
+-l mcs51
+-l libsdcc
+-l libint
+-l liblong
+-l libfloat
+main.rel
+eeprom.rel
+drawing.rel
+comms.rel
+syncedproto.rel
+userinterface.rel
+powermgt.rel
+barcode.rel
+i2cdevices.rel
+settings.rel
+soc/zbs243/soc.rel
+soc/zbs243/wdt.rel
+soc/zbs243/sleep.rel
+soc/zbs243/spi.rel
+soc/zbs243/uart.rel
+soc/zbs243/timer.rel
+soc/zbs243/radio.rel
+soc/zbs243/flash.rel
+soc/zbs243/temperature.rel
+cpu/8051/random.rel
+cpu/8051/printf.rel
+soc/zbs243/i2c.rel
+cpu/8051/asmUtil.rel
+cpu/8051/cpu.rel
+board/zbs29_uc8151/board.rel
+board/zbs29_uc8151/screen.rel
+
+-e

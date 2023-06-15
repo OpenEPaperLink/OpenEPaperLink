@@ -34,7 +34,7 @@ uint8_t __xdata wakeUpReason = 0;
 uint8_t __xdata scanAttempts = 0;
 
 int8_t __xdata temperature = 0;
-uint16_t __xdata batteryVoltage = 0;
+uint16_t __xdata batteryVoltage = 2600;
 bool __xdata lowBattery = false;
 uint16_t __xdata longDataReqCounter = 0;
 uint16_t __xdata voltageCheckCounter = 0;
@@ -153,10 +153,11 @@ static void configI2C(const bool setup) {
     if (setup) {
         P1DIR &= ~(1 << 6);
         P1_6 = 1;
+        timerDelay(13330);
         P1FUNC |= (1 << 4) | (1 << 5);
         P1PULL |= (1 << 4) | (1 << 5);
         i2cInit();
-        i2cCheckDevice(0x50);  // first transaction after init fails, this makes sure everything is ready for the first transaction
+        // i2cCheckDevice(0x50);  // first transaction after init fails, this makes sure everything is ready for the first transaction
     } else {
         P1DIR |= (1 << 6);
         P1_6 = 0;
@@ -174,6 +175,7 @@ void powerUp(const uint8_t parts) {
         timerInit();
         irqsOn();
         wdtOn();
+        wdt10s();
     }
 
     if (parts & INIT_EPD) {
@@ -186,7 +188,7 @@ void powerUp(const uint8_t parts) {
         epdConfigGPIO(true);
         configSPI(true);
         batteryVoltage = epdGetBattery();
-        if (batteryVoltage < BATTERY_VOLTAGE_MINIMUM) {
+        if (batteryVoltage < tagSettings.batLowVoltage) {
             lowBattery = true;
         } else {
             lowBattery = false;
@@ -302,7 +304,12 @@ void doSleep(const uint32_t __xdata t) {
         P1CHSTA &= ~(1 << 3);
     }
 
-    // sleepy
+    if (tagSettings.enableRFWake) {
+        // enabled RF wake, adds a little extra energy draw!
+        RADIO_RadioPowerCtl &= 0xFB;
+    }
+
+    // sleepy time
     sleepForMsec(t);
     P1INTEN = 0;
     if ((P1CHSTA & (1 << 0)) && (capabilities & CAPABILITY_HAS_WAKE_BUTTON)) {
@@ -314,6 +321,12 @@ void doSleep(const uint32_t __xdata t) {
         wakeUpReason = WAKEUP_REASON_NFC;
         P1CHSTA &= ~(1 << 3);
     }
+}
+
+void doVoltageReading() {
+    powerUp(INIT_RADIO);  // load down the battery using the radio to get a good voltage reading
+    powerUp(INIT_EPD_VOLTREADING | INIT_TEMPREADING);
+    powerDown(INIT_RADIO);
 }
 
 uint32_t getNextScanSleep(const bool increment) {
@@ -346,5 +359,8 @@ uint16_t getNextSleep() {
         avg += dataReqAttemptArr[c];
     }
     avg /= POWER_SAVING_SMOOTHING;
+
+    // check if we should sleep longer due to an override in the config
+    if (avg < tagSettings.minimumCheckInTime) return tagSettings.minimumCheckInTime;
     return avg;
 }

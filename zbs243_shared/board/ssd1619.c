@@ -42,6 +42,11 @@
 #define CMD_YSTART_POS 0x4F
 #define CMD_ANALOG_BLK_CTRL 0x74
 #define CMD_DIGITAL_BLK_CTRL 0x7E
+// added for OTA LUT-support
+#define CMD_GATE_LEVEL 0x03
+#define CMD_SOURCE_LEVEL 0x04
+#define CMD_DUMMY_PERIOD 0x3A
+#define CMD_GATE_LINE_WIDTH 0x3B
 
 #define SCREEN_CMD_CLOCK_ON 0x80
 #define SCREEN_CMD_CLOCK_OFF 0x01
@@ -83,7 +88,7 @@ bool __xdata epdGPIOActive = false;
 
 #define LUT_BUFFER_SIZE 128
 static uint8_t waveformbuffer[LUT_BUFFER_SIZE];
-uint8_t __xdata customLUT[LUT_BUFFER_SIZE] =  {0};
+uint8_t __xdata customLUT[LUT_BUFFER_SIZE] = {0};
 
 struct waveform10* __xdata waveform10 = (struct waveform10*)waveformbuffer;  // holds the LUT/waveform
 struct waveform* __xdata waveform7 = (struct waveform*)waveformbuffer;       // holds the LUT/waveform
@@ -378,14 +383,6 @@ void selectLUT(uint8_t lut) {
         return;
     }
 
-    // Handling if we received an OTA LUT
-    if (lut == EPD_LUT_OTA) {
-        memcpy(waveformbuffer, customLUT, dispLutSize * 10);
-        writeLut();
-        currentLut = lut;
-        return;
-    }
-
     if (currentLut != EPD_LUT_DEFAULT) {
         // load the 'default' LUT for the current temperature in the EPD lut register
         shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1?
@@ -445,6 +442,22 @@ void selectLUT(uint8_t lut) {
             lutGroupDisable(LUTGROUP_IMPROVE_REDS);
             lutGroupDisable(LUTGROUP_UNUSED);
             break;
+    }
+
+        // Handling if we received an OTA LUT
+    if (lut == EPD_LUT_OTA) {
+        memcpy(waveformbuffer, customLUT, dispLutSize * 10);
+        writeLut();
+        shortCommand1(CMD_GATE_LEVEL, customLUT[70]);
+        commandBegin(CMD_SOURCE_LEVEL);
+        epdSend(customLUT[71]);
+        epdSend(customLUT[72]);
+        epdSend(customLUT[73]);
+        commandEnd();
+        shortCommand1(CMD_DUMMY_PERIOD, customLUT[74]);
+        shortCommand1(CMD_GATE_LINE_WIDTH, customLUT[75]);
+        currentLut = lut;
+        return;
     }
 
     if (dispLutSize == 10) {

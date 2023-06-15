@@ -13,7 +13,7 @@ extern uint8_t __xdata curImgSlot;
 extern void setupRadio(void);
 extern void killRadio(void);
 
-
+void dump(const uint8_t *__xdata a, const uint16_t __xdata l);
 extern struct AvailDataInfo *__xdata getAvailDataInfo();
 extern struct AvailDataInfo *__xdata getShortAvailDataInfo();
 extern void drawImageFromEeprom(const uint8_t imgSlot);

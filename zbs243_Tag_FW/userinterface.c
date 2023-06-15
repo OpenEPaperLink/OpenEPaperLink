@@ -51,7 +51,7 @@ void addCapabilities() {
 }
 
 void addOverlay() {
-    if (currentChannel == 0) {
+    if ((currentChannel == 0)&&(tagSettings.enableNoRFSymbol)) {
 #if (SCREEN_WIDTH == 152)
         loadRawBitmap(ant, SCREEN_WIDTH - 16, 0, EPD_COLOR_BLACK);
         loadRawBitmap(cross, SCREEN_WIDTH - 8, 7, EPD_COLOR_RED);
@@ -67,7 +67,7 @@ void addOverlay() {
         noAPShown = false;
     }
 
-    if (batteryVoltage != 2600) {
+    if ((batteryVoltage < tagSettings.batLowVoltage) && (tagSettings.enableLowBatSymbol)) {
 #if (SCREEN_WIDTH == 152)
         loadRawBitmap(battery, SCREEN_WIDTH - 16, SCREEN_HEIGHT - 10, EPD_COLOR_BLACK);
 #elif (SCREEN_WIDTH == 400)
@@ -80,7 +80,6 @@ void addOverlay() {
         lowBatteryShown = false;
     }
 }
-
 
 void afterFlashScreenSaver() {
     selectLUT(EPD_LUT_DEFAULT);
@@ -105,7 +104,6 @@ void afterFlashScreenSaver() {
 #endif
     drawWithSleep();
 }
-
 
 void showSplashScreen() {
     selectLUT(EPD_LUT_NO_REPEATS);
