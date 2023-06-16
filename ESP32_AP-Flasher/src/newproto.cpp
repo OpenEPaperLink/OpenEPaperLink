@@ -384,7 +384,11 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         LittleFS.remove(dst_path);
     }
     if (LittleFS.exists(src_path)) {
+        #ifndef REMOVE_RAW
         LittleFS.rename(src_path, dst_path);
+        #else 
+        LittleFS.remove(src_path);
+        #endif
     }
 
     time_t now;
