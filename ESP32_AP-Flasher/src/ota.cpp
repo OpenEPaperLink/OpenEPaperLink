@@ -4,7 +4,7 @@
 #include <ArduinoJson.h>
 #include <FS.h>
 #include <HTTPClient.h>
-#include <LittleFS.h>
+#include "storage.h"
 #include <MD5Builder.h>
 #include <Update.h>
 
@@ -51,7 +51,7 @@ void handleCheckFile(AsyncWebServerRequest* request) {
     }
 
     String filePath = request->getParam("path")->value();
-    File file = LittleFS.open(filePath, "r");
+    File file = contentFS->open(filePath, "r");
     if (!file) {
         StaticJsonDocument<64> doc;
         doc["filesize"] = 0;
@@ -121,7 +121,7 @@ void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_
         } else {
             path = request->getParam("path", true)->value();
             Serial.println("update " + path);
-            request->_tempFile = LittleFS.open(path, "w", true);
+            request->_tempFile = contentFS->open(path, "w", true);
         }
     }
     if (len) {
@@ -268,7 +268,7 @@ void handleRollback(AsyncWebServerRequest* request) {
 
 void handleUpdateActions(AsyncWebServerRequest* request) {
     wsSerial("Performing cleanup");
-    File file = LittleFS.open("/update_actions.json", "r");
+    File file = contentFS->open("/update_actions.json", "r");
     if (!file) {
         wsSerial("No update_actions.json present");
         request->send(200, "No update actions needed");
@@ -278,12 +278,12 @@ void handleUpdateActions(AsyncWebServerRequest* request) {
     DeserializationError error = deserializeJson(doc, file);
     JsonArray deleteFiles = doc["deletefile"].as<JsonArray>();
     for (const auto& filePath : deleteFiles) {
-        if (LittleFS.remove(filePath.as<const char*>())) {
+        if (contentFS->remove(filePath.as<const char*>())) {
             wsSerial("deleted file: " + filePath.as<String>());
         }
     }
     file.close();
     wsSerial("Cleanup finished");
     request->send(200, "Clean up finished");
-    LittleFS.remove("/update_actions.json");
+    contentFS->remove("/update_actions.json");
 }

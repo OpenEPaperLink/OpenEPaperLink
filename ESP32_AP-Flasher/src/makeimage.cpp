@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <FS.h>
-#include <LittleFS.h>
+#include "storage.h"
 #include <TFT_eSPI.h>
 #include <TJpg_Decoder.h>
 #include <makeimage.h>
@@ -15,7 +15,7 @@ bool spr_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) 
 }
 
 void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
-    LittleFS.begin();
+    Storage.begin();
     TJpgDec.setSwapBytes(true);
     TJpgDec.setJpgScale(1);
     TJpgDec.setCallback(spr_output);
@@ -23,7 +23,7 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
     if (filein.c_str()[0] != '/') {
         filein = "/" + filein;
     }
-    TJpgDec.getFsJpgSize(&w, &h, filein, LittleFS);
+    TJpgDec.getFsJpgSize(&w, &h, filein, *contentFS);
     if (w==0 && h==0) {
         wsErr("invalid jpg");
         return;
@@ -47,7 +47,7 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
         wsErr("Failed to create sprite in jpg2buffer");
     } else {
         spr.fillSprite(TFT_WHITE);
-        TJpgDec.drawFsJpg(0, 0, filein, LittleFS);
+        TJpgDec.drawFsJpg(0, 0, filein, *contentFS);
 
         spr2buffer(spr, fileout, imageParams);
         spr.deleteSprite();
@@ -76,9 +76,9 @@ uint32_t colorDistance(const Color &c1, const Color &c2, const Error &e1) {
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     long t = millis();
-    LittleFS.begin();
+    Storage.begin();
 
-    fs::File f_out = LittleFS.open(fileout, "w");
+    fs::File f_out = contentFS->open(fileout, "w");
 
     bool dither = true;
     uint8_t rotate = imageParams.rotate;

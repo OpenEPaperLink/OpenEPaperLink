@@ -1,8 +1,10 @@
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <time.h>
 
+#include "storage.h"
 #include "contentmanager.h"
 #include "flasher.h"
 #include "makeimage.h"
@@ -83,6 +85,8 @@ void setup() {
     };
     heap_caps_malloc_extmem_enable(64);
 #endif
+
+    Storage.begin();
 
     /*
     Serial.println("\n\n##################################");

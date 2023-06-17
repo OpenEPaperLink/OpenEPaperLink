@@ -2,7 +2,6 @@
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
-#include <LittleFS.h>
 
 #include "commstructs.h"
 #include "flasher.h"
@@ -10,6 +9,7 @@
 #include "newproto.h"
 #include "powermgt.h"
 #include "settings.h"
+#include "storage.h"
 #include "web.h"
 #include "zbs_interface.h"
 
@@ -205,6 +205,7 @@ bool sendDataAvail(struct pendingData* pending) {
         }
         if (waitCmdReply()) goto sdasend;
         Serial.printf("SDA send failed in try %d\n", attempt);
+        delay(200);
     }
     Serial.print("SDA failed to send...\n");
     txEnd();

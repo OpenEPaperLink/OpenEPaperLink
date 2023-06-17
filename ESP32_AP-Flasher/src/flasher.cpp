@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <LittleFS.h>
+#include "storage.h"
 #include <MD5Builder.h>
 // #include <FS.h>
 
@@ -116,7 +116,6 @@ flasher::~flasher() {
 
 bool flasher::connectTag(uint8_t port) {
     bool result;
-
     switch (port) {
         case 0:
             result = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, (uint8_t *)powerPinsAP, sizeof(powerPinsAP), 8000000);
@@ -206,7 +205,7 @@ bool flasher::getInfoBlockType() {
 bool flasher::findTagByMD5() {
     StaticJsonDocument<3000> doc;
     DynamicJsonDocument APconfig(600);
-    fs::File readfile = LittleFS.open("/tag_md5_db.json", "r");
+    fs::File readfile = contentFS->open("/tag_md5_db.json", "r");
     DeserializationError err = deserializeJson(doc, readfile);
     if (!err) {
         for (JsonObject elem : doc.as<JsonArray>()) {
@@ -236,7 +235,7 @@ bool flasher::findTagByMD5() {
 bool flasher::findTagByType(uint8_t type) {
     StaticJsonDocument<3000> doc;
     DynamicJsonDocument APconfig(600);
-    fs::File readfile = LittleFS.open("/tag_md5_db.json", "r");
+    fs::File readfile = contentFS->open("/tag_md5_db.json", "r");
     DeserializationError err = deserializeJson(doc, readfile);
     if (!err) {
         for (JsonObject elem : doc.as<JsonArray>()) {
@@ -300,7 +299,7 @@ bool flasher::backupFlash() {
     getFirmwareMD5();
     if (!zbs->select_flash(0)) return false;
     md5char[16] = 0x00;
-    fs::File backup = LittleFS.open("/" + (String)md5char + "_backup.bin", "w", true);
+    fs::File backup = contentFS->open("/" + (String)md5char + "_backup.bin", "w", true);
     for (uint32_t c = 0; c < 65535; c++) {
         backup.write(zbs->read_flash(c));
     }
@@ -474,7 +473,7 @@ bool flasher::writeFlashFromPackOffset(fs::File *file, uint16_t length) {
 bool flasher::writeFlashFromPack(String filename, uint8_t type) {
     StaticJsonDocument<512> doc;
     DynamicJsonDocument APconfig(512);
-    fs::File readfile = LittleFS.open(filename, "r");
+    fs::File readfile = contentFS->open(filename, "r");
     DeserializationError err = deserializeJson(doc, readfile);
     if (!err) {
         for (JsonObject elem : doc.as<JsonArray>()) {
@@ -505,7 +504,7 @@ bool flasher::writeFlashFromPack(String filename, uint8_t type) {
 uint16_t getAPUpdateVersion(uint8_t type) {
     StaticJsonDocument<512> doc;
     DynamicJsonDocument APconfig(512);
-    fs::File readfile = LittleFS.open("/AP_FW_Pack.bin", "r");
+    fs::File readfile = contentFS->open("/AP_FW_Pack.bin", "r");
     DeserializationError err = deserializeJson(doc, readfile);
     if (!err) {
         for (JsonObject elem : doc.as<JsonArray>()) {
@@ -529,7 +528,7 @@ uint16_t getAPUpdateVersion(uint8_t type) {
 }
 
 bool checkForcedAPFlash() {
-    return LittleFS.exists("/AP_force_flash.bin");
+    return contentFS->exists("/AP_force_flash.bin");
 }
 
 bool doForcedAPFlash() {
@@ -547,14 +546,14 @@ bool doForcedAPFlash() {
         f->writeInfoBlock();
     }
 
-    fs::File readfile = LittleFS.open("/AP_force_flash.bin", "r");
+    fs::File readfile = contentFS->open("/AP_force_flash.bin", "r");
     bool res = f->writeFlashFromPackOffset(&readfile, readfile.size());
 #ifdef HAS_RGB_LED
     if (res) addFadeColor(CRGB::Green);
     if (!res) addFadeColor(CRGB::Red);
 #endif
     readfile.close();
-    if (res) LittleFS.remove("/AP_force_flash.bin");
+    if (res) contentFS->remove("/AP_force_flash.bin");
     f->zbs->reset();
     delete f;
     return res;

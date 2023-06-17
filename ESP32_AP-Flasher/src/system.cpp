@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <FS.h>
 
-#include "LittleFS.h"
+#include "storage.h"
 
 void init_time() {
     struct tm timeinfo;
@@ -28,7 +28,7 @@ void logLine(String text) {
     char timeStr[24];
     strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S ", localtime(&now));
 
-    File logFile = LittleFS.open("/log.txt", "a");
+    File logFile = contentFS->open("/log.txt", "a");
     if (logFile) {
         logFile.print(timeStr);
         logFile.println(text);

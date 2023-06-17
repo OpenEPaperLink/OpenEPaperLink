@@ -5,7 +5,7 @@
 #include <FS.h>
 #include <vector>
 
-#include "LittleFS.h"
+#include "storage.h"
 #include "language.h"
 
 std::vector<tagRecord*> tagDB;
@@ -126,8 +126,8 @@ void saveDB(String filename) {
 
     long t = millis();
 
-    LittleFS.begin();
-    fs::File file = LittleFS.open(filename, "w");
+    Storage.begin();
+    fs::File file = contentFS->open(filename, "w");
     if (!file) {
         Serial.println("saveDB: Failed to open file");
         return;
@@ -161,8 +161,8 @@ void loadDB(String filename) {
     Serial.println("reading DB from file");
     long t = millis();
 
-    LittleFS.begin();
-    fs::File readfile = LittleFS.open(filename, "r");
+    Storage.begin();
+    fs::File readfile = contentFS->open(filename, "r");
     if (!readfile) {
         Serial.println("loadDB: Failed to open file");
         return;
@@ -264,9 +264,9 @@ void clearPending(tagRecord* taginfo) {
 }
 
 void initAPconfig() {
-    LittleFS.begin(true);
+    Storage.begin();
     DynamicJsonDocument APconfig(500);
-    File configFile = LittleFS.open("/current/apconfig.json", "r");
+    File configFile = contentFS->open("/current/apconfig.json", "r");
     if (configFile) {
         DeserializationError error = deserializeJson(APconfig, configFile);
         if (error) {
@@ -285,7 +285,7 @@ void initAPconfig() {
 }
 
 void saveAPconfig() {
-    fs::File configFile = LittleFS.open("/current/apconfig.json", "w");
+    fs::File configFile = contentFS->open("/current/apconfig.json", "w");
     DynamicJsonDocument APconfig(500);
     APconfig["channel"] = config.channel;
     APconfig["alias"] = config.alias;

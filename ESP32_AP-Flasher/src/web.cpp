@@ -6,7 +6,8 @@
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include <FS.h>
-#include <LittleFS.h>
+#include "storage.h"
+#include "LittleFS.h"
 #include <SPIFFSEditor.h>
 #include <WiFi.h>
 #include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager/tree/feature_asyncwebserver
@@ -215,15 +216,7 @@ uint8_t wsClientCount() {
 }
 
 void init_web() {
-    LittleFS.begin(true);
-
-    if (!LittleFS.exists("/current")) {
-        LittleFS.mkdir("/current");
-    }
-    if (!LittleFS.exists("/temp")) {
-        LittleFS.mkdir("/temp");
-    }
-
+    Storage.begin();
     WiFi.mode(WIFI_STA);
 
     WiFiManager wm;
@@ -243,8 +236,8 @@ void init_web() {
     Serial.print("Connected! IP address: ");
     Serial.println(WiFi.localIP());
 
-    // server.addHandler(new SPIFFSEditor(LittleFS, http_username, http_password));
-    server.addHandler(new SPIFFSEditor(LittleFS));
+    // server.addHandler(new SPIFFSEditor(*contentFS, http_username, http_password));
+    server.addHandler(new SPIFFSEditor(*contentFS));
 
     ws.onEvent(onEvent);
     server.addHandler(&ws);
@@ -260,8 +253,8 @@ void init_web() {
         ESP.restart();
     });
 
-    server.serveStatic("/current", LittleFS, "/current/");
-    server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html");
+    server.serveStatic("/current", *contentFS, "/current/");
+    server.serveStatic("/", *contentFS, "/www/").setDefaultFile("index.html");
 
     server.on(
         "/imgupload", HTTP_POST, [](AsyncWebServerRequest *request) {
@@ -371,7 +364,7 @@ void init_web() {
     server.on("/get_ap_config", HTTP_GET, [](AsyncWebServerRequest *request) {
         UDPcomm udpsync;
         udpsync.getAPList();
-        File configFile = LittleFS.open("/current/apconfig.json", "r");
+        File configFile = contentFS->open("/current/apconfig.json", "r");
         if (!configFile) {
             request->send(500, "text/plain", "Error opening apconfig.json file");
             return;
@@ -411,7 +404,7 @@ void init_web() {
 
     server.on("/backup_db", HTTP_GET, [](AsyncWebServerRequest *request) {
         saveDB("/current/tagDB.json");
-        File file = LittleFS.open("/current/tagDB.json", "r");
+        File file = contentFS->open("/current/tagDB.json", "r");
         AsyncWebServerResponse *response = request->beginResponse(file, "tagDB.json", String(), true);
         request->send(response);
         file.close();
@@ -449,7 +442,7 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
         } else {
             filename = "unknown.jpg";
         }
-        request->_tempFile = LittleFS.open("/" + filename, "w");
+        request->_tempFile = contentFS->open("/" + filename, "w");
     }
     if (len) {
         // stream the incoming chunk to the opened file
