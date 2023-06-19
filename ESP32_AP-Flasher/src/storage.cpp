@@ -44,8 +44,13 @@ static void initSDCard() {
 }
 #endif
 
-void copyToSD(FS &sourceFS, const char* source_path){
-    File root = sourceFS.open(source_path);
+size_t DynStorage::freeSpace(){
+    this->begin();
+#ifdef HAS_SDCARD
+    return SD.totalBytes() - SD.usedBytes();
+#endif
+    return LittleFS.totalBytes() - LittleFS.usedBytes();
+}
 
 void copyFile(File in, File out) {
     Serial.print("Copying ");

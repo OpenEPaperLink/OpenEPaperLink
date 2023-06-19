@@ -136,7 +136,7 @@ void wsSendSysteminfo() {
     sys["heap"] = ESP.getFreeHeap();
     sys["recordcount"] = tagDB.size();
     sys["dbsize"] = tagDB.size() * sizeof(tagRecord);
-    sys["littlefsfree"] = LittleFS.totalBytes() - LittleFS.usedBytes();
+    sys["littlefsfree"] = Storage.freeSpace();
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
 
