@@ -8,7 +8,7 @@
 #include <FS.h>
 #include "storage.h"
 #include "LittleFS.h"
-#include <SPIFFSEditor.h>
+#include "SPIFFSEditor.h"
 #include <WiFi.h>
 #include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager/tree/feature_asyncwebserver
 
