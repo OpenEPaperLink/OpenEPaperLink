@@ -25,6 +25,7 @@ class DynStorage {
    public:
     DynStorage();
     void begin();
+    void end();
     void listFiles();
     size_t freeSpace();
 

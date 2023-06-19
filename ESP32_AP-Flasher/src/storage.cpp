@@ -141,6 +141,27 @@ void DynStorage::begin() {
     }
 }
 
+void DynStorage::end() {
+#ifdef HAS_SDCARD
+    initLittleFS();
+    if (SD_CARD_CLK == FLASHER_AP_CLK ||
+        SD_CARD_MISO == FLASHER_AP_MISO ||
+        SD_CARD_MOSI == FLASHER_AP_MOSI) {
+        Serial.println("Tearing down SD card connection");
+
+        copyBetweenFS(*contentFS, "/tag_md5_db.json", LittleFS);
+        copyBetweenFS(*contentFS, "/AP_FW_Pack.bin", LittleFS);
+        if (contentFS->exists("/AP_force_flash.bin")) {
+            copyBetweenFS(*contentFS, "/AP_force_flash.bin", LittleFS);
+            contentFS->remove("/AP_force_flash.bin");
+        }
+        Serial.println("Swapping to LittleFS");
+
+        contentFS = &LittleFS;
+    }
+
+#endif
+}
 
 void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
     Storage.begin();

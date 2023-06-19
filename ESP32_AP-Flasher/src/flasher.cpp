@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include "storage.h"
+#include "LittleFS.h"
 #include <MD5Builder.h>
 // #include <FS.h>
 
@@ -109,9 +110,11 @@ class flasher {
 
 flasher::flasher() {
     zbs = new ZBS_interface;
+    Storage.end();
 }
 flasher::~flasher() {
     delete zbs;
+    Storage.begin();
 }
 
 bool flasher::connectTag(uint8_t port) {
