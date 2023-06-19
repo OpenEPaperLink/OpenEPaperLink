@@ -94,7 +94,7 @@ function connect() {
 			processTags(msg.tags);
 		}
 		if (msg.sys) {
-			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + msg.sys.dbsize + ' bytes &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; littlefs free: ' + msg.sys.littlefsfree + ' bytes';
+			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + msg.sys.dbsize + ' bytes &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; active filesystem free: ' + msg.sys.littlefsfree + ' bytes ' + convertSize(msg.sys.littlefsfree);
 			if (msg.sys.apstate) {
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
 				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;
@@ -126,6 +126,18 @@ function connect() {
 		setTimeout(connect, 5000);
 	});
 }
+
+// Copied from
+// https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
+function convertSize(bytes){
+	if      (bytes >= 1073741824) { bytes = (bytes / 1073741824).toFixed(2) + " GB"; }
+	else if (bytes >= 1048576)    { bytes = (bytes / 1048576).toFixed(2) + " MB"; }
+	else if (bytes >= 1024)       { bytes = (bytes / 1024).toFixed(2) + " KB"; }
+	else if (bytes > 1)           { bytes =	 bytes + " bytes"; }
+	else if (bytes == 1)          { bytes = bytes + " byte"; }
+	else                          { bytes = "0 bytes"; }
+	return "(" + bytes + ")";
+  }
 
 function processTags(tagArray) {
 	for (const element of tagArray) {
