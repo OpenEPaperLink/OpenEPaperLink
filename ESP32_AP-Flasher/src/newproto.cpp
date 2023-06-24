@@ -3,12 +3,12 @@
 #include <Arduino.h>
 #include <FS.h>
 #include <HTTPClient.h>
-#include <LittleFS.h>
+#include "storage.h"
 #include <MD5Builder.h>
 #include <makeimage.h>
 #include <time.h>
 
-#include "LittleFS.h"
+#include "storage.h"
 #include "commstructs.h"
 #include "serialap.h"
 #include "settings.h"
@@ -130,14 +130,14 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     }
 
     *filename = "/" + *filename;
-    LittleFS.begin();
+    Storage.begin();
 
-    if (!LittleFS.exists(*filename)) {
+    if (!contentFS->exists(*filename)) {
         wsErr("File not found. " + *filename);
         return false;
     }
 
-    fs::File file = LittleFS.open(*filename);
+    fs::File file = contentFS->open(*filename);
     uint32_t filesize = file.size();
     if (filesize == 0) {
         file.close();
@@ -161,8 +161,8 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
         wsLog("new image is the same as current or already pending image. not updating tag.");
         wsSendTaginfo(dst, SYNC_TAGSTATUS);
-        if (LittleFS.exists(*filename)) {
-            LittleFS.remove(*filename);
+        if (contentFS->exists(*filename)) {
+            contentFS->remove(*filename);
         }
         return true;
     }
@@ -182,10 +182,10 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     if (dataType != DATATYPE_FW_UPDATE) {
         char dst_path[64];
         sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        if (LittleFS.exists(dst_path)) {
-            LittleFS.remove(dst_path);
+        if (contentFS->exists(dst_path)) {
+            contentFS->remove(dst_path);
         }
-        LittleFS.rename(*filename, dst_path);
+        contentFS->rename(*filename, dst_path);
         *filename = String(dst_path);
 
         wsLog("new image: " + String(dst_path));
@@ -241,7 +241,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
             case DATATYPE_IMG_RAW_1BPP:
             case DATATYPE_IMG_RAW_2BPP:
             case DATATYPE_IMG_RAW_1BPP_DIRECT: {
-                LittleFS.begin();
+                Storage.begin();
 
                 char hexmac[17];
                 mac2hex(pending->targetMac, hexmac);
@@ -252,13 +252,13 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 http.begin(imageUrl);
                 int httpCode = http.GET();
                 if (httpCode == 200) {
-                    File file = LittleFS.open(filename, "w");
+                    File file = contentFS->open(filename, "w");
                     http.writeToStream(&file);
                     file.close();
                 }
                 http.end();
 
-                fs::File file = LittleFS.open(filename);
+                fs::File file = contentFS->open(filename);
                 uint32_t filesize = file.size();
                 if (filesize == 0) {
                     file.close();
@@ -338,7 +338,7 @@ void processBlockRequest(struct espBlockRequest* br) {
 
     if (taginfo->data == nullptr) {
         // not cached. open file, cache the data
-        fs::File file = LittleFS.open(taginfo->filename);
+        fs::File file = contentFS->open(taginfo->filename);
         if (!file) {
             Serial.print("No current file. Canceling request\n");
             prepareCancelPending(br->src);
@@ -380,11 +380,15 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     char dst_path[64];
     sprintf(src_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
-    if (LittleFS.exists(dst_path) && LittleFS.exists(src_path)) {
-        LittleFS.remove(dst_path);
+    if (contentFS->exists(dst_path) && contentFS->exists(src_path)) {
+        contentFS->remove(dst_path);
     }
-    if (LittleFS.exists(src_path)) {
-        LittleFS.rename(src_path, dst_path);
+    if (contentFS->exists(src_path)) {
+        #ifndef REMOVE_RAW
+        contentFS->rename(src_path, dst_path);
+        #else 
+        contentFS->remove(src_path);
+        #endif
     }
 
     time_t now;
@@ -396,8 +400,8 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         clearPending(taginfo);
         taginfo->wakeupReason = 0;
         if (taginfo->contentMode == 12 && local == false) {
-            if (LittleFS.exists(dst_path)) {
-                LittleFS.remove(dst_path);
+            if (contentFS->exists(dst_path)) {
+                contentFS->remove(dst_path);
             }
         }
     }

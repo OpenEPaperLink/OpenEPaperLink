@@ -2,7 +2,6 @@
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
-#include <LittleFS.h>
 
 #include "commstructs.h"
 #include "flasher.h"
@@ -10,6 +9,7 @@
 #include "newproto.h"
 #include "powermgt.h"
 #include "settings.h"
+#include "storage.h"
 #include "web.h"
 #include "zbs_interface.h"
 
@@ -205,6 +205,7 @@ bool sendDataAvail(struct pendingData* pending) {
         }
         if (waitCmdReply()) goto sdasend;
         Serial.printf("SDA send failed in try %d\n", attempt);
+        delay(200);
     }
     Serial.print("SDA failed to send...\n");
     txEnd();
@@ -747,6 +748,15 @@ void APTask(void* parameter) {
 #endif
             Serial.println("Please verify your wiring and try again!");
         }
+#ifdef HAS_SDCARD
+        if (SD_CARD_CLK == FLASHER_AP_CLK ||
+            SD_CARD_MISO == FLASHER_AP_MISO ||
+            SD_CARD_MOSI == FLASHER_AP_MOSI) {
+            Serial.println("Reseting in 30 seconds to restore SPI state!\n");
+            flashCountDown(30);
+            ESP.restart();
+        }
+#endif
     }
 
     uint8_t attempts = 0;

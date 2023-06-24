@@ -13,7 +13,7 @@
 #ifdef CONTENT_RSS
 #include <rssClass.h>
 #endif
-#include <LittleFS.h>
+#include "storage.h"
 #include <time.h>
 
 #include <map>
@@ -143,7 +143,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                 if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
-                    if (cfgobj["delete"].as<String>() == "1") LittleFS.remove("/" + cfgobj["filename"].as<String>());
+                    if (cfgobj["delete"].as<String>() == "1") contentFS->remove("/" + cfgobj["filename"].as<String>());
                 } else {
                     wsErr("Error accessing " + filename);
                 }
@@ -323,7 +323,7 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
         spr.setTextColor(PAL_BLACK, PAL_WHITE);
         spr.drawString(content, posx, posy);
     } else {
-        if (font != "") spr.loadFont(font, LittleFS);
+        if (font != "") spr.loadFont(font, *contentFS);
         spr.setTextColor(color, PAL_WHITE);
         spr.drawString(content, posx, posy);
         if (font != "") spr.unloadFont();
@@ -420,7 +420,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     if (count > 99) font = loc["fonts"][1].as<String>();
     if (count > 999) font = loc["fonts"][2].as<String>();
     if (count > 9999) font = loc["fonts"][3].as<String>();
-    spr.loadFont(font, LittleFS);
+    spr.loadFont(font, *contentFS);
     spr.drawString(String(count), loc["xy"][0].as<uint16_t>(), loc["xy"][1].as<uint16_t>());
     spr.unloadFont();
 
@@ -505,7 +505,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         dtostrf(temperature, 2, 1, tmpOutput);
         drawString(spr, String(tmpOutput), loc["temp"][0], loc["temp"][1], loc["temp"][2], TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
 
-        spr.loadFont(loc["icon"][2], LittleFS);
+        spr.loadFont(loc["icon"][2], *contentFS);
         if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
             spr.setTextColor(PAL_RED, PAL_WHITE);
         } else {
@@ -515,7 +515,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         spr.printToSprite(weatherIcons[weathercode]);
         spr.unloadFont();
 
-        spr.loadFont(loc["dir"][2], LittleFS);
+        spr.loadFont(loc["dir"][2], *contentFS);
         spr.setTextColor(PAL_BLACK, PAL_WHITE);
         spr.setCursor(loc["dir"][0], loc["dir"][1]);
         spr.printToSprite(windDirectionIcon(winddirection));
@@ -578,7 +578,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
 
             uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
             if (weathercode > 40) weathercode -= 40;
-            spr.loadFont(loc["icon"][2], LittleFS);
+            spr.loadFont(loc["icon"][2], *contentFS);
             if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
                 spr.setTextColor(PAL_RED, PAL_WHITE);
             } else {
@@ -597,7 +597,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
             int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());
             uint8_t wind = windSpeedToBeaufort(doc["daily"]["windspeed_10m_max"][dag].as<double>());
 
-            spr.loadFont(loc["day"][2], LittleFS);
+            spr.loadFont(loc["day"][2], *contentFS);
 
             if (loc["rain"]) {
                 int8_t rain = round(doc["daily"]["precipitation_sum"][dag].as<double>());
@@ -624,7 +624,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
 int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams, String MAC) {
     // https://images.klari.net/kat-bw29.jpg
 
-    LittleFS.begin();
+    Storage.begin();
 
     Serial.println("get external " + URL);
     HTTPClient http;
@@ -634,7 +634,7 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
     http.setTimeout(5000);  // timeout in ms
     int httpCode = http.GET();
     if (httpCode == 200) {
-        File f = LittleFS.open("/temp/temp.jpg", "w");
+        File f = contentFS->open("/temp/temp.jpg", "w");
         if (f) {
             http.writeToStream(&f);
             f.close();
@@ -796,7 +796,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
 #ifdef CONTENT_QR
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
-    LittleFS.begin();
+    Storage.begin();
 
     const char *text = qrcontent.c_str();
     QRCode qrcode;
@@ -1031,7 +1031,7 @@ void prepareConfigFile(uint8_t *dst, JsonObject config) {
 }
 
 void getTemplate(JsonDocument &json, const char *filePath, uint8_t id, uint8_t hwtype) {
-    File jsonFile = LittleFS.open(filePath, "r");
+    File jsonFile = contentFS->open(filePath, "r");
     if (!jsonFile) {
         Serial.println("Failed to open content template file " + String(filePath));
         return;
