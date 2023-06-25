@@ -74,11 +74,7 @@ uint32_t colorDistance(const Color &c1, const Color &c2, const Error &e1) {
     return 3 * r_diff * r_diff + 6 * g_diff * g_diff + 1 * b_diff * b_diff;
 }
 
-void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
-    long t = millis();
-    Storage.begin();
-
-    fs::File f_out = contentFS->open(fileout, "w");
+uint8_t *spr2color(TFT_eSprite &spr, imgParam &imageParams, size_t *buffer_size, bool is_red) {
 
     bool dither = true;
     uint8_t rotate = imageParams.rotate;
@@ -90,11 +86,13 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
         bufh = spr.width();
     }
 
-    int bufferSize = (bufw * bufh) / 8;
-    uint8_t *blackBuffer = new uint8_t[bufferSize];
-    uint8_t *redBuffer = new uint8_t[bufferSize];
-    memset(blackBuffer, 0, bufferSize);
-    memset(redBuffer, 0, bufferSize);
+    *buffer_size = (bufw * bufh) / 8;
+    uint8_t *buffer = (uint8_t*) malloc(*buffer_size);
+    if (!buffer) {
+        Serial.println("Fallied to allocated buffer");
+        return nullptr;
+    }
+    memset(buffer, 0, *buffer_size);
 
     std::vector<Color> palette = {
         {255, 255, 255},  // White
@@ -147,15 +145,16 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
             // this looks a bit ugly, but it's performing better than shorter notations
             switch (best_color_index) {
                 case 1:
-                    blackBuffer[byteIndex] |= (1 << bitIndex);
+                    if(!is_red)
+                        buffer[byteIndex] |= (1 << bitIndex);
                     break;
                 case 2:
                     imageParams.hasRed = true;
-                    redBuffer[byteIndex] |= (1 << bitIndex);
+                    if(is_red)
+                        buffer[byteIndex] |= (1 << bitIndex);
                     break;
                 case 3:
-                    blackBuffer[byteIndex] |= (1 << bitIndex);
-                    redBuffer[byteIndex] |= (1 << bitIndex);
+                    buffer[byteIndex] |= (1 << bitIndex);
                     imageParams.hasRed = true;
                     break;
             }
@@ -199,14 +198,32 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
         }
         memcpy(error_bufferold, error_buffernew, bufw * sizeof(Error));
     }
+
     delete[] error_buffernew;
     delete[] error_bufferold;
 
-    f_out.write(blackBuffer, bufferSize);
-    if (imageParams.hasRed) f_out.write(redBuffer, bufferSize);
+    return buffer;
+}
 
-    delete[] blackBuffer;
-    delete[] redBuffer;
+void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
+    long t = millis();
+    Storage.begin();
+
+    fs::File f_out = contentFS->open(fileout, "w");
+    size_t bufferSize;
+
+    uint8_t *blackBuffer = (uint8_t*) spr2color(spr, imageParams, &bufferSize, false);
+    if(!blackBuffer)
+        return;
+    f_out.write(blackBuffer, bufferSize);
+    free(blackBuffer);
+    if (imageParams.hasRed) {
+        uint8_t *redBuffer = (uint8_t*) spr2color(spr, imageParams, &bufferSize, true);
+        if(!redBuffer)
+            return;
+        f_out.write(redBuffer, bufferSize);
+        free(redBuffer);
+    } 
 
     f_out.close();
     Serial.println("finished writing buffer " + String(millis() - t) + "ms");
