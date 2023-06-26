@@ -1,4 +1,4 @@
-name: ESP32 build
+name: ESP32 firmware builf test
 
 on: [push,pull_request]
 
@@ -20,32 +20,38 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
-      - name: Build firmware for ESP32
+      - name: Build Simple_AP
         run: |
           cd ESP32_AP-Flasher
           pio run --environment Simple_AP
-        
-      - name: Build filesystem for ESP32
-        run: |
-          cd ESP32_AP-Flasher
           pio run --target buildfs --environment Simple_AP
           
-      - name: Build firmware for ESP32-S2
+      - name: Build OpenEPaperLink_Mini_AP
         run: |
           cd ESP32_AP-Flasher
           pio run --environment OpenEPaperLink_Mini_AP
+          pio run --target buildfs --environment OpenEPaperLink_Mini_AP
         
-      - name: Build filesystem for ESP32-S2
+      - name: Build OpenEPaperLink_Nano_AP
         run: |
           cd ESP32_AP-Flasher
-          pio run --target buildfs --environment OpenEPaperLink_Mini_AP
+          pio run --environment OpenEPaperLink_Nano_AP
+          pio run --target buildfs --environment OpenEPaperLink_Nano_AP
           
-      - name: Build firmware for ESP32-S3
+      - name: Build OpenEPaperLink_AP_and_Flasher
         run: |
           cd ESP32_AP-Flasher
           pio run --environment OpenEPaperLink_AP_and_Flasher
-        
-      - name: Build filesystem for ESP32-S3
+          pio run --target buildfs --environment OpenEPaperLink_AP_and_Flasher
+          
+      - name: Build Weemos_AP
         run: |
           cd ESP32_AP-Flasher
-          pio run --target buildfs --environment OpenEPaperLink_AP_and_Flasher
+          pio run --environment Weemos_AP
+          pio run --target buildfs --environment Weemos_AP
+          
+      - name: Build M5Stack_Core_ONE_AP
+        run: |
+          cd ESP32_AP-Flasher
+          pio run --environment M5Stack_Core_ONE_AP
+          pio run --target buildfs --environment M5Stack_Core_ONE_AP
