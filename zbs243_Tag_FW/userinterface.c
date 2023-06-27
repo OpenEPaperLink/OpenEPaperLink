@@ -27,7 +27,7 @@
 // extern uint8_t __xdata APmac[];
 // extern uint16_t __xdata batteryVoltage;
 
-const uint8_t __code fwVersion = FW_VERSION;
+const uint16_t __code fwVersion = FW_VERSION;
 const char __code fwVersionSuffix[] = FW_VERSION_SUFFIX;
 
 extern uint8_t __xdata capabilities;

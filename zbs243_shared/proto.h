@@ -31,7 +31,6 @@ enum TagScreenType {
     TagScreenTypeOther = 0x7f,
 };
 
-
 #ifndef __packed
 #define __packed __attribute__((packed))
 #endif
@@ -110,9 +109,23 @@ struct AvailDataReq {
     uint16_t batteryMv;
     uint8_t hwType;
     uint8_t wakeupReason;
-    uint8_t capabilities;  // undefined, as of now
+    uint8_t capabilities;
+    uint16_t tagSoftwareVersion;
+    uint8_t currentChannel;
+    uint8_t customMode;
+    uint8_t reserved[8];
 } __packed;
 
+struct oldAvailDataReq {
+    uint8_t checksum;
+    uint8_t lastPacketLQI;
+    int8_t lastPacketRSSI;
+    int8_t temperature;
+    uint16_t batteryMv;
+    uint8_t hwType;
+    uint8_t wakeupReason;
+    uint8_t capabilities;
+} __packed;
 
 struct AvailDataInfo {
     uint8_t checksum;
@@ -189,7 +202,6 @@ struct espSetChannelPower {
     uint8_t channel;
     uint8_t power;
 } __packed;
-
 
 #define MACFMT "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
 #define MACCVT(x) ((const uint8_t*)(x))[7], ((const uint8_t*)(x))[6], ((const uint8_t*)(x))[5], ((const uint8_t*)(x))[4], ((const uint8_t*)(x))[3], ((const uint8_t*)(x))[2], ((const uint8_t*)(x))[1], ((const uint8_t*)(x))[0]

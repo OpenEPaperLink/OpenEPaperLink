@@ -196,6 +196,9 @@ static void sendAvailDataReq() {
     availreq->temperature = temperature;
     availreq->batteryMv = batteryVoltage;
     availreq->capabilities = capabilities;
+    availreq->tagSoftwareVersion = fwVersion;
+    availreq->currentChannel = currentChannel;
+    availreq->customMode = tagSettings.customMode;
     addCRC(availreq, sizeof(struct AvailDataReq));
     commsTxNoCpy(outBuffer);
 }
