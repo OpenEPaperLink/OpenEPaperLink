@@ -320,8 +320,16 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
 
     if (font == "2") {
         spr.setTextFont(2);
-        spr.setTextColor(PAL_BLACK, PAL_WHITE);
+        spr.setTextColor(color, PAL_WHITE);
         spr.drawString(content, posx, posy);
+    } else if (font != "" && !font.startsWith("fonts/")) {
+        U8g2_for_TFT_eSPI u8f;
+        u8f.begin(spr);
+        setU8G2Font(font, u8f);
+        u8f.setForegroundColor(color);
+        u8f.setBackgroundColor(PAL_WHITE);
+        u8f.setCursor(posx, posy);
+        u8f.print(content);
     } else {
         if (font != "") spr.loadFont(font, *contentFS);
         spr.setTextColor(color, PAL_WHITE);

@@ -31,7 +31,7 @@
  },
  "4": {
   "0": {
-   "location": [ 10, 130, 2 ],
+   "location": [ 10, 145, "t0_14b_tf" ],
    "wind": [ 140, 10, "fonts/bahnschrift30" ],
    "temp": [ 10, 10, "fonts/bahnschrift30" ],
    "icon": [ 33, 33, "fonts/weathericons78" ],
@@ -57,7 +57,7 @@
  },
  "8": {
   "1": {
-   "location": [ 5, 0, 2 ],
+   "location": [ 5, 12, "t0_14b_tf" ],
    "column": [ 5, 59 ],
    "day": [ 30, 18, "fonts/twcondensed20", 41, 108 ],
    "icon": [ 12, 58, "fonts/weathericons30" ],
@@ -90,7 +90,7 @@
  },
  "10": {
   "0": {
-   "title": [ 10, 3, 2 ],
+   "title": [ 10, 15, "t0_14b_tf" ],
    "pos": [ 76, 20 ]
   },
   "1": {
