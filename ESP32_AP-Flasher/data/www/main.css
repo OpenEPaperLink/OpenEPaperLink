@@ -120,6 +120,8 @@ select {
 	background-color: #f0e6d3;
 	z-index: 999;
 	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
+	overflow: auto;
+	max-height: calc(100vh - 75px);
 }
 
 #configbox p, #apconfigbox p, #apupdatebox p {
@@ -482,6 +484,11 @@ ul.messages li.new {
 	background-color: #ffffff;
 	padding: 1px 5px;
 	min-width: 70px;
+	vertical-align: baseline;
+}
+
+#releasetable td:nth-child(2) {
+	word-wrap: nowrap;
 }
 
 #releasetable button {

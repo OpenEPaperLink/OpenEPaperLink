@@ -95,13 +95,13 @@ export async function initUpdate() {
 
             const table = document.createElement('table');
             const tableHeader = document.createElement('tr');
-            tableHeader.innerHTML = '<th>Release</th><th>Date</th><th>Name</th><th>Author</th><th colspan="2">Update:</th><th>Remark</th>';
+            tableHeader.innerHTML = '<th>Release</th><th>Date</th><th>Name</th><th colspan="2">Update:</th><th>Remark</th>';
             table.appendChild(tableHeader);
 
             releaseDetails.forEach(release => {
                 if (release && release.html_url) {
                     const tableRow = document.createElement('tr');
-                    let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td>${release.author}</td><td><button onclick="otamodule.updateESP('${release.file_url}', true)">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td>`;
+                    let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td><button onclick="otamodule.updateESP('${release.file_url}', true)">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td>`;
                     if (release.tag_name == currentVer) {
                         tablerow += "<td>current version</td>";
                     } else if (release.date < formatEpoch(currentBuildtime)) {
@@ -245,45 +245,67 @@ export async function updateESP(fileUrl, showConfirm) {
 
     let binurl, binmd5, binsize;
 
-    try {
-        const response = await fetch("/getexturl?url=" + fileUrl);
-        const data = await response.json();
-        const file = data.binaries.find((entry) => entry.name == env + '.bin');
-        if (file) {
-            binurl = file.url;
-            binmd5 = file.md5;
-            binsize = file.size;
-            console.log(`URL for "${file.name}": ${binurl}`);
+    let retryCount = 0;
+    const maxRetries = 5;
 
-            try {
-                const response = await fetch('/update_ota', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: new URLSearchParams({
-                        url: binurl,
-                        md5: binmd5,
-                        size: binsize
-                    })
-                });
+    while (retryCount < maxRetries) {
+        try {
+            const response = await fetch("/getexturl?url=" + fileUrl);
 
-                if (response.ok) {
-                    const result = await response.text();
-                    print('OTA update initiated.');
-                } else {
-                    print('Failed to initiate OTA update: ' + response.status, "red");
-                }
-            } catch (error) {
-                print('Error during OTA update: ' + error, "red");
+            if (!response.ok) {
+                throw new Error("Network response was not OK");
             }
-        } else {
-            print(`File "${fileName}" not found.`, "red");
+
+            const responseBody = await response.text();
+            if (responseBody.trim()[0] !== "{") {
+                throw new Error("Failed to fetch the release info file");
+            }
+            const data = JSON.parse(responseBody);
+            
+            const file = data.binaries?.find((entry) => entry.name == env + '.bin');
+            if (file) {
+                binurl = file.url;
+                binmd5 = file.md5;
+                binsize = file.size;
+                console.log(`URL for "${file.name}": ${binurl}`);
+
+                try {
+                    const response = await fetch('/update_ota', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({
+                            url: binurl,
+                            md5: binmd5,
+                            size: binsize
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.text();
+                        print('OTA update initiated.');
+                    } else {
+                        print('Failed to initiate OTA update: ' + response.status, "red");
+                    }
+                } catch (error) {
+                    print('Error during OTA update: ' + error, "red");
+                }
+                break;
+            } else {
+                print(`No info about "${env}" found in the release.`, "red");
+            }
+        } catch (error) {
+            print('Error: ' + error.message, "yellow");
+            retryCount++;
+            print(`Retrying... attempt ${retryCount}`);
+            await new Promise((resolve) => setTimeout(resolve, 3000));
         }
-    } catch (error) {
-        print('Error: ' + error, "red");
-        print("Something went wrong, try again.");
     }
+
+    if (retryCount === maxRetries) {
+        print("Reached maximum retry count. Failed to execute the update.", "red");
+    }        
 
     running = false;
     disableButtons(false);

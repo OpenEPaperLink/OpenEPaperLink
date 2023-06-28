@@ -122,7 +122,7 @@
   "1": {
    "location": [ 5, 5, "fonts/bahnschrift30" ],
    "title": [ 247, 11, "glasstown_nbp_tf" ],
-   "cols": [ 1, 125, 12 ],
+   "cols": [ 1, 125, 12, "glasstown_nbp_tf" ],
    "bars": [ 5, 111, 10 ]
   }
  }

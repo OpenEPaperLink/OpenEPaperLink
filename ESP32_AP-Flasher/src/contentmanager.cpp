@@ -318,11 +318,7 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
     // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,PAL_RED);
     spr.setTextDatum(align);
 
-    if (font == "2") {
-        spr.setTextFont(2);
-        spr.setTextColor(color, PAL_WHITE);
-        spr.drawString(content, posx, posy);
-    } else if (font != "" && !font.startsWith("fonts/")) {
+    if (font != "" && !font.startsWith("fonts/")) {
         U8g2_for_TFT_eSPI u8f;
         u8f.begin(spr);
         setU8G2Font(font, u8f);
@@ -609,7 +605,9 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
 
             if (loc["rain"]) {
                 int8_t rain = round(doc["daily"]["precipitation_sum"][dag].as<double>());
-                drawString(spr, String(rain) + "mm", dag * loc["column"][1].as<int>() + loc["rain"][0].as<int>(), loc["rain"][1], "", TC_DATUM, (rain > 10 ? PAL_RED : PAL_BLACK));
+                if (rain > 0) {
+                    drawString(spr, String(rain) + "mm", dag * loc["column"][1].as<int>() + loc["rain"][0].as<int>(), loc["rain"][1], "", TC_DATUM, (rain > 10 ? PAL_RED : PAL_BLACK));
+                }
             }
 
             drawString(spr, String(tmin) + " ", dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][4], "", TR_DATUM, (tmin < 0 ? PAL_RED : PAL_BLACK));
@@ -895,10 +893,7 @@ void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, i
             spr.fillRect(i * loc["cols"][2].as<int>() + loc["bars"][0].as<int>(), loc["bars"][1].as<int>() - (value - 60), loc["bars"][2], (value - 60), (value > 130 ? PAL_RED : PAL_BLACK));
 
             if (minutes % 15 == 0) {
-                spr.setTextFont(2);
-                spr.setTextColor(PAL_BLACK, PAL_WHITE);
-                u8f.setCursor(i * loc["cols"][2].as<int>() + loc["cols"][0].as<int>(), loc["cols"][1]);
-                u8f.print(timestring);
+                drawString(spr, timestring, i * loc["cols"][2].as<int>() + loc["cols"][0].as<int>(), loc["cols"][1], loc["cols"][3]);
             }
         }
 
