@@ -63,7 +63,7 @@ bool hex2mac(const String& hexString, uint8_t* mac) {
 }
 
 String tagDBtoJson(uint8_t mac[8], uint8_t startPos) {
-    DynamicJsonDocument doc(2500);
+    DynamicJsonDocument doc(5000);
     JsonArray tags = doc.createNestedArray("tags");
 
     for (int16_t c = startPos; c < tagDB.size(); c++) {
@@ -85,7 +85,7 @@ String tagDBtoJson(uint8_t mac[8], uint8_t startPos) {
                 break;
             }
         }
-        if (doc.capacity()-doc.memoryUsage() < doc.memoryUsage()/(c+1) + 100) {
+        if (doc.capacity() - doc.memoryUsage() < doc.memoryUsage()/(c+1) + 150) {
             doc["continu"] = c+1;
             break;
         }

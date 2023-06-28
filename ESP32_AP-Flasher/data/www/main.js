@@ -177,7 +177,8 @@ function processTags(tagArray) {
 			$('#tag' + tagmac + ' .model').innerHTML = models[element.hwType];
 			let statusline = "";
 			if (element.RSSI != 100) {
-				statusline += `CH ${element.ch}, RSSI ${element.RSSI}, LQI ${element.LQI}`;
+				if (element.ch > 0) statusline += `CH ${element.ch}, `;
+				statusline += `RSSI ${element.RSSI}, LQI ${element.LQI}`;
 			} else {
 				statusline = "AP";
 			}
