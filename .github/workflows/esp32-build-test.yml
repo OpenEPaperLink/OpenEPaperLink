@@ -44,11 +44,11 @@ jobs:
           pio run --environment OpenEPaperLink_AP_and_Flasher
           pio run --target buildfs --environment OpenEPaperLink_AP_and_Flasher
           
-      - name: Build Weemos_AP
+      - name: Build Wemos_d1_mini32_AP
         run: |
           cd ESP32_AP-Flasher
-          pio run --environment Weemos_AP
-          pio run --target buildfs --environment Weemos_AP
+          pio run --environment Wemos_d1_mini32_AP
+          pio run --target buildfs --environment Wemos_d1_mini32_AP
           
       - name: Build M5Stack_Core_ONE_AP
         run: |
