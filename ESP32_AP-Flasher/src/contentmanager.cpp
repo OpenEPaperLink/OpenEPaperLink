@@ -293,7 +293,8 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             taginfo->nextupdate = 3216153600;
             taginfo->contentMode = Image;
             break;
-        case 18:
+
+        case 18:  // tag config
             prepareConfigFile(mac, cfgobj);
             cfgobj["filename"] = "";
             taginfo->nextupdate = 3216153600;

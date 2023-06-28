@@ -46,23 +46,31 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
 
     switch (packet.data()[0]) {
         case PKT_AVAIL_DATA_INFO: {
-            espAvailDataReq* adr = (espAvailDataReq*)&packet.data()[1];
-            processDataReq(adr, false);
+            espAvailDataReq adr;
+            memset(&adr, 0, sizeof(espAvailDataReq));
+            memcpy(&adr, &packet.data()[1], std::min(packet.length() - 1, sizeof(espAvailDataReq)));
+            processDataReq(&adr, false);
             break;
         }
         case PKT_XFER_COMPLETE: {
-            espXferComplete* xfc = (espXferComplete*)&packet.data()[1];
-            processXferComplete(xfc, false);
+            espXferComplete xfc;
+            memset(&xfc, 0, sizeof(espXferComplete));
+            memcpy(&xfc, &packet.data()[1], std::min(packet.length() - 1, sizeof(espXferComplete)));
+            processXferComplete(&xfc, false);
             break;
         }
         case PKT_XFER_TIMEOUT: {
-            espXferComplete* xfc = (espXferComplete*)&packet.data()[1];
-            processXferTimeout(xfc, false);
+            espXferComplete xfc;
+            memset(&xfc, 0, sizeof(espXferComplete));
+            memcpy(&xfc, &packet.data()[1], std::min(packet.length() - 1, sizeof(espXferComplete)));
+            processXferTimeout(&xfc, false);
             break;
         }
         case PKT_AVAIL_DATA_REQ: {
-            pendingData* pending = (pendingData*)&packet.data()[1];
-            prepareExternalDataAvail(pending, packet.remoteIP());
+            pendingData pending;
+            memset(&pending, 0, sizeof(pendingData));
+            memcpy(&pending, &packet.data()[1], std::min(packet.length() - 1, sizeof(pendingData)));
+            prepareExternalDataAvail(&pending, packet.remoteIP());
             break;
         }
         case PKT_APLIST_REQ: {
@@ -82,18 +90,20 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
             break;
         }
         case PKT_APLIST_REPLY: {
-            APlist* APreply = (APlist*)&packet.data()[1];
-            //remove active channel from list
+            APlist APreply;
+            memset(&APreply, 0, sizeof(APlist));
+            memcpy(&APreply, &packet.data()[1], std::min(packet.length() - 1, sizeof(APlist)));
+            // remove active channel from list
             for (int i = 0; i < 6; i++) {
-                if (channelList[i] == APreply->channelId) channelList[i] = 0;
+                if (channelList[i] == APreply.channelId) channelList[i] = 0;
             }
-            wsSendAPitem(APreply);
+            wsSendAPitem(&APreply);
             break;
         }
         case PKT_TAGINFO: {
             uint16_t syncversion = (packet.data()[2] << 8) | packet.data()[1];
             if (syncversion != SYNC_VERSION) {
-                Serial.println("Got a packet from " + packet.remoteIP().toString() + " with mismatched udp sync version. Update firmware!");
+                wsErr("Got a packet from " + packet.remoteIP().toString() + " with mismatched udp sync version. Update firmware!");
             } else {
                 TagInfo* taginfoitem = (TagInfo*)&packet.data()[1];
                 updateTaginfoitem(taginfoitem);

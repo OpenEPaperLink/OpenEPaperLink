@@ -154,6 +154,15 @@ select {
 	font-size: 1.2em;
 }
 
+.tagbuttons {
+	flex-flow: wrap;
+}
+
+.tagbuttons button {
+	font-size: 0.95em;
+	padding: 2px 4px;
+}
+
 #savebar {
 	display: flex;
 	align-items: flex-end;

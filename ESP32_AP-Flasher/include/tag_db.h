@@ -18,7 +18,7 @@
 
 class tagRecord {
    public:
-    tagRecord() : mac{0}, alias(""), lastseen(0), nextupdate(0), contentMode(0), pending(false), md5{0}, md5pending{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false), pendingIdle(0), hasCustomLUT(false), rotate(0), lut(0),
+    tagRecord() : mac{0}, alias(""), lastseen(0), nextupdate(0), contentMode(0), pending(false), md5{0}, md5pending{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false), pendingIdle(0), hasCustomLUT(false), rotate(0), lut(0), tagSoftwareVersion(0), currentChannel(0),
     dataType(0), filename(""), data(nullptr), len(0) {}
 
     uint8_t mac[8];
@@ -44,6 +44,8 @@ class tagRecord {
     bool hasCustomLUT;
     uint8_t rotate;
     uint8_t lut;
+    uint16_t tagSoftwareVersion;
+    uint8_t currentChannel;
 
     uint8_t dataType;
     String filename;

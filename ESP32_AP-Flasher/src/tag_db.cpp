@@ -119,6 +119,8 @@ void fillNode(JsonObject &tag, tagRecord* &taginfo) {
     tag["isexternal"] = taginfo->isExternal;
     tag["rotate"] = taginfo->rotate;
     tag["lut"] = taginfo->lut;
+    tag["ch"] = taginfo->currentChannel;
+    tag["ver"] = taginfo->tagSoftwareVersion;
 }
 
 void saveDB(String filename) {
@@ -214,6 +216,8 @@ void loadDB(String filename) {
                     taginfo->isExternal = tag["isexternal"].as<bool>();
                     taginfo->rotate = tag["rotate"] | 0;
                     taginfo->lut = tag["lut"] | 0;
+                    taginfo->currentChannel = tag["ch"] | 0;
+                    taginfo->tagSoftwareVersion = tag["ver"] | 0;
                 }
             } else {
                 Serial.print(F("deserializeJson() failed: "));

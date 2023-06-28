@@ -351,6 +351,15 @@ void init_web() {
                     if (strcmp(cmdValue, "refresh") == 0) {
                         updateContent(mac);
                     }
+                    if (strcmp(cmdValue, "reboot") == 0) {
+                        sendTagCommand(mac, CMD_DO_REBOOT, !taginfo->isExternal);
+                    }
+                    if (strcmp(cmdValue, "scan") == 0) {
+                        sendTagCommand(mac, CMD_DO_SCAN, !taginfo->isExternal);
+                    }
+                    if (strcmp(cmdValue, "reset") == 0) {
+                        sendTagCommand(mac, CMD_DO_RESET_SETTINGS, !taginfo->isExternal);
+                    }
                     request->send(200, "text/plain", "Ok, done");
                 } else {
                     request->send(200, "text/plain", "Error: mac not found");

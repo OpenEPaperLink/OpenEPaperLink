@@ -498,6 +498,8 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
         taginfo->hwType = eadr->adr.hwType;
         taginfo->wakeupReason = eadr->adr.wakeupReason;
         taginfo->capabilities = eadr->adr.capabilities;
+        taginfo->currentChannel = eadr->adr.currentChannel;
+        taginfo->tagSoftwareVersion = eadr->adr.tagSoftwareVersion;
     }
     if (local) {
         sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
@@ -594,7 +596,7 @@ bool showAPSegmentedInfo(uint8_t* dst, bool local) {
 bool sendTagCommand(uint8_t* dst, uint8_t cmd, bool local) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
-    pending.availdatainfo.dataType = 0xAF;
+    pending.availdatainfo.dataType = DATATYPE_COMMAND_DATA;
     pending.availdatainfo.dataTypeArgument = cmd;
     pending.availdatainfo.nextCheckIn = 0;
     pending.attemptsLeft = 120;
