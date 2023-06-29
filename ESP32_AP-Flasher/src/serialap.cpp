@@ -2,7 +2,6 @@
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
-#include <LittleFS.h>
 
 #include "commstructs.h"
 #include "flasher.h"
@@ -10,6 +9,7 @@
 #include "newproto.h"
 #include "powermgt.h"
 #include "settings.h"
+#include "storage.h"
 #include "web.h"
 #include "zbs_interface.h"
 
@@ -205,6 +205,7 @@ bool sendDataAvail(struct pendingData* pending) {
         }
         if (waitCmdReply()) goto sdasend;
         Serial.printf("SDA send failed in try %d\n", attempt);
+        delay(200);
     }
     Serial.print("SDA failed to send...\n");
     txEnd();
@@ -687,6 +688,10 @@ void APTask(void* parameter) {
         }
         refreshAllPending();
     } else {
+#ifndef FLASH_TIMEOUT
+#define FLASH_TIMEOUT 30
+#endif
+
         // AP unavailable, maybe time to flash?
         apInfo.isOnline = false;
         apInfo.state = AP_STATE_OFFLINE;
@@ -694,8 +699,8 @@ void APTask(void* parameter) {
         Serial.printf("This could be the first time this AP is booted and the AP-tag may be unflashed. We'll try to flash it!\n");
         Serial.printf("If this tag was previously flashed succesfully but this message still shows up, there's probably something wrong with the serial connections.\n");
         Serial.printf("The build of this firmware expects an AP tag with TXD/RXD on ESP32 pins %d and %d, does this match with your wiring?\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
-        Serial.println("Performing firmware flash in about 30 seconds!\n");
-        flashCountDown(30);
+        Serial.printf("Performing firmware flash in about %d seconds!\n", FLASH_TIMEOUT);
+        flashCountDown(FLASH_TIMEOUT);
         if (doAPFlash()) {
             checkWaitPowerCycle();
             if (bringAPOnline()) {
@@ -747,6 +752,15 @@ void APTask(void* parameter) {
 #endif
             Serial.println("Please verify your wiring and try again!");
         }
+#ifdef HAS_SDCARD
+        if (SD_CARD_CLK == FLASHER_AP_CLK ||
+            SD_CARD_MISO == FLASHER_AP_MISO ||
+            SD_CARD_MOSI == FLASHER_AP_MOSI) {
+            Serial.println("Reseting in 30 seconds to restore SPI state!\n");
+            flashCountDown(30);
+            ESP.restart();
+        }
+#endif
     }
 
     uint8_t attempts = 0;

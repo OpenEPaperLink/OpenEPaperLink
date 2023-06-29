@@ -24,13 +24,13 @@
 #include "emulateTag.h"
 #endif
 
-#define MAX_PENDING_MACS 55
+#define MAX_PENDING_MACS 50
 #define HOUSEKEEPING_INTERVAL 60UL
 
 struct pendingData __xdata pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t __xdata version = 0x0016;
+uint16_t __xdata version = 0x0017;
 
 #define RAW_PKT_PADDING 2
 
@@ -416,9 +416,9 @@ void espNotifyAPInfo() {
     countSlots();
     pr("PEN>%02X\n", curPendingData);
     pr("NOP>%02X\n", curNoUpdate);
-#if (AP_EMULATE_TAG == 1)
-    fakeTagCheckIn();
-#endif
+//#if (AP_EMULATE_TAG == 1)
+//    fakeTagCheckIn(); // removed this for now to ensure IP info is properly displayed; first tag check in now happens after the first round of housekeeping (30s)
+//#endif
 }
 
 // process data from tag
@@ -741,6 +741,11 @@ void main(void) {
                 switch (getPacketType(radiorxbuffer)) {
                     case PKT_AVAIL_DATA_REQ:
                         if (ret == 28) {
+                            // old version of the AvailDataReq struct, set all the new fields to zero, so it will pass the CRC
+                            processAvailDataReq(radiorxbuffer);
+                            memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast) + sizeof(struct oldAvailDataReq), 0, sizeof(struct AvailDataReq) - sizeof(struct oldAvailDataReq) + 2);
+                        } else if (ret == 40) {
+                            // new version of the AvailDataReq struct
                             processAvailDataReq(radiorxbuffer);
                         }
                         break;

@@ -163,8 +163,9 @@ void fakeTagCheckIn() {
     adr->lastPacketLQI = 100;
     adr->lastPacketRSSI = 100;
     adr->capabilities |= CAPABILITY_HAS_EXT_POWER;
+    adr->tagSoftwareVersion = 1;
     if (firstboot) {
-        adr->wakeupReason = 0xFC;
+        adr->wakeupReason = WAKEUP_REASON_FIRSTBOOT;
         firstboot = false;
     } else {
         adr->wakeupReason = 0;

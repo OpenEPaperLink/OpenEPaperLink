@@ -263,10 +263,12 @@ void ledTask(void* parameter) {
 
     ledQueue = xQueueCreate(30, sizeof(struct ledInstruction*));
 
-    digitalWrite(FLASHER_LED, HIGH);
-    pinMode(FLASHER_LED, OUTPUT);
     ledcSetup(7, 5000, 8);
-    ledcAttachPin(FLASHER_LED, 7);
+    if (FLASHER_LED != -1) {
+        digitalWrite(FLASHER_LED, HIGH);
+        pinMode(FLASHER_LED, OUTPUT);
+        ledcAttachPin(FLASHER_LED, 7);
+    }
 
     struct ledInstruction* monoled = nullptr;
 

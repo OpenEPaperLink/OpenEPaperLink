@@ -94,7 +94,7 @@ function connect() {
 			processTags(msg.tags);
 		}
 		if (msg.sys) {
-			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + msg.sys.dbsize + ' bytes &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; littlefs free: ' + msg.sys.littlefsfree + ' bytes';
+			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + msg.sys.dbsize + ' bytes &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; filesystem free: ' + convertSize(msg.sys.littlefsfree);
 			if (msg.sys.apstate) {
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
 				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;
@@ -125,6 +125,16 @@ function connect() {
 		showMessage(`websocket closed ${event.code}`);
 		setTimeout(connect, 5000);
 	});
+}
+
+function convertSize(bytes) {
+	if      (bytes >= 1073741824) { bytes = (bytes / 1073741824).toFixed(2) + " GB"; }
+	else if (bytes >= 1048576)    { bytes = (bytes / 1048576).toFixed(2) + " MB"; }
+	else if (bytes >= 1024)       { bytes = (bytes / 1024).toFixed(2) + " kB"; }
+	else if (bytes > 1)           { bytes =	 bytes + " bytes"; }
+	else if (bytes == 1)          { bytes = bytes + " byte"; }
+	else                          { bytes = "0 bytes"; }
+	return bytes;
 }
 
 function processTags(tagArray) {
@@ -165,14 +175,22 @@ function processTags(tagArray) {
 		if (element.RSSI) {
 			div.dataset.hwtype = element.hwType;
 			$('#tag' + tagmac + ' .model').innerHTML = models[element.hwType];
-			$('#tag' + tagmac + ' .rssi').innerHTML = element.RSSI;
-			$('#tag' + tagmac + ' .lqi').innerHTML = element.LQI;
-			$('#tag' + tagmac + ' .temperature').innerHTML = (element.temperature > 0 ? ", " + element.temperature + "&deg;C": "");
-			if (element.batteryMv == 0 || element.batteryMv == 1337) {
-				$('#tag' + tagmac + ' .batt').innerHTML = "";
+			let statusline = "";
+			if (element.RSSI != 100) {
+				if (element.ch > 0) statusline += `CH ${element.ch}, `;
+				statusline += `RSSI ${element.RSSI}, LQI ${element.LQI}`;
 			} else {
-				$('#tag' + tagmac + ' .batt').innerHTML = ", " + (element.batteryMv >= 2600 ? "&#x2265;" : "") + (element.batteryMv / 1000) + "V";
+				statusline = "AP";
 			}
+			if (element.batteryMv != 0 && element.batteryMv != 1337) {
+				statusline += ", " + (element.batteryMv >= 2600 ? "&#x2265;" : "") + (element.batteryMv / 1000) + "V";
+			}
+			if (element.ver != 0 && element.ver != 1) {
+				$('#tag' + tagmac + ' .received').title = `fw: ${element.ver}`;
+			} else {
+				$('#tag' + tagmac + ' .received').title = "";
+			}
+			$('#tag' + tagmac + ' .received').innerHTML = statusline;
 			$('#tag' + tagmac + ' .received').style.opacity = "1";
 		} else {
 			$('#tag' + tagmac + ' .model').innerHTML = "waiting for hardware type";
@@ -396,6 +414,18 @@ $('#cfgclrpending').onclick = function () {
 
 $('#cfgrefresh').onclick = function () {
 	sendCmd($('#cfgmac').dataset.mac, "refresh");
+}
+
+$('#cfgtagreboot').onclick = function () {
+	sendCmd($('#cfgmac').dataset.mac, "reboot");
+}
+
+$('#cfgscan').onclick = function () {
+	sendCmd($('#cfgmac').dataset.mac, "scan");
+}
+
+$('#cfgreset').onclick = function () {
+	sendCmd($('#cfgmac').dataset.mac, "reset");
 }
 
 $('#rebootbutton').onclick = function () {

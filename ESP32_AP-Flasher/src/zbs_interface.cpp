@@ -7,6 +7,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#ifdef USE_SOFTSPI
+    #include <SoftSPI.h>
+#endif
+
 #include "powermgt.h"
 
 uint8_t ZBS_interface::begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO, uint8_t RESET, uint8_t* POWER, uint8_t powerPins, uint32_t spi_speed) {
@@ -27,7 +31,12 @@ uint8_t ZBS_interface::begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO
     digitalWrite(_CLK_PIN, LOW);
     digitalWrite(_MOSI_PIN, HIGH);
 
+#ifdef USE_SOFTSPI
+    if (!spi) spi = new SoftSPI(_MOSI_PIN, _MISO_PIN, _CLK_PIN);
+#else
     if (!spi) spi = new SPIClass(HSPI);
+#endif
+
 
     spiSettings = SPISettings(spi_speed, MSBFIRST, SPI_MODE0);
     spi_ready = 0;

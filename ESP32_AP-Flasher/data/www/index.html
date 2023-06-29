@@ -7,7 +7,7 @@
 
 	<title>Open EPaper Link Access Point</title>
 	<link rel="stylesheet" href="main.css" type="text/css" />
-	<link rel="icon" href="data:,">
+	<link rel="icon" type="image/vnd.icon" href="favicon.ico">
 </head>
 
 <body>
@@ -43,11 +43,13 @@
 					<option value="0">auto</option>
 				</select>
 			</p>
-			<p>
+			<p class="tagbuttons">
 				<button id="cfgrefresh">force refresh</button>
 				<button id="cfgclrpending">clear pending</button>
-				<button id="cfgdelete"><img src="data:image/gif;base64,R0lGODlhEAAQAPMAANXV1e3t7d/f39HR0dvb2/Hx8dTU1OLi4urq6mZmZpmZmf///wAAAAAAAAAAAAAAACH5BAEAAAwALAAAAAAQABAAAARBkMlJq71Yrp3ZXkr4WWCYnOZSgQVyEMYwJCq1nHhe20qgCAoA7QLyAYU7njE4JPV+zOSkCEUSFbmTVPPpbjvgTAQAOw==
-							"></button>
+				<button id="cfgtagreboot">reboot</button>
+				<button id="cfgscan">scan</button>
+				<button id="cfgreset">reset settings</button>
+				<button id="cfgdelete" title="remove"><img src="data:image/gif;base64,R0lGODlhEAAQAPMAANXV1e3t7d/f39HR0dvb2/Hx8dTU1OLi4urq6mZmZpmZmf///wAAAAAAAAAAAAAAACH5BAEAAAwALAAAAAAQABAAAARBkMlJq71Yrp3ZXkr4WWCYnOZSgQVyEMYwJCq1nHhe20qgCAoA7QLyAYU7njE4JPV+zOSkCEUSFbmTVPPpbjvgTAQAOw==	"></button>
 			</p>
 		</div>
 		<p id="savebar">
@@ -160,7 +162,7 @@ Latency will be around 40 seconds.">
 					<div><span id="runstate"></div>
 					<div><span id="apstatecolor">&#11044;</span> <span id="apstate">loading</span></div>
 					<div><span id="apconfigbutton">AP config</span></div>
-					<div><a href="/edit" target="littlefs" class="filebutton">edit littleFS</a></div>
+					<div><a href="/edit" target="littlefs" class="filebutton">edit contentFS</a></div>
 				</div>
 			</div>
 
@@ -171,9 +173,7 @@ Latency will be around 40 seconds.">
 					<div class="alias"></div>
 					<div class="model"></div>
 
-					<div class="received">
-						RSSI&nbsp;<div class="rssi"></div>, LQI&nbsp;<div class="lqi"></div><div class="temperature"></div><div class="batt"></div>
-					</div>
+					<div class="received"></div>
 					
 					<div class="contentmode"></div>
 					<div class="lastseen"></div>

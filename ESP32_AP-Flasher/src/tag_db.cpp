@@ -5,7 +5,7 @@
 #include <FS.h>
 #include <vector>
 
-#include "LittleFS.h"
+#include "storage.h"
 #include "language.h"
 
 std::vector<tagRecord*> tagDB;
@@ -63,7 +63,7 @@ bool hex2mac(const String& hexString, uint8_t* mac) {
 }
 
 String tagDBtoJson(uint8_t mac[8], uint8_t startPos) {
-    DynamicJsonDocument doc(2500);
+    DynamicJsonDocument doc(5000);
     JsonArray tags = doc.createNestedArray("tags");
 
     for (int16_t c = startPos; c < tagDB.size(); c++) {
@@ -85,7 +85,7 @@ String tagDBtoJson(uint8_t mac[8], uint8_t startPos) {
                 break;
             }
         }
-        if (doc.capacity()-doc.memoryUsage() < doc.memoryUsage()/(c+1) + 100) {
+        if (doc.capacity() - doc.memoryUsage() < doc.memoryUsage()/(c+1) + 150) {
             doc["continu"] = c+1;
             break;
         }
@@ -119,6 +119,8 @@ void fillNode(JsonObject &tag, tagRecord* &taginfo) {
     tag["isexternal"] = taginfo->isExternal;
     tag["rotate"] = taginfo->rotate;
     tag["lut"] = taginfo->lut;
+    tag["ch"] = taginfo->currentChannel;
+    tag["ver"] = taginfo->tagSoftwareVersion;
 }
 
 void saveDB(String filename) {
@@ -126,8 +128,8 @@ void saveDB(String filename) {
 
     long t = millis();
 
-    LittleFS.begin();
-    fs::File file = LittleFS.open(filename, "w");
+    Storage.begin();
+    fs::File file = contentFS->open(filename, "w");
     if (!file) {
         Serial.println("saveDB: Failed to open file");
         return;
@@ -161,8 +163,8 @@ void loadDB(String filename) {
     Serial.println("reading DB from file");
     long t = millis();
 
-    LittleFS.begin();
-    fs::File readfile = LittleFS.open(filename, "r");
+    Storage.begin();
+    fs::File readfile = contentFS->open(filename, "r");
     if (!readfile) {
         Serial.println("loadDB: Failed to open file");
         return;
@@ -214,6 +216,8 @@ void loadDB(String filename) {
                     taginfo->isExternal = tag["isexternal"].as<bool>();
                     taginfo->rotate = tag["rotate"] | 0;
                     taginfo->lut = tag["lut"] | 0;
+                    taginfo->currentChannel = tag["ch"] | 0;
+                    taginfo->tagSoftwareVersion = tag["ver"] | 0;
                 }
             } else {
                 Serial.print(F("deserializeJson() failed: "));
@@ -264,9 +268,9 @@ void clearPending(tagRecord* taginfo) {
 }
 
 void initAPconfig() {
-    LittleFS.begin(true);
+    Storage.begin();
     DynamicJsonDocument APconfig(500);
-    File configFile = LittleFS.open("/current/apconfig.json", "r");
+    File configFile = contentFS->open("/current/apconfig.json", "r");
     if (configFile) {
         DeserializationError error = deserializeJson(APconfig, configFile);
         if (error) {
@@ -285,7 +289,7 @@ void initAPconfig() {
 }
 
 void saveAPconfig() {
-    fs::File configFile = LittleFS.open("/current/apconfig.json", "w");
+    fs::File configFile = contentFS->open("/current/apconfig.json", "w");
     DynamicJsonDocument APconfig(500);
     APconfig["channel"] = config.channel;
     APconfig["alias"] = config.alias;

@@ -36,6 +36,10 @@ struct AvailDataReq {
     uint8_t hwType;
     uint8_t wakeupReason;
     uint8_t capabilities;
+    uint16_t tagSoftwareVersion;
+    uint8_t currentChannel;
+    uint8_t customMode;
+    uint8_t reserved[8];
 } __packed;
 
 struct espAvailDataReq {

@@ -15,7 +15,7 @@ void showLongTermSleep();
 void showNoEEPROM();
 void showNoMAC();
 
-extern const uint8_t __code fwVersion;
+extern const uint16_t __code fwVersion;
 extern const char __code fwVersionSuffix[];
 extern bool __xdata lowBatteryShown;
 extern bool __xdata noAPShown;
