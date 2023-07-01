@@ -139,6 +139,10 @@ void wsSendSysteminfo() {
     sys["littlefsfree"] = Storage.freeSpace();
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
+    sys["temp"] = temperatureRead();
+    sys["rssi"] = WiFi.RSSI();
+    sys["wifistatus"] = WiFi.status();
+    sys["wifissid"] = WiFi.SSID();
 
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
