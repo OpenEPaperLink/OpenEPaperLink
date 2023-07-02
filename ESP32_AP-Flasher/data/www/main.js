@@ -99,6 +99,7 @@ function connect() {
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
 				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;
 				$("#runstate").innerHTML = runstate[msg.sys.runstate].state;
+				$("#temp").innerHTML = msg.sys.temp. toFixed(1) + '°C';
 			}
 			servertimediff = (Date.now() / 1000) - msg.sys.currtime;
 		}
