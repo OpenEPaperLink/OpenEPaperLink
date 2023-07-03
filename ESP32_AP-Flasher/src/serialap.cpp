@@ -134,12 +134,15 @@ void APEnterEarlyReset() {
 
 // Reset the tag
 void APTagReset() {
+    uint8_t powerPins = sizeof(APpowerPins);
+    if (powerPins > 0 && APpowerPins[0] == -1)
+        powerPins = 0;
     pinMode(AP_RESET_PIN, OUTPUT);
     digitalWrite(AP_RESET_PIN, LOW);
     vTaskDelay(50 / portTICK_PERIOD_MS);
-    powerControl(false, (uint8_t*)APpowerPins, sizeof(APpowerPins));
+    powerControl(false, (uint8_t*)APpowerPins, powerPins);
     vTaskDelay(300 / portTICK_PERIOD_MS);
-    powerControl(true, (uint8_t*)APpowerPins, sizeof(APpowerPins));
+    powerControl(true, (uint8_t*)APpowerPins, powerPins);
     vTaskDelay(100 / portTICK_PERIOD_MS);
     digitalWrite(AP_RESET_PIN, HIGH);
     vTaskDelay(100 / portTICK_PERIOD_MS);

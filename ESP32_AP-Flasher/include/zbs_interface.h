@@ -9,7 +9,7 @@
 class ZBS_interface
 {
 public:
-    uint8_t begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO, uint8_t RESET, uint8_t* POWER = nullptr, uint8_t powerPins = 1, uint32_t spi_speed = 8000000);
+    uint8_t begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO, uint8_t RESET, uint8_t* POWER, uint8_t powerPins, uint32_t spi_speed = 8000000);
     void setSpeed(uint32_t speed);
     void set_power(uint8_t state);
     void enable_debug();

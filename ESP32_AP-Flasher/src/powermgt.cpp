@@ -75,7 +75,8 @@ void rampTagPower(uint8_t* pin, bool up) {
 }
 
 void powerControl(bool powerState, uint8_t* pin, uint8_t pincount) {
-    if (pin[0] == -1) return;
+    if (pincount == 0) return;
+    if (pin == nullptr) return;
 
 #ifdef POWER_RAMPING
     if (powerState == true) {

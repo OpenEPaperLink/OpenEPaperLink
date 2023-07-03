@@ -117,22 +117,33 @@ flasher::~flasher() {
     Storage.begin();
 }
 
+static uint8_t validatePowerPinCount(int8_t *powerPin, uint8_t pinCount) {
+    if (pinCount > 0) {
+        pinCount = powerPinsAP[0] != -1 ? pinCount : 0;
+    }
+    return pinCount;
+}
+
 #ifndef FLASHER_AP_SPEED
 #define FLASHER_AP_SPEED 4000000
 #endif
 
 bool flasher::connectTag(uint8_t port) {
     bool result;
+    uint8_t power_pins = 0;
     switch (port) {
         case 0:
-            result = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, (uint8_t *)powerPinsAP, sizeof(powerPinsAP), FLASHER_AP_SPEED);
+            power_pins = validatePowerPinCount(powerPinsAP, sizeof(powerPinsAP));
+            result = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, (uint8_t *)powerPinsAP, power_pins, FLASHER_AP_SPEED);
             break;
 #ifdef OPENEPAPERLINK_PCB
         case 1:
-            result = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, (uint8_t *)powerPinsExt, sizeof(powerPinsExt), FLASHER_AP_SPEED);
+            power_pins = validatePowerPinCount(powerPinsExt, sizeof(powerPinsExt));
+            result = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, (uint8_t *)powerPinsExt, power_pins, FLASHER_AP_SPEED);
             break;
         case 2:
-            result = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, (uint8_t *)powerPinsAlt, sizeof(powerPinsAlt), FLASHER_AP_SPEED);
+            power_pins = validatePowerPinCount(powerPinsAlt, sizeof(powerPinsAlt));
+            result = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, (uint8_t *)powerPinsAlt, power_pins, FLASHER_AP_SPEED);
             break;
 #endif
         default:

@@ -19,7 +19,10 @@ uint8_t ZBS_interface::begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO
     _MOSI_PIN = MOSI;
     _MISO_PIN = MISO;
     _RESET_PIN = RESET;
-    _POWER_PIN = POWER;
+    if (powerPins > 0)
+        _POWER_PIN = POWER;
+    else
+        _POWER_PIN = nullptr;
     pinMode(_SS_PIN, OUTPUT);
     pinMode(_RESET_PIN, OUTPUT);
     digitalWrite(_SS_PIN, HIGH);
