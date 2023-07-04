@@ -94,7 +94,7 @@ function connect() {
 			processTags(msg.tags);
 		}
 		if (msg.sys) {
-			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + msg.sys.dbsize + ' bytes &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; filesystem free: ' + convertSize(msg.sys.littlefsfree);
+			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + convertSize(msg.sys.dbsize) + " ("+ msg.sys.dbsize + ' bytes) &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; filesystem free: ' + convertSize(msg.sys.littlefsfree);
 			if (msg.sys.apstate) {
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
 				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;
