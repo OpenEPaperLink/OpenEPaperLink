@@ -76,3 +76,8 @@ Hats off to these legends!
 ![Test](https://github.com/jjwbruijn/OpenEPaperLink/actions/workflows/build-esp32.yml/badge.svg)
 
 ![Release](https://github.com/jjwbruijn/OpenEPaperLink/actions/workflows/release.yml/badge.svg)
+
+## License
+[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+
+<img width="150" src="https://github.com/jjwbruijn/OpenEPaperLink/assets/2544995/0f3c945f-377e-49a4-a431-cd9e111f997f">
