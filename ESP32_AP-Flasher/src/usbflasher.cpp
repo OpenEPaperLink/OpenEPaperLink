@@ -239,6 +239,7 @@ void processFlasherCommand(struct flasherCommand* cmd) {
     uint8_t* tempbuffer;
     uint8_t temp_buff[16];
     uint32_t spi_speed = 0;
+    uint8_t powerPinCount = 1;
     static uint32_t curspeed = 0;
 
     switch (cmd->command) {
@@ -267,14 +268,17 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             curspeed = spi_speed;
 
             if (cmd->data[0] & 2) {
-                temp_buff[0] = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, (uint8_t*)powerPins, spi_speed);
+                powerPinCount = powerPins[0] != -1 ? sizeof(powerPins) : 0;
+                temp_buff[0] = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, (uint8_t*)powerPins, powerPinCount, spi_speed);
             } else if (cmd->data[0] & 4) {
 #ifdef OPENEPAPERLINK_PCB
-                temp_buff[0] = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, (uint8_t*)powerPins3, spi_speed);
+                powerPinCount = powerPins3[0] != -1 ? sizeof(powerPins3) : 0;
+                temp_buff[0] = zbs->begin(FLASHER_ALT_SS, FLASHER_ALT_CLK, FLASHER_ALT_MOSI, FLASHER_ALT_MISO, FLASHER_ALT_RESET, (uint8_t*)powerPins3, powerPinCount, spi_speed);
 #endif
             } else {
 #ifdef OPENEPAPERLINK_PCB
-                temp_buff[0] = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, (uint8_t*)powerPins2, spi_speed);
+                powerPinCount = powerPins2[0] != -1 ? sizeof(powerPins2) : 0;
+                temp_buff[0] = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, (uint8_t*)powerPins2, powerPinCount, spi_speed);
 #endif
             }
             sendFlasherAnswer(cmd->command, temp_buff, 1);
