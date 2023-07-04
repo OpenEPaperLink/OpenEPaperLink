@@ -127,15 +127,25 @@ void wsErr(String text) {
     if (wsMutex) xSemaphoreGive(wsMutex);
 }
 
+size_t dbSize(){
+    size_t size = tagDB.size() * sizeof(tagRecord);
+    for(auto &tag : tagDB) {
+        if (tag->data)
+            size += tag->len;
+        size += tag->modeConfigJson.length();
+    }
+    return size;
+}
+
 void wsSendSysteminfo() {
-    DynamicJsonDocument doc(150);
+    DynamicJsonDocument doc(250);
     JsonObject sys = doc.createNestedObject("sys");
     time_t now;
     time(&now);
     sys["currtime"] = now;
     sys["heap"] = ESP.getFreeHeap();
     sys["recordcount"] = tagDB.size();
-    sys["dbsize"] = tagDB.size() * sizeof(tagRecord);
+    sys["dbsize"] = dbSize();
     sys["littlefsfree"] = Storage.freeSpace();
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
