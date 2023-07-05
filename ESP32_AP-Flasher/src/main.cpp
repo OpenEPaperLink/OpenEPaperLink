@@ -22,6 +22,9 @@
 #include "udp.h"
 #include "web.h"
 
+#include "esp_partition.h"
+#include "esp_ota_ops.h"
+
 void pinTest();
 
 void delayedStart(void* parameter) {
@@ -116,6 +119,30 @@ void setup() {
         } while (pi = (esp_partition_next(pi)));
     }
     */
+    auto app0 = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, "app0");
+    auto app1 = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, "app1");
+    if (app0 && app1) {
+        uint8_t shaBuffer[256 / 8];
+        auto err = esp_partition_get_sha256(app0, shaBuffer);
+        if(err == ESP_OK) {
+            Serial.print("app0 sha256: ");
+            for ( int i = 0; i < 256 / 8; i++ ) {
+                Serial.print( shaBuffer[i], HEX );
+            }
+            Serial.println();
+        }
+        err = esp_partition_get_sha256(app1, shaBuffer);
+        if(err == ESP_OK) {
+            Serial.print("app1 sha256: ");
+            for ( int i = 0; i < 256 / 8; i++ ) {
+                Serial.print( shaBuffer[i], HEX );
+            }
+            Serial.println();
+        }
+        auto current = esp_ota_get_running_partition();
+        if (current)
+            Serial.println("Currently running from " + String(current->label));
+    }
 
 #ifdef HAS_USB
     // We'll need to start the 'usbflasher' task for boards with a second (USB) port. This can be used as a 'flasher' interface, using a python script on the host
