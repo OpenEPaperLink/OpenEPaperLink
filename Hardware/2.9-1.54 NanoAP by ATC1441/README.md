@@ -11,6 +11,6 @@ The Flex PCB does also fit on the 2.9" Display, the case will not fit then :D
 
 <img width="600" alt="NanoAP_Flapped" src="NanoAP_Flapped.jpg">
 
-- The "NanoAP_Case_V3.stl" Case is printed in one go standing up, 0.2mm Layer height no support, infill 20%
+- The "NanoAP_Case_V4.stl" Case is printed in one go standing up, 0.2mm Layer height no support, infill 20%
 - The Flex PCB can be ordered via the Gerber File "NanoAP_Gerber.rar"
 - The Antenna from the Original case needs to be replaced by either a ~3cm wire or the "Antenna_FlexPCB_Gerber.rar"
