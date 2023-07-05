@@ -18,6 +18,8 @@ static SPIClass* spi;
 #endif
 
 #include "LittleFS.h"
+#include "web.h"
+#include "ota.h"
 
 DynStorage::DynStorage() : isInited(0) {}
 

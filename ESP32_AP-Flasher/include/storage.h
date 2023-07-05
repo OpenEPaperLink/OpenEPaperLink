@@ -32,6 +32,7 @@ class DynStorage {
     void end();
     void listFiles();
     size_t freeSpace();
+    void checkForUpdate();
     #ifdef HAS_SDCARD
     uint8_t cardType();
     #endif

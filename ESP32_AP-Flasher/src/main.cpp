@@ -45,6 +45,7 @@ void timeTask(void* parameter) {
 
         if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE || config.runStatus != RUNSTATUS_RUN) wsSendSysteminfo();
         if (now % 5 == 0) Serial.printf("Free heap: %.2f KB\n", ESP.getFreeHeap() / 1024.0f);
+        if (now % 5 == 0) Storage.checkForUpdate();
         if (now % 300 == 6 && config.runStatus != RUNSTATUS_STOP) saveDB("/current/tagDB.json");
 
         if (apInfo.state == AP_STATE_ONLINE) contentRunner();

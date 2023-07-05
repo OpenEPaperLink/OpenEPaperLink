@@ -102,7 +102,7 @@ void handleGetExtUrl(AsyncWebServerRequest* request) {
             }
         } else {
             request->send(httpResponseCode, "text/plain", "Failed to fetch URL");
-            wsSerial(http.errorToString(httpResponseCode));
+            wsLog(http.errorToString(httpResponseCode));
         }
         http.end();
     } else {
@@ -164,20 +164,74 @@ void firmwareUpdateTask(void* parameter) {
     FirmwareUpdateParams* params = reinterpret_cast<FirmwareUpdateParams*>(parameter);
 
     if (ESP.getMaxAllocHeap() < 22000) {
-        wsSerial("Error: Not enough memory left. Restart the esp32 and try updating again.");
-        wsSerial("[reboot]");
+        wsLog("Error: Not enough memory left. Restart the esp32 and try updating again.");
+        wsLog("[reboot]");
     } else {
         const char* url = params->url.c_str();
         const char* md5 = params->md5.c_str();
         size_t size = params->size;
-        updateFirmware(url, md5, size);
+        updateFirmwareFromURL(url, md5, size);
     }
 
     delete params;
     vTaskDelete(NULL);
 }
 
-void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
+bool executeUpdate(const char* expectedMd5, size_t size, Stream &stream, size_t stream_size) {
+    if (!Update.begin(size)) {
+        wsLog("Failed to begin firmware update");
+        wsLog(Update.errorString());
+        return false;
+    }
+
+    if (expectedMd5) {
+        Serial.println("Setting update md5: " + String(expectedMd5));
+        if (!Update.setMD5(expectedMd5)) {
+            Serial.println("Failed to set firmware md5");
+            wsErr("Failed to set firmware md5");
+            return false;
+        }
+    }
+
+    unsigned long progressTimer = millis();
+    Update.onProgress([&progressTimer](size_t progress, size_t total) {
+        if (millis() - progressTimer > 500 || progress == total) {
+            char buffer[50];
+            sprintf(buffer, "Progress: %u%% %d %d", progress * 100 / total, progress, total);
+            wsLog(String(buffer));
+            Serial.println(String(buffer));
+            progressTimer = millis();
+            vTaskDelay(1 / portTICK_PERIOD_MS);
+        }
+    });
+
+    size_t written = Update.writeStream(stream);
+    if (written != stream_size) {
+        Serial.println("Error writing firmware:");
+        wsLog("Error writing firmware:");
+        Serial.println(Update.errorString());
+        wsLog(Update.errorString());
+        return false;
+    }
+
+    if (!Update.end(true)) {
+        Serial.println("Error updating firmware:");
+        wsLog("Error updating firmware:");
+        Serial.println(Update.errorString());
+        wsLog(Update.errorString());
+        Update.abort();
+        return false;
+    }
+
+    wsLog("Firmware update successful");
+    wsLog("Reboot system now");
+    wsLog("[reboot]");
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    return true;
+}
+
+
+void updateFirmwareFromURL(const char* url, const char* expectedMd5, size_t size) {
     uint32_t freeStack = uxTaskGetStackHighWaterMark(NULL);
     Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
 
@@ -189,8 +243,8 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
 
     HTTPClient httpClient;
 
-    wsSerial("start downloading");
-    wsSerial(url);
+    wsLog("start downloading");
+    wsLog(url);
 
     httpClient.begin(url);
     httpClient.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
@@ -201,43 +255,10 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
     Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
 
     if (httpCode == HTTP_CODE_OK) {
-        if (Update.begin(size)) {
-            Update.setMD5(expectedMd5);
-
-            unsigned long progressTimer = millis();
-            Update.onProgress([&progressTimer](size_t progress, size_t total) {
-                if (millis() - progressTimer > 500 || progress == total) {
-                    char buffer[50];
-                    sprintf(buffer, "Progress: %u%% %d %d", progress * 100 / total, progress, total);
-                    wsSerial(String(buffer));
-                    progressTimer = millis();
-                    vTaskDelay(1 / portTICK_PERIOD_MS);
-                }
-            });
-
-            size_t written = Update.writeStream(httpClient.getStream());
-            if (written == httpClient.getSize()) {
-                if (Update.end(true)) {
-                    wsSerial("Firmware update successful");
-                    wsSerial("Reboot system now");
-                    wsSerial("[reboot]");
-                    vTaskDelay(1000 / portTICK_PERIOD_MS);
-                    // ESP.restart();
-                } else {
-                    wsSerial("Error updating firmware:");
-                    wsSerial(Update.errorString());
-                }
-            } else {
-                wsSerial("Error writing firmware data:");
-                wsSerial(Update.errorString());
-            }
-        } else {
-            wsSerial("Failed to begin firmware update");
-            wsSerial(Update.errorString());
-        }
+        executeUpdate(expectedMd5, size, httpClient.getStream(), httpClient.getSize());
     } else {
-        wsSerial("Failed to download firmware file (HTTP code " + String(httpCode) + ")");
-        wsSerial(httpClient.errorToString(httpCode));
+        wsLog("Failed to download firmware file (HTTP code " + String(httpCode) + ")");
+        wsLog(httpClient.errorToString(httpCode));
     }
 
     httpClient.end();
@@ -251,26 +272,26 @@ void handleRollback(AsyncWebServerRequest* request) {
         bool rollbackSuccess = Update.rollBack();
         if (rollbackSuccess) {
             request->send(200, "Rollback successful");
-            wsSerial("Rollback successful");
-            wsSerial("Reboot system now");
-            wsSerial("[reboot]");
+            wsLog("Rollback successful");
+            wsLog("Reboot system now");
+            wsLog("[reboot]");
             vTaskDelay(1000 / portTICK_PERIOD_MS);
             // ESP.restart();
         } else {
-            wsSerial("Rollback failed");
+            wsLog("Rollback failed");
             request->send(400, "Rollback failed");
         }
     } else {
-        wsSerial("Rollback not allowed");
+        wsLog("Rollback not allowed");
         request->send(400, "Rollback not allowed");
     }
 }
 
 void handleUpdateActions(AsyncWebServerRequest* request) {
-    wsSerial("Performing cleanup");
+    wsLog("Performing cleanup");
     File file = contentFS->open("/update_actions.json", "r");
     if (!file) {
-        wsSerial("No update_actions.json present");
+        wsLog("No update_actions.json present");
         request->send(200, "No update actions needed");
         return;
     }
@@ -279,11 +300,11 @@ void handleUpdateActions(AsyncWebServerRequest* request) {
     JsonArray deleteFiles = doc["deletefile"].as<JsonArray>();
     for (const auto& filePath : deleteFiles) {
         if (contentFS->remove(filePath.as<const char*>())) {
-            wsSerial("deleted file: " + filePath.as<String>());
+            wsLog("deleted file: " + filePath.as<String>());
         }
     }
     file.close();
-    wsSerial("Cleanup finished");
+    wsLog("Cleanup finished");
     request->send(200, "Clean up finished");
     contentFS->remove("/update_actions.json");
 }
