@@ -42,6 +42,11 @@ static void initSDCard() {
 
     contentFS = &SD;
 }
+
+uint8_t DynStorage::cardType() {
+    return SD.cardType();
+}
+
 #endif
 
 size_t DynStorage::freeSpace(){
@@ -116,21 +121,140 @@ void copyIfNeeded(const char* path) {
         copyBetweenFS(LittleFS, path, *contentFS);
     }
 }
+
 #endif
+
+String md5Filepath = "/ota_md5.txt";
+String otaFilepath = "/ota.bin";
+
+SemaphoreHandle_t otaMutex;
+
+static void fileSystemFirmwareUpdateTask(void* parameter) {
+    const char* md5 = nullptr;
+    String md5Str = "";
+
+    xSemaphoreTake(otaMutex, portMAX_DELAY);
+
+    File updateBin = contentFS->open(otaFilepath);
+    if (!updateBin) {
+        Serial.println("Failed to load " + otaFilepath);
+        wsErr("Failed to load " + otaFilepath);
+        xSemaphoreGive(otaMutex);
+        return;
+    }
+
+    if(updateBin.isDirectory()){
+        Serial.println("Error " + otaFilepath + " is not a file");
+        wsErr("Error " + otaFilepath + " is not a file");
+        updateBin.close();
+        xSemaphoreGive(otaMutex);
+        return;
+    }
+
+    // MD5 check
+    if (contentFS->exists(md5Filepath)) {
+        Serial.println("Reading MD5 file");
+        File md5File = contentFS->open(md5Filepath);
+        if (!md5File ) {
+            Serial.println("Failed to load ota md5 even tho an md5 file exists");
+            wsErr("Failed to load ota md5 even tho an md5 file exists");
+            contentFS->rename(md5Filepath, md5Filepath + "_failure.txt");
+            xSemaphoreGive(otaMutex);
+            return;
+        }
+
+        if(md5File.size() < 32){
+            Serial.println("md5 sum too short");
+            wsErr("md5 sum too short");
+            md5File.close();
+            contentFS->rename(md5Filepath, md5Filepath + "_failure.txt");
+            xSemaphoreGive(otaMutex);
+            return;
+        }
+
+        // Only take the md5 from the output of md5sum
+        // "471a53ab5e35fa9d3e642a82fa95f3ce  .pio/build/Esp32-POE-ISO/firmware.bin"
+        md5Str = md5File.readStringUntil(' ');
+        md5Str.trim();
+        md5Str.toLowerCase();
+        Serial.println(String("ota.bin md5:") + md5Str);
+        wsLog(String("ota.bin md5:") + md5Str);
+        md5 = md5Str.c_str();
+        md5File.close();
+    }
+
+    bool success = executeUpdate(md5, updateBin.size(), updateBin, updateBin.size());
+    if (!success) {
+        Serial.println("Update failed.");
+    }
+    updateBin.close();
+    contentFS->remove(otaFilepath);
+
+    if (contentFS->exists(md5Filepath))
+        contentFS->remove(md5Filepath);
+
+    if (success) {
+        Serial.println("Rebooting now");
+        wsLog("Rebooting now!");
+        ESP.restart();
+    }
+
+    xSemaphoreGive(otaMutex);
+}
+
+void DynStorage::checkForUpdate() {
+    Storage.begin();
+
+    if (!contentFS->exists(otaFilepath)) {
+        return;
+    }
+    
+    if(!otaMutex)
+        otaMutex = xSemaphoreCreateMutex();
+
+    // An update process is already running
+    if (xQueuePeek((xQueueHandle)otaMutex, (void*)NULL, (portTickType)NULL) != pdTRUE)
+        return;
+
+    File updateBin = contentFS->open(otaFilepath);
+    if (!updateBin) {
+            Serial.println("Failed to load " + otaFilepath);
+            wsErr("Failed to load " + otaFilepath);
+    }
+
+    size_t updateSize = updateBin.size();
+    if (updateSize <= 0) {
+        return;
+    }
+    updateBin.close();
+    Serial.println("Found OTA file on contentFS, updating async");
+    wsLog("Found OTA file on contentFS, updating async");
+
+    xTaskCreate(fileSystemFirmwareUpdateTask, "FSUpdateTask", 6144, NULL, 10, NULL);
+}
 
 void DynStorage::begin() {
     initLittleFS();
 
 #ifdef HAS_SDCARD
-    initSDCard();
+    bool inited = initSDCard();
 
-    copyIfNeeded("/index.html");
-    copyIfNeeded("/fonts");
-    copyIfNeeded("/www");
-    copyIfNeeded("/AP_FW_Pack.bin");
-    copyIfNeeded("/tag_md5_db.json");
-    copyIfNeeded("/update_actions.json");
-    copyIfNeeded("/content_template.json");
+    if(inited && inited != this->isInited) {
+        Serial.println("SDCard mounted");
+        wsLog("SDcard mounted");
+        copyIfNeeded("/index.html");
+        copyIfNeeded("/fonts");
+        copyIfNeeded("/www");
+        copyIfNeeded("/AP_FW_Pack.bin");
+        copyIfNeeded("/tag_md5_db.json");
+        copyIfNeeded("/update_actions.json");
+        copyIfNeeded("/content_template.json");
+    }
+    if (this->isInited && !inited) {
+        Serial.println("Lost connection to the SDCard");
+        wsErr("Lost connection to the SDCard");
+    }
+    this->isInited = inited;
 #endif
 
     if (!contentFS->exists("/current")) {

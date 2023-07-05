@@ -28,9 +28,12 @@ class DynStorage {
     void end();
     void listFiles();
     size_t freeSpace();
+    #ifdef HAS_SDCARD
+    uint8_t cardType();
+    #endif
 
    private:
-    bool isInited;
+    bool isInited = false;
 };
 
 extern DynStorage Storage;

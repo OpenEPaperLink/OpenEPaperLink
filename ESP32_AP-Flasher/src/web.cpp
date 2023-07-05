@@ -144,6 +144,10 @@ void wsSendSysteminfo() {
     sys["wifistatus"] = WiFi.status();
     sys["wifissid"] = WiFi.SSID();
 
+#ifdef HAS_SDCARD
+    sys["sdcard"] = Storage.cardType();
+#endif
+
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
     xSemaphoreGive(wsMutex);

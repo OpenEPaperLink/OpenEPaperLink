@@ -101,6 +101,18 @@ function connect() {
 				$("#runstate").innerHTML = runstate[msg.sys.runstate].state;
 				$("#temp").innerHTML = msg.sys.temp.toFixed(1) + '°C';
 			}
+			if (typeof msg.sys.sdcard != "undefined") {
+				$("#sdstatecolor").style.display = '';
+				$("#sdstate").style.display = '';
+				const sdName = ["", "MMC", "SD", "SDHC", "Unknown"];
+				if (msg.sys.sdcard == 0) {
+					$("#sdstatecolor").style.color = "red";
+					$("#sdstate").innerHTML = "SD failed"
+				} else {
+					$("#sdstatecolor").style.color = "green";
+					$("#sdstate").innerHTML = sdName[msg.sys.sdcard];
+				}
+			}
 			servertimediff = (Date.now() / 1000) - msg.sys.currtime;
 		}
 		if (msg.apitem) {
