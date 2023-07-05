@@ -1,9 +1,20 @@
 #include "storage.h"
 
-#ifdef HAS_SDCARD
+#ifdef HAS_SDIOCARD
+
+#define HAS_SDCARD
+#define BOARD_HAS_1BIT_SDMMC
+#define SD SD_MMC
+#include "SD_MMC.h"
+
+#elif HAS_SDCARD
+
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
+
+static SPIClass* spi;
+
 #endif
 
 #include "LittleFS.h"
@@ -16,31 +27,40 @@ static void initLittleFS() {
 }
 
 #ifdef HAS_SDCARD
-static SPIClass* spi;
 
-static void initSDCard() {
+static bool initSDCard() {
+#ifdef HAS_SDIOCARD
+        // TODO call SD_MMC.set
+        //SD_MMC.setPins(int clk, int cmd, int d0)
+        bool res = SD_MMC.begin();        if (!res) {
+            Serial.println("Card Mount Failed");
+            return false;
+        }
+#else
+    // SD.begin and spi.begin are allocating memory so we dont want to do that
     uint8_t spi_bus = VSPI;
 
-    // SD.begin and spi.begin are allocating memory so we dont want to do that
-    if(!spi) { 
+    if(!spi) {
         spi = new SPIClass(spi_bus);
         spi->begin(SD_CARD_CLK, SD_CARD_MISO, SD_CARD_MOSI, SD_CARD_SS);
 
         bool res = SD.begin(SD_CARD_SS, *spi, 40000000);
         if (!res) {
             Serial.println("Card Mount Failed");
-            return;
+            return false;
         }
     }
+#endif
 
     uint8_t cardType = SD.cardType();
 
     if (cardType == CARD_NONE) {
         Serial.println("No SD card attached");
-        return;
+        return false;
     }
 
     contentFS = &SD;
+    return true;
 }
 
 uint8_t DynStorage::cardType() {
@@ -266,7 +286,8 @@ void DynStorage::begin() {
 }
 
 void DynStorage::end() {
-#ifdef HAS_SDCARD
+// SDIO does not use the SPI interface and will therefore not occupy the SPI capability
+#if defined(HAS_SDCARD) && ! defined(HAS_SDIOCARD)
     initLittleFS();
     if (SD_CARD_CLK == FLASHER_AP_CLK ||
         SD_CARD_MISO == FLASHER_AP_MISO ||

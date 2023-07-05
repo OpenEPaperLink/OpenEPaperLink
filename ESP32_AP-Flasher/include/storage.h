@@ -21,6 +21,10 @@
 #endif
 #endif
 
+#ifdef HAS_SDIOCARD
+#define HAS_SDCARD
+#endif
+
 class DynStorage {
    public:
     DynStorage();

@@ -755,7 +755,7 @@ void APTask(void* parameter) {
 #endif
             Serial.println("Please verify your wiring and try again!");
         }
-#ifdef HAS_SDCARD
+#if defined(HAS_SDCARD) && ! defined(HAS_SDIOCARD)
         if (SD_CARD_CLK == FLASHER_AP_CLK ||
             SD_CARD_MISO == FLASHER_AP_MISO ||
             SD_CARD_MOSI == FLASHER_AP_MOSI) {
