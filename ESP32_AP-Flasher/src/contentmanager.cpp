@@ -511,7 +511,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         drawString(spr, String(tmpOutput), loc["temp"][0], loc["temp"][1], loc["temp"][2], TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
 
         spr.loadFont(loc["icon"][2], *contentFS);
-        if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
+        if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
             spr.setTextColor(PAL_RED, PAL_WHITE);
         } else {
             spr.setTextColor(PAL_BLACK, PAL_WHITE);
@@ -584,7 +584,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
             uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
             if (weathercode > 40) weathercode -= 40;
             spr.loadFont(loc["icon"][2], *contentFS);
-            if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 99) {
+            if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
                 spr.setTextColor(PAL_RED, PAL_WHITE);
             } else {
                 spr.setTextColor(PAL_BLACK, PAL_WHITE);
@@ -775,7 +775,6 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     for (int i = 0; i < n; i++) {
         JsonObject obj = doc[i];
         String eventtitle = obj["title"];
-        String startz = obj["start"];
         time_t starttime = obj["start"];
         time_t endtime = obj["end"];
         setU8G2Font(loc["line"][3], u8f);

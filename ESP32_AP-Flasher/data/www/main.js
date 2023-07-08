@@ -94,7 +94,7 @@ function connect() {
 			processTags(msg.tags);
 		}
 		if (msg.sys) {
-			$('#sysinfo').innerHTML = 'free heap: ' + msg.sys.heap + ' bytes &#x2507; db size: ' + convertSize(msg.sys.dbsize) + " ("+ msg.sys.dbsize + ' bytes) &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; filesystem free: ' + convertSize(msg.sys.littlefsfree);
+			$('#sysinfo').innerHTML = 'free heap: ' + convertSize(msg.sys.heap) + ' &#x2507; db size: ' + convertSize(msg.sys.dbsize) + ' &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; filesystem free: ' + convertSize(msg.sys.littlefsfree);
 			if (msg.sys.apstate) {
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
 				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;
@@ -452,6 +452,8 @@ $('#apconfigbutton').onclick = function () {
 			$("#apcfglanguage").value = data.language;
 			$("#apclatency").value = data.maxsleep;
 			$("#apcpreventsleep").value = data.stopsleep;
+			$("#apcwifipower").value = data.wifipower;
+			$("#apctimezone").value = data.timezone;
 		})
 	$('#apconfigbox').style.display = 'block'
 }
@@ -464,6 +466,8 @@ $('#apcfgsave').onclick = function () {
 	formData.append('language', $('#apcfglanguage').value);
 	formData.append('maxsleep', $('#apclatency').value);
 	formData.append('stopsleep', $('#apcpreventsleep').value);
+	formData.append('wifipower', $('#apcwifipower').value);
+	formData.append('timezone', $('#apctimezone').value);
 	fetch("/save_apcfg", {
 		method: "POST",
 		body: formData

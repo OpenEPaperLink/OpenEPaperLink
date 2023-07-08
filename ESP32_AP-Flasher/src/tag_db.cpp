@@ -286,6 +286,14 @@ void initAPconfig() {
     config.language = APconfig["language"] | getDefaultLanguage();
     config.maxsleep = APconfig["maxsleep"] | 10;
     config.stopsleep = APconfig["stopsleep"] | 1;
+    // default wifi power 8.5 dbM
+    // see https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/src/WiFiGeneric.h#L111
+    config.wifiPower = APconfig["wifipower"] | 34;
+    if (APconfig["timezone"]) {
+        strlcpy(config.timeZone, APconfig["timezone"], sizeof(config.timeZone));
+    } else {
+        strlcpy(config.timeZone, "CET-1CEST,M3.5.0,M10.5.0/3", sizeof(config.timeZone));
+    }
 }
 
 void saveAPconfig() {
@@ -297,6 +305,8 @@ void saveAPconfig() {
     APconfig["language"] = config.language;
     APconfig["maxsleep"] = config.maxsleep;
     APconfig["stopsleep"] = config.stopsleep;
+    APconfig["wifipower"] = config.wifiPower;
+    APconfig["timezone"] = config.timeZone;
     serializeJsonPretty(APconfig, configFile);
     configFile.close();
 }

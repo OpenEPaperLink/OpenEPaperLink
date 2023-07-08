@@ -235,18 +235,13 @@ void init_web() {
 
     WiFiManager wm;
     bool res;
-#if defined(OPENEPAPERLINK_MINI_AP_PCB) || defined(OPENEPAPERLINK_NANO_AP_PCB)
-    WiFi.setTxPower(WIFI_POWER_15dBm);
-#endif
+    WiFi.setTxPower(static_cast<wifi_power_t>(config.wifiPower));
     wm.setWiFiAutoReconnect(true);
     res = wm.autoConnect("OpenEPaperLink Setup");
     if (!res) {
         Serial.println("Failed to connect");
         ESP.restart();
     }
-#if defined(OPENEPAPERLINK_MINI_AP_PCB) || defined(OPENEPAPERLINK_NANO_AP_PCB)
-    WiFi.setTxPower(WIFI_POWER_19_5dBm);
-#endif
     Serial.print("Connected! IP address: ");
     Serial.println(WiFi.localIP());
 
@@ -418,6 +413,16 @@ void init_web() {
             }
             if (request->hasParam("stopsleep", true)) {
                 config.stopsleep = static_cast<uint8_t>(request->getParam("stopsleep", true)->value().toInt());
+            }
+            if (request->hasParam("wifipower", true)) {
+                config.wifiPower = static_cast<uint8_t>(request->getParam("wifipower", true)->value().toInt());
+                WiFi.setTxPower(static_cast<wifi_power_t>(config.wifiPower));
+            }
+            if (request->hasParam("timezone", true)) {
+                strncpy(config.timeZone, request->getParam("timezone", true)->value().c_str(), sizeof(config.timeZone) - 1);
+                config.timeZone[sizeof(config.timeZone) - 1] = '\0';
+                setenv("TZ", config.timeZone, 1);
+                tzset();
             }
             saveAPconfig();
             setAPchannel();

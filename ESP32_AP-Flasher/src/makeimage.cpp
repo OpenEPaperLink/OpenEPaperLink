@@ -219,8 +219,10 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     free(blackBuffer);
     if (imageParams.hasRed) {
         uint8_t *redBuffer = (uint8_t*) spr2color(spr, imageParams, &bufferSize, true);
-        if(!redBuffer)
+        if(!redBuffer) {
+            imageParams.hasRed = false;
             return;
+        }
         f_out.write(redBuffer, bufferSize);
         free(redBuffer);
     } 

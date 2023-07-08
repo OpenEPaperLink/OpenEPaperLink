@@ -30,6 +30,14 @@ void logLine(String text) {
 
     File logFile = contentFS->open("/log.txt", "a");
     if (logFile) {
+        if (logFile.size() >= 10 * 1024) {
+            logFile.close();
+            contentFS->remove("/logold.txt");
+            contentFS->rename("/log.txt", "/logold.txt");
+            logFile = contentFS->open("/log.txt", "a");
+            if (!logFile) return;
+        }
+
         logFile.print(timeStr);
         logFile.println(text);
         logFile.close();

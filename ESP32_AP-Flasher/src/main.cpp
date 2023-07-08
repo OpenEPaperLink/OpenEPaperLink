@@ -35,13 +35,13 @@ void delayedStart(void* parameter) {
 
 void timeTask(void* parameter) {
     wsSendSysteminfo();
-    Serial.printf("Free heap: %.2f KB\n", ESP.getFreeHeap() / 1024.0f);
+    Serial.printf("Free heap: %.2f kB\n", ESP.getFreeHeap() / 1024.0f);
     while (1) {
         time_t now;
         time(&now);
 
         if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE || config.runStatus != RUNSTATUS_RUN) wsSendSysteminfo();
-        if (now % 5 == 0) Serial.printf("Free heap: %.2f KB\n", ESP.getFreeHeap() / 1024.0f);
+        if (now % 5 == 0) Serial.printf("Free heap: %.2f kB\n", ESP.getFreeHeap() / 1024.0f);
         if (now % 300 == 6 && config.runStatus != RUNSTATUS_STOP) saveDB("/current/tagDB.json");
 
         if (apInfo.state == AP_STATE_ONLINE) contentRunner();
@@ -55,8 +55,8 @@ void setup() {
     xTaskCreate(ledTask, "ledhandler", 2000, NULL, 2, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
-    // show a nice pattern to indicate the AP is booting / waiting for WiFi setup
 #ifdef HAS_RGB_LED
+    // show a nice pattern to indicate the AP is booting / waiting for WiFi setup
     showColorPattern(CRGB::Aqua, CRGB::Green, CRGB::Blue);
 #endif
 
@@ -122,10 +122,10 @@ void setup() {
     xTaskCreate(usbFlasherTask, "usbflasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
 #endif
 
-    configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "0.nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
+    initAPconfig();
+    configTzTime(config.timeZone, "0.nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
     // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 
-    initAPconfig();
     updateLanguageFromConfig();
     updateBrightnessFromConfig();
 

@@ -116,6 +116,65 @@ Latency will be around 40 seconds.">
 				<option value="1">yes</option>
 			</select>
 		</p>
+		<p title="Wifi transmit power">
+			<label for="apcwifipower">Wifi power</label>
+			<select id="apcwifipower">
+				<option value="78">19.5 dBm</option>
+				<option value="76">19.0 dBm</option>
+				<option value="74">18.5 dBm</option>
+				<option value="68">17.0 dBm</option>
+				<option value="60">15.0 dBm</option>
+				<option value="52">13.0 dBm</option>
+				<option value="44">11.0 dBm</option>
+				<option value="34">8.5 dBm</option>
+				<option value="28">7.0 dBm</option>
+				<option value="20">5.0 dBm</option>
+				<option value="8">2.0 dBm</option>
+			</select>
+		</p>
+		<p title="Your local time zone">
+			<label for="apctimezone">Local time zone</label>
+			<select id="apctimezone">
+				<optgroup label="Europe">
+					<option value="CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00">Central European Time</option>
+					<option value="EET-2EEST-3,M3.5.0/03:00:00,M10.5.0/04:00:00">Athens, Greece</option>
+					<option value="GMT+0IST-1,M3.5.0/01:00:00,M10.5.0/02:00:00">Dublin, Ireland</option>
+					<option value="EET-2EEST-3,M3.5.0/03:00:00,M10.5.0/04:00:00">Helsinki, Finland</option>
+					<option value="WET-0WEST-1,M3.5.0/01:00:00,M10.5.0/02:00:00">Lisbon, Portugal</option>
+					<option value="GMT+0BST-1,M3.5.0/01:00:00,M10.5.0/02:00:00">London, Great Britain</option>
+					<option value="EET-2EEST,M3.5.0/3,M10.5.0/4">Kyiv, Ukraine</option>
+				</optgroup>
+				<optgroup label="USA / Canada">
+					<option value="HAW10">Hawaii Time</option>
+					<option value="AKST9AKDT">Alaska Time</option>
+					<option value="PST8PDT">Pacific Time</option>
+					<option value="MST7MDT">Mountain Time</option>
+					<option value="MST7">Arizona, no DST</option>
+					<option value="CST6CDT">Central Time</option>
+					<option value="EST5EDT">Eastern Time</option>
+				</optgroup>
+				<optgroup label="Australia / New Zealand">
+					<option value="EST-10EDT-11,M10.5.0/02:00:00,M3.5.0/03:00:00">Melbourne, Sydney</option>
+					<option value="WST-8">Perth</option>
+					<option value="EST-10">Brisbane</option>
+					<option value="CST-9:30CDT-10:30,M10.5.0/02:00:00,M3.5.0/03:00:00">Adelaide</option>
+					<option value="CST-9:30">Darwin</option>
+					<option value="EST-10EDT-11,M10.1.0/02:00:00,M3.5.0/03:00:00">Hobart</option>
+					<option value="NZST-12NZDT-13,M9.4.0/02:00:00,M4.1.0/03:00:00">New Zealand</option>
+				</optgroup>
+				<optgroup label="Asia">
+					<option value="WIB-7">Jakarta</option>
+					<option value="GMT+2">Jerusalem</option>
+					<option value="SGT-8">Singapore</option>
+					<option value="ULAT-8ULAST,M3.5.0/2,M9.5.0/2">Ulaanbaatar, Mongolia</option>
+				</optgroup>
+				<optgroup label="Central and South America">
+					<option value="BRST+3BRDT+2,M10.3.0,M2.3.0">Brazil, Sao Paulo</option>
+					<option value="UTC+3">Argentina</option>
+					<option value="CST+6">Central America</option>
+				</optgroup>
+			</select>
+		</p>
 		<p>
 			<input type="button" value="Save" id="apcfgsave">
 		</p>

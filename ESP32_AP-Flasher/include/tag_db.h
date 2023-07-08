@@ -63,6 +63,8 @@ struct Config {
     uint8_t maxsleep;
     uint8_t stopsleep;
     uint8_t runStatus;
+    uint8_t wifiPower;
+    char timeZone[52];
 };
 
 // extern SemaphoreHandle_t tagDBOwner;
