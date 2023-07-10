@@ -26,12 +26,12 @@ function startPainter(mac, width, height) {
 	canvas.style.imageRendering = 'pixelated';
 
 	canvas.addEventListener('mousedown', startDrawing);
-	canvas.addEventListener('mouseup', stopDrawing);
+	window.addEventListener('mouseup', stopDrawing);
 	canvas.addEventListener('mousemove', draw);
 
-	canvas.addEventListener('touchstart', startDrawing, { passive: true });
-	canvas.addEventListener('touchend', stopDrawing);
-	canvas.addEventListener('touchmove', draw, { passive: true });
+	canvas.addEventListener('touchstart', startDrawing, { passive: false });
+	window.addEventListener('touchend', stopDrawing);
+	canvas.addEventListener('touchmove', draw, { passive: false });
 
 	const bgCanvas = document.createElement('canvas');
 	bgCanvas.width = canvas.width;
@@ -127,31 +127,35 @@ function startPainter(mac, width, height) {
 	});
 
 	function startDrawing(e) {
+		e.stopPropagation();
+		e.preventDefault();
 		if (isAddingText) return;
 		isDrawing = true;
 		var rect = canvas.getBoundingClientRect();
-		lastX = e.pageX - rect.left - window.pageXOffset;
-		lastY = e.pageY - rect.top - window.pageYOffset;
+		lastX = e.pageX - rect.left - window.scrollX;
+		lastY = e.pageY - rect.top - window.scrollY;
 	}
 
-	function stopDrawing() {
+	function stopDrawing(e) {
 		if (isAddingText) return;
 		isDrawing = false;
 	}
 
 	function draw(e) {
+		e.stopPropagation();
+		e.preventDefault();
 		if (isAddingText) return;
 		if (!isDrawing) return;
 		var rect = canvas.getBoundingClientRect();
 		ctx.beginPath();
 		ctx.moveTo(lastX, lastY);
-		ctx.lineTo(e.pageX - rect.left - window.pageXOffset, e.pageY - rect.top - window.pageYOffset);
+		ctx.lineTo(e.pageX - rect.left - window.scrollX, e.pageY - rect.top - window.scrollY);
 		ctx.strokeStyle = color;
 		ctx.lineWidth = linewidth;
 		ctx.lineCap = "round";
 		ctx.stroke();
-		lastX = e.pageX - rect.left - window.pageXOffset;
-		lastY = e.pageY - rect.top - window.pageYOffset;
+		lastX = e.pageX - rect.left - window.scrollX;
+		lastY = e.pageY - rect.top - window.scrollY;
 	}
 
 	function addText() {

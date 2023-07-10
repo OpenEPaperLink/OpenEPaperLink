@@ -337,13 +337,13 @@ $('#taglist').addEventListener("click", (event) => {
 			}
 			$('#cfgrotate').value = tagdata.rotate;
 			$('#cfglut').value = tagdata.lut;
-			$('#cfgmore').innerHTML = '&#x1f783;';
+			$('#cfgmore').innerHTML = '&#x25BC;';
 			$('#configbox').style.display = 'block';
 		})
 })
 
 $('#cfgmore').onclick = function () {
-	$('#cfgmore').innerHTML = $('#advancedoptions').style.height == '0px' ? '&#x1f781;' : '&#x1f783;';
+	$('#cfgmore').innerHTML = $('#advancedoptions').style.height == '0px' ? '&#x25B2;' : '&#x25BC;';
 	$('#advancedoptions').style.height = $('#advancedoptions').style.height == '0px' ? $('#advancedoptions').scrollHeight + 'px' : '0px';
 };
 

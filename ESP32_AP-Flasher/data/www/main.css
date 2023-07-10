@@ -609,4 +609,11 @@ ul.messages li.new {
 	.actionbox>div:first-child>div:first-child {
 		flex-basis: 100%;
 	}
+
+	#buttonbar button {
+		font-size: 1.1em;
+		overflow: hidden;
+		padding: 1px 1px;
+	}
+
 }
