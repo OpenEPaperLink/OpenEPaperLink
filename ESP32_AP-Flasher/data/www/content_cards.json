@@ -264,6 +264,31 @@
     ]
   },
   {
+    "id": 19,
+    "name": "Template URL",
+    "desc": "Gets an external json template and displays it",
+    "hwtype": [
+      0,
+      1,
+      2,
+      17
+    ],
+    "param": [
+      {
+        "key": "url",
+        "name": "URL",
+        "desc": "Full URL of the json template. See OpenEpaperLink wiki for the right json format",
+        "type": "text"
+      },
+      {
+        "key": "interval",
+        "name": "Interval",
+        "desc": "How often (in minutes) the template is being fetched",
+        "type": "int"
+      }
+    ]
+  },
+  {
     "id": 10,
     "name": "QR code",
     "desc": "Displayes a full screen QR code",

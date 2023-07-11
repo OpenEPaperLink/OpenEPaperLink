@@ -4,6 +4,7 @@
 #define CONTENT_QR
 #define CONTENT_RSS
 #define CONTENT_CAL
+#define CONTENT_BUIENRADAR
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -300,6 +301,23 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             taginfo->nextupdate = 3216153600;
             taginfo->contentMode = Image;
             break;
+
+        case 19:  // json template
+            {
+                DynamicJsonDocument doc(2000);
+                int httpcode = getJsonTemplate(cfgobj["url"], doc, (time_t)cfgobj["#fetched"], String(hexmac));
+                if (httpcode == 200) {
+                    taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                    drawJsonTemplate(doc, filename, taginfo, imageParams);
+                    updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
+                    cfgobj["#fetched"] = now;
+                } else if (httpcode == 304) {
+                    taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                } else {
+                    taginfo->nextupdate = now + 300;
+                }
+                break;
+            }
     }
 
     taginfo->modeConfigJson = doc.as<String>();
@@ -836,6 +854,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
 }
 
 void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
+#ifdef CONTENT_BUIENRADAR
     wsLog("get weather");
 
     getLocation(cfgobj);
@@ -902,6 +921,78 @@ void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, i
         spr.deleteSprite();
     }
     http.end();
+#endif
+}
+
+int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MAC) {
+    Serial.println("get external " + URL);
+    HTTPClient http;
+    http.begin(URL);
+    http.addHeader("If-Modified-Since", formatHttpDate(fetched));
+    http.addHeader("X-ESL-MAC", MAC);
+    http.setTimeout(5000);
+    int httpCode = http.GET();
+    if (httpCode == 200) {
+        DeserializationError error = deserializeJson(jsondoc, http.getStream());
+        if (error) {
+            wsErr("json error in getJsonTemplate:");
+            wsErr(error.c_str());
+            return 0;
+        }
+    } else {
+        if (httpCode != 304) {
+            wsErr("http " + URL + " " + String(httpCode));
+        } else {
+            Serial.println("http 304, image is not changed " + URL);
+        }
+    }
+    http.end();
+    return httpCode;
+}
+
+void drawJsonTemplate(JsonDocument &doc, String filename, tagRecord *&taginfo, imgParam &imageParams) {
+    TFT_eSPI tft = TFT_eSPI();
+    TFT_eSprite spr = TFT_eSprite(&tft);
+    initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+
+    for (const JsonVariant& element : doc.as<JsonArray>()) {
+        drawElement(element.as<JsonObject>(), spr);
+    }
+    spr2buffer(spr, filename, imageParams);
+    spr.deleteSprite();
+}
+
+void drawElement(const JsonObject &element, TFT_eSprite &spr) {
+    if (element.containsKey("text")) {
+        const JsonArray &textArray = element["text"];
+        uint16_t color = textArray[4] | 1;
+        uint16_t align = textArray[5] | 0;
+        drawString(spr, textArray[2], textArray[0].as<int>(), textArray[1].as<int>(), textArray[3], align, getColor(color));
+    } else if (element.containsKey("box")) {
+        const JsonArray &boxArray = element["box"];
+        uint16_t color = boxArray[4] | 1;
+        spr.fillRect(boxArray[0].as<int>(), boxArray[1].as<int>(), boxArray[2].as<int>(), boxArray[3].as<int>(), getColor(color));
+    } else if (element.containsKey("line")) {
+        const JsonArray &lineArray = element["line"];
+        uint16_t color = lineArray[4] | 1;
+        spr.drawLine(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), getColor(color));
+    } else if (element.containsKey("triangle")) {
+        const JsonArray &lineArray = element["triangle"];
+        uint16_t color = lineArray[6] | 1;
+        spr.fillTriangle(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), lineArray[4].as<int>(), lineArray[5].as<int>(), getColor(color));
+    }
+}
+
+uint16_t getColor(uint8_t color) {
+    switch (color) {
+        case 0:
+            return PAL_WHITE;
+        case 1:
+            return PAL_BLACK;
+        case 2:
+            return PAL_RED;
+    }
+    return PAL_WHITE;
 }
 
 char *formatHttpDate(time_t t) {

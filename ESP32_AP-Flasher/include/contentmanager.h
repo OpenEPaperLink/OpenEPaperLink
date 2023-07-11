@@ -30,6 +30,10 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
 bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams);
 void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams);
 void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
+int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MAC);
+void drawJsonTemplate(JsonDocument &doc, String filename, tagRecord *&taginfo, imgParam &imageParams);
+void drawElement(const JsonObject &element, TFT_eSprite &spr);
+uint16_t getColor(uint8_t color);
 char *formatHttpDate(time_t t);
 String urlEncode(const char *msg);
 int windSpeedToBeaufort(float windSpeed);
