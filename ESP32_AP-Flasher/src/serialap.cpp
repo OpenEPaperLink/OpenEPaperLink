@@ -532,14 +532,11 @@ void rxSerialTask(void* parameter) {
 }
 
 void ShowAPInfo() {
-    Serial.printf("+----------------------------+\n");
     Serial.printf("| AP Information - type %02X   |\n", apInfo.type);
-    Serial.printf("+----------------------------+\n");
     Serial.printf("| Channel |             0x%02X |\n", apInfo.channel);
     Serial.printf("| Power   |               %02X |\n", apInfo.power);
     Serial.printf("| MAC     | %02X%02X%02X%02X%02X%02X%02X%02X |\n", apInfo.mac[7], apInfo.mac[6], apInfo.mac[5], apInfo.mac[4], apInfo.mac[3], apInfo.mac[2], apInfo.mac[1], apInfo.mac[0]);
     Serial.printf("| Version |           0x%04X |\n", apInfo.version);
-    Serial.printf("+----------------------------+\n");
 }
 
 void notifySegmentedFlash() {
@@ -629,7 +626,6 @@ void APTask(void* parameter) {
 
     if (checkForcedAPFlash()) {
         if (apInfo.type == SOLUM_SEG_UK && apInfo.isOnline) {
-            Serial.printf("Showing some stuff on the segmented display about our intentions to flash...\n");
             notifySegmentedFlash();
         }
         Serial.printf("We're going to try to perform an 'AP forced flash' in\n");

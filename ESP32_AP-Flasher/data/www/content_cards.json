@@ -265,7 +265,7 @@
   },
   {
     "id": 19,
-    "name": "Template URL",
+    "name": "Json template",
     "desc": "Gets an external json template and displays it",
     "hwtype": [
       0,

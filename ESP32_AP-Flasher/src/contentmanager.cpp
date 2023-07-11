@@ -1,7 +1,7 @@
 #include "contentmanager.h"
 
 // possibility to turn off, to save space if needed
-#define CONTENT_QR
+// #define CONTENT_QR
 #define CONTENT_RSS
 #define CONTENT_CAL
 #define CONTENT_BUIENRADAR
@@ -39,23 +39,6 @@
 
 #define TEMPLATE "/content_template.json"
 // https://csvjson.com/json_beautifier
-
-enum contentModes {
-    Image,
-    Today,
-    CountDays,
-    CountHours,
-    Weather,
-    Firmware,
-    Memo,
-    ImageUrl,
-    Forecast,
-    RSSFeed,
-    QRcode,
-    Calendar,
-    RemoteAP,
-    SegStatic,
-};
 
 struct HwType {
     uint8_t basetype;
@@ -136,7 +119,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     imageParams.rotate = taginfo->rotate;
 
     switch (taginfo->contentMode) {
-        case Image:
+        case 0: // Image
 
             if (cfgobj["filename"].as<String>() && cfgobj["filename"].as<String>() != "null" && !cfgobj["#fetched"].as<bool>()) {
                 if (cfgobj["dither"] && cfgobj["dither"] == "1") imageParams.dither = true;
@@ -152,14 +135,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             taginfo->nextupdate = 3216153600;
             break;
 
-        case Today:
+        case 1:  // Today
 
             drawDate(filename, taginfo, imageParams);
             taginfo->nextupdate = midnight;
             updateTagImage(filename, mac, (midnight - now) / 60 - 10, taginfo, imageParams);
             break;
 
-        case CountDays:
+        case 2:  // CountDays
 
             if (buttonPressed) cfgobj["counter"] = 0;
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo, imageParams);
@@ -168,7 +151,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             break;
 
-        case CountHours:
+        case 3:  // CountHours
 
             if (buttonPressed) cfgobj["counter"] = 0;
             drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo, imageParams);
@@ -177,7 +160,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
             break;
 
-        case Weather:
+        case 4:  // Weather
 
             // https://open-meteo.com/
             // https://geocoding-api.open-meteo.com/v1/search?name=eindhoven
@@ -189,14 +172,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             updateTagImage(filename, mac, 15, taginfo, imageParams);
             break;
 
-        case Forecast:
+        case 8:  // Forecast
 
             drawForecast(filename, cfgobj, taginfo, imageParams);
             taginfo->nextupdate = now + 3600;
             updateTagImage(filename, mac, 15, taginfo, imageParams);
             break;
 
-        case Firmware:
+        case 5:  // Firmware
 
             filename = cfgobj["filename"].as<String>();
             if (filename && filename != "null" && !cfgobj["#fetched"].as<bool>()) {
@@ -207,13 +190,13 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                 }
                 cfgobj["filename"] = "";
                 taginfo->nextupdate = 3216153600;
-                taginfo->contentMode = Image;
+                taginfo->contentMode = 0;
             } else {
                 taginfo->nextupdate = now + 300;
             }
             break;
 
-        case ImageUrl:
+        case 7:  // ImageUrl
 
         {
             int httpcode = getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams, String(hexmac));
@@ -229,7 +212,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             break;
         }
 
-        case RSSFeed:
+        case 9:  // RSSFeed
 
             if (getRssFeed(filename, cfgobj["url"], cfgobj["title"], taginfo, imageParams)) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 60 : cfgobj["interval"].as<int>());
@@ -239,14 +222,14 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             }
             break;
 
-        case QRcode:
+        case 10:  // QRcode:
 
             drawQR(filename, cfgobj["qr-content"], cfgobj["title"], taginfo, imageParams);
             taginfo->nextupdate = now + 12 * 3600;
             updateTagImage(filename, mac, 0, taginfo, imageParams);
             break;
 
-        case Calendar:
+        case 11: // Calendar:
 
             if (getCalFeed(filename, cfgobj["apps_script_url"], cfgobj["title"], taginfo, imageParams)) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
@@ -256,12 +239,12 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             }
             break;
 
-        case RemoteAP:
+        case 12: // RemoteAP
 
             taginfo->nextupdate = 3216153600;
             break;
 
-        case SegStatic:
+        case 13: // SegStatic
 
             sprintf(buffer, "%-4.4s%-2.2s%-4.4s", cfgobj["line1"].as<const char *>(), cfgobj["line2"].as<const char *>(), cfgobj["line3"].as<const char *>());
             taginfo->nextupdate = 3216153600;
@@ -292,29 +275,45 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             sendTagCommand(mac, cfgobj["cmd"].as<int>(), (taginfo->isExternal == false));
             cfgobj["filename"] = "";
             taginfo->nextupdate = 3216153600;
-            taginfo->contentMode = Image;
+            taginfo->contentMode = 0;
             break;
 
         case 18:  // tag config
             prepareConfigFile(mac, cfgobj);
             cfgobj["filename"] = "";
             taginfo->nextupdate = 3216153600;
-            taginfo->contentMode = Image;
+            taginfo->contentMode = 0;
             break;
 
         case 19:  // json template
             {
                 DynamicJsonDocument doc(2000);
-                int httpcode = getJsonTemplate(cfgobj["url"], doc, (time_t)cfgobj["#fetched"], String(hexmac));
-                if (httpcode == 200) {
-                    taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
-                    drawJsonTemplate(doc, filename, taginfo, imageParams);
-                    updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
-                    cfgobj["#fetched"] = now;
-                } else if (httpcode == 304) {
-                    taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                if (cfgobj["filename"]) {
+                    File file = contentFS->open("/" + String(hexmac) + ".json", "r");
+                    if (file) {
+                        DeserializationError error = deserializeJson(doc, file);
+                        if (error) {
+                            wsErr(error.c_str());
+                        } else {
+                            taginfo->nextupdate = 3216153600;
+                            drawJsonTemplate(doc, filename, taginfo, imageParams);
+                            updateTagImage(filename, mac, 0, taginfo, imageParams);
+                        }
+                    } else {
+                        wsErr("json file not found");
+                    }
                 } else {
-                    taginfo->nextupdate = now + 300;
+                    int httpcode = getJsonTemplate(cfgobj["url"], doc, (time_t)cfgobj["#fetched"], String(hexmac));
+                    if (httpcode == 200) {
+                        taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                        drawJsonTemplate(doc, filename, taginfo, imageParams);
+                        updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
+                        cfgobj["#fetched"] = now;
+                    } else if (httpcode == 304) {
+                        taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                    } else {
+                        taginfo->nextupdate = now + 300;
+                    }
                 }
                 break;
             }
@@ -419,7 +418,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         } else {
             sprintf(imageParams.segments, "%4d", count);
         }
-        if (taginfo->contentMode == CountHours) {
+        if (taginfo->contentMode == 3) {
             strcat(imageParams.segments, "  hour");
         } else {
             strcat(imageParams.segments, "  days");
@@ -935,7 +934,6 @@ int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MA
     if (httpCode == 200) {
         DeserializationError error = deserializeJson(jsondoc, http.getStream());
         if (error) {
-            wsErr("json error in getJsonTemplate:");
             wsErr(error.c_str());
             return 0;
         }

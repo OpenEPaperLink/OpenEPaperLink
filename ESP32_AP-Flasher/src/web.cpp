@@ -59,54 +59,6 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
             ets_printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len) ? (char *)data : "");
             break;
         case WS_EVT_DATA:
-            /*
-            AwsFrameInfo *info = (AwsFrameInfo *)arg;
-            if (info->final && info->index == 0 && info->len == len) {
-                // the whole message is in a single frame and we got all of it's data
-                ets_printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
-                if (info->opcode == WS_TEXT) {
-                    data[len] = 0;
-                    ets_printf("%s\n", (char *)data);
-                } else {
-                    for (size_t i = 0; i < info->len; i++) {
-                        ets_printf("%02x ", data[i]);
-                    }
-                    ets_printf("\n");
-                }
-                if (info->opcode == WS_TEXT)
-                    client->text("{\"status\":\"received\"}");
-                else
-                    client->binary("{\"status\":\"received\"}");
-            } else {
-                // message is comprised of multiple frames or the frame is split into multiple packets
-                if (info->index == 0) {
-                    if (info->num == 0)
-                        ets_printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT) ? "text" : "binary");
-                    ets_printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
-                }
-
-                ets_printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT) ? "text" : "binary", info->index, info->index + len);
-                if (info->message_opcode == WS_TEXT) {
-                    data[len] = 0;
-                    ets_printf("%s\n", (char *)data);
-                } else {
-                    for (size_t i = 0; i < len; i++) {
-                        ets_printf("%02x ", data[i]);
-                    }
-                    ets_printf("\n");
-                }
-
-                if ((info->index + len) == info->len) {
-                    ets_printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
-                    if (info->final) {
-                        ets_printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT) ? "text" : "binary");
-                        if (info->message_opcode == WS_TEXT)
-                            client->text("{\"status\":\"received\"}");
-                        else
-                            client->binary("{\"status\":\"received\"}");
-                    }
-                }
-            } */
             break;
     }
 }
@@ -270,6 +222,7 @@ void init_web() {
             request->send(200);
         },
         doImageUpload);
+    server.on("/jsonupload", HTTP_POST, doJsonUpload);
 
     server.on("/get_db", HTTP_GET, [](AsyncWebServerRequest *request) {
         String json = "";
@@ -476,7 +429,6 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
         request->_tempFile = contentFS->open("/" + filename, "w");
     }
     if (len) {
-        // stream the incoming chunk to the opened file
         request->_tempFile.write(data, len);
     }
     if (final) {
@@ -498,11 +450,40 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
                     wsSendTaginfo(mac, SYNC_USERCFG);
                     request->send(200, "text/plain", "Ok, saved");
                 } else {
-                    request->send(200, "text/plain", "Error while saving: mac not found");
+                    request->send(400, "text/plain", "mac not found");
                 }
             }
         } else {
-            request->send(500, "text/plain", "parameters incomplete");
+            request->send(400, "text/plain", "parameters incomplete");
         }
     }
+}
+
+void doJsonUpload(AsyncWebServerRequest *request) {
+    if (request->hasParam("mac", true) && request->hasParam("json", true)) {
+        String dst = request->getParam("mac", true)->value();
+        File file = LittleFS.open("/" + dst + ".json", "w");
+        if (!file) {
+            request->send(400, "text/plain", "Failed to create file");
+            return;
+        }
+        file.print(request->getParam("json", true)->value());
+        file.close();
+        uint8_t mac[8];
+        if (hex2mac(dst, mac)) {
+            tagRecord *taginfo = nullptr;
+            taginfo = tagRecord::findByMAC(mac);
+            if (taginfo != nullptr) {
+                taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".json\"}";
+                taginfo->contentMode = 19;
+                taginfo->nextupdate = 0;
+                wsSendTaginfo(mac, SYNC_USERCFG);
+                request->send(200, "text/plain", "Ok, saved");
+            } else {
+                request->send(400, "text/plain", "mac not found in tagDB");
+            }
+        }
+        return;
+    }
+    request->send(400, "text/plain", "Missing parameters");
 }

@@ -27,7 +27,6 @@ void pinTest();
 void delayedStart(void* parameter) {
     vTaskDelay(30000 / portTICK_PERIOD_MS);
     if (config.runStatus != RUNSTATUS_RUN) {
-        Serial.println("Starting content generation");
         wsLog("starting content generation");
         config.runStatus = RUNSTATUS_RUN;
     }
@@ -43,7 +42,6 @@ void timeTask(void* parameter) {
         time(&now);
 
         if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE || config.runStatus != RUNSTATUS_RUN) wsSendSysteminfo();
-        if (now % 5 == 0) Serial.printf("Free heap: %.2f kB\n", ESP.getFreeHeap() / 1024.0f);
         if (now % 300 == 6 && config.runStatus != RUNSTATUS_STOP) saveDB("/current/tagDB.json");
 
         if (apInfo.state == AP_STATE_ONLINE) contentRunner();
@@ -53,7 +51,6 @@ void timeTask(void* parameter) {
 }
 
 void setup() {
-    // starts the led task/state machine
     xTaskCreate(ledTask, "ledhandler", 2000, NULL, 2, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 

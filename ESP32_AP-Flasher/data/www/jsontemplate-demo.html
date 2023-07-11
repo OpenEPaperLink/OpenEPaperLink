@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<title>Json template Upload Form</title>
+</head>
+
+<body>
+	<h3>demo Json template form</h3>
+	<p>You can use this as an example how to push json templates to a tag by an external server/script. Make sure your json is valid. Check the syntax on <a href="https://jsonlint.com/" target="_blank">https://jsonlint.com/</a>.<br>
+    Documentation: <a href="https://github.com/jjwbruijn/OpenEPaperLink/wiki/Json-template">https://github.com/jjwbruijn/OpenEPaperLink/wiki/Json-template</a></p>
+	<p>
+		<form method="POST" action="/jsonupload">
+
+			<p>
+			<label for="mac">Enter a 6 or 8 byte MAC address:</label><br>
+			<input type="text" id="mac" name="mac">
+			</p>
+
+			<p>
+			<label for="image">Place the json string here</label><br>
+			<textarea id="image" name="json" style="width:500px;height:80px;">
+[
+{ "text": [5, 5, "Bahnschrift 20", "fonts/bahnschrift20", 1] },
+{ "box": [10, 30, 20, 20, 2] }
+]
+            </textarea>
+			</p>
+
+			<p>
+			<input type="submit" value="Upload">
+			</p>
+
+		</form>
+	</p>
+</body>
+
+</html>

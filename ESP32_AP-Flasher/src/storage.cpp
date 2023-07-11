@@ -52,6 +52,7 @@ size_t DynStorage::freeSpace(){
     return LittleFS.totalBytes() - LittleFS.usedBytes();
 }
 
+#ifdef HAS_SDCARD
 void copyFile(File in, File out) {
     Serial.print("Copying ");
     Serial.print(in.path());
@@ -109,7 +110,6 @@ void copyBetweenFS(FS& sourceFS, const char* source_path, FS& targetFS) {
     }
 }
 
-#ifdef HAS_SDCARD
 void copyIfNeeded(const char* path) {
     if (!contentFS->exists(path) && LittleFS.exists(path)) {
         Serial.printf("SDCard does not contain %s, littleFS does, copying\n", path);
@@ -165,7 +165,6 @@ void DynStorage::end() {
 
 void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
     Storage.begin();
-    // Print blank line on screen
     Serial.printf(" \n  ");
 
     Serial.printf("Listing directory: %s\n", dirname);
