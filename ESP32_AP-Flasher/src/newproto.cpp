@@ -384,11 +384,11 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         contentFS->remove(dst_path);
     }
     if (contentFS->exists(src_path)) {
-        #ifndef REMOVE_RAW
-        contentFS->rename(src_path, dst_path);
-        #else 
-        contentFS->remove(src_path);
-        #endif
+        if (config.preview) {
+            contentFS->rename(src_path, dst_path);
+        } else {
+            contentFS->remove(src_path);
+        }
     }
 
     time_t now;

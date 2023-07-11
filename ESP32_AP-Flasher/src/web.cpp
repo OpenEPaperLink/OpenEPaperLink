@@ -262,7 +262,7 @@ void init_web() {
         ESP.restart();
     });
 
-    server.serveStatic("/current", *contentFS, "/current/");
+    server.serveStatic("/current", *contentFS, "/current/").setCacheControl("max-age=604800");
     server.serveStatic("/", *contentFS, "/www/").setDefaultFile("index.html");
 
     server.on(
@@ -413,6 +413,9 @@ void init_web() {
             }
             if (request->hasParam("stopsleep", true)) {
                 config.stopsleep = static_cast<uint8_t>(request->getParam("stopsleep", true)->value().toInt());
+            }
+            if (request->hasParam("preview", true)) {
+                config.preview = static_cast<uint8_t>(request->getParam("preview", true)->value().toInt());
             }
             if (request->hasParam("wifipower", true)) {
                 config.wifiPower = static_cast<uint8_t>(request->getParam("wifipower", true)->value().toInt());

@@ -199,7 +199,7 @@ function processTags(tagArray) {
 		}
 
 		if (div.dataset.hash != element.hash && div.dataset.hwtype > -1 && (element.isexternal == false || element.contentMode != 12)) {
-			loadImage(tagmac, '/current/' + tagmac + '.raw?' + (new Date()).getTime());
+			loadImage(tagmac, '/current/' + tagmac + '.raw?' + element.hash);
 			div.dataset.hash = element.hash;
 		}
 		if (element.isexternal == true && element.contentMode == 12) $('#tag' + tagmac + ' .tagimg').style.display = 'none';
@@ -452,6 +452,7 @@ $('#apconfigbutton').onclick = function () {
 			$("#apcfglanguage").value = data.language;
 			$("#apclatency").value = data.maxsleep;
 			$("#apcpreventsleep").value = data.stopsleep;
+			$("#apcpreview").value = data.preview;
 			$("#apcwifipower").value = data.wifipower;
 			$("#apctimezone").value = data.timezone;
 		})
@@ -466,6 +467,7 @@ $('#apcfgsave').onclick = function () {
 	formData.append('language', $('#apcfglanguage').value);
 	formData.append('maxsleep', $('#apclatency').value);
 	formData.append('stopsleep', $('#apcpreventsleep').value);
+	formData.append('preview', $('#apcpreview').value);
 	formData.append('wifipower', $('#apcwifipower').value);
 	formData.append('timezone', $('#apctimezone').value);
 	fetch("/save_apcfg", {
@@ -676,7 +678,7 @@ function processQueue() {
 	canvas.style.display = 'block';
 	const hwtype = $('#tag' + id).dataset.hwtype;
 
-	fetch(imageSrc)
+	fetch(imageSrc, { cache: "force-cache" })
 		.then(response => response.arrayBuffer())
 		.then(buffer => {
 			[canvas.width, canvas.height] = displaySizeLookup[hwtype] || [0, 0];

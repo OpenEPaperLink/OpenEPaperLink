@@ -38,6 +38,7 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
         wsErr("low on memory. Fallback to 1bpp");
+        Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
         spr.setColorDepth(1);
         spr.setBitmapColor(TFT_WHITE, TFT_BLACK);
         imageParams.bpp = 1;
@@ -89,7 +90,7 @@ uint8_t *spr2color(TFT_eSprite &spr, imgParam &imageParams, size_t *buffer_size,
     *buffer_size = (bufw * bufh) / 8;
     uint8_t *buffer = (uint8_t*) malloc(*buffer_size);
     if (!buffer) {
-        Serial.println("Fallied to allocated buffer");
+        Serial.println("Failed to allocate buffer");
         return nullptr;
     }
     memset(buffer, 0, *buffer_size);

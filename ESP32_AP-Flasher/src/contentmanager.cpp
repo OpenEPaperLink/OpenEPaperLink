@@ -340,6 +340,7 @@ void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams) {
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
         wsErr("low on memory. Fallback to 1bpp");
+        Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
         spr.setColorDepth(1);
         spr.setBitmapColor(TFT_WHITE, TFT_BLACK);
         imageParams.bpp = 1;
@@ -370,7 +371,7 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
 
-    DynamicJsonDocument loc(1000);
+    StaticJsonDocument<512> loc;
     getTemplate(loc, TEMPLATE, 1, hwdata[taginfo->hwType].basetype);
 
     initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
@@ -411,7 +412,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
 
-    DynamicJsonDocument loc(1000);
+    StaticJsonDocument<512> loc;
     getTemplate(loc, TEMPLATE, 2, hwdata[taginfo->hwType].basetype);
 
     initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
@@ -483,7 +484,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
             return;
         }
 
-        DynamicJsonDocument loc(1000);
+        StaticJsonDocument<512> loc;
         getTemplate(loc, TEMPLATE, 4, hwdata[taginfo->hwType].basetype);
 
         String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
@@ -571,7 +572,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
 
         tft.setTextWrap(false, false);
 
-        DynamicJsonDocument loc(1000);
+        StaticJsonDocument<512> loc;
         getTemplate(loc, TEMPLATE, 8, hwdata[taginfo->hwType].basetype);
         initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
 
@@ -679,7 +680,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     U8g2_for_TFT_eSPI u8f;
     u8f.begin(spr);
 
-    DynamicJsonDocument loc(1000);
+    StaticJsonDocument<512> loc;
     getTemplate(loc, TEMPLATE, 9, hwdata[taginfo->hwType].basetype);
     initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
 
@@ -760,7 +761,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     U8g2_for_TFT_eSPI u8f;
     u8f.begin(spr);
 
-    DynamicJsonDocument loc(1000);
+    StaticJsonDocument<512> loc;
     getTemplate(loc, TEMPLATE, 11, hwdata[taginfo->hwType].basetype);
     initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
 
@@ -812,7 +813,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
     int size = qrcode.size;
     int xpos = 0, ypos = 0, dotsize = 1;
 
-    DynamicJsonDocument loc(1000);
+    StaticJsonDocument<512> loc;
     getTemplate(loc, TEMPLATE, 10, hwdata[taginfo->hwType].basetype);
     initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
     drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2]);
@@ -854,7 +855,7 @@ void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, i
         U8g2_for_TFT_eSPI u8f;
         u8f.begin(spr);
 
-        DynamicJsonDocument loc(1000);
+        StaticJsonDocument<512> loc;
         getTemplate(loc, TEMPLATE, 16, hwdata[taginfo->hwType].basetype);
         initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
 
@@ -1043,7 +1044,7 @@ void getTemplate(JsonDocument &json, const char *filePath, uint8_t id, uint8_t h
     StaticJsonDocument<50> filter;
     filter[String(id)][String(hwtype)] = true;
 
-    DynamicJsonDocument doc(1024);
+    StaticJsonDocument<1024> doc;
     DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
     jsonFile.close();
 
