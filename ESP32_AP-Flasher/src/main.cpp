@@ -26,9 +26,11 @@ void pinTest();
 
 void delayedStart(void* parameter) {
     vTaskDelay(30000 / portTICK_PERIOD_MS);
-    Serial.println("Resuming content generation");
-    wsLog("resuming content generation");
-    config.runStatus = RUNSTATUS_RUN;
+    if (config.runStatus != RUNSTATUS_RUN) {
+        Serial.println("Starting content generation");
+        wsLog("starting content generation");
+        config.runStatus = RUNSTATUS_RUN;
+    }
     vTaskDelay(10 / portTICK_PERIOD_MS);
     vTaskDelete(NULL);
 }
@@ -123,8 +125,6 @@ void setup() {
 #endif
 
     initAPconfig();
-    configTzTime(config.timeZone, "0.nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
-    // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 
     updateLanguageFromConfig();
     updateBrightnessFromConfig();
@@ -142,20 +142,15 @@ void setup() {
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
     config.runStatus = RUNSTATUS_INIT;
-
-    xTaskCreate(timeTask, "timed tasks", 12000, NULL, 2, NULL);
-
-    init_time();
-    logStartUp();
-
     esp_reset_reason_t resetReason = esp_reset_reason();
     if (resetReason == ESP_RST_PANIC) {
         Serial.println("Panic! Pausing content generation for 30 seconds");
         config.runStatus = RUNSTATUS_PAUSE;
-        xTaskCreate(delayedStart, "delaystart", 2000, NULL, 2, NULL);
-    } else {
-        config.runStatus = RUNSTATUS_RUN;
     }
+
+    xTaskCreate(timeTask, "timed tasks", 12000, NULL, 2, NULL);
+    xTaskCreate(initTime, "init time", 5000, NULL, 2, NULL);
+    xTaskCreate(delayedStart, "delaystart", 2000, NULL, 2, NULL);
 }
 
 void loop() {

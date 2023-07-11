@@ -8,7 +8,7 @@
 #define WAKEUP_REASON_NETWORK_SCAN 0xFD
 #define WAKEUP_REASON_WDT_RESET 0xFE
 
-void init_time();
+void initTime(void* parameter);
 void logLine(char* buffer);
 void logLine(String text);
 void logStartUp();

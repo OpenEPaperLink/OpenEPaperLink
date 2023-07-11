@@ -2,10 +2,19 @@
 
 #include <Arduino.h>
 #include <FS.h>
+#include <sntp.h>
 
 #include "storage.h"
+#include "tag_db.h"
 
-void init_time() {
+void timeSyncCallback(struct timeval* tv) {
+    Serial.println("time succesfully synced");
+}
+
+void initTime(void* parameter) {
+    sntp_set_time_sync_notification_cb(timeSyncCallback);
+    sntp_set_sync_interval(300 * 1000);
+    configTzTime(config.timeZone, "nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
     struct tm timeinfo;
     while (true) {
         if (!getLocalTime(&timeinfo)) {
@@ -15,6 +24,10 @@ void init_time() {
             break;
         }
     }
+    logStartUp();
+    if (config.runStatus = RUNSTATUS_INIT) config.runStatus = RUNSTATUS_RUN;
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+    vTaskDelete(NULL);
 }
 
 void logLine(char* buffer) {

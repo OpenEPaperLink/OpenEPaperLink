@@ -478,14 +478,16 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
             memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
             memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
 
-            const char* reason = "";
-            if (eadr->adr.wakeupReason == WAKEUP_REASON_FIRSTBOOT) reason = "Booting";
-            else if (eadr->adr.wakeupReason == WAKEUP_REASON_NETWORK_SCAN) reason = "Network scan";
-            else if (eadr->adr.wakeupReason == WAKEUP_REASON_WDT_RESET) reason = "Watchdog reset";
-            sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X %s", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0], reason);
-            logLine(buffer);
+            if (local) {
+                const char* reason = "";
+                if (eadr->adr.wakeupReason == WAKEUP_REASON_FIRSTBOOT) reason = "Booting";
+                else if (eadr->adr.wakeupReason == WAKEUP_REASON_NETWORK_SCAN) reason = "Network scan";
+                else if (eadr->adr.wakeupReason == WAKEUP_REASON_WDT_RESET) reason = "Watchdog reset";
+                sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X %s", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0], reason);
+                logLine(buffer);
+            }
         }
-        if (taginfo->batteryMv != eadr->adr.batteryMv) {
+        if (local && taginfo->batteryMv != eadr->adr.batteryMv) {
             sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X battery went from %.2fV to %.2fV", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0], static_cast<float>(taginfo->batteryMv) / 1000.0, static_cast<float>(eadr->adr.batteryMv) / 1000.0);
             logLine(buffer);
         }
