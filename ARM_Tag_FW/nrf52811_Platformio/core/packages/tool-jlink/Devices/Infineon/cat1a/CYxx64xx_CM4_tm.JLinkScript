@@ -1,0 +1,1192 @@
+/*********************************************************************
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                        The Embedded Experts                        *
+*                           www.segger.com                           *
+**********************************************************************
+
+-------------------------- END-OF-HEADER -----------------------------
+
+File    : CYxx64xx_CM4_tm.JLinkScript
+Purpose : J-Link script file for Infineon PSoC64-2M/1M/512K devices (CYB064xA, CYS064xA, CYB064x7 and CYB064x5)
+Literature:
+  [1] J-Link User Guide
+  [2] PSoC™ 64 MCU Programming Specifications (Document Number: 002-31353)
+
+Additional information:
+  For more information about public functions that can be implemented in order to customize J-Link actions, please refer to [1]
+*/
+
+/*********************************************************************
+*       Constants (similar to defines)
+*********************************************************************/
+
+/* --- Flags --- */
+__constant U8 _DEBUG_VERBOSE                = 0; // Log or push to SWD the debug information and error status
+
+/* --- Misc. --- */
+__constant int _STATUS_OK                   = 0;     // Function return status: O.K.
+__constant int _STATUS_ERR                  = -1;    // Function return status: Error
+__constant U32 _TIMEOUT_HANDSHAKE           = 30000; // 30 seconds for secure device
+__constant U32 _TIMEOUT_HALT_CPU            = 300;
+__constant U32 _TEST_MODE_SWD_SPEED         = 4000;
+
+/* PSoC® 6 MCU definitions */
+__constant U32 _AP_SYS                      = 0; // AP[0]  SYS-AP (used for chip acquisition sequence)
+__constant U32 _AP_CM0                      = 1; // AP[1]  CM0-AP (used for J-Link communication with Cortex-M0 core)
+__constant U32 _AP_CM4                      = 2; // AP[2]  CM4-AP (used for J-Link communication with Cortex-M4 core)
+__constant U32 _AP_MYCORE                   = 2; // AP[2]  CM4 Core is used as the default for this script
+__constant U32 _DP_IDCODE_MSK               = 0xFFF00FFF; // AP[2]  CM4-AP (used for J-Link communication with Cortex-M4 core)
+__constant U32 _DP_IDCODE_VAL               = 0x6BA00477; // AP[2]  0x6BA02477 for SWD or 0x6BA00477 for JTAG
+__constant U32 _SRSS_TST_MODE_ADDR          = 0x40260100; // SRSS_TST_MODE: Test Mode Control Register
+__constant U32 _SRSS_TST_MODE_TEST_MODE     = (1 << 31);  // SRSS_TST_MODE.TEST_MODE (bit[31], 0x80000000): 1 - Indicates the chip is in test mode. 0 - Normal operation mode
+__constant U32 _SRAM_ERROR_ADDR             = 0x080002FC; // Address in SRAM for error code
+__constant U32 _CYBOOT_STATUS_ADDR_512K     = 0x0803E004; // Address in SRAM, where CYBOOT stores the status code
+__constant U32 _CYBOOT_STATUS_ADDR_1M       = 0x08044804; // Address in SRAM, where CYBOOT stores the status code
+__constant U32 _CYBOOT_STATUS_ADDR_2M       = 0x080FE004; // Address in SRAM, where CYBOOT stores the status code
+__constant U32 _CYBOOT_STATUS_MSK           = 0xFFFFFFFF; // The mask for CYBOOT status code
+__constant U32 _CYBOOT_LW_IDLE_LOOP_CODE    = 0x12344321; // Listen window idle loop code
+/* Si ID defines */
+__constant U32 _SIID_ADDR                   = 0x16000000;
+__constant U32 _SIID_MASK                   = 0xFFFF0000;
+__constant U8  _SIID_SHIFT                  = 16;
+__constant U32 _SIID_REV_MASK               = 0x0000FF00;
+__constant U8  _SIID_REV_SHIFT              = 8;
+__constant U32 _FAMILY_ADDR                 = 0x1600000C;
+__constant U32 _FAMILY_MASK                 = 0x00000FFF;
+__constant U8  _FAMILY_SHIFT                = 0;
+__constant U32 _FB_VER_HI_ADDR              = 0x16002004;
+__constant U32 _FB_VER_LO_ADDR              = 0x16002018;
+__constant U32 _SFLASH_SVN_VER_ADDR         = 0x16000028;
+__constant U32 _1M_CPUSS_PROT_REG           = 0x40210500;
+__constant U32 _2M_CPUSS_PROT_REG           = 0x402020C4;
+
+/* --- AP/DP registers --- */
+__constant U32 _ACC_DP                      = 0; // APnDP for DP access
+__constant U32 _ACC_AP                      = 1; // APnDP for AP access
+__constant U32 _AP_ABORT_ORUNERRCLR         = (1 << 4);   // AP->ABORT.ORUNERRCLR (bit[4], 0x00000010): Clears CTRL/STAT.STICKYORUN
+__constant U32 _AP_ABORT_WDERRCLR           = (1 << 3);   // AP->ABORT.WDERRCLR   (bit[3], 0x00000008): Clears CTRL/STAT.WDATAERR
+__constant U32 _AP_ABORT_STKERRCLR          = (1 << 2);   // AP->ABORT.STKERRCLR  (bit[2], 0x00000004): Clears CTRL/STAT.STICKYERR
+__constant U32 _AP_ABORT_STKCMPCLR          = (1 << 1);   // AP->ABORT.STKCMPCLR  (bit[1], 0x00000002): Clears CTRL/STAT.STICKYERR
+                                                          //                      (     |= 0x0000001E)
+__constant U32 _AP_SELECT_APSEL_RSH         = 24;         // AP->SELECT.APSEL (bits[31:24], 0xFF000000): Selects an AP
+__constant U32 _DP_CTRL_STAT_CSYSPWRUPREQ   = (1 << 30);  // DP->CTRL/STAT.CSYSPWRUPREQ (bit[30], 0x40000000): System powerup request
+__constant U32 _DP_CTRL_STAT_CDBGPRWUPREQ   = (1 << 28);  // DP->CTRL/STAT.CDBGPRWUPREQ (bit[28], 0x10000000): Debug powerup request
+__constant U32 _DP_CTRL_STAT_CDBGRSTREQ     = (1 << 26);  // DP->CTRL/STAT.CDBGRSTREQ   (bit[26], 0x04000000): Debug reset request
+__constant U32 _DP_CTRL_STAT_STICKYERR      = (1 << 5);   // DP->CTRL/STAT.STICKYERR    ( bit[5], 0x00000020): Error in AP transaction
+__constant U32 _DP_CTRL_STAT_STICKYCMP      = (1 << 4);   // DP->CTRL/STAT.STICKYCMP    ( bit[4], 0x00000010): Match on a pushed operations
+__constant U32 _DP_CTRL_STAT_STICKYORUN     = (1 << 1);   // DP->CTRL/STAT.STICKYORUN   ( bit[1], 0x00000002): Overrun detection
+                                                          //                                   |= 0x50000032
+__constant U32 _DP_CSW_PROT_VAL             = (0x23 << 24); // DP->CSW.Prot (bits[30:24], 0x23000000): Bus access protection control
+                                                            // Set to 0x23, otherwise no access to CPU registers via M4 AP
+__constant U32 _DP_CSW_SIZE_WORD            = (2 << 0);     // DP->CSW.Size (  bits[2:0], 0x00000002): Size of access <- Word (32-bits)
+                                                            //                         |= 0x23000002
+/* --- ARMv6/7/8-M --- */
+__constant U32 _AIRCR_ADDR                  = 0xE000ED0C;     // AIRCR: Application Interrupt and Reset Control Register
+__constant U32 _AIRCR_VECTKEY_VAL           = (0x05FA << 16); // AIRCR.VECTKEY       (bits[31:16], 0x05FA0000): Vector Key. The value 0x05FA must be written to this register
+__constant U32 _AIRCR_SYSRESETREQ           = (1 << 2);       // AIRCR.SYSRESETREQ   (     bit[2], 0x00000004): System Reset Request
+__constant U32 _DHCSR_ADDR                  = 0xE000EDF0;     // DHCSR: Debug Halting Control and Status Register
+__constant U32 _DHCSR_DBGKEY_VAL            = (0xA05F << 16); // DHCSR.DBGKEY    (bits[31:16], 0xA05F0000): Must write 0xA05F to DBGKEY to enable write accesses to bits[15:0]
+__constant U32 _DHCSR_S_HALT                = (1 << 17);      // DHCSR.S_HALT    (    bit[17], 0x00020000): Indicates whether the processor is in Debug state
+__constant U32 _DHCSR_C_HALT                = (1 << 1);       // DHCSR.C_HALT    (     bit[1], 0x00000002): Processor halt bit
+__constant U32 _DHCSR_C_DEBUGEN             = (1 << 0);       // DHCSR.C_DEBUGEN (     bit[0], 0x00000001): Halting debug enable bit
+                                                              //                 (DBGKEY|C_HALT|C_DEBUGEN = 0xA05F0003)
+__constant U32 _DEMCR_ADDR                  = 0xE000EDFC; // DEMCR: Debug Exception and Monitor Control Register
+__constant U32 _DEMCR_TRCENA                = (1 << 24);  // DEMCR.TRCENA (bit[24], 0x01000000): Global enable for all DWT and ITM features
+
+// Device family defines
+__constant U16 _PSOC64_UNKNOWN_FAMILY       = 0;
+__constant U16 _PSOC64_2M_FAMILY            = 0x102;
+__constant U16 _PSOC64_1M_FAMILY            = 0x100;
+__constant U16 _PSOC64_512K_FAMILY          = 0x105;
+
+// ROM table defines
+__constant U32 _BASE_ADDR_MASK               = 0xFFFFF000;
+__constant U32 _BASE_FORMAT_MASK             = 0x00000003;
+__constant U32 _PIDR0_ADDR                   = 0x00000FE0;
+__constant U32 _PIDR4_ADDR                   = 0x00000FD0;
+__constant U32 _PIDR_0_3_VALID_MASK          = 0x000FF000;
+__constant U32 _PIDR_0_3_VALID_VAL           = 0x000B4000;
+__constant U32 _FAMILY_ID_MASK               = 0x00000FFF;
+
+
+/*********************************************************************
+*       Static data
+*********************************************************************/
+
+/* Si Family ID value */
+U16 _familyID;
+U8 _FAMILY_TPINS_VARIANT;
+/* Si Id related variables */
+U16 _SI_ID;
+U8 _SI_REV;
+U16 _SI_FAMILY;
+U32 _FB_VER_LO;
+U32 _FB_VER_HI;
+U32 _SFLASH_SVN_VER;
+U32 _PROTECTION;
+
+char *_DELIM_STR      = "****************************************************";
+char *_SIID_STR       = "** Silicon: 0x0000, Family: 0x000, Rev.: 0x00 (  )";
+char *_FB_STR         = "** Flash Boot version: 0                            ";
+char *_SFLASH_STR     = "** SFlash version: 0                                ";
+char *_PROTECTION_STR = "** Chip Protection: X                               ";
+const char _HEX_STR[] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46 };
+__constant U8 _SIID_STR_POS = 14;
+__constant U8 _SIID_FAMILY_STR_POS = 30;
+__constant U8 _SIID_REV_STR_POS = 43;
+__constant U8 _SIID_REV_DECODED_STR_POS = 47;
+__constant U8 _FB_STR_POS = 23;
+__constant U8 _SFLASH_STR_POS = 19;
+__constant U8 _PROTECTION_STR_POS = 20;
+
+// Standard ARM command to switch SWJ-DP from JTAG to SWD operations:
+const U8 _aData_JTAGtoSWD[] = {
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,      // Send at least 50 SWCLKTCK cycles with SWDIOTMS HIGH. This ensures that the current interface is in its reset state.
+                                                 // The JTAG interface detects only the 16-bit JTAG-to-SWD sequence starting from the test-logic-reset state.
+  0x9E, 0xE7,                                    // Send the 16-bit JTAG-to-SWD select sequence on SWDIOTMS: 0b0111 1001 1110 0111, most significant bit (MSb) first.
+                                                 // This can be represented as 0x79E7, transmitted MSB first or 0xE79E, transmitted least significant bit (LSb) first.
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,      // Send at least 50 SWCLKTCK cycles with SWDIOTMS HIGH. This ensures that if SWJ-DP was already in SWD operation
+                                                 // before sending the select sequence, the SWD interface enters line reset state.
+  0x00, 0x00                                     // Make sure SWD is ready for a start bit (min. 2 clocks with SWDIO == LOW)
+};
+
+// Standard ARM command to switch SWJ-DP from SWD to JTAG operations
+const U8 _aData_SWDtoJTAG[] = {
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,      // Send at least 50 SWCLKTCK cycles with SWDIOTMS HIGH. This ensures that the current interface is in its reset state.
+                                                 // The SWD interface detects the 16-bit SWD-to-JTAG sequence only when it is in reset state.
+  0x3C, 0xE7,                                    // Send the 16-bit SWD-to-JTAG select sequence on SWDIOTMS: 0b0011 1100 1110 0111, MSb first.
+                                                 // This can be represented as 0x3CE7, transmitted MSb first or 0xE73C, transmitted LSb first.
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,      // Send at least five SWCLKTCK cycles with SWDIOTMS HIGH. This ensures that if SWJ-DP was already in JTAG
+                                                 // operation before sending the select sequence, the JTAG TAP enters the test-logic-reset state.
+  0x00, 0x00                                     // Make sure SWD is ready for a start bit (min. 2 clocks with SWDIO == LOW)
+};
+
+// Direction buffer
+const U8 _aDir_SWJDPSwitch[] = {
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF
+};
+
+// Buffer for receiving data from target. Needs to be big enough to hold data for above sequences
+U8 _aDataOut[18];
+// Acquiring stat time mark
+int _aStartTime;
+// Acquisition acknowledge location (magic number address)
+U32 _sramMagicNumberAddr;
+
+/*********************************************************************
+*       Local functions
+*********************************************************************/
+
+/*********************************************************************
+*  Checks function result
+*
+*  Return value
+*    true   O.K.
+*    false  Error
+*/
+int _CheckStatus(int status) {
+  if (status >= _STATUS_OK) {
+    return _STATUS_OK;
+  } else {
+    if (_DEBUG_VERBOSE != 0) {
+      // Push error code to SWD that is it easier to debug the issues
+      JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, _ACC_AP, _SRAM_ERROR_ADDR);
+      JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, _ACC_AP, 0xDEADBEEF);
+    }
+    return _STATUS_ERR;
+  }
+}
+
+/*********************************************************************
+*  Writes U32 value to provided memory address.
+*  Used instead of JLINK_MEM_ReadU32 to validate transaction status
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*/
+int _ReadMem(U32 address, U32* value) {
+  int status;
+
+  status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, _ACC_AP, address); // AP.TAR <- address
+  if (_CheckStatus(status) == _STATUS_OK) {
+    status = JLINK_CORESIGHT_ReadDAP(JLINK_CORESIGHT_AP_REG_DATA, _ACC_AP, value);  // AP.DRW -> value
+  }
+
+  return status;
+}
+
+/*********************************************************************
+*  Writes U32 value to provided memory address.
+*  Used instead of JLINK_MEM_WriteU32 to validate transaction status
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*/
+int _WriteMem(U32 address, U32 value) {
+  int status;
+
+  status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, _ACC_AP, address); // AP.TAR <- address
+  if (_CheckStatus(status) == _STATUS_OK) {
+    status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, _ACC_AP, value); // AP.DRW <- value
+  }
+
+  return status;
+}
+
+/*********************************************************************
+*  Polls for the expected bit-field value in given register
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error/Timeout
+*/
+int _PollMem(U32 regAddr, U32 fieldMsk, U32 rsh, U32 expectedValue, U32 timeout, U32 sleepBetweenPolling) {
+  int status;
+  int swd_status;
+  int t;
+  int tDelta;
+  U32 v;
+  tDelta = -1;
+  status = _STATUS_ERR;
+
+  swd_status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, _ACC_AP, regAddr); // AP.ADDR <- regAddr
+  if (_CheckStatus(swd_status) == _STATUS_OK) {
+    t = JLINK_GetTime();
+    do {
+      // Sleep some time between polling: let CPU do its job and avoid too much garbage on SWD
+      if ((sleepBetweenPolling > 0) && (tDelta >= 0 /* not first iteration*/)) {
+        JLINK_SYS_Sleep(sleepBetweenPolling);
+      }
+      v = 0;
+      swd_status = JLINK_CORESIGHT_ReadDAP(JLINK_CORESIGHT_AP_REG_DATA, _ACC_AP, &v);
+      if (_CheckStatus(swd_status) != _STATUS_OK) {
+        break;
+      }
+      if (((v & fieldMsk) >> rsh) == expectedValue) {
+        status = _STATUS_OK;
+        break;
+      }
+      tDelta = JLINK_GetTime() - t;
+    } while (tDelta < timeout);
+  }
+
+  return _CheckStatus(status);
+}
+
+/*********************************************************************
+*  Clears any sticky errors which could be left from previous sessions.
+*  Otherwise only power-down-up cycle helps to restore DAP.
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*
+*  Notes
+*    (1) Must not use any high-level functions as it is also called from InitTarget() and uses non-standard APs etc.
+*/
+int _ClearStickyErrors() {
+  int status;
+  U32 abort_reg;
+  U32 abort_val;
+
+  if (JLINK_ActiveTIF == JLINK_TIF_JTAG) {
+    // Power up DAP and clear sticky errors using DP.CTRL/STAT: [30]:CSYSPWRUPREQ, [28]:CDBGPWRUPREQ, [5]:STICKYERR, [4]:STICKYCMP, [1]:STICKYORUN
+    // Note: for JTAG, sticky error bits are read-write enabled and writing ‘1’ to these bits clears associated sticky errors.
+    // For SWD, these bits are read-only and to clean the sticky errors, you should write to appropriate bits of DP.ABORT register
+    abort_reg = JLINK_CORESIGHT_DP_REG_CTRL_STAT;
+    abort_val = _DP_CTRL_STAT_CSYSPWRUPREQ | _DP_CTRL_STAT_CDBGPRWUPREQ | _DP_CTRL_STAT_STICKYERR | _DP_CTRL_STAT_STICKYCMP | _DP_CTRL_STAT_STICKYORUN; // 0x50000032
+  } else { // JLINK_ActiveTIF == JLINK_TIF_SWD
+    abort_reg = JLINK_CORESIGHT_DP_REG_ABORT;
+    abort_val = _AP_ABORT_ORUNERRCLR | _AP_ABORT_WDERRCLR | _AP_ABORT_STKERRCLR | _AP_ABORT_STKCMPCLR; // 0x0000001E
+  }
+
+  status = JLINK_CORESIGHT_WriteDAP(abort_reg, _ACC_DP, abort_val);
+
+  return status;
+}
+
+/*********************************************************************
+*  Handshake: wait for debug interface becomes enabled after device reset (tboot).
+*  In worst case, when the boot code performs application HASH verification,
+*  tboot is around 600ms and depends on CPU clock used by boot code.
+*  For PowerCycle, timeout depends on the design schematic and must be longer.
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*
+*  Notes
+*    (1) Must not use any high-level functions as it is also called from InitTarget() and uses non-standard APs etc.
+*/
+int _Handshake(void) {
+  U32 v;
+  int tDelta;
+  int status;
+
+  status = _STATUS_ERR;
+  do {
+    if (JLINK_ActiveTIF == JLINK_TIF_JTAG) {
+      JLINK_SWD_ReadWriteBits(&_aData_SWDtoJTAG[0], &_aDir_SWJDPSwitch[0], &_aDataOut[0], 18 * 8);
+    } else { // JLINK_ActiveTIF == JLINK_TIF_SWD
+      JLINK_SWD_ReadWriteBits(&_aData_JTAGtoSWD[0], &_aDir_SWJDPSwitch[0], &_aDataOut[0], 18 * 8);
+    }
+    v = 0;
+    JLINK_CORESIGHT_ReadDAP(JLINK_CORESIGHT_DP_REG_IDCODE, _ACC_DP, &v);
+    if ((v & _DP_IDCODE_MSK) == _DP_IDCODE_VAL) { // DAP is responsive if we can read IDCODE (0x6BA02477 for SWD or 0x6BA00477 for JTAG)
+      status = _STATUS_OK;
+      break;
+    }
+    tDelta = JLINK_GetTime() - _aStartTime;
+  } while (tDelta < _TIMEOUT_HANDSHAKE); // Timeout reached?
+
+  // clear any previous errors in advance
+  if (status == _STATUS_OK)
+  {
+    status = _ClearStickyErrors();
+  }
+  return status;
+}
+
+/*********************************************************************
+*  Initialize the Debug Port for programing operations.
+*  Accepts Access Port number as input: 0 – System AP; 1 – CM0+ AP; 2 – CM4 AP.
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*
+*  Notes
+*    (1) Must not use any high-level functions as it is also called from InitTarget() and uses non-standard APs etc.
+*/
+int _InitDAP(U8 apNum, U8 doPowerUp) {
+  int status;
+
+  status = _ClearStickyErrors();
+  if (_CheckStatus(status) != _STATUS_OK) {
+    return status;
+  }
+
+  if (doPowerUp != 0) {
+    // Power up DAP using DP.CTRL/STAT: [30]:CSYSPWRUPREQ, [28]:CDBGPWRUPREQ
+    status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_DP_REG_CTRL_STAT, _ACC_DP, _DP_CTRL_STAT_CSYSPWRUPREQ | _DP_CTRL_STAT_CDBGPRWUPREQ); // 0x50000000
+    if (_CheckStatus(status) != _STATUS_OK) {
+      return status;
+    }
+  }
+
+  // Select desired Access Port and set bank 0 in APACC space
+  status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_DP_REG_SELECT, _ACC_DP, (apNum << _AP_SELECT_APSEL_RSH) ); // DP->SELECT.APSEL <- apNum
+  if (_CheckStatus(status) != _STATUS_OK) {
+    return status;
+  }
+
+  // Set CSW (DbgSwEnable=0, Prot=0x23, SPIDEN=0, Mode=0x0, TrInProg=0, DeviceEn=0, AddrInc=Auto-increment off, Size=Word (32 bits))
+  // Note: Set Prot bits in DAP CSW register, because of no access to CPU registers via M4 AP without these bits
+  status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_CTRL, _ACC_AP, _DP_CSW_PROT_VAL | _DP_CSW_SIZE_WORD); // 0x23000002
+
+  return _CheckStatus(status);
+}
+
+/*********************************************************************
+*  Performs hardware reset by toggling XRES pin
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*
+*  Notes
+*    (1) Must not use any high-level functions as it is also called from InitTarget() and uses non-standard APs etc.
+*/
+int _HardReset(void) {
+  JLINK_JTAG_ResetPin = 0;  // nRESET == LOW
+  JLINK_SYS_Sleep(50);      // Make sure that device recognizes the reset
+  JLINK_JTAG_ResetPin = 1;  // nRESET == HIGH
+  return _STATUS_OK;
+}
+
+/*********************************************************************
+*  Performs software reset using SYSRESETREQ bit in the AIRCR (Application Interrupt and Reset Control Register)
+*  DAP communication must be established before this method call (e.g. use _Handshake + _InitDAP function)
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*/
+int _SoftReset() {
+  int status;
+
+  status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, _ACC_AP, _AIRCR_ADDR); // AP.TAR <- @AIRCR (0xE000ED0C)
+  if (_CheckStatus(status) != _STATUS_OK) {
+    return status;
+  }
+  // Note: do not check OK/WAIT/FAULT ACKs for the data write phase since the target immediately reboots
+  JLINK_CORESIGHT_WriteDP(JLINK_CORESIGHT_AP_REG_DATA, (_AIRCR_VECTKEY_VAL | _AIRCR_SYSRESETREQ) ); // AP.DRW <- 0x05FA0004
+
+  return _CheckStatus(status);
+}
+
+/*********************************************************************
+*  Performs either of:
+*    a. Hardware reset (XRES)
+*    b. Software reset (AIRCR.SYSRESETREQ)
+*    c. Software reset (DP->CTRL/STAT.CDBGRSTREQ)
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*/
+int _PSoC6_Reset(U8 doXRES) {
+  int status;
+
+  if (doXRES != 0) {
+    status = _HardReset();
+  } else {
+    // Handshake: wait for debug interface becomes enabled after device reset
+    status = _Handshake();
+    if (_CheckStatus(status) == _STATUS_OK) {
+      // Initialize the Debug Port and select CM4 Access Port (AP[2])
+      status = _InitDAP(_AP_MYCORE, 1 /* "1" - do power up request */);
+      if (_CheckStatus(status) == _STATUS_OK) {
+       status = _SoftReset(); // AIRCR.SYSRESETREQ
+      }
+
+      // In worst case, if standard software reset via SYSRESETREQ failed, it may mean that the firmware did
+      // very bad things disabling the debug pins or AHB_AP access (anything behind the DAP).
+      // However, if we still can access DAP registers, the last thing we could try is to reset the target
+      // via DP->CTRL/STAT.CDBGRSTREQ. In MXS40, setting the CDBGRSTREQ bit will result in a System wide Debug
+      // DeepSleep reset, what resets both (CM0+ and CM4) cores.
+      // Note that CDBGRSTREQ will reset the target only at first attempt after the hardware reset (XRES or Power Cycle).
+      // You need to do the additional hardware reset manually before the acquisition sequence execution if the target
+      // stucked in 'bad' state and you already used the CDBGRSTREQ bit since the previous hardware reset.
+      // If such case happens and we managed to reset the target using CDBGRSTREQ,
+      // the next thing would be to halt the CPU as quickly as possible to prevent firmware to do the bad things again.
+      if (_CheckStatus(status) != _STATUS_OK) {
+        status = _Handshake();
+        if (_CheckStatus(status) == _STATUS_OK) {
+          JLINK_CORESIGHT_WriteDP(JLINK_CORESIGHT_DP_REG_CTRL_STAT, _DP_CTRL_STAT_CSYSPWRUPREQ | _DP_CTRL_STAT_CDBGPRWUPREQ | _DP_CTRL_STAT_CDBGRSTREQ); // 0x54000000
+        }
+      }
+
+    }
+  }
+
+  return _CheckStatus(status);
+}
+
+/*********************************************************************
+*  Enables debug and halts or resumes the CPU using the DHCSR register
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*/
+int _HaltResumeCPU(U8 haltNresume) {
+  int status;
+  U32 v;
+  int t;
+  int tDelta;
+  U32 dhcsrVal;
+  U32 shaltExpectedVal;
+
+  if (haltNresume == 0) { // Resume
+    dhcsrVal = _DHCSR_DBGKEY_VAL | _DHCSR_C_DEBUGEN; // 0xA05F0001
+    shaltExpectedVal = 0;
+  } else { // Halt
+    dhcsrVal = _DHCSR_DBGKEY_VAL | _DHCSR_C_HALT | _DHCSR_C_DEBUGEN; // 0xA05F0003
+    shaltExpectedVal = _DHCSR_S_HALT;
+  }
+
+  // Enable debug, and halt the CPU using the DHCSR register
+  status = _WriteMem(_DHCSR_ADDR, dhcsrVal); // _DHCSR_ADDR (0xE000EDF0) <- dhcsrVal
+
+  if (_CheckStatus(status) == _STATUS_OK) {
+    // Poll for S_HALT bit [17] in DHCSR register (@0xE000EDF0)
+    status = _PollMem(_DHCSR_ADDR, _DHCSR_S_HALT, 0, shaltExpectedVal, _TIMEOUT_HALT_CPU, 0);
+  }
+
+  return _CheckStatus(status);
+}
+
+/*********************************************************************
+*  Obtain device family from ROM-table and select proper magic number address
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*/
+
+int _DAP_AP_GetFamilyID(void) {
+  int status;
+  U32 v;
+  U32 i;
+  U32 romBaseAddr;
+  U32 pidr_0_3;
+  U32 pidr_4_7;
+
+  if (_familyID != _PSOC64_UNKNOWN_FAMILY) {
+    // divice family already determined
+    status = _STATUS_OK;
+  } else {
+    // select bank 15
+    v = (_AP_MYCORE << _AP_SELECT_APSEL_RSH) | 0xF0; // Current core AP, Bank 15
+    status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ROM, _ACC_DP, v);
+    if (_CheckStatus(status) != _STATUS_OK) {
+      return status;
+    }
+    status = JLINK_CORESIGHT_ReadDAP(JLINK_CORESIGHT_AP_REG_ROM, _ACC_AP, &romBaseAddr); // Get Debug ROM Address
+    if (_CheckStatus(status) != _STATUS_OK) {
+      return status;
+    }
+    // check format of BASE register
+    if ((romBaseAddr & _BASE_FORMAT_MASK) == _BASE_FORMAT_MASK) {
+      romBaseAddr &= _BASE_ADDR_MASK;
+    } else {
+      status = _STATUS_ERR;
+      return status;
+    }
+    // Select bank 0
+    v = (_AP_MYCORE << _AP_SELECT_APSEL_RSH); // Current core AP, Bank 0
+    status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ROM, _ACC_DP, v);
+    if (_CheckStatus(status) != _STATUS_OK) {
+      return status;
+    }
+
+    // Read peripheral ID registers 0-3
+    pidr_0_3 = 0;
+    i = 0;
+    do {
+      status = _ReadMem(romBaseAddr + _PIDR0_ADDR + (i * 4), &v);
+      if (_CheckStatus(status) != _STATUS_OK) {
+        return status;
+      }
+      pidr_0_3 |= (v & 0x000000FF) << (i * 8);
+      i += 1;
+    } while (i < 4);
+
+    // Read peripheral ID registers 4-7
+    pidr_4_7 = 0;
+    i = 0;
+    do {
+      status = _ReadMem(romBaseAddr + _PIDR4_ADDR + (i * 4), &v);
+      if (_CheckStatus(status) != _STATUS_OK) {
+        return status;
+      }
+      pidr_4_7 |= (v & 0x000000FF) << (i * 8);
+      i += 1;
+    } while (i < 4);
+
+    // validate PIDR values and extract family ID
+    if (((pidr_0_3 & _PIDR_0_3_VALID_MASK) == _PIDR_0_3_VALID_VAL) && (pidr_4_7 == 0)) {
+      _familyID = pidr_0_3 & _FAMILY_ID_MASK;
+      if (_familyID == _PSOC64_2M_FAMILY) {
+        _sramMagicNumberAddr = _CYBOOT_STATUS_ADDR_2M;
+        return status;
+      }
+      if (_familyID == _PSOC64_512K_FAMILY) {
+        _sramMagicNumberAddr = _CYBOOT_STATUS_ADDR_512K;
+        return status;
+      }
+      _sramMagicNumberAddr = _CYBOOT_STATUS_ADDR_1M;
+    } else {
+      status = _STATUS_ERR;
+    }
+  }
+  return status;
+}
+
+/*********************************************************************
+*  Performs PSoC 6 chip acquisition in test mode:
+*    1. Do hardware (XRES) or one of the software (AIRCR.SYSRESETREQ or DP->CTRL/STAT.CDBGRSTREQ) reset
+*    2. Handshake + Init DAP
+*    3. Set TEST_MODE bit in TST_MODE SRSS register
+*    4. Wait for magic acknowledge
+*
+*  Refer PSoC 6 MCU Programming Specifications: 002-15554 https://www.infineon.com/dgdl/Infineon-PSoC_6_Programming_Specifications-Programming+Specifications-v12_00-EN.pdf?fileId=8ac78c8c7d0d8da4017d0f66d9bf5627
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*
+*  Notes
+*    (1) Must not use any high-level functions as it is also called from InitTarget() and uses non-standard APs etc.
+*    (2) __probe attribute specifies that this function is executed in the J-Link firmware rather than on the PC side,
+*        so changes to global variables may only be temporarily valid inside this function (not guaranteed to be valid later)
+*/
+__probe int _PSoC6_AcquireTestMode(U8 doXRES) {
+  int status;
+  U32 v;
+  U32 OrgTIFSpeed;
+
+  // Make sure that J-Link is using a high target interface speed, so we can meet the timing requirements as per programming specifications
+  // Might be necessary for some IDEs that select a very slow interface speed by default and do not allow to change this
+  OrgTIFSpeed = JLINK_JTAG_Speed;
+  JLINK_JTAG_Speed = _TEST_MODE_SWD_SPEED;
+
+  // Preconfigure some CoreSight settings as time is not critical at this point
+  // E.g. by default, when executing DAP API calls from within the firmware, J-Link will do a retry of the DAP transfer for some interfaces, if we got an invalid response from the DAP.
+  // As this costs valuable time here, we temporarily disable this behavior and restore it at the end of the call.
+  // Additionally, suppress output of the JTAG/SWD switching sequence init at the end of the CORESIGHT_Configure() call, as we do not need it and it only costs time
+  JLINK_CORESIGHT_Configure("RetryOnInvalDAPResp=0;PerformTIFInit=0");
+
+  // - 1 ----------------------------------------------------------------------
+  // Do hardware (XRES) of software (AIRCR.SYSRESETREQ or DP->CTRL/STAT.CDBGRSTREQ) pre-reset
+  // It is critical for Test Mode acquisition, so stop and in case of failure
+  status = _PSoC6_Reset(doXRES);
+  if (_CheckStatus(status) != _STATUS_OK) {
+    return status;
+  }
+  // Store time point after reset
+  _aStartTime = JLINK_GetTime();
+
+  // - 2 ----------------------------------------------------------------------
+  // Set TEST_MODE bit loop
+  do {
+    // Handshake: wait for debug interface becomes enabled after device reset
+    status = _Handshake();
+    if (_CheckStatus(status) != _STATUS_OK) {
+      continue;
+    }
+    // Initialize the Debug Port and select CM0-AP (AP[1])
+    status = _InitDAP(_AP_MYCORE, 1 /* "1" - do power up request */);
+    if (_CheckStatus(status) != _STATUS_OK) {
+      continue;
+    }
+
+    // - 3 ----------------------------------------------------------------------
+    // Enter CPU into Test Mode, so it does not start the user application
+    status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, _ACC_AP, _SRSS_TST_MODE_ADDR); // Set TEST_MODE bit in TST_MODE SRSS register
+    if (_CheckStatus(status) != _STATUS_OK) {
+      continue;
+    }
+    status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, _ACC_AP, _SRSS_TST_MODE_TEST_MODE);
+    if (_CheckStatus(status) != _STATUS_OK) {
+      continue;
+    }
+    // Read RDBUFF to make sure that the last AP write actually happens as SW-DP may buffer/delay it until next DAP access
+    status = JLINK_CORESIGHT_ReadDAP(JLINK_CORESIGHT_DP_REG_RDBUF, _ACC_DP, &v);
+    if (_CheckStatus(status) != _STATUS_OK) {
+      continue;
+    }
+  } while ((_CheckStatus(status) != _STATUS_OK) && ((JLINK_GetTime() - _aStartTime) < _TIMEOUT_HANDSHAKE)); // Timeout reached?
+
+    // The steps above are time critical and must be executed without delays immediately after reset.
+    // No hurry for further steps - target already acquired in Test Mode
+
+    // Restore CORESIGHT settings (See beginning of this function call for more info) and restore original TIF speed
+    JLINK_CORESIGHT_Configure("RetryOnInvalDAPResp=1;PerformTIFInit=0");
+    JLINK_JTAG_Speed = OrgTIFSpeed;
+
+  // - 4 ----------------------------------------------------------------------
+  // Poll for magic number - acquire acknowledge
+  do {
+    // Do handshake if something went wrong
+    if (_CheckStatus(status) != _STATUS_OK) {
+      status = _Handshake();
+      if (_CheckStatus(status) != _STATUS_OK) {
+        continue;
+      }
+    }
+
+    // Get device family and select proper magic number address
+    status = _DAP_AP_GetFamilyID();
+    if (_CheckStatus(status) != _STATUS_OK) {
+      continue;
+    }
+
+    // Poll for magic number - acquire acknowledge
+    status = _PollMem(_sramMagicNumberAddr, _CYBOOT_STATUS_MSK, 0, _CYBOOT_LW_IDLE_LOOP_CODE, _TIMEOUT_HANDSHAKE - (JLINK_GetTime() - _aStartTime), 1);
+    if (_CheckStatus(status) != _STATUS_OK) {
+      continue;
+    }
+  } while ((_CheckStatus(status) != _STATUS_OK) && ((JLINK_GetTime() - _aStartTime) < _TIMEOUT_HANDSHAKE)); // Timeout reached?
+
+  // Even magic number is not provided due to cyloader corruption
+  // CPU must be halted
+  status = _HaltResumeCPU(1 /* "1" - halt */);
+  if (_CheckStatus(status) != _STATUS_OK) {
+    return status;
+  }
+
+  // Clear TEST_MODE bit in TST_MODE SRSS register
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, _ACC_AP, _SRSS_TST_MODE_ADDR);
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, _ACC_AP, 0);
+  // Halt CPU again afler clear TEST_MODE bit
+  status = _HaltResumeCPU(1 /* "1" - halt */);
+
+  return _CheckStatus(status);
+}
+
+/*********************************************************************
+*  Performs variety of PSoC 6 chip acquisition attempts:
+*    1. Acquire in Test Mode so the boot code will not start the application
+*    1.a. Using hardware pre-reset (XRES).
+*         This is recommended and the only 100% reliable method.
+*
+*    If above step failed, Test Mode acquisition is not possible because of
+*    Listen window is turned off or the debugger cannot meet timing requirements.
+*
+* ! Note that XRES connection is strongly required for the hardware reset.
+*   Otherwise, neither of above methods will work if the firmware does really "bad" things such as:
+*   - Repurposes the debug pins (intentionally or unintentionally)
+*   - Disables/Protects access ports and the Listen window is turned off or too short
+*   - Intentionally or unintentionally corrupts values in MMIO registers and the Listen window is turned off or too short
+*   In this case, there is no way for debugger to establish even basic communication with target
+*
+*  Refer PSoC 6 MCU Programming Specifications: 002-15554 https://www.infineon.com/dgdl/Infineon-PSoC_6_Programming_Specifications-Programming+Specifications-v12_00-EN.pdf?fileId=8ac78c8c7d0d8da4017d0f66d9bf5627
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*
+*  Notes
+*    (1) Must not use any high-level functions as it is also called from InitTarget() and uses non-standard APs etc.
+*/
+
+int _PSoC6_Acquire(U32 resumeCPU) {
+  int status;
+  status = _STATUS_ERR;
+
+  // 1. Acquire PSoC 6 in Test Mode:
+  //   1.1. Do hardware (XRES) or one of the software (AIRCR.SYSRESETREQ or DP->CTRL/STAT.CDBGRSTREQ) reset
+  //   1.2. Handshake + Init DAP
+  //   1.3. Set TEST_MODE bit in TST_MODE SRSS register
+  //   1.4. Wait for magic acknowledge
+  // Items 1.1 to 1.3 are time critical, so entire function executed in J-Link firmware and requires __probe attribute for caller
+  status = _PSoC6_AcquireTestMode(1 /* "1" - do hardware pre-reset (XRES) */);
+
+  // Resume CPU that was halted above if it is required for caller
+  if ((_CheckStatus(status) == _STATUS_OK) && (resumeCPU != 0)) {
+    status = _HaltResumeCPU(0 /* "0" - resume */);
+  }
+
+  return _CheckStatus(status);
+}
+
+/*********************************************************************
+*  Replace single character at given position
+*  Return the position of next character
+*/
+char *ReplaceChar(char *pos, char ch) {
+  *pos = ch;
+  pos += 1;
+  return pos;
+}
+
+/*********************************************************************
+*  Replace substring at given position
+*  Return the position next of the last character replaced
+*/
+char *ReplaceSubStr(char *pos, char *sub) {
+  while (*sub != 0) {
+    *pos = *sub;
+    pos += 1;
+    sub += 1;
+  }
+  return pos;
+}
+
+
+/*********************************************************************
+*  Replace substring at given position by decimal number
+*  Return the position next of the last character replaced
+*/
+char *WriteDecStr(char *pos, U32 value, U8 digitnum) {
+  U8 digitvalue;
+  char ch;
+  U8 decadenum;
+  U32 decadeunit;
+  int firstnonzero;
+  U8 i;
+
+  decadenum = 10;
+  firstnonzero = 0;
+
+  while (decadenum > 0 ) {
+    digitvalue = 0;
+    i = decadenum;
+    decadeunit  = 1;
+    while (i > 1) {
+      decadeunit *= 10;
+      i -= 1;
+    }
+
+    while (value >= decadeunit) {
+      digitvalue += 1;
+      value -= decadeunit;
+    }
+    if (digitvalue != 0) {
+      firstnonzero = 1;
+    }
+    if ((firstnonzero != 0) || (digitnum >= decadenum)) {
+      ch = _HEX_STR[digitvalue];
+      pos = ReplaceChar(pos, ch);
+    }
+
+    decadenum -= 1;
+  }
+  return pos;
+}
+
+
+/*********************************************************************
+*  Replace substring at given position by hex string
+*  Return the position next of the last character replaced
+*/
+char *WriteHexStr(char *pos, U32 value, U8 digitnum) {
+  U8 digitvalue;
+  char ch;
+  while (digitnum > 0) {
+    digitnum -= 1;
+    digitvalue = (value >> (digitnum * 4)) & 0x0F;
+    ch = _HEX_STR[digitvalue];
+    pos = ReplaceChar(pos, ch);
+  }
+  return pos;
+}
+
+/*********************************************************************
+*  Get Si identification details
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*/
+int GetSiID(void) {
+  U32 v;
+  char ch;
+  U8 b0;
+  U8 b1;
+  U8 b2;
+  U16 b3;
+  U16 patch;
+  U16 build;
+  char *pos;
+
+  // Si Id, Family & Rev.
+  v = JLINK_MEM_ReadU32(_SIID_ADDR);
+  _SI_ID = (v & _SIID_MASK) >> _SIID_SHIFT;
+  _SI_REV = (v & _SIID_REV_MASK) >> _SIID_REV_SHIFT;
+  v = JLINK_MEM_ReadU32(_FAMILY_ADDR);
+  _SI_FAMILY = (v & _FAMILY_MASK) >> _FAMILY_SHIFT;
+
+  WriteHexStr(_SIID_STR + _SIID_STR_POS, _SI_ID, 4);
+  WriteHexStr(_SIID_STR + _SIID_FAMILY_STR_POS, _SI_FAMILY, 3);
+  WriteHexStr(_SIID_STR + _SIID_REV_STR_POS, _SI_REV, 2);
+  // revision major
+  v = (_SI_REV >> 4) & 0x0F;
+  if (v == 0) {
+    ch = 0x2A; // '*' symbol
+  }
+  else {
+    ch = 0x40 + v;
+  }
+  pos = _SIID_STR + _SIID_REV_DECODED_STR_POS;
+  pos = ReplaceChar(pos, ch);
+  // revision minor
+  v = _SI_REV & 0x0F;
+  if (v == 0) {
+    ch = 0x2A; // '*' symbol
+  }
+  else {
+    ch = _HEX_STR[v - 1];
+  }
+  pos = ReplaceChar(pos, ch);
+
+  // FB
+  _FB_VER_HI = JLINK_MEM_ReadU32(_FB_VER_HI_ADDR);
+  if (_FB_VER_HI == 0) {
+    Report("Error: Invalid FlashBoot: High version word of Flash Boot is zero");
+    return _STATUS_ERR;
+  }
+  _FB_VER_LO = JLINK_MEM_ReadU32(_FB_VER_LO_ADDR);
+
+  b0 = _FB_VER_HI >> 28;
+  b1 = (_FB_VER_HI >> 24) & 0x0F;
+  b2 = (_FB_VER_HI >> 16) & 0xFF;
+  b3 = _FB_VER_HI & 0x0000FFFF;
+
+  if (b0 > 2) {
+    Report1("Error: Unsupported Flash Boot Version - Flash Boot Version [31:28] = ", b0);
+    return _STATUS_ERR;
+  }
+
+  if (b3 != 0x8001) {
+    Report("Error: Flash Boot is corrupted or non Flash Boot image programmed");
+    return _STATUS_ERR;
+  }
+
+  pos = _FB_STR + _FB_STR_POS;
+  if (b0 == 0) { // Versioning scheme #1 or #2, PSoC6A-BLE-2 device family
+    pos = ReplaceSubStr(pos, "1.");
+    if (b1 == 1) { // Versioning scheme #1, ** or *A
+      pos = WriteDecStr(pos, b2, 2);
+    }
+    if (b1 == 2) {
+      if (b2 < 20) {
+        pos = ReplaceSubStr(pos, "0.0.");
+        pos = WriteDecStr(pos, b2, 1);
+      }
+      else {
+        if ( b2 < 29 ) {
+          pos = ReplaceSubStr(pos, "0.1.");
+          pos = WriteDecStr(pos, b2, 1);
+        }
+        else {
+          pos = ReplaceSubStr(pos, "20.1.");
+          pos = WriteDecStr(pos, b2, 1);
+        }
+      }
+    }
+  }
+  if (b0 == 1) { // TVII-BE-1M **
+    pos = ReplaceSubStr(pos, "2.0.0.");
+    pos = WriteDecStr(pos, b2, 1);
+  }
+  if (b0 == 2) { // Versioning scheme #3
+    patch = _FB_VER_LO >> 24;
+    build = _FB_VER_LO & 0x0000FFFF;
+    pos = WriteDecStr(pos, b1, 1);
+    pos = ReplaceSubStr(pos, ".");
+    pos = WriteDecStr(pos, b2, 1);
+    pos = ReplaceSubStr(pos, ".");
+    pos = WriteDecStr(pos, patch, 1);
+    pos = ReplaceSubStr(pos, ".");
+    pos = WriteDecStr(pos, build, 1);
+  }
+  pos = ReplaceChar(pos, 0);
+
+  // SFLASH
+  _SFLASH_SVN_VER = JLINK_MEM_ReadU32(_SFLASH_SVN_VER_ADDR);
+  pos = _SFLASH_STR + _SFLASH_STR_POS;
+  pos = WriteDecStr(pos, _SFLASH_SVN_VER, 1);
+  pos = ReplaceChar(pos, 0);
+
+  // LCS
+  if (_SI_FAMILY == _PSOC64_1M_FAMILY) {
+    _PROTECTION = JLINK_MEM_ReadU32(_1M_CPUSS_PROT_REG);
+  }
+  else {
+    _PROTECTION = JLINK_MEM_ReadU32(_2M_CPUSS_PROT_REG);
+  }
+  pos = _PROTECTION_STR + _PROTECTION_STR_POS;
+  if (_PROTECTION == 1) {
+    pos = ReplaceSubStr(pos, "VIRGIN");
+  }
+  else {
+    if (_PROTECTION == 2) {
+      pos = ReplaceSubStr(pos, "NORMAL");
+    }
+    else {
+      if (_PROTECTION == 3) {
+        pos = ReplaceSubStr(pos, "SECURE");
+      }
+      else {
+        if (_PROTECTION == 4) {
+          pos = ReplaceSubStr(pos, "DEAD");
+        }
+        else {
+          pos = ReplaceSubStr(pos, "UNKNOWN");
+        }
+      }
+    }
+  }
+  pos = ReplaceChar(pos, 0);
+
+  return _STATUS_OK;
+}
+
+/*********************************************************************
+*       Global functions
+*********************************************************************/
+
+/*********************************************************************
+*  Called before InitTarget(). Mainly used to set some global DLL variables to customize the normal connect procedure.
+*  For ARM CoreSight devices this may be specifying the base address of some CoreSight components (ETM, ...)
+*  that cannot be automatically detected by J-Link due to erroneous ROM tables etc.
+*  May also be used to specify the device name in case debugger does not pass it to the DLL.
+*
+*  Notes
+*    (1) May not, under absolutely NO circumstances, call any API functions that perform target communication.
+*    (2) Should only set some global DLL variables
+*/
+int ConfigTargetSettings(void) {
+  //
+  // Mark a specific memory region as memory type illegal
+  // in order to make sure that the software is not allowed to access these regions
+  //
+  // Note: This does not work for J-Flash tool
+  //
+
+  // Exclude SFLASH regions
+  JLINK_ExecCommand("map region 0x16000000-0x160007FF XI"); // [SFLASH Start - User Data Start]
+  JLINK_ExecCommand("map region 0x16001000-0x160019FF XI"); // [User Data End - NAR Start]
+  JLINK_ExecCommand("map region 0x16001C00-0x160059FF XI"); // [NAR End - Public Key Start]
+  JLINK_ExecCommand("map region 0x16006600-0x16007BFF XI"); // [Public Key End - TOC2 Start]
+
+  // Exclude Cy Metadata
+  JLINK_ExecCommand("map region 0x90300000-0x903FFFFF XI"); // Cy Checksum
+  JLINK_ExecCommand("map region 0x90500000-0x905FFFFF XI"); // Cy Metadata
+
+  JLINK_CORESIGHT_AddAP(_AP_SYS, CORESIGHT_CUSTOM_AP); // AP[0]  SYS-AP (used for chip acquisition sequence)
+  JLINK_CORESIGHT_AddAP(_AP_CM0, CORESIGHT_AHB_AP);    // AP[1]  CM0-AP (used for J-Link communication with Cortex-M0 core)
+  JLINK_CORESIGHT_AddAP(_AP_CM4, CORESIGHT_AHB_AP);    // AP[2]  CM4-AP (used for J-Link communication with Cortex-M4 core)
+  JLINK_CORESIGHT_IndexAHBAPToUse = _AP_MYCORE;        // AP-Index of AHB-AP to use for communication with core
+  CPU=CORTEX_M4;
+
+  return _STATUS_OK;
+}
+
+/*********************************************************************
+*
+*       InitTarget()
+*
+*  Function description
+*    Replaces the target-CPU-auto-find procedure of the J-Link DLL. Useful for target CPUs that
+*    are not accessible by default and need some special steps to be executed before the normal
+*    debug probe connect procedure can be executed successfully. Example devices are MCUs
+*    from TI which have a so-called ICEPick JTAG unit on them that needs to be configured via
+*    JTAG, before the actual CPU core is accessible via JTAG.
+*
+*  Return value
+*    >= 0:  O.K.
+*     < 0:  Error
+*
+*  Notes
+*    (1) If target interface JTAG is used: JTAG chain has to be specified manually before leaving
+*        this function (meaning all devices and their TAP IDs have to be specified by the user).
+*        Also appropriate JTAG TAP number to communicate with during the debug session has
+*        to be manually specified in this function.
+*    (2) MUST NOT use any MEM_ API functions
+*    (3) Global DLL variable “CPU” MUST be set when implementing this function, so the DLL
+*        knows which CPU module to use internally.
+*/
+int InitTarget(void) {
+  Report("JLinkScript/InitTarget: CORESIGHT setup");
+  // Clear family ID value
+  _familyID = _PSOC64_UNKNOWN_FAMILY;
+  _SI_ID = 0;
+  _SI_REV = 0;
+  _SI_FAMILY = 0;
+
+  return _STATUS_OK;
+}
+
+/*********************************************************************
+*
+*       SetupTarget()
+*
+*  Function description
+*    If present, called after InitTarget() and after general debug connect sequence has been performed by J-Link.
+*    Usually used for more high-level CPU debug setup like writing certain memory locations, initializing PLL for faster download etc.
+*
+*  Return value
+*    >= 0:  O.K.
+*     < 0:  Error
+*
+*  Notes
+*    (1) Does not replace any DLL functionality but extends it.
+*    (2) May use MEM_ API functions
+*/
+int SetupTarget(void) {
+  GetSiID();
+  Report(_DELIM_STR);
+  Report(_SIID_STR);
+  Report(_FB_STR);
+  if ((_SFLASH_SVN_VER != 0) && (_SFLASH_SVN_VER != 0xFFFFFFFF)) {
+    Report(_SFLASH_STR);
+  }
+  Report(_PROTECTION_STR);
+  Report(_DELIM_STR);
+
+  return _STATUS_OK;
+}
+
+/*********************************************************************
+*  Replaces reset strategies of DLL.
+*  No matter what reset type is selected in the DLL, if this function is present, it will be called instead of the DLL internal reset.
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*
+*  Notes
+*    (1) DLL expects target CPU to be halted / in debug mode, when leaving this function
+*    (2) May use MEM_ API functions
+*/
+int ResetTarget(void) {
+  int status;
+
+  // Acquire PSoC 6 in Test Mode or using Alternate Method
+  // Note: Test Mode acquisition is time critical, so entire function executed in J-Link firmware and requires __probe attribute for caller
+  status = _PSoC6_Acquire(0); // "0" - Do not resume CPU that is halted during acquisition since DLL expects target CPU to be halted / in debug mode, when leaving ResetTarget function
+  if (_CheckStatus(status) != _STATUS_OK) {
+    return status;
+  }
+
+  // Enable DWT, ITM, TPIU, and ETM units by setting TRCENA bit in DEMCR register
+  status = _WriteMem(_DEMCR_ADDR, _DEMCR_TRCENA); // DEMCR (0xE000EDFC) <- TRCENA
+  if (_CheckStatus(status) != _STATUS_OK) {
+    return status;
+  }
+
+  return _CheckStatus(status);
+}
+
+/*********************************************************************
+*  Replaces the target-CPU-auto-find procedure of the J-Link DLL.
+*  Useful for target CPUs that are not accessible by default and need some special steps
+*  to be executed before the normal debug probe connect procedure can be executed successfully.
+*
+*  Return value
+*    >= 0:  O.K.
+*     < 0:  Error
+*
+*  Notes
+*    (1) If target interface JTAG is used: JTAG chain has to be specified manually before leaving this function
+*        (meaning all devices and their TAP IDs have to be specified by the user).
+*        Also appropriate JTAG TAP number to communicate with during the debug session has to be manually specified in this function.
+*    (2) MUST NOT use any MEM_ API functions
+*    (3) Global DLL variable “CPU” MUST be set when implementing this function, so the DLL knows which CPU module to use internally.
+*/
+int InitTarget(void) {
+  int status;
+  // Initiate a SWD handshake to check if DAP is available
+  status = _Handshake();
+  if ( status != _STATUS_OK) {
+    // In case if DAP is not available, perform acquire PSoC 6 in Test Mode
+    //  (a. ToggleXRES; b. Handshake; c. Init DAP; d. Set TEST_MODE bit in TST_MODE SRSS register)
+    // Sequence is time critical, so executed in J-Link firmware and requires __probe attribute for caller
+    status = _PSoC6_Acquire(0); // "0" - Do not resume CPU that is halted during acquisition to avoid further FW execution
+  }
+
+  JLINK_ExecCommand("SetETBIsPresent = 1"); // ETB is available
+
+  return status;
+}
+
+/*********************************************************************
+*  Called right after flash programming Usually used to restore initialized peripherals
+*  which have been used during the flash download like for example clocks or port pins
+*  (e.g. QSPI alternate function)
+*
+*  Notes / Limitations
+*    (1) DLL expects target CPU to be halted / in debug mode, when leaving this function
+*    (2) May use MEM_ API functions
+*/
+int HandleAfterFlashProg(void) {
+  int status;
+
+  // Do hardware (XRES) of software (AIRCR.SYSRESETREQ or DP->CTRL/STAT.CDBGRSTREQ) reset.
+  // Otherwise, device remains acquired because the reset command sent by IDE after programming,
+  // calls ResetTarget function, which will acquire target again.
+  // This is required to start the application for normal execution and for "Attach" actions after programming.
+  status = _PSoC6_Reset(1); // "1" do XRES
+  return status;
+}
+
+/*************************** end of file ****************************/

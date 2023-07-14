@@ -1,0 +1,35 @@
+{
+  "build": {
+    "cpu": "cortex-m4",
+    "f_cpu": "64000000L",
+    "mcu": "nrf52832",
+    "zephyr": {
+       "variant": "thingy52_nrf52832"
+    }
+  },
+  "connectivity": [
+    "bluetooth"
+  ],
+  "debug": {
+    "jlink_device": "nRF52832_xxAA",
+    "svd_path": "nrf52.svd"
+  },
+  "frameworks": [
+    "zephyr"
+  ],
+  "name": "Nordic Thingy:52 (nRF52-PCA20020)",
+  "upload": {
+    "maximum_ram_size": 65536,
+    "maximum_size": 524288,
+    "protocol": "jlink",
+    "protocols": [
+      "jlink",
+      "nrfjprog",
+      "stlink",
+      "blackmagic",
+      "cmsis-dap"
+    ]
+  },
+  "url": "https://www.nordicsemi.com/Software-and-Tools/Prototyping-platforms/Nordic-Thingy-52",
+  "vendor": "Nordic"
+}

@@ -1,0 +1,118 @@
+/*********************************************************************
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                        The Embedded Experts                        *
+*                           www.segger.com                           *
+**********************************************************************
+
+-------------------------- END-OF-HEADER -----------------------------
+
+File    : BCM43907.JLinkScript
+Purpose : Handle reset for Broadcom BCM43907 series
+Literature:
+  [1]  J-Link User Guide
+
+Additional information:
+  For more information about public functions that can be implemented in order to customize J-Link actions, please refer to [1]
+*/
+
+/*********************************************************************
+*
+*       Constants (similar to defines)
+*
+**********************************************************************
+*/
+
+//
+// User-specified constants to be used by PCode
+//
+__constant U32 _DBG_REG_VCR         = 0x007;      // Vector Catch Register
+__constant U32 _DBG_REG_PRCR        = 0x0C4;      // Device Power-down and Reset Control Register
+__constant U32 _DBG_REG_PRSR        = 0x0C5;      // Device Power-down and Reset Status Register
+__constant U32 _DBG_REG_LOCKACCESS  = 0x3EC;
+__constant U32 _DBG_REG_LOCKSTATUS  = 0x3ED;
+__constant U32 _ACTIVATION_KEY      = 0xC5ACCE55;
+__constant U32 _DBG_REG_DSCR        = 0x022;      // Debug Status and Control Register
+__constant U32 _DBG_REG_DRCR        = 0x024;      // Debug Run Control Register
+
+/*********************************************************************
+*
+*       ResetTarget
+*/
+void ResetTarget(void) {
+  int Ctrl;
+  int v;
+  int BaseAddr;
+
+  BaseAddr = 0x80001000;
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_DP_REG_SELECT, 0, (0 << 24) | (0 << 4));  // Select AP[0], bank 0
+  Ctrl =  0
+       | (2 << 0)    // AP-access size. Fixed to 2: 32-bit
+       | (0 << 4)    // Auto increment TAR after read/write access. Increment is NOT performed on access to banked data registers 0-3.
+       | (1 << 31)   // Enable software access to the Debug APB bus.
+       ;
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_CTRL, 1, Ctrl);  
+  //
+  // Prepare CPU to be halted immediately after reset (vector catch)
+  //
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, 1, BaseAddr + (_DBG_REG_VCR << 2));          // DBG_REG_VCR
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, 1, 1);                                // Set reset vector catch
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, 1, BaseAddr + (_DBG_REG_PRCR << 2));          // DBG_REG_PRCR
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, 1, 1);                                // Make sure that device is not held in reset
+  //
+  // Reset CPU by toggling reset pin
+  // Wait some time after reset release to give pin some time to get HIGH
+  // and to give ROM BTL of SAMA5 some time to finish its work and enable debug access
+  //
+  JLINK_JTAG_ResetPin = 0;
+  JLINK_SYS_Sleep(100);
+  JLINK_JTAG_ResetPin = 1;
+  JLINK_SYS_Sleep(100);
+  //
+  // Check if CPU is halted. If not, halt it.
+  // Select & setup APB-AP
+  //
+  Report("J-Link script: Reset");
+  JTAG_Write(0x1F, 0, 6);                                                            // Perform TAP reset
+  v = (1 << 1) | (1 << 30) | (1 << 28);                                              // Request power-up on debug and system port, Make sure that sticky overrun bit gets cleared
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_DP_REG_CTRL_STAT, 0, v);
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_DP_REG_SELECT, 0, (0 << 24) | (0 << 4));  // Select AP[0], bank 0
+  Ctrl =  0
+       | (2 << 0)    // AP-access size. Fixed to 2: 32-bit
+       | (0 << 4)    // Auto increment TAR after read/write access. Increment is NOT performed on access to banked data registers 0-3.
+       | (1 << 31)   // Enable software access to the Debug APB bus.
+       ;
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_CTRL, 1, Ctrl);
+  //
+  // Init debug logic
+  //
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, 1, BaseAddr + (_DBG_REG_LOCKACCESS << 2));
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, 1, _ACTIVATION_KEY);                        // Unlock access to the debug registers
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, 1, BaseAddr + (_DBG_REG_LOCKSTATUS << 2));
+  v = JLINK_CORESIGHT_ReadAP(JLINK_CORESIGHT_AP_REG_DATA);
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, 1, BaseAddr + (_DBG_REG_PRCR << 2));
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, 1, 0x1);                                    // Disable power-down mode
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, 1, BaseAddr + (_DBG_REG_PRSR << 2));
+  v = JLINK_CORESIGHT_ReadAP(JLINK_CORESIGHT_AP_REG_DATA);
+  //
+  // Read DSCR to check if CPU is halted and halt it, if necessary
+  //
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, 1, BaseAddr + (_DBG_REG_DSCR << 2));
+  v = JLINK_CORESIGHT_ReadAP(JLINK_CORESIGHT_AP_REG_DATA);
+  v = JLINK_CORESIGHT_ReadAP(JLINK_CORESIGHT_AP_REG_DATA);
+  if ((v & 1) == 0) {
+    JLINK_SYS_Report("J-Link script: Core did not halt after reset. Halting core...");
+    v |= (1 << 14);
+    JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, 1, BaseAddr + (_DBG_REG_DSCR << 2));   // Enable debug halt mode by writing the DSCR
+    JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, 1, v);
+    JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, 1, BaseAddr + (_DBG_REG_DRCR << 2));   // Write DRCR to halt CPU
+    JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, 1, 1);
+    v = JLINK_CORESIGHT_ReadAP(JLINK_CORESIGHT_AP_REG_DATA);                                     // Write to AP may be delayed until next read/write, so perform a dummy read
+  }
+  //
+  // Clear vector catch
+  //
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, 1, BaseAddr + (_DBG_REG_VCR << 2));
+  JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, 1, 0);
+  Report("J-Link script: Done");
+}
+

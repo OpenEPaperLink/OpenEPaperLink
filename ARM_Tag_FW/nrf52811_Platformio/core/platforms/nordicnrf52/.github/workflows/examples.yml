@@ -1,0 +1,43 @@
+name: Examples
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        example:
+          - "examples/arduino-blink"
+          - "examples/arduino-ble-led"
+          - "examples/arduino-bluefruit-bleuart"
+          - "examples/arduino-nina-b1-generic-example"
+          - "examples/arduino-serial-plotter"
+          - "examples/mbed-rtos-ble-thermometer"
+          - "examples/mbed-rtos-blink-baremetal"
+          - "examples/mbed-rtos-nfc"
+          - "examples/mbed-legacy-examples/mbed-ble-thermometer"
+          - "examples/mbed-legacy-examples/mbed-nfc"
+          - "examples/mbed-legacy-examples/mbed-rtos"
+          - "examples/zephyr-ble-beacon"
+          - "examples/zephyr-blink"
+          - "examples/zephyr-net-echo-client"
+          - "examples/zephyr-subsys-nvs"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+      - name: Set up Python 3
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.7"
+      - name: Install dependencies
+        run: |
+          pip install -U https://github.com/platformio/platformio/archive/develop.zip
+          pip3 install adafruit-nrfutil
+          pio pkg install --global --platform symlink://.
+      - name: Build examples
+        run: |
+          pio run -d ${{ matrix.example }}

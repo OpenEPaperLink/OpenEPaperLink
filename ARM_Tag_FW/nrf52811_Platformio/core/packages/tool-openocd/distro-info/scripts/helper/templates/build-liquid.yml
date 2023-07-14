@@ -1,0 +1,168 @@
+{% render "scripts/helper/templates/copyright-liquid.yml" %}
+
+{% if platforms == "all" -%}
+  {% assign platforms = "linux-x64,linux-ia32,linux-arm64,linux-arm,darwin-x64,win32-x64,win32-ia32" -%}
+{% endif -%}
+{% assign platforms = platforms | split: "," -%}
+
+name: 'Build xPack {{ APP_NAME }}'
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The semver of the release'
+        required: false
+        default: 'current'
+
+jobs:
+{% for platform in platforms -%}
+  {% if platform == "linux-x64" or platform == "win32-x64" or platform == "linux-ia32" or platform == "win32-ia32" %}
+  linux-x64:
+    name: 'Intel Linux {{ APP_NAME }} {% raw %}${{ github.event.inputs.version }}{% endraw %} build'
+    timeout-minutes: 5760 # 4 days
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 3
+          submodules: true
+
+      - name: 'Clean working area'
+        run: rm -rf ~/Work/{{ APP_LC_NAME }}-{% raw %}${{ github.event.inputs.version }}{% endraw %}*
+{% for platform in platforms -%}
+  {% case platform -%}
+    {% when "linux-x64" %}
+      - name: 'Build Linux x64 binary'
+        timeout-minutes: 1440
+        run: bash scripts/helper/build.sh --version "{% raw %}${{ github.event.inputs.version }}{% endraw %}" --linux64
+    {% when "win32-x64" %}
+      - name: 'Build Windows x64 binary'
+        timeout-minutes: 1440
+        run: bash scripts/helper/build.sh --version "{% raw %}${{ github.event.inputs.version }}{% endraw %}" --win64
+    {% when "linux-ia32" %}
+      - name: 'Build Linux ia32 binary'
+        timeout-minutes: 1440
+        run: bash scripts/helper/build.sh --version "{% raw %}${{ github.event.inputs.version }}{% endraw %}" --linux32
+    {% when "win32-ia32" %}
+      - name: 'Build Windows ia32 binary'
+        timeout-minutes: 1440
+        run: bash scripts/helper/build.sh --version "{% raw %}${{ github.event.inputs.version }}{% endraw %}" --win32
+  {% endcase -%}
+{% endfor %}
+      - name: 'Publish pre-release'
+        # https://github.com/ncipollo/release-action
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifacts: '~/Work/{{ APP_LC_NAME }}-{% raw %}${{ github.event.inputs.version }}{% endraw %}/deploy/*'
+          bodyFile: '.github/workflows/body-github-pre-releases-test.md'
+          commit: 'master'
+          draft: false
+          name: 'Test binaries'
+          omitBodyDuringUpdate: true
+          omitNameDuringUpdate: true
+          owner: 'xpack-dev-tools'
+          prerelease: true
+          replacesArtifacts: true
+          repo: 'pre-releases'
+          tag: 'test'
+          token: {% raw %}${{ secrets.PUBLISH_TOKEN }}{% endraw %}
+{% break -%}
+{% endif -%}
+{% endfor %}
+
+{% for platform in platforms -%}
+{% if platform == "linux-arm64" or platform == "linux-arm" %}
+  linux-arm64:
+    name: 'Arm Linux {{ APP_NAME }} {% raw %}${{ github.event.inputs.version }}{% endraw %} build'
+    timeout-minutes: 2880 # 2 days
+    runs-on: [self-hosted, Linux, ARM64]
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 3
+          submodules: true
+
+      - name: 'Clean working area'
+        run: rm -rf ~/Work/{{ APP_LC_NAME }}-{% raw %}${{ github.event.inputs.version }}{% endraw %}*
+{% for platform in platforms -%}
+  {% case platform -%}
+    {% when "linux-arm64" %}
+      - name: 'Build Linux arm64 binary'
+        timeout-minutes: 1440
+        run: bash scripts/helper/build.sh --version "{% raw %}${{ github.event.inputs.version }}{% endraw %}" --arm64
+   {% when "linux-arm" %}
+      - name: 'Build Linux arm32 binary'
+        timeout-minutes: 1440
+        run: bash scripts/helper/build.sh --version "{% raw %}${{ github.event.inputs.version }}{% endraw %}" --arm32
+  {% endcase -%}
+{% endfor %}
+      - name: 'Publish pre-release'
+        # https://github.com/ncipollo/release-action
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifacts: '~/Work/{{ APP_LC_NAME }}-{% raw %}${{ github.event.inputs.version }}{% endraw %}/deploy/*'
+          bodyFile: '.github/workflows/body-github-pre-releases-test.md'
+          commit: 'master'
+          draft: false
+          name: 'Test binaries'
+          omitBodyDuringUpdate: true
+          omitNameDuringUpdate: true
+          owner: 'xpack-dev-tools'
+          prerelease: true
+          replacesArtifacts: true
+          repo: 'pre-releases'
+          tag: 'test'
+          token: {% raw %}${{ secrets.PUBLISH_TOKEN }}{% endraw %}
+{% break -%}
+{% endif -%}
+{% endfor %}
+
+{% for platform in platforms -%}
+{% if platform == "darwin-x64" %}
+  macos-x64:
+    name: 'Intel macOS {{ APP_NAME }} {% raw %}${{ github.event.inputs.version }}{% endraw %} build'
+    timeout-minutes: 2880 # 2 days
+    runs-on: [self-hosted, macOS, X64]
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 3
+          submodules: true
+
+      - name: 'Clean working area'
+        run: rm -rf ~/Work/{{ APP_LC_NAME }}-{% raw %}${{ github.event.inputs.version }}{% endraw %}*
+{% for platform in platforms -%}
+  {% case platform -%}
+    {% when "darwin-x64" %}
+      - name: 'Build macOS x64 binary'
+        timeout-minutes: 1440
+        run: bash scripts/helper/build.sh --version "{% raw %}${{ github.event.inputs.version }}{% endraw %}" --osx
+  {% endcase -%}
+{% endfor %}
+      - name: 'Publish pre-release'
+        # https://github.com/ncipollo/release-action
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifacts: '~/Work/{{ APP_LC_NAME }}-{% raw %}${{ github.event.inputs.version }}{% endraw %}/deploy/*'
+          bodyFile: '.github/workflows/body-github-pre-releases-test.md'
+          commit: 'master'
+          draft: false
+          name: 'Test binaries'
+          omitBodyDuringUpdate: true
+          omitNameDuringUpdate: true
+          owner: 'xpack-dev-tools'
+          prerelease: true
+          replacesArtifacts: true
+          repo: 'pre-releases'
+          tag: 'test'
+          token: {% raw %}${{ secrets.PUBLISH_TOKEN }}{% endraw %}
+{% endif -%}
+{% endfor %}
+

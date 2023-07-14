@@ -1,0 +1,2 @@
+After power on reset, all sectors of the MX25L1005 SPI flash are software protected (Status Register --> SWP [4:2] == 111).
+This project clears the software protection in the status register as part of the init steps.

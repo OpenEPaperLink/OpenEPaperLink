@@ -1,0 +1,20 @@
+{
+  "name": "tool-openocd",
+  "version": "2.1100.211028",
+  "description": "Open On-Chip Debugger. Free and Open On-Chip Debugging, In-System Programming and Boundary-Scan Testing",
+  "keywords": [
+    "tools",
+    "debugger",
+    "debug server",
+    "uploader"
+  ],
+  "homepage": "http://openocd.org",
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://sourceforge.net/p/openocd/code/ci/master/tree/"
+  },
+  "system": [
+    "windows_amd64"
+  ]
+}

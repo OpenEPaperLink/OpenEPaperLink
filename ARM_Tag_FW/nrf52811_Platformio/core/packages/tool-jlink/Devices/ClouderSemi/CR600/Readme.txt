@@ -1,0 +1,2 @@
+The ClouderSemi CR600 series support comes without any warranty and support from SEGGER Microcontroller GmbH. Support is provided via ClouderSemi only.
+For support, please contact: chang.nan@cloudersemi.com

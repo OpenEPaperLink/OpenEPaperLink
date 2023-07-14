@@ -1,0 +1,58 @@
+/*********************************************************************
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                        The Embedded Experts                        *
+*                           www.segger.com                           *
+**********************************************************************
+
+-------------------------- END-OF-HEADER -----------------------------
+
+File    : ClouderSemi_CR600.JLinkScript
+Purpose : Contains device specific handling for ClouderSemi's CR600 series
+Literature:
+  [1]  J-Link User Guide
+
+Additional information:
+  For more information about public functions that can be implemented in order to customize J-Link actions, please refer to [1]
+*/
+
+/*********************************************************************
+*
+*       Global functions
+*
+**********************************************************************
+*/
+
+/*********************************************************************
+*
+*       ResetTarget
+*/
+int AfterResetTarget(void) {
+  //
+  // The flash of the CR600 (Cortex-M0) is located at address 0x20000000. This makes problems
+  // for the IDE / debug probe as a default debug session start would fail as no breakpoint can
+  // be set at the beginning of the application (flash) for two reasons:
+  //   1) HW breakpoint --> Does not work due to the limitation of the core (does not allow HW BPs at addresses >= 0x20000000)
+  //   2) Software breakpoint --> Does not work as it is flash memory
+  //
+  // Respecting those limitations, the only way to perform a correct debug session start (CPU
+  // is halted at the application start (using a breakpoint) is to use flash breakpoints. Unfortunately,
+  // the flash cannot be access after reset as it is enabled when the bootloader is executed. As there
+  // is no option to halt the CPU *after* bootloader execution and *before* any target application code has been executed,
+  // we perform some parts of the bootloader manually which allow us to program the flash and therefore allow us to set a
+  // flash breakpoint at the application start.
+  //
+  // The sequence below comes from ClouderSemi.
+  // SEGGER does neither provide any support for it nor guarantees the correct functionality.
+  //
+  JLINK_SYS_Report("Executing AfterResetTarget()");  
+  JLINK_MEM_WriteU32(0x4009B050, 0x3C);
+  JLINK_MEM_WriteU32(0x40085000, 0x10);
+  JLINK_MEM_WriteU32(0x40085008, 0x8);
+  JLINK_MEM_WriteU32(0x4008500C, 0x3);
+  JLINK_MEM_WriteU32(0x40085010, 0x18);
+  JLINK_MEM_WriteU32(0x4008502C, 0x0);
+  JLINK_MEM_WriteU32(0x40085004, 0x3012);  
+  return 0;
+}
+
+/*************************** end of file ****************************/
