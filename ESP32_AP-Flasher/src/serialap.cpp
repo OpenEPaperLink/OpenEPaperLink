@@ -12,6 +12,7 @@
 #include "storage.h"
 #include "web.h"
 #include "zbs_interface.h"
+#include "contentmanager.h"
 
 QueueHandle_t rxCmdQueue;
 SemaphoreHandle_t txActive;
@@ -537,6 +538,12 @@ void ShowAPInfo() {
     Serial.printf("| Power   |               %02X |\n", apInfo.power);
     Serial.printf("| MAC     | %02X%02X%02X%02X%02X%02X%02X%02X |\n", apInfo.mac[7], apInfo.mac[6], apInfo.mac[5], apInfo.mac[4], apInfo.mac[3], apInfo.mac[2], apInfo.mac[1], apInfo.mac[0]);
     Serial.printf("| Version |           0x%04X |\n", apInfo.version);
+
+    if (apInfo.type == SOLUM_154_SSD1619 || apInfo.type == SOLUM_29_SSD1619 || apInfo.type == SOLUM_29_UC8151 || apInfo.type == SOLUM_42_SSD1619) {
+        char macString[50];
+        sprintf(macString, "%02X%02X%02X%02X%02X%02X%02X%02X", apInfo.mac[7], apInfo.mac[6], apInfo.mac[5], apInfo.mac[4], apInfo.mac[3], apInfo.mac[2], apInfo.mac[1], apInfo.mac[0]);
+        showIpAddress(macString);
+    }
 }
 
 void notifySegmentedFlash() {

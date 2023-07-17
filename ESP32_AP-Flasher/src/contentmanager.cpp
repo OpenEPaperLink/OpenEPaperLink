@@ -1151,3 +1151,34 @@ void setU8G2Font(const String &title, U8g2_for_TFT_eSPI &u8f) {
     if (title == "7x14_tf") u8f.setFont(u8g2_font_7x14_tf);
     if (title == "t0_14b_tf") u8f.setFont(u8g2_font_t0_14b_tf);
 }
+
+void showIpAddress(String dst) {
+    uint8_t mac[8];
+    if (hex2mac(dst, mac)) {
+        tagRecord *taginfo = nullptr;
+        taginfo = tagRecord::findByMAC(mac);
+        if (taginfo != nullptr) {
+            String json = String("[");
+            json += String("{\"text\": [0,5,\"OpenEPaperLink\",\"fonts/bahnschrift20\",2]}");
+            json += String(",");
+            json += String("{\"text\": [0,25,\"MAC:\",\"fonts/bahnschrift20\",1]}");
+            json += String(",");
+            json += String("{\"text\": [10,55,\"") + dst + String("\",\"glasstown_nbp_tf\",1]}");
+            json += String(",");
+            json += String("{\"text\": [0,65,\"IP:\",\"fonts/bahnschrift20\",1]}");
+            json += String(",");
+            json += String("{\"text\": [0,85,\"") + WiFi.localIP().toString() + String("\",\"fonts/bahnschrift20\",1]}");
+            json += String("]");
+            File file = LittleFS.open("/" + dst + ".json", "w");
+            if (!file) {
+                Serial.print("Failed to create file\n");
+                return;
+            }
+            file.print(json);
+            file.close();
+            taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".json\"}";
+            taginfo->contentMode = 19;
+            taginfo->nextupdate = 0;
+        }
+    }
+}

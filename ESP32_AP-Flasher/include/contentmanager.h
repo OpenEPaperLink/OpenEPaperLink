@@ -44,3 +44,4 @@ void prepareLUTreq(uint8_t *dst, String input);
 void prepareConfigFile(uint8_t *dst, JsonObject config);
 void getTemplate(JsonDocument &json, const char *filePath, uint8_t id, uint8_t hwtype);
 void setU8G2Font(const String &title, U8g2_for_TFT_eSPI &u8f);
+void showIpAddress(String dst);
