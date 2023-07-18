@@ -1,0 +1,58 @@
+{
+  "build": {
+    "arduino":{
+      "ldscript": "linker_script.ld"
+    },
+    "core": "arduino",
+    "cpu": "cortex-m4",
+    "extra_flags": "-DARDUINO_NICLA -DARDUINO_ARCH_NRF52832",
+    "f_cpu": "64000000L",
+    "hwids": [
+      [
+        "0x2341",
+        "0x0060"
+      ]
+    ],
+    "mcu": "nrf52832",
+    "variant": "NICLA"
+  },
+  "connectivity": [
+    "bluetooth"
+  ],
+  "debug": {
+    "default_tools": [
+      "cmsis-dap"
+    ],
+    "jlink_device": "nRF52832_xxAA",
+    "onboard_tools": [
+      "cmsis-dap"
+    ],
+    "svd_path": "nrf52.svd",
+    "openocd_target": "nrf52.cfg",
+    "openocd_extra_args": [
+      "-c",
+      "transport select swd;"
+    ]
+  },
+  "frameworks": [
+    "arduino"
+  ],
+  "name": "Arduino Nicla Sense ME",
+  "upload": {
+    "maximum_ram_size": 64288,
+    "maximum_size": 527616,
+    "protocol": "cmsis-dap",
+    "protocols": [
+      "jlink",
+      "nrfjprog",
+      "nrfutil",
+      "cmsis-dap",
+      "sam-ba",
+      "blackmagic"
+    ],
+    "use_1200bps_touch": false,
+    "require_upload_port": true
+  },
+  "url": "https://docs.arduino.cc/hardware/nicla-sense-me",
+  "vendor": "Arduino"
+}

@@ -1,0 +1,38 @@
+* How to cross compile libftdi-1.x for Windows? *
+   1 - Prepare a pkg-config wrapper according to
+       https://autotools.io/pkgconfig/cross-compiling.html ,
+       additionally export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS and
+       PKG_CONFIG_ALLOW_SYSTEM_LIBS.
+   2 - Write a CMake toolchain file according to
+       http://www.vtk.org/Wiki/CmakeMingw . Change the path to your future sysroot.
+   3 - Get libusb sources (either by cloning the git repo or by downloading a
+       tarball). Unpack, autogen.sh (when building from git), and configure like this:
+       ./configure --build=`./config.guess` --host=i686-w64-mingw32 \
+               --prefix=/usr --with-sysroot=$HOME/i686-w64-mingw32-root/
+   4 - run
+       make install DESTDIR=$HOME/i686-w64-mingw32-root/
+   5 - go to libftdi-1.x source directory and run
+       cmake -DCMAKE_TOOLCHAIN_FILE=~/Toolchain-mingw.cmake \
+             -DCMAKE_INSTALL_PREFIX="/usr" \
+             -DPKG_CONFIG_EXECUTABLE=`which i686-w64-mingw32-pkg-config`
+   6 - run
+       make install DESTDIR=$HOME/i686-w64-mingw32-root/
+
+* How to run libftdi 1.x under Windows *
+
+On 26-Jan-2014, libusbx and libusb project were merged with the release
+of libusb-1.0.18 and now the project is called libusb.
+
+libusb Windows backend will need to rely on a proper driver to run.
+Please refer to the following wiki page for proper driver installation.
+https://github.com/libusb/libusb/wiki/Windows#wiki-How_to_use_libusb_on_Windows
+
+As of 26-Jan-2014, libusb Windows backend supports WinUSB,
+libusb0.sys and libusbk.sys driver. However, libusb's support of
+libusb0.sys and libusbk.sys is considered to be less mature than
+WinUSB. Therefore, WinUSB driver installation using Zadig
+is recommended.
+
+Take note once you replace the original FTDI driver with WinUSB driver,
+you can no longer use the functionality the original FTDI driver provides
+(eg. Virtual Serial Port or D2XX).

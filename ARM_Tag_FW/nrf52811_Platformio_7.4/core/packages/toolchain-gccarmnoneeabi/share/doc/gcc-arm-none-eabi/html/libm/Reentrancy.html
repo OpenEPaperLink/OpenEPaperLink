@@ -1,0 +1,84 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Created by GNU Texinfo 5.2, http://www.gnu.org/software/texinfo/ -->
+<head>
+<title>LIBM: Reentrancy</title>
+
+<meta name="description" content="LIBM: Reentrancy">
+<meta name="keywords" content="LIBM: Reentrancy">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link href="index.html#Top" rel="start" title="Top">
+<link href="Document-Index.html#Document-Index" rel="index" title="Document Index">
+<link href="Document-Index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="index.html#Top" rel="up" title="Top">
+<link href="Long-Double-Functions.html#Long-Double-Functions" rel="next" title="Long Double Functions">
+<link href="ctanh.html#ctanh" rel="prev" title="ctanh">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.smallquotation {font-size: smaller}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.indentedblock {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+div.smalldisplay {margin-left: 3.2em}
+div.smallexample {margin-left: 3.2em}
+div.smallindentedblock {margin-left: 3.2em; font-size: smaller}
+div.smalllisp {margin-left: 3.2em}
+kbd {font-style:oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+pre.smalldisplay {font-family: inherit; font-size: smaller}
+pre.smallexample {font-size: smaller}
+pre.smallformat {font-family: inherit; font-size: smaller}
+pre.smalllisp {font-size: smaller}
+span.nocodebreak {white-space:nowrap}
+span.nolinebreak {white-space:nowrap}
+span.roman {font-family:serif; font-weight:normal}
+span.sansserif {font-family:sans-serif; font-weight:normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
+<a name="Reentrancy"></a>
+<div class="header">
+<p>
+Next: <a href="Long-Double-Functions.html#Long-Double-Functions" accesskey="n" rel="next">Long Double Functions</a>, Previous: <a href="Complex.html#Complex" accesskey="p" rel="prev">Complex</a>, Up: <a href="index.html#Top" accesskey="u" rel="up">Top</a> &nbsp; [<a href="Document-Index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Document-Index.html#Document-Index" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<a name="Reentrancy-Properties-of-libm"></a>
+<h2 class="chapter">3 Reentrancy Properties of <code>libm</code></h2>
+
+<a name="index-reentrancy"></a>
+<a name="index-matherr-and-reentrancy"></a>
+<p>When a libm function detects an exceptional case, <code>errno</code> may be
+set, the <code>matherr</code> function may be called, and a error message 
+may be written to the standard error stream.  This behavior may not
+be reentrant.
+</p>
+
+<p>With reentrant C libraries like the Red Hat newlib C library, <code>errno</code> is
+a macro which expands to the per-thread error value.  This makes it thread
+safe.
+</p>
+<p>When the user provides his own <code>matherr</code> function it must be
+reentrant for the math library as a whole to be reentrant.
+</p>
+<p>In normal debugged programs, there are usually no math subroutine
+errors&mdash;and therefore no assignments to <code>errno</code> and no <code>matherr</code>
+calls; in that situation, the math functions behave reentrantly.
+</p>
+
+
+
+</body>
+</html>

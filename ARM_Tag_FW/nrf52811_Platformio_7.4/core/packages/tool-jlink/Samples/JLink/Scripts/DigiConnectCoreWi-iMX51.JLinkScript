@@ -1,0 +1,187 @@
+/*********************************************************************
+*                    SEGGER Microcontroller GmbH                     *
+*       Solutions for real time microcontroller applications         *
+**********************************************************************
+*                                                                    *
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                                                                    *
+*       www.segger.com     Support: support@segger.com               *
+*                                                                    *
+**********************************************************************
+----------------------------------------------------------------------
+File    : DigiConnectCoreWi-iMX51.JLinkScript
+Purpose : J-Link target setup file for Digi ConnectCore Wi-i.MX51 Eval board
+---------------------------END-OF-HEADER------------------------------
+*/
+
+/*********************************************************************
+*
+*       _StoreSelDP
+*/
+void _StoreSelDP(void) {
+  JTAG_StoreIR(0xA);  // DPACC command
+  JTAG_StoreClocks(1);
+}
+
+/*********************************************************************
+*
+*       _StoreSelAP
+*/
+void _StoreSelAP(void) {
+  JTAG_StoreIR(0xB);  // APACC command
+  JTAG_StoreClocks(1);
+}
+
+/*********************************************************************
+*
+*       _StoreTriggerReadAPDPReg
+*
+*  Function description
+*    Triggers a read of an AP or DP register. Depends on the previous command (DPACC / APACC)
+*/
+int _StoreTriggerReadAPDPReg(unsigned int RegIndex) {
+  U32 v;
+  int BitPos;
+  //
+  // Write 35 bits (32 bits data, 2 bits addr, 1 bit RnW)
+  //
+  v  = 1;                // 1 indicates read access
+  v |= (RegIndex << 1);
+  JLINK_JTAG_StartDR();
+  BitPos = JLINK_JTAG_WriteDRCont(v, 3);
+  v = 0;
+  JLINK_JTAG_WriteDREnd(v, 32);
+  JTAG_StoreClocks(8);
+  return BitPos;
+}
+
+/*********************************************************************
+*
+*       _StoreWriteAPDPReg
+*
+*  Function description
+*    Writes an AP or DP register. Depends on the previous command (DPACC / APACC)
+*/
+int _StoreWriteAPDPReg(unsigned int RegIndex, U32 Data) {
+  U32 v;
+  int BitPos;
+  //
+  // Write 35 bits (32 bits data, 2 bits addr, 1 bit RnW)
+  //
+  v = 0;   // 0 indicates write access
+  v |= (RegIndex << 1);
+  JLINK_JTAG_StartDR();
+  BitPos = JLINK_JTAG_WriteDRCont(v, 3);
+  v = Data;
+  JLINK_JTAG_WriteDREnd(v, 32);
+  JTAG_StoreClocks(8);
+  return BitPos;
+}
+
+/*********************************************************************
+*
+*       ResetTarget
+*/
+void ResetTarget(void) {
+  int Speed;
+  int v;
+  int BitPos;
+  int Speed;
+  int Ctrl;
+
+  Speed = JTAG_Speed;
+  JTAG_Speed = 100;
+  JTAG_WriteClocks(1);
+  JTAG_ResetPin = 0;
+  SYS_Sleep(50);
+  JTAG_ResetPin = 1;
+  SYS_Sleep(50);
+  JTAG_Write(0x1F, 0, 6);
+  //
+  // Power-up debug- and system-port by writing the debug port ctrl/stat register
+  //
+  _StoreSelDP();
+  _StoreWriteAPDPReg(1, 0x50000033);
+  JTAG_WriteClocks(10);  // Give the system some time to power-up
+  //
+  // Select APB-AP and prepare control register
+  //
+  _StoreSelDP();
+  _StoreWriteAPDPReg(2, (1 << 24) | (0 << 4));  // Select AP[1], bank 0
+  _StoreSelAP();
+  Ctrl =  0
+       | (2 << 0)    // AP-access size. Fixed to 2: 32-bit
+       | (1 << 4)    // Auto increment TAR after read/write access. Increment is NOT performed on access to banked data registers 0-3.
+       | (1 << 31)   // Enable software access to the Debug APB bus.
+       ;
+  _StoreWriteAPDPReg(0, Ctrl);
+  //
+  // Perform some other init steps which are required to get full control of the debug logic
+  //
+  _StoreWriteAPDPReg(1, 0x60008000 + (0x3EC << 2));
+  _StoreWriteAPDPReg(3, 0xC5ACCE55);
+  _StoreWriteAPDPReg(1, 0x60008000 + (0x0C4 << 2));
+  _StoreWriteAPDPReg(3, 1);
+  _StoreWriteAPDPReg(1, 0x60008000 + (0x0C5 << 2));
+  _StoreTriggerReadAPDPReg(3);
+  _StoreSelDP();
+  BitPos = _StoreTriggerReadAPDPReg(3);
+  v = JTAG_GetU32(BitPos + 3);
+  _StoreSelAP();
+  //
+  // Read & modify DSCR in order to enable debug halt mode
+  //
+  _StoreWriteAPDPReg(1, 0x60008000 + (0x22 << 2));
+  _StoreTriggerReadAPDPReg(3);
+  _StoreSelDP();
+  BitPos = _StoreTriggerReadAPDPReg(3);
+  v = JTAG_GetU32(BitPos + 3);
+  _StoreSelAP();
+  v |= (1 << 14);
+  _StoreWriteAPDPReg(1, 0x60008000 + (0x22 << 2));   // Enable debug halt mode by writing the DSCR
+  _StoreWriteAPDPReg(3, v);
+  //
+  // Halt CPU by writing the halt request bit in the DRCR
+  //
+  _StoreWriteAPDPReg(1, 0x60008000 + (0x24 << 2));
+  _StoreWriteAPDPReg(3, 1);
+  JTAG_WriteClocks(1);
+  JTAG_Speed = Speed;
+}
+
+/*********************************************************************
+*
+*       InitTarget
+*/
+void InitTarget(void) {
+  int Speed;
+
+  Report("Digi ConnectCore Wi-i.MX51 (Cortex-A8 core) J-Link script");
+  Speed = JTAG_Speed;
+  JTAG_Speed = 100;
+  JTAG_Reset();                           // Perform TAP reset and J-Link JTAG auto-detection
+  if (JTAG_TotalIRLen != 13) {
+    MessageBox("Can not find Digi ConnectCore Wi-i.MX51 Eval board (Total IRLen mismatch)");
+    return 1;
+  }
+  JTAG_DRPre  = 0;
+  JTAG_DRPost = 2;
+  JTAG_IRPre  = 0;
+  JTAG_IRPost = 9;
+  JTAG_IRLen  = 4;
+  CPU=CORTEX_A8;
+  JTAG_AllowTAPReset=1;
+  //
+  // It seems if the linux system has already booted
+  // We are no longer able to power the debug port.
+  // So when connecting, we reset the device and halt it as fast as possible, after reset.
+  //
+  ResetTarget();
+  //
+  // Set IDs of the 3 devices
+  //  
+  JTAG_SetDeviceId(0, 0x1BA00477);
+  JTAG_SetDeviceId(1, 0x00000001);
+  JTAG_SetDeviceId(2, 0x1190C01D);
+  JTAG_Speed = Speed;
+}

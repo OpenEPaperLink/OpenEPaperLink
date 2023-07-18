@@ -1,0 +1,43 @@
+{
+  "build": {
+    "cpu": "cortex-m4",
+    "f_cpu": "64000000L",
+    "mcu": "nrf52833",
+    "zephyr": {
+       "variant": "bl653_dvk"
+    }
+  },
+  "connectivity": [
+    "bluetooth"
+  ],
+  "debug": {
+    "default_tools": [
+      "jlink"
+    ],
+    "jlink_device": "nRF52833_xxAA",
+    "onboard_tools": [
+      "cmsis-dap",
+      "jlink"
+    ],
+    "svd_path": "nrf52833.svd"
+  },
+  "frameworks": [
+    "zephyr"
+  ],
+  "name": "BL653 Development Kit",
+  "upload": {
+    "maximum_ram_size": 131072,
+    "maximum_size": 524288,
+    "protocol": "jlink",
+    "protocols": [
+      "jlink",
+      "nrfjprog",
+      "stlink",
+      "blackmagic",
+      "cmsis-dap",
+      "mbed"
+    ]
+  },
+  "url": "https://www.lairdconnect.com/wireless-modules/bluetooth-modules/bluetooth-5-modules/bl653-series-bluetooth-51-802154-nfc-module",
+  "vendor": "Laird Connectivity"
+}

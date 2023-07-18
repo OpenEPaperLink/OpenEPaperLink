@@ -1,0 +1,57 @@
+echo Setting up the environment for debugging gdb.\n
+
+set complaints 1
+set output-radix 16
+set input-radix 16
+set endian big
+dir .
+set prompt (netsilicon-gdb) 
+
+# This connects to a target via netsiliconLibRemote
+# listening for commands on this PC's tcp port 2331
+target remote localhost:2331
+monitor speed 30
+
+# Set netSiliconLibRemote to write short/long values
+# in big-endian
+monitor endian big
+
+# Set GDB in big-endian 
+set endian big
+
+# Reset the chip to get to a known state.
+monitor reset
+
+# Set SCR for Big endian, full speed, 128 cycle Bus monitor
+monitor long 0xffb00000 = 0x4004a000
+
+# Setup DRAM refresh circuit
+monitor long 0xffc00000 = 0x0dc00000
+
+# Disable CS2
+monitor long 0xffb00030 = 0x00000000
+monitor long 0xffc00034 = 0x00000000
+
+# The debugger script must clear the valid bit in CS0BAR.
+# The ncc_init() routine looks at this bit to determine
+# whether the unit is running under control of a debugger.
+monitor long 0xffc00010 = 0x0
+
+# Configure CS1 for 16 Megs of SDRAM
+monitor long 0xffc00020 = 0x0
+monitor long 0xffc00024 = 0xf3000170
+monitor long 0xffc00020 = 0x0000022d
+monitor long 0xffc00028 = 0x00000001
+
+
+# Set the processor mode
+monitor reg cpsr = 0xd3
+
+# Setup GDB FOR FASTER DOWNLOADS
+set remote memory-write-packet-size 1024
+set remote memory-write-packet-size fixed
+monitor speed auto
+
+# Load the program executable called "image.elf"
+load image.elf
+# Load the symbols for the program.

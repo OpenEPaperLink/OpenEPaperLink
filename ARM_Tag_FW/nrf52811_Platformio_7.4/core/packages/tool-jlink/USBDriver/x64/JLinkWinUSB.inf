@@ -1,0 +1,152 @@
+;
+; JLink WinUSB setup information file
+; Copyright (c) 2019 by SEGGER Microcontroller GmbH
+;
+; This file supports:
+;     x86: Windows 10
+;     x64: Windows 10
+;
+[Version]
+Signature = "$Windows NT$"
+Class     = USBDevice
+ClassGUID = {88BAE032-5A81-49f0-BC3D-A4FF138216D6}
+Provider  = %ManufacturerName%
+CatalogFile = JLinkWinUSB.cat
+DriverVer=06/14/2019,3.00.00.000
+
+[Manufacturer]
+%ManufacturerName% = Devices, NTx86, NTamd64
+
+[Devices.NTx86]
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1020       ; J-Link*
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1021&MI_00 ; J-Link*+ MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1022&MI_02 ; RNDIS  + J-Link*
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1023&MI_02 ; RNDIS  + J-Link*+ MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1024&MI_02 ; CDC    + J-Link*
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1025&MI_02 ; CDC    + J-Link*+ MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1026&MI_04 ; CDC    + RNDIS  + J-Link*
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1027&MI_04 ; CDC    + RNDIS  + J-Link*+ MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1028&MI_00 ; J-Link + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1029&MI_00 ; J-Link + MSD    + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102a&MI_02 ; RNDIS  + J-Link*+ HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102b&MI_02 ; RNDIS  + J-Link*+ MSD    + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102c&MI_02 ; CDC    + J-Link*+ HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102d&MI_02 ; CDC    + J-Link*+ MSD          + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102e&MI_04 ; CDC    + RNDIS  + J-Link*      + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102f&MI_04 ; CDC    + RNDIS  + J-Link*+ MSD + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1060&MI_04 ; CDC    + CDC    + J-Link*
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1061&MI_04 ; CDC    + CDC    + J-Link*+ MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1062&MI_06 ; RNDIS  + CDC    + CDC    + J-Link
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1063&MI_06 ; RNDIS  + CDC    + CDC    + J-Link + MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1064&MI_06 ; CDC    + CDC    + CDC    + J-Link
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1065&MI_06 ; CDC    + CDC    + CDC    + J-Link + MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1066&MI_08 ; RNDIS  + CDC    + CDC    + CDC    + J-Link
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1067&MI_08 ; RNDIS  + CDC    + CDC    + CDC    + J-Link + MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1068&MI_04 ; CDC    + CDC    + J-Link*+ HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1069&MI_04 ; CDC    + CDC    + J-Link*+ MSD    + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106a&MI_06 ; RNDIS  + CDC    + CDC    + J-Link*+ HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106b&MI_06 ; RNDIS  + CDC    + CDC    + J-Link*+ MSD    + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106c&MI_06 ; CDC    + CDC    + CDC    + J-Link*+ HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106d&MI_06 ; CDC    + CDC    + CDC    + J-Link*+ MSD    + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106e&MI_08 ; RNDIS  + CDC    + CDC    + CDC    + J-Link + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106f&MI_08 ; RNDIS  + CDC    + CDC    + CDC    + J-Link + MSD + HID
+
+[Devices.NTamd64]
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1020       ; J-Link*
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1021&MI_00 ; J-Link*+ MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1022&MI_02 ; RNDIS  + J-Link*
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1023&MI_02 ; RNDIS  + J-Link*+ MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1024&MI_02 ; CDC    + J-Link*
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1025&MI_02 ; CDC    + J-Link*+ MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1026&MI_04 ; CDC    + RNDIS  + J-Link*
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1027&MI_04 ; CDC    + RNDIS  + J-Link*+ MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1028&MI_00 ; J-Link + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1029&MI_00 ; J-Link + MSD    + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102a&MI_02 ; RNDIS  + J-Link*+ HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102b&MI_02 ; RNDIS  + J-Link*+ MSD    + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102c&MI_02 ; CDC    + J-Link*+ HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102d&MI_02 ; CDC    + J-Link*+ MSD          + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102e&MI_04 ; CDC    + RNDIS  + J-Link*      + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_102f&MI_04 ; CDC    + RNDIS  + J-Link*+ MSD + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1060&MI_04 ; CDC    + CDC    + J-Link*
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1061&MI_04 ; CDC    + CDC    + J-Link*+ MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1062&MI_06 ; RNDIS  + CDC    + CDC    + J-Link
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1063&MI_06 ; RNDIS  + CDC    + CDC    + J-Link + MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1064&MI_06 ; CDC    + CDC    + CDC    + J-Link
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1065&MI_06 ; CDC    + CDC    + CDC    + J-Link + MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1066&MI_08 ; RNDIS  + CDC    + CDC    + CDC    + J-Link
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1067&MI_08 ; RNDIS  + CDC    + CDC    + CDC    + J-Link + MSD
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1068&MI_04 ; CDC    + CDC    + J-Link*+ HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_1069&MI_04 ; CDC    + CDC    + J-Link*+ MSD    + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106a&MI_06 ; RNDIS  + CDC    + CDC    + J-Link*+ HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106b&MI_06 ; RNDIS  + CDC    + CDC    + J-Link*+ MSD    + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106c&MI_06 ; CDC    + CDC    + CDC    + J-Link*+ HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106d&MI_06 ; CDC    + CDC    + CDC    + J-Link*+ MSD    + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106e&MI_08 ; RNDIS  + CDC    + CDC    + CDC    + J-Link + HID
+%DeviceName%        = USB_Install, USB\VID_1366&PID_106f&MI_08 ; RNDIS  + CDC    + CDC    + CDC    + J-Link + MSD + HID
+
+[USB_Install]
+Include = winusb.inf
+Needs   = WINUSB.NT
+
+[USB_Install.Services]
+Include     = winusb.inf
+AddService  = WinUSB,0x00000002,WinUSB_ServiceInstall
+
+[WinUSB_ServiceInstall]
+DisplayName     = %WinUSB_SvcDesc%
+ServiceType     = 1
+StartType       = 3
+ErrorControl    = 1
+ServiceBinary   = %12%\WinUSB.sys
+
+[USB_Install.Wdf]
+KmdfService = WINUSB, WinUSB_Install
+
+[WinUSB_Install]
+KmdfLibraryVersion  = 1.9
+
+[USB_Install.HW]
+AddReg  = Dev_AddReg
+
+[Dev_AddReg]
+HKR,,DeviceInterfaceGUIDs,0x10000,"{C78607E8-DE76-458B-B7C1-5C14A6F3A1D2}"
+
+[USB_Install.CoInstallers]
+AddReg    = CoInstallers_AddReg
+CopyFiles = CoInstallers_CopyFiles
+
+[CoInstallers_AddReg]
+HKR,,CoInstallers32,0x00010000,"WdfCoInstaller01009.dll,WdfCoInstaller","WinUSBCoInstaller2.dll"
+
+[CoInstallers_CopyFiles]
+WinUSBCoInstaller2.dll
+WdfCoInstaller01009.dll
+
+[DestinationDirs]
+CoInstallers_CopyFiles=11
+
+[SourceDisksNames]
+1 = %DISK_NAME%,,,\x86
+2 = %DISK_NAME%,,,\amd64
+
+[SourceDisksFiles.x86]
+WinUSBCoInstaller2.dll  = 1
+WdfCoInstaller01009.dll = 1
+
+[SourceDisksFiles.amd64]
+WinUSBCoInstaller2.dll  = 2
+WdfCoInstaller01009.dll = 2
+
+[Strings]
+ManufacturerName="SEGGER Microcontroller GmbH"
+ClassName="Universal Serial Bus devices"
+DeviceName="J-Link Device (WinUSB)"
+WinUSB_SvcDesc = "WinUSB Driver"
+DISK_NAME="SEGGER J-Link WinUSB installation disk"
+; Non-Localizable Strings, DO NOT MODIFY!
+REG_SZ         = 0x00000000
+REG_MULTI_SZ   = 0x00010000
+REG_EXPAND_SZ  = 0x00020000
+REG_BINARY     = 0x00000001
+REG_DWORD      = 0x00010001

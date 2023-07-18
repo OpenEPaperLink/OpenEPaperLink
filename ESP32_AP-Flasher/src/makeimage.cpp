@@ -81,7 +81,7 @@ uint8_t *spr2color(TFT_eSprite &spr, imgParam &imageParams, size_t *buffer_size,
     uint8_t rotate = imageParams.rotate;
     long bufw = spr.width(), bufh = spr.height();
 
-    if (bufw > bufh && bufw!=400 && bufh!=300) {
+    if (bufw > bufh && bufw!=400 && bufh!=300 && bufw!=800 && bufh!=480) {
         rotate = (rotate + 3) % 4;
         bufw = spr.height();
         bufh = spr.width();

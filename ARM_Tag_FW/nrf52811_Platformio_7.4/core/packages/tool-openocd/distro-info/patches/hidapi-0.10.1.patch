@@ -1,0 +1,10 @@
+--- configure-orig.ac	2020-11-24 13:39:27.000000000 +0200
++++ configure.ac	2021-08-26 20:08:10.000000000 +0300
+@@ -13,7 +13,6 @@
+ 
+ AC_CONFIG_MACRO_DIR([m4])
+ AM_INIT_AUTOMAKE([foreign -Wall -Werror])
+-AC_CONFIG_MACRO_DIR([m4])
+ 
+ m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
+ LT_INIT

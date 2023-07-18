@@ -1,0 +1,62 @@
+/*********************************************************************
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                        The Embedded Experts                        *
+*                           www.segger.com                           *
+**********************************************************************
+
+-------------------------- END-OF-HEADER -----------------------------
+*/
+
+/*********************************************************************
+*
+*       ResetTarget
+*/
+void ResetTarget(void) {
+  //
+  // This device requires a special reset as default reset does not work for this device.
+  // TBD
+  //
+  JLINK_TARGET_Halt(); // Make sure that the CPU is halted when reset is called
+}
+
+/*********************************************************************
+*
+*       InitTarget
+*/
+void InitTarget(void) { 
+  JLINK_SYS_Report("***************************************************");
+  JLINK_SYS_Report("J-Link script: iMX7ULP Cortex-M4 core J-Link script");
+  JLINK_SYS_Report("***************************************************");
+  JLINK_CORESIGHT_Configure("IRPre=0;DRPre=0;IRPost=0;DRPost=0;IRLenDevice=4");
+  CPU = CORTEX_M4;                                                              // Pre-select that we have a Cortex-M4 connected
+  JTAG_AllowTAPReset = 0;                                                       // J-Link is allowed to use a TAP reset for JTAG-chain auto-detection
+  //
+  // Manually configure which APs are present on the CoreSight device
+  //
+  JTAG_SetDeviceId(0, 0x4BA00477);  // 4-bits IRLen
+  CORESIGHT_AddAP(0, CORESIGHT_AHB_AP);
+  CORESIGHT_AddAP(1, CORESIGHT_APB_AP);
+  CORESIGHT_AddAP(2, CORESIGHT_CUSTOM_AP);
+  CORESIGHT_AddAP(3, CORESIGHT_AHB_AP);
+  CORESIGHT_AddAP(4, CORESIGHT_CUSTOM_AP);
+  CORESIGHT_AddAP(5, CORESIGHT_CUSTOM_AP);
+  CORESIGHT_IndexAHBAPToUse = 3;
+  JTAG_SetDeviceId(0, 0x6BA00477);  // 4-bits IRLen
+}
+
+/*********************************************************************
+*
+*       SetupTarget
+*/
+void SetupTarget(void) {
+  //
+  //  Map alias area of M4 core for flash to 0x04000000 instead of 0xC0000000 as in certain circumstances the 0xC0000000 is not initialized
+  //
+  JLINK_ExecCommand("map add 0xC0000000-0xC7FFFFFF A FLASH 0x04000000 0x07FFFFFF");
+  //
+  // The MPU causes problems during flash download
+  // This fix has been requested by NXP
+  //
+  JLINK_SYS_Report("Disabling Cortex-M4 MPU ...");
+  MEM_WriteU32(0xE000ED94, 0x00000000);
+}

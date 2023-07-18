@@ -1,0 +1,437 @@
+/*********************************************************************
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                        The Embedded Experts                        *
+*                           www.segger.com                           *
+**********************************************************************
+
+-------------------------- END-OF-HEADER -----------------------------
+
+File    : CYW208xx.JLinkScript
+Purpose : J-Link script file for Infineon CYW20829 devices
+Literature:
+  [1] J-Link User Guide
+  [2] AIROC™ CYW20829 Bluetooth® LE system on chip Programming specification (Document Number: 002-32463)
+
+Additional information:
+  For more information about public functions that can be implemented to customize J-Link actions, please refer to [1]
+*/
+
+/*********************************************************************
+*       Constants
+*********************************************************************/
+
+/* --- Access Ports --- */
+__constant U8 AP_SYS                        = 0;          // AP[0] System Access Port
+__constant U8 AP_CM33                       = 1;          // AP[1] Cortex-M33 Access Port
+__constant U8 AP_TO_USE                     = 1;          // Preferred Access Port (AP[1] - CM33 Core is used by default in this script)
+
+/* --- SWO Trace configuration --- */
+__constant U8 TRACE_div_sel                 = 0;          // Clock divider index to use for cpuss.clock_trace_in peripheral clock. Divider type is CY_SYSCLK_DIV_24_5_BIT
+__constant U8 TRACE_div_int                 = 0;          // Integer division by (1+INT24_DIV)
+__constant U8 TRACE_div_frac                = 0;          // Fractional division by (FRAC5_DIV/32)
+__constant U8 SWO_encode                    = 2;          // SWO encoding mode
+                                                          //   0b00 - Parallel trace port mode
+                                                          //   0b01 - Asynchronous SWO, using Manchester encoding
+                                                          //   0b10 - Asynchronous SWO, using NRZ (UART) encoding
+
+/* --- CYW208xx registers and definitions --- */
+__constant U32 HSIOM_PRT1_PORT_SEL0         = 0x40400010; // MMIO->MMIO1->HSIOM->HSIOM_PRT[1]->PORT_SEL0
+__constant U32 GPIO_PRT1_OUT                = 0x40410080; // MMIO->MMIO1->GPIO->GPIO_PRT[1]->OUT
+__constant U32 GPIO_PRT1_CFG                = 0x404100C4; // MMIO->MMIO1->GPIO->GPIO_PRT[1]->CFG
+__constant U32 PERI_PCLK_GROUP0             = 0x40040000;                // MMIO->MMIO0->PERI_PCLK->PCLK_GROUP[0]
+__constant U32 PERI_PCLK_GROUP0_DIV_CMD     = PERI_PCLK_GROUP0 + 0x0000; // MMIO->MMIO0->PERI_PCLK->PCLK_GROUP[0]->DIV_CMD
+__constant U32 PERI_PCLK_GROUP0_CLOCK_CTL   = PERI_PCLK_GROUP0 + 0x0C00; // MMIO->MMIO0->PERI_PCLK->PCLK_GROUP[0]->CLOCK_CTL
+__constant U32 PERI_PCLK_GROUP0_DIV_24_5_CTL= PERI_PCLK_GROUP0 + 0x1C00; // MMIO->MMIO0->PERI_PCLK->PCLK_GROUP[0]->DIV_24_5_CTL
+
+/* --- Debug Access Port (DAP) --- */
+__constant U32 ACC_DP                       = 0;          // APnDP for DP access
+__constant U32 ACC_AP                       = 1;          // APnDP for AP access
+
+/* --- Flash Patch and Breakpoint Unit (FPB) --- */
+/* Debug Control Block (DCB) */
+__constant U32 DCRSR_ADDR                   = 0xE000EDF4; // DCB->DCRSR: Debug Core Register Selector Register
+__constant U32 DCRSR_REGWnR                 =  (1 << 16); // DCB->DCRSR.REGWnR (  bit[16], 0x00010000): Specifies the access type for the transfer ('0' - Read, '1' - Write)
+__constant U32 DCRSR_REGSEL_MSK             = 0x0000007F; // DCB->DCRSR.REGSEL (bits[6:0], 0x0000007F): Specifies the ARM core register, special-purpose register, or Floating-point extension register
+__constant U32 DCRSR_REGSEL_xPSR            = 0x10;       // DCB->DCRSR.REGSEL = xPSR
+__constant U32 DCRSR_REGSEL_MSP             = 0x11;       // DCB->DCRSR.REGSEL = Main stack pointer, MSP
+__constant U32 DCRSR_REGSEL_PC              = 0x0F;       // DCB->DCRSR.REGSEL = PC / DebugReturnAddress
+__constant U32 DCRDR_ADDR                   = 0xE000EDF8; // DCB->DCRDR: Debug Core Register Data Register
+__constant U32 DEMCR_ADDR                   = 0xE000EDFC; // DCB->DEMCR: Debug Exception and Monitor Control Register
+__constant U32 DEMCR_VC_CORERESET           =  (1 <<  0); // DCB->DEMCR.VC_CORERESET ( bit[0], 0x00000001): Reset Vector Catch. Halt running system if Core reset occurs.
+__constant U32 DEMCR_TRCENA                 =  (1 << 24); // DCB->DEMCR.TRCENA       (bit[24], 0x01000000): Global enable for all DWT and ITM features
+__constant U32 xPSR_T                       =  (1 << 24); // xPSR.T (bit[24], 0x01000000): Thumb bit
+
+__constant U32 TPIU_BASE                    = 0xE008E000; // TPIU Base Address. Different from the default address in CMSIS headers (0xE0040000).
+__constant U32 ITM_BASE                     = 0xE0000000; // ITM Base Address @0xE0000000
+__constant U32 DWT_BASE                     = 0xE0001000; // DWT Base Address @0xE0001000
+__constant U32 TPIU_ACPR             = TPIU_BASE + 0x010; // TPIU Asynchronous Clock Prescaler Register @0xE008E010. Defines a prescaler value for the baud rate of the Serial Wire Output (SWO).
+                                                          // Writing to the register automatically updates the prescale counter, immediately affecting the baud rate of the serial data output.
+__constant U32 TPIU_SPPR             = TPIU_BASE + 0x0F0; // TPIU Selected Pin Protocol Register @0xE008E0F0. Selects the protocol used for trace output.
+__constant U32 TPIU_FFCR             = TPIU_BASE + 0x304; // TPIU Formatter and Flush Control Register @0xE008E304. Controls the TPIU formatter.
+__constant U32 ITM_TER0              = ITM_BASE  + 0xE00; // ITM Trace Enable Register [0] @0xE0000E00. Provides individual enable bits for ITM_STIM[0..31] registers.
+__constant U32 ITM_TPR               = ITM_BASE  + 0xE40; // ITM Trace Privilege Register @0xE0000E40. Controls which stimulus ports can be accessed by unprivileged code.
+__constant U32 ITM_TCR               = ITM_BASE  + 0xE80; // ITM Trace Control Register @0xE0000E80. Configures and controls transfers through the ITM interface.
+__constant U32 ITM_LAR               = ITM_BASE  + 0xFB0; // ITM Software Lock Access Register @0xE0000FB0 (Armv8-M and newer). Provides CoreSight Software Lock control for the ITM.
+__constant U32 DWT_CTRL              = DWT_BASE  + 0x000; // DWT Control Register @0xE0001000. Provides configuration and status information.
+
+/* --- Misc. --- */
+__constant int RESULT_OK                    = 0;          // Function return result: O.K.
+__constant int RESULT_ERR                   = -1;         // Function return result: Error
+
+/*******************************************************************************
+* Local functions                                                              *
+*******************************************************************************/
+
+/*********************************************************************
+* Checks internal and J-Link functions return codes:
+*  = 0 O.K.
+*  < 0 Error
+*  = -2 Not supported by the current CPU + target interface combination
+*
+* Return value
+*   0  SUCCEEDED
+*   1  FAILED
+*/
+int SUCCEEDED(int result) {
+  if(result >= 0) { return 1; }
+  else { return 0; }
+}
+
+/*********************************************************************
+* Checks internal and J-Link functions return codes:
+*  = 0 O.K.
+*  < 0 Error
+*  = -2 Not supported by the current CPU + target interface combination
+*
+* Return value
+*   0  SUCCEEDED
+*   1  FAILED
+*/
+int FAILED(int result) {
+  if(result < 0) { return 1; }
+  else { return 0; }
+}
+
+/*********************************************************************
+* Reads U32 value from the provided memory address.
+* Used instead of JLINK_MEM_ReadU32 to validate transaction status
+*
+* Return value
+*   0  SUCCEEDED
+*   1  FAILED
+*/
+int _ReadMem(U32 address, U32* value) {
+  int result;
+
+  // AP.TAR <- address
+  result = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, ACC_AP, address);
+  if (SUCCEEDED(result)) {
+    // AP.DRW -> value
+    result = JLINK_CORESIGHT_ReadDAP(JLINK_CORESIGHT_AP_REG_DATA, ACC_AP, value);
+  }
+
+  return result;
+}
+
+/*********************************************************************
+* Writes U32 value to the provided memory address.
+* Used instead of JLINK_MEM_WriteU32 to validate transaction status
+*
+* Return value
+*   >= 0  O.K.
+*   <  0  Error
+*/
+int _WriteMem(U32 address, U32 value) {
+  int result;
+
+  // AP.TAR <- address
+  result = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, ACC_AP, address);
+  if (SUCCEEDED(result)) {
+    // AP.DRW <- value
+    result = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, ACC_AP, value);
+  }
+
+  return result;
+}
+
+/*********************************************************************
+* Polls for the expected bit-field value in the given register
+*
+* Return value
+*   >= 0  O.K.
+*   <  0  Error
+*/
+int _PollMem(U32 regAddr, U32 fieldMsk, U32 rsh, U32 expectedValue, U32 timeout, U32 sleepBetweenPolling, U32* regValue) {
+  int result;
+  int swd_result;
+  int t;
+  int tDelta;
+  tDelta = -1;
+  result = RESULT_ERR;
+
+  swd_result = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, ACC_AP, regAddr); // AP.ADDR <- regAddr
+  if (SUCCEEDED(swd_result)) {
+    t = JLINK_GetTime();
+    do {
+      // Sleep between polling - let the CPU do its job and avoid too much garbage on SWD
+      if ((sleepBetweenPolling > 0) && (tDelta >= 0 /* not first iteration*/)) {
+        JLINK_SYS_Sleep(sleepBetweenPolling);
+      }
+      swd_result = JLINK_CORESIGHT_ReadDAP(JLINK_CORESIGHT_AP_REG_DATA, ACC_AP, regValue);
+      if (FAILED(swd_result)) {
+        break;
+      }
+      if (((*regValue & fieldMsk) >> rsh) == expectedValue) {
+        result = RESULT_OK;
+        break;
+      }
+      tDelta = JLINK_GetTime() - t;
+    } while (tDelta < timeout);
+  }
+
+  return result;
+}
+
+/*********************************************************************
+* Configures the SWO pin (P1_0)
+* The operations are equal to the following code in ModusToolbox project:
+*   Cy_GPIO_Pin_FastInit(GPIO_PRT1, pinNum=0, driveMode=CY_GPIO_DM_STRONG_IN_OFF, outVal=0, hsiom=P1_0_CPUSS_SWJ_SWO_TDO);
+*
+* Return value
+*   >= 0  O.K.
+*   <  0  Error
+*/
+int _SWO_SetPin(void) {
+  int result;
+
+  JLINK_SYS_Report("JLinkScript: Configuring SWO pin: P1[0]");
+  result = _WriteMem(HSIOM_PRT1_PORT_SEL0, 0x1D1D1D1D); // 0x40400010 <- 0x1D1D1D1D
+  if (SUCCEEDED(result)) {
+    result = _WriteMem(GPIO_PRT1_OUT, 0x0000000C);      // 0x40410080 <- 0x0000000C
+    if (SUCCEEDED(result)) {
+      result = _WriteMem(GPIO_PRT1_CFG, 0x0000BAA6);    // 0x404100C4 <- 0x0000BAA6
+    }
+  }
+  
+  return result;
+}
+
+/*********************************************************************
+* Configures the TPIU trace clock (assigns a divider to a cpuss.clock_trace_in).
+* The operations are equal to the following code in ModusToolbox project:
+*   const uint32_t dividerNum = 0u;
+*   const cy_en_divider_types_t dividerType = CY_SYSCLK_DIV_24_5_BIT;
+*   const en_clk_dst_t ipBlock = PCLK_CPUSS_CLOCK_TRACE_IN_POS_EN;
+*   Cy_SysClk_PeriPclkDisableDivider(ipBlock, dividerType, dividerNum);
+*   Cy_SysClk_PeriPclkSetFracDivider(ipBlock, dividerType, dividerNum, dividerIntValue=0, dividerFracValue=0);
+*   Cy_SysClk_PeriPclkEnableDivider(ipBlock, dividerType, dividerNum);
+*   Cy_SysClk_PeriPclkAssignDivider(ipBlock, dividerType, dividerNum); 
+*
+* Return value
+*   >= 0  O.K.
+*   <  0  Error
+*/
+int _SWO_SetTPIUClock(void) {
+  int result;
+
+  JLINK_SYS_Report( "JLinkScript: Configuring TPIU clock:");
+  JLINK_SYS_Report1("  TRACE_div_sel  = ", TRACE_div_sel);
+  JLINK_SYS_Report1("  TRACE_div_int  = ", TRACE_div_int);
+  JLINK_SYS_Report1("  TRACE_div_frac = ", TRACE_div_frac);
+
+  // *** Cy_SysClk_PeriPclkDisableDivider ***
+  // PERI_DIV_CMD(grpNum) = PERI_DIV_CMD_DISABLE_Msk                        |
+  //                        _VAL2FLD(CY_PERI_DIV_CMD_TYPE_SEL, dividerType) |
+  //                        _VAL2FLD(CY_PERI_DIV_CMD_DIV_SEL, dividerNum)
+  result = _WriteMem(PERI_PCLK_GROUP0_DIV_CMD, 0x40000300 | TRACE_div_sel); // 0x40040000 <- 0x400003<dividerNum>
+  if (SUCCEEDED(result)) {
+
+    // *** Cy_SysClk_PeriPclkSetFracDivider ***
+    // * The source of the divider is peri_clk, which is a divided version of hf_clk[0].
+    // * The divider value causes integer division of (divider value + 1), or division by 1 to 16777216 (24-bit divider).
+    // CY_REG32_CLR_SET(PERI_DIV_24_5_CTL(grpNum, dividerNum), PERI_DIV_24_5_CTL_INT24_DIV, dividerIntValue);
+    // CY_REG32_CLR_SET(PERI_DIV_24_5_CTL(grpNum, dividerNum), PERI_DIV_24_5_CTL_FRAC5_DIV, dividerFracValue);
+    result = _WriteMem(PERI_PCLK_GROUP0_DIV_24_5_CTL + (TRACE_div_sel * 4), ( TRACE_div_int << 8) | (TRACE_div_frac << 3)); // 0x40041C00 <- 0x0
+    if (SUCCEEDED(result)) {
+
+      // *** Cy_SysClk_PeriPclkEnableDivider ***
+      // PERI_DIV_CMD(grpNum) = PERI_DIV_CMD_ENABLE_Msk                         |
+      //                        CY_PERI_DIV_CMD_PA_TYPE_SEL_Msk                 |
+      //                        CY_PERI_DIV_CMD_PA_DIV_SEL_Msk                  |
+      //                        _VAL2FLD(CY_PERI_DIV_CMD_TYPE_SEL, dividerType) |
+      //                        _VAL2FLD(CY_PERI_DIV_CMD_DIV_SEL,  dividerNum);
+      result = _WriteMem(PERI_PCLK_GROUP0_DIV_CMD, 0x83FF0300 | TRACE_div_sel); // 0x40040000 <- 0x83FF03<dividerNum>
+      if (SUCCEEDED(result)) {
+
+        // *** Cy_SysClk_PeriPclkAssignDivider ***
+        // PERI_CLOCK_CTL(grpNum, periNum) = _VAL2FLD(CY_PERI_CLOCK_CTL_TYPE_SEL, dividerType) |
+        //                                   _VAL2FLD(CY_PERI_CLOCK_CTL_DIV_SEL, dividerNum);
+        result = _WriteMem(PERI_PCLK_GROUP0_CLOCK_CTL + (0 * 4), 0x00000300 | TRACE_div_sel); // 0x40040C00 <- 0x000003<dividerNum>
+      }
+    }
+  }
+
+  return result;
+}
+
+/*********************************************************************
+*       Global functions
+*********************************************************************/
+
+/*********************************************************************
+* Called before SWO_GetSWOBaseClock().
+* Used for target device that need additional init steps to enable SWO.
+* For example if there are none CoreSight registers that need to be enabled
+* or more than one pin can be configured to be the SWO pin
+*
+* Return value
+*   >= 0  O.K.
+*   <  0  Error
+*/
+int SWO_EnableTarget(void) {
+  int result;
+  result = _SWO_SetPin();
+  if (SUCCEEDED(result)) {
+    result = _SWO_SetTPIUClock();
+  }
+  return result;
+}
+
+/*********************************************************************
+* Determines the actual SWO base clock that is supplied by the device to the SWO CoreSight
+* logic. On most devices it is CPUClock / 1 but there are exceptions for which this function
+* can be used for
+*
+* Parameters:
+*   CPUClock  Measured CPU clock speed in Hz
+* 
+* Return value
+*   The actual SWO base clock speed
+*
+*  Notes
+*    This function should only be called if the target device has some other SWO base clock
+*    than CPUClock / 1.
+*/
+/*
+U32 SWO_GetSWOBaseClock(U32 CPUClock) {
+  U32 swo_clock;
+  swo_clock = CPUClock >> 1;
+  JLINK_SYS_Report( "JLinkScript: SWO_GetSWOBaseClock");
+  JLINK_SYS_Report1("  CPUClock  = ", CPUClock);
+  JLINK_SYS_Report1("  SWOclock  = ", swo_clock);
+  return swo_clock;
+}
+*/
+
+/*********************************************************************
+* If implemented, overwrites the generic SWO initialization
+*
+* Parameters:
+*   Portmask defines which ITM Stimulus ports to enable.
+*   TargetDiv-1 is the Async Clock Prescaler Register in the TPIU.
+* 
+* Return value
+*   >= 0  O.K.
+*   <  0  Error
+*/
+/*
+int SWO_Generic_Init(U32 PortMask, U32 TargetDiv) {
+  int result;
+  U32 v;
+
+  JLINK_SYS_Report( "JLinkScript: Doing generic SWO initialization:");
+  JLINK_SYS_Report1("  PortMask   = ", PortMask);
+  JLINK_SYS_Report1("  TargetDiv  = ", TargetDiv);
+  JLINK_SYS_Report1("  SWO_encode = ", SWO_encode);
+
+  // Enables ITM and DWT (set DEMCR.TRCENA bit) before any ITM operations
+  result = _ReadMem(DEMCR_ADDR, &v);
+  if (SUCCEEDED(result)) {
+    _WriteMem(DEMCR_ADDR, v | (1 << 24));
+  }
+
+  // Enable the write accesses to the ITM registers by writing the key value to the ITM Lock Access Register. Only for Armv8-M and newer
+  result = _WriteMem(ITM_LAR, 0xC5ACCE55);
+  if (SUCCEEDED(result)) {
+    // Disable the stimulus port and ITM to avoid data transfer via SWO during changing the settings
+    result = _WriteMem(ITM_TER0, 0); // Disable all ITM stimulus ports
+    if (SUCCEEDED(result)) {
+      // It is recommended that the ITMEn bit is cleared and waits for the ITMBusy bit to be cleared,
+      // before changing any fields in the Control Register, otherwise the behavior can be unpredictable.
+      result = _ReadMem(ITM_TCR, &v);
+      if (SUCCEEDED(result)) {
+        result = _WriteMem(ITM_TCR, v | (1 << 0));
+        if (SUCCEEDED(result)) {
+          result = _PollMem(ITM_TCR, (1 << 23), 0, 0, 1000, 1, &v);
+        }
+      }
+    }
+  }
+
+  if (SUCCEEDED(result)) {
+    // Select the protocol used for trace output:
+    //   0b00 - Parallel trace port mode
+    //   0b01 - Asynchronous SWO, using Manchester encoding
+    //   0b10 - Asynchronous SWO, using NRZ encoding
+    result = _WriteMem(TPIU_SPPR, SWO_encode);
+    if (SUCCEEDED(result)) {
+      // Set the SWO and Parallel trace port baud rate prescaler in the TPIU_ACPR.SWOSCALER field.
+      // It is the the ratio between an IMPLEMENTATION DEFINED reference clock and the TPIU output clock rates.
+      // SWO or Parallel trace port output clock = Asynchronous_Reference_Clock/(n + 1).
+      // In other words, divisor for TRACECLKIN is Prescaler + 1: SWOPrescaler = (CPU_CORE_FREQUENCY_HZ / SWO_SPEED_HZ) + 1
+      if (TargetDiv < 1) {
+        TargetDiv = 1;
+      }
+      result = _WriteMem(TPIU_ACPR, TargetDiv-1);
+    }
+  }
+
+  if (SUCCEEDED(result)) {
+    // Set the privilege mask (ITM_TPR.PRIVMASK). Bit[n] of PRIVMASK controls stimulus ports 8n to 8n+7:
+    // '0' - Unprivileged access permitted, '1' - Privileged access only.
+    result = _WriteMem(ITM_TPR, 0x00000000);
+    if (SUCCEEDED(result)) {
+      result = _WriteMem(DWT_CTRL, 0x400003FE);
+      if (SUCCEEDED(result)) {
+        result = _WriteMem(TPIU_FFCR, 0x00000100);
+      }
+    }
+  }
+
+  if (SUCCEEDED(result)) {
+    // Enable ITM via the ITM_TCR register
+	result = _WriteMem(ITM_TCR, 0x1000D);
+    if (SUCCEEDED(result)) {
+      // Enable the selected ITM stimulus port
+      result = _WriteMem(ITM_TER0, PortMask);
+    }
+  }
+  
+  return result;
+}
+*/
+
+/*********************************************************************
+*  Called before InitTarget(). Mainly used to set some global DLL variables to customize the normal connect procedure.
+*  For ARM CoreSight devices this may be specifying the base address of some CoreSight components (ETM, ...)
+*  that cannot be automatically detected by J-Link due to erroneous ROM tables etc.
+*  May also be used to specify the device name in case the debugger does not pass it to the DLL.
+*
+* Return value
+*   >= 0  O.K.
+*   <  0  Error
+*
+*  Notes
+*    (1) May not, under absolutely NO circumstances, call any API functions that perform target communication.
+*    (2) Should only set some global DLL variables
+*/
+int ConfigTargetSettings(void) {
+  JLINK_CORESIGHT_AddAP(AP_SYS, CORESIGHT_CUSTOM_AP); // System Access Port
+  JLINK_CORESIGHT_AddAP(AP_CM33, CORESIGHT_AHB_AP);   // Cortex-M33 Access Port
+  JLINK_CORESIGHT_IndexAHBAPToUse = AP_TO_USE;        // Index of AHB-AP to use for communication with core
+  JLINK_ExecCommand("CORESIGHT_SetTPIUBaseAddr = 0xE008E000");
+  CPU=CORTEX_M33;
+  return RESULT_OK;
+}
+
+/*************************** end of file ****************************/

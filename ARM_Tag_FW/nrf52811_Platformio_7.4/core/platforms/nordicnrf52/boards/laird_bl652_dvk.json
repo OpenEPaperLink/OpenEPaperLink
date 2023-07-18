@@ -1,0 +1,43 @@
+{
+  "build": {
+    "cpu": "cortex-m4",
+    "f_cpu": "64000000L",
+    "mcu": "nrf52832",
+    "zephyr": {
+       "variant": "bl652_dvk"
+    }
+  },
+  "connectivity": [
+    "bluetooth"
+  ],
+  "debug": {
+    "default_tools": [
+      "jlink"
+    ],
+    "jlink_device": "nRF52832_xxAA",
+    "onboard_tools": [
+      "cmsis-dap",
+      "jlink"
+    ],
+    "svd_path": "nrf52.svd"
+  },
+  "frameworks": [
+    "zephyr"
+  ],
+  "name": "BL652 Development Kit",
+  "upload": {
+    "maximum_ram_size": 65536,
+    "maximum_size": 524288,
+    "protocol": "jlink",
+    "protocols": [
+      "jlink",
+      "nrfjprog",
+      "stlink",
+      "blackmagic",
+      "cmsis-dap",
+      "mbed"
+    ]
+  },
+  "url": "https://www.lairdconnect.com/wireless-modules/bluetooth-modules/bluetooth-5-modules/bl652-series-bluetooth-v5-nfc",
+  "vendor": "Laird Connectivity"
+}

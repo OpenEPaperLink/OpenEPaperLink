@@ -1,0 +1,1057 @@
+/*****************************************************************************/
+/*               (C) Fujitsu Semiconductor Europe GmbH (FSEU)                */
+/*                                                                           */
+/* The following software deliverable is intended for and must only be       */
+/* used for reference and in an evaluation laboratory environment.           */
+/* It is provided on an as-is basis without charge and is subject to         */
+/* alterations.                                                              */
+/* It is the user's obligation to fully test the software in its             */
+/* environment and to ensure proper functionality, qualification and         */
+/* compliance with component specifications.                                 */
+/*                                                                           */
+/* In the event the software deliverable includes the use of open            */
+/* source components, the provisions of the governing open source            */
+/* license agreement shall apply with respect to such software               */
+/* deliverable.                                                              */
+/* FSEU does not warrant that the deliverables do not infringe any           */
+/* third party intellectual property right (IPR). In the event that          */
+/* the deliverables infringe a third party IPR it is the sole                */
+/* responsibility of the customer to obtain necessary licenses to            */
+/* continue the usage of the deliverable.                                    */
+/*                                                                           */
+/* To the maximum extent permitted by applicable law FSEU disclaims all      */
+/* warranties, whether express or implied, in particular, but not            */
+/* limited to, warranties of merchantability and fitness for a               */
+/* particular purpose for which the deliverable is not designated.           */
+/*                                                                           */
+/* To the maximum extent permitted by applicable law, FSEU's liability       */
+/* is restricted to intentional misconduct and gross negligence.             */
+/* FSEU is not liable for consequential damages.                             */
+/*                                                                           */
+/* (V1.5)                                                                    */
+/*****************************************************************************/
+/** \file Default.JLinkScript
+ **
+ **
+ ** History:
+ **   - 2012-09-07    1.00    ZWu    Initial version for Fujitsu MB9DF125
+ **
+ *****************************************************************************/
+
+/*****************************************************************************
+*  For further information refer to the following documents:
+*
+*  - "ARM Debug Interface v5 Architecture Specification"
+*    ARM: IHI0031A_ARM_debug_interface_v5.pdf
+*  - "Cortex-R4 and Cortex-R4F (Revision r1p3) Technical Reference Manual"
+*    ARM: DDI0363E_cortexr4_r1p3_trm.pdf
+*  - "J-Link / J-Trace User Guide"
+*    SEGGER: UM08001_JLink.pdf
+*
+*****************************************************************************/
+
+
+// ###################################################################
+//  H E L P E R   F U N C T I O N S
+// ###################################################################
+
+/*********************************************************************
+*
+*  _SelDP
+*
+*  Selects the Debug Port register set as the DR scan chain
+*/
+void _SelDP(void)
+{
+    JTAG_StoreIR(0xa);   // Updates Instruction Register scan chain
+    JTAG_StoreClocks(1); // Transition from "Update-IR" to "Run-Test/Idle" state of Debug TAP
+}
+
+/*********************************************************************
+*
+*  _SelAP
+*
+*  Selects the Access Port register set as the DR scan chain
+*/
+void _SelAP(void)
+{
+    JTAG_StoreIR(0xb);   // Updates Instruction Register scan chain
+    JTAG_StoreClocks(1); // Transition from "Update-IR" to "Run-Test/Idle" state of Debug TAP
+}
+
+/*********************************************************************
+*
+*       _StoreTriggerReadAPDPReg
+*
+*  Function description
+*    Triggers a read of an AP or DP register. Depends on the previous command (DPACC / APACC)
+*/
+int _StoreTriggerReadAPDPReg(unsigned int RegIndex) {
+  U32 v;
+  int BitPos;
+  //
+  // Write 35 bits (32 bits data, 2 bits addr, 1 bit RnW)
+  //
+  v  = 1;                // 1 indicates read access
+  v |= (RegIndex << 1);
+  JLINK_JTAG_StartDR();
+  BitPos = JLINK_JTAG_WriteDRCont(v, 3);
+  v = 0;
+  JLINK_JTAG_WriteDREnd(v, 32);
+  JTAG_StoreClocks(8);
+  return BitPos;
+}
+
+/*********************************************************************
+*
+*       _StoreWriteAPDPReg
+*
+*  Function description
+*    Writes an AP or DP register. Depends on the previous command (DPACC / APACC)
+*/
+int _StoreWriteAPDPReg(unsigned int RegIndex, U32 Data) {
+  U32 v;
+  int BitPos;
+  //
+  // Write 35 bits (32 bits data, 2 bits addr, 1 bit RnW)
+  //
+  v = 0;   // 0 indicates write access
+  v |= (RegIndex << 1);
+  JLINK_JTAG_StartDR();
+  BitPos = JLINK_JTAG_WriteDRCont(v, 3);
+  v = Data;
+  JLINK_JTAG_WriteDREnd(v, 32);
+  JTAG_StoreClocks(8);
+  return BitPos;
+}
+
+/*********************************************************************
+*
+*  _GetReadData
+*
+*  Returns the actual 32-bit read data from the specified register.
+*  In order to get the wanted read data, a further action must be done
+*  after the actual read access to shift the read data out of the scan
+*  chain. This is done by reading the RDBUFF register in the DP which
+*  is intended for this use case (a read to this register returns 0 and
+*  has no side effects on the system)
+*
+*  Parameter:
+*  - u32RegIndex:        0-3 (selects which of the 4 registers shall be read)
+*  - cSelectApOnReturn:  If 0, DP is selected when function returns
+*                        otherwise AP will be selected. Since no
+*                        global variables are supported by JLinkScript
+*                        the state cannot be restored in another way...
+*
+*  Return value:
+*  - u32Data:            Read data
+*/
+unsigned int _GetReadData(unsigned int u32RegIndex, char cSelectApOnReturn)
+{
+    unsigned int u32Data;
+    unsigned int u32BitPosData;
+
+    // Trigger read to move wanted data in the DR scan chain
+    _StoreTriggerReadAPDPReg(u32RegIndex); 
+    // Trigger read from RDBUFF register to shift out the wanted read data
+    _SelDP();
+    u32BitPosData = _StoreTriggerReadAPDPReg(3);
+    u32Data = JTAG_GetU32(u32BitPosData + 3);
+    
+    if (cSelectApOnReturn != 0)
+    {
+        _SelAP();
+    }
+    
+    return u32Data;
+}
+
+
+/*********************************************************************
+*
+*  _WriteViaAhb
+*
+*  Writes to the MCU via the AHB-AP
+*
+*  Parameter:
+*  - u32Address: Address for write action (as required by AHB master)
+*  - u32Data:    Data that shall be written
+*/
+void _WriteViaAhb(unsigned int u32Address, unsigned int u32Data)
+{
+    _SelDP();
+    _StoreWriteAPDPReg(2, 0x00000000);  // Bank 0x0 of AHB-AP (0x00) selected
+    
+    _SelAP();
+    _StoreWriteAPDPReg(1, u32Address);  // Set TAR register of AP
+    _StoreWriteAPDPReg(3, u32Data);     // Write via DRW register of AP
+}
+
+/*********************************************************************
+*
+*  _ReadViaAhb
+*
+*  Reads from the MCU via the AHB-AP
+*
+*  Parameter:
+*  - u32Address: Address for read action (as required by AHB master)
+*
+*  Return value:
+*  - u32Data:    Data that has been read
+*/
+unsigned int _ReadViaAhb(unsigned int u32Address)
+{
+    unsigned int u32Data;
+
+    _SelDP();
+    _StoreWriteAPDPReg(2, 0x00000000); // Bank 0x0 of AHB-AP (0x00) selected
+    _SelAP();
+
+    _StoreWriteAPDPReg(1, u32Address); // Set TAR register of AP
+    u32Data = _GetReadData(3, 0); // Read via DRW register of AP
+    return u32Data;
+}
+
+/*********************************************************************
+*
+*  _WriteViaApb
+*
+*  Writes to the MCU via the APB-AP
+*
+*  Parameter:
+*  - u32Address: Address for write action (as required by APB master)
+*  - u32Data:    Data that shall be written
+*/
+void _WriteViaApb(unsigned int u32Address, unsigned int u32Data)
+{
+    _SelDP();
+    _StoreWriteAPDPReg(2, 0x01000000);  // Bank 0x0 of APB-AP (0x01) selected
+    
+    _SelAP();
+    _StoreWriteAPDPReg(1, u32Address);  // Set TAR register of AP
+    _StoreWriteAPDPReg(3, u32Data);     // Write via DRW register of AP
+}
+
+/*********************************************************************
+*
+*  _ReadViaApb
+*
+*  Reads from the MCU via the APB-AP
+*
+*  Parameter:
+*  - u32Address: Address for read action (as required by APB master)
+*
+*  Return value:
+*  - u32Data:    Data that has been read
+*/
+unsigned int _ReadViaApb(unsigned int u32Address)
+{
+    unsigned int u32Data;
+
+    _SelDP();
+    _StoreWriteAPDPReg(2, 0x01000000); // Bank 0x0 of APB-AP (0x01) selected
+    
+    _SelAP();
+
+    _StoreWriteAPDPReg(1, u32Address); // Set TAR register of AP
+    u32Data = _GetReadData(3, 0); // Read via DRW register of AP
+    return u32Data;
+}
+
+/*********************************************************************
+*
+*  _GetAndClearStickyError
+*
+*  Checks if an error occurred after the last invocation of this function
+*  This means the function can be called after several read/write actions
+*  to check if this group of actions has been processed successfully
+*
+*  Return value:
+*  - cStickyErrorFlag:    0 if no sticky error has occurred otherwise 1
+*/
+char _GetAndClearStickyError(void)
+{
+    unsigned int u32Data;
+    char cStickyErrorFlag;
+
+    _SelDP();
+    u32Data = _GetReadData(1, 0);
+
+    // Clear only Sticky Error Flag ('1' clears sticky flags)
+    _StoreWriteAPDPReg(1, ((u32Data & 0xffffffcd) | 0x20));
+    if((u32Data & 0x20) == 0)
+    {
+        cStickyErrorFlag = 0;
+    }
+    else
+    {
+        cStickyErrorFlag = 1;
+    }
+    return cStickyErrorFlag;
+}
+
+
+
+// ###################################################################
+//  U S E R   F U N C T I O N S
+// ###################################################################
+
+
+/*********************************************************************
+*
+*  ResetJtag
+*
+*  Resets the JTAG (and hence debug logic) for the specified time (ms)
+*  by asserting nTRST pin
+*
+*  Parameter:
+*  - u32ResetDuration:   Time in [ms] the reset signal is asserted
+*/
+void ResetJtag(unsigned int u32ResetDuration)
+{
+    JTAG_TRSTPin = 0;
+    SYS_Sleep(u32ResetDuration);
+    JTAG_TRSTPin = 1;
+    Report("--- FSEU script --- JTAG reset");
+}
+
+
+/*********************************************************************
+*
+*  ResetMcu
+*
+*  Resets the MCU for the specified time (ms) via JTAG connector pin 15
+*
+*  Parameter:
+*  - u32ResetDuration:   Time in [ms] the reset signal is asserted
+*/
+void ResetMcu(unsigned int u32ResetDuration)
+{
+    JTAG_ResetPin = 0;
+    SYS_Sleep(u32ResetDuration);
+    JTAG_ResetPin = 1;
+    Report("--- FSEU script --- MCU reset");
+}
+
+
+/*********************************************************************
+*
+*  ResetAllAndSetDebuggerConnectedFlag
+*
+*  Resets the MCU via JTAG connector pin 15 and the JTAG via nTRST pin
+*  Outputs >= 16 TCK clock cycles so that SYSC_JTAGDETECT_DBGCON is set.
+*  It is used by the BootROM as the criteria for enabling the debugger
+*  wait time before branching to application (if not disabled by Flash
+*  marker setting in Boot Description Record)
+*  SYSC_JTAGDETECT_DBGCON will only be reset by JTAG nTRST and not by
+*  any MCU hard reset. Therefore, this clocking is only required once
+*  during initialisation.
+*
+*  TMS signal is 0 while JTAG_WriteClocks() outputs clock cycles
+*  As the Debug TAP state machine is reset by nTRST assertion, this
+*  also ensures that the Debug TAP state machine transitions to and
+*  stays in "Run-Test/Idle" state. Other functions in this file
+*  require that the Debug TAP state machine is in "Run-Test/Idle"
+*  before calling them
+*
+*
+*  RSTx  --_________________________________ ... ________________---
+*  nTRST ----__----------------------------- ... -------------------
+*  TCK   --------|_|-|_|-|_|-|_|-|_|-|_|-|_| ... -|_|-|_|-----------
+*  TMS   ___________________________________________________________
+*/
+void ResetAllAndSetDebuggerConnectedFlag()
+{
+    JTAG_ResetPin = 0;
+    JTAG_TRSTPin = 0;
+    SYS_Sleep(1);
+    JTAG_TRSTPin = 1;
+    JTAG_WriteClocks(20); 
+    JTAG_ResetPin = 1;
+    Report("--- FSEU script --- MCU & JTAG reset, SYSC_JTAGDETECT_DBGCON should be set now");
+}
+
+
+/*********************************************************************
+*
+*  GetId
+*
+*  Selects and reads the Debug TAP IDCODE scan chain
+*/
+void GetId(void)
+{
+    unsigned int u32BitPos;
+    unsigned int u32Value;
+
+    // Select the IDCODE register for the DR scan chain
+    JTAG_StoreIR(0x0E);
+    JTAG_StoreClocks(1);
+    // Read ID
+    u32Value = 0;
+    u32BitPos = JTAG_StoreDR(u32Value, 32);
+    JTAG_WriteClocks(1);
+    u32Value = JTAG_GetU32(u32BitPos);
+    
+    if(u32Value == 0x4ba00477)
+    {
+        Report("--- FSEU script --- OK: ARM JTAG-DP detected (JTAG IDCODE: 0x4ba00477)");
+    }
+    else
+    {
+//        Report1("--- FSEU script --- ERROR: JTAG IDCODE unknown -> ",u32Value);
+    }
+}
+
+
+/*********************************************************************
+*
+*  PowerUpDebugPort
+*
+*  Sets the "power request bits" (CSYSPWRUPREQ, CDBGPWRUPREQ) in the
+*  DP CTRL/STAT register and waits for their acknowledgement.
+*
+*  Return value:
+*  - cError:    0 if power-up was successful otherwise 1
+*/
+char PowerUpDebugPort(void)
+{
+    char cBreak;
+    char cError;
+    unsigned int u32ReadData;
+    unsigned int u32TimeOut;
+
+    // Set CxxxPWRUPREQ bits and also clear sticky error flags, enable overrun detection
+    _SelDP();
+    _StoreWriteAPDPReg(1, 0x50000033);
+    
+    u32TimeOut = 100;
+    cBreak = 0;
+    while(cBreak == 0)
+    {
+        u32TimeOut -= 1;
+        
+        u32ReadData = _GetReadData(1, 0);
+        
+        // Check if CxxxPWRUPREQ and CxxxPWRUPACK bits are set
+        if ((u32ReadData >> 28) == 0xf)
+        {
+            cBreak = 1;
+            cError = 0;
+            Report("--- FSEU script --- OK: Debug port powered up");
+        }
+        else if (u32TimeOut == 0)
+        {
+            cBreak = 1;
+            cError = 1;
+            Report("--- FSEU script --- ERROR: Could not power up debug port (time-out reached)!");
+        }
+    }
+    return cError;
+}
+
+
+/*********************************************************************
+*
+*  InitAccessPorts
+*
+*  Initializes APB and AHB Access Port registers to their default value.
+*  These registers may be in an unknown state because they are not
+*  reset by an MCU hard reset. But the functions in here may rely on a 
+*  defined state...
+*/
+void InitAccessPorts(void)
+{
+    // AHB Access Port
+    // ---------------
+    _SelDP();
+    // Write DP APSEL register: Bank 0x0 of AHB-AP (AP-ID: 0x00) selected
+    _StoreWriteAPDPReg(2, 0x00000000);
+    _SelAP();
+    
+    _StoreWriteAPDPReg(0, 0x43000002); // Write CSW register of AHB-AP
+    
+    // APB Access Port
+    // ---------------
+    _SelDP();
+    // Write DP APSEL register: Bank 0x0 of APB-AP (AP-ID: 0x01) selected
+    _StoreWriteAPDPReg(2, 0x01000000);
+    _SelAP();
+    
+    _StoreWriteAPDPReg(0, 0x80000002); // Write CSW register of APB-AP
+}
+
+
+/*********************************************************************
+*
+*  ReportStat2Value
+*
+*  Reports the current value of SCCFG_STAT2 register
+*
+*  Return value:
+*  - cError:    0 if SCCFG_STAT2 could be read successful otherwise 1
+*/
+char ReportStat2Value(void)
+{
+    unsigned int u32SccfgStat2AddressApb;
+    unsigned int u32SccfgStat2Value;
+    char cError;
+    
+    cError = 0;
+
+    // Addresses as required for access via APB-AP
+    u32SccfgStat2AddressApb = 0x0000f180;
+
+    _GetAndClearStickyError();
+
+    u32SccfgStat2Value = _ReadViaApb(u32SccfgStat2AddressApb);
+
+    if(_GetAndClearStickyError() == 1)
+    {
+        cError = 1;
+        Report("--- FSEU script --- ERROR: Reading SCCFG_STAT2 caused the StickyError flag to be set!");
+    }
+    else
+    {
+//        Report1("--- FSEU script --- SCCFG_STAT2 = ", u32SccfgStat2Value);
+    }
+  
+    return cError;
+}
+
+/*********************************************************************
+*
+*  ReportGpreg1Value
+*
+*  Reports the current value of SCCFG_GPREG1 register which contains
+*  further BootROM status information (if not overwritten by user
+*  application)
+*
+*  Return value:
+*  - cError:    0 if SCCFG_GPREG1 could be read successful otherwise 1
+*/
+char ReportGpreg1Value(void)
+{
+    unsigned int u32SccfgGpreg1AddressApb;
+    unsigned int u32SccfgGpreg1Value;
+    char cError;
+    
+    cError = 0;
+
+    // Addresses as required for access via APB-AP
+    u32SccfgGpreg1AddressApb = 0x0000f1ac;
+
+    _GetAndClearStickyError();
+
+    u32SccfgGpreg1Value = _ReadViaApb(u32SccfgGpreg1AddressApb);
+
+    if(_GetAndClearStickyError() == 1)
+    {
+        cError = 1;
+        Report("--- FSEU script --- ERROR: Reading SCCFG_GPREG1 caused the StickyError flag to be set!");
+    }
+    else
+    {
+//        Report1("--- FSEU script --- SCCFG_GPREG1 = ", u32SccfgGpreg1Value);
+    }
+  
+    return cError;
+}
+
+
+/*********************************************************************
+*
+*  UnlockDevice
+*
+*  If the MCU is secured, the passed security key will be entered
+*  in the Security Checker module to unlock the MCU.
+*  Otherwise this step is skipped
+*
+*  Note: Security key can be entered at any time, the result of key
+*        entering will be available after SCCFG_STAT2_DBGRDY is set.
+*
+*  Parameter:
+*  - u32KeyBytes0_3:   Part of the key for register SCCFG_SECKEY0
+*  - u32KeyBytes4_7:   Part of the key for register SCCFG_SECKEY1
+*  - u32KeyBytes8_11:  Part of the key for register SCCFG_SECKEY2
+*  - u32KeyBytes12_15: Part of the key for register SCCFG_SECKEY3
+*
+*  Return value:
+*  - cError:    0 if unlocking was successful otherwise 1
+*/
+char UnlockDevice(unsigned int u32KeyBytes0_3, unsigned int u32KeyBytes4_7, unsigned int u32KeyBytes8_11, unsigned int u32KeyBytes12_15)
+{
+    char cError;
+    unsigned int u32SccfgStat2Value;
+    unsigned int u32SccfgStat2AddressApb;
+    unsigned int u32SccfgUnlckAddressApb;
+    unsigned int u32SccfgSeckey0AddressApb;
+    unsigned int u32RegisterUnlockKey;
+    unsigned int u32RegisterLockKey;
+    unsigned int u32SccfgGpreg1AddressApb;
+    unsigned int u32SccfgGpreg1Value;
+    
+    cError = 0;
+    
+    // Addresses as required for access via APB-AP
+    u32SccfgStat2AddressApb   = 0x0000f180;
+    u32SccfgSeckey0AddressApb = 0x0000f190;
+    u32SccfgUnlckAddressApb   = 0x0000f1a4;
+    u32SccfgGpreg1AddressApb  = 0x0000f1ac;
+
+    // Security Checker Register Unlock/Lock Keys
+    u32RegisterUnlockKey = 0x5ecacce5;
+    u32RegisterLockKey   = 0xa135331a;
+    
+    ReportStat2Value();
+    
+    _GetAndClearStickyError();
+    
+    // Check if security is enabled at all
+    u32SccfgStat2Value = _ReadViaApb(u32SccfgStat2AddressApb);
+    if((u32SccfgStat2Value & 0x1) == 0)
+    {
+        cError = 0;
+        Report("--- FSEU script --- OK: MCU is unsecured");
+    }
+    else
+    {
+        // Unlock SCCFG registers
+        _WriteViaApb(u32SccfgUnlckAddressApb, u32RegisterUnlockKey);
+
+        // Enter security key
+        _WriteViaApb(u32SccfgSeckey0AddressApb      , u32KeyBytes0_3);
+        _WriteViaApb(u32SccfgSeckey0AddressApb + 0x4, u32KeyBytes4_7);
+        _WriteViaApb(u32SccfgSeckey0AddressApb + 0x8, u32KeyBytes8_11);
+        _WriteViaApb(u32SccfgSeckey0AddressApb + 0xc, u32KeyBytes12_15);
+
+        // Lock SCCFG registers again
+        _WriteViaApb(u32SccfgUnlckAddressApb, u32RegisterLockKey);
+        
+        // Read SCCFG_STAT2 and SCCFG_GPREG1 to check for success
+        u32SccfgStat2Value  = _ReadViaApb(u32SccfgStat2AddressApb);
+        u32SccfgGpreg1Value = _ReadViaApb(u32SccfgGpreg1AddressApb);
+
+        if(_GetAndClearStickyError() != 0)
+        {
+           cError = 1;
+           Report("--- FSEU script --- ERROR: Trying to unlock the MCU caused the StickyError flag to be set!");
+        }
+        else if((u32SccfgStat2Value & 0xff) == 0x03)
+        {
+            cError = 1;
+            Report("--- FSEU script --- ERROR: Invalid security key entered!");
+        }
+        else if((u32SccfgStat2Value & 0xff) == 0x01) // This SCCFG_STAT2 value is ambiguous...
+        {
+            // SCCFG_GPREG1 contains further BootROM status information (if not overwritten by user application)
+            
+            // Check if both primary and secondary configurations of Main Security Description Record are invalid
+            if((u32SccfgGpreg1Value & 0x70000000) == 0x50000000)
+            {
+                cError = 1;
+                Report("--- FSEU script --- ERROR: Invalid Main Security Description Record!");
+            }
+            else
+            {
+                cError = 0;
+                Report("--- FSEU script --- OK: Correct security key entered, MCU unlocked");
+            }
+        }
+        else // is probably never reached
+        {
+            cError = 1;
+            Report("--- FSEU script --- ERROR: Device still secured");
+        }
+        
+        ReportStat2Value();
+        ReportGpreg1Value();
+    }
+
+    return cError;
+}
+
+
+/*********************************************************************
+*
+*  WaitForDebugReady
+*
+*  Waits until the BootROM has set the DBGRDY bit in SCCFG_STAT2
+*  that indicates the point of time when security has been evaluated
+*  (if a key has already been entered) or for an unsecured device it
+*  indicates that all busses (APB, AHB) can now be fully accessed.
+*
+*  Return value:
+*  - cError:    0 if SCCFG_STAT2_DBGRDY could be read and is set
+*               otherwise 1
+*/
+char WaitForDebugReady(void)
+{
+    unsigned int u32TimeOut;
+    unsigned int u32SccfgStat2AddressApb;
+    unsigned int u32SccfgStat2Value;
+    char cError;
+    char cBreak;
+    
+    cError = 0;
+
+    // Addresses as required for access via APB-AP
+    u32SccfgStat2AddressApb = 0x0000f180;
+    
+    u32TimeOut = 10000;
+    cBreak = 0;
+    while(cBreak == 0)
+    {
+        u32TimeOut -= 1;
+        
+        u32SccfgStat2Value = _ReadViaApb(u32SccfgStat2AddressApb);
+        
+        if(_GetAndClearStickyError() == 1)
+        {
+            cBreak = 1;
+            cError = 1;
+            Report("--- FSEU script --- ERROR: Reading SCCFG_STAT2 caused the StickyError flag to be set!");
+        }
+        else if ((u32SccfgStat2Value & 0x100) != 0) // Check for SCCFG_STAT2_DBGRDY
+        {
+            cBreak = 1;
+            cError = 0;
+            Report("--- FSEU script --- OK: SCCFG_STAT2_DBGRDY is set, whole MCU can now be accessed (if unsecured))");
+        }
+        else if (u32TimeOut == 0)
+        {
+            cBreak = 1;
+            cError = 1;
+            Report("--- FSEU script --- ERROR: Canceled waiting for SCCFG_STAT2_DBGRDY (time-out reached)!");
+        }
+    }
+    
+    return cError;
+}
+
+
+/*********************************************************************
+*
+*  HaltCore
+*
+*  Sets a request to halt the core (enter debug state) by setting
+*  core debug register DRCR bit 0 and checks if halted by reading
+*  the corresponding status register
+*
+*  Return value:
+*  - cError:    0 if Core Halt Request was successful otherwise 1
+*/
+char HaltCore(void)
+{
+    char cError;
+    char cBreak;
+    unsigned int u32TimeOut;
+    unsigned int u32ReadData;
+    unsigned int u32LockAccessRegisterAddressApb;
+    unsigned int u32DebugRunControlRegisterAddressApb;
+    unsigned int u32DebugStatusControlRegisterAddressApb;
+    unsigned int u32UnlockKey;
+    unsigned int u32LockKey;
+    
+    cError = 0;
+    
+    // Addresses as required for access via APB-AP
+    u32LockAccessRegisterAddressApb         = 0x00001fb0;
+    u32DebugRunControlRegisterAddressApb    = 0x00001090;
+    u32DebugStatusControlRegisterAddressApb = 0x00001088;
+
+    // Core Debug Register Unlock Key
+    u32UnlockKey = 0xc5acce55;
+    u32LockKey   = 0x00000000;
+
+    _GetAndClearStickyError();
+    
+    // Unlock debug registers
+    _WriteViaApb(u32LockAccessRegisterAddressApb, u32UnlockKey);
+    // Set Halt Request
+    _WriteViaApb(u32DebugRunControlRegisterAddressApb, 0x00000001);
+    // Lock debug registers again
+    _WriteViaApb(u32LockAccessRegisterAddressApb, u32LockKey);
+    
+    if(_GetAndClearStickyError() != 0)
+    {
+        cError = 1;
+        Report("--- FSEU script --- ERROR: Trying to halt the Core caused the StickyError flag to be set!");
+    }
+    
+    // Only proceed if previous step was successful
+    if(cError == 0)
+    {
+        _GetAndClearStickyError();
+        
+        // Wait until Core halted
+        
+        u32TimeOut = 100;
+        cBreak = 0;
+        while(cBreak == 0)
+        {
+            u32TimeOut -= 1;
+            
+            u32ReadData = _ReadViaApb(u32DebugStatusControlRegisterAddressApb);
+            
+            if(_GetAndClearStickyError() == 1)
+            {
+                cBreak = 1;
+                cError = 1;
+                Report("--- FSEU script --- ERROR: Reading Debug Status & Control register caused the StickyError flag to be set!");
+            }
+            else if ((u32ReadData & 0x1) != 0) // Check if core is halted
+            {
+                cBreak = 1;
+                cError = 0;
+                Report("--- FSEU script --- OK: Core is halted now");
+            }
+            else if (u32TimeOut == 0)
+            {
+                cBreak = 1;
+                cError = 1;
+                Report("--- FSEU script --- ERROR: Core could not be halted (time-out reached)!");
+            }
+        }
+    }
+    
+    return cError;
+}
+
+
+/*********************************************************************
+*
+*  DisableWatchdog
+*
+*  Disables Watchdog permanently (WDG_CFG_WD_EN_RUN = 0  and  
+*  WDG_CFG_WD_EN_PSS = 0) or only in debug state (WDG_CFG_DEBUG_EN = 1)
+*  depending on the specified parameter.
+*  Afterwards the Watchdog configuration is locked (WDG_CFG_LOCK = 1)
+*
+*  Parameter:
+*  - cOnlyInDebugState:   0: Disable WDG permanently
+*                         1 (or other): Disable WDG only in debug (break) state
+*
+*  Return value:
+*  - cError:    0 if WDG configuration was successful otherwise 1
+*/
+char DisableWatchdog(char cOnlyInDebugState)
+{
+    char cError;
+    unsigned int u32RegisterProtectionKey;
+    unsigned int u32WdgCfgBeforeConfiguration;
+    unsigned int u32WdgCfgAfterConfiguration;
+    unsigned int u32WdgProtAddressAhb;
+    unsigned int u32WdgCfgAddressAhb;
+    unsigned int u32WdgCfgRegisterValue;
+    
+    cError = 0;
+
+    // WDG register addresses (AHB)
+    u32WdgProtAddressAhb = 0xb0608000;
+    u32WdgCfgAddressAhb  = 0xb0608048;
+
+    // WDG register protection key
+    u32RegisterProtectionKey = 0xedacce55;
+
+    // Read - modify - write WDG_CFG register
+    _GetAndClearStickyError();
+    u32WdgCfgBeforeConfiguration = _ReadViaAhb(u32WdgCfgAddressAhb);
+    
+    if(0 == cOnlyInDebugState)
+    {                           //              Clear WD_EN_RUN, WD_EN_PSS      Set LOCK
+        u32WdgCfgRegisterValue = (u32WdgCfgBeforeConfiguration & 0xfffffffc) | 0x01000000;
+    }
+    else
+    {                                                    // Set LOCK and DEBUG_EN
+        u32WdgCfgRegisterValue = u32WdgCfgBeforeConfiguration | 0x01000008;
+    }
+
+    _WriteViaAhb(u32WdgProtAddressAhb, u32RegisterProtectionKey);
+    _WriteViaAhb(u32WdgCfgAddressAhb, u32WdgCfgRegisterValue);
+
+    u32WdgCfgAfterConfiguration = _ReadViaAhb(u32WdgCfgAddressAhb);
+    
+    if(_GetAndClearStickyError() != 0)
+    {
+        cError = 1;
+        Report("--- FSEU script --- ERROR: Accessing Watchdog registers caused the StickyError flag to be set!");
+    }
+    else if(u32WdgCfgAfterConfiguration != u32WdgCfgRegisterValue)
+    {
+        cError = 1;
+        Report("--- FSEU script --- ERROR: Watchdog configuration could not be changed!");
+    }
+    else
+    {
+        cError = 0;
+        Report("--- FSEU script --- OK: Watchdog configured");
+    }
+    
+    // Debug
+    // Report1("WDG_CFG before change: ", u32WdgCfgBeforeConfiguration);
+    // Report1("WDG_CFG after change: ",  u32WdgCfgAfterConfiguration);
+
+    return cError;
+}
+
+
+/*********************************************************************
+*
+*  SetSysRamWaitCycles
+*
+*  Write SYSRAM read/wait cycles to 0 (for debugging from SYSRAM) to
+*  prevent changing of wait cycles during code execution from SYSRAM
+*
+*  Return value:
+*  - cError:    0 if it was successful otherwise 1
+*/
+char SetSysRamWaitCycles(void)
+{
+    char cError;
+    unsigned int u32RegisterUnlockKey;
+    unsigned int u32RegisterLockKey;
+    unsigned int u32SrcfgCfg0AfterConfiguration;
+    unsigned int u32SrcfgCfg0AddressAhb;
+    unsigned int u32SrcfgKeyAddressAhb;
+    
+    cError = 0;
+
+    // SRCFG register addresses (AHB)
+    u32SrcfgCfg0AddressAhb = 0xb0d00000;
+    u32SrcfgKeyAddressAhb  = 0xb0d0000c;
+
+    // SRCFG register lock/unlock key
+    u32RegisterUnlockKey = 0x5ecc551f;
+    u32RegisterLockKey   = 0x551fb10c;
+
+    _GetAndClearStickyError();
+    
+    _WriteViaAhb(u32SrcfgKeyAddressAhb, u32RegisterUnlockKey); // Unlock SRCFG registers
+    _WriteViaAhb(u32SrcfgCfg0AddressAhb, 0x00000000);          // Set 0 to RDWAIT and WRWAIT in SRCFG
+    _WriteViaAhb(u32SrcfgKeyAddressAhb, u32RegisterLockKey);   // Lock SRCFG registers again
+
+    u32SrcfgCfg0AfterConfiguration = _ReadViaAhb(u32SrcfgCfg0AddressAhb); // Read back
+        
+    if(_GetAndClearStickyError() != 0)
+    {
+        cError = 1;
+        Report("--- FSEU script --- ERROR: Trying to change System RAM wait cycles caused the StickyError flag to be set!");
+    }
+    else if((u32SrcfgCfg0AfterConfiguration & 0x03030000) == 0)
+    {
+        cError = 0;
+        Report("--- FSEU script --- OK: System RAM wait cycles changed");
+    }
+    else
+    {
+        cError = 1;
+        Report("--- FSEU script --- ERROR: System RAM wait cycles could not be changed!");
+    }
+    
+    // Debug
+    // Report1("SRCFG_CFG0 after change: ",  u32SrcfgCfg0AfterConfiguration);
+
+    return cError;
+}
+
+
+/*********************************************************************
+*
+*  ExecuteInitSequence
+*
+*  Executes the functions in the correct order that are required after
+*  every reset. 
+*/
+void ExecuteInitSequence(void)
+{
+    GetId();
+    
+    WaitForDebugReady();
+    
+    // Pass the security key here if the MCU is secured, otherwise key values are "don't care"
+    UnlockDevice(0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff);
+
+    HaltCore();
+    
+    DisableWatchdog(0);
+    
+    SetSysRamWaitCycles(); // only required if "debug_sysram" build configuration is selected
+}
+
+
+
+
+
+// ###################################################################
+//  S E G G E R   C A L L B A C K   F U N C T I O N S
+// ###################################################################
+
+/*********************************************************************
+*
+*  ResetTarget
+*
+*  Standard/Pre-defined SEGGER function that replaces
+*  the reset functionality of the DLL/J-Link.
+*/
+void ResetTarget(void)
+{
+    Report("--- FSEU script --- ResetTarget() from JLinkScript is executed");
+    
+    ResetMcu(1);
+    
+    // Adaption to customer hardware may be required
+    SYS_Sleep(300); // Mandatory only for starterkit SK-MB9EF120-001, can be removed if used with other FSEU starterkits
+    
+    ExecuteInitSequence();
+}
+
+
+
+/*********************************************************************
+*
+*  InitTarget
+*
+*  Standard/Pre-defined SEGGER function that replaces the auto-detection
+*  capability of J-Link and allows to setup custom initialisation commands
+*/
+void InitTarget(void)
+{
+    //--------------------------------------------------------------------------------------------------
+    JTAG_Speed         = 1000;
+    JTAG_DRPre         = 0;         // Number of devices closer to TDO than the device J-Link talks to
+    JTAG_DRPost        = 0;         // Number of devices closer to TDI than the device J-Link talks to
+    JTAG_IRPre         = 0;         // Total IRLen of all devices which are closer to TDO than the device J-Link talks to
+    JTAG_IRPost        = 0;         // Total IRLen of all devices which are closer to TDI than the device J-Link talks to
+    JTAG_IRLen         = 4;         // IRLen of Cortex-R4
+    CPU                = CORTEX_R4; // It is a Cortex-R4 core
+    JTAG_AllowTAPReset = 1;         // En-/Disables auto-JTAG-detection of J-Link. Has to be disabled for 
+                                    // devices which need some special init which is lost at a TAP reset.
+                                    // Allowed values
+                                    // - 0: Auto-detection is enabled.
+                                    // - 1: Auto-detection is disabled.
+    //--------------------------------------------------------------------------------------------------
+
+    Report("--- FSEU script --- InitTarget() from JLinkScript is executed");
+    
+    //--------------------------------------------------------------------------------------------------
+    // Following function is the correct reset flow, but it cannot be executed yet together with IAR
+    // because pressing the reset button in IAR IDE will call both callbacks InitTarget() and ResetTarget()
+    // which is a wrong behaviour and will be fixed by Segger in future J-Link driver version.
+    // Problem occurs because InitTarget() would then assert a JTAG reset that destroys all debug settings
+    //
+    // ResetAllAndSetDebuggerConnectedFlag();
+    //
+    // Temporary workaround:     
+    JTAG_WriteClocks(20);
+    ResetMcu(1);
+    //--------------------------------------------------------------------------------------------------
+    
+    // Adaption to customer hardware may be required
+    SYS_Sleep(300); // Mandatory only for starterkit SK-MB9EF120-001, can be removed if used with other FSEU starterkits
+
+    PowerUpDebugPort();
+    InitAccessPorts();
+
+    ExecuteInitSequence();
+}
+
