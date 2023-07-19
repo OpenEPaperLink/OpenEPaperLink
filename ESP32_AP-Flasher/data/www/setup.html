@@ -1,0 +1,52 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+
+    <title>setup page - Open EPaper Link Access Point</title>
+    <link rel="stylesheet" href="main.css" type="text/css" />
+    <link rel="icon" type="image/vnd.icon" href="favicon.ico">
+    <style>
+        .window input {
+            width: 120px;
+        }
+        h1 {
+            padding-top: 20px;
+        }
+        option, select {
+            font-family: monospace, 'lucida console', 'Courier New', Courier;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="logo">Open EPaper Link Access Point</div>
+    </header>
+
+    <div class="container">
+        <div class="window">
+            <h1>WiFi config</h1>
+            <pre>
+SSID            <input type="text" id="ssid"> <button id="listssid">find SSID</button>
+Password        <input type="password" id="pw">
+            </pre>
+            <p>Fill in fields below for static IP. Otherwise, leave empty.<br></p>
+            <pre>
+Static IP       <input type="text" id="ip">
+Subnet mask     <input type="text" id="mask">
+Gateway         <input type="text" id="gw">
+DNS             <input type="text" id="dns">
+            </pre>
+
+            <button id="connect">Save WiFi settings and reboot</button><br>
+
+        </div>
+    </div>
+    <script src="setup.js"></script>
+
+</body>
+
+</html>

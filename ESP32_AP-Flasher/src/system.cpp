@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <FS.h>
+#include <Preferences.h>
 #include <sntp.h>
 
 #include "storage.h"
@@ -16,7 +17,7 @@ void initTime(void* parameter) {
     sntp_set_sync_interval(300 * 1000);
     configTzTime(config.timeZone, "nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
     struct tm timeinfo;
-    while (true) {
+    while (millis() < 30000) {
         if (!getLocalTime(&timeinfo)) {
             Serial.println("Waiting for valid time from NTP-server");
             vTaskDelay(1000 / portTICK_PERIOD_MS);

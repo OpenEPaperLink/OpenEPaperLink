@@ -6,7 +6,7 @@
 void init_web();
 void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
 void doJsonUpload(AsyncWebServerRequest *request);
-extern void webSocketSendProcess(void *parameter);
+extern void networkProcess(void *parameter);
 void wsLog(String text);
 void wsErr(String text);
 void wsSendTaginfo(uint8_t *mac, uint8_t syncMode);

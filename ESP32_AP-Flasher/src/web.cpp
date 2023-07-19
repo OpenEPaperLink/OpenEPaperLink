@@ -6,12 +6,13 @@
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include <FS.h>
-#include "storage.h"
+#include <Preferences.h>
+#include <WiFi.h>
+
+#include "ArduinoJson.h"
+#include "AsyncJson.h"
 #include "LittleFS.h"
 #include "SPIFFSEditor.h"
-#include <WiFi.h>
-#include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager/tree/feature_asyncwebserver
-
 #include "commstructs.h"
 #include "language.h"
 #include "leds.h"
@@ -19,8 +20,10 @@
 #include "ota.h"
 #include "serialap.h"
 #include "settings.h"
+#include "storage.h"
 #include "tag_db.h"
 #include "udp.h"
+#include "wifimanager.h"
 
 extern uint8_t data_to_send[];
 
@@ -28,38 +31,17 @@ extern uint8_t data_to_send[];
 // const char *http_password = "admin";
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
+WifiManager wm;
 
 SemaphoreHandle_t wsMutex;
+uint32_t lastssidscan = 0;
 
-void webSocketSendProcess(void *parameter) {
+void networkProcess(void *parameter) {
     wsMutex = xSemaphoreCreateMutex();
     while (true) {
         ws.cleanupClients();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-}
-
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-#ifdef HAS_RGB_LED
-    shortBlink(CRGB::BlueViolet);
-#endif
-    switch (type) {
-        case WS_EVT_CONNECT:
-            ets_printf("ws[%s][%u] connect\n", server->url(), client->id());
-            // client->ping();
-            break;
-        case WS_EVT_DISCONNECT:
-            ets_printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
-            break;
-        case WS_EVT_ERROR:
-            ets_printf("WS Error received :(\n\n");
-            // ets_printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *)arg), (char *)data);
-            break;
-        case WS_EVT_PONG:
-            ets_printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len) ? (char *)data : "");
-            break;
-        case WS_EVT_DATA:
-            break;
+        wm.poll();
+        vTaskDelay(50 / portTICK_PERIOD_MS);
     }
 }
 
@@ -185,22 +167,13 @@ void init_web() {
     Storage.begin();
     WiFi.mode(WIFI_STA);
 
-    WiFiManager wm;
-    bool res;
     WiFi.setTxPower(static_cast<wifi_power_t>(config.wifiPower));
-    wm.setWiFiAutoReconnect(true);
-    res = wm.autoConnect("OpenEPaperLink Setup");
-    if (!res) {
-        Serial.println("Failed to connect");
-        ESP.restart();
-    }
-    Serial.print("Connected! IP address: ");
-    Serial.println(WiFi.localIP());
+
+    wm.connectToWifi();
 
     // server.addHandler(new SPIFFSEditor(*contentFS, http_username, http_password));
     server.addHandler(new SPIFFSEditor(*contentFS));
 
-    ws.onEvent(onEvent);
     server.addHandler(&ws);
 
     server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
@@ -385,6 +358,79 @@ void init_web() {
         }
         request->send(200, "text/plain", "Ok, saved");
     });
+
+    // setup
+
+    server.on("/setup", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(*contentFS, "/www/setup.html");
+    });
+
+    server.on("/get_wifi_config", HTTP_GET, [](AsyncWebServerRequest *request) {
+        Preferences preferences;
+        AsyncResponseStream *response = request->beginResponseStream("application/json");
+        StaticJsonDocument<250> doc;
+        preferences.begin("wifi", false);
+        const char *keys[] = {"ssid", "pw", "ip", "mask", "gw", "dns"};
+        const size_t numKeys = sizeof(keys) / sizeof(keys[0]);
+        for (size_t i = 0; i < numKeys; i++) {
+            doc[keys[i]] = preferences.getString(keys[i], "");
+        }
+        serializeJson(doc, *response);
+        request->send(response);
+    });
+
+    server.on("/get_ssid_list", HTTP_GET, [](AsyncWebServerRequest *request) {
+        AsyncResponseStream *response = request->beginResponseStream("application/json");
+        DynamicJsonDocument doc(5000);
+
+        doc["scanstatus"] = WiFi.scanComplete();
+        JsonArray networks = doc.createNestedArray("networks");
+        for (int i = 0; i < (WiFi.scanComplete() > 50 ? 50 : WiFi.scanComplete()); ++i) {
+            if (WiFi.SSID(i) != "") {
+                JsonObject network = networks.createNestedObject();
+                network["ssid"] = WiFi.SSID(i);
+                network["ch"] = WiFi.channel(i);
+                network["rssi"] = WiFi.RSSI(i);
+                network["enc"] = WiFi.encryptionType(i);
+            }
+        }
+        if (WiFi.scanComplete() != -1 && (WiFi.scanComplete() == -2 || millis() - lastssidscan > 30000)) {
+            WiFi.scanDelete();
+            Serial.println("start scanning");
+            WiFi.scanNetworks(true, true);
+            lastssidscan = millis();
+        }
+
+        serializeJson(doc, *response);
+        request->send(response);
+    });
+
+    AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/save_wifi_config", [](AsyncWebServerRequest *request, JsonVariant &json) {
+        const JsonObject &jsonObj = json.as<JsonObject>();
+        Preferences preferences;
+        preferences.begin("wifi", false);
+        const char *keys[] = {"ssid", "pw", "ip", "mask", "gw", "dns"};
+        const size_t numKeys = sizeof(keys) / sizeof(keys[0]);
+        for (size_t i = 0; i < numKeys; i++) {
+            String key = keys[i];
+            if (jsonObj.containsKey(key)) {
+                preferences.putString(key.c_str(), jsonObj[key].as<String>());
+            }
+        }
+        preferences.end();
+        Serial.println("config saved");
+        request->send(200, "text/plain", "Ok, saved");
+
+        ws.enable(false);
+        refreshAllPending();
+        saveDB("/current/tagDB.json");
+        ws.closeAll();
+        delay(100);
+        ESP.restart();
+    });
+    server.addHandler(handler);
+
+    // end of setup
 
     server.on("/backup_db", HTTP_GET, [](AsyncWebServerRequest *request) {
         saveDB("/current/tagDB.json");

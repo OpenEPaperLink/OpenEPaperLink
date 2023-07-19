@@ -1,7 +1,6 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiManager.h>
 #include <time.h>
 
 #include "storage.h"
@@ -74,7 +73,7 @@ void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
 
-    pinTest();
+    // pinTest();
 #ifdef BOARD_HAS_PSRAM
     if (!psramInit()) {
         Serial.printf("This build of the AP expects PSRAM, but we couldn't find/init any. Something is terribly wrong here! System halted.");
@@ -135,7 +134,7 @@ void setup() {
     loadDB("/current/tagDB.json");
     // tagDBOwner = xSemaphoreCreateMutex();
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
-    xTaskCreate(webSocketSendProcess, "ws", 2000, NULL, configMAX_PRIORITIES - 10, NULL);
+    xTaskCreate(networkProcess, "Wifi", 2000, NULL, configMAX_PRIORITIES - 10, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
     config.runStatus = RUNSTATUS_INIT;

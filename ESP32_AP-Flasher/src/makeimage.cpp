@@ -91,6 +91,7 @@ uint8_t *spr2color(TFT_eSprite &spr, imgParam &imageParams, size_t *buffer_size,
     uint8_t *buffer = (uint8_t*) malloc(*buffer_size);
     if (!buffer) {
         Serial.println("Failed to allocate buffer");
+        Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
         return nullptr;
     }
     memset(buffer, 0, *buffer_size);
