@@ -1164,10 +1164,23 @@ void showIpAddress(String dst) {
             json += String("{\"text\": [0,25,\"MAC:\",\"fonts/bahnschrift20\",1]}");
             json += String(",");
             json += String("{\"text\": [10,55,\"") + dst + String("\",\"glasstown_nbp_tf\",1]}");
-            json += String(",");
-            json += String("{\"text\": [0,65,\"IP:\",\"fonts/bahnschrift20\",1]}");
-            json += String(",");
-            json += String("{\"text\": [0,85,\"") + WiFi.localIP().toString() + String("\",\"fonts/bahnschrift20\",1]}");
+
+            if ((uint32_t)WiFi.localIP() == (uint32_t)0) {
+                json += String(",");
+                json += String("{\"text\": [0,65,\"Connect to my \",\"fonts/bahnschrift20\",1]}");
+                json += String(",");
+                json += String("{\"text\": [0,85,\"WiFi, browse to:\",\"fonts/bahnschrift20\",1]}");
+                json += String(",");
+                json += String("{\"text\": [0,105,\"192.168.4.1/setup\",\"fonts/bahnschrift20\",1]}");
+                json += String(",");
+                json += String("{\"text\": [0,125,\"to configure me\",\"fonts/bahnschrift20\",1]}");
+            } else {
+                json += String(",");
+                json += String("{\"text\": [0,65,\"IP:\",\"fonts/bahnschrift20\",1]}");
+                json += String(",");
+                json += String("{\"text\": [0,85,\"") + WiFi.localIP().toString() + String("\",\"fonts/bahnschrift20\",1]}");
+            }
+
             json += String("]");
             File file = LittleFS.open("/" + dst + ".json", "w");
             if (!file) {
