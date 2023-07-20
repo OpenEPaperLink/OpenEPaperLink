@@ -42,189 +42,33 @@ char macStr[32];
 char macStr1[32];
 uint8_t mSelfMac[8];
 
-struct BitmapFileHeader
+void prvApplyUpdateIfNeeded()
 {
-    uint8_t sig[2];
-    uint32_t fileSz;
-    uint8_t rfu[4];
-    uint32_t dataOfst;
-    uint32_t headerSz; // 40
-    int32_t width;
-    int32_t height;
-    uint16_t colorplanes; // must be one
-    uint16_t bpp;
-    uint32_t compression;
-    uint32_t dataLen; // may be 0
-    uint32_t pixelsPerMeterX;
-    uint32_t pixelsPerMeterY;
-    uint32_t numColors; // if zero, assume 2^bpp
-    uint32_t numImportantColors;
-
-} __attribute__((packed));
-
-struct BitmapClutEntry
-{
-    uint8_t b, g, r, x;
-} __attribute__((packed));
-
-void prvEepromIndex(struct EepromContentsInfo *eci)
-{
-    struct EepromImageHeaderOld eih;
-    uint32_t addr;
-
-    for (addr = EEPROM_IMG_START; addr - EEPROM_IMG_START < EEPROM_IMG_LEN; addr += EEPROM_IMG_EACH)
-    {
-
-        uint32_t *addrP, *szP = NULL;
-        uint64_t *verP = NULL;
-
-        FLASH_Read(0, addr, (uint8_t *)&eih, sizeof(struct EepromImageHeaderOld));
-        printf("DATA slot 0x%06x: type 0x%08x ver 0x%08x%08x\r\n", addr, eih.validMarker, (uint32_t)(eih.version >> 32), (uint32_t)eih.version);
-
-        switch (eih.validMarker)
-        {
-        case EEPROM_IMG_INPROGRESS:
-            verP = &eci->latestInprogressImgVer;
-            addrP = &eci->latestInprogressImgAddr;
-            break;
-
-        case EEPROM_IMG_VALID:
-            verP = &eci->latestCompleteImgVer;
-            addrP = &eci->latestCompleteImgAddr;
-            szP = &eci->latestCompleteImgSize;
-            break;
-        }
-
-        if (verP && eih.version >= *verP)
-        {
-            *verP = eih.version;
-            *addrP = addr;
-            if (szP)
-                *szP = eih.size;
-        }
-    }
-}
-
-static bool prvApplyUpdateIfNeeded(struct Settings *settings) // return true if a reboot is needed
-{
-    struct EepromImageHeaderOld eih;
     uint32_t ofst, now, size, pieceSz = 0x2000;
     uint8_t chunkStore[0x2000];
-    bool reboot = false;
+    (*(volatile unsigned int *)0x130000) = 0; // Invalidate RAM in any case so the next boot will be a full one
+    (*(volatile unsigned int *)0x130400) = 0;
 
-    FLASH_Read(0, EEPROM_UPDATE_START, (uint8_t *)&eih, sizeof(struct EepromImageHeaderOld));
+    printf("Applying update\r\n");
+    qspiEraseRange(EEPROM_OS_START, EEPROM_OS_LEN);
 
-    if (eih.validMarker != EEPROM_IMG_VALID)
+    size = EEPROM_OS_LEN;
+    for (ofst = 0; ofst < size; ofst += now)
     {
-        printf("Not IMG_VALID 0x%08x\r\n", eih.validMarker);
-        return false;
+        now = size - ofst;
+        if (now > pieceSz)
+            now = pieceSz;
+        printf("Cpy 0x%06x + 0x%04x to 0x%06x\r\n", EEPROM_UPDATE_START + ofst, now, EEPROM_OS_START + ofst);
+        FLASH_Read(0, EEPROM_UPDATE_START + ofst, chunkStore, now);
+        FLASH_Write(false, EEPROM_OS_START + ofst, chunkStore, now);
+        WDT_RestartCounter();
     }
 
-    if (eih.version > mCurVersionExport)
-    {
-        printf("Applying update to ver 0x%08x%08x\r\n", (uint32_t)(eih.version >> 32), (uint32_t)eih.version);
-
-        printf("Erz 0x%06x .. 0x%06x\r\n", EEPROM_OS_START, EEPROM_OS_START + eih.size - 1);
-        qspiEraseRange(EEPROM_OS_START, eih.size);
-
-        size = eih.size;
-        // from now on, eih (screenbuffer) will be reused for temp storage
-
-        for (ofst = 0; ofst < size; ofst += now)
-        {
-
-            now = size - ofst;
-            if (now > pieceSz)
-                now = pieceSz;
-
-            printf("Cpy 0x%06x + 0x%04x to 0x%06x\r\n", EEPROM_UPDATE_START + ofst + sizeof(struct EepromImageHeaderOld), now, EEPROM_OS_START + ofst);
-            FLASH_Read(0, EEPROM_UPDATE_START + ofst + sizeof(struct EepromImageHeaderOld), chunkStore, now);
-            FLASH_Write(false, EEPROM_OS_START + ofst, chunkStore, now);
-
-            WDT_RestartCounter();
-        }
-
-        reboot = true;
-    }
-
-    settings->isPaired = 0;
     printf("Erz IMAGES\r\n");
     qspiEraseRange(EEPROM_IMG_START, EEPROM_IMG_LEN);
     printf("Erz update\r\n");
     qspiEraseRange(EEPROM_UPDATE_START, EEPROM_UPDATE_LEN);
-    return reboot;
-}
-
-static void prvFillTagState(struct Settings *settings, struct TagState *state)
-{
-    state->hwType = HW_TYPE_74_INCH_BWR;
-    state->swVer = mCurVersionExport;
-    state->batteryMv = measureBattery();
-}
-
-static bool prvSendCheckin(struct Settings *settings, struct CommsInfo *ci, struct PendingInfo *out)
-{
-    struct
-    {
-        uint8_t pktTyp;
-        struct CheckinInfo cii;
-    } packet = {};
-    uint8_t rx[COMMS_MAX_PACKET_SZ], fromMac[8];
-    uint64_t now;
-
-    packet.pktTyp = PKT_CHECKIN;
-    prvFillTagState(settings, &packet.cii.state);
-
-    packet.cii.lastPacketLQI = settings->lastRxedLQI;
-    packet.cii.lastPacketRSSI = settings->lastRxedRSSI;
-    packet.cii.temperature = measureTemp();
-    packet.cii.rfu[0] = 1;
-
-    if (!commsTx(ci, false, &packet, sizeof(packet)))
-    {
-        printf("Fail to TX checkin\r\n");
-        return false;
-    }
-
-    now = timerGet();
-    while (timerGet() - now < TIMER_TICKS_PER_MSEC * COMMS_MAX_RADIO_WAIT_MSEC)
-    {
-
-        int32_t ret;
-
-        WDT_RestartCounter();
-        ret = commsRx(ci, rx, fromMac);
-
-        if (ret == COMMS_RX_ERR_NO_PACKETS)
-            continue;
-
-        printf("RX pkt: 0x%02x + %d\r\n", rx[0], ret);
-
-        if (ret == COMMS_RX_ERR_MIC_FAIL)
-        {
-
-            printf("RX: invalid MIC\r\n");
-            return false;
-        }
-
-        if (ret < sizeof(uint8_t) + sizeof(struct PendingInfo))
-        {
-
-            printf("RX: %d < %d\r\n", ret, sizeof(uint8_t) + sizeof(struct PendingInfo));
-            return false;
-        }
-
-        if (rx[0] != PKT_CHECKOUT)
-        {
-            printf("RX: pkt 0x%02x @ %s\r\n", rx[0], "checkin");
-            return false;
-        }
-
-        *out = *(struct PendingInfo *)(rx + 1);
-        return true;
-    }
-
-    return false;
+    sleep_with_with_wakeup(1000);
 }
 
 static const char *fwVerString(void)
@@ -255,7 +99,7 @@ void uiPrvFullscreenMsg(const char *str, const char *line2, const char *line3)
     if (NO_GUI == 1)
         return; // Make everything faster for debugging.!!!!
     init_epd();
-    display_send_start(0);
+    display_send_start(false);
 
     rowIdx = 0;
 
@@ -322,335 +166,43 @@ void uiPrvFullscreenMsg(const char *str, const char *line2, const char *line3)
     epd_refresh_and_sleep();
 }
 
-uint8_t offline_state = 0;
-void set_offline(uint8_t state)
+void prvEepromIndex(struct EepromContentsInfo *eci)
 {
-    offline_state = state;
-}
+    struct EepromImageHeader eih;
+    uint32_t addr;
 
-static void uiPrvDrawBitmap(uint32_t address, uint32_t size)
-{
-    uint32_t w, h, s, r, c, i, bpp, effectiveH, effectiveW, clutSz;
-    struct BitmapFileHeader bmp;
-    uint8_t clutOurs[64], rowBuf[1000];
-    struct BitmapClutEntry clut[64];
-    uint32_t curr_address;
-
-    if (size < sizeof(struct BitmapFileHeader))
-        return;
-
-    FLASH_Read(0, address, (uint8_t *)&bmp, sizeof(struct BitmapFileHeader));
-
-    if (bmp.sig[0] == 0x1F || bmp.sig[1] == 0x8b)
+    for (addr = EEPROM_IMG_START; addr - EEPROM_IMG_START < EEPROM_IMG_LEN; addr += EEPROM_IMG_EACH)
     {
-        char error_reason[100];
-        memset(error_reason, 0x00, sizeof(error_reason));
-        printf("Decomp img\r\n");
-        size = decompress_file(address, size, EEPROM_UPDATE_START + sizeof(struct EepromImageHeaderOld), EEPROM_UPDATE_LEN - sizeof(struct EepromImageHeaderOld), error_reason); // Use the OTA so save file temporarly
-        if (size == 0)
+
+        uint32_t *addrP, *szP = NULL;
+        uint64_t *verP = NULL;
+
+        FLASH_Read(0, addr, (uint8_t *)&eih, sizeof(struct EepromImageHeader));
+        printf("DATA slot 0x%06x: type 0x%08x ver 0x%08x%08x\r\n", addr, eih.validMarker, (uint32_t)(eih.version >> 32), (uint32_t)eih.version);
+
+        switch (eih.validMarker)
         {
-            printf("failed\r\n");
-            uiPrvFullscreenMsg("Decomp failed", error_reason, fwVerString());
-            return;
+        case EEPROM_IMG_INPROGRESS:
+            verP = &eci->latestInprogressImgVer;
+            addrP = &eci->latestInprogressImgAddr;
+            break;
+
+        case EEPROM_IMG_VALID:
+            verP = &eci->latestCompleteImgVer;
+            addrP = &eci->latestCompleteImgAddr;
+            szP = &eci->latestCompleteImgSize;
+            break;
         }
-        FLASH_Read(0, address, (uint8_t *)&bmp, sizeof(struct BitmapFileHeader));
-        printf("Decomp draw\r\n");
-    }
 
-    if (bmp.sig[0] != 'B' || bmp.sig[1] != 'M')
-    {
-        printf("Sig wrong!!!\r\n");
-        uiPrvFullscreenMsg("Sig wrong", NULL, fwVerString());
-        return;
-    }
-
-    if (bmp.headerSz < 40 || bmp.colorplanes != 1 || bmp.compression || !bmp.height || bmp.width <= 0 || bmp.bpp > 8)
-    {
-        printf("Header wrong\r\n");
-        uiPrvFullscreenMsg("Header wrong", NULL, fwVerString());
-        return;
-    }
-
-    if (bmp.height >= 0)
-    {
-        h = bmp.height;
-    }
-    else
-    {
-        h = -bmp.height;
-    }
-    w = bmp.width;
-    bpp = bmp.bpp;
-    s = (w * bpp + 31) / 32 * 4;
-    clutSz = bmp.numColors;
-    if (!clutSz)
-        clutSz = 1 << bpp;
-
-    // clut does not always follow header(ask GIMP why), but it does precede data
-    // clut = (struct BitmapClutEntry *)(((char *)data) + bmp.dataOfst - sizeof(struct BitmapClutEntry) * clutSz);
-    FLASH_Read(0, address + bmp.dataOfst - (sizeof(struct BitmapClutEntry) * clutSz), (uint8_t *)&clut, sizeof(struct BitmapClutEntry) * clutSz);
-
-    // convert clut to our understanding of color
-    for (i = 0; i < clutSz; i++)
-    {
-        uint32_t intensity = 0;
-
-        intensity += 13988 * clut[i].r;
-        intensity += 47055 * clut[i].g;
-        intensity += 4750 * clut[i].b;
-        // our colors are opposite of brightness, so we need to invert this too
-        intensity ^= 0x00ffffff;
-
-        clutOurs[i] = intensity >> (24 - 3);
-    }
-    curr_address = address + size - s;
-
-    effectiveH = (h > DISPLAY_HEIGHT) ? DISPLAY_HEIGHT : h;
-    effectiveW = (w > DISPLAY_WIDTH) ? DISPLAY_WIDTH : w;
-
-    init_epd();
-    display_send_start(0);
-    uint8_t prevVal = 0;
-    for (r = 0; r < effectiveH; r++)
-    {
-        // get a row
-        if (offline_state && r == 0)
-            memset(&rowBuf, 0xAA, s);
-        else if (offline_state && r == 1)
-            memset(&rowBuf, 0xff, s);
-        else if (offline_state && r == 2)
-            memset(&rowBuf, 0xAA, s);
-        else
+        if (verP && eih.version >= *verP)
         {
-            FLASH_Read(0, curr_address, rowBuf, s);
-        }
-        //  convert to our format
-        for (c = effectiveW; c > 0; c--)
-        {
-            uint32_t val, inByteIdx = (c - 1) * bpp / 8, inSubbyteIdx = (c - 1) * bpp % 8, inBitMask = (1 << bpp) - 1, inBitIdx = 8 - bpp - inSubbyteIdx;
-            // get value
-            val = (rowBuf[inByteIdx] >> inBitIdx) & inBitMask;
-            // look up in our clut
-            val = clutOurs[val];
-
-            switch (val)
-            {
-            case 0:
-                val = 3;
-                break;
-            case 6:
-                val = 4;
-                break;
-            case 7:
-                val = 0;
-                break;
-            }
-
-            if ((uint8_t)(c - 1) & 1)
-            {
-                prevVal = val;
-            }
-            else
-            {
-                display_tx_byte((prevVal << 4) | val);
-            }
-        }
-        WDT_RestartCounter();
-        curr_address -= s;
-    }
-    display_send_stop();
-    epd_refresh_and_sleep();
-}
-
-static void uiPrvDrawImageAtAddress(uint32_t addr, uint32_t size)
-{
-    printf("Drawing image now\r\n");
-    if (size < 6) // we need enough size to even sort out what this is, that needs 6 bytes
-        return;
-
-    uiPrvDrawBitmap(addr + sizeof(struct EepromImageHeaderOld), size);
-}
-
-void uiPrvDrawLatestImage(const struct EepromContentsInfo *eci)
-{
-    if (eci->latestCompleteImgAddr)
-        uiPrvDrawImageAtAddress(eci->latestCompleteImgAddr, eci->latestCompleteImgSize);
-}
-
-static uint32_t prvDriveDownload(struct Settings *settings, struct CommsInfo *ci, struct EepromImageHeaderOld *eih, uint32_t addr, bool isOS)
-{
-    struct
-    {
-        uint8_t pktTyp;
-        struct ChunkReqInfo cri;
-    } packet = {
-        .pktTyp = PKT_CHUNK_REQ,
-        .cri = {
-            .osUpdatePlz = isOS,
-        },
-    };
-    uint8_t rx[COMMS_MAX_PACKET_SZ];
-    const uint32_t nPieces = (eih->size + EEPROM_PIECE_SZ - 1) / EEPROM_PIECE_SZ;
-    struct ChunkInfo *chunk = (struct ChunkInfo *)(rx + 1);
-    uint8_t *data = (uint8_t *)(chunk + 1);
-    bool progressMade = false;
-    uint32_t curPiece;
-
-    // sanity check
-    if (nPieces > sizeof(eih->piecesMissing) * 8)
-    {
-        printf("DL too large: %u\r\n", eih->size);
-        return settings->checkinDelay;
-    }
-
-    // prepare the packet
-    packet.cri.versionRequested = eih->version;
-
-    // find where we are in downloading
-    for (curPiece = 0; curPiece < nPieces && !((eih->piecesMissing[curPiece / 8] >> (curPiece % 8)) & 1); curPiece++)
-        ;
-
-    printf("Requesting piece %u/%u of %s\r\n", curPiece, nPieces, isOS ? "UPDATE" : "IMAGE");
-
-    // download
-    for (; curPiece < nPieces; curPiece++)
-    {
-
-        uint_fast8_t now, nRetries;
-        uint64_t nowStart;
-        int32_t ret;
-
-        // any piece that is not last will be of standard size
-        if (curPiece != nPieces - 1)
-            now = EEPROM_PIECE_SZ;
-        else
-            now = eih->size - (nPieces - 1) * EEPROM_PIECE_SZ;
-
-        packet.cri.offset = curPiece * EEPROM_PIECE_SZ;
-        packet.cri.len = now;
-
-        for (nRetries = 0; nRetries < 5; nRetries++)
-        {
-
-            commsTx(ci, false, &packet, sizeof(packet));
-
-            nowStart = timerGet();
-            while (1)
-            {
-
-                if (timerGet() - nowStart > TIMER_TICKS_PER_MSEC * COMMS_MAX_RADIO_WAIT_MSEC)
-                {
-                    printf("RX timeout in download Piece: %i\r\n", curPiece);
-                    break;
-                }
-
-                WDT_RestartCounter();
-                ret = commsRx(ci, rx, settings->masterMac);
-
-                if (ret == COMMS_RX_ERR_NO_PACKETS)
-                    continue; // let it time out
-                else if (ret == COMMS_RX_ERR_INVALID_PACKET)
-                    continue; // let it time out
-                else if (ret == COMMS_RX_ERR_MIC_FAIL)
-                {
-                    printf("RX: invalid MIC\r\n");
-
-                    // mic errors are unlikely unless someone is deliberately messing with us - check in later
-                    goto checkin_again;
-                }
-                else if ((uint8_t)ret < (uint8_t)(sizeof(uint8_t) + sizeof(struct ChunkInfo)))
-                {
-                    printf("RX: %d < %d\r\n", ret, sizeof(uint8_t) + sizeof(struct AssocInfo));
-
-                    // server glitch? check in later
-                    return settings->checkinDelay;
-                }
-                else if (rx[0] != PKT_CHUNK_RESP)
-                {
-                    printf("RX: pkt 0x%02x @ %s\r\n", rx[0], "DL");
-
-                    // weird packet? worth retrying soner
-                    break;
-                }
-
-                // get payload len
-                ret -= sizeof(uint8_t) + sizeof(struct ChunkInfo);
-
-                if (chunk->osUpdatePlz != isOS)
-                {
-                    printf("RX: wrong data type @ DL: %d\r\n", chunk->osUpdatePlz);
-                    continue; // could be an accidental RX of older packet - ignore
-                }
-                else if (chunk->offset != packet.cri.offset)
-                {
-                    printf("RX: wrong offset @ DL 0x%08lx != 0x%08lx\r\n", chunk->offset, packet.cri.offset);
-                    continue; // could be an accidental RX of older packet - ignore
-                }
-                else if (!ret)
-                {
-                    printf("RX: DL no longer avail\r\n");
-
-                    // just check in later
-                    goto checkin_again;
-                }
-                else if (ret != packet.cri.len)
-                {
-
-                    printf("RX: Got %ub, reqd %u\r\n", ret, packet.cri.len);
-
-                    // server glitch? check in later
-                    goto checkin_again;
-                }
-
-                // write data
-                FLASH_Write(false, addr + curPiece * EEPROM_PIECE_SZ + sizeof(struct EepromImageHeaderOld), data, ret);
-
-                // write marker
-                eih->piecesMissing[curPiece / 8] &= ~(1 << (curPiece % 8));
-                FLASH_Write(false, addr + offsetof(struct EepromImageHeaderOld, piecesMissing[curPiece / 8]), &eih->piecesMissing[curPiece / 8], 1);
-
-                progressMade = true;
-                nRetries = 100; // so we break the loop
-                break;
-            }
-        }
-        if (nRetries == 5)
-        {
-            printf("retried too much\r\n");
-            if (progressMade)
-                goto retry_later;
-            else
-                goto checkin_again;
+            *verP = eih.version;
+            *addrP = addr;
+            if (szP)
+                *szP = eih.size;
         }
     }
-
-    // downloadDone:
-    printf("Done at piece %u/%u\r\n", curPiece, nPieces);
-    radioShutdown();
-
-    // if we are here, we succeeded in finishing the download
-    eih->validMarker = EEPROM_IMG_VALID;
-    FLASH_Write(false, addr + offsetof(struct EepromImageHeaderOld, validMarker), (uint8_t *)&eih->validMarker, sizeof(eih->validMarker));
-
-    printf("DL completed\r\n");
-    settings->prevDlProgress = 0xffff;
-    // act on it
-    if (!isOS)
-        uiPrvDrawImageAtAddress(addr, eih->size);
-    else if (prvApplyUpdateIfNeeded(settings))
-    {
-        printf("reboot post-update\r\n");
-        return 100;
-    }
-    // fallthrough
-
-checkin_again:
-    return settings->checkinDelay;
-
-retry_later:
-    return settings->retryDelay;
 }
-
 void prvWriteNewHeader(struct EepromImageHeaderOld *eih, uint32_t addr, uint32_t eeSize, uint64_t ver, uint32_t size)
 {
     qspiEraseRange(addr, eeSize);
@@ -662,243 +214,18 @@ void prvWriteNewHeader(struct EepromImageHeaderOld *eih, uint32_t addr, uint32_t
     FLASH_Write(false, addr, (uint8_t *)eih, sizeof(struct EepromImageHeaderOld));
 }
 
-static uint32_t prvDriveUpdateDownload(struct Settings *settings, struct CommsInfo *ci, uint64_t ver, uint32_t size)
+static void uiPrvDrawImageAtAddress(uint32_t addr, uint32_t size)
 {
-    struct EepromImageHeaderOld eih;
-    uint32_t ret;
+    printf("Drawing image now\r\n");
+    if (size < 6) // we need enough size to even sort out what this is, that needs 6 bytes
+        return;
 
-    // see what's there already
-    FLASH_Read(0, EEPROM_UPDATE_START, (uint8_t *)&eih, sizeof(struct EepromImageHeaderOld));
-    if (eih.version != ver)
-        prvWriteNewHeader(&eih, EEPROM_UPDATE_START, EEPROM_UPDATE_LEN, ver, size);
-
-    ret = prvDriveDownload(settings, ci, &eih, EEPROM_UPDATE_START, true);
-
-    return ret;
+    // uiPrvDrawBitmap(addr + sizeof(struct EepromImageHeader), size);
 }
-
-static uint32_t prvDriveImageDownload(struct Settings *settings, struct CommsInfo *ci, const struct EepromContentsInfo *eci, uint64_t ver, uint32_t size)
+void uiPrvDrawLatestImage(const struct EepromContentsInfo *eci)
 {
-    struct EepromImageHeaderOld eih;
-    uint32_t addr, ret;
-
-    // sort out where next image should live
-    if (eci->latestInprogressImgAddr)
-        addr = eci->latestInprogressImgAddr;
-    else if (!eci->latestCompleteImgAddr)
-        addr = EEPROM_IMG_START;
-    else
-    {
-        addr = eci->latestCompleteImgAddr + EEPROM_IMG_EACH;
-        if (addr >= EEPROM_IMG_START + EEPROM_IMG_LEN)
-            addr = EEPROM_IMG_START;
-    }
-
-    // see what's there already
-    FLASH_Read(0, addr, (uint8_t *)&eih, sizeof(struct EepromImageHeaderOld));
-    if (eih.version != ver)
-        prvWriteNewHeader(&eih, addr, EEPROM_IMG_EACH, ver, size);
-
-    ret = prvDriveDownload(settings, ci, &eih, addr, false);
-
-    return ret;
-}
-
-static void radioInitialize(uint8_t channel)
-{
-    RF_init(channel);
-    ZIGBEE_set_filter(PROTO_PAN_ID, 0xffff, (uint32_t *)mSelfMac, 1);
-}
-
-static uint32_t uiPaired(struct Settings *settings, struct CommsInfo *ci)
-{
-    struct EepromContentsInfo eci;
-    uint32_t i;
-    struct PendingInfo pi;
-
-    // do this before we turn on the radio, for power reasons
-
-    memset(&eci, 0x00, sizeof(eci));
-    prvEepromIndex(&eci);
-
-    radioInitialize(SETTING_CHANNEL_OFFSET + settings->channel);
-
-    // try five times
-    for (i = 0; i < 5 && !prvSendCheckin(settings, ci, &pi); i++)
-        ;
-
-    if (i == 5)
-    { // fail
-        radioShutdown();
-        printf("checkin fails\r\n");
-        settings->numFailedCheckins++;
-
-        if (settings->failedCheckinsTillDissoc && settings->numFailedCheckins == settings->failedCheckinsTillDissoc)
-        {
-            printf("Disassoc as %u = %u\r\n", settings->numFailedCheckins, settings->failedCheckinsTillDissoc);
-            settings->isPaired = 0;
-            settings->helperInit = 0;
-
-            return 1000; // wake up in a second to try to pair
-        }
-
-        if (settings->failedCheckinsTillBlank && settings->numFailedCheckins == settings->failedCheckinsTillBlank)
-        {
-            printf("Blank as %u = %u\r\n", settings->numFailedCheckins, settings->failedCheckinsTillBlank);
-            uiPrvFullscreenMsg("NO SIGNAL FOR TOO LONG", macStr, fwVerString());
-        }
-
-        // try again in due time
-        return settings->checkinDelay;
-    }
-
-    // if we got here, we succeeded with the check-in. if screen was blanked, redraw it
-    if (settings->failedCheckinsTillBlank && settings->numFailedCheckins >= settings->failedCheckinsTillBlank)
-        uiPrvDrawLatestImage(&eci);
-    settings->numFailedCheckins = 0;
-
-    printf("Base: %s ver 0x%08x%08x, us 0x%08x%08x\r\n", " OS",
-           (uint32_t)(pi.osUpdateVer >> 32), (uint32_t)pi.osUpdateVer,
-           (uint32_t)(mCurVersionExport >> 32), (uint32_t)mCurVersionExport);
-
-    printf("Base: %s ver 0x%08x%08x, us 0x%08x%08x\r\n", "IMG",
-           (uint32_t)(pi.imgUpdateVer >> 32), (uint32_t)pi.imgUpdateVer,
-           (uint32_t)(eci.latestCompleteImgVer >> 32), (uint32_t)eci.latestCompleteImgVer);
-
-    // if there is an update, we want it
-    if ((pi.osUpdateVer & VERSION_SIGNIFICANT_MASK) > (mCurVersionExport & VERSION_SIGNIFICANT_MASK))
-        return prvDriveUpdateDownload(settings, ci, pi.osUpdateVer, pi.osUpdateSize);
-
-    if (pi.imgUpdateVer > eci.latestCompleteImgVer)
-        return prvDriveImageDownload(settings, ci, &eci, pi.imgUpdateVer, pi.imgUpdateSize);
-
-    // nothing? guess we'll check again later
-    return settings->checkinDelay;
-}
-
-static uint32_t uiNotPaired(struct Settings *settings, struct CommsInfo *ci)
-{
-    struct
-    {
-        uint8_t pktType;
-        struct TagInfo ti;
-    } __attribute__((packed)) packet = {};
-    uint8_t rx[COMMS_MAX_PACKET_SZ];
-    uint64_t waitEnd, nowStart;
-    uint_fast8_t ch;
-    int32_t ret;
-    struct EepromContentsInfo eci;
-
-    packet.pktType = PKT_ASSOC_REQ;
-    packet.ti.protoVer = PROTO_VER_CURRENT;
-    prvFillTagState(settings, &packet.ti.state);
-    packet.ti.screenPixWidth = DISPLAY_WIDTH;
-    packet.ti.screenPixHeight = DISPLAY_HEIGHT;
-    packet.ti.screenMmWidth = DISPLAY_WIDTH_MM;
-    packet.ti.screenMmHeight = DISPLAY_HEIGHT_MM;
-    packet.ti.compressionsSupported = 0;
-    packet.ti.maxWaitMsec = COMMS_MAX_RADIO_WAIT_MSEC;
-    packet.ti.screenType = TagScreenEink_BW_1bpp;
-
-    memset(&eci, 0x00, sizeof(eci));
-    prvEepromIndex(&eci);
-    if (settings->helperInit != 1)
-    {
-        settings->helperInit = 1;
-        if (eci.latestCompleteImgAddr)
-        {
-            set_offline(1);
-            uiPrvDrawLatestImage(&eci);
-            set_offline(0);
-        }
-        else
-        {
-            sprintf(macStr, "(" MACFMT ")", MACCVT(mSelfMac));
-            uiPrvFullscreenMsg("READY TO ASSOCIATE", macStr, fwVerString());
-        }
-    }
-    else
-    {
-        printf("Assoc not displayed\n");
-    }
-    for (ch = 11; ch <= 11; ch++)
-    {
-
-        printf("try ch %u\r\n", ch);
-        radioInitialize(ch);
-
-        waitEnd = timerGet() + TIMER_TICKS_PER_SEC / 5; // try for 1/5 second per channel
-        while (timerGet() < waitEnd)
-        {
-
-            commsTx(ci, true, &packet, sizeof(packet));
-            nowStart = timerGet();
-            printf("try ch %u\r\n", ch);
-            while (timerGet() - nowStart < TIMER_TICKS_PER_MSEC * 150 /* wait 150 ms before retransmitting */)
-            {
-
-                WDT_RestartCounter();
-                ret = commsRx(ci, rx, settings->masterMac);
-
-                if (ret != COMMS_RX_ERR_NO_PACKETS)
-                    printf("RX pkt: 0x%02x + %d\r\n", rx[0], ret);
-
-                if (ret == COMMS_RX_ERR_MIC_FAIL)
-                    printf("RX: invalid MIC\r\n");
-                else if (ret <= 0)
-                    ; // nothing
-                else if (ret < sizeof(uint8_t) + sizeof(struct AssocInfo))
-                    printf("RX: %d < %d\r\n", ret, sizeof(uint8_t) + sizeof(struct AssocInfo));
-                else if (rx[0] != PKT_ASSOC_RESP)
-                    printf("RX: pkt 0x%02x @ %s\r\n", rx[0], "pair");
-                else
-                {
-                    struct AssocInfo *ai = (struct AssocInfo *)(rx + 1);
-
-                    settings->checkinDelay = ai->checkinDelay;
-                    settings->retryDelay = ai->retryDelay;
-                    settings->failedCheckinsTillBlank = ai->failedCheckinsTillBlank;
-                    settings->failedCheckinsTillDissoc = ai->failedCheckinsTillDissoc;
-                    settings->channel = ch - SETTING_CHANNEL_OFFSET;
-                    settings->numFailedCheckins = 0;
-                    settings->nextIV = 0;
-                    memcpy(settings->encrKey, ai->newKey, sizeof(settings->encrKey));
-                    settings->isPaired = 1;
-                    settings->helperInit = 0;
-
-                    radioShutdown();
-                    printf("Associated to master " MACFMT "\r\n", MACCVT(settings->masterMac));
-
-                    settings->prevDlProgress = 0xffff;
-
-                    WDT_RestartCounter();
-
-                    // printf("Erz IMG\r\n");
-                    // qspiEraseRange(EEPROM_IMG_START, EEPROM_IMG_LEN);
-
-                    printf("Erz UPD\r\n");
-                    qspiEraseRange(EEPROM_UPDATE_START, EEPROM_UPDATE_LEN);
-
-                    if (eci.latestCompleteImgAddr)
-                    {
-                        uiPrvDrawLatestImage(&eci);
-                    }
-                    else
-                    {
-                        sprintf(macStr, "(" MACFMT ")", MACCVT(mSelfMac));
-                        uiPrvFullscreenMsg("\x01\x02", macStr, fwVerString()); // signal icon
-                    }
-
-                    return 1000; // wake up in a second to check in
-                }
-            }
-        }
-    }
-    radioShutdown();
-    settings->prevDlProgress = 0xffff;
-    // uiPrvFullscreenMsg("\x03\x04", NULL, fwVerString()); // no signal icon
-
-    return 1000 * 60 * 30;
+    if (eci->latestCompleteImgAddr)
+        uiPrvDrawImageAtAddress(eci->latestCompleteImgAddr, eci->latestCompleteImgSize);
 }
 
 static void prvGetSelfMac(void)
@@ -938,7 +265,7 @@ uint8_t showChannelSelect()
     uint8_t result[sizeof(channelList)];
     memset(result, 0, sizeof(result));
     powerUp(INIT_RADIO);
-    //uiPrvFullscreenMsg("Scanning", NULL, NULL);
+    // uiPrvFullscreenMsg("Scanning", NULL, NULL);
     for (uint8_t i = 0; i < 4; i++)
     {
         for (uint8_t c = 0; c < sizeof(channelList); c++)
@@ -1050,6 +377,9 @@ void __attribute__((interrupt)) PendSVC(void)
 {
 }
 
+extern struct blockRequest curBlock;     // used by the block-requester, contains the next request that we'll send
+extern struct AvailDataInfo curDataInfo; // last 'AvailDataInfo' we received from the AP
+extern bool requestPartialBlock;         // if we should ask the AP to get this block from the host or not
 int main(void)
 {
     uint8_t currentChannel = 0;
@@ -1196,6 +526,10 @@ int main(void)
     else
     {
         currentChannel = (*(volatile unsigned int *)0x130404);
+        memcpy((uint8_t *)&curBlock, (uint8_t *)&(*(volatile unsigned int *)0x130500), sizeof(struct blockRequest));
+        memcpy((uint8_t *)&curDataInfo, (uint8_t *)&(*(volatile unsigned int *)0x130600), sizeof(struct AvailDataInfo));
+        memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
+        requestPartialBlock = false;
     }
 
     showVersionAndVerifyMatch();
@@ -1213,7 +547,7 @@ int main(void)
         qspiEraseRange(EEPROM_SETTINGS_AREA_START, EEPROM_SETTINGS_AREA_LEN);
 
         sprintf(macStr, "(" MACFMT ")", MACCVT(mSelfMac));
-        //uiPrvFullscreenMsg("OpenEPaperLink", macStr, fwVerString());
+        // uiPrvFullscreenMsg("HELLO OTA", macStr, fwVerString());
         currentChannel = showChannelSelect();
         (*(volatile unsigned int *)0x130404) = currentChannel;
 
@@ -1232,6 +566,15 @@ int main(void)
             uiPrvFullscreenMsg("No AP Found", "OpenEPaperLink", macStr);
             sleep_with_with_wakeup(120000UL);
         }
+    }
+
+    if (nfc_handle()) // If an image was uploaded via NFC lets display it.
+    {
+        struct EepromContentsInfo eci;
+        memset(&eci, 0x00, sizeof(eci));
+        prvEepromIndex(&eci);
+        uiPrvDrawLatestImage(&eci);
+        sleep_with_with_wakeup(30 * 1000);
     }
 
     while (1 == 1)
@@ -1301,6 +644,7 @@ int main(void)
             if (avail == NULL)
             {
                 // no data :(
+                sleep_with_with_wakeup(60 * 1000UL);
                 nextCheckInFromAP = 0; // let the power-saving algorithm determine the next sleep period
             }
             else
@@ -1393,7 +737,8 @@ int main(void)
             else
             {
                 // still not associated
-                sleep_with_with_wakeup(getNextScanSleep(true) * 1000UL);
+                //sleep_with_with_wakeup(getNextScanSleep(true) * 1000UL);
+                sleep_with_with_wakeup(10 * 60 * 1000UL);
             }
         }
     }

@@ -35,3 +35,4 @@ struct EepromContentsInfo
     uint64_t latestCompleteImgVer, latestInprogressImgVer;
 };
 void uiPrvFullscreenMsg(const char *str, const char *line2, const char *line3);
+void prvApplyUpdateIfNeeded();

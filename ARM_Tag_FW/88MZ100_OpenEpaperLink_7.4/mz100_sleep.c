@@ -13,6 +13,7 @@
 #include "util.h"
 #include "gpio.h"
 #include "main.h"
+#include "proto.h"
 
 void AON_level_VDD(int state)
 {
@@ -84,8 +85,13 @@ void Set_Wakeup_pin_nfc()
   NVIC_EnableIRQ(ExtPin7_IRQn);
 }
 
+extern struct blockRequest curBlock;     // used by the block-requester, contains the next request that we'll send
+extern struct AvailDataInfo curDataInfo; // last 'AvailDataInfo' we received from the AP
+extern bool requestPartialBlock;         // if we should ask the AP to get this block from the host or not
 void sleep_with_with_wakeup(uint32_t sleep_time_ms)
 {
+  memcpy((uint8_t *)&(*(volatile unsigned int *)0x130500), (uint8_t *)&curBlock, sizeof(struct blockRequest));
+  memcpy((uint8_t *)&(*(volatile unsigned int *)0x130600), (uint8_t *)&curDataInfo, sizeof(struct AvailDataInfo));
   printf("sleep: %u\r\n", sleep_time_ms);
   uint32_t sleep_time_ms_1;
   AON_level_VDD(7);

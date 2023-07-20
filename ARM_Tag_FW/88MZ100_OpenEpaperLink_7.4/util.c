@@ -8,6 +8,19 @@
 #include "mz100_adc.h"
 #include "mz100_wdt.h"
 
+void wdt10s()
+{
+    WDT_RestartCounter();
+}
+void wdt30s()
+{
+    WDT_RestartCounter();
+}
+void wdt60s()
+{
+    WDT_RestartCounter();
+}
+
 void delay(int cnt)
 {
 	volatile unsigned int i;

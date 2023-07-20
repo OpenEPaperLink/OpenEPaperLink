@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+void wdt10s();
+void wdt30s();
+void wdt60s();
 void delay(int cnt);
 void delay_us(unsigned int result);
 uint16_t crc16(uint16_t cur_crc, uint8_t data);

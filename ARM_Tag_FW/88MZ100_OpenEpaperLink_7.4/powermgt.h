@@ -29,10 +29,10 @@
 #define INTERVAL_AT_MAX_ATTEMPTS 600  // interval (in seconds) (at max attempts) for target average current
 #define DATA_REQ_RX_WINDOW_SIZE 5UL   // How many milliseconds we should wait for a packet during the data_request.
                                       // If the AP holds a long list of data for tags, it may need a little more time to lookup the mac address
-#define DATA_REQ_MAX_ATTEMPTS 14      // How many attempts (at most) we should do to get something back from the AP
+#define DATA_REQ_MAX_ATTEMPTS 3      // How many attempts (at most) we should do to get something back from the AP
 #define POWER_SAVING_SMOOTHING 8      // How many samples we should use to smooth the data request interval
 #define MINIMUM_INTERVAL 45           // IMPORTANT: Minimum interval for check-in; this determines overal battery life!
-#define MAXIMUM_PING_ATTEMPTS 20      // How many attempts to discover an AP the tag should do
+#define MAXIMUM_PING_ATTEMPTS 3       // How many attempts to discover an AP the tag should do
 #define PING_REPLY_WINDOW 5UL
 
 #define LONG_DATAREQ_INTERVAL 300     // How often (in seconds, approximately) the tag should do a long datareq (including temperature)

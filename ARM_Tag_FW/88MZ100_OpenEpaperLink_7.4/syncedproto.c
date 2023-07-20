@@ -13,25 +13,12 @@
 #include "util.h"
 #include "drawing.h"
 
-void wdt10s()
-{
-    WDT_RestartCounter();
-}
-void wdt30s()
-{
-    WDT_RestartCounter();
-}
-void wdt60s()
-{
-    WDT_RestartCounter();
-}
-
 // download-stuff
 uint8_t blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
-static struct blockRequest curBlock = {0};     // used by the block-requester, contains the next request that we'll send
-static struct AvailDataInfo curDataInfo = {0}; // last 'AvailDataInfo' we received from the AP
-static bool requestPartialBlock = false;       // if we should ask the AP to get this block from the host or not
-#define BLOCK_TRANSFER_ATTEMPTS 5
+struct blockRequest curBlock = {0};     // used by the block-requester, contains the next request that we'll send
+struct AvailDataInfo curDataInfo = {0}; // last 'AvailDataInfo' we received from the AP
+bool requestPartialBlock = false;       // if we should ask the AP to get this block from the host or not
+#define BLOCK_TRANSFER_ATTEMPTS 10
 
 uint8_t prevImgSlot = 0xFF;
 uint8_t curImgSlot = 0xFF;
@@ -528,12 +515,14 @@ static void eraseImageBlock(const uint8_t c)
 }
 static void saveUpdateBlockData(uint8_t blockId)
 {
+    printf("EEPROM writing UpdateBlock %i\n", blockId);
     if (!eepromWrite(EEPROM_UPDATA_AREA_START + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
         printf("EEPROM write failed\n");
 }
 static void saveImgBlockData(const uint8_t imgSlot, const uint8_t blockId)
 {
-    uint16_t length = EEPROM_IMG_EACH - (sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE));
+    printf("EEPROM writing Slot: %i ImageBlock %i\n", imgSlot, blockId);
+    uint32_t length = EEPROM_IMG_EACH - (sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE));
     if (length > 4096)
         length = 4096;
 
@@ -904,13 +893,13 @@ bool processAvailDataInfo(struct AvailDataInfo *avail)
         }
         break;
     case DATATYPE_FW_UPDATE:
-        /*powerUp(INIT_EEPROM);
+        powerUp(INIT_EEPROM);
         if (downloadFWUpdate(avail))
         {
             printf("firmware download complete, doing update.\n");
 
             powerUp(INIT_EPD);
-            // showApplyUpdate();
+            uiPrvFullscreenMsg("Updating", NULL, NULL);
 
             powerUp(INIT_RADIO);
             sendXferComplete();
@@ -918,10 +907,9 @@ bool processAvailDataInfo(struct AvailDataInfo *avail)
 
             powerUp(INIT_EEPROM);
             wdt60s();
-            eepromReadStart(EEPROM_UPDATA_AREA_START);
-            // selfUpdate();
+            prvApplyUpdateIfNeeded();
         }
-        else*/
+        else
         {
             return false;
         }
