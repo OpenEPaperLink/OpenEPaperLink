@@ -1,0 +1,32 @@
+##
+## tinflib  -  tiny inflate library (inflate, gzip, zlib)
+##
+## Digital Mars C/C++ makefile (GNU Make)
+##
+## Copyright (c) 2003 by Joergen Ibsen / Jibz
+## All Rights Reserved
+##
+## http://www.ibsensoftware.com/
+##
+
+target  = ..\lib\tinf.lib
+objects = tinflate.obj tinfgzip.obj tinfzlib.obj adler32.obj crc32.obj
+
+cflags  = -s -mn -o+all
+
+.PHONY: all clean
+
+all: $(target)
+
+$(target): $(objects)
+	$(RM) $@
+	lib -c $@ $^
+
+%.obj : %.c
+	dmc $(cflags) -c $<
+
+%.obj : %.nas
+	nasm -o $@ -f obj -D_OBJ_ -O3 $<
+
+clean:
+	$(RM) $(objects) $(target) $(temps)

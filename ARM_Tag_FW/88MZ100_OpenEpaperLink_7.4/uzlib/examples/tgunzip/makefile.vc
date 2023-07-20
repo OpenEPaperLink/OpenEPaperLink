@@ -1,0 +1,28 @@
+##
+## tgunzip  -  gzip decompressor example
+##
+## Visual C/C++ makefile (GNU Make)
+##
+## Copyright (c) 2003 by Joergen Ibsen / Jibz
+## All Rights Reserved
+##
+
+target  = tgunzip.exe
+objects = tgunzip.obj
+libs    = ../../lib/tinf.lib
+
+cflags  = /nologo /W3 /O1 /G6 /W3 /Gy /GF /I..\..\src
+ldflags = /nologo /release /opt:ref /opt:icf
+
+.PHONY: all clean
+
+all: $(target)
+
+$(target): $(objects)
+	link $(ldflags) /out:$@ $^ $(libs)
+
+%.obj : %.c
+	cl $(cflags) -c $<
+
+clean:
+	$(RM) $(target) $(objects)

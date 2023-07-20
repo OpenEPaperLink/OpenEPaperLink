@@ -1,0 +1,67 @@
+name: "Close stale tickets"
+on:
+  schedule:
+    - cron: "0 22 * * *"
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/stale@v3
+      with:
+        days-before-stale: 15
+        days-before-close: 15
+        exempt-issue-labels: triaged
+        exempt-pr-labels: triaged,contrib
+        stale-issue-message: |
+            Thanks for your submission. However there was no (further) activity
+            on it for some time. Below are possible reasons and/or means to
+            proceed further:
+
+            * Please make sure that your submission contains clear and complete
+            description of the issue and information required to understand and
+            reproduce it (exact version of all components involved, etc.). Please
+            refer to numerous guides on submitting helpful bugreports, e.g.
+            https://www.chiark.greenend.org.uk/~sgtatham/bugs.html
+
+            * Please make sure that your feature request/suggestion/change aligns
+            well with the project purpose, goals, and process.
+
+            * If you face the issue you report while working on a community-oriented
+            open-source project, feel free to provide additional context and
+            information - that may help to prioritize the issue better.
+
+            * As many open-source projects, this project is severely under-staffed
+            and under-resourced. If you don't run a community-oriented open-source
+            project, and would like to get additional support/maintenance, feel
+            free to request a support contract.
+
+            Thanks for your understanding!
+        stale-pr-message: |
+            Thanks for your submission. However there was no (further) activity
+            on it for some time. Below are possible reasons and/or means to
+            proceed further:
+
+            * Please make sure that your submission contains clear and complete
+            description of the issue and information required to understand and
+            reproduce it (exact version of all components involved, etc.). Please
+            refer to numerous guides on submitting helpful bugreports, e.g.
+            https://www.chiark.greenend.org.uk/~sgtatham/bugs.html
+
+            * Please make sure that your feature request/suggestion/change aligns
+            well with the project purpose, goals, and process.
+
+            * If you face the issue you report while working on a community-oriented
+            open-source project, feel free to provide additional context and
+            information - that may help to prioritize the issue better.
+
+            * As many open-source projects, this project is severely under-staffed
+            and under-resourced. If you don't run a community-oriented open-source
+            project, and would like to get additional support/maintenance, feel
+            free to request a support contract.
+
+            Thanks for your understanding!
+        close-issue-message: >
+            Closing due to inactivity.
+        close-pr-message: >
+            Closing due to inactivity.

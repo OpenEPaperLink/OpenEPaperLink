@@ -1,0 +1,30 @@
+##
+## tgunzip  -  gzip decompressor example
+##
+## DJGPP makefile
+##
+## Copyright (c) 2003 by Joergen Ibsen / Jibz
+## All Rights Reserved
+##
+## http://www.ibsensoftware.com/
+##
+
+target  = tgunzip.exe
+objects = tgunzip.o
+libs    = ../../lib/libtinf.a
+
+cflags   = -s -Wall -Os -fomit-frame-pointer -I../../src
+ldflags  = $(cflags)
+
+.PHONY: all clean
+
+all: $(target)
+
+$(target): $(objects)
+	gcc $(ldflags) -o $@ $^ $(libs)
+
+%.o : %.c
+	gcc $(cflags) -o $@ -c $<
+
+clean:
+	$(RM) $(objects) $(target)
