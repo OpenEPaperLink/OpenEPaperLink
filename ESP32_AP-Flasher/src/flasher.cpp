@@ -2,9 +2,10 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include "storage.h"
-#include "LittleFS.h"
 #include <MD5Builder.h>
+
+#include "LittleFS.h"
+#include "storage.h"
 // #include <FS.h>
 
 #include "leds.h"
@@ -60,53 +61,6 @@ int8_t powerPinsAlt[] = FLASHER_ALT_POWER;
 uint8_t pinsExt[] = {FLASHER_EXT_CLK, FLASHER_EXT_MISO, FLASHER_EXT_MOSI, FLASHER_EXT_RESET, FLASHER_EXT_RXD, FLASHER_EXT_SS, FLASHER_EXT_TEST, FLASHER_EXT_TXD};
 
 #endif
-
-class flasher {
-   public:
-    class ZBS_interface *zbs = nullptr;
-    uint8_t md5[16] = {0};
-    char md5char[34];
-    uint8_t tagtype;
-    uint8_t *infoblock = nullptr;
-
-    // Infoblock structure:
-    // 0x00-0x0F - Calibration data
-    // 0x10-0x17 - MAC
-    // 0x19      - OpenEPaperLink Type
-    // 0x30      - Original firmware MD5
-
-    uint8_t mac[8] = {0};
-    uint8_t mac_format = 0;
-    uint16_t mac_suffix = 0;
-    uint16_t mac_offset = 0;
-
-    flasher();
-    ~flasher();
-    bool connectTag(uint8_t port);
-    void getFirmwareMD5();
-    bool getFirmwareMac();
-    bool findTagByMD5();
-    bool findTagByType(uint8_t type);
-    bool getInfoBlockMD5();
-    bool getInfoBlockMac();
-    bool getInfoBlockType();
-    void getMacFromWiFi();
-    bool prepareInfoBlock();
-
-    bool backupFlash();
-
-    bool writeFlash(uint8_t *flashbuffer, uint16_t size);
-    bool writeFlashFromPack(String filename, uint8_t type);
-    bool writeFlashFromPackOffset(fs::File *file, uint16_t length);
-
-    bool readInfoBlock();
-    bool writeInfoBlock();
-
-   protected:
-    bool writeBlock256(uint16_t offset, uint8_t *flashbuffer);
-    void get_mac_format1();
-    void get_mac_format2();
-};
 
 flasher::flasher() {
     zbs = new ZBS_interface;
@@ -517,6 +471,34 @@ bool flasher::writeFlashFromPack(String filename, uint8_t type) {
     }
     readfile.close();
     return false;
+}
+
+bool flasher::readBlock(uint16_t offset, uint8_t *data, uint16_t len, bool infopage) {
+    if (infopage) {
+        if (!zbs->select_flash(1)) return false;
+        if (offset > 1024) return false;
+    } else {
+        if (!zbs->select_flash(0)) return false;
+        if (offset > 65535) return false;
+    }
+    for (uint32_t c = 0; c < len; c++) {
+        data[c] = zbs->read_flash(offset + c);
+    }
+    return true;
+}
+
+bool flasher::writeBlock(uint16_t offset, uint8_t *data, uint16_t len, bool infopage) {
+    if (infopage) {
+        if (!zbs->select_flash(1)) return false;
+        if (offset > 1024) return false;
+    } else {
+        if (!zbs->select_flash(0)) return false;
+        if (offset > 65535) return false;
+    }
+    for (uint32_t c = 0; c < len; c++) {
+        zbs->write_flash(c + offset, data[c]);
+    }
+    return true;
 }
 
 uint16_t getAPUpdateVersion(uint8_t type) {

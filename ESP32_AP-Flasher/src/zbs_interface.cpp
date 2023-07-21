@@ -8,7 +8,7 @@
 #include <stdio.h>
 
 #ifdef USE_SOFTSPI
-    #include <SoftSPI.h>
+#include <SoftSPI.h>
 #endif
 
 #include "powermgt.h"
@@ -40,7 +40,6 @@ uint8_t ZBS_interface::begin(uint8_t SS, uint8_t CLK, uint8_t MOSI, uint8_t MISO
     if (!spi) spi = new SPIClass(HSPI);
 #endif
 
-
     spiSettings = SPISettings(spi_speed, MSBFIRST, SPI_MODE0);
     spi_ready = 0;
 
@@ -58,7 +57,7 @@ void ZBS_interface::setSpeed(uint32_t speed) {
 }
 
 ZBS_interface::~ZBS_interface() {
-    if(spi)delete spi;
+    if (spi) delete spi;
 }
 void ZBS_interface::set_power(uint8_t state) {
     powerControl(state, _POWER_PIN, _POWER_PINS);
@@ -93,7 +92,11 @@ void ZBS_interface::enable_debug() {
 }
 
 void ZBS_interface::reset() {
-    spi->end();
+    if (spi) {
+        spi->end();
+        delete spi;
+        spi = nullptr;
+    }
     pinMode(_SS_PIN, INPUT);
     pinMode(_CLK_PIN, INPUT);
     pinMode(_MOSI_PIN, INPUT);
