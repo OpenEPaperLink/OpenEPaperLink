@@ -3,7 +3,7 @@ import serial.tools.list_ports
 import serial
 import time
 from intelhex import IntelHex
-
+import os.path
 
 CMD_GET_VERSION = 1
 CMD_RESET_ESP = 2
@@ -107,7 +107,7 @@ def validate_arguments(args):
     if args.command == "write" and not os.path.isfile(args.filename):
         print("Couldn't find the specified file!")
         return False;
-    if not args.filename:
+    if args.command in ["read", "write"] and not args.filename:
         print("Please specify a file to save read data")
         return False;
     if args.command == "read" and len(args.filename) < 2:
