@@ -14,10 +14,11 @@
 #ifdef CONTENT_RSS
 #include <rssClass.h>
 #endif
-#include "storage.h"
 #include <time.h>
 
 #include <map>
+
+#include "storage.h"
 
 #if defined CONTENT_RSS || defined CONTENT_CAL
 #include "U8g2_for_TFT_eSPI.h"
@@ -54,6 +55,22 @@ std::map<int, HwType> hwdata = {
     {4, {2, 800, 480}},
     {5, {2, 640, 384}},
     {17, {1, 296, 128}},
+    {0x30, {0, 200, 200}},  //"1.6\" BWR 200x200px"
+    {0x38, {0, 200, 200}},  //"1.6\" BWY 200x200px"
+    {0x31, {1, 296, 160}},  //"2.2\" BWR 296x160px"
+    {0x39, {1, 296, 160}},  //"2.2\" BWY 296x160px"
+    {0x32, {1, 360, 184}},  //"2.6\" BWR 360x184px"
+    {0x3A, {1, 360, 184}},  //"2.6\" BWY 360x184px"
+    {0x33, {1, 384, 168}},     //"2.9\" BWR 384x168px"
+    {0x3B, {1, 384, 168}},     //"2.9\" BWY 384x168px"
+    {0x34, {2, 400, 300}},     //"4.2\" BWR 400x300px"
+    {0x3C, {2, 400, 300}},     //"4.2\" BWY 400x300px"
+    {0x35, {2, 600, 448}},     //"6.0\" BWR 600x448px"
+    {0x3D, {2, 600, 448}},     //"6.0\" BWY 600x448px"
+    {0x36, {2, 880, 528}},     //"7.5\" BWR 880x528px"
+    {0x3E, {2, 880, 528}},     //"7.5\" BWY 880x528px"
+    {0x37, {2, 640, 960}},     //"11.6\" BWR 640x960px"
+    {0x3F, {2, 640, 960}},     //"11.6\" BWY 640x960px"
 };
 
 void contentRunner() {
@@ -122,7 +139,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     imageParams.rotate = taginfo->rotate;
 
     switch (taginfo->contentMode) {
-        case 0: // Image
+        case 0:  // Image
 
             if (cfgobj["filename"].as<String>() && cfgobj["filename"].as<String>() != "null" && !cfgobj["#fetched"].as<bool>()) {
                 if (cfgobj["dither"] && cfgobj["dither"] == "1") imageParams.dither = true;
@@ -232,7 +249,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             updateTagImage(filename, mac, 0, taginfo, imageParams);
             break;
 
-        case 11: // Calendar:
+        case 11:  // Calendar:
 
             if (getCalFeed(filename, cfgobj["apps_script_url"], cfgobj["title"], taginfo, imageParams)) {
                 taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
@@ -242,12 +259,12 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             }
             break;
 
-        case 12: // RemoteAP
+        case 12:  // RemoteAP
 
             taginfo->nextupdate = 3216153600;
             break;
 
-        case 13: // SegStatic
+        case 13:  // SegStatic
 
             sprintf(buffer, "%-4.4s%-2.2s%-4.4s", cfgobj["line1"].as<const char *>(), cfgobj["line2"].as<const char *>(), cfgobj["line3"].as<const char *>());
             taginfo->nextupdate = 3216153600;
@@ -289,37 +306,37 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             break;
 
         case 19:  // json template
-            {
-                DynamicJsonDocument doc(2000);
-                if (cfgobj["filename"]) {
-                    File file = contentFS->open("/" + String(hexmac) + ".json", "r");
-                    if (file) {
-                        DeserializationError error = deserializeJson(doc, file);
-                        if (error) {
-                            wsErr(error.c_str());
-                        } else {
-                            taginfo->nextupdate = 3216153600;
-                            drawJsonTemplate(doc, filename, taginfo, imageParams);
-                            updateTagImage(filename, mac, 0, taginfo, imageParams);
-                        }
+        {
+            DynamicJsonDocument doc(2000);
+            if (cfgobj["filename"]) {
+                File file = contentFS->open("/" + String(hexmac) + ".json", "r");
+                if (file) {
+                    DeserializationError error = deserializeJson(doc, file);
+                    if (error) {
+                        wsErr(error.c_str());
                     } else {
-                        wsErr("json file not found");
+                        taginfo->nextupdate = 3216153600;
+                        drawJsonTemplate(doc, filename, taginfo, imageParams);
+                        updateTagImage(filename, mac, 0, taginfo, imageParams);
                     }
                 } else {
-                    int httpcode = getJsonTemplate(cfgobj["url"], doc, (time_t)cfgobj["#fetched"], String(hexmac));
-                    if (httpcode == 200) {
-                        taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
-                        drawJsonTemplate(doc, filename, taginfo, imageParams);
-                        updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
-                        cfgobj["#fetched"] = now;
-                    } else if (httpcode == 304) {
-                        taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
-                    } else {
-                        taginfo->nextupdate = now + 300;
-                    }
+                    wsErr("json file not found");
                 }
-                break;
+            } else {
+                int httpcode = getJsonTemplate(cfgobj["url"], doc, (time_t)cfgobj["#fetched"], String(hexmac));
+                if (httpcode == 200) {
+                    taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                    drawJsonTemplate(doc, filename, taginfo, imageParams);
+                    updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
+                    cfgobj["#fetched"] = now;
+                } else if (httpcode == 304) {
+                    taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                } else {
+                    taginfo->nextupdate = now + 300;
+                }
             }
+            break;
+        }
     }
 
     taginfo->modeConfigJson = doc.as<String>();
@@ -956,7 +973,7 @@ void drawJsonTemplate(JsonDocument &doc, String filename, tagRecord *&taginfo, i
     TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
 
-    for (const JsonVariant& element : doc.as<JsonArray>()) {
+    for (const JsonVariant &element : doc.as<JsonArray>()) {
         drawElement(element.as<JsonObject>(), spr);
     }
     spr2buffer(spr, filename, imageParams);

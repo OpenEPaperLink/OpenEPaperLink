@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "proto.h"
 #include "main.h"
+#include "../../../tag_types.h"
 
 #define eepromByte				spiByte
 #define eepromPrvSelect()		do { digitalWrite(FLASH_CS,LOW); } while(0)
@@ -25,7 +26,7 @@
 #define AP_EMULATE_TAG 1
 
 //hw types
-#define HW_TYPE					        4
+#define HW_TYPE					        SOLUM_M3_BWR_75
 
 //#include "../boardCommon.h"
 

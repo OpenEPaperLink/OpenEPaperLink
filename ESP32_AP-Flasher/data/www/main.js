@@ -11,9 +11,44 @@ const WAKEUP_REASON_WDT_RESET = 0xFE;
 const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
 models[240] = "Segmented tag"
 models[17] = "2.9\" 296x128px (UC8151)"
+models[0x30] = "1.6\" BWR 200x200px"
+models[0x38] = "1.6\" BWY 200x200px"
+models[0x31] = "2.2\" BWR 296x160px"
+models[0x39] = "2.2\" BWY 296x160px"
+models[0x32] = "2.6\" BWR 360x184px"
+models[0x3A] = "2.6\" BWY 360x184px"
+models[0x33] = "2.9\" BWR 384x168px"
+models[0x3B] = "2.9\" BWY 384x168px"
+models[0x34] = "4.2\" BWR 400x300px"
+models[0x3C] = "4.2\" BWY 400x300px"
+models[0x35] = "6.0\" BWR 600x448px"
+models[0x3D] = "6.0\" BWY 600x448px"
+models[0x36] = "7.5\" BWR 880x528px"
+models[0x3E] = "7.5\" BWY 880x528px"
+models[0x37] = "11.6\" BWR 640x960px"
+models[0x3F] = "11.6\" BWY 640x960px"
+
+
 const displaySizeLookup = { 0: [152, 152, 4], 1: [128, 296, 2], 2: [400, 300, 2] };  // w, h, rotate
 displaySizeLookup[17] = [128, 296, 2];
 displaySizeLookup[240] = [0, 0, 0];
+displaySizeLookup[0x30] = [200, 200, 4];//"1.6\" BWR 200x200px"
+displaySizeLookup[0x38] = [200, 200, 4];//"1.6\" BWY 200x200px"
+displaySizeLookup[0x31] = [296, 160, 2];//"2.2\" BWR 296x160px"
+displaySizeLookup[0x39] = [296, 160, 2];//"2.2\" BWY 296x160px"
+displaySizeLookup[0x32] = [360, 184, 2];//"2.6\" BWR 360x184px"
+displaySizeLookup[0x3A] = [360, 184, 2];//"2.6\" BWY 360x184px"
+displaySizeLookup[0x33] = [384, 168, 2];//"2.9\" BWR 384x168px"
+displaySizeLookup[0x3B] = [384, 168, 2];//"2.9\" BWY 384x168px"
+displaySizeLookup[0x34] = [400, 300, 2];//"4.2\" BWR 400x300px"
+displaySizeLookup[0x3C] = [400, 300, 2];//"4.2\" BWY 400x300px"
+displaySizeLookup[0x35] = [600, 448, 2];//"6.0\" BWR 600x448px"
+displaySizeLookup[0x3D] = [600, 448, 2];//"6.0\" BWY 600x448px"
+displaySizeLookup[0x36] = [880, 528, 2];//"7.5\" BWR 880x528px"
+displaySizeLookup[0x3E] = [880, 528, 2];//"7.5\" BWY 880x528px"
+displaySizeLookup[0x37] = [640, 960, 4];//"11.6\" BWR 640x960px"
+displaySizeLookup[0x3F] = [640, 960, 4];//"11.6\" BWY 640x960px"
+
 const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [150, 150, 150] };
 
 const apstate = [
