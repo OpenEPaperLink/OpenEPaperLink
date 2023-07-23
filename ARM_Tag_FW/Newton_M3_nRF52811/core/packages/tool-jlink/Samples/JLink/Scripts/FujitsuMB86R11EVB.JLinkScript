@@ -1,0 +1,37 @@
+/*********************************************************************
+*                    SEGGER Microcontroller GmbH                     *
+*       Solutions for real time microcontroller applications         *
+**********************************************************************
+*                                                                    *
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                                                                    *
+*       www.segger.com     Support: support@segger.com               *
+*                                                                    *
+**********************************************************************
+----------------------------------------------------------------------
+File    : FujitsuMB86R11EVB.JLinkScript
+Purpose : J-Link target setup file for Fujitsu MB86R11EVB Eval board
+          CPU: MB86R11 Emerald (Cortex-A9 single core)
+---------------------------END-OF-HEADER------------------------------
+*/
+
+/*********************************************************************
+*
+*       InitTarget
+*/
+void InitTarget(void) {
+  Report("Fujitsu MB86R11EVB (Cortex-A9 single core) J-Link script");
+  JTAG_Reset();                           // Perform TAP reset and J-Link JTAG auto-detection
+  if (JTAG_TotalIRLen != 4) {
+    MessageBox("Can not find Fujitsu MB86R11EVB Eval board (Total IRLen mismatch)");
+    return 1;
+  }
+  JTAG_DRPre             = 0;
+  JTAG_DRPost            = 0;
+  JTAG_IRPre             = 0;
+  JTAG_IRPost            = 0;
+  JTAG_IRLen             = 4;
+  CPU                    = CORTEX_A9;
+  JTAG_AllowTAPReset     = 1;
+  CORESIGHT_CoreBaseAddr = 0x80030000;
+}

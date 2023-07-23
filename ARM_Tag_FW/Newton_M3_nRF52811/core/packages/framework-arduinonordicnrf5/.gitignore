@@ -1,0 +1,10 @@
+.DS_Store
+
+# softdevice files
+cores/nRF5/SDK/components/softdevice/*/hex/*.hex
+cores/nRF5/SDK/components/softdevice/*/hex/*.txt
+
+# IDE tools
+extras/ide-tools/bin
+extras/ide-tools/nRF5FlashSoftDevice.jar
+.vscode/*

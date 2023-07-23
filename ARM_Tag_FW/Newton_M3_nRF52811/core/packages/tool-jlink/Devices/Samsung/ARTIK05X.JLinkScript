@@ -1,0 +1,18 @@
+void InitTarget(void) {
+  Report("Connect to S5JT200 with JTAG"); 
+  JTAG_DRPre             = 0;
+  JTAG_DRPost            = 0;
+  JTAG_IRPre             = 0;
+  JTAG_IRPost            = 0;
+  JTAG_IRLen             = 4;
+  CPU                    = CORTEX_R4;
+  JTAG_AllowTAPReset     = 1;
+  //
+  // Base address of debug registers differs from device to device, so this needs to be adapted  
+  //
+
+  CORESIGHT_CoreBaseAddr = 0x801E0000;  // Base address of debug registers
+  //
+  // Manually configure which APs are present on the CoreSight device
+  //
+}

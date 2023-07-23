@@ -1,0 +1,47 @@
+/*********************************************************************
+*                    SEGGER Microcontroller GmbH                     *
+*       Solutions for real time microcontroller applications         *
+**********************************************************************
+*                                                                    *
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                                                                    *
+*       www.segger.com     Support: support@segger.com               *
+*                                                                    *
+**********************************************************************
+----------------------------------------------------------------------
+Purpose : J-Link script file for Broadcom BCM53014 device.
+            - Handles connect pre-configuration
+---------------------------END-OF-HEADER------------------------------
+*/
+
+/*********************************************************************
+*
+*       Public code, functions which are called by the DLL
+*
+**********************************************************************
+*/
+
+/*********************************************************************
+*
+*       InitTarget
+*/
+void InitTarget(void) {
+  int v;
+  //
+  // The broadcom BCM53014 has an incorrect CoreSight ROMTable in it,
+  // so auto-detection of CoreSight components (inclusive base address of core debug registers) is not possible
+  // and needs to be pre-configured via a J-Link script
+  // More info about how to specify J-Link script files for execution in various IDEs etc., please refer to UM08001, section "Executing J-Link script files"
+  //
+  // The rest of the J-Link generic auto-detection can be performed (determining JTAG devices etc.). Therefore, we only need to pre-configure the CPU + base address of the debug registers
+  //
+  Report("J-Link script: Broadcom BCM53014 J-Link script");
+  CPU=CORTEX_A9;
+  CORESIGHT_CoreBaseAddr = 0x19010000;
+  //
+  // Manually configure which APs are present on the CoreSight device
+  //
+  CORESIGHT_AddAP(0, CORESIGHT_CUSTOM_AP);
+  CORESIGHT_AddAP(1, CORESIGHT_APB_AP);
+  CORESIGHT_IndexAPBAPToUse = 1;              // For Cortex-A/R devices, always an APB-AP needs to be present since this is the interface for accessing the debug registers. Pre-select the APB-AP for this device
+}

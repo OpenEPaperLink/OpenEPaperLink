@@ -1,0 +1,35 @@
+/*********************************************************************
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                        The Embedded Experts                        *
+*                           www.segger.com                           *
+**********************************************************************
+
+-------------------------- END-OF-HEADER -----------------------------
+
+File    : NXP_iMX6ULL.JLinkScript
+Purpose : Script file for iMX6 ULL series devices
+Literature:
+  [1]  J-Link User Guide
+
+Additional information:
+  For more information about public functions that can be implemented in order to customize J-Link actions, please refer to [1]
+*/
+
+/*********************************************************************
+*
+*       ConfigTargetSettings
+*/
+int ConfigTargetSettings(void) {
+  //
+  // The i.MX6ULL series does not like scanning the AP map because accessing
+  // a non-existing AP causes the whole DAP to crash and hang until power cycle
+  // Therefore, we manually setup the AP map so the J-Link SW skips the scanning
+  //
+  Report("J-Link script: Setting up AP map");
+  CORESIGHT_AddAP(0, CORESIGHT_AHB_AP);
+  CORESIGHT_AddAP(1, CORESIGHT_APB_AP);
+  CORESIGHT_IndexAPBAPToUse = 1;
+  return 0;
+}
+
+/*************************** end of file ****************************/

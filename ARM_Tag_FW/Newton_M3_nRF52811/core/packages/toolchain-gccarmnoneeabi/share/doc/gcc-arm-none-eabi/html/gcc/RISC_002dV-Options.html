@@ -1,0 +1,156 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Copyright (C) 1988-2017 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Funding Free Software", the Front-Cover
+Texts being (a) (see below), and with the Back-Cover Texts being (b)
+(see below).  A copy of the license is included in the section entitled
+"GNU Free Documentation License".
+
+(a) The FSF's Front-Cover Text is:
+
+A GNU Manual
+
+(b) The FSF's Back-Cover Text is:
+
+You have freedom to copy and modify this GNU Manual, like GNU
+     software.  Copies published by the Free Software Foundation raise
+     funds for GNU development. -->
+<!-- Created by GNU Texinfo 5.2, http://www.gnu.org/software/texinfo/ -->
+<head>
+<title>Using the GNU Compiler Collection (GCC): RISC-V Options</title>
+
+<meta name="description" content="Using the GNU Compiler Collection (GCC): RISC-V Options">
+<meta name="keywords" content="Using the GNU Compiler Collection (GCC): RISC-V Options">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link href="index.html#Top" rel="start" title="Top">
+<link href="Option-Index.html#Option-Index" rel="index" title="Option Index">
+<link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Submodel-Options.html#Submodel-Options" rel="up" title="Submodel Options">
+<link href="RL78-Options.html#RL78-Options" rel="next" title="RL78 Options">
+<link href="PowerPC-Options.html#PowerPC-Options" rel="prev" title="PowerPC Options">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.smallquotation {font-size: smaller}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.indentedblock {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+div.smalldisplay {margin-left: 3.2em}
+div.smallexample {margin-left: 3.2em}
+div.smallindentedblock {margin-left: 3.2em; font-size: smaller}
+div.smalllisp {margin-left: 3.2em}
+kbd {font-style:oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+pre.smalldisplay {font-family: inherit; font-size: smaller}
+pre.smallexample {font-size: smaller}
+pre.smallformat {font-family: inherit; font-size: smaller}
+pre.smalllisp {font-size: smaller}
+span.nocodebreak {white-space:nowrap}
+span.nolinebreak {white-space:nowrap}
+span.roman {font-family:serif; font-weight:normal}
+span.sansserif {font-family:sans-serif; font-weight:normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
+<a name="RISC_002dV-Options"></a>
+<div class="header">
+<p>
+Next: <a href="RL78-Options.html#RL78-Options" accesskey="n" rel="next">RL78 Options</a>, Previous: <a href="PowerPC-Options.html#PowerPC-Options" accesskey="p" rel="prev">PowerPC Options</a>, Up: <a href="Submodel-Options.html#Submodel-Options" accesskey="u" rel="up">Submodel Options</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Option-Index.html#Option-Index" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<a name="RISC_002dV-Options-1"></a>
+<h4 class="subsection">3.18.37 RISC-V Options</h4>
+<a name="index-RISC_002dV-Options"></a>
+
+<p>These command-line options are defined for RISC-V targets:
+</p>
+<dl compact="compact">
+<dt><code>-mbranch-cost=<var>n</var></code></dt>
+<dd><a name="index-mbranch_002dcost-3"></a>
+<p>Set the cost of branches to roughly <var>n</var> instructions.
+</p>
+</dd>
+<dt><code>-mmemcpy</code></dt>
+<dt><code>-mno-memcpy</code></dt>
+<dd><a name="index-mmemcpy-2"></a>
+<p>Don&rsquo;t optimize block moves.
+</p>
+</dd>
+<dt><code>-mplt</code></dt>
+<dt><code>-mno-plt</code></dt>
+<dd><a name="index-plt"></a>
+<p>When generating PIC code, allow the use of PLTs. Ignored for non-PIC.
+</p>
+</dd>
+<dt><code>-mabi=<var>ABI-string</var></code></dt>
+<dd><a name="index-mabi-2"></a>
+<p>Specify integer and floating-point calling convention.  This defaults to the
+natural calling convention: e.g.&nbsp;LP64 for RV64I, ILP32 for RV32I, LP64D for
+RV64G.
+</p>
+</dd>
+<dt><code>-mfdiv</code></dt>
+<dt><code>-mno-fdiv</code></dt>
+<dd><a name="index-mfdiv"></a>
+<p>Use hardware floating-point divide and square root instructions.  This requires
+the F or D extensions for floating-point registers.
+</p>
+</dd>
+<dt><code>-mdiv</code></dt>
+<dt><code>-mno-div</code></dt>
+<dd><a name="index-mdiv-3"></a>
+<p>Use hardware instructions for integer division.  This requires the M extension.
+</p>
+</dd>
+<dt><code>-march=<var>ISA-string</var></code></dt>
+<dd><a name="index-march-10"></a>
+<p>Generate code for given RISC-V ISA (e.g.&nbsp;&lsquo;<samp>rv64im</samp>&rsquo;).  ISA strings must be
+lower-case.  Examples include &lsquo;<samp>rv64i</samp>&rsquo;, &lsquo;<samp>rv32g</samp>&rsquo;, and &lsquo;<samp>rv32imaf</samp>&rsquo;.
+</p>
+</dd>
+<dt><code>-mtune=<var>processor-string</var></code></dt>
+<dd><a name="index-mtune-10"></a>
+<p>Optimize the output for the given processor, specified by microarchitecture
+name.
+</p>
+</dd>
+<dt><code>-msmall-data-limit=<var>n</var></code></dt>
+<dd><a name="index-msmall_002ddata_002dlimit"></a>
+<p>Put global and static data smaller than <var>n</var> bytes into a special section
+(on some targets).
+</p>
+</dd>
+<dt><code>-msave-restore</code></dt>
+<dt><code>-mno-save-restore</code></dt>
+<dd><a name="index-msave_002drestore"></a>
+<p>Use smaller but slower prologue and epilogue code.
+</p>
+</dd>
+<dt><code>-mcmodel=<var>code-model</var></code></dt>
+<dd><a name="index-mcmodel-1"></a>
+<p>Specify the code model.
+</p>
+</dd>
+</dl>
+
+
+
+
+</body>
+</html>
