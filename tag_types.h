@@ -6,6 +6,12 @@
 #define SOLUM_SEG_EU 0xF1
 #define SOLUM_NODISPLAY 0xFF
 
+
+#define SOLUM_M2_BWR_16 0x20
+#define SOLUM_M2_BWR_29 0x23
+#define SOLUM_M2_BWR_42 0x24
+#define SOLUM_M2_BWR_75 0x26
+
 #define SOLUM_M3_BWR_16 0x30
 #define SOLUM_M3_BWY_16 0x38
 #define SOLUM_M3_BWR_22 0x31
