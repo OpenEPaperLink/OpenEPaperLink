@@ -1,0 +1,220 @@
+[
+    {
+        "comment": "This is a dashboard file for the Runtime Object View (ROV) tool",
+        "id": "rovModuleView_0",
+        "moduleName": "ti.sysbios.knl.Task",
+        "viewName": "Detailed",
+        "viewsData": {
+            "ti.sysbios.knl.Task.Detailed": {
+                "columnStates": [
+                    {
+                        "name": "address",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Hex"
+                    },
+                    {
+                        "name": "label",
+                        "checked": true,
+                        "hasFormat": false,
+                        "format": null
+                    },
+                    {
+                        "name": "priority",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Decimal"
+                    },
+                    {
+                        "name": "mode",
+                        "checked": true,
+                        "hasFormat": false,
+                        "format": null
+                    },
+                    {
+                        "name": "fxn",
+                        "checked": true,
+                        "hasFormat": false,
+                        "format": null
+                    },
+                    {
+                        "name": "arg0",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Hex"
+                    },
+                    {
+                        "name": "arg1",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Hex"
+                    },
+                    {
+                        "name": "stackPeak",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Decimal"
+                    },
+                    {
+                        "name": "stackSize",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Decimal"
+                    },
+                    {
+                        "name": "stackBase",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Hex"
+                    },
+                    {
+                        "name": "curCoreId",
+                        "checked": true,
+                        "hasFormat": false,
+                        "format": null
+                    },
+                    {
+                        "name": "affinity",
+                        "checked": false,
+                        "hasFormat": false,
+                        "format": null
+                    },
+                    {
+                        "name": "blockedOn",
+                        "checked": false,
+                        "hasFormat": false,
+                        "format": null
+                    }
+                ],
+                "hasFormats": true
+            }
+        },
+        "left": 1,
+        "top": -5,
+        "width": 847,
+        "height": 95,
+        "zIndex": "72",
+        "dashboardVersion": "1.0"
+    },
+    {
+        "id": "rovModuleView_1",
+        "moduleName": "ti.sysbios.family.arm.m3.Hwi",
+        "viewName": "Detailed",
+        "viewsData": {
+            "ti.sysbios.family.arm.m3.Hwi.Detailed": {
+                "columnStates": [
+                    {
+                        "name": "address",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Hex"
+                    },
+                    {
+                        "name": "halHwiHandle",
+                        "checked": true,
+                        "hasFormat": false,
+                        "format": null
+                    },
+                    {
+                        "name": "label",
+                        "checked": true,
+                        "hasFormat": false,
+                        "format": null
+                    },
+                    {
+                        "name": "type",
+                        "checked": true,
+                        "hasFormat": false,
+                        "format": null
+                    },
+                    {
+                        "name": "intNum",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Decimal"
+                    },
+                    {
+                        "name": "priority",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Decimal"
+                    },
+                    {
+                        "name": "group",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Decimal"
+                    },
+                    {
+                        "name": "subPriority",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Decimal"
+                    },
+                    {
+                        "name": "fxn",
+                        "checked": true,
+                        "hasFormat": false,
+                        "format": null
+                    },
+                    {
+                        "name": "arg",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Hex"
+                    },
+                    {
+                        "name": "irp",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Hex"
+                    },
+                    {
+                        "name": "status",
+                        "checked": true,
+                        "hasFormat": false,
+                        "format": null
+                    },
+                    {
+                        "name": "coreId",
+                        "checked": true,
+                        "hasFormat": true,
+                        "format": "Decimal"
+                    }
+                ],
+                "hasFormats": true
+            }
+        },
+        "left": 1,
+        "top": 91,
+        "width": 1020,
+        "height": 95,
+        "zIndex": "78",
+        "dashboardVersion": "1.0"
+    },
+    {
+        "elemName": "xdc-rov-polymerUI-examples-graph_heap",
+        "elemPath": "addons/graph_heap",
+        "id": "rovView_1",
+        "viewName": "Heap Graph",
+        "left": 1,
+        "top": 187,
+        "width": "",
+        "height": "",
+        "zIndex": "87",
+        "dashboardVersion": "1.0"
+    },
+    {
+        "elemName": "xdc-rov-polymerUI-examples-graph_stacks",
+        "elemPath": "addons/graph_stacks",
+        "id": "rovView_2",
+        "viewName": "Stacks Graph",
+        "left": 412,
+        "top": 187,
+        "width": "",
+        "height": "",
+        "zIndex": "88",
+        "dashboardVersion": "1.0"
+    },
+    "overview"
+]
