@@ -1,7 +1,7 @@
 #include "contentmanager.h"
 
 // possibility to turn off, to save space if needed
-// #define CONTENT_QR
+#define CONTENT_QR
 #define CONTENT_RSS
 #define CONTENT_CAL
 #define CONTENT_BUIENRADAR
@@ -33,6 +33,7 @@
 #include "settings.h"
 #include "tag_db.h"
 #include "web.h"
+//#include "truetype.h"
 
 #define PAL_BLACK TFT_BLACK
 #define PAL_WHITE TFT_WHITE
@@ -286,10 +287,12 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case 16:  // buienradar
 
-            drawBuienradar(filename, cfgobj, taginfo, imageParams);
-            taginfo->nextupdate = now + (cfgobj["ttl"].as<int>() < 5 ? 5 : cfgobj["ttl"].as<int>()) * 60;
-            updateTagImage(filename, mac, (cfgobj["ttl"].as<int>() < 5 ? 5 : cfgobj["ttl"].as<int>()), taginfo, imageParams);
-            break;
+            {
+                uint8_t refresh = drawBuienradar(filename, cfgobj, taginfo, imageParams);
+                taginfo->nextupdate = now + refresh * 60;
+                updateTagImage(filename, mac, refresh, taginfo, imageParams);
+                break;
+            }
 
         case 17:  // tag command
             sendTagCommand(mac, cfgobj["cmd"].as<int>(), (taginfo->isExternal == false));
@@ -872,7 +875,8 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
 #endif
 }
 
-void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
+uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
+    uint8_t refresh = 60;
 #ifdef CONTENT_BUIENRADAR
     wsLog("get weather");
 
@@ -905,12 +909,12 @@ void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, i
 
         for (int i = 0; i < 295; i += 4) {
             spr.drawPixel(i, 110, PAL_BLACK);
-            spr.drawPixel(i, 81, PAL_BLACK);
+            spr.drawPixel(i, 91, PAL_BLACK);
+            spr.drawPixel(i, 82, PAL_BLACK);
             spr.drawPixel(i, 72, PAL_BLACK);
             spr.drawPixel(i, 62, PAL_BLACK);
+            spr.drawPixel(i, 56, PAL_BLACK);
             spr.drawPixel(i, 52, PAL_BLACK);
-            spr.drawPixel(i, 46, PAL_BLACK);
-            spr.drawPixel(i, 42, PAL_BLACK);
         }
 
         setU8G2Font(loc["title"][2], u8f);
@@ -926,10 +930,12 @@ void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, i
             uint8_t value = response.substring(startPos, startPos + 3).toInt();
             String timestring = response.substring(startPos + 4, startPos + 9);
             int minutes = timestring.substring(3).toInt();
-            if (value < 60) value = 60;
-            if (value > 170) value = 170;
+            if (value < 70) value = 70;
+            if (value > 180) value = 180;
+            if (value > 70 && i < 12) refresh = 5;
+            if (value > 70 && refresh > 5) refresh = 15;
 
-            spr.fillRect(i * loc["cols"][2].as<int>() + loc["bars"][0].as<int>(), loc["bars"][1].as<int>() - (value - 60), loc["bars"][2], (value - 60), (value > 130 ? PAL_RED : PAL_BLACK));
+            spr.fillRect(i * loc["cols"][2].as<int>() + loc["bars"][0].as<int>(), loc["bars"][1].as<int>() - (value - 70), loc["bars"][2], (value - 70), (value > 130 ? PAL_RED : PAL_BLACK));
 
             if (minutes % 15 == 0) {
                 drawString(spr, timestring, i * loc["cols"][2].as<int>() + loc["cols"][0].as<int>(), loc["cols"][1], loc["cols"][3]);
@@ -941,6 +947,7 @@ void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, i
     }
     http.end();
 #endif
+    return refresh;
 }
 
 int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MAC) {
@@ -949,6 +956,7 @@ int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MA
     http.begin(URL);
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
     http.addHeader("X-ESL-MAC", MAC);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setTimeout(5000);
     int httpCode = http.GET();
     if (httpCode == 200) {
@@ -1215,3 +1223,4 @@ void showIpAddress(String dst) {
         }
     }
 }
+

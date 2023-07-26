@@ -190,12 +190,6 @@
         "type": "text"
       },
       {
-        "key": "ttl",
-        "name": "Time To Live",
-        "desc": "How often (in minutes) should this be refreshed. Minimum is 5 minutes, but will shorten battery lifetime",
-        "type": "int"
-      },
-      {
         "key": "#lat",
         "name": "Lat",
         "desc": "Latitude (set automatic when generating image)",
@@ -259,7 +253,7 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often (in minutes) the image is being fetched",
+        "desc": "How often (in minutes) the image is being fetched. Minimum is 3 minutes.",
         "type": "int"
       }
     ]
@@ -284,7 +278,7 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often (in minutes) the template is being fetched",
+        "desc": "How often (in minutes) the template is being fetched. Minimum is 3 minutes.",
         "type": "int"
       }
     ]

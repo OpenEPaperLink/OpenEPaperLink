@@ -52,7 +52,7 @@
    "temp": [ 20, 170, "fonts/calibrib150" ],
    "icon": [ 100, 50, "fonts/weathericons78" ],
    "dir": [ 220, 50, "fonts/weathericons78" ],
-   "umbrella": [ 330, 10 ]
+   "umbrella": [ 305, 155 ]
   }
  },
  "8": {

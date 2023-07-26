@@ -29,7 +29,7 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
 bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams);
 bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams);
 void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams);
-void drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
+uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
 int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MAC);
 void drawJsonTemplate(JsonDocument &doc, String filename, tagRecord *&taginfo, imgParam &imageParams);
 void drawElement(const JsonObject &element, TFT_eSprite &spr);

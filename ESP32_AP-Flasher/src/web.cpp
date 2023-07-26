@@ -83,7 +83,9 @@ void wsSendSysteminfo() {
     sys["littlefsfree"] = Storage.freeSpace();
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
+#if !defined(CONFIG_IDF_TARGET_ESP32)
     sys["temp"] = temperatureRead();
+#endif
     sys["rssi"] = WiFi.RSSI();
     sys["wifistatus"] = WiFi.status();
     sys["wifissid"] = WiFi.SSID();
@@ -466,6 +468,10 @@ void init_web() {
 }
 
 void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+    if (config.runStatus != RUNSTATUS_RUN) {
+        request->send(409, "text/plain", "come back later");
+        return;
+    }
     if (!index) {
         if (request->hasParam("mac", true)) {
             filename = request->getParam("mac", true)->value() + ".jpg";
@@ -506,6 +512,10 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
 }
 
 void doJsonUpload(AsyncWebServerRequest *request) {
+    if (config.runStatus != RUNSTATUS_RUN) {
+        request->send(409, "text/plain", "come back later");
+        return;
+    }
     if (request->hasParam("mac", true) && request->hasParam("json", true)) {
         String dst = request->getParam("mac", true)->value();
         File file = LittleFS.open("/" + dst + ".json", "w");
