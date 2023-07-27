@@ -85,7 +85,7 @@ void contentRunner() {
         tagRecord *taginfo = nullptr;
         taginfo = tagDB.at(c);
 
-        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC) && config.runStatus == RUNSTATUS_RUN) {
+        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC) && config.runStatus == RUNSTATUS_RUN && Storage.freeSpace() > 31000) {
             drawNew(taginfo->mac, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
             taginfo->wakeupReason = 0;
         }
@@ -310,7 +310,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case 19:  // json template
         {
-            DynamicJsonDocument doc(2000);
+            DynamicJsonDocument doc(5000);
             if (cfgobj["filename"]) {
                 File file = contentFS->open("/" + String(hexmac) + ".json", "r");
                 if (file) {
@@ -819,7 +819,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         time_t starttime = obj["start"];
         time_t endtime = obj["end"];
         setU8G2Font(loc["line"][3], u8f);
-        if (starttime < now && endtime > now) {
+        if (starttime <= now && endtime > now) {
             u8f.setForegroundColor(PAL_WHITE);
             u8f.setBackgroundColor(PAL_RED);
             spr.fillRect(loc["red"][0], loc["red"][1].as<int>() + i * loc["line"][2].as<int>(), loc["red"][2], loc["red"][3], PAL_RED);
@@ -828,7 +828,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
             u8f.setBackgroundColor(PAL_WHITE);
         }
         u8f.setCursor(loc["line"][0], loc["line"][1].as<int>() + i * loc["line"][2].as<int>());
-        u8f.print(epoch_to_display(obj["start"]));
+        if (starttime > 0) u8f.print(epoch_to_display(obj["start"]));
         u8f.setCursor(loc["line"][4], loc["line"][1].as<int>() + i * loc["line"][2].as<int>());
         u8f.print(eventtitle);
     }
