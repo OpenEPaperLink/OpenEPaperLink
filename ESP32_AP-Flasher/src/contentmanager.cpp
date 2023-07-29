@@ -355,11 +355,13 @@ bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, tagRec
     return true;
 }
 
-void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, byte align, uint16_t color) {
+void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, byte align, uint16_t color, uint16_t size) {
     // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,PAL_RED);
     spr.setTextDatum(align);
 
-    if (font != "" && !font.startsWith("fonts/")) {
+    if (font != "" && !font.startsWith("fonts/") && !font.startsWith("/fonts/")) {
+
+        // u8g2 font
         U8g2_for_TFT_eSPI u8f;
         u8f.begin(spr);
         setU8G2Font(font, u8f);
@@ -368,10 +370,13 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
         u8f.setCursor(posx, posy);
         u8f.print(content);
     } else {
+
+        // vlw bitmap font
         if (font != "") spr.loadFont(font, *contentFS);
         spr.setTextColor(color, PAL_WHITE);
         spr.drawString(content, posx, posy);
         if (font != "") spr.unloadFont();
+
     }
 }
 
@@ -953,6 +958,7 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
 int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MAC) {
     Serial.println("get external " + URL);
     HTTPClient http;
+    http.useHTTP10(true);
     http.begin(URL);
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
     http.addHeader("X-ESL-MAC", MAC);
@@ -962,12 +968,12 @@ int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MA
     if (httpCode == 200) {
         DeserializationError error = deserializeJson(jsondoc, http.getStream());
         if (error) {
-            wsErr(error.c_str());
+            wsErr("json error " + String(error.c_str()));
             return 0;
         }
     } else {
         if (httpCode != 304) {
-            wsErr("http " + URL + " " + String(httpCode));
+            wsErr("http " + URL + " status " + String(httpCode));
         } else {
             Serial.println("http 304, image is not changed " + URL);
         }
@@ -993,7 +999,8 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr) {
         const JsonArray &textArray = element["text"];
         uint16_t color = textArray[4] | 1;
         uint16_t align = textArray[5] | 0;
-        drawString(spr, textArray[2], textArray[0].as<int>(), textArray[1].as<int>(), textArray[3], align, getColor(color));
+        uint16_t size = textArray[6] | 0;
+        drawString(spr, textArray[2], textArray[0].as<int>(), textArray[1].as<int>(), textArray[3], align, getColor(color), size);
     } else if (element.containsKey("box")) {
         const JsonArray &boxArray = element["box"];
         uint16_t color = boxArray[4] | 1;
