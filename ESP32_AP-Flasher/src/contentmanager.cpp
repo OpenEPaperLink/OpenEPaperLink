@@ -33,7 +33,7 @@
 #include "settings.h"
 #include "tag_db.h"
 #include "web.h"
-//#include "truetype.h"
+#include "truetype.h"
 
 #define PAL_BLACK TFT_BLACK
 #define PAL_WHITE TFT_WHITE
@@ -369,6 +369,28 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
         u8f.setBackgroundColor(PAL_WHITE);
         u8f.setCursor(posx, posy);
         u8f.print(content);
+
+    } else if (size > 0) {
+
+        // truetype
+        time_t t = millis();
+        truetypeClass truetype = truetypeClass();
+        void *framebuffer = spr.getPointer();
+        truetype.setFramebuffer(spr.width(), spr.height(), spr.getColorDepth(), static_cast<uint8_t *>(framebuffer));
+        File fontFile = contentFS->open(font, "r");
+        if (!truetype.setTtfFile(fontFile)) {
+            Serial.println("read ttf failed");
+            return;
+        }
+
+        truetype.setCharacterSize(size);
+        truetype.setCharacterSpacing(0);
+        truetype.setTextBoundary(posx, spr.width(), spr.height());
+        truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
+        truetype.textDraw(posx, posy, content);
+        truetype.end();
+        Serial.println("text: '" + content + "' " + String(millis() - t) + "ms"); 
+
     } else {
 
         // vlw bitmap font
