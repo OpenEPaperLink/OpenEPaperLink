@@ -1,8 +1,8 @@
 /*
 Read truetype(.ttf) and generate bitmap.
 
-TrueType™ Reference Manual
-https://developer.apple.com/fonts/TrueType-Reference-Manual/
+TrueType™ Reference Manual: https://developer.apple.com/fonts/TrueType-Reference-Manual/
+get info on a ttf file: https://fontdrop.info/
 
 MIT licencse
 original source by https://github.com/garretlab/truetype

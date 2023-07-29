@@ -10,6 +10,20 @@
         "/fonts/numbers3-1.vlw",
         "/fonts/numbers3-2.vlw",
         "/fonts/tw20.vlw",
-        "/fonts/twbold20.vlw"
+        "/fonts/twbold20.vlw",
+		"/alignment.jpg",
+		"/gradient.jpg",
+		"/demo_image_generator.py",
+        "/www/content_cards.json",
+        "/www/favicon.ico",
+        "/www/index.html",
+        "/www/jsontemplate-demo.html",
+        "/www/main.css",
+        "/www/main.js",
+        "/www/ota.js",
+        "/www/painter.js",
+        "/www/setup.html",
+        "/www/setup.js",
+        "/www/upload-demo.html"
     ]
 }

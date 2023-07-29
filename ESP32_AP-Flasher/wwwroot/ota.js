@@ -62,16 +62,17 @@ export async function initUpdate() {
             const releaseDetails = data.map(release => {
                 const assets = release.assets;
                 let fileUrl = null;
-                const filesJsonAsset = assets.find(asset => asset.name === 'files.json');
-                if (filesJsonAsset) {
-                    fileUrl = filesJsonAsset.browser_download_url;
+                const filesJsonAsset = assets.find(asset => asset.name === 'filesystem.json');
+                const binariesJsonAsset = assets.find(asset => asset.name === 'binaries.json');
+                if (filesJsonAsset && binariesJsonAsset) {
                     return {
                         html_url: release.html_url,
                         tag_name: release.tag_name,
                         name: release.name,
                         date: formatDateTime(release.published_at),
                         author: release.author.login,
-                        file_url: fileUrl
+                        file_url: filesJsonAsset.browser_download_url,
+                        bin_url: binariesJsonAsset.browser_download_url
                     }
                 };
             });
@@ -87,7 +88,7 @@ export async function initUpdate() {
                     } else if (release.date < formatEpoch(currentBuildtime)) {
                         easyupdate.innerHTML = `Your version is newer than the latest release date.<br>Are you the developer? :-)`;
                     } else {
-                        easyupdate.innerHTML = `An update from version ${currentVer} to version ${release.tag_name} is available.<button onclick="otamodule.updateAll('${release.file_url}','${release.tag_name}')">Update now!</button>`;
+                        easyupdate.innerHTML = `An update from version ${currentVer} to version ${release.tag_name} is available.<button onclick="otamodule.updateAll('${release.bin_url}','${release.file_url}','${release.tag_name}')">Update now!</button>`;
                     }
                 }
             }
@@ -101,7 +102,7 @@ export async function initUpdate() {
             releaseDetails.forEach(release => {
                 if (release && release.html_url) {
                     const tableRow = document.createElement('tr');
-                    let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td><button onclick="otamodule.updateESP('${release.file_url}', true)">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td>`;
+                    let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td><button onclick="otamodule.updateESP('${release.bin_url}', true)">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td>`;
                     if (release.tag_name == currentVer) {
                         tablerow += "<td>current version</td>";
                     } else if (release.date < formatEpoch(currentBuildtime)) {
@@ -123,10 +124,10 @@ export async function initUpdate() {
         });
 }
 
-export function updateAll(fileUrl, tagname) {
+export function updateAll(binUrl, fileUrl, tagname) {
     updateWebpage(fileUrl, tagname, false)
         .then(() => {
-            updateESP(fileUrl, false);
+            updateESP(binUrl, false);
         })
         .catch(error => {
             console.error(error);
@@ -152,48 +153,55 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
 
                 print("Updating littleFS partition...");
 
-                try {
-                    const response = await fetch("/update_actions", {
-                        method: "POST",
-                        body: ''
-                    });
-                    if (response.ok) {
-                        const data = await response.text();
-                    } else {
-                        print(`error performing update actions: ${response.status}`, "red");
-                        errors++;
-                    }
-                } catch (error) {
-                    console.error(`error calling update actions:` + error, "red");
-                    errors++;
-                }
-
                 fetch("/getexturl?url=" + fileUrl)
                     .then(response => response.json())
                     .then(data => {
-                        checkfiles(data.files);
+                        checkfiles(data);
                     })
                     .catch(error => {
                         print('Error fetching data:' + error, "red");
                     });
 
                 const checkfiles = async (files) => {
+ 
+                    const updateactions = files.find(files => files.name === "update_actions.json");
+                    if (updateactions) {
+                        await fetchAndPost(updateactions.url, updateactions.name, updateactions.path);
+                        try {
+                            const response = await fetch("/update_actions", {
+                                method: "POST",
+                                body: ''
+                            });
+                            if (response.ok) {
+                                const data = await response.text();
+                            } else {
+                                print(`error performing update actions: ${response.status}`, "red");
+                                errors++;
+                            }
+                        } catch (error) {
+                            console.error(`error calling update actions:` + error, "red");
+                            errors++;
+                        }
+                    }
+
                     for (const file of files) {
                         try {
-                            const url = "/check_file?path=" + encodeURIComponent(file.path);
-                            const response = await fetch(url);
-                            if (response.ok) {
-                                const data = await response.json();
-                                if (data.filesize == file.size && data.md5 == file.md5) {
-                                    print(`file ${file.path} is up to date`, "green");
-                                } else if (data.filesize == 0) {
-                                    await fetchAndPost(file.url, file.name, file.path);
+                            if (file.name != "update_actions.json") {
+                                const url = "/check_file?path=" + encodeURIComponent(file.path);
+                                const response = await fetch(url);
+                                if (response.ok) {
+                                    const data = await response.json();
+                                    if (data.filesize == file.size && data.md5 == file.md5) {
+                                        print(`file ${file.path} is up to date`, "green");
+                                    } else if (data.filesize == 0) {
+                                        await fetchAndPost(file.url, file.name, file.path);
+                                    } else {
+                                        await fetchAndPost(file.url, file.name, file.path);
+                                    }
                                 } else {
-                                    await fetchAndPost(file.url, file.name, file.path);
+                                    print(`error checking file ${file.path}: ${response.status}`, "red");
+                                    errors++;
                                 }
-                            } else {
-                                print(`error checking file ${file.path}: ${response.status}`, "red");
-                                errors++;
                             }
                         } catch (error) {
                             console.error(`error checking file ${file.path}:` + error, "red");
@@ -257,12 +265,12 @@ export async function updateESP(fileUrl, showConfirm) {
             }
 
             const responseBody = await response.text();
-            if (responseBody.trim()[0] !== "{") {
+            if (responseBody.trim()[0] !== "[") {
                 throw new Error("Failed to fetch the release info file");
             }
             const data = JSON.parse(responseBody);
             
-            const file = data.binaries?.find((entry) => entry.name == env + '.bin');
+            const file = data.find((entry) => entry.name == env + '.bin');
             if (file) {
                 binurl = file.url;
                 binmd5 = file.md5;
