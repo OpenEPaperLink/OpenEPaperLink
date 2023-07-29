@@ -129,7 +129,11 @@ function connect() {
 			processTags(msg.tags);
 		}
 		if (msg.sys) {
-			$('#sysinfo').innerHTML = 'free heap: ' + convertSize(msg.sys.heap) + ' &#x2507; db size: ' + convertSize(msg.sys.dbsize) + ' &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; filesystem free: ' + convertSize(msg.sys.littlefsfree);
+			let filesystem = 'filesystem free: ' + convertSize(msg.sys.littlefsfree);
+			if (msg.sys.littlefsfree < 31000) {
+				filesystem = 'filesystem <span class="blink-red" title="Generating content is paused">FULL! ' + convertSize(msg.sys.littlefsfree) + '</span>';
+			}
+			$('#sysinfo').innerHTML = 'free heap: ' + convertSize(msg.sys.heap) + ' &#x2507; db size: ' + convertSize(msg.sys.dbsize) + ' &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; ' + filesystem;
 			if (msg.sys.apstate) {
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
 				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;

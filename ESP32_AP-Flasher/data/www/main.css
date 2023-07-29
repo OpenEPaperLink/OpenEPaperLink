@@ -250,6 +250,11 @@ select {
 	float: right;
 }
 
+.blink-red {
+	animation: tagflash 1s infinite;
+	color: red;
+}
+
 .taglist {
 	display: flex;
 	flex-wrap: wrap;
