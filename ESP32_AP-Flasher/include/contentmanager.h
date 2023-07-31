@@ -30,8 +30,9 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
 bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams);
 void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams);
 uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
-int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MAC);
-void drawJsonTemplate(JsonDocument &doc, String filename, tagRecord *&taginfo, imgParam &imageParams);
+int getJsonTemplateFile(String &filename, String jsonfile, tagRecord *&taginfo, imgParam &imageParams);
+int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC, tagRecord *&taginfo, imgParam &imageParams);
+void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams);
 void drawElement(const JsonObject &element, TFT_eSprite &spr);
 uint16_t getColor(uint8_t color);
 char *formatHttpDate(time_t t);

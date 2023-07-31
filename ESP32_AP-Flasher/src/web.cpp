@@ -530,7 +530,7 @@ void doJsonUpload(AsyncWebServerRequest *request) {
             tagRecord *taginfo = nullptr;
             taginfo = tagRecord::findByMAC(mac);
             if (taginfo != nullptr) {
-                taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".json\"}";
+                taginfo->modeConfigJson = "{\"filename\":\"/" + dst + ".json\"}";
                 taginfo->contentMode = 19;
                 taginfo->nextupdate = 0;
                 wsSendTaginfo(mac, SYNC_USERCFG);

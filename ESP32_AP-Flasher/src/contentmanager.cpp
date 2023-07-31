@@ -310,32 +310,24 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case 19:  // json template
         {
-            DynamicJsonDocument doc(5000);
             if (cfgobj["filename"]) {
-                File file = contentFS->open("/" + String(hexmac) + ".json", "r");
-                if (file) {
-                    DeserializationError error = deserializeJson(doc, file);
-                    if (error) {
-                        wsErr(error.c_str());
-                    } else {
-                        taginfo->nextupdate = 3216153600;
-                        drawJsonTemplate(doc, filename, taginfo, imageParams);
-                        updateTagImage(filename, mac, 0, taginfo, imageParams);
-                    }
+                int result = getJsonTemplateFile(filename, cfgobj["filename"], taginfo, imageParams);
+                if (result) {
+                    updateTagImage(filename, mac, 0, taginfo, imageParams);
                 } else {
-                    wsErr("json file not found");
+                    wsErr("error opening file " + cfgobj["filename"].as<String>());
                 }
+                taginfo->nextupdate = 3216153600;
             } else {
-                int httpcode = getJsonTemplate(cfgobj["url"], doc, (time_t)cfgobj["#fetched"], String(hexmac));
+                int httpcode = getJsonTemplateUrl(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], String(hexmac), taginfo, imageParams);
                 if (httpcode == 200) {
                     taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
-                    drawJsonTemplate(doc, filename, taginfo, imageParams);
                     updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
                     cfgobj["#fetched"] = now;
                 } else if (httpcode == 304) {
                     taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
                 } else {
-                    taginfo->nextupdate = now + 300;
+                    taginfo->nextupdate = now + 600;
                 }
             }
             break;
@@ -966,8 +958,23 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
     return refresh;
 }
 
-int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MAC) {
+int getJsonTemplateFile(String &filename, String jsonfile, tagRecord *&taginfo, imgParam &imageParams) {
+    if (jsonfile.c_str()[0] != '/') {
+        jsonfile = "/" + jsonfile;
+    }
+    File file = contentFS->open(jsonfile, "r");
+    if (file) {
+        drawJsonStream(file, filename, taginfo, imageParams);
+        file.close();
+        contentFS->remove(jsonfile);
+        return 1;
+    }
+    return 0;
+}
+
+int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC, tagRecord *&taginfo, imgParam &imageParams) {
     Serial.println("get external " + URL);
+
     HTTPClient http;
     http.useHTTP10(true);
     http.begin(URL);
@@ -977,11 +984,7 @@ int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MA
     http.setTimeout(5000);
     int httpCode = http.GET();
     if (httpCode == 200) {
-        DeserializationError error = deserializeJson(jsondoc, http.getStream());
-        if (error) {
-            wsErr("json error " + String(error.c_str()));
-            return 0;
-        }
+        drawJsonStream(http.getStream(), filename, taginfo, imageParams);
     } else {
         if (httpCode != 304) {
             wsErr("http " + URL + " status " + String(httpCode));
@@ -993,14 +996,25 @@ int getJsonTemplate(String URL, JsonDocument &jsondoc, time_t fetched, String MA
     return httpCode;
 }
 
-void drawJsonTemplate(JsonDocument &doc, String filename, tagRecord *&taginfo, imgParam &imageParams) {
+void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+    DynamicJsonDocument doc(300);
 
-    for (const JsonVariant &element : doc.as<JsonArray>()) {
-        drawElement(element.as<JsonObject>(), spr);
+    if (stream.find("[")) {
+        do {
+            DeserializationError error = deserializeJson(doc, stream);
+            if (error) {
+                wsErr("json error " + String(error.c_str()));
+                break;
+            } else {            
+                drawElement(doc.as<JsonObject>(), spr);
+                doc.clear();
+            }
+        } while (stream.findUntil(",", "]"));
     }
+
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
 }
