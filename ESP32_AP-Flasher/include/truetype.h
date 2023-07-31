@@ -139,8 +139,8 @@ typedef struct {
 } ttKernFormat0_t;
 
 typedef struct {
-    int16_t x;
-    int16_t y;
+    float x;
+    float y;
 } ttCoordinate_t;
 
 typedef struct {
@@ -258,7 +258,6 @@ class truetypeClass {
     ttWindIntersect_t *pointsToFill = nullptr;
     void generateOutline(int16_t _x, int16_t _y, uint16_t characterSize);
     void freePointsAll();
-    bool isInside(int16_t _x, int16_t _y);
     void fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t characterSize);
     uint8_t readGlyph(uint16_t code, uint8_t _justSize = 0);
     void freeGlyph();
@@ -270,8 +269,7 @@ class truetypeClass {
     void freeBeginPoints();
     void addEndPoint(uint16_t _ep);
     void freeEndPoints();
-    int32_t isLeft(ttCoordinate_t *_p0, ttCoordinate_t *_p1, ttCoordinate_t *_point);
-    float isLeftFloat(ttCoordinate_t *_p0, ttCoordinate_t *_p1, ttCoordinate_t *_point);
+    float isLeft(ttCoordinate_t *_p0, ttCoordinate_t *_p1, ttCoordinate_t *_point);
 
     // write user framebuffer
     uint16_t characterSize = 20;

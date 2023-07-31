@@ -703,9 +703,6 @@ void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t characterSi
 
     uint16_t j = 0;
 
-    float stepsize = .1;
-    if (characterSize > 50) stepsize = .05;
-
     for (uint16_t i = 0; i < glyph.numberOfContours; i++) {
         uint8_t firstPointOfContour = j;
         uint8_t lastPointOfContour = glyph.endPtsOfContours[i];
@@ -766,7 +763,8 @@ void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t characterSi
                 x0 = pointsOfCurve[0].x;
                 y0 = pointsOfCurve[0].y;
 
-                for (float t = 0; t <= 1.0; t += stepsize) {
+                for (int step = 0; step <= 8; step += 1) {
+                    float t = (float)step / 8.0;
                     x1 = (1.0 - t) * (1.0 - t) * x0 + 2.0 * t * (1.0 - t) * pointsOfCurve[1].x + t * t * pointsOfCurve[2].x;
                     y1 = (1.0 - t) * (1.0 - t) * y0 + 2.0 * t * (1.0 - t) * pointsOfCurve[1].y + t * t * pointsOfCurve[2].y;
 
@@ -789,75 +787,35 @@ void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t characterSi
 
 void truetypeClass::addLine(float _x0, float _y0, float _x1, float _y1) {
 
-    int16_t x0 = round(_x0);
-    int16_t y0 = round(_y0);
-    int16_t x1 = round(_x1);
-    int16_t y1 = round(_y1);
-
     if (numPoints == 0) {
-        addPoint(x0, y0);
+        addPoint(_x0, _y0);
         addBeginPoint(0);
     }
-    addPoint(x1,y1);
+    addPoint(_x1, _y1);
 
-    int16_t dx = abs(x1 - x0);
-    int16_t dy = abs(y1 - y0);
-    int16_t sx = (x0 < x1) ? 1 : -1;
-    int16_t sy = (y0 < y1) ? 1 : -1;
-    int16_t err = dx - dy;
+    /*
+        int16_t dx = abs(x1 - x0);
+        int16_t dy = abs(y1 - y0);
+        int16_t sx = (x0 < x1) ? 1 : -1;
+        int16_t sy = (y0 < y1) ? 1 : -1;
+        int16_t err = dx - dy;
 
-    while (true) {
-        addPixel(x0, y0, colorLine);
-        if (x0 == x1 && y0 == y1) {
-            break;
-        }
-        int16_t e2 = 2 * err;
-        if (e2 > -dy) {
-            err -= dy;
-            x0 += sx;
-        }
-        if (e2 < dx) {
-            err += dx;
-            y0 += sy;
-        }
-    }
-}
-
-bool truetypeClass::isInside(int16_t _x, int16_t _y) {
-    int16_t windingNumber = 0;
-    uint16_t bpCounter = 0, epCounter = 0;
-    ttCoordinate_t point = {_x, _y};
-    ttCoordinate_t point1;
-    ttCoordinate_t point2;
-
-    for (uint16_t i = 0; i < numPoints; i++) {
-        point1 = points[i];
-        // Wrap?
-        if (i == endPoints[epCounter]) {
-            point2 = points[beginPoints[bpCounter]];
-            epCounter++;
-            bpCounter++;
-        } else {
-            point2 = points[i + 1];
-        }
-
-        if (point1.y <= point.y) {
-            if (point2.y > point.y) {
-                if (isLeft(&point1, &point2, &point) > 0) {
-                    windingNumber++;
-                }
+        while (true) {
+            addPixel(x0, y0, colorLine);
+            if (x0 == x1 && y0 == y1) {
+                break;
             }
-        } else {
-            // start y > point.y (no test needed)
-            if (point2.y <= point.y) {
-                if (isLeft(&point1, &point2, &point) < 0) {
-                    windingNumber--;
-                }
+            int16_t e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x0 += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y0 += sy;
             }
         }
-    }
-
-    return (windingNumber != 0);
+    */
 }
 
 void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t characterSize) {
@@ -866,7 +824,7 @@ void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t character
          y++) {
         ttCoordinate_t point1, point2;
         ttCoordinate_t point;
-        point.y = y;
+        point.y = (float)y;
 
         uint16_t intersectPointsNum = 0;
         uint16_t bpCounter = 0;
@@ -885,8 +843,8 @@ void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t character
             }
             point2 = points[p2Num];
 
-            if (point1.y <= y) {
-                if (point2.y > y) {
+            if (point1.y <= (float)y) {
+                if (point2.y > (float)y) {
                     // Have a valid up intersect
                     intersectPointsNum++;
                     pointsToFill = (ttWindIntersect_t *)realloc(pointsToFill, sizeof(ttWindIntersect_t) * intersectPointsNum);
@@ -896,7 +854,7 @@ void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t character
                 }
             } else {
                 // start y > point.y (no test needed)
-                if (point2.y <= y) {
+                if (point2.y <= (float)y) {
                     // Have a valid down intersect
                     intersectPointsNum++;
                     pointsToFill = (ttWindIntersect_t *)realloc(pointsToFill, sizeof(ttWindIntersect_t) * intersectPointsNum);
@@ -911,14 +869,14 @@ void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t character
              x < _x_min + round((float)glyph.xMax * (float)characterSize / (float)headTable.unitsPerEm);
              x++) {
             int16_t windingNumber = 0;
-            point.x = x;
+            point.x = (float)x;
 
             for (uint16_t i = 0; i < intersectPointsNum; i++) {
                 point1 = points[pointsToFill[i].p1];
                 point2 = points[pointsToFill[i].p2];
 
                 if (pointsToFill[i].up == 1) {
-                    if (isLeft(&point1, &point2, &point) >= 0) {
+                    if (isLeft(&point1, &point2, &point) > 0) {
                         windingNumber++;
                     }
                 } else {
@@ -938,7 +896,7 @@ void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t character
     }
 }
 
-int32_t truetypeClass::isLeft(ttCoordinate_t *_p0, ttCoordinate_t *_p1, ttCoordinate_t *_point) {
+float truetypeClass::isLeft(ttCoordinate_t *_p0, ttCoordinate_t *_p1, ttCoordinate_t *_point) {
     return ((_p1->x - _p0->x) * (_point->y - _p0->y) - (_point->x - _p0->x) * (_p1->y - _p0->y));
 }
 
