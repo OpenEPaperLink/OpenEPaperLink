@@ -355,10 +355,8 @@ bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, tagRec
     return true;
 }
 
-void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, String font, byte align, uint16_t color, uint16_t size) {
+void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align, uint16_t color, uint16_t size) {
     // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,PAL_RED);
-    spr.setTextDatum(align);
-
     if (font != "" && !font.startsWith("fonts/") && !font.startsWith("/fonts/")) {
 
         // u8g2 font
@@ -385,6 +383,12 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
 
         truetype.setCharacterSize(size);
         truetype.setCharacterSpacing(0);
+        if (align == TC_DATUM) {
+            posx -= truetype.getStringWidth(content) / 2;
+        }
+        if (align == TR_DATUM) {
+            posx -= truetype.getStringWidth(content);
+        }
         truetype.setTextBoundary(posx, spr.width(), spr.height());
         truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
         truetype.textDraw(posx, posy, content);
@@ -394,6 +398,7 @@ void drawString(TFT_eSprite &spr, String content, uint16_t posx, uint16_t posy, 
     } else {
 
         // vlw bitmap font
+        spr.setTextDatum(align);
         if (font != "") spr.loadFont(font, *contentFS);
         spr.setTextColor(color, PAL_WHITE);
         spr.drawString(content, posx, posy);
@@ -578,26 +583,15 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         dtostrf(temperature, 2, 1, tmpOutput);
         drawString(spr, String(tmpOutput), loc["temp"][0], loc["temp"][1], loc["temp"][2], TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
 
-        spr.loadFont(loc["icon"][2], *contentFS);
+        int iconcolor = PAL_BLACK;
         if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
-            spr.setTextColor(PAL_RED, PAL_WHITE);
-        } else {
-            spr.setTextColor(PAL_BLACK, PAL_WHITE);
+            iconcolor = PAL_RED;
         }
-        spr.setCursor(loc["icon"][0], loc["icon"][1]);
-        spr.printToSprite(weatherIcons[weathercode]);
-        spr.unloadFont();
-
-        spr.loadFont(loc["dir"][2], *contentFS);
-        spr.setTextColor(PAL_BLACK, PAL_WHITE);
-        spr.setCursor(loc["dir"][0], loc["dir"][1]);
-        spr.printToSprite(windDirectionIcon(winddirection));
+        drawString(spr, weatherIcons[weathercode], loc["icon"][0], loc["icon"][1], "/fonts/weathericons.ttf", loc["icon"][3], iconcolor, loc["icon"][2]);
+        drawString(spr, windDirectionIcon(winddirection), loc["dir"][0], loc["dir"][1], "/fonts/weathericons.ttf", TC_DATUM, PAL_BLACK, loc["dir"][2]);
         if (weathercode > 10) {
-            spr.setTextColor(PAL_RED, PAL_WHITE);
-            spr.setCursor(loc["umbrella"][0], loc["umbrella"][1]);
-            spr.printToSprite("\uf084");
+            drawString(spr, "\uf084", loc["umbrella"][0], loc["umbrella"][1], "/fonts/weathericons.ttf", TC_DATUM, PAL_RED, loc["umbrella"][2]);
         }
-        spr.unloadFont();
 
         spr2buffer(spr, filename, imageParams);
         spr.deleteSprite();
@@ -647,24 +641,19 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
         for (uint8_t dag = 0; dag < loc["column"][0]; dag++) {
             time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
             struct tm *datum = localtime(&weatherday);
+
             drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][1], loc["day"][2], TC_DATUM, PAL_BLACK);
 
             uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
             if (weathercode > 40) weathercode -= 40;
-            spr.loadFont(loc["icon"][2], *contentFS);
+            
+            int iconcolor = PAL_BLACK;
             if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
-                spr.setTextColor(PAL_RED, PAL_WHITE);
-            } else {
-                spr.setTextColor(PAL_BLACK, PAL_WHITE);
+                iconcolor = PAL_RED;
             }
-            spr.setTextDatum(TL_DATUM);
-            spr.setCursor(loc["icon"][0].as<int>() + dag * loc["column"][1].as<int>(), loc["icon"][1]);
-            spr.printToSprite(weatherIcons[weathercode]);
+            drawString(spr, weatherIcons[weathercode], loc["icon"][0].as<int>() + dag * loc["column"][1].as<int>(), loc["icon"][1], "/fonts/weathericons.ttf", TC_DATUM, iconcolor, loc["icon"][2]);
 
-            spr.setTextColor(PAL_BLACK, PAL_WHITE);
-            spr.setCursor(loc["wind"][0].as<int>() + dag * loc["column"][1].as<int>(), loc["wind"][1]);
-            spr.printToSprite(windDirectionIcon(doc["daily"]["winddirection_10m_dominant"][dag]));
-            spr.unloadFont();
+            drawString(spr, windDirectionIcon(doc["daily"]["winddirection_10m_dominant"][dag]), loc["wind"][0].as<int>() + dag * loc["column"][1].as<int>(), loc["wind"][1], "/fonts/weathericons.ttf", TC_DATUM, PAL_BLACK, loc["icon"][2]);
 
             int8_t tmin = round(doc["daily"]["temperature_2m_min"][dag].as<double>());
             int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());

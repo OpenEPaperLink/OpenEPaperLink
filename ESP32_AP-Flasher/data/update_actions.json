@@ -24,6 +24,9 @@
         "/www/painter.js",
         "/www/setup.html",
         "/www/setup.js",
-        "/www/upload-demo.html"
+        "/www/upload-demo.html",
+        "/fonts/weathericons30.vlw",
+        "/fonts/weathericons70.vlw",
+        "/fonts/weathericons78.vlw"
     ]
 }
