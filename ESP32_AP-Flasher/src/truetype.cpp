@@ -37,6 +37,7 @@ uint8_t truetypeClass::setTtfFile(File _file, uint8_t _checkCheckSum) {
     readKern();
 #endif
     readHeadTable();
+    readHhea();
     return 1;
 }
 
@@ -374,6 +375,16 @@ uint16_t truetypeClass::codeToGlyphId(uint16_t _code) {
     return glyphId;
 }
 
+uint8_t truetypeClass::readHhea() {
+    if (seekToTable("hhea") == 0) {
+        ascender = yMax;
+        return 0;
+    }
+    getUInt32t();
+    ascender = getInt16t();
+    return 1;
+}
+
 #ifdef ENABLEKERNING
 /* read kerning table */
 uint8_t truetypeClass::readKern() {
@@ -459,8 +470,8 @@ ttHMetric_t truetypeClass::getHMetric(uint16_t _code) {
     result.advanceWidth = getUInt16t();
     result.leftSideBearing = getInt16t();
 
-    result.advanceWidth = (result.advanceWidth * characterSize) / (yMax - yMin);
-    result.leftSideBearing = (result.leftSideBearing * characterSize) / (yMax - yMin);
+    result.advanceWidth = (result.advanceWidth * characterSize) / headTable.unitsPerEm;
+    result.leftSideBearing = (result.leftSideBearing * characterSize) / headTable.unitsPerEm;
     return result;
 }
 
@@ -679,12 +690,8 @@ void truetypeClass::freeGlyph() {
     glyph.numberOfPoints = 0;
 }
 
-float truetypeClass::floatmap(int32_t x, int32_t inMin, int32_t inMax, int32_t outMin, int32_t outMax) {
-    return static_cast<float>(x - inMin) * (outMax - outMin) / static_cast<float>(inMax - inMin) + outMin;
-}
-
 // generate Bitmap
-void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t _width) {
+void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t characterSize) {
     points = NULL;
     beginPoints = NULL;
     endPoints = NULL;
@@ -692,12 +699,12 @@ void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t _width) {
     numBeginPoints = 0;
     numEndPoints = 0;
 
-    int16_t x0, y0, x1, y1;
+    float x0, y0, x1, y1;
 
     uint16_t j = 0;
 
-    float stepsize = 0.2;
-    if (characterSize > 50) stepsize = 0.1;
+    float stepsize = .1;
+    if (characterSize > 50) stepsize = .05;
 
     for (uint16_t i = 0; i < glyph.numberOfContours; i++) {
         uint8_t firstPointOfContour = j;
@@ -721,135 +728,58 @@ void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t _width) {
             }
         }
 
+        ttCoordinate_t pointsOfCurve[6];
+        pointsOfCurve[0].x = glyph.points[j].x;
+        pointsOfCurve[0].y = glyph.points[j].y;
+
         while (j <= lastPointOfContour) {
-            ttCoordinate_t pointsOfCurve[6];
 
-            // Examine the number of dimensions of a curve
-            pointsOfCurve[0].x = glyph.points[j].x;
-            pointsOfCurve[0].y = glyph.points[j].y;
             uint16_t searchPoint = (j == lastPointOfContour) ? (firstPointOfContour) : (j + 1);
-            uint8_t degree = 1;
-            while (searchPoint != j) {
-                if (degree < 6) {
-                    pointsOfCurve[degree].x = glyph.points[searchPoint].x;
-                    pointsOfCurve[degree].y = glyph.points[searchPoint].y;
-                }
-                if (glyph.points[searchPoint].flag & FLAG_ONCURVE) {
-                    break;
-                }
+            
+            pointsOfCurve[1].x = glyph.points[searchPoint].x;
+            pointsOfCurve[1].y = glyph.points[searchPoint].y;
+
+            if (glyph.points[searchPoint].flag & FLAG_ONCURVE) {
+
+                addLine(pointsOfCurve[0].x * characterSize / headTable.unitsPerEm + _x,
+                        (ascender - pointsOfCurve[0].y) * characterSize / headTable.unitsPerEm + _y,
+                        pointsOfCurve[1].x * characterSize / headTable.unitsPerEm + _x,
+                        (ascender - pointsOfCurve[1].y) * characterSize / headTable.unitsPerEm + _y);
+
+                pointsOfCurve[0] = pointsOfCurve[1];
+                j += 1;
+
+            } else {
+
                 searchPoint = (searchPoint == lastPointOfContour) ? (firstPointOfContour) : (searchPoint + 1);
-                degree++;
-            }
 
-            // Replace Bezier curves of 6 degrees or more with straight lines
-            if (degree >= 6) {
-                Serial.println("TTF degree not supported: " + String(degree));
-                uint16_t tmp_j = j;
-                uint16_t tmp_degree = 0;
-                while (tmp_degree < degree) {
-                    if (tmp_j > lastPointOfContour) {
-                        tmp_j = firstPointOfContour;
-                    }
-                    glyph.points[tmp_j].flag |= FLAG_ONCURVE;
-                    tmp_j++;
-                    tmp_degree++;
+                if (glyph.points[searchPoint].flag & FLAG_ONCURVE) {
+                    pointsOfCurve[2].x = glyph.points[searchPoint].x;
+                    pointsOfCurve[2].y = glyph.points[searchPoint].y;
+                    j += 2;
+                } else {
+                    pointsOfCurve[2].x = (pointsOfCurve[1].x + glyph.points[searchPoint].x) / 2;
+                    pointsOfCurve[2].y = (pointsOfCurve[1].y + glyph.points[searchPoint].y) / 2;
+                    j += 1;
                 }
+
+                x0 = pointsOfCurve[0].x;
+                y0 = pointsOfCurve[0].y;
+
+                for (float t = 0; t <= 1.0; t += stepsize) {
+                    x1 = (1.0 - t) * (1.0 - t) * x0 + 2.0 * t * (1.0 - t) * pointsOfCurve[1].x + t * t * pointsOfCurve[2].x;
+                    y1 = (1.0 - t) * (1.0 - t) * y0 + 2.0 * t * (1.0 - t) * pointsOfCurve[1].y + t * t * pointsOfCurve[2].y;
+
+                    addLine(x0 * characterSize / headTable.unitsPerEm + _x, (ascender - y0) * characterSize / headTable.unitsPerEm + _y,
+                            x1 * characterSize / headTable.unitsPerEm + _x, (ascender - y1) * characterSize / headTable.unitsPerEm + _y);
+
+                    x0 = x1;
+                    y0 = y1;
+                }
+
+                pointsOfCurve[0] = pointsOfCurve[2];
+
             }
-
-            switch (degree) {
-
-                case 5:  // Fifth-degree Bezier curve
-                    x0 = pointsOfCurve[0].x;
-                    y0 = pointsOfCurve[0].y;
-
-                    for (float t = 0; t <= 1; t += stepsize) {
-                        float c0 = (1 - t) * (1 - t) * (1 - t) * (1 - t) * (1 - t);
-                        float c1 = 5 * t * (1 - t) * (1 - t) * (1 - t) * (1 - t);
-                        float c2 = 10 * t * t * (1 - t) * (1 - t) * (1 - t);
-                        float c3 = 10 * t * t * t * (1 - t) * (1 - t);
-                        float c4 = 5 * t * t * t * t * (1 - t);
-                        float c5 = t * t * t * t * t;
-
-                        x1 = c0 * pointsOfCurve[0].x + c1 * pointsOfCurve[1].x + c2 * pointsOfCurve[2].x + c3 * pointsOfCurve[3].x + c4 * pointsOfCurve[4].x + c5 * pointsOfCurve[5].x;
-                        y1 = c0 * pointsOfCurve[0].y + c1 * pointsOfCurve[1].y + c2 * pointsOfCurve[2].y + c3 * pointsOfCurve[3].y + c4 * pointsOfCurve[4].y + c5 * pointsOfCurve[5].y;
-
-                        addLine(floatmap(x0, glyph.xMin, glyph.xMax, _x, _x + _width - 1),
-                                floatmap(y0, yMin, yMax, _y + characterSize - 1, _y),
-                                floatmap(x1, glyph.xMin, glyph.xMax, _x, _x + _width - 1),
-                                floatmap(y1, yMin, yMax, _y + characterSize - 1, _y));
-                        x0 = x1;
-                        y0 = y1;
-                    }
-                    break;
-
-                case 4:  // Fourth-degree Bezier curve
-                    x0 = pointsOfCurve[0].x;
-                    y0 = pointsOfCurve[0].y;
-
-                    for (float t = 0; t <= 1; t += 0.1) {
-                        float c0 = (1 - t) * (1 - t) * (1 - t) * (1 - t);
-                        float c1 = 4 * t * (1 - t) * (1 - t) * (1 - t);
-                        float c2 = 6 * t * t * (1 - t) * (1 - t);
-                        float c3 = 4 * t * t * t * (1 - t);
-                        float c4 = t * t * t * t;
-
-                        x1 = c0 * pointsOfCurve[0].x + c1 * pointsOfCurve[1].x + c2 * pointsOfCurve[2].x + c3 * pointsOfCurve[3].x + c4 * pointsOfCurve[4].x;
-                        y1 = c0 * pointsOfCurve[0].y + c1 * pointsOfCurve[1].y + c2 * pointsOfCurve[2].y + c3 * pointsOfCurve[3].y + c4 * pointsOfCurve[4].y;
-
-                        addLine(floatmap(x0, glyph.xMin, glyph.xMax, _x, _x + _width - 1),
-                                floatmap(y0, yMin, yMax, _y + characterSize - 1, _y),
-                                floatmap(x1, glyph.xMin, glyph.xMax, _x, _x + _width - 1),
-                                floatmap(y1, yMin, yMax, _y + characterSize - 1, _y));
-                        x0 = x1;
-                        y0 = y1;
-                    }
-                    break;
-
-                case 3:  // third-order Bezier curve
-                    x0 = pointsOfCurve[0].x;
-                    y0 = pointsOfCurve[0].y;
-
-                    for (float t = 0; t <= 1; t += stepsize) {
-                        x1 = (1 - t) * (1 - t) * (1 - t) * pointsOfCurve[0].x + 3 * (1 - t) * (1 - t) * t * pointsOfCurve[1].x + 3 * (1 - t) * t * t * pointsOfCurve[2].x + t * t * t * pointsOfCurve[3].x;
-                        y1 = (1 - t) * (1 - t) * (1 - t) * pointsOfCurve[0].y + 3 * (1 - t) * (1 - t) * t * pointsOfCurve[1].y + 3 * (1 - t) * t * t * pointsOfCurve[2].y + t * t * t * pointsOfCurve[3].y;
-
-                        addLine(floatmap(x0, glyph.xMin, glyph.xMax, _x, _x + _width - 1),
-                                floatmap(y0, yMin, yMax, _y + characterSize - 1, _y),
-                                floatmap(x1, glyph.xMin, glyph.xMax, _x, _x + _width - 1),
-                                floatmap(y1, yMin, yMax, _y + characterSize - 1, _y));
-                        x0 = x1;
-                        y0 = y1;
-                    }
-                    break;
-
-                case 2:  // Second-order Bezier curve
-                    x0 = pointsOfCurve[0].x;
-                    y0 = pointsOfCurve[0].y;
-
-                    for (float t = 0; t <= 1; t += stepsize) {
-                        x1 = (1 - t) * (1 - t) * pointsOfCurve[0].x + 2 * t * (1 - t) * pointsOfCurve[1].x + t * t * pointsOfCurve[2].x;
-                        y1 = (1 - t) * (1 - t) * pointsOfCurve[0].y + 2 * t * (1 - t) * pointsOfCurve[1].y + t * t * pointsOfCurve[2].y;
-
-                        addLine(floatmap(x0, glyph.xMin, glyph.xMax, _x, _x + _width - 1),
-                                floatmap(y0, yMin, yMax, _y + characterSize - 1, _y),
-                                floatmap(x1, glyph.xMin, glyph.xMax, _x, _x + _width - 1),
-                                floatmap(y1, yMin, yMax, _y + characterSize - 1, _y));
-                        x0 = x1;
-                        y0 = y1;
-                    }
-
-                    break;
-
-                default:
-                    degree = 1;
-                case 1:  // straight line
-                    addLine(floatmap(pointsOfCurve[0].x, glyph.xMin, glyph.xMax, _x, _x + _width - 1),
-                            floatmap(pointsOfCurve[0].y, yMin, yMax, _y + characterSize - 1, _y),
-                            floatmap(pointsOfCurve[1].x, glyph.xMin, glyph.xMax, _x, _x + _width - 1),
-                            floatmap(pointsOfCurve[1].y, yMin, yMax, _y + characterSize - 1, _y));
-                    break;
-            }
-            j += degree;
         }
         addEndPoint(numPoints - 1);
         addBeginPoint(numPoints);
@@ -858,14 +788,11 @@ void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t _width) {
 }
 
 void truetypeClass::addLine(float _x0, float _y0, float _x1, float _y1) {
-    auto roundToInt = [](float val) {
-        return static_cast<int16_t>(val + 0.5f);
-    };
 
-    int16_t x0 = roundToInt(_x0);
-    int16_t y0 = roundToInt(_y0);
-    int16_t x1 = roundToInt(_x1);
-    int16_t y1 = roundToInt(_y1);
+    int16_t x0 = round(_x0);
+    int16_t y0 = round(_y0);
+    int16_t x1 = round(_x1);
+    int16_t y1 = round(_y1);
 
     if (numPoints == 0) {
         addPoint(x0, y0);
@@ -933,8 +860,10 @@ bool truetypeClass::isInside(int16_t _x, int16_t _y) {
     return (windingNumber != 0);
 }
 
-void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t _width) {
-    for (int16_t y = _y_min; y < (_y_min + characterSize); y++) {
+void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t characterSize) {
+    for (int16_t y = round((float)(ascender - glyph.yMax) * (float)characterSize / (float)headTable.unitsPerEm + _y_min);
+         y < round((float)(ascender - glyph.yMin) * (float)characterSize / (float)headTable.unitsPerEm + _y_min);
+         y++) {
         ttCoordinate_t point1, point2;
         ttCoordinate_t point;
         point.y = y;
@@ -978,7 +907,9 @@ void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t _width) {
             }
         }
 
-        for (int16_t x = _x_min; x < (_x_min + _width); x++) {
+        for (int16_t x = _x_min + round((float)glyph.xMin * (float)characterSize / (float)headTable.unitsPerEm);
+             x < _x_min + round((float)glyph.xMax * (float)characterSize / (float)headTable.unitsPerEm);
+             x++) {
             int16_t windingNumber = 0;
             point.x = x;
 
@@ -987,7 +918,7 @@ void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t _width) {
                 point2 = points[pointsToFill[i].p2];
 
                 if (pointsToFill[i].up == 1) {
-                    if (isLeft(&point1, &point2, &point) > 0) {
+                    if (isLeft(&point1, &point2, &point) >= 0) {
                         windingNumber++;
                     }
                 } else {
@@ -1033,16 +964,15 @@ void truetypeClass::textDraw(int16_t _x, int16_t _y, const wchar_t _character[])
 #ifdef ENABLEKERNING
         if (prev_code != 0 && kerningOn) {
             int16_t kern = getKerning(prev_code, charCode);  // space between charctor
-            _x += (kern * (int16_t)characterSize) / (yMax - yMin);
+            _x += (kern * (int16_t)characterSize) / headTable.unitsPerEm;
         }
 #endif
         prev_code = charCode;
 
         ttHMetric_t hMetric = getHMetric(charCode);
-        uint16_t width = characterSize * (glyph.xMax - glyph.xMin) / (yMax - yMin);
 
         // Line breaks when reaching the edge of the display
-        if ((hMetric.leftSideBearing + width + _x) > end_x) {
+        if (c > 0 && (hMetric.advanceWidth + _x) > end_x) {
             _x = start_x;
             _y += characterSize;
             if (_y > end_y) {
@@ -1061,13 +991,13 @@ void truetypeClass::textDraw(int16_t _x, int16_t _y, const wchar_t _character[])
         }
 
         if (glyph.numberOfContours >= 0) {
-            generateOutline(hMetric.leftSideBearing + _x, _y, width);
-            fillGlyph(hMetric.leftSideBearing + _x, _y, width);
+            generateOutline(_x, _y, characterSize);
+            fillGlyph(_x, _y, characterSize);
         }
         freePointsAll();
         freeGlyph();
 
-        _x += (hMetric.advanceWidth) ? (hMetric.advanceWidth) : (width);
+        _x += hMetric.advanceWidth;
         c++;
     }
 }
@@ -1184,14 +1114,13 @@ uint16_t truetypeClass::getStringWidth(const wchar_t _character[]) {
 #ifdef ENABLEKERNING
         if (prev_code != 0 && kerningOn) {
             int16_t kern = getKerning(prev_code, code);  // space between charctor
-            output += (kern * (int16_t)characterSize) / (yMax - yMin);
+            output += (kern * (int16_t)characterSize) / headTable.unitsPerEm;
         }
 #endif
         prev_code = code;
 
         ttHMetric_t hMetric = getHMetric(code);
-        uint16_t width = characterSize * (glyph.xMax - glyph.xMin) / (yMax - yMin);
-        output += (hMetric.advanceWidth) ? (hMetric.advanceWidth) : (width);
+        output += hMetric.advanceWidth;
         c++;
     }
 
