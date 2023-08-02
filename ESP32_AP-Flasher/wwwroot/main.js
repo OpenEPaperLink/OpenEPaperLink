@@ -117,7 +117,7 @@ function connect() {
 	});
 
 	socket.addEventListener("message", (event) => {
-		console.log(event.data)
+		// console.log(event.data)
 		const msg = JSON.parse(event.data);
 		if (msg.logMsg) {
 			showMessage(msg.logMsg, false);
@@ -356,6 +356,10 @@ $('#taglist').addEventListener("click", (event) => {
 		return;
 	}
 	const mac = currentElement.dataset.mac;
+	loadContentCard(mac);
+})
+
+function loadContentCard(mac) {
 	$('#cfgmac').innerHTML = mac;
 	$('#cfgmac').dataset.mac = mac;
 	fetch("/get_db?mac=" + mac)
@@ -379,7 +383,24 @@ $('#taglist').addEventListener("click", (event) => {
 			$('#cfgmore').innerHTML = '&#x25BC;';
 			$('#configbox').style.display = 'block';
 		})
-})
+}
+
+let typedString = '';
+document.addEventListener('keypress', (event) => {
+	const keyPressed = event.key;
+	if (keyPressed.length === 1) {
+		typedString += keyPressed;
+	} else if (keyPressed === 'Enter') {
+		typedString = ('0000' + typedString).slice(-16);
+		const hexRegExp = /^[0-9A-Fa-f]{16}$/;
+		const isMac = typedString.match(hexRegExp);
+		if (isMac) {
+			console.log('scanned ' + typedString);
+			loadContentCard(typedString);
+		}
+		typedString = '';
+	}
+});
 
 $('#cfgmore').onclick = function () {
 	$('#cfgmore').innerHTML = $('#advancedoptions').style.height == '0px' ? '&#x25B2;' : '&#x25BC;';

@@ -50,9 +50,9 @@
    "location": [ 20, 20, "fonts/calibrib30" ],
    "wind": [ 90, 83, "fonts/calibrib60" ],
    "temp": [ 20, 170, "fonts/calibrib150" ],
-   "icon": [ 390, 0, 100, 2 ],
+   "icon": [ 385, 0, 100, 2 ],
    "dir": [ 40, 50, 80 ],
-   "umbrella": [ 315, 155, 78 ]
+   "umbrella": [ 325, 155, 78 ]
   }
  },
  "8": {
