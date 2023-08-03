@@ -1,0 +1,68 @@
+--- 2011-11-01  Raphael Neider
+
+To accomodate for devices with enhanced cores, there are now
+two variants of libm and libsdcc:
+Applications targetting regular, non-enhanced devices should
+link with libm.lib and libsdcc.lib (no change).
+Applications that target enhaned devices should link with
+libme.lib and libsdcce.lib instead. When the linker is
+invoked via sdcc, the proper libsdcc{,e}.lib will be chosen
+automatically -- no such mechanism has been established for
+libm{,e}.lib!
+
+The build system has also been converted to an Automake-based
+one and libdev/ has been moved completely to the non-free
+subtree.
+
+--- 2006-03-21  Raphael Neider
+
+Added device specific SFR definitions in libdev/.
+From now on all projects should be linked not only with
+libsdcc.lib but also with pic$(ARCH).lib where ARCH is
+something like p16f877.
+
+--- 2005-10-27  Raphael Neider
+
+Generic pointer support routines and additional arithmetic halpers
+have been added to the library.
+
+Although the compiled library should be portable across (all?)
+pic14 devices, I recommend selecting the desired target chip
+by setting the ARCH variable to the desired target chip in
+  - Makefile.common	(AFTER having run ./configure)  OR
+  - Makefile.common.in	(BEFORE running ./configure)
+in order to maximize performance (smaller devices ignore
+BANKSEL directives, i.e. updates to the IRP bit).
+
+--- 2005-09-23  Raphael Neider
+
+The pic14 library is split into several parts:
+
+* common part
+  The common part reuses the (hardware independant) sources found 
+  under device/lib/ (currently not used).
+* pic14 specific part
+  The pic14 specific library routines are found in subdirectories of
+  device/lib/pic/ and provide specialized implementations better
+  suited for the pic14 architecture and additional functions not
+  found in (or not reused from) the common sources.
+* device specific part
+  This part is planned to support specific I/O sub-devices not
+  common to all pic14 chips. This part is currently absent...
+
+The SDCC/pic14 library has been created by
+	Raphael Neider <rneider AT web.de> (2005)
+
+It is currently maintained by
+	Raphael Neider <rneider AT web.de>
+
+The pic14 and the device specific parts (whose sources are found
+in device/lib/pic/) are to be licensed nuder the terms of the
+GNU Lesser General Public License (LGPL). See COPYING for details.
+The sources from the common part are licensed as indicated in each
+file.
+
+Requests for enhancements, additions or modifications should be posted
+at the SDCC user's or developer's mailing list or directly be sent to
+the current maintainer of the library as indicated above.
+

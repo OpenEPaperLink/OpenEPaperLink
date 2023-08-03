@@ -1,0 +1,137 @@
+### Compiler definitions
+CC       = C:\\Users\\pc\\Desktop\\cc2531_OEPL\\contiki\\sdcc\\bin\\sdcc
+LD       = C:\\Users\\pc\\Desktop\\cc2531_OEPL\\contiki\\sdcc\\bin\\sdcc
+AS       = C:\\Users\\pc\\Desktop\\cc2531_OEPL\\contiki\\sdcc\\bin\\sdcc
+AR       = C:\\Users\\pc\\Desktop\\cc2531_OEPL\\contiki\\sdcc\\bin\\sdar
+OBJCOPY  = C:\\Users\\pc\\Desktop\\cc2531_OEPL\\contiki\\sdcc\\bin\\objcopy
+STRIP    = C:\\Users\\pc\\Desktop\\cc2531_OEPL\\contiki\\sdcc\\bin\\strip
+
+### Hex file conversions
+PACKIHX    = C:\\Users\\pc\\Desktop\\cc2531_OEPL\\contiki\\sdcc\\bin\\packihx
+SREC_CAT   = srec_cat
+SREC_FLAGS = -disable_sequence_warnings
+
+BANK_ALLOC = $(CONTIKI_CPU)/bank-alloc.py
+SEGMENT_RULES = $(OBJECTDIR)/segment.rules
+
+CFLAGS  += --model-$(MEMORY_MODEL) --stack-auto --std-c99
+CFLAGS  +=  -DCC2530_LAST_FLASH_BANK=$(HIGH_FLASH_BANK)
+CFLAGS  += --fomit-frame-pointer
+
+### Disable warning 110 (EVELYN the modified dog) and 126 (unreachable code)
+CFLAGS += --disable-warning 110 --disable-warning 126
+
+LDFLAGS += --model-$(MEMORY_MODEL) --stack-auto --out-fmt-ihx
+LDFLAGS += --xram-loc 0x0000 --xram-size 0x1F00
+LDFLAGS += --code-loc $(START_ADDR) --code-size $(CODE_SIZE)
+
+ASFLAGS += -plosgff
+
+AROPTS   = -rc
+
+### Our object files are .rel, so we can't use the default finalize dependency
+### generation. Override here.
+define FINALIZE_SDCC_DEPENDENCY
+cp $(@:.rel=.d) $(@:.rel=.$$$$); \
+sed -e 's/#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
+    -e '/^$$/ d' -e 's/$$/ :/' < $(@:.rel=.$$$$) >> $(@:.rel=.d); \
+rm -f $(@:.rel=.$$$$)
+endef
+
+### SoC flavor (F256, F128, F64, F32) as the ID of the last flash bank (0...7)
+### We assume F256, project Makefile can override
+###
+### ToDo:
+###       Fix --code-size accordingly
+###       Fix the bank allocator to play for all flavors
+ifndef HIGH_FLASH_BANK
+  HIGH_FLASH_BANK=7
+endif
+
+### Banking Guesswork:
+### Generic examples do not specify banking.
+### We automatically turn it on if its unspecified and if we are building with
+### CONTIKI_WITH_IPV6
+ifndef HAVE_BANKING
+  ifeq ($(CONTIKI_WITH_IPV6),1)
+    HAVE_BANKING=1
+  else
+    HAVE_BANKING=0
+  endif
+endif
+
+### Does the project want us to offset the firmware?
+### define start address and max code size accordingly
+ifeq ($(OFFSET_FIRMWARE),1)
+  START_ADDR = 0x01000
+  HOME_START = 00001000
+  ifeq ($(HAVE_BANKING),1)
+    CODE_SIZE = 0x3F000
+  else
+    CODE_SIZE = 0x0F000
+  endif
+else
+  START_ADDR = 0x00000
+  HOME_START = 00000000
+  ifeq ($(HAVE_BANKING),1)
+    CODE_SIZE = 0x40000
+  else
+    CODE_SIZE = 0x10000
+  endif
+endif
+
+### Are we building with BANKing supoprt?
+ifeq ($(HAVE_BANKING),1)
+  ## Yes
+  MEMORY_MODEL=huge
+  LDFLAGS += -Wl-r
+  LD_PRE_FLAGS += -Wl-bBANK1=0x018000
+  CFLAGS += -DHAVE_SDCC_BANKING
+  #use this in $(call c_seg,$<) to get segment for a source file.
+  c_seg = --codeseg $(shell python $(BANK_ALLOC) $1 $(SEGMENT_RULES) $2)
+else
+  ## No banking
+  MEMORY_MODEL=large
+  c_seg =
+endif 
+
+### CPU-dependent cleanup files
+CLEAN += *.lnk *.lk *.sym *.lib *.ihx *.rel *.mem *.rst *.asm *.hex
+CLEAN += *.omf *.cdb *.banks *.flags *.banked-hex
+CLEAN += symbols.c symbols.h
+
+### CPU-dependent directories
+CONTIKI_CPU_DIRS = . dev
+
+### CPU-dependent source files
+CONTIKI_SOURCEFILES += soc.c clock.c stack.c
+CONTIKI_SOURCEFILES += uart0.c uart1.c uart-intr.c
+CONTIKI_SOURCEFILES += dma.c dma_intr.c
+CONTIKI_SOURCEFILES += cc2530-rf.c
+CONTIKI_SOURCEFILES += watchdog.c rtimer-arch.c
+CONTIKI_SOURCEFILES += port2-intr.c port2.c
+CONTIKI_ASMFILES +=
+
+include $(CONTIKI_CPU)/usb/Makefile.usb
+
+CONTIKI_SOURCEFILES += $(USB_SOURCEFILES)
+
+CONTIKI_ASMOBJECTFILES = $(addprefix $(OBJECTDIR)/,$(CONTIKI_ASMFILES:.S=.rel))
+
+CONTIKI_CASMOBJECTFILES = $(addprefix $(OBJECTDIR)/, \
+	$(CONTIKI_CASMFILES:.cS=.rel))
+
+CONTIKI_PLATFORM_DIRS = $(PLATFORM_APPDIRS) \
+	 $(addprefix $(CONTIKI)/platform/$(TARGET)/, $(CONTIKI_TARGET_DIRS))
+
+CONTIKI_CPU_DIRS_LIST    = $(addprefix $(CONTIKI_CPU)/, \
+                               $(CONTIKI_CPU_DIRS))
+
+oname = $(patsubst %.c,%.rel,$(patsubst %.S,%.rel,$(1)))
+
+CONTIKI_OBJECTFILES = $(addprefix $(OBJECTDIR)/, \
+	$(call oname, $(CONTIKI_SOURCEFILES)))
+
+PROJECT_OBJECTFILES = $(addprefix $(OBJECTDIR)/, \
+	$(call oname, $(PROJECT_SOURCEFILES)))
+

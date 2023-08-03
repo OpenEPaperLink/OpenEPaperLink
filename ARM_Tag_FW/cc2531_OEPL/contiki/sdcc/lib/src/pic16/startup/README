@@ -1,0 +1,5 @@
+This directory contains the startup files for the SDCC pic16 port.
+There are 3 startup files,
+crt0.o		minimal initialisation routine
+crt0i.o		initialisation of variables
+crt0iz.o	RAM cleanup and initialisation of variables

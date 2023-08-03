@@ -1,0 +1,13 @@
+all: print-version hello-world
+CONTIKI = ../../../..
+APPS=serial-shell webserver telnetd
+
+ifeq ($(TARGET), avr-raven)
+  CONTIKI_WITH_IPV6 = 1
+else
+  CONTIKI_WITH_RIME = 1
+endif
+
+include $(CONTIKI)/Makefile.include
+print-version:
+	@$(CC) --version || echo

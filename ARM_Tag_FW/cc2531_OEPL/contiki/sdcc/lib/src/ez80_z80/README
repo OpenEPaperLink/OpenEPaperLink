@@ -1,0 +1,10 @@
+sdcc/device/lib/ez80-z80
+-------------------
+
+eZ80 (z80 mode) specific routines.
+
+Notes:
+* Cost of ld r,(ix+n):	4
+* Cost of ld rr,(ix+n):	5
+* Cost of ld r,(hl); inc hl: 2+1 = 3 and you don't have to pop ix
+* Cost of ld rr,(hl); inc hl; inc hl: 4+1+1 = 6

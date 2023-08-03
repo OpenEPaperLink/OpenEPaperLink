@@ -1,0 +1,20 @@
+README for the SDCC/pic14 library
+
+Building the library
+====================
+1. Edit ./Makefile.in and update the ARCH variable to match your
+   device. It should be safe to keep the default setting (p18f877),
+   but performance improvements might be possible in specifying the
+   actual target chip there.
+   
+2. Run './configure'
+
+3. Run 'make clean'
+
+4. Run 'make all'
+
+Prerequisites
+=============
+* a recently new GNU Make (tested with 3.80)
+* current gputils (tested with 0.13.2)
+* SDCC with enabled 14 bit PIC backend (tested with 2.5.4)

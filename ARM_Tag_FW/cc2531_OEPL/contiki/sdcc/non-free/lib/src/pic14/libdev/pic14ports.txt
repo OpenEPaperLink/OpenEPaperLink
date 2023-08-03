@@ -1,0 +1,10 @@
+# Add PORT* and TRIS* bit entries if they're not in the header.
+# Note, the PORTx SFR address must be in the header for the bits to be generated
+
+# defaults for parts not listed
+    *       A0-5,B0-7,C0-7,D0-7,E0-2
+
+# specific parts
+    16f84   A0-4,B0-7
+    16f84a  A0-4,B0-7
+
