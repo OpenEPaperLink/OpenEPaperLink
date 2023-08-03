@@ -9,7 +9,6 @@
 #include <Preferences.h>
 #include <WiFi.h>
 
-#include "ArduinoJson.h"
 #include "AsyncJson.h"
 #include "LittleFS.h"
 #include "SPIFFSEditor.h"

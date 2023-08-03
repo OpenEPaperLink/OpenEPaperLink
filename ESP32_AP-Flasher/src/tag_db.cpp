@@ -261,8 +261,15 @@ uint8_t getTagCount() {
 void clearPending(tagRecord* taginfo) {
     taginfo->filename = String();
     if (taginfo->data != nullptr) {
-        free(taginfo->data);
+
+        //check if this is the last copy of the buffer
+        int datacount = 0;
+        for (int16_t c = 0; c < tagDB.size(); c++) {
+            if (tagDB.at(c)->data == taginfo->data) datacount++;
+        }
+        if (datacount == 1) free(taginfo->data);
         taginfo->data = nullptr;
+
     }
     taginfo->pending = false;
 }

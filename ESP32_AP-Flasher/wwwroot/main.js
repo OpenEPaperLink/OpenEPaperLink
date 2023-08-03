@@ -237,7 +237,9 @@ function processTags(tagArray) {
 			$('#tag' + tagmac + ' .received').style.opacity = "0";
 		}
 
-		if (div.dataset.hash != element.hash && div.dataset.hwtype > -1 && (element.isexternal == false || element.contentMode != 12)) {
+		if (element.contentMode == 20) {
+			$('#tag' + tagmac + ' .tagimg').style.display = 'none';
+		} else if (div.dataset.hash != element.hash && div.dataset.hwtype > -1 && (element.isexternal == false || element.contentMode != 12)) {
 			loadImage(tagmac, '/current/' + tagmac + '.raw?' + element.hash);
 			div.dataset.hash = element.hash;
 		}

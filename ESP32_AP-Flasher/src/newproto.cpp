@@ -215,6 +215,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     pending.availdatainfo.dataTypeArgument = lut;
     pending.availdatainfo.nextCheckIn = nextCheckin;
     pending.attemptsLeft = attempts;
+    checkMirror(taginfo, &pending);
     if (taginfo->isExternal == false) {
         char buffer[64];
         sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X TYPE 0x%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], pending.availdatainfo.dataType);
@@ -315,6 +316,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
         }
         taginfo->contentMode = 12;
         taginfo->nextupdate = 3216153600;
+        checkMirror(taginfo, pending);
         sendDataAvail(pending);
 
         wsSendTaginfo(pending->targetMac, SYNC_NOSYNC);
@@ -613,8 +615,6 @@ bool sendTagCommand(uint8_t* dst, uint8_t cmd, bool local) {
     }
 }
 
-
-
 void updateTaginfoitem(struct TagInfo* taginfoitem) {
     tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(taginfoitem->mac);
@@ -661,4 +661,63 @@ void updateTaginfoitem(struct TagInfo* taginfoitem) {
             wsSendTaginfo(taginfo->mac, SYNC_NOSYNC);
         }
     }
+}
+
+bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
+    for (int16_t c = 0; c < tagDB.size(); c++) {
+        tagRecord* taginfo2 = nullptr;
+        taginfo2 = tagDB.at(c);
+        if (taginfo2->contentMode == 20) {
+            DynamicJsonDocument doc(500);
+            deserializeJson(doc, taginfo2->modeConfigJson);
+            JsonObject cfgobj = doc.as<JsonObject>();
+            uint8_t mac[8] = {0};
+            if (hex2mac(cfgobj["mac"], mac) && memcmp(mac, taginfo->mac, sizeof(mac)) == 0) {
+
+                if (taginfo->data == nullptr) {
+                    fs::File file = contentFS->open(taginfo->filename);
+                    if (!file) {
+                        return false;
+                    }
+                    taginfo->data = getDataForFile(&file);
+                    file.close();
+                }
+
+                clearPending(taginfo2);
+                taginfo2->expectedNextCheckin = taginfo->expectedNextCheckin;
+                taginfo2->filename = taginfo->filename;
+                taginfo2->len = taginfo->len;
+                taginfo2->data = taginfo->data; // copy buffer pointer
+                taginfo2->dataType = taginfo->dataType;
+                taginfo2->pending = true;
+                taginfo2->nextupdate = 3216153600;
+                memcpy(taginfo2->md5pending, taginfo->md5pending, sizeof(taginfo->md5pending));
+
+                struct pendingData pending2 = {0};
+                memcpy(pending2.targetMac, taginfo2->mac, 8);
+                pending2.availdatainfo.dataType = taginfo2->dataType;
+                pending2.availdatainfo.dataVer = *((uint64_t*)taginfo2->md5pending);
+                pending2.availdatainfo.dataSize = taginfo2->len;
+                pending2.availdatainfo.dataTypeArgument = pending->availdatainfo.dataTypeArgument;
+                pending2.availdatainfo.nextCheckIn = pending->availdatainfo.nextCheckIn;
+                pending2.attemptsLeft = pending->attemptsLeft;
+
+                if (taginfo2->isExternal == false) {
+                    sendDataAvail(&pending2);
+                } else {
+                    char dst_path[64];
+                    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", taginfo2->mac[7], taginfo2->mac[6], taginfo2->mac[5], taginfo2->mac[4], taginfo2->mac[3], taginfo2->mac[2], taginfo2->mac[1], taginfo2->mac[0]);
+                    File file = contentFS->open(dst_path, "w");
+                    if (file) {
+                        file.write(taginfo2->data, taginfo2->len);
+                        file.close();
+                        udpsync.netSendDataAvail(&pending2);
+                    }
+                }
+
+                wsSendTaginfo(taginfo2->mac, SYNC_TAGSTATUS);
+            }
+        }
+    }
+    return false;
 }

@@ -554,5 +554,24 @@
         }
       }
     ]
+  },
+  {
+    "id": 20,
+    "name": "Display a copy",
+    "desc": "Mirror the contents of a source tag to this destination tag, regardless of the content. The two tags should be of the same type. Ideally, the destination tag is local to the AP.",
+    "hwtype": [
+      0,
+      1,
+      2,
+      17
+    ],
+    "param": [
+      {
+        "key": "mac",
+        "name": "Mac-address",
+        "desc": "Mac-address of the tag you want to use as content source. The source tag should either be associated with this access point, or this access point should be the content source.",
+        "type": "text"
+      }
+    ]
   }
 ]

@@ -16,6 +16,7 @@ extern bool sendTagCommand(uint8_t* dst, uint8_t cmd, bool local);
 extern bool sendAPSegmentedData(uint8_t* dst, String data, uint16_t icons, bool inverted, bool local);
 extern bool showAPSegmentedInfo(uint8_t* dst, bool local);
 extern void updateTaginfoitem(struct TagInfo* taginfoitem);
+bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending);
 
 void refreshAllPending();
 void updateContent(uint8_t* dst);
