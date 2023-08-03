@@ -49,9 +49,7 @@ label {
 	max-width: 94%;
 }
 
-.actionbox>div:first-child {
-	padding: 10px;
-	background-color: white;
+.actionbox { 
 	margin: 5px;
 }
 
@@ -62,6 +60,15 @@ label {
 .actionbox>div {
 	display:flex;
 	gap: 20px;
+	padding: 10px;
+	background-color: white;
+}
+
+.actionbox label {
+	padding: 0px 5px;
+	vertical-align: text-bottom;
+	width: auto;
+	cursor: pointer;
 }
 
 #rebootbutton, #updatebutton, #downloadDBbutton, #apconfigbutton, .filebutton {
@@ -287,6 +294,27 @@ select {
 
 .tagpending {
 	animation: pending 1.5s ease infinite;
+}
+
+.taggroup {
+	border: 1px solid #c0c0c0;
+	width: 100%;
+	background-color: #6d6e6e;
+	color: white;
+	padding: 5px;
+	margin: 0px 5px;
+}
+
+#filterOptions {
+	max-height: 0;
+	padding: 0 10px;
+	overflow: hidden;
+	transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out;
+}
+
+#filterOptions.active {
+	max-height: 100px;
+	padding: 10px 10px;
 }
 
 .currimg {

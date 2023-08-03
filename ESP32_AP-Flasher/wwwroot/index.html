@@ -226,12 +226,36 @@ to save file system space">
 
 			<div class="actionbox">
 				<div>
-					<div>Currently active tags:</div>
+					<div>Currently active tags: <button class="filebutton" id="toggleFilters">arrange</button></div>
 					<div><span id="temp"></div>
 					<div><span id="runstate"></div>
 					<div><span id="apstatecolor">&#11044;</span> <span id="apstate">loading</span></div>
 					<div><span id="apconfigbutton">AP config</span></div>
 					<div><a href="/edit" target="littlefs" class="filebutton">edit contentFS</a></div>
+				</div>
+				<div id="filterOptions">
+					<div>
+						<div>group by</div>
+						<div><input type="radio" name="group" value="" id="rnone" checked><label for="rnone">None</label></div>
+						<div><input type="radio" name="group" value="model" id="rtagtype"><label for="rtagtype">Tag model</label></div>
+						<div><input type="radio" name="group" value="contentmode" id="rcontent"><label for="rcontent">Content</label></div>
+						<div><input type="radio" name="group" value="data-channel" id="rchannel"><label for="rchannel">Channel</label></div>
+					</div>
+					<div>
+						<div>sort by</div>
+						<div><input type="radio" name="sort" value="alias" id="ralias" checked><label for="ralias">Alias</label></div>
+						<div><input type="radio" name="sort" value="mac" id="rmac"><label for="rmac">Mac</label></div>
+						<div><input type="radio" name="sort" value="data-lastseen" id="rlastseen"><label for="rlastseen">Last seen</label></div>
+						<div><input type="radio" name="sort" value="data-nextupdate" id="rnext"><label for="rnext">Next update</label></div>
+					</div>
+					<div>
+						<div>filter</div>
+						<div><input type="checkbox" name="filter" value="local" id="rlocal"><label for="rlocal">only local</label></div>
+						<div><input type="checkbox" name="filter" value="remote" id="rremote"><label for="rremote">only remote</label></div>
+						<div><input type="checkbox" name="filter" value="inactive" id="rinactive"><label for="rinactive">only inactive</label></div>
+						<div><input type="checkbox" name="filter" value="pending" id="rpending"><label for="rpending">only pending</label>
+						</div>
+					</div>
 				</div>
 			</div>
 

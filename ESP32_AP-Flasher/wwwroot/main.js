@@ -207,7 +207,7 @@ function processTags(tagArray) {
 		if (!alias) alias = tagmac.replace(/^0{1,4}/, '');
 		if ($('#tag' + tagmac + ' .alias').innerHTML != alias) {
 			$('#tag' + tagmac + ' .alias').innerHTML = alias;
-			sortGrid();
+			//GroupSortFilter();
 		}
 
 		let contentDefObj = getContentDefById(element.contentMode);
@@ -264,6 +264,9 @@ function processTags(tagArray) {
 		div.classList.remove("tagpending");
 		div.dataset.lastseen = element.lastseen;
 		div.dataset.wakeupreason = element.wakeupReason;
+		div.dataset.nextupdate = element.nextupdate;
+		div.dataset.channel = element.ch;
+		div.dataset.isexternal = element.isexternal;
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
 		$('#tag' + tagmac).style.background = "#ffffff";
 		if (element.contentMode == 12) $('#tag' + tagmac).style.background = "#e4e4e0";
@@ -301,6 +304,7 @@ function processTags(tagArray) {
 		})(tagmac);
 		if (element.pending) div.classList.add("tagpending");
 	}
+	GroupSortFilter();
 }
 
 function updatecards() {
@@ -779,16 +783,95 @@ function displayTime(seconds) {
 	return (seconds < 0 ? '-' : '') + (hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}` : `${minutes}`) + `:${String(remainingSeconds).padStart(2, '0')}`;
 }
 
-function sortGrid() {
+$("#filterOptions").addEventListener("click", function (event) {
+	if (event.target.tagName === "INPUT") {
+		GroupSortFilter();
+	}
+});
+
+function GroupSortFilter() {
 	const sortableGrid = $('#taglist');
-	const gridItems = Array.from(sortableGrid.getElementsByClassName('tagcard'));
+	const gridItems = Array.from(sortableGrid.querySelectorAll('.tagcard:not(#tagtemplate)'));
+
+	let grouping = document.querySelector('input[name="group"]:checked')?.value;
+	let sorting = document.querySelector('input[name="sort"]:checked')?.value ?? 'alias';
+
 	gridItems.sort((a, b) => {
-		const macA = a.querySelector('.alias').innerHTML;
-		const macB = b.querySelector('.alias').innerHTML;
-		if (macA < macB) return -1;
-		if (macA > macB) return 1;
-		return 0;
+		let itemA = String(sorting).startsWith('data-') ? a.dataset[sorting.slice(5)] : a.querySelector('.' + sorting).textContent;
+		let itemB = String(sorting).startsWith('data-') ? b.dataset[sorting.slice(5)] : b.querySelector('.' + sorting).textContent;
+		if (sorting == 'data-lastseen') [itemA, itemB] = [itemB, itemA];
+		if (grouping) {
+			let groupA = String(grouping).startsWith('data-') ? a.dataset[grouping.slice(5)] : a.querySelector('.' + grouping).textContent;
+			let groupB = String(grouping).startsWith('data-') ? b.dataset[grouping.slice(5)] : b.querySelector('.' + grouping).textContent;
+			if (groupA !== groupB) {
+				return groupA.localeCompare(groupB);
+			} else {
+				return itemA.localeCompare(itemB);
+			}
+		} else {
+			return itemA.localeCompare(itemB);
+		}
 	});
-	gridItems.forEach((item) => sortableGrid.appendChild(item));
+
+	let currentGroup = null;
+	let order = 1;
+
+	let headItems = Array.from($('#taglist').getElementsByClassName('taggroup'));
+	headItems.forEach(item => {
+		item.dataset.clean = 1;
+	})
+
+	gridItems.forEach(item => {
+
+		if (grouping) {
+			const group = String(grouping).startsWith('data-') ? item.dataset[grouping.slice(5)] || '': item.querySelector('.' + grouping).textContent || '';
+			if (group !== currentGroup && group != '') {
+				let header = document.getElementById('header' + group);
+				if (!header) {
+					header = document.createElement('div');
+					switch (grouping) {
+						case 'model':
+							header.textContent = 'Tag model: ' + group;
+							break;
+						case 'contentmode':
+							header.textContent = 'Content: ' + group;
+							break;
+						case 'data-channel':
+							header.textContent = 'Channel: ' + group;
+							break;
+					}
+					header.classList.add('taggroup');
+					header.id = 'header' + group;
+					sortableGrid.appendChild(header);
+				}
+				header.style.order = order++;
+				header.dataset.clean = 0;
+				currentGroup = group;
+			}
+		}
+
+		let show = true;
+		if ($('input[name="filter"][value="remote"]').checked && item.dataset.isexternal == "false") show = false;
+		if ($('input[name="filter"][value="local"]').checked && item.dataset.isexternal == "true") show = false;
+		if ($('input[name="filter"][value="inactive"]').checked && item.querySelector('.warningicon').style.display != 'inline-block') show = false;
+		if ($('input[name="filter"][value="pending"]').checked && !item.classList.contains("tagpending")) show = false;
+		if (show == false) item.style.display = 'none'; else item.style.display = 'block';
+		item.style.order = order++;
+	});
+
+	headItems = Array.from($('#taglist').getElementsByClassName('taggroup'));
+	headItems.forEach(item => {
+		if (item.dataset.clean == 1) item.parentNode.removeChild(item);
+	})
 }
 
+$('#toggleFilters').addEventListener('click', () => {
+	event.preventDefault();
+	const filterOptions = $('#filterOptions');
+	filterOptions.classList.toggle('active');
+	if (filterOptions.classList.contains('active')) {
+		filterOptions.style.maxHeight = filterOptions.scrollHeight + 20 + 'px';
+	} else {
+		filterOptions.style.maxHeight = 0;
+	}
+});
