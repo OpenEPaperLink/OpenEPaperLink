@@ -1,4 +1,4 @@
-**A few SoluM based accessories from the 3D printer**
+**A few accessories from the 3D printer**
 
 **HOLDER & STANDS**
 
