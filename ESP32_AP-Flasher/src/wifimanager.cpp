@@ -4,7 +4,13 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 
+#include "newproto.h"
+#include "tag_db.h"
+#include "web.h"
+
 uint8_t WifiManager::apClients = 0;
+uint8_t x_buffer[100];
+uint8_t x_position = 0;
 
 WifiManager::WifiManager() {
     _reconnectIntervalCheck = 5000;
@@ -160,52 +166,12 @@ void WifiManager::pollSerial() {
 
         if (parse_improv_serial_byte(x_position, receivedChar, x_buffer, onCommandCallback, onErrorCallback)) {
             x_buffer[x_position++] = receivedChar;
+            if (x_position > 100) {
+                x_position = 0;
+                Serial.println("buffer full!");
+            }
         } else {
             x_position = 0;
-
-            if (receivedChar == 27) {
-                memset(serialBuffer, 0, sizeof(serialBuffer));
-                serialIndex = 0;
-                Serial.println();
-                continue;
-            }
-
-            if (receivedChar == 8) {
-                if (serialIndex > 0) {
-                    serialIndex--;
-                    serialBuffer[serialIndex] = '\0';
-                    Serial.print("\r");
-                    Serial.print(serialBuffer);
-                }
-                continue;
-            }
-            if (receivedChar == '\r') {
-                continue;
-            }
-
-            if (receivedChar == '\n') {
-                serialBuffer[serialIndex] = '\0';
-                String command = String(serialBuffer);
-
-                if (command.startsWith("ssid ")) {
-                    _ssid = command.substring(5);
-                    Serial.println("\rSSID set to: " + _ssid);
-                } else if (command.startsWith("pass ")) {
-                    _pass = command.substring(5);
-                    Serial.println("\rPassword set to: " + _pass);
-                } else if (command.startsWith("connect")) {
-                    connectToWifi(_ssid, _pass, true);
-                }
-                memset(serialBuffer, 0, sizeof(serialBuffer));
-                serialIndex = 0;
-            } else {
-                if (serialIndex < SERIAL_BUFFER_SIZE - 1) {
-                    serialBuffer[serialIndex] = receivedChar;
-                    serialIndex++;
-                    Serial.print("\r");
-                    Serial.print(serialBuffer);
-                }
-            }
         }
     }
 }
@@ -250,21 +216,6 @@ void WifiManager::WiFiEvent(WiFiEvent_t event) {
             Serial.println("Assigned IP address to client");
             break;
 
-        case ARDUINO_EVENT_ETH_START:
-            Serial.println("Ethernet started");
-            break;
-        case ARDUINO_EVENT_ETH_STOP:
-            Serial.println("Ethernet stopped");
-            break;
-        case ARDUINO_EVENT_ETH_CONNECTED:
-            Serial.println("Ethernet connected");
-            break;
-        case ARDUINO_EVENT_ETH_DISCONNECTED:
-            Serial.println("Ethernet disconnected");
-            break;
-        case ARDUINO_EVENT_ETH_GOT_IP:
-            Serial.println("Obtained IP address");
-            break;
         default:
             Serial.println();
             break;
@@ -272,6 +223,7 @@ void WifiManager::WiFiEvent(WiFiEvent_t event) {
 }
 
 // *** Improv
+// https :  // github.com/jnthas/improv-wifi-demo
 
 #define STR_IMPL(x) #x
 #define STR(x) STR_IMPL(x)
@@ -314,8 +266,19 @@ bool onCommandCallback(improv::ImprovCommand cmd) {
 
             set_state(improv::STATE_PROVISIONING);
 
-            WifiManager wm;
+            ws.enable(false);
+            refreshAllPending();
+            saveDB("/current/tagDB.json");
+            ws.closeAll();
+            delay(100);
             if (wm.connectToWifi(String(cmd.ssid.c_str()), String(cmd.password.c_str()), true)) {
+                Preferences preferences;
+                preferences.begin("wifi", false);
+                preferences.putString("ssid", cmd.ssid.c_str());
+                preferences.putString("pw", cmd.password.c_str());
+                preferences.end();
+                ws.enable(true);
+
                 set_state(improv::STATE_PROVISIONED);
                 std::vector<uint8_t> data = improv::build_rpc_response(improv::WIFI_SETTINGS, getLocalUrl(), false);
                 send_response(data);

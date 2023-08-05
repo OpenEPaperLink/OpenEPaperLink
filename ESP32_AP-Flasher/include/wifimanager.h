@@ -34,8 +34,6 @@ class WifiManager {
     const int SERIAL_BUFFER_SIZE = 64;
     char serialBuffer[64];
     int serialIndex = 0;
-    uint8_t x_buffer[16];
-    uint8_t x_position = 0;
 
     String WiFi_SSID();
     String WiFi_psk();
@@ -57,6 +55,8 @@ class WifiManager {
 };
 
 #endif
+
+extern WifiManager wm;
 
 // **** Improv Wi-Fi ****
 // https://www.improv-wifi.com/

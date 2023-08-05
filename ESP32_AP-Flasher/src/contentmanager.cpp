@@ -357,6 +357,12 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
         setU8G2Font(font, u8f);
         u8f.setForegroundColor(color);
         u8f.setBackgroundColor(PAL_WHITE);
+        if (align == TC_DATUM) {
+            posx -= u8f.getUTF8Width(content.c_str()) / 2;
+        }
+        if (align == TR_DATUM) {
+            posx -= u8f.getUTF8Width(content.c_str());
+        }
         u8f.setCursor(posx, posy);
         u8f.print(content);
 

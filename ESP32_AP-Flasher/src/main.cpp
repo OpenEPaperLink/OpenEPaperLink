@@ -42,7 +42,6 @@ void timeTask(void* parameter) {
 
         if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE || config.runStatus != RUNSTATUS_RUN) wsSendSysteminfo();
         if (now % 300 == 6 && config.runStatus != RUNSTATUS_STOP) saveDB("/current/tagDB.json");
-
         if (apInfo.state == AP_STATE_ONLINE) contentRunner();
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -50,6 +49,9 @@ void timeTask(void* parameter) {
 }
 
 void setup() {
+    Serial.begin(115200);
+    Serial.print(">\n");
+
     xTaskCreate(ledTask, "ledhandler", 2000, NULL, 2, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
@@ -69,9 +71,6 @@ void setup() {
     Serial0.setDebugOutput(true);
 #endif
 #endif
-
-    Serial.begin(115200);
-    Serial.print(">\n");
 
     // pinTest();
 #ifdef BOARD_HAS_PSRAM
@@ -134,7 +133,7 @@ void setup() {
     loadDB("/current/tagDB.json");
     // tagDBOwner = xSemaphoreCreateMutex();
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
-    xTaskCreate(networkProcess, "Wifi", 2000, NULL, configMAX_PRIORITIES - 10, NULL);
+    xTaskCreate(networkProcess, "Wifi", 6000, NULL, configMAX_PRIORITIES - 10, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
     config.runStatus = RUNSTATUS_INIT;
