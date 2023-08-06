@@ -51,6 +51,10 @@ void timeTask(void* parameter) {
 void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
+    #ifdef YELLOW_IPS_AP
+        extern void yellow_ap_display_init(void);
+        yellow_ap_display_init();
+    #endif
 
     xTaskCreate(ledTask, "ledhandler", 2000, NULL, 2, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -154,8 +158,13 @@ void loop() {
     while (1) {
         // pinTest();
         while (1) {
-            vTaskDelay(10000 / portTICK_PERIOD_MS);
-            // pinTest();
+            #ifdef YELLOW_IPS_AP
+                extern void yellow_ap_display_loop(void);
+                yellow_ap_display_loop();
+            #else
+                vTaskDelay(10000 / portTICK_PERIOD_MS);
+                // pinTest();
+            #endif
         }
 #ifdef OPENEPAPERLINK_PCB
         if (extTagConnected()) {
