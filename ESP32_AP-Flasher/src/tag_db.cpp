@@ -235,7 +235,7 @@ void loadDB(String filename) {
 void destroyDB() {
     Serial.println("destoying DB");
     Serial.printf("before, free heap: %d\n", ESP.getFreeHeap());
-    for (int16_t c = 0; c < tagDB.size(); c++) {
+    for (uint32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = nullptr;
         tag = tagDB.at(c);
         if (tag->data != nullptr) {
@@ -248,9 +248,9 @@ void destroyDB() {
     Serial.printf("after, free heap: %d\n", ESP.getFreeHeap());
 }
 
-uint8_t getTagCount() {
-    uint8_t tagcount = 0;
-    for (int16_t c = 0; c < tagDB.size(); c++) {
+uint32_t getTagCount() {
+    uint32_t tagcount = 0;
+    for (uint32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* taginfo = nullptr;
         taginfo = tagDB.at(c);
         if (taginfo->isExternal == false) tagcount++;
@@ -264,7 +264,7 @@ void clearPending(tagRecord* taginfo) {
 
         //check if this is the last copy of the buffer
         int datacount = 0;
-        for (int16_t c = 0; c < tagDB.size(); c++) {
+        for (uint32_t c = 0; c < tagDB.size(); c++) {
             if (tagDB.at(c)->data == taginfo->data) datacount++;
         }
         if (datacount == 1) free(taginfo->data);

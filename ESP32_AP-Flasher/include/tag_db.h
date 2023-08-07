@@ -78,7 +78,7 @@ void fillNode(JsonObject &tag, tagRecord* &taginfo);
 void saveDB(String filename);
 void loadDB(String filename);
 void destroyDB();
-uint8_t getTagCount();
+uint32_t getTagCount();
 void mac2hex(uint8_t* mac, char* hexBuffer);
 bool hex2mac(const String& hexString, uint8_t* mac);
 void clearPending(tagRecord* taginfo);
