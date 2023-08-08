@@ -129,6 +129,13 @@ void SPIFFSEditor::handleUpload(AsyncWebServerRequest *request, const String &fi
             if (filename.c_str()[0] != '/') {
                 request->_tempFile = _fs.open("/" + filename, "w");
             } else {
+                int lastSlash = filename.lastIndexOf('/');
+                if (lastSlash != -1) {
+                    String folderPath = filename.substring(0, lastSlash);
+                    if (!_fs.exists(folderPath)) {
+                        _fs.mkdir(folderPath);
+                    }
+                }
                 request->_tempFile = _fs.open(filename, "w");
             }
             _startTime = millis();

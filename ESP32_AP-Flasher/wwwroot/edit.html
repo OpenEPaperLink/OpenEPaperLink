@@ -612,8 +612,8 @@
 					if (status != 200) {
 						alert("ERROR[" + status + "]: " + responseText);
 					} else {
-						treeRoot.removeChild(treeRoot.childNodes[0]);
-						httpGet(treeRoot, "/");
+						var el = ge(path);
+						el.parentNode.removeChild(el);
 					}
 				}
 			}

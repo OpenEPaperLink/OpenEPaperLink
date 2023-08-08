@@ -39,40 +39,7 @@
 #define PAL_WHITE TFT_WHITE
 #define PAL_RED TFT_RED
 
-#define TEMPLATE "/content_template.json"
 // https://csvjson.com/json_beautifier
-
-struct HwType {
-    uint8_t basetype;
-    uint16_t width;
-    uint16_t height;
-};
-
-std::map<int, HwType> hwdata = {
-    {0, {0, 152, 152}},
-    {1, {1, 296, 128}},
-    {2, {2, 400, 300}},
-    {3, {2, 168, 384}},
-    {4, {2, 800, 480}},
-    {5, {2, 640, 384}},
-    {17, {1, 296, 128}},
-    {0x30, {0, 200, 200}},  //"1.6\" BWR 200x200px"
-    {0x38, {0, 200, 200}},  //"1.6\" BWY 200x200px"
-    {0x31, {1, 296, 160}},  //"2.2\" BWR 296x160px"
-    {0x39, {1, 296, 160}},  //"2.2\" BWY 296x160px"
-    {0x32, {1, 360, 184}},  //"2.6\" BWR 360x184px"
-    {0x3A, {1, 360, 184}},  //"2.6\" BWY 360x184px"
-    {0x33, {1, 384, 168}},     //"2.9\" BWR 384x168px"
-    {0x3B, {1, 384, 168}},     //"2.9\" BWY 384x168px"
-    {0x34, {2, 400, 300}},     //"4.2\" BWR 400x300px"
-    {0x3C, {2, 400, 300}},     //"4.2\" BWY 400x300px"
-    {0x35, {2, 600, 448}},     //"6.0\" BWR 600x448px"
-    {0x3D, {2, 600, 448}},     //"6.0\" BWY 600x448px"
-    {0x36, {2, 880, 528}},     //"7.5\" BWR 880x528px"
-    {0x3E, {2, 880, 528}},     //"7.5\" BWY 880x528px"
-    {0x37, {2, 640, 960}},     //"11.6\" BWR 640x960px"
-    {0x3F, {2, 640, 960}},     //"11.6\" BWY 640x960px"
-};
 
 void contentRunner() {
     if (config.runStatus == RUNSTATUS_STOP) return;
@@ -109,15 +76,20 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     time_t now;
     time(&now);
 
+    const HwType hwdata = getHwType(taginfo->hwType);
+    if (hwdata.bpp == 0) {
+        taginfo->nextupdate = now + 600;
+        wsErr("No definition found for tag type " + String(taginfo->hwType));
+        return;
+    }
+
     char hexmac[17];
     mac2hex(mac, hexmac);
     String filename = "/" + String(hexmac) + ".raw";
 
     struct tm time_info;
     getLocalTime(&time_info);
-    time_info.tm_hour = 0;
-    time_info.tm_min = 0;
-    time_info.tm_sec = 0;
+    time_info.tm_hour = time_info.tm_min = time_info.tm_sec = 0;
     time_info.tm_mday++;
     time_t midnight = mktime(&time_info);
 
@@ -130,6 +102,12 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     taginfo->nextupdate = now + 60;
 
     imgParam imageParams;
+
+    imageParams.width = hwdata.width;
+    imageParams.height = hwdata.height;
+    imageParams.bpp = hwdata.bpp;
+    imageParams.rotatebuffer = hwdata.rotatebuffer;
+
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
     imageParams.dither = false;
@@ -349,7 +327,7 @@ bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, tagRec
 
 void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align, uint16_t color, uint16_t size) {
     // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,PAL_RED);
-    if (font != "" && !font.startsWith("fonts/") && !font.startsWith("/fonts/")) {
+    if (font != "" && font != "null" && !font.startsWith("fonts/") && !font.startsWith("/fonts/")) {
 
         // u8g2 font
         U8g2_for_TFT_eSPI u8f;
@@ -391,7 +369,7 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
         truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
         truetype.textDraw(posx, posy, content);
         truetype.end();
-        Serial.println("text: '" + content + "' " + String(millis() - t) + "ms"); 
+        // Serial.println("text: '" + content + "' " + String(millis() - t) + "ms"); 
 
     } else {
 
@@ -413,7 +391,7 @@ void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams) {
         Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
         spr.setColorDepth(1);
         spr.setBitmapColor(TFT_WHITE, TFT_BLACK);
-        imageParams.bpp = 1;
+        imageParams.bufferbpp = 1;
         spr.createSprite(w, h);
     }
     if (spr.getPointer() == nullptr) {
@@ -442,9 +420,9 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSprite spr = TFT_eSprite(&tft);
 
     StaticJsonDocument<512> loc;
-    getTemplate(loc, TEMPLATE, 1, hwdata[taginfo->hwType].basetype);
+    getTemplate(loc, 1, taginfo->hwType);
 
-    initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
     if (loc["date"]) {
         drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], loc["weekday"][0], loc["weekday"][1], loc["weekday"][2], TC_DATUM, PAL_RED);
@@ -483,9 +461,9 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     TFT_eSprite spr = TFT_eSprite(&tft);
 
     StaticJsonDocument<512> loc;
-    getTemplate(loc, TEMPLATE, 2, hwdata[taginfo->hwType].basetype);
+    getTemplate(loc, 2, taginfo->hwType);
 
-    initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
     spr.setTextDatum(MC_DATUM);
     if (count > thresholdred) {
         spr.setTextColor(PAL_RED, PAL_WHITE);
@@ -516,13 +494,11 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
     http.begin("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true&windspeed_unit=ms&timezone=" + tz);
     http.setTimeout(5000);
     int httpCode = http.GET();
-    Serial.printf("Got code %d for this OpenMeteo\n", httpCode);
 
     if (httpCode == 200) {
         StaticJsonDocument<1000> doc;
         DeserializationError error = deserializeJson(doc, http.getString());
         if (error) {
-            Serial.println(F("deserializeJson() failed: "));
             Serial.println(error.c_str());
         }
 
@@ -555,7 +531,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         }
 
         StaticJsonDocument<512> loc;
-        getTemplate(loc, TEMPLATE, 4, hwdata[taginfo->hwType].basetype);
+        getTemplate(loc, 4, taginfo->hwType);
 
         String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
                                  "\uf01a", "", "\uf01a", "", "\uf01a", "\uf017", "\uf017", "", "", "",
@@ -573,7 +549,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         TFT_eSprite spr = TFT_eSprite(&tft);
         tft.setTextWrap(false, false);
 
-        initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+        initSprite(spr, imageParams.width, imageParams.height, imageParams);
         drawString(spr, cfgobj["location"], loc["location"][0], loc["location"][1], loc["location"][2]);
         drawString(spr, String(wind), loc["wind"][0], loc["wind"][1], loc["wind"][2], TR_DATUM, (wind > 4 ? PAL_RED : PAL_BLACK));
 
@@ -593,6 +569,8 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
 
         spr2buffer(spr, filename, imageParams);
         spr.deleteSprite();
+    } else {
+        wsErr("OpenMeteo http " + httpCode);
     }
     http.end();
 }
@@ -618,7 +596,6 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
         DynamicJsonDocument doc(2000);
         DeserializationError error = deserializeJson(doc, http.getString());
         if (error) {
-            Serial.println(F("deserializeJson() failed: "));
             Serial.println(error.c_str());
         }
 
@@ -632,8 +609,8 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
         tft.setTextWrap(false, false);
 
         StaticJsonDocument<512> loc;
-        getTemplate(loc, TEMPLATE, 8, hwdata[taginfo->hwType].basetype);
-        initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+        getTemplate(loc, 8, taginfo->hwType);
+        initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
         drawString(spr, cfgobj["location"], loc["location"][0], loc["location"][1], loc["location"][2], TL_DATUM, PAL_BLACK);
         for (uint8_t dag = 0; dag < loc["column"][0]; dag++) {
@@ -679,6 +656,8 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
 
         spr2buffer(spr, filename, imageParams);
         spr.deleteSprite();
+    } else {
+        wsErr("OpenMeteo http " + httpCode);
     }
     http.end();
 }
@@ -688,7 +667,6 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
 
     Storage.begin();
 
-    Serial.println("get external " + URL);
     HTTPClient http;
     http.begin(URL);
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
@@ -705,8 +683,6 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
     } else {
         if (httpCode != 304) {
             wsErr("http " + URL + " " + String(httpCode));
-        } else {
-            Serial.println("http 304, image is not changed " + URL);
         }
     }
     http.end();
@@ -724,7 +700,6 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     // http://feeds.feedburner.com/tweakers/nieuws
     // https://www.nu.nl/rss/Algemeen
 
-    Serial.println("RSS feed");
     const char *url = URL.c_str();
     const char *tag = "title";
     const int rssArticleSize = 128;
@@ -735,8 +710,8 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     u8f.begin(spr);
 
     StaticJsonDocument<512> loc;
-    getTemplate(loc, TEMPLATE, 9, hwdata[taginfo->hwType].basetype);
-    initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+    getTemplate(loc, 9, taginfo->hwType);
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
     if (title == "" || title == "null") title = "RSS feed";
     drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, PAL_BLACK);
@@ -816,8 +791,8 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     u8f.begin(spr);
 
     StaticJsonDocument<512> loc;
-    getTemplate(loc, TEMPLATE, 11, hwdata[taginfo->hwType].basetype);
-    initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+    getTemplate(loc, 11, taginfo->hwType);
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
     if (title == "" || title == "null") title = "Calendar";
     drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, PAL_BLACK);
@@ -868,11 +843,11 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
     int xpos = 0, ypos = 0, dotsize = 1;
 
     StaticJsonDocument<512> loc;
-    getTemplate(loc, TEMPLATE, 10, hwdata[taginfo->hwType].basetype);
-    initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+    getTemplate(loc, 10, taginfo->hwType);
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
     drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2]);
 
-    dotsize = int((hwdata[taginfo->hwType].height - loc["pos"][1].as<int>()) / size);
+    dotsize = int((imageParams.height - loc["pos"][1].as<int>()) / size);
     xpos = loc["pos"][0].as<int>() - dotsize * size / 2;
     ypos = loc["pos"][1];
 
@@ -903,7 +878,6 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setTimeout(5000);
     int httpCode = http.GET();
-    Serial.printf("Got code %d for Buienradar\n", httpCode);
 
     if (httpCode == 200) {
         TFT_eSPI tft = TFT_eSPI();
@@ -912,8 +886,8 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
         u8f.begin(spr);
 
         StaticJsonDocument<512> loc;
-        getTemplate(loc, TEMPLATE, 16, hwdata[taginfo->hwType].basetype);
-        initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+        getTemplate(loc, 16, taginfo->hwType);
+        initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
         tft.setTextWrap(false, false);
 
@@ -931,13 +905,7 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
             spr.drawPixel(i, 52, PAL_BLACK);
         }
 
-        setU8G2Font(loc["title"][2], u8f);
-        u8f.setFontMode(0);
-        u8f.setFontDirection(0);
-        u8f.setForegroundColor(PAL_BLACK);
-        u8f.setBackgroundColor(PAL_WHITE);
-        u8f.setCursor(loc["title"][0], loc["title"][1]);
-        u8f.print("Buienradar");
+        drawString(spr, "Buienradar", loc["title"][0], loc["title"][1], loc["title"][2]);
 
         for (int i = 0; i < 24; i++) {
             int startPos = i * 11;
@@ -958,6 +926,8 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
 
         spr2buffer(spr, filename, imageParams);
         spr.deleteSprite();
+    } else {
+        wsErr("Buitenradar http " + String(httpCode));
     }
     http.end();
 #endif
@@ -979,8 +949,6 @@ int getJsonTemplateFile(String &filename, String jsonfile, tagRecord *&taginfo, 
 }
 
 int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC, tagRecord *&taginfo, imgParam &imageParams) {
-    Serial.println("get external " + URL);
-
     HTTPClient http;
     http.useHTTP10(true);
     http.begin(URL);
@@ -994,8 +962,6 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
     } else {
         if (httpCode != 304) {
             wsErr("http " + URL + " status " + String(httpCode));
-        } else {
-            Serial.println("http 304, image is not changed " + URL);
         }
     }
     http.end();
@@ -1005,7 +971,7 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
 void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
-    initSprite(spr, hwdata[taginfo->hwType].width, hwdata[taginfo->hwType].height, imageParams);
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
     DynamicJsonDocument doc(300);
 
     if (stream.find("[")) {
@@ -1119,8 +1085,6 @@ void getLocation(JsonObject &cfgobj) {
         http.begin("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(cfgobj["location"]) + "&count=1");
         http.setTimeout(5000);
         int httpCode = http.GET();
-        Serial.printf("Got code %d for this location\n", httpCode);
-        Serial.print(http.errorToString(httpCode));
 
         if (httpCode == 200) {
             DeserializationError error = deserializeJson(doc, http.getStream());
@@ -1131,6 +1095,8 @@ void getLocation(JsonObject &cfgobj) {
             cfgobj["#lat"] = lat;
             cfgobj["#lon"] = lon;
             cfgobj["#tz"] = tz;
+        } else {
+            wsErr("getLocation http " + httpCode);
         }
     }
 }
@@ -1167,7 +1133,6 @@ void prepareLUTreq(uint8_t *dst, String input) {
         waveform[i++] = static_cast<uint8_t>(strtol(ptr, nullptr, 16));
         ptr = strtok(nullptr, delimiters);
     }
-    Serial.println(String(i) + " bytes found");
     size_t waveformLen = sizeof(waveform);
     prepareDataAvail(waveform, waveformLen, DATATYPE_CUSTOM_LUT_OTA, dst);
 }
@@ -1189,27 +1154,32 @@ void prepareConfigFile(uint8_t *dst, JsonObject config) {
     prepareDataAvail((uint8_t *)&tagSettings, sizeof(tagSettings), 0xA8, dst);
 }
 
-void getTemplate(JsonDocument &json, const char *filePath, uint8_t id, uint8_t hwtype) {
-    File jsonFile = contentFS->open(filePath, "r");
-    if (!jsonFile) {
-        Serial.println("Failed to open content template file " + String(filePath));
-        return;
-    }
-
-    StaticJsonDocument<50> filter;
-    filter[String(id)][String(hwtype)] = true;
-
+void getTemplate(JsonDocument &json, uint8_t id, uint8_t hwtype) {
+    StaticJsonDocument<80> filter;
     StaticJsonDocument<1024> doc;
-    DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
-    jsonFile.close();
 
-    if (error) {
-        Serial.println("json error in getTemplate:");
+    const String idstr = String(id);
+    const char *templateKey = "template";
+
+    char filename[20];
+    snprintf(filename, sizeof(filename), "/tagtypes/%02X.json", hwtype);
+    File jsonFile = contentFS->open(filename, "r");
+
+    if (jsonFile) {
+        filter[templateKey][idstr] = true;
+        filter["usetemplate"] = true;
+        DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
+        jsonFile.close();
+        if (!error && doc.containsKey("usetemplate")) {
+            getTemplate(json, id, doc["usetemplate"]);
+            return;
+        }
+        if (!error && json.set(doc[templateKey][idstr])) return;
+        Serial.println("json error in " + String(filename));
         Serial.println(error.c_str());
-        return;
+    } else {
+        Serial.println("Failed to open " + String(filename));
     }
-
-    json.set(doc[String(id)][String(hwtype)]);
 }
 
 void setU8G2Font(const String &title, U8g2_for_TFT_eSPI &u8f) {

@@ -1,0 +1,38 @@
+{
+	"name": "ST‐GR16000 1.54\"",
+	"width": 152,
+	"height": 152,
+	"rotatebuffer": 0,
+	"bpp": 2,
+	"colors": 3,
+	"colortable": {
+		"white": [255, 255, 255],
+		"black": [0, 0, 0],
+		"red": [255, 0, 0],
+		"gray": [150, 150, 150]
+	},
+	"capabilities": ["button", "customlut"],
+	"template": {
+		"1": {
+			"weekday": [ 76, 10, "fonts/calibrib30" ],
+			"month": [ 76, 120, "fonts/calibrib30" ],
+			"day": [ 76, 42, "fonts/calibrib100" ]
+		},
+		"2": {
+			"fonts": [ "fonts/calibrib120", "fonts/calibrib80", "fonts/calibrib50", "fonts/calibrib50" ],
+			"xy": [ 76, 83 ]
+		},
+		"4": {
+			"location": [ 10, 145, "t0_14b_tf" ],
+			"wind": [ 140, 10, "fonts/bahnschrift30" ],
+			"temp": [ 10, 10, "fonts/bahnschrift30" ],
+			"icon": [ 75, 26, 70, 1 ],
+			"dir": [ 110, -12, 40 ],
+			"umbrella": [ 125, 110, 30 ]
+		},
+		"10": {
+			"title": [ 10, 15, "t0_14b_tf" ],
+			"pos": [ 76, 20 ]
+		}
+	}
+}

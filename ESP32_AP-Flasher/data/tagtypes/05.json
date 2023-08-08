@@ -1,0 +1,60 @@
+{
+	"name": "ST‐GR750BN 7.4\"",
+	"width": 640,
+	"height": 384,
+	"rotatebuffer": 0,
+	"bpp": 2,
+	"colors": 3,
+	"colortable": {
+		"white": [255, 255, 255],
+		"black": [0, 0, 0],
+		"red": [255, 0, 0],
+		"gray": [150, 150, 150]
+	},
+	"capabilities": ["button", "customlut"],
+	"template": {
+		"1": {
+			"weekday": [ 200, 25, "fonts/calibrib60" ],
+			"month": [ 200, 225, "fonts/calibrib60" ],
+			"day": [ 200, 95, "fonts/calibrib150" ]
+		},
+		"2": {
+			"fonts": [ "fonts/calibrib150", "fonts/calibrib150", "fonts/calibrib150", "fonts/calibrib120" ],
+			"xy": [ 200, 148 ]
+		},
+		"4": {
+			"location": [ 20, 20, "fonts/calibrib30" ],
+			"wind": [ 90, 83, "fonts/calibrib60" ],
+			"temp": [ 20, 170, "fonts/calibrib150" ],
+			"icon": [ 385, 0, 100, 2 ],
+			"dir": [ 40, 50, 80 ],
+			"umbrella": [ 325, 155, 78 ]
+		},
+		"8": {
+			"location": [ 10, 10, "fonts/calibrib30" ],
+			"column": [ 6, 66 ],
+			"day": [ 33, 60, "fonts/bahnschrift20", 104, 230 ],
+			"rain": [ 34, 260 ],
+			"icon": [ 32, 145, 30 ],
+			"wind": [ 17, 90 ],
+			"line": [ 50, 300 ]
+		},
+		"9": {
+			"title": [ 10, 10, "fonts/calibrib30" ],
+			"items": 12,
+			"line": [ 10, 60, 20 ],
+			"font": "7x14_tf"
+		},
+		"10": {
+			"title": [ 10, 10, "fonts/bahnschrift20" ],
+			"pos": [ 200, 30 ]
+		},
+		"11": {
+			"title": [ 10, 10, "fonts/bahnschrift30" ],
+			"date": [ 390, 10 ],
+			"items": 12,
+			"red": [ 0, 48, 400, 17 ],
+			"line": [ 10, 61, 18, "7x14_tf", 60 ]
+		}
+	}
+}

@@ -1,0 +1,16 @@
+{
+	"name": "ST-GR2900L 2.9\" (UC8151)",
+	"width": 296,
+	"height": 128,
+	"rotatebuffer": 1,
+	"bpp": 2,
+	"colors": 3,
+	"colortable": {
+		"white": [255, 255, 255],
+		"black": [0, 0, 0],
+		"red": [255, 0, 0],
+		"gray": [150, 150, 150]
+	},
+	"capabilities": ["button", "customlut"],
+	"usetemplate": 1		
+}

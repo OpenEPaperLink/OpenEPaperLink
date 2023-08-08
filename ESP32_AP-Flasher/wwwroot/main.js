@@ -8,48 +8,7 @@ const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
 const WAKEUP_REASON_WDT_RESET = 0xFE;
 
-const models = ["1.54\" 152x152px", "2.9\" 296x128px", "4.2\" 400x300px"];
-models[240] = "Segmented tag"
-models[17] = "2.9\" 296x128px (UC8151)"
-models[0x30] = "1.6\" BWR 200x200px"
-models[0x38] = "1.6\" BWY 200x200px"
-models[0x31] = "2.2\" BWR 296x160px"
-models[0x39] = "2.2\" BWY 296x160px"
-models[0x32] = "2.6\" BWR 360x184px"
-models[0x3A] = "2.6\" BWY 360x184px"
-models[0x33] = "2.9\" BWR 384x168px"
-models[0x3B] = "2.9\" BWY 384x168px"
-models[0x34] = "4.2\" BWR 400x300px"
-models[0x3C] = "4.2\" BWY 400x300px"
-models[0x35] = "6.0\" BWR 600x448px"
-models[0x3D] = "6.0\" BWY 600x448px"
-models[0x36] = "7.5\" BWR 880x528px"
-models[0x3E] = "7.5\" BWY 880x528px"
-models[0x37] = "11.6\" BWR 640x960px"
-models[0x3F] = "11.6\" BWY 640x960px"
-
-
-const displaySizeLookup = { 0: [152, 152, 4], 1: [128, 296, 2], 2: [400, 300, 2] };  // w, h, rotate
-displaySizeLookup[17] = [128, 296, 2];
-displaySizeLookup[240] = [0, 0, 0];
-displaySizeLookup[0x30] = [200, 200, 4];//"1.6\" BWR 200x200px"
-displaySizeLookup[0x38] = [200, 200, 4];//"1.6\" BWY 200x200px"
-displaySizeLookup[0x31] = [296, 160, 2];//"2.2\" BWR 296x160px"
-displaySizeLookup[0x39] = [296, 160, 2];//"2.2\" BWY 296x160px"
-displaySizeLookup[0x32] = [360, 184, 2];//"2.6\" BWR 360x184px"
-displaySizeLookup[0x3A] = [360, 184, 2];//"2.6\" BWY 360x184px"
-displaySizeLookup[0x33] = [384, 168, 2];//"2.9\" BWR 384x168px"
-displaySizeLookup[0x3B] = [384, 168, 2];//"2.9\" BWY 384x168px"
-displaySizeLookup[0x34] = [400, 300, 2];//"4.2\" BWR 400x300px"
-displaySizeLookup[0x3C] = [400, 300, 2];//"4.2\" BWY 400x300px"
-displaySizeLookup[0x35] = [600, 448, 2];//"6.0\" BWR 600x448px"
-displaySizeLookup[0x3D] = [600, 448, 2];//"6.0\" BWY 600x448px"
-displaySizeLookup[0x36] = [880, 528, 2];//"7.5\" BWR 880x528px"
-displaySizeLookup[0x3E] = [880, 528, 2];//"7.5\" BWY 880x528px"
-displaySizeLookup[0x37] = [640, 960, 4];//"11.6\" BWR 640x960px"
-displaySizeLookup[0x3F] = [640, 960, 4];//"11.6\" BWY 640x960px"
-
-const colorTable = { 0: [255, 255, 255], 1: [0, 0, 0], 2: [255, 0, 0], 3: [150, 150, 150] };
+var tagTypes = {};
 
 const apstate = [
 	{ state: "offline", color: "red" },
@@ -75,14 +34,6 @@ var cardconfig;
 let otamodule;
 
 window.addEventListener("load", function () {
-	fetch("/get_ap_config")
-		.then(response => response.json())
-		.then(data => {
-			if (data.alias) {
-				$(".logo").innerHTML = data.alias;
-				this.document.title = data.alias;
-			}
-		});
 	fetch('/content_cards.json')
 		.then(response => response.json())
 		.then(data => {
@@ -94,6 +45,14 @@ window.addEventListener("load", function () {
 		.catch(error => {
 			console.error('Error:', error);
 			alert("I can\'t load /www/content_cards.json.\r\nHave you upload it to the data partition?");
+		});
+	fetch("/get_ap_config")
+		.then(response => response.json())
+		.then(data => {
+			if (data.alias) {
+				$(".logo").innerHTML = data.alias;
+				this.document.title = data.alias;
+			}
 		});
 });
 
@@ -151,7 +110,7 @@ function connect() {
 			row.insertCell(4).innerHTML = msg.apitem.version;
 		}
 		if (msg.console) {
-			if (otamodule && typeof(otamodule.print) === "function") {
+			if (otamodule && typeof (otamodule.print) === "function") {
 				let color = "#c0c0c0";
 				if (msg.console.startsWith("Fail") || msg.console.startsWith("Err")) {
 					color = "red";
@@ -168,12 +127,12 @@ function connect() {
 }
 
 function convertSize(bytes) {
-	if      (bytes >= 1073741824) { bytes = (bytes / 1073741824).toFixed(2) + " GB"; }
-	else if (bytes >= 1048576)    { bytes = (bytes / 1048576).toFixed(2) + " MB"; }
-	else if (bytes >= 1024)       { bytes = (bytes / 1024).toFixed(2) + " kB"; }
-	else if (bytes > 1)           { bytes =	 bytes + " bytes"; }
-	else if (bytes == 1)          { bytes = bytes + " byte"; }
-	else                          { bytes = "0 bytes"; }
+	if (bytes >= 1073741824) { bytes = (bytes / 1073741824).toFixed(2) + " GB"; }
+	else if (bytes >= 1048576) { bytes = (bytes / 1048576).toFixed(2) + " MB"; }
+	else if (bytes >= 1024) { bytes = (bytes / 1024).toFixed(2) + " kB"; }
+	else if (bytes > 1) { bytes = bytes + " bytes"; }
+	else if (bytes == 1) { bytes = bytes + " byte"; }
+	else { bytes = "0 bytes"; }
 	return bytes;
 }
 
@@ -214,7 +173,11 @@ function processTags(tagArray) {
 		if (contentDefObj) $('#tag' + tagmac + ' .contentmode').innerHTML = contentDefObj.name;
 		if (element.RSSI) {
 			div.dataset.hwtype = element.hwType;
-			$('#tag' + tagmac + ' .model').innerHTML = models[element.hwType];
+			(async () => {
+				const localTagmac = tagmac;
+				const data = await getTagtype(element.hwType);
+				$('#tag' + localTagmac + ' .model').innerHTML = data.name;
+			})();
 			let statusline = "";
 			if (element.RSSI != 100) {
 				if (element.ch > 0) statusline += `CH ${element.ch}, `;
@@ -569,8 +532,7 @@ $('#paintbutton').onclick = function () {
 		$('#customoptions').innerHTML = "<div id=\"buttonbar\"></div><div id=\"canvasdiv\"></div><div id=\"layersdiv\"></div><p id=\"savebar\"></p>";
 		const mac = $('#cfgmac').dataset.mac
 		const hwtype = $('#tag' + mac).dataset.hwtype;
-		var [width, height] = displaySizeLookup[hwtype] || [0, 0];
-		if (height > width) [width, height] = [height, width];
+		var [width, height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
 		if (paintLoaded) {
 			startPainter(mac, width, height);
 		} else {
@@ -633,7 +595,7 @@ function contentselected() {
 						const optionElement = document.createElement("option");
 						optionElement.value = key;
 						optionElement.text = element.options[key];
-						if (element.options[key].substring(0,1)=="-") {
+						if (element.options[key].substring(0, 1) == "-") {
 							optionElement.text = element.options[key].substring(1);
 							optionElement.selected = true;
 						} else {
@@ -677,7 +639,7 @@ function populateSelectTag(hwtype, capabilities) {
 	rotateTag.innerHTML = "";
 
 	for (let i = 0; i < 4; i++) {
-		if (i == 0 || displaySizeLookup[hwtype][2] == 4 || (i == 2 && displaySizeLookup[hwtype][2] == 2)) {
+		if (i == 0 || tagTypes[hwtype].width == tagTypes[hwtype].height || (i == 2)) {
 			option = document.createElement("option");
 			option.value = i;
 			option.text = (i * 90) + " degrees";
@@ -743,11 +705,13 @@ function processQueue() {
 	const canvas = $('#tag' + id + ' .tagimg');
 	canvas.style.display = 'block';
 	const hwtype = $('#tag' + id).dataset.hwtype;
+	if (tagTypes[hwtype] && tagTypes[hwtype].busy) setTimeout(processQueue, 50);
 
 	fetch(imageSrc, { cache: "force-cache" })
 		.then(response => response.arrayBuffer())
 		.then(buffer => {
-			[canvas.width, canvas.height] = displaySizeLookup[hwtype] || [0, 0];
+			[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
+			if (tagTypes[hwtype].rotatebuffer) [canvas.width, canvas.height] = [canvas.height, canvas.width];
 			const ctx = canvas.getContext('2d');
 			const imageData = ctx.createImageData(canvas.width, canvas.height);
 			const data = new Uint8ClampedArray(buffer);
@@ -761,6 +725,7 @@ function processQueue() {
 					} else {
 						pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0);
 					}
+					let colorTable = tagTypes[hwtype].colortable;
 					imageData.data[pixelIndex * 4] = colorTable[pixelValue][0];
 					imageData.data[pixelIndex * 4 + 1] = colorTable[pixelValue][1];
 					imageData.data[pixelIndex * 4 + 2] = colorTable[pixelValue][2];
@@ -824,7 +789,7 @@ function GroupSortFilter() {
 	gridItems.forEach(item => {
 
 		if (grouping) {
-			const group = String(grouping).startsWith('data-') ? item.dataset[grouping.slice(5)] || '': item.querySelector('.' + grouping).textContent || '';
+			const group = String(grouping).startsWith('data-') ? item.dataset[grouping.slice(5)] || '' : item.querySelector('.' + grouping).textContent || '';
 			if (group !== currentGroup && group != '') {
 				let header = document.getElementById('header' + group);
 				if (!header) {
@@ -875,3 +840,45 @@ $('#toggleFilters').addEventListener('click', () => {
 		filterOptions.style.maxHeight = 0;
 	}
 });
+
+async function getTagtype(hwtype) {
+	if (tagTypes[hwtype] && tagTypes[hwtype].busy) {
+		await new Promise(resolve => {
+			const checkBusy = setInterval(() => {
+				if (!tagTypes[hwtype].busy) {
+					clearInterval(checkBusy);
+					resolve();
+				}
+			}, 10);
+		});
+	}
+
+	if (tagTypes[hwtype]) {
+		return tagTypes[hwtype];
+	}
+
+	try {
+		tagTypes[hwtype] = { busy: true };
+		const response = await fetch('/tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json');
+		if (!response.ok) {
+			let data = { name: 'unknown id ' + hwtype, width: 0, height: 0, rotatebuffer: 0, colortable: [], busy: false };
+			tagTypes[hwtype] = data;
+			return data;
+		}
+		const jsonData = await response.json();
+		let data = {
+			name: jsonData.name,
+			width: parseInt(jsonData.width),
+			height: parseInt(jsonData.height),
+			rotatebuffer: jsonData.rotatebuffer,
+			colortable: Object.values(jsonData.colortable),
+			busy: false
+		};
+		tagTypes[hwtype] = data;
+		return data;
+
+	} catch (error) {
+		console.error('Error fetching data:', error);
+		return null;
+	}
+}

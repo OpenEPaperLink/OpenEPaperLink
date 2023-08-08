@@ -189,6 +189,7 @@ void init_web() {
     });
 
     server.serveStatic("/current", *contentFS, "/current/").setCacheControl("max-age=604800");
+    server.serveStatic("/tagtypes", *contentFS, "/tagtypes/").setCacheControl("max-age=604800");
     server.serveStatic("/", *contentFS, "/www/").setDefaultFile("index.html");
 
     server.on(

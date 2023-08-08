@@ -41,7 +41,7 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
         Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
         spr.setColorDepth(1);
         spr.setBitmapColor(TFT_WHITE, TFT_BLACK);
-        imageParams.bpp = 1;
+        imageParams.bufferbpp = 1;
         spr.createSprite(w, h);
     }
     if (spr.getPointer() == nullptr) {
@@ -72,29 +72,19 @@ uint32_t colorDistance(const Color &c1, const Color &c2, const Error &e1) {
     int32_t r_diff = c1.r + e1.r - c2.r;
     int32_t g_diff = c1.g + e1.g - c2.g;
     int32_t b_diff = c1.b + e1.b - c2.b;
-    return 3 * r_diff * r_diff + 6 * g_diff * g_diff + 1 * b_diff * b_diff;
+    return 3 * r_diff * r_diff + 6 * g_diff * g_diff + b_diff * b_diff;
 }
 
-uint8_t *spr2color(TFT_eSprite &spr, imgParam &imageParams, size_t *buffer_size, bool is_red) {
-
-    bool dither = true;
+void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t buffer_size, bool is_red) {
     uint8_t rotate = imageParams.rotate;
     long bufw = spr.width(), bufh = spr.height();
-
-    if (bufw > bufh && bufw!=400 && bufh!=300 && bufw!=800 && bufh!=480 && bufw!=640 && bufh!=384) {
+    if (imageParams.rotatebuffer) {
         rotate = (rotate + 3) % 4;
         bufw = spr.height();
         bufh = spr.width();
     }
 
-    *buffer_size = (bufw * bufh) / 8;
-    uint8_t *buffer = (uint8_t*) malloc(*buffer_size);
-    if (!buffer) {
-        Serial.println("Failed to allocate buffer");
-        Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
-        return nullptr;
-    }
-    memset(buffer, 0, *buffer_size);
+    memset(buffer, 0, buffer_size);
 
     std::vector<Color> palette = {
         {255, 255, 255},  // White
@@ -107,7 +97,7 @@ uint8_t *spr2color(TFT_eSprite &spr, imgParam &imageParams, size_t *buffer_size,
         Serial.println("rendering with gray");
     }
     int num_colors = palette.size();
-    if (imageParams.bpp == 1) num_colors = 2;
+    if (imageParams.bufferbpp == 1) num_colors = 2;
     Color color;
     Error *error_bufferold = new Error[bufw + 4];
     Error *error_buffernew = new Error[bufw + 4];
@@ -134,6 +124,7 @@ uint8_t *spr2color(TFT_eSprite &spr, imgParam &imageParams, size_t *buffer_size,
             int best_color_index = 0;
             uint32_t best_color_distance = colorDistance(color, palette[0], error_bufferold[x]);
             for (int i = 1; i < num_colors; i++) {
+                if (best_color_distance == 0) break;
                 uint32_t distance = colorDistance(color, palette[i], error_bufferold[x]);
                 if (distance < best_color_distance) {
                     best_color_distance = distance;
@@ -204,7 +195,7 @@ uint8_t *spr2color(TFT_eSprite &spr, imgParam &imageParams, size_t *buffer_size,
     delete[] error_buffernew;
     delete[] error_bufferold;
 
-    return buffer;
+    return;
 }
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
@@ -212,22 +203,28 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     Storage.begin();
 
     fs::File f_out = contentFS->open(fileout, "w");
-    size_t bufferSize;
 
-    uint8_t *blackBuffer = (uint8_t*) spr2color(spr, imageParams, &bufferSize, false);
-    if(!blackBuffer)
+    long bufw = spr.width(), bufh = spr.height();
+    size_t buffer_size = (bufw * bufh) / 8;
+#ifdef BOARD_HAS_PSRAM
+    uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
+#else
+    uint8_t *buffer = (uint8_t *)malloc(buffer_size);
+#endif
+
+    if (!buffer) {
+        Serial.println("Failed to allocate buffer");
+        Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
         return;
-    f_out.write(blackBuffer, bufferSize);
-    free(blackBuffer);
+    }
+    spr2color(spr, imageParams, buffer, buffer_size, false);
+    f_out.write(buffer, buffer_size);
+
     if (imageParams.hasRed) {
-        uint8_t *redBuffer = (uint8_t*) spr2color(spr, imageParams, &bufferSize, true);
-        if(!redBuffer) {
-            imageParams.hasRed = false;
-            return;
-        }
-        f_out.write(redBuffer, bufferSize);
-        free(redBuffer);
-    } 
+        spr2color(spr, imageParams, buffer, buffer_size, true);
+        f_out.write(buffer, buffer_size);
+    }
+    free(buffer);
 
     f_out.close();
     Serial.println("finished writing buffer " + String(millis() - t) + "ms");

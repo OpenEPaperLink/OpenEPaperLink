@@ -122,7 +122,7 @@ select {
 	position: fixed;
 	top: 65px;
 	left: 15px;
-	width: 380px;
+	min-width: 380px;
 	padding: 15px;
 	background-color: #f0e6d3;
 	z-index: 999;

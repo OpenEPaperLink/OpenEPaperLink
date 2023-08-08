@@ -3,12 +3,18 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <FS.h>
+
+#include <unordered_map>
 #include <vector>
 
-#include "storage.h"
 #include "language.h"
+#include "storage.h"
 
 std::vector<tagRecord*> tagDB;
+std::unordered_map<int, HwType> hwdata = {
+    {0, {152, 152, 0, 2}},
+    {1, {296, 128, 1, 2}},
+    {2, {400, 300, 0, 2}}};
 
 Config config;
 // SemaphoreHandle_t tagDBOwner;
@@ -55,10 +61,10 @@ bool hex2mac(const String& hexString, uint8_t* mac) {
         mac[6] = 0;
         mac[7] = 0;
         return (sscanf(hexString.c_str(), "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX",
-                        &mac[5], &mac[4], &mac[3], &mac[2], &mac[1], &mac[0]) == 6);
+                       &mac[5], &mac[4], &mac[3], &mac[2], &mac[1], &mac[0]) == 6);
     } else {
         return (sscanf(hexString.c_str(), "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX",
-                        &mac[7], &mac[6], &mac[5], &mac[4], &mac[3], &mac[2], &mac[1], &mac[0]) == 8);
+                       &mac[7], &mac[6], &mac[5], &mac[4], &mac[3], &mac[2], &mac[1], &mac[0]) == 8);
     }
 }
 
@@ -85,15 +91,15 @@ String tagDBtoJson(uint8_t mac[8], uint8_t startPos) {
                 break;
             }
         }
-        if (doc.capacity() - doc.memoryUsage() < doc.memoryUsage()/(c+1) + 150) {
-            doc["continu"] = c+1;
+        if (doc.capacity() - doc.memoryUsage() < doc.memoryUsage() / (c + 1) + 150) {
+            doc["continu"] = c + 1;
             break;
         }
     }
     return doc.as<String>();
 }
 
-void fillNode(JsonObject &tag, tagRecord* &taginfo) {
+void fillNode(JsonObject& tag, tagRecord*& taginfo) {
     char hexmac[17];
     mac2hex(taginfo->mac, hexmac);
     tag["mac"] = String(hexmac);
@@ -199,16 +205,16 @@ void loadDB(String filename) {
                     taginfo->lastseen = (uint32_t)tag["lastseen"];
                     taginfo->nextupdate = (uint32_t)tag["nextupdate"];
                     taginfo->expectedNextCheckin = (uint16_t)tag["nextcheckin"];
-                    if (taginfo->expectedNextCheckin < now - 1800) { 
-                        taginfo->expectedNextCheckin = now + 1800; 
+                    if (taginfo->expectedNextCheckin < now - 1800) {
+                        taginfo->expectedNextCheckin = now + 1800;
                     }
                     taginfo->pending = false;
                     taginfo->alias = tag["alias"].as<String>();
                     taginfo->contentMode = tag["contentMode"];
-                    taginfo->LQI = tag["LQI"]; 
-                    taginfo->RSSI = tag["RSSI"]; 
-                    taginfo->temperature = tag["temperature"]; 
-                    taginfo->batteryMv = tag["batteryMv"]; 
+                    taginfo->LQI = tag["LQI"];
+                    taginfo->RSSI = tag["RSSI"];
+                    taginfo->temperature = tag["temperature"];
+                    taginfo->batteryMv = tag["batteryMv"];
                     taginfo->hwType = (uint8_t)tag["hwType"];
                     taginfo->wakeupReason = tag["wakeupReason"];
                     taginfo->capabilities = tag["capabilities"];
@@ -261,15 +267,13 @@ uint32_t getTagCount() {
 void clearPending(tagRecord* taginfo) {
     taginfo->filename = String();
     if (taginfo->data != nullptr) {
-
-        //check if this is the last copy of the buffer
+        // check if this is the last copy of the buffer
         int datacount = 0;
         for (uint32_t c = 0; c < tagDB.size(); c++) {
             if (tagDB.at(c)->data == taginfo->data) datacount++;
         }
         if (datacount == 1) free(taginfo->data);
         taginfo->data = nullptr;
-
     }
     taginfo->pending = false;
 }
@@ -318,4 +322,37 @@ void saveAPconfig() {
     APconfig["timezone"] = config.timeZone;
     serializeJsonPretty(APconfig, configFile);
     configFile.close();
+}
+
+HwType getHwType(uint8_t id) {
+    try {
+        return hwdata.at(id);
+    } catch (const std::out_of_range&) {
+        char filename[20];
+        snprintf(filename, sizeof(filename), "/tagtypes/%02X.json", id);
+        Serial.printf("read %s\n", filename);
+        File jsonFile = contentFS->open(filename, "r");
+
+        if (jsonFile) {
+            StaticJsonDocument<100> filter;
+            filter["width"] = true;
+            filter["height"] = true;
+            filter["rotatebuffer"] = true;
+            filter["bpp"] = true;
+            StaticJsonDocument<250> doc;
+            DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
+            jsonFile.close();
+            if (error) {
+                Serial.println("json error in " + String(filename));
+                Serial.println(error.c_str());
+            } else {
+                hwdata[id].width = doc["width"];
+                hwdata[id].height = doc["height"];
+                hwdata[id].rotatebuffer = doc["rotatebuffer"];
+                hwdata[id].bpp = doc["bpp"];
+                return hwdata.at(id);
+            }
+        }
+        return {0, 0, 0, 0};
+    }
 }

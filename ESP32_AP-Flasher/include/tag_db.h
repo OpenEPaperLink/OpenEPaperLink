@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
+#include <unordered_map>
 #include <vector>
 
 #pragma pack(push, 1)
@@ -68,9 +69,17 @@ struct Config {
     char timeZone[52];
 };
 
+struct HwType {
+    uint16_t width;
+    uint16_t height;
+    uint8_t rotatebuffer;
+    uint8_t bpp;
+};
+
 // extern SemaphoreHandle_t tagDBOwner;
 extern Config config;
 extern std::vector<tagRecord*> tagDB;
+extern std::unordered_map<int, HwType> hwtype;
 extern DynamicJsonDocument APconfig;
 String tagDBtoJson(uint8_t mac[8] = nullptr, uint8_t startPos = 0);
 bool deleteRecord(uint8_t mac[8]);
@@ -84,5 +93,6 @@ bool hex2mac(const String& hexString, uint8_t* mac);
 void clearPending(tagRecord* taginfo);
 void initAPconfig();
 void saveAPconfig();
+HwType getHwType(uint8_t id);
 
 #pragma pack(pop)
