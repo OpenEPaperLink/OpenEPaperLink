@@ -626,7 +626,7 @@ function populateSelectTag(hwtype, capabilities) {
 	cardconfig.forEach(item => {
 		var capcheck = item.capabilities ?? 0;
 		var hwtypeArray = item.hwtype;
-		if (hwtypeArray.includes(hwtype) && (capabilities & capcheck || capcheck == 0)) {
+		if ((hwtypeArray.includes(hwtype) || tagTypes[hwtype].contentids.includes(item.id)) && (capabilities & capcheck || capcheck == 0)) {
 			option = document.createElement("option");
 			option.value = item.id;
 			option.text = item.name;
@@ -715,21 +715,38 @@ function processQueue() {
 			const ctx = canvas.getContext('2d');
 			const imageData = ctx.createImageData(canvas.width, canvas.height);
 			const data = new Uint8ClampedArray(buffer);
-			const offsetRed = (data.length >= (canvas.width * canvas.height / 8) * 2) ? canvas.width * canvas.height / 8 : 0;
-			var pixelValue = 0;
-			for (let i = 0; i < data.length; i++) {
-				for (let j = 0; j < 8; j++) {
-					const pixelIndex = i * 8 + j;
-					if (offsetRed) {
-						pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0) | (((data[i + offsetRed] & (1 << (7 - j))) ? 1 : 0) << 1);
-					} else {
-						pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0);
+
+			if (tagTypes[hwtype].bpp == 16) {
+
+				const is16Bit = data.length == tagTypes[hwtype].width * tagTypes[hwtype].height * 2;
+				for (let i = 0; i < tagTypes[hwtype].width * tagTypes[hwtype].height; i++) {
+					const dataIndex = is16Bit ? i * 2 : i;
+					const rgb = is16Bit ? (data[dataIndex] << 8) | data[dataIndex + 1] : data[dataIndex];
+
+					imageData.data[i * 4] = is16Bit ? ((rgb >> 11) & 0x1F) << 3 : (((rgb >> 5) & 0x07) << 5) * 1.13;
+					imageData.data[i * 4 + 1] = is16Bit ? ((rgb >> 5) & 0x3F) << 2 : (((rgb >> 2) & 0x07) << 5) * 1.13;
+					imageData.data[i * 4 + 2] = is16Bit ? (rgb & 0x1F) << 3 : ((rgb & 0x03) << 6) * 1.3;
+					imageData.data[i * 4 + 3] = 255;
+				}
+
+			} else {
+
+				const offsetRed = (data.length >= (canvas.width * canvas.height / 8) * 2) ? canvas.width * canvas.height / 8 : 0;
+				var pixelValue = 0;
+				var colorTable = tagTypes[hwtype].colortable;
+				for (let i = 0; i < data.length; i++) {
+					for (let j = 0; j < 8; j++) {
+						const pixelIndex = i * 8 + j;
+						if (offsetRed) {
+							pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0) | (((data[i + offsetRed] & (1 << (7 - j))) ? 1 : 0) << 1);
+						} else {
+							pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0);
+						}
+						imageData.data[pixelIndex * 4] = colorTable[pixelValue][0];
+						imageData.data[pixelIndex * 4 + 1] = colorTable[pixelValue][1];
+						imageData.data[pixelIndex * 4 + 2] = colorTable[pixelValue][2];
+						imageData.data[pixelIndex * 4 + 3] = 255;
 					}
-					let colorTable = tagTypes[hwtype].colortable;
-					imageData.data[pixelIndex * 4] = colorTable[pixelValue][0];
-					imageData.data[pixelIndex * 4 + 1] = colorTable[pixelValue][1];
-					imageData.data[pixelIndex * 4 + 2] = colorTable[pixelValue][2];
-					imageData.data[pixelIndex * 4 + 3] = 255;
 				}
 			}
 
@@ -861,7 +878,7 @@ async function getTagtype(hwtype) {
 		tagTypes[hwtype] = { busy: true };
 		const response = await fetch('/tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json');
 		if (!response.ok) {
-			let data = { name: 'unknown id ' + hwtype, width: 0, height: 0, rotatebuffer: 0, colortable: [], busy: false };
+			let data = { name: 'unknown id ' + hwtype, width: 0, height: 0, bpp: 0, rotatebuffer: 0, colortable: [], busy: false };
 			tagTypes[hwtype] = data;
 			return data;
 		}
@@ -870,8 +887,10 @@ async function getTagtype(hwtype) {
 			name: jsonData.name,
 			width: parseInt(jsonData.width),
 			height: parseInt(jsonData.height),
+			bpp: parseInt(jsonData.bpp),
 			rotatebuffer: jsonData.rotatebuffer,
 			colortable: Object.values(jsonData.colortable),
+			contentids: Object.values(jsonData.contentids ?? []),
 			busy: false
 		};
 		tagTypes[hwtype] = data;

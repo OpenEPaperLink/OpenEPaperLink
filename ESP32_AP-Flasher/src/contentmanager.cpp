@@ -32,8 +32,8 @@
 #include "language.h"
 #include "settings.h"
 #include "tag_db.h"
-#include "web.h"
 #include "truetype.h"
+#include "web.h"
 
 #define PAL_BLACK TFT_BLACK
 #define PAL_WHITE TFT_WHITE
@@ -265,12 +265,12 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case 16:  // buienradar
 
-            {
-                uint8_t refresh = drawBuienradar(filename, cfgobj, taginfo, imageParams);
-                taginfo->nextupdate = now + refresh * 60;
-                updateTagImage(filename, mac, refresh, taginfo, imageParams);
-                break;
-            }
+        {
+            uint8_t refresh = drawBuienradar(filename, cfgobj, taginfo, imageParams);
+            taginfo->nextupdate = now + refresh * 60;
+            updateTagImage(filename, mac, refresh, taginfo, imageParams);
+            break;
+        }
 
         case 17:  // tag command
             sendTagCommand(mac, cfgobj["cmd"].as<int>(), (taginfo->isExternal == false));
@@ -328,7 +328,6 @@ bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, tagRec
 void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align, uint16_t color, uint16_t size) {
     // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,PAL_RED);
     if (font != "" && font != "null" && !font.startsWith("fonts/") && !font.startsWith("/fonts/")) {
-
         // u8g2 font
         U8g2_for_TFT_eSPI u8f;
         u8f.begin(spr);
@@ -345,7 +344,6 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
         u8f.print(content);
 
     } else if (size > 0) {
-
         // truetype
         time_t t = millis();
         truetypeClass truetype = truetypeClass();
@@ -369,17 +367,15 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
         truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
         truetype.textDraw(posx, posy, content);
         truetype.end();
-        // Serial.println("text: '" + content + "' " + String(millis() - t) + "ms"); 
+        // Serial.println("text: '" + content + "' " + String(millis() - t) + "ms");
 
     } else {
-
         // vlw bitmap font
         spr.setTextDatum(align);
         if (font != "") spr.loadFont(font, *contentFS);
         spr.setTextColor(color, PAL_WHITE);
         spr.drawString(content, posx, posy);
         if (font != "") spr.unloadFont();
-
     }
 }
 
@@ -621,7 +617,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
 
             uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
             if (weathercode > 40) weathercode -= 40;
-            
+
             int iconcolor = PAL_BLACK;
             if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
                 iconcolor = PAL_RED;
@@ -746,7 +742,8 @@ char *epoch_to_display(time_t utc) {
     if (local_tm.tm_year < now_tm.tm_year ||
         (local_tm.tm_year == now_tm.tm_year && local_tm.tm_mon < now_tm.tm_mon) ||
         (local_tm.tm_year == now_tm.tm_year && local_tm.tm_mon == now_tm.tm_mon && local_tm.tm_mday < now_tm.tm_mday) ||
-        (local_tm.tm_hour == 0 && local_tm.tm_min == 0)) {
+        (local_tm.tm_hour == 0 && local_tm.tm_min == 0) ||
+        difftime(utc, now) >= 86400) {
         strftime(display, sizeof(display), "%d-%m", &local_tm);
     } else {
         strftime(display, sizeof(display), "%H:%M", &local_tm);
@@ -980,7 +977,7 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
             if (error) {
                 wsErr("json error " + String(error.c_str()));
                 break;
-            } else {            
+            } else {
                 drawElement(doc.as<JsonObject>(), spr);
                 doc.clear();
             }
@@ -1231,4 +1228,3 @@ void showIpAddress(String dst) {
         }
     }
 }
-

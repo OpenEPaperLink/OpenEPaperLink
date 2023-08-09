@@ -1,10 +1,11 @@
 #include <Arduino.h>
 #include <FS.h>
-#include "storage.h"
 #include <TFT_eSPI.h>
 #include <TJpg_Decoder.h>
 #include <makeimage.h>
 #include <web.h>
+
+#include "storage.h"
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
@@ -24,7 +25,7 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
         filein = "/" + filein;
     }
     TJpgDec.getFsJpgSize(&w, &h, filein, *contentFS);
-    if (w==0 && h==0) {
+    if (w == 0 && h == 0) {
         wsErr("invalid jpg");
         return;
     }
@@ -138,12 +139,12 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
             // this looks a bit ugly, but it's performing better than shorter notations
             switch (best_color_index) {
                 case 1:
-                    if(!is_red)
+                    if (!is_red)
                         buffer[byteIndex] |= (1 << bitIndex);
                     break;
                 case 2:
                     imageParams.hasRed = true;
-                    if(is_red)
+                    if (is_red)
                         buffer[byteIndex] |= (1 << bitIndex);
                     break;
                 case 3:
@@ -156,7 +157,7 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                 Error error = {
                     static_cast<float>(color.r) + error_bufferold[x].r - static_cast<float>(palette[best_color_index].r),
                     static_cast<float>(color.g) + error_bufferold[x].g - static_cast<float>(palette[best_color_index].g),
-                    static_cast<float>(color.b) + error_bufferold[x].b - static_cast<float>(palette[best_color_index].b) };
+                    static_cast<float>(color.b) + error_bufferold[x].b - static_cast<float>(palette[best_color_index].b)};
 
                 // Burkes Dithering
                 error_buffernew[x].r += error.r / 4.0f;
@@ -204,27 +205,36 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
 
     fs::File f_out = contentFS->open(fileout, "w");
 
-    long bufw = spr.width(), bufh = spr.height();
-    size_t buffer_size = (bufw * bufh) / 8;
+    switch (imageParams.bpp) {
+        case 1:
+        case 2: {
+            long bufw = spr.width(), bufh = spr.height();
+            size_t buffer_size = (bufw * bufh) / 8;
 #ifdef BOARD_HAS_PSRAM
-    uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
+            uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
 #else
-    uint8_t *buffer = (uint8_t *)malloc(buffer_size);
+            uint8_t *buffer = (uint8_t *)malloc(buffer_size);
 #endif
+            if (!buffer) {
+                Serial.println("Failed to allocate buffer");
+                Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
+                return;
+            }
+            spr2color(spr, imageParams, buffer, buffer_size, false);
+            f_out.write(buffer, buffer_size);
 
-    if (!buffer) {
-        Serial.println("Failed to allocate buffer");
-        Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
-        return;
-    }
-    spr2color(spr, imageParams, buffer, buffer_size, false);
-    f_out.write(buffer, buffer_size);
+            if (imageParams.hasRed && imageParams.bpp > 1) {
+                spr2color(spr, imageParams, buffer, buffer_size, true);
+                f_out.write(buffer, buffer_size);
+            }
+            free(buffer);
+        } break;
 
-    if (imageParams.hasRed) {
-        spr2color(spr, imageParams, buffer, buffer_size, true);
-        f_out.write(buffer, buffer_size);
+        case 16: {
+            size_t spriteDataSize = (spr.getColorDepth() == 1) ? (spr.width() * spr.height() / 8) : ((spr.getColorDepth() == 8) ? (spr.width() * spr.height()) : ((spr.getColorDepth() == 16) ? (spr.width() * spr.height() * 2) : 0));
+            f_out.write((const uint8_t *)spr.getPointer(), spriteDataSize);
+        } break;
     }
-    free(buffer);
 
     f_out.close();
     Serial.println("finished writing buffer " + String(millis() - t) + "ms");

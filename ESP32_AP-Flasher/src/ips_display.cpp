@@ -1,50 +1,93 @@
-
 #ifdef YELLOW_IPS_AP
 #include <Arduino.h>
-#include <Arduino_GFX_Library.h>
+#include <FS.h>
+#include <TFT_eSPI.h>
 #include <WiFi.h>
 
+#include "commstructs.h"
+#include "newproto.h"
+#include "storage.h"
 #include "tag_db.h"
 
-Arduino_DataBus *bus = new Arduino_ESP32SPI(11 /* DC */, 10 /* CS */, 12 /* SCK */, 13 /* MOSI */, GFX_NOT_DEFINED /* MISO */);
-Arduino_GFX *gfx = new Arduino_ST7789(bus, 1 /* RST */, 3 /* rotation */, true /* IPS */, 170 /* width */, 320 /* height */, 35 /* col offset 1 */, 0 /* row offset 1 */, 35 /* col offset 2 */, 0 /* row offset 2 */);
+TFT_eSPI tft2 = TFT_eSPI();
+bool first_run = 0;
+time_t last_update = 0;
+time_t last_checkin = 0;
+int32_t tftid = -1;
+
+int32_t findId(uint8_t mac[8]) {
+    for (uint32_t c = 0; c < tagDB.size(); c++) {
+        tagRecord* tag = nullptr;
+        tag = tagDB.at(c);
+        if (memcmp(tag->mac, mac, 8) == 0) {
+            return c;
+        }
+    }
+    return -1;
+}
+
+void sendAvail(uint8_t wakeupReason) {
+    struct espAvailDataReq eadr = {0};
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+    memcpy(&eadr.src, mac, 6);
+    eadr.adr.lastPacketRSSI = WiFi.RSSI();
+    eadr.adr.currentChannel = WiFi.channel();
+    eadr.adr.hwType = 0xE0;
+    eadr.adr.wakeupReason = wakeupReason;
+    eadr.adr.capabilities = 0;
+    eadr.adr.tagSoftwareVersion = 0;
+    eadr.adr.customMode = 0;
+    processDataReq(&eadr, true);
+    if (wakeupReason) tftid = findId(eadr.src);
+}
 
 void yellow_ap_display_init(void) {
-    gfx->begin();
-    gfx->fillScreen(BLACK);
-    gfx->setCursor(10, 10);
-    gfx->setTextColor(RED);
-    gfx->println("OpenEPaperLink");
-    gfx->setCursor(10, 40);
-    gfx->setTextColor(GREEN);
-    gfx->println("Also on 16MB Flash 8MB RAM");
-    gfx->setCursor(10, 80);
-    gfx->setTextColor(WHITE);
-    gfx->println("Booting");
+    tft2.init();
+    tft2.setRotation(3);
+
+    tft2.fillScreen(TFT_BLACK);
+    tft2.setCursor(0, 0, 2);
+    tft2.setTextColor(TFT_WHITE);
+    tft2.println(" Init\n");
 }
 
-bool first_clear = 0;
-uint32_t last_update = 0;
 void yellow_ap_display_loop(void) {
-    if (millis() - last_update >= 100) {
-        if (first_clear == 0) {
-            first_clear = 1;
-            gfx->fillScreen(BLACK);
-            gfx->setTextSize(3);
+    if (millis() - last_checkin >= 60000) {
+        sendAvail(0);
+        last_checkin = millis();
+    }
+    if (millis() - last_update >= 500) {
+        if (first_run == 0) {
+            sendAvail(0xFC);
+            first_run = 1;
+        }
+        tagRecord* tag = nullptr;
+        tag = tagDB.at(tftid);
+        if (tag->pending) {
+            String filename = tag->filename;
+            fs::File file = contentFS->open(filename);
+            if (!file) {
+                Serial.print("No current file. Canceling request\n");
+                prepareCancelPending(tag->mac);
+                return;
+            }
+
+            TFT_eSprite spr = TFT_eSprite(&tft2);
+            if (tag->len == tft2.width() * tft2.height() * 2) spr.setColorDepth(16);
+            if (tag->len == tft2.width() * tft2.height()) spr.setColorDepth(8);
+            spr.createSprite(tft2.width(), tft2.height());
+            void* spriteData = spr.getPointer();
+            size_t bytesRead = file.readBytes((char*)spriteData, spr.width() * spr.height() * 2);
+            file.close();
+            spr.pushSprite(0,0);
+
+            struct espXferComplete xfc = {0};
+            memcpy(xfc.src, tag->mac, 8);
+            processXferComplete(&xfc, true);
         }
         last_update = millis();
-        gfx->setCursor(0, 0);
-        gfx->setTextColor(RED, BLACK);
-        gfx->println("OpenEPaperLink");
-        gfx->setTextColor(GREEN, BLACK);
-        gfx->println("Millis :");
-        gfx->println(millis());
-        gfx->setTextColor(WHITE, BLACK);
-        gfx->println("IP Address :");
-        gfx->println(WiFi.localIP().toString());
-        gfx->setTextColor(WHITE, BLACK);
-        gfx->println("Tag Count :");
-        gfx->println(getTagCount());
     }
 }
+
 #endif

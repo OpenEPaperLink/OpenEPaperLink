@@ -1,0 +1,17 @@
+{
+	"name": "TFT 320x170",
+	"width": 320,
+	"height": 170,
+	"rotatebuffer": 0,
+	"bpp": 16,
+	"colors": 4,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ],
+		"gray": [ 150, 150, 150 ]
+	},
+	"capabilities": [ ],
+	"contentids": [ 0, 1, 2, 3, 4, 8, 16, 9, 7, 19, 10, 11 ],
+	"usetemplate": 1
+}
