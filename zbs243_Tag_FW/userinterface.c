@@ -87,20 +87,114 @@ void afterFlashScreenSaver() {
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
 
 #if (SCREEN_WIDTH == 152)  // 1.54"
-    epdPrintBegin(2, 2, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdPrintBegin(0, 0, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("OpenEPaperLink");
+    epdPrintEnd();
+
+
+    epdPrintBegin(100, 32, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    epdpr("v%d.%d.%d", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10));
+    epdPrintEnd();
+
+    epdPrintBegin(0, 16, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("I'm fast asleep");
+    epdPrintEnd();
+
+    epdPrintBegin(0, 32, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("UwU");
+    epdPrintEnd();
+
+    epdPrintBegin(0, 48, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("To wake me:");
+    epdPrintEnd();
+
+    epdPrintBegin(0, 64, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("-Remove batteries");
+    epdPrintEnd();
+    epdPrintBegin(0, 80, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("-Short contacts");
+    epdPrintEnd();
+    epdPrintBegin(0, 96, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("-Reinsert batteries");
+    epdPrintEnd();
+    epdPrintBegin(0, 112, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("openepaperlink.de");
+    epdPrintEnd();
+
+    epdPrintBegin(0, 128, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    epdpr("%02X:%02X", mSelfMac[7], mSelfMac[6]);
+    epdpr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
+    epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
+    epdpr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 #endif
 
 #if (SCREEN_WIDTH == 128)  // 2.9"
-    epdPrintBegin(0, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdPrintBegin(0, 295, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("OpenEPaperLink");
+    epdPrintEnd();
+
+    epdPrintBegin(8, 40, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("v%d.%d.%d", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10));
+    epdPrintEnd();
+
+    epdPrintBegin(32, 290, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("I'm fast asleep... UwU   To wake me:");
+    epdPrintEnd();
+
+    epdPrintBegin(48, 275, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("- Remove both batteries");
+    epdPrintEnd();
+    epdPrintBegin(64, 275, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("- Short battery contacts");
+    epdPrintEnd();
+    epdPrintBegin(80, 275, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("- Reinsert batteries");
+    epdPrintEnd();
+    epdPrintBegin(112, 293, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("openepaperlink.de");
+    epdPrintEnd();
+
+    epdPrintBegin(110, 155, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    epdpr("%02X:%02X", mSelfMac[7], mSelfMac[6]);
+    epdpr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
+    epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
+    epdpr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
     epdPrintEnd();
 #endif
 #if (SCREEN_WIDTH == 400)  // 4.2"
     epdPrintBegin(3, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("OpenEPaperLink");
     epdPrintEnd();
+
+    epdPrintBegin(360, 8, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("v%d.%d.%d", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10));
+    epdPrintEnd();
+
+        epdPrintBegin(10, 48, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("I'm fast asleep... UwU   To wake me:");
+    epdPrintEnd();
+
+    epdPrintBegin(20, 70, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("- Remove both batteries");
+    epdPrintEnd();
+    epdPrintBegin(20, 86, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("- Short battery contacts");
+    epdPrintEnd();
+    epdPrintBegin(20, 102, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("- Reinsert batteries");
+    epdPrintEnd();
+    epdPrintBegin(3, 283, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdpr("openepaperlink.de");
+    epdPrintEnd();
+
+    epdPrintBegin(255, 283, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    epdpr("%02X:%02X", mSelfMac[7], mSelfMac[6]);
+    epdpr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
+    epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
+    epdpr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
+    epdPrintEnd();
+
 #endif
     drawWithSleep();
 }

@@ -21,7 +21,7 @@ $version = hexdec($version);
 */
 $version = 0;
 
-exec("ls -1 $binpath | grep 'Tag_FW' | grep -v battery | grep -v Pack", $binaries);
+exec("ls -1 $binpath | grep 'Tag_FW' | grep -v battery | grep -v Pack | grep -v M3", $binaries);
 foreach($binaries as $file){
 	$file = trim($file);
 	$type = -1;

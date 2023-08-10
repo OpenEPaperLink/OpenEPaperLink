@@ -173,7 +173,7 @@ uint8_t getFirstWakeUpReason() {
 }
 void checkI2C() {
     powerUp(INIT_I2C);
-//  i2cBusScan();
+    //  i2cBusScan();
     if (i2cCheckDevice(0x55)) {
         powerDown(INIT_I2C);
         // found something!
@@ -352,6 +352,14 @@ void executeCommand(uint8_t cmd) {
             break;
         case CMD_DO_SCAN:
             currentChannel = channelSelect();
+            break;
+        case CMD_DO_DEEPSLEEP:
+            powerUp(INIT_EPD);
+            afterFlashScreenSaver();
+            powerDown(INIT_EPD | INIT_UART);
+            while (1) {
+                doSleep(-1);
+            }
             break;
     }
 }

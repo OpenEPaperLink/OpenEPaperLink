@@ -6,7 +6,6 @@
 #define SOLUM_SEG_EU 0xF1
 #define SOLUM_NODISPLAY 0xFF
 
-
 #define SOLUM_M2_BWR_16 0x20
 #define SOLUM_M2_BWR_29 0x23
 #define SOLUM_M2_BWR_42 0x24
@@ -55,6 +54,7 @@
 #define CMD_DO_REBOOT 0
 #define CMD_DO_SCAN 1
 #define CMD_DO_RESET_SETTINGS 2
+#define CMD_DO_DEEPSLEEP 3
 
 #define WAKEUP_REASON_TIMED 0
 #define WAKEUP_REASON_GPIO 2
