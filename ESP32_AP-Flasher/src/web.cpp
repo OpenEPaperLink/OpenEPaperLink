@@ -297,6 +297,9 @@ void init_web() {
                     if (strcmp(cmdValue, "reset") == 0) {
                         sendTagCommand(mac, CMD_DO_RESET_SETTINGS, !taginfo->isExternal);
                     }
+                    if (strcmp(cmdValue, "deepsleep") == 0) {
+                        sendTagCommand(mac, CMD_DO_DEEPSLEEP, !taginfo->isExternal);
+                    }
                     request->send(200, "text/plain", "Ok, done");
                 } else {
                     request->send(200, "text/plain", "Error: mac not found");

@@ -476,7 +476,9 @@
         "options": {
           "0": "Reboot",
           "1": "Scan Channels",
-          "2": "Clear settings"
+          "2": "Clear settings",
+          "3": "Enter Deep Sleep"
+
         }
       }
     ]

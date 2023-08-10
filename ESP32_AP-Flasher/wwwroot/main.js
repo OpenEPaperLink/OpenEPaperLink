@@ -454,6 +454,10 @@ $('#cfgscan').onclick = function () {
 	sendCmd($('#cfgmac').dataset.mac, "scan");
 }
 
+$('#cfgdeepsleep').onclick = function () {
+	sendCmd($('#cfgmac').dataset.mac, "deepsleep");
+}
+
 $('#cfgreset').onclick = function () {
 	sendCmd($('#cfgmac').dataset.mac, "reset");
 }
