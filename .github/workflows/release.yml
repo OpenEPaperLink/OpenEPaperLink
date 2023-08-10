@@ -21,6 +21,18 @@ jobs:
         with:
           python-version: '3.9'
           
+      - name: Zip web files
+        run: | 
+            cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_AP-Flasher
+            python gzip_wwwfiles.py
+        
+      - name: Commit zipped files 
+        run: |
+          git config --global user.name 'Bot'
+          git config --global user.email "bot@openepaperlink.de"
+          git commit -am "Ziped web files"
+          git push origin HEAD:master
+          
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
