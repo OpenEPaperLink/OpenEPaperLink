@@ -54,6 +54,7 @@ window.addEventListener("load", function () {
 				this.document.title = data.alias;
 			}
 		});
+	dropUpload();
 });
 
 let socket;
@@ -908,5 +909,96 @@ async function getTagtype(hwtype) {
 	} catch (error) {
 		console.error('Error fetching data:', error);
 		return null;
+	}
+}
+
+function dropUpload() {
+	const dropZone = $('#taglist');
+	let timeoutId;
+
+	dropZone.addEventListener('dragenter', (event) => {
+		const tagCard = event.target.closest('.tagcard');
+		tagCard?.classList.add('drophighlight');
+	});
+
+	dropZone.addEventListener('dragover', (event) => {
+		event.preventDefault();
+		const tagCard = event.target.closest('.tagcard');
+		tagCard?.classList.add('drophighlight');
+	});
+
+	dropZone.addEventListener('dragleave', (event) => {
+		const tagCard = event.target.closest('.tagcard');
+		tagCard?.classList.remove('drophighlight');
+	});
+
+	dropZone.addEventListener('drop', (event) => {
+		event.preventDefault();
+		const file = event.dataTransfer.files[0];
+		const tagCard = event.target.closest('.tagcard');
+		if (tagCard && file && file.type.startsWith('image/')) {
+			tagCard.classList.remove('drophighlight');
+			const itemId = tagCard.id;
+			const reader = new FileReader();
+
+			reader.onload = function (e) {
+				const image = new Image();
+				image.src = e.target.result;
+
+				image.onload = function () {
+					const hwtype = tagCard.dataset.hwtype;
+					const mac = tagCard.dataset.mac;
+					const [width, height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
+					const canvas = createCanvas(width, height);
+					const ctx = canvas.getContext('2d');
+
+					const scaleFactor = Math.max(
+						canvas.width / image.width,
+						canvas.height / image.height
+					);
+
+					const newWidth = image.width * scaleFactor;
+					const newHeight = image.height * scaleFactor;
+
+					const x = (canvas.width - newWidth) / 2;
+					const y = (canvas.height - newHeight) / 2;
+
+					ctx.drawImage(image, x, y, newWidth, newHeight);
+
+					canvas.toBlob(async (blob) => {
+						const formData = new FormData();
+						formData.append('mac', mac);
+						formData.append('file', blob, 'image.jpg');
+
+						try {
+							const response = await fetch('/imgupload', {
+								method: 'POST',
+								body: formData,
+							});
+
+							if (response.ok) {
+								console.log('Resized image uploaded successfully');
+							} else {
+								console.error('Image upload failed');
+							}
+						} catch (error) {
+							console.error('Image upload failed', error);
+						}
+					}, 'image/jpeg');				};
+
+				image.onerror = function () {
+					console.error('Failed to load image.');
+				};
+			};
+
+			reader.readAsDataURL(file);
+		}
+	});
+
+	function createCanvas(width, height) {
+		const canvas = document.createElement('canvas');
+		canvas.width = width;
+		canvas.height = height;
+		return canvas;
 	}
 }

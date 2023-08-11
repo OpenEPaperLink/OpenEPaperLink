@@ -425,6 +425,11 @@ ul.messages li.new {
 	background-color: #aaaaaa;
 }
 
+.drophighlight {
+	border: 1px solid red;
+	box-shadow: 7px 10px 52px -19px rgba(255, 0, 0, 0.63);
+}
+
 /* painter */
 
 #canvasdiv {
