@@ -57,11 +57,14 @@ void yellow_ap_display_loop(void) {
         sendAvail(0);
         last_checkin = millis();
     }
-    if (millis() - last_update >= 500) {
+    if (millis() - last_update >= 1000) {
         if (first_run == 0) {
             sendAvail(0xFC);
             first_run = 1;
         }
+
+        // if ((uint32_t)WiFi.localIP() == (uint32_t)0) {}
+
         tagRecord* tag = nullptr;
         tag = tagDB.at(tftid);
         if (tag->pending) {

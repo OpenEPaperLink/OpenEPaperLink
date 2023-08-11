@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<title>Variables upload Form</title>
+</head>
+
+<body>
+	<h3>demo Json variables</h3>
+	<p>You can use this as an example how to change variables to be uses in a json template. Look at the html source for the workings. You can use the variables in any json template, using <pre>{variablename}</pre>. As soon as a variable is changed, the tag is being refreshed with the new info.</p>
+	<p>
+		Change one variable:<br>
+		<form method="POST" action="/set_var">
+			key: <input type="text" name="key" value="testkey"><br>
+			value: <input type="text" name="val" value="MyCoolValue"><br>
+			<input type="submit" value="submit"><br>
+		</form>
+	</p>
+	<p>
+		Change multiple variables, using json:<br>
+		<form method="POST" action="/set_vars">
+			<p>
+			<label for="vars">Place the json string here</label><br>
+			<textarea id="vars" name="json" style="width:500px;height:80px;">
+{ "temperature": 28.5,
+"door": "open",
+"testkey": "MyCoolValue"
+}
+            </textarea>
+			</p>
+
+			<p>
+			<input type="submit" value="submit json">
+			</p>
+
+		</form>
+	</p>
+</body>
+
+</html>

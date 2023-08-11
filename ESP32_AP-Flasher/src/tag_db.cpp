@@ -11,6 +11,7 @@
 #include "storage.h"
 
 std::vector<tagRecord*> tagDB;
+std::unordered_map<std::string, varStruct> varDB;
 std::unordered_map<int, HwType> hwdata = {
     {0, {152, 152, 0, 2}},
     {1, {296, 128, 1, 2}},
@@ -20,7 +21,7 @@ Config config;
 // SemaphoreHandle_t tagDBOwner;
 
 tagRecord* tagRecord::findByMAC(uint8_t mac[8]) {
-    for (int16_t c = 0; c < tagDB.size(); c++) {
+    for (int32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = nullptr;
         tag = tagDB.at(c);
         if (memcmp(tag->mac, mac, 8) == 0) {
@@ -31,7 +32,7 @@ tagRecord* tagRecord::findByMAC(uint8_t mac[8]) {
 }
 
 bool deleteRecord(uint8_t mac[8]) {
-    for (int16_t c = 0; c < tagDB.size(); c++) {
+    for (int32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = nullptr;
         tag = tagDB.at(c);
         if (memcmp(tag->mac, mac, 8) == 0) {
@@ -91,7 +92,7 @@ String tagDBtoJson(uint8_t mac[8], uint8_t startPos) {
                 break;
             }
         }
-        if (doc.capacity() - doc.memoryUsage() < doc.memoryUsage() / (c + 1) + 150) {
+        if (doc.capacity() - doc.memoryUsage() < doc.memoryUsage() / (c + 1) + 500) {
             doc["continu"] = c + 1;
             break;
         }
@@ -143,7 +144,7 @@ void saveDB(String filename) {
 
     file.write('[');
 
-    for (int16_t c = 0; c < tagDB.size(); c++) {
+    for (int32_t c = 0; c < tagDB.size(); c++) {
         doc.clear();
         tagRecord* taginfo = nullptr;
         taginfo = tagDB.at(c);
@@ -205,7 +206,7 @@ void loadDB(String filename) {
                     taginfo->lastseen = (uint32_t)tag["lastseen"];
                     taginfo->nextupdate = (uint32_t)tag["nextupdate"];
                     taginfo->expectedNextCheckin = (uint16_t)tag["nextcheckin"];
-                    if (taginfo->expectedNextCheckin < now - 1800) {
+                    if (taginfo->expectedNextCheckin < now) {
                         taginfo->expectedNextCheckin = now + 1800;
                     }
                     taginfo->pending = false;
@@ -255,11 +256,25 @@ void destroyDB() {
 }
 
 uint32_t getTagCount() {
+    uint32_t temp = 0;
+    return getTagCount(temp);
+}
+
+uint32_t getTagCount(uint32_t& timeoutcount) {
     uint32_t tagcount = 0;
+    time_t now;
+    time(&now);
+    // Serial.printf("now: %d\n", now);
     for (uint32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* taginfo = nullptr;
         taginfo = tagDB.at(c);
         if (taginfo->isExternal == false) tagcount++;
+        int32_t timeout1 = now - taginfo->lastseen;
+        int32_t timeout2 = taginfo->lastseen - taginfo->expectedNextCheckin;
+        // Serial.printf("%d expected: %d lastseen: %d ->    %d    %d\n", c, taginfo->expectedNextCheckin, timeout1, timeout2);
+        if (((taginfo->expectedNextCheckin < 3600 && timeout1 > 3600) ||
+             (taginfo->expectedNextCheckin > 3600 && timeout2 > 600)) &&
+            now > 3600 && millis() > 60000) timeoutcount++;
     }
     return tagcount;
 }
@@ -354,5 +369,24 @@ HwType getHwType(uint8_t id) {
             }
         }
         return {0, 0, 0, 0};
+    }
+}
+
+bool setVarDB(const std::string& key, const String& value) {
+    auto it = varDB.find(key);
+    if (it == varDB.end()) {
+        varStruct newVar;
+        newVar.value = value;
+        newVar.changed = true;
+        varDB[key] = newVar;
+        return true;
+    } else {
+        if (it->second.value != value) {
+            it->second.value = value;
+            it->second.changed = true;
+            return true;
+        } else {
+            return false;
+        }
     }
 }

@@ -5,7 +5,6 @@
 #include <HTTPClient.h>
 #include "storage.h"
 #include <MD5Builder.h>
-#include <makeimage.h>
 #include <time.h>
 
 #include "storage.h"
@@ -121,8 +120,16 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, uint8_t* ds
 bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
     if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
     if (wsClientCount() && config.stopsleep == 1) nextCheckin=0;
-    
-    tagRecord* taginfo = nullptr;
+#ifdef YELLOW_IPS_AP
+    if (*filename == "direct") {
+        char dst_path[64];
+        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+        contentFS->remove(dst_path);
+        return true;
+    }
+#endif
+
+        tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
         wsErr("Tag not found, this shouldn't happen.");
@@ -507,11 +514,11 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
     }
     if (local) {
         sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
+        Serial.print(buffer);
     } else {
-        sprintf(buffer, "<REMOTE ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
+        // sprintf(buffer, "<REMOTE ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
     }
 
-    Serial.print(buffer);
     wsSendTaginfo(eadr->src, SYNC_TAGSTATUS);
     if (local) {
         udpsync.netProcessDataReq(eadr);

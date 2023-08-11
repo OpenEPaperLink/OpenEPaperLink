@@ -12,6 +12,18 @@
 		"gray": [ 150, 150, 150 ]
 	},
 	"capabilities": [ ],
-	"contentids": [ 0, 1, 2, 3, 4, 8, 16, 9, 7, 19, 10, 11 ],
-	"usetemplate": 1
+	"contentids": [ 0, 1, 2, 3, 4, 8, 16, 9, 7, 19, 10, 11, 21 ],
+	"usetemplate": 1,
+	"template": {
+		"21": [
+			{ "box": [ 0, 0, 320, 170, 1 ] },
+			{ "text": [ 5, 5, "OpenEpaperLink AP", "calibrib30", 2, 0, 0, 1 ] },
+			{ "text": [ 5, 60, "IP address:", "bahnschrift20", "#888888", 0, 0, 1 ] },
+			{ "text": [ 120, 60, "{ap_ip}", "bahnschrift20", 0, 0, 0, 1 ] },
+			{ "text": [ 5, 85, "Channel:", "bahnschrift20", "#888888", 0, 0, 1 ] },
+			{ "text": [ 120, 85, "{ap_ch}", "bahnschrift20", 0, 0, 0, "1" ] },
+			{ "text": [ 5, 110, "Tag count:", "bahnschrift20", "#888888", 0, 0, 1 ] },
+			{ "text": [ 120, 110, "{ap_tagcount}", "bahnschrift20", 0, 0, 0, "1" ] }
+		]
+	}
 }

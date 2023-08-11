@@ -6,7 +6,6 @@
 #include "storage.h"
 #include "contentmanager.h"
 #include "flasher.h"
-#include "makeimage.h"
 #include "serialap.h"
 #include "settings.h"
 #include "system.h"
@@ -40,7 +39,10 @@ void timeTask(void* parameter) {
         time_t now;
         time(&now);
 
-        if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE || config.runStatus != RUNSTATUS_RUN) wsSendSysteminfo();
+        if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE || config.runStatus != RUNSTATUS_RUN) {
+            wsSendSysteminfo();
+            checkVars();
+        }
         if (now % 300 == 6 && config.runStatus != RUNSTATUS_STOP) saveDB("/current/tagDB.json");
         if (apInfo.state == AP_STATE_ONLINE) contentRunner();
 

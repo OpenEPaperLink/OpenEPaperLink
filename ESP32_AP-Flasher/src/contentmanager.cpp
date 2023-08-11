@@ -35,10 +35,6 @@
 #include "truetype.h"
 #include "web.h"
 
-#define PAL_BLACK TFT_BLACK
-#define PAL_WHITE TFT_WHITE
-#define PAL_RED TFT_RED
-
 // https://csvjson.com/json_beautifier
 
 void contentRunner() {
@@ -47,8 +43,7 @@ void contentRunner() {
     time_t now;
     time(&now);
 
-    // xSemaphoreTake(tagDBOwner, portMAX_DELAY);
-    for (int16_t c = 0; c < tagDB.size(); c++) {
+    for (int32_t c = 0; c < tagDB.size(); c++) {
         tagRecord *taginfo = nullptr;
         taginfo = tagDB.at(c);
 
@@ -69,7 +64,40 @@ void contentRunner() {
 
         vTaskDelay(1 / portTICK_PERIOD_MS);  // add a small delay to allow other threads to run
     }
-    // xSemaphoreGive(tagDBOwner);
+}
+
+void checkVars() {
+    DynamicJsonDocument doc(500);
+    for (int32_t c = 0; c < tagDB.size(); c++) {
+        tagRecord *tag = nullptr;
+        tag = tagDB.at(c);
+        if (tag->contentMode == 19) {
+            deserializeJson(doc, tag->modeConfigJson);
+            JsonObject cfgobj = doc.as<JsonObject>();
+            if (cfgobj["filename"]) {
+                String jsonfile = cfgobj["filename"].as<String>();
+                File file = contentFS->open(jsonfile, "r");
+                if (file) {
+                    size_t fileSize = file.size();
+                    std::unique_ptr<char[]> fileContent(new char[fileSize + 1]);
+                    file.readBytes(fileContent.get(), fileSize);
+                    file.close();
+                    fileContent[fileSize] = '\0';
+                    char *contentPtr = fileContent.get();
+                    for (const auto &entry : varDB) {
+                        if (entry.second.changed && strstr(contentPtr, entry.first.c_str()) != nullptr) {
+                            Serial.println("updating " + jsonfile + " because of var " + entry.first.c_str());
+                            tag->nextupdate = 0;
+                        }
+                    }
+                }
+                file.close();
+            }
+        }
+    }
+    for (const auto &entry : varDB) {
+        if (entry.second.changed) varDB[entry.first].changed = false;
+    }
 }
 
 void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
@@ -83,9 +111,21 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
         return;
     }
 
+    uint8_t wifimac[8];
+    WiFi.macAddress(wifimac);
+    memset(&wifimac[6], 0, 2);
+
+    if ((taginfo->wakeupReason == WAKEUP_REASON_FIRSTBOOT || taginfo->wakeupReason == WAKEUP_REASON_WDT_RESET) && taginfo->contentMode == 0 && memcmp(mac, wifimac, 8) == 0) {
+        taginfo->contentMode = 21;
+        taginfo->nextupdate = 0;
+    }
+
     char hexmac[17];
     mac2hex(mac, hexmac);
     String filename = "/" + String(hexmac) + ".raw";
+#ifdef YELLOW_IPS_AP
+    if (memcmp(mac, wifimac, 8) == 0) filename = "direct";
+#endif
 
     struct tm time_info;
     getLocalTime(&time_info);
@@ -291,7 +331,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             if (cfgobj["filename"]) {
                 int result = getJsonTemplateFile(filename, cfgobj["filename"], taginfo, imageParams);
                 if (result) {
-                    updateTagImage(filename, mac, 0, taginfo, imageParams);
+                    updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
                 } else {
                     wsErr("error opening file " + cfgobj["filename"].as<String>());
                 }
@@ -310,6 +350,22 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
             }
             break;
         }
+
+        case 20:  // display a copy
+            break;
+
+        case 21:  // ap info
+            drawAPinfo(filename, cfgobj, taginfo, imageParams);
+            /*
+            if (imageParams.bpp == 16) {
+                taginfo->nextupdate = now + 60;
+            } else {
+                taginfo->nextupdate = now + 600;
+            }
+            */
+            taginfo->nextupdate = 3216153600;
+            updateTagImage(filename, mac, 0, taginfo, imageParams);
+            break;
     }
 
     taginfo->modeConfigJson = doc.as<String>();
@@ -325,63 +381,94 @@ bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, tagRec
     return true;
 }
 
-void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align, uint16_t color, uint16_t size) {
-    // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,PAL_RED);
-    if (font != "" && font != "null" && !font.startsWith("fonts/") && !font.startsWith("/fonts/")) {
-        // u8g2 font
-        U8g2_for_TFT_eSPI u8f;
-        u8f.begin(spr);
-        setU8G2Font(font, u8f);
-        u8f.setForegroundColor(color);
-        u8f.setBackgroundColor(PAL_WHITE);
-        if (align == TC_DATUM) {
-            posx -= u8f.getUTF8Width(content.c_str()) / 2;
-        }
-        if (align == TR_DATUM) {
-            posx -= u8f.getUTF8Width(content.c_str());
-        }
-        u8f.setCursor(posx, posy);
-        u8f.print(content);
+uint8_t processFontPath(String &font) {
+    if (font == "") return 3;
+    if (font == "glasstown_nbp_tf") return 1;
+    if (font == "7x14_tf") return 1;
+    if (font == "t0_14b_tf") return 1;
+    if (font.indexOf('/') == -1) font = "/fonts/" + font;
+    if (!font.startsWith("/")) font = "/" + font;
+    if (font.endsWith(".vlw")) font = font.substring(0, font.length() - 4);
+    if (font.endsWith(".ttf")) return 2;
+    return 3;
+}
 
-    } else if (size > 0) {
-        // truetype
-        time_t t = millis();
-        truetypeClass truetype = truetypeClass();
-        void *framebuffer = spr.getPointer();
-        truetype.setFramebuffer(spr.width(), spr.height(), spr.getColorDepth(), static_cast<uint8_t *>(framebuffer));
-        File fontFile = contentFS->open(font, "r");
-        if (!truetype.setTtfFile(fontFile)) {
-            Serial.println("read ttf failed");
-            return;
-        }
+void replaceVariables(String &format) {
+    size_t startIndex = 0;
+    size_t openBraceIndex, closeBraceIndex;
 
-        truetype.setCharacterSize(size);
-        truetype.setCharacterSpacing(0);
-        if (align == TC_DATUM) {
-            posx -= truetype.getStringWidth(content) / 2;
+    while ((openBraceIndex = format.indexOf('{', startIndex)) != -1 &&
+           (closeBraceIndex = format.indexOf('}', openBraceIndex + 1)) != -1) {
+        std::string variableName = format.substring(openBraceIndex + 1, closeBraceIndex).c_str();
+        std::string varKey = "{" + variableName + "}";
+        if (varDB.count(variableName) > 0) {
+            format.replace(varKey.c_str(), varDB.at(variableName).value);
         }
-        if (align == TR_DATUM) {
-            posx -= truetype.getStringWidth(content);
-        }
-        truetype.setTextBoundary(posx, spr.width(), spr.height());
-        truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
-        truetype.textDraw(posx, posy, content);
-        truetype.end();
-        // Serial.println("text: '" + content + "' " + String(millis() - t) + "ms");
+        startIndex = closeBraceIndex + 1;
+    }
+}
 
-    } else {
-        // vlw bitmap font
-        spr.setTextDatum(align);
-        if (font != "") spr.loadFont(font, *contentFS);
-        spr.setTextColor(color, PAL_WHITE);
-        spr.drawString(content, posx, posy);
-        if (font != "") spr.unloadFont();
+void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align, uint16_t color, uint16_t size, uint16_t bgcolor) {
+    // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,TFT_RED);
+    replaceVariables(content);
+    switch (processFontPath(font)) {
+        case 1: {
+            // u8g2 font
+            U8g2_for_TFT_eSPI u8f;
+            u8f.begin(spr);
+            setU8G2Font(font, u8f);
+            u8f.setForegroundColor(color);
+            u8f.setBackgroundColor(bgcolor);
+            if (align == TC_DATUM) {
+                posx -= u8f.getUTF8Width(content.c_str()) / 2;
+            }
+            if (align == TR_DATUM) {
+                posx -= u8f.getUTF8Width(content.c_str());
+            }
+            u8f.setCursor(posx, posy);
+            u8f.print(content);
+        } break;
+        case 2: {
+            // truetype
+            time_t t = millis();
+            truetypeClass truetype = truetypeClass();
+            void *framebuffer = spr.getPointer();
+            truetype.setFramebuffer(spr.width(), spr.height(), spr.getColorDepth(), static_cast<uint8_t *>(framebuffer));
+            File fontFile = contentFS->open(font, "r");
+            if (!truetype.setTtfFile(fontFile)) {
+                Serial.println("read ttf failed");
+                return;
+            }
+
+            truetype.setCharacterSize(size);
+            truetype.setCharacterSpacing(0);
+            if (align == TC_DATUM) {
+                posx -= truetype.getStringWidth(content) / 2;
+            }
+            if (align == TR_DATUM) {
+                posx -= truetype.getStringWidth(content);
+            }
+            truetype.setTextBoundary(posx, spr.width(), spr.height());
+            truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
+            truetype.textDraw(posx, posy, content);
+            truetype.end();
+            // Serial.println("text: '" + content + "' " + String(millis() - t) + "ms");
+        } break;
+        case 3: {
+            // vlw bitmap font
+            spr.setTextDatum(align);
+            if (font != "") spr.loadFont(font.substring(1), *contentFS);
+            spr.setTextColor(color, bgcolor);
+            spr.drawString(content, posx, posy);
+            if (font != "") spr.unloadFont();
+        }
     }
 }
 
 void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams) {
     spr.setColorDepth(8);
     spr.createSprite(w, h);
+    spr.setRotation(3);
     if (spr.getPointer() == nullptr) {
         wsErr("low on memory. Fallback to 1bpp");
         Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
@@ -393,7 +480,7 @@ void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams) {
     if (spr.getPointer() == nullptr) {
         wsErr("Failed to create sprite");
     }
-    spr.fillSprite(PAL_WHITE);
+    spr.fillSprite(TFT_WHITE);
 }
 
 void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
@@ -412,7 +499,6 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
         return;
     }
 
-    TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
 
     StaticJsonDocument<512> loc;
@@ -421,12 +507,12 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
     if (loc["date"]) {
-        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], loc["weekday"][0], loc["weekday"][1], loc["weekday"][2], TC_DATUM, PAL_RED);
+        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], loc["weekday"][0], loc["weekday"][1], loc["weekday"][2], TC_DATUM, TFT_RED);
         drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], loc["date"][0], loc["date"][1], loc["date"][2], TC_DATUM);
     } else {
-        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], loc["weekday"][0], loc["weekday"][1], loc["weekday"][2], TC_DATUM, PAL_BLACK);
+        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], loc["weekday"][0], loc["weekday"][1], loc["weekday"][2], TC_DATUM, TFT_BLACK);
         drawString(spr, String(languageMonth[getCurrentLanguage()][timeinfo.tm_mon]), loc["month"][0], loc["month"][1], loc["month"][2], TC_DATUM);
-        drawString(spr, String(timeinfo.tm_mday), loc["day"][0], loc["day"][1], loc["day"][2], TC_DATUM, PAL_RED);
+        drawString(spr, String(timeinfo.tm_mday), loc["day"][0], loc["day"][1], loc["day"][2], TC_DATUM, TFT_RED);
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -453,7 +539,6 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
         return;
     }
 
-    TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
 
     StaticJsonDocument<512> loc;
@@ -462,9 +547,9 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     spr.setTextDatum(MC_DATUM);
     if (count > thresholdred) {
-        spr.setTextColor(PAL_RED, PAL_WHITE);
+        spr.setTextColor(TFT_RED, TFT_WHITE);
     } else {
-        spr.setTextColor(PAL_BLACK, PAL_WHITE);
+        spr.setTextColor(TFT_BLACK, TFT_WHITE);
     }
     String font = loc["fonts"][0].as<String>();
     if (count > 99) font = loc["fonts"][1].as<String>();
@@ -541,26 +626,25 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
             weatherIcons[2] = "\uf086";
         }
 
-        TFT_eSPI tft = TFT_eSPI();
         TFT_eSprite spr = TFT_eSprite(&tft);
         tft.setTextWrap(false, false);
 
         initSprite(spr, imageParams.width, imageParams.height, imageParams);
         drawString(spr, cfgobj["location"], loc["location"][0], loc["location"][1], loc["location"][2]);
-        drawString(spr, String(wind), loc["wind"][0], loc["wind"][1], loc["wind"][2], TR_DATUM, (wind > 4 ? PAL_RED : PAL_BLACK));
+        drawString(spr, String(wind), loc["wind"][0], loc["wind"][1], loc["wind"][2], TR_DATUM, (wind > 4 ? TFT_RED : TFT_BLACK));
 
         char tmpOutput[5];
         dtostrf(temperature, 2, 1, tmpOutput);
-        drawString(spr, String(tmpOutput), loc["temp"][0], loc["temp"][1], loc["temp"][2], TL_DATUM, (temperature < 0 ? PAL_RED : PAL_BLACK));
+        drawString(spr, String(tmpOutput), loc["temp"][0], loc["temp"][1], loc["temp"][2], TL_DATUM, (temperature < 0 ? TFT_RED : TFT_BLACK));
 
-        int iconcolor = PAL_BLACK;
+        int iconcolor = TFT_BLACK;
         if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
-            iconcolor = PAL_RED;
+            iconcolor = TFT_RED;
         }
         drawString(spr, weatherIcons[weathercode], loc["icon"][0], loc["icon"][1], "/fonts/weathericons.ttf", loc["icon"][3], iconcolor, loc["icon"][2]);
-        drawString(spr, windDirectionIcon(winddirection), loc["dir"][0], loc["dir"][1], "/fonts/weathericons.ttf", TC_DATUM, PAL_BLACK, loc["dir"][2]);
+        drawString(spr, windDirectionIcon(winddirection), loc["dir"][0], loc["dir"][1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, loc["dir"][2]);
         if (weathercode > 10) {
-            drawString(spr, "\uf084", loc["umbrella"][0], loc["umbrella"][1], "/fonts/weathericons.ttf", TC_DATUM, PAL_RED, loc["umbrella"][2]);
+            drawString(spr, "\uf084", loc["umbrella"][0], loc["umbrella"][1], "/fonts/weathericons.ttf", TC_DATUM, TFT_RED, loc["umbrella"][2]);
         }
 
         spr2buffer(spr, filename, imageParams);
@@ -572,7 +656,6 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
 }
 
 void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
-    TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
 
     wsLog("get weather");
@@ -608,23 +691,23 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
         getTemplate(loc, 8, taginfo->hwType);
         initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
-        drawString(spr, cfgobj["location"], loc["location"][0], loc["location"][1], loc["location"][2], TL_DATUM, PAL_BLACK);
+        drawString(spr, cfgobj["location"], loc["location"][0], loc["location"][1], loc["location"][2], TL_DATUM, TFT_BLACK);
         for (uint8_t dag = 0; dag < loc["column"][0]; dag++) {
             time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
             struct tm *datum = localtime(&weatherday);
 
-            drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][1], loc["day"][2], TC_DATUM, PAL_BLACK);
+            drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][1], loc["day"][2], TC_DATUM, TFT_BLACK);
 
             uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
             if (weathercode > 40) weathercode -= 40;
 
-            int iconcolor = PAL_BLACK;
+            int iconcolor = TFT_BLACK;
             if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
-                iconcolor = PAL_RED;
+                iconcolor = TFT_RED;
             }
             drawString(spr, weatherIcons[weathercode], loc["icon"][0].as<int>() + dag * loc["column"][1].as<int>(), loc["icon"][1], "/fonts/weathericons.ttf", TC_DATUM, iconcolor, loc["icon"][2]);
 
-            drawString(spr, windDirectionIcon(doc["daily"]["winddirection_10m_dominant"][dag]), loc["wind"][0].as<int>() + dag * loc["column"][1].as<int>(), loc["wind"][1], "/fonts/weathericons.ttf", TC_DATUM, PAL_BLACK, loc["icon"][2]);
+            drawString(spr, windDirectionIcon(doc["daily"]["winddirection_10m_dominant"][dag]), loc["wind"][0].as<int>() + dag * loc["column"][1].as<int>(), loc["wind"][1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, loc["icon"][2]);
 
             int8_t tmin = round(doc["daily"]["temperature_2m_min"][dag].as<double>());
             int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());
@@ -635,17 +718,17 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
             if (loc["rain"]) {
                 int8_t rain = round(doc["daily"]["precipitation_sum"][dag].as<double>());
                 if (rain > 0) {
-                    drawString(spr, String(rain) + "mm", dag * loc["column"][1].as<int>() + loc["rain"][0].as<int>(), loc["rain"][1], "", TC_DATUM, (rain > 10 ? PAL_RED : PAL_BLACK));
+                    drawString(spr, String(rain) + "mm", dag * loc["column"][1].as<int>() + loc["rain"][0].as<int>(), loc["rain"][1], "", TC_DATUM, (rain > 10 ? TFT_RED : TFT_BLACK));
                 }
             }
 
-            drawString(spr, String(tmin) + " ", dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][4], "", TR_DATUM, (tmin < 0 ? PAL_RED : PAL_BLACK));
-            drawString(spr, String(" ") + String(tmax), dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][4], "", TL_DATUM, (tmax < 0 ? PAL_RED : PAL_BLACK));
-            drawString(spr, String(" ") + String(wind), dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][3], "", TL_DATUM, (wind > 5 ? PAL_RED : PAL_BLACK));
+            drawString(spr, String(tmin) + " ", dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][4], "", TR_DATUM, (tmin < 0 ? TFT_RED : TFT_BLACK));
+            drawString(spr, String(" ") + String(tmax), dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][4], "", TL_DATUM, (tmax < 0 ? TFT_RED : TFT_BLACK));
+            drawString(spr, String(" ") + String(wind), dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][3], "", TL_DATUM, (wind > 5 ? TFT_RED : TFT_BLACK));
             spr.unloadFont();
             if (dag > 0) {
                 for (int i = loc["line"][0]; i < loc["line"][1]; i += 3) {
-                    spr.drawPixel(dag * loc["column"][1].as<int>(), i, PAL_BLACK);
+                    spr.drawPixel(dag * loc["column"][1].as<int>(), i, TFT_BLACK);
                 }
             }
         }
@@ -700,7 +783,6 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     const char *tag = "title";
     const int rssArticleSize = 128;
 
-    TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     U8g2_for_TFT_eSPI u8f;
     u8f.begin(spr);
@@ -710,13 +792,13 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
     if (title == "" || title == "null") title = "RSS feed";
-    drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, PAL_BLACK);
+    drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, TFT_BLACK);
 
     setU8G2Font(loc["font"], u8f);
     u8f.setFontMode(0);
     u8f.setFontDirection(0);
-    u8f.setForegroundColor(PAL_BLACK);
-    u8f.setBackgroundColor(PAL_WHITE);
+    u8f.setForegroundColor(TFT_BLACK);
+    u8f.setBackgroundColor(TFT_WHITE);
 
     int n = reader.getArticles(url, tag, rssArticleSize, loc["items"]);
     for (int i = 0; i < n; i++) {
@@ -782,7 +864,6 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     }
     http.end();
 
-    TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     U8g2_for_TFT_eSPI u8f;
     u8f.begin(spr);
@@ -792,8 +873,8 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
     if (title == "" || title == "null") title = "Calendar";
-    drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, PAL_BLACK);
-    drawString(spr, dateString, loc["date"][0], loc["date"][1], loc["title"][2], TR_DATUM, PAL_BLACK);
+    drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, TFT_BLACK);
+    drawString(spr, dateString, loc["date"][0], loc["date"][1], loc["title"][2], TR_DATUM, TFT_BLACK);
 
     u8f.setFontMode(0);
     u8f.setFontDirection(0);
@@ -806,12 +887,12 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
         time_t endtime = obj["end"];
         setU8G2Font(loc["line"][3], u8f);
         if (starttime <= now && endtime > now) {
-            u8f.setForegroundColor(PAL_WHITE);
-            u8f.setBackgroundColor(PAL_RED);
-            spr.fillRect(loc["red"][0], loc["red"][1].as<int>() + i * loc["line"][2].as<int>(), loc["red"][2], loc["red"][3], PAL_RED);
+            u8f.setForegroundColor(TFT_WHITE);
+            u8f.setBackgroundColor(TFT_RED);
+            spr.fillRect(loc["red"][0], loc["red"][1].as<int>() + i * loc["line"][2].as<int>(), loc["red"][2], loc["red"][3], TFT_RED);
         } else {
-            u8f.setForegroundColor(PAL_BLACK);
-            u8f.setBackgroundColor(PAL_WHITE);
+            u8f.setForegroundColor(TFT_BLACK);
+            u8f.setBackgroundColor(TFT_WHITE);
         }
         u8f.setCursor(loc["line"][0], loc["line"][1].as<int>() + i * loc["line"][2].as<int>());
         if (starttime > 0) u8f.print(epoch_to_display(obj["start"]));
@@ -827,7 +908,6 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
 
 void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams) {
 #ifdef CONTENT_QR
-    TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     Storage.begin();
 
@@ -851,7 +931,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
     for (int y = 0; y < size; y++) {
         for (int x = 0; x < size; x++) {
             if (qrcode_getModule(&qrcode, x, y)) {
-                spr.fillRect(xpos + x * dotsize, ypos + y * dotsize, dotsize, dotsize, PAL_BLACK);
+                spr.fillRect(xpos + x * dotsize, ypos + y * dotsize, dotsize, dotsize, TFT_BLACK);
             }
         }
     }
@@ -877,7 +957,6 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
     int httpCode = http.GET();
 
     if (httpCode == 200) {
-        TFT_eSPI tft = TFT_eSPI();
         TFT_eSprite spr = TFT_eSprite(&tft);
         U8g2_for_TFT_eSPI u8f;
         u8f.begin(spr);
@@ -893,13 +972,10 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
         drawString(spr, cfgobj["location"], loc["location"][0], loc["location"][1], loc["location"][2]);
 
         for (int i = 0; i < 295; i += 4) {
-            spr.drawPixel(i, 110, PAL_BLACK);
-            spr.drawPixel(i, 91, PAL_BLACK);
-            spr.drawPixel(i, 82, PAL_BLACK);
-            spr.drawPixel(i, 72, PAL_BLACK);
-            spr.drawPixel(i, 62, PAL_BLACK);
-            spr.drawPixel(i, 56, PAL_BLACK);
-            spr.drawPixel(i, 52, PAL_BLACK);
+            int yCoordinates[] = {110, 91, 82, 72, 62, 56, 52};
+            for (int y : yCoordinates) {
+                spr.drawPixel(i, y, TFT_BLACK);
+            }
         }
 
         drawString(spr, "Buienradar", loc["title"][0], loc["title"][1], loc["title"][2]);
@@ -914,7 +990,7 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
             if (value > 70 && i < 12) refresh = 5;
             if (value > 70 && refresh > 5) refresh = 15;
 
-            spr.fillRect(i * loc["cols"][2].as<int>() + loc["bars"][0].as<int>(), loc["bars"][1].as<int>() - (value - 70), loc["bars"][2], (value - 70), (value > 130 ? PAL_RED : PAL_BLACK));
+            spr.fillRect(i * loc["cols"][2].as<int>() + loc["bars"][0].as<int>(), loc["bars"][1].as<int>() - (value - 70), loc["bars"][2], (value - 70), (value > 130 ? TFT_RED : TFT_BLACK));
 
             if (minutes % 15 == 0) {
                 drawString(spr, timestring, i * loc["cols"][2].as<int>() + loc["cols"][0].as<int>(), loc["cols"][1], loc["cols"][3]);
@@ -931,6 +1007,27 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
     return refresh;
 }
 
+void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
+    if (taginfo->hwType == SOLUM_SEG_UK) {
+        imageParams.symbols = 0x00;
+        sprintf(imageParams.segments, "");
+        return;
+    }
+
+    TFT_eSprite spr = TFT_eSprite(&tft);
+    StaticJsonDocument<2048> loc;
+    getTemplate(loc, 21, taginfo->hwType);
+
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
+    JsonArray jsonArray = loc.as<JsonArray>();
+    for (JsonVariant elem : jsonArray) {
+        drawElement(elem, spr);
+    }
+
+    spr2buffer(spr, filename, imageParams);
+    spr.deleteSprite();
+}
+
 int getJsonTemplateFile(String &filename, String jsonfile, tagRecord *&taginfo, imgParam &imageParams) {
     if (jsonfile.c_str()[0] != '/') {
         jsonfile = "/" + jsonfile;
@@ -939,7 +1036,7 @@ int getJsonTemplateFile(String &filename, String jsonfile, tagRecord *&taginfo, 
     if (file) {
         drawJsonStream(file, filename, taginfo, imageParams);
         file.close();
-        contentFS->remove(jsonfile);
+        // contentFS->remove(jsonfile);
         return 1;
     }
     return 0;
@@ -966,7 +1063,6 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
 }
 
 void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams) {
-    TFT_eSPI tft = TFT_eSPI();
     TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     DynamicJsonDocument doc(300);
@@ -991,35 +1087,34 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
 void drawElement(const JsonObject &element, TFT_eSprite &spr) {
     if (element.containsKey("text")) {
         const JsonArray &textArray = element["text"];
-        uint16_t color = textArray[4] | 1;
         uint16_t align = textArray[5] | 0;
         uint16_t size = textArray[6] | 0;
-        drawString(spr, textArray[2], textArray[0].as<int>(), textArray[1].as<int>(), textArray[3], align, getColor(color), size);
+        String bgcolorstr = textArray[7].as<String>();
+
+        uint16_t bgcolor = (bgcolorstr.length() > 0) ? getColor(bgcolorstr) : TFT_WHITE;
+        drawString(spr, textArray[2], textArray[0].as<int>(), textArray[1].as<int>(), textArray[3], align, getColor(textArray[4]), size, bgcolor);
     } else if (element.containsKey("box")) {
         const JsonArray &boxArray = element["box"];
-        uint16_t color = boxArray[4] | 1;
-        spr.fillRect(boxArray[0].as<int>(), boxArray[1].as<int>(), boxArray[2].as<int>(), boxArray[3].as<int>(), getColor(color));
+        spr.fillRect(boxArray[0].as<int>(), boxArray[1].as<int>(), boxArray[2].as<int>(), boxArray[3].as<int>(), getColor(boxArray[4]));
     } else if (element.containsKey("line")) {
         const JsonArray &lineArray = element["line"];
-        uint16_t color = lineArray[4] | 1;
-        spr.drawLine(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), getColor(color));
+        spr.drawLine(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), getColor(lineArray[4]));
     } else if (element.containsKey("triangle")) {
         const JsonArray &lineArray = element["triangle"];
-        uint16_t color = lineArray[6] | 1;
-        spr.fillTriangle(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), lineArray[4].as<int>(), lineArray[5].as<int>(), getColor(color));
+        spr.fillTriangle(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), lineArray[4].as<int>(), lineArray[5].as<int>(), getColor(lineArray[6]));
     }
 }
 
-uint16_t getColor(uint8_t color) {
-    switch (color) {
-        case 0:
-            return PAL_WHITE;
-        case 1:
-            return PAL_BLACK;
-        case 2:
-            return PAL_RED;
+uint16_t getColor(String color) {
+    if (color == "0" or color == "white") return TFT_WHITE;
+    if (color == "1" or color == "" or color == "black") return TFT_BLACK;
+    if (color == "2" or color == "red") return TFT_RED;
+    uint16_t r, g, b;
+    if (color.length() == 7 && color[0] == '#' &&
+        sscanf(color.c_str(), "#%2hx%2hx%2hx", &r, &g, &b) == 3) {
+        return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
     }
-    return PAL_WHITE;
+    return TFT_WHITE;
 }
 
 char *formatHttpDate(time_t t) {
@@ -1153,7 +1248,7 @@ void prepareConfigFile(uint8_t *dst, JsonObject config) {
 
 void getTemplate(JsonDocument &json, uint8_t id, uint8_t hwtype) {
     StaticJsonDocument<80> filter;
-    StaticJsonDocument<1024> doc;
+    StaticJsonDocument<2048> doc;
 
     const String idstr = String(id);
     const char *templateKey = "template";
@@ -1167,11 +1262,14 @@ void getTemplate(JsonDocument &json, uint8_t id, uint8_t hwtype) {
         filter["usetemplate"] = true;
         DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
         jsonFile.close();
+        if (!error && doc.containsKey(templateKey) && doc[templateKey].containsKey(idstr)) {
+            json.set(doc[templateKey][idstr]);
+            return;
+        }
         if (!error && doc.containsKey("usetemplate")) {
             getTemplate(json, id, doc["usetemplate"]);
             return;
         }
-        if (!error && json.set(doc[templateKey][idstr])) return;
         Serial.println("json error in " + String(filename));
         Serial.println(error.c_str());
     } else {
@@ -1183,48 +1281,4 @@ void setU8G2Font(const String &title, U8g2_for_TFT_eSPI &u8f) {
     if (title == "glasstown_nbp_tf") u8f.setFont(u8g2_font_glasstown_nbp_tf);
     if (title == "7x14_tf") u8f.setFont(u8g2_font_7x14_tf);
     if (title == "t0_14b_tf") u8f.setFont(u8g2_font_t0_14b_tf);
-}
-
-void showIpAddress(String dst) {
-    uint8_t mac[8];
-    if (hex2mac(dst, mac)) {
-        tagRecord *taginfo = nullptr;
-        taginfo = tagRecord::findByMAC(mac);
-        if (taginfo != nullptr) {
-            String json = String("[");
-            json += String("{\"text\": [0,5,\"OpenEPaperLink\",\"fonts/bahnschrift20\",2]}");
-            json += String(",");
-            json += String("{\"text\": [0,25,\"MAC:\",\"fonts/bahnschrift20\",1]}");
-            json += String(",");
-            json += String("{\"text\": [10,55,\"") + dst + String("\",\"glasstown_nbp_tf\",1]}");
-
-            if ((uint32_t)WiFi.localIP() == (uint32_t)0) {
-                json += String(",");
-                json += String("{\"text\": [0,65,\"Connect to my \",\"fonts/bahnschrift20\",1]}");
-                json += String(",");
-                json += String("{\"text\": [0,85,\"WiFi, browse to:\",\"fonts/bahnschrift20\",1]}");
-                json += String(",");
-                json += String("{\"text\": [0,105,\"192.168.4.1/setup\",\"fonts/bahnschrift20\",1]}");
-                json += String(",");
-                json += String("{\"text\": [0,125,\"to configure me\",\"fonts/bahnschrift20\",1]}");
-            } else {
-                json += String(",");
-                json += String("{\"text\": [0,65,\"IP:\",\"fonts/bahnschrift20\",1]}");
-                json += String(",");
-                json += String("{\"text\": [0,85,\"") + WiFi.localIP().toString() + String("\",\"fonts/bahnschrift20\",1]}");
-            }
-
-            json += String("]");
-            File file = LittleFS.open("/" + dst + ".json", "w");
-            if (!file) {
-                Serial.print("Failed to create file\n");
-                return;
-            }
-            file.print(json);
-            file.close();
-            taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".json\"}";
-            taginfo->contentMode = 19;
-            taginfo->nextupdate = 0;
-        }
-    }
 }

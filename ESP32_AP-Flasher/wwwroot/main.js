@@ -271,10 +271,11 @@ function processTags(tagArray) {
 }
 
 function updatecards() {
+	if (servertimediff > 1000000000) servertimediff = 0;
 	$('#taglist').querySelectorAll('[data-mac]').forEach(item => {
 		let tagmac = item.dataset.mac;
 
-		if (item.dataset.lastseen && item.dataset.lastseen > 1672531200) {
+		if (item.dataset.lastseen && item.dataset.lastseen > (Date.now() / 1000) - servertimediff - 30 * 24 * 3600 * 60) {
 			let idletime = (Date.now() / 1000) - servertimediff - item.dataset.lastseen;
 			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>" + displayTime(Math.floor(idletime)) + " ago";
 			if ((Date.now() / 1000) - servertimediff - 600 > item.dataset.nextcheckin) {
@@ -297,6 +298,8 @@ function updatecards() {
 		if (item.dataset.nextcheckin > 1672531200 && parseInt(item.dataset.wakeupreason) == 0) {
 			let nextcheckin = item.dataset.nextcheckin - ((Date.now() / 1000) - servertimediff);
 			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<span>expected checkin</span>" + displayTime(Math.floor(nextcheckin));
+		} else {
+			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "";
 		}
 	})
 }
@@ -387,7 +390,7 @@ $('#cfgsave').onclick = function () {
 	formData.append("alias", $('#cfgalias').value);
 
 	if (contentMode) {
-		extraoptions.forEach(element => {
+		extraoptions?.forEach(element => {
 			if ($('#opt' + element.key)) {
 				obj[element.key] = $('#opt' + element.key).value;
 			}
@@ -573,7 +576,7 @@ function contentselected() {
 		}
 		$('#paintbutton').style.display = (contentMode == 0 ? 'inline-block' : 'none');
 		let extraoptions = contentDef?.param ?? null;
-		extraoptions.forEach(element => {
+		extraoptions?.forEach(element => {
 			var label = document.createElement("label");
 			label.innerHTML = element.name;
 			label.setAttribute("for", 'opt' + element.key);
@@ -629,7 +632,7 @@ function populateSelectTag(hwtype, capabilities) {
 	var option;
 	cardconfig.forEach(item => {
 		var capcheck = item.capabilities ?? 0;
-		var hwtypeArray = item.hwtype;
+		var hwtypeArray = item.hwtype ?? [];
 		if ((hwtypeArray.includes(hwtype) || tagTypes[hwtype].contentids.includes(item.id)) && (capabilities & capcheck || capcheck == 0)) {
 			option = document.createElement("option");
 			option.value = item.id;
@@ -706,10 +709,15 @@ function processQueue() {
 	}
 	isProcessing = true;
 	const { id, imageSrc } = imageQueue.shift();
+	const hwtype = $('#tag' + id).dataset.hwtype;
+	if (tagTypes[hwtype] && tagTypes[hwtype].busy) {
+		imageQueue.push({ id, imageSrc });
+		setTimeout(processQueue, 50);
+		return;
+	};
+
 	const canvas = $('#tag' + id + ' .tagimg');
 	canvas.style.display = 'block';
-	const hwtype = $('#tag' + id).dataset.hwtype;
-	if (tagTypes[hwtype] && tagTypes[hwtype].busy) setTimeout(processQueue, 50);
 
 	fetch(imageSrc, { cache: "force-cache" })
 		.then(response => response.arrayBuffer())
@@ -719,11 +727,11 @@ function processQueue() {
 			const ctx = canvas.getContext('2d');
 			const imageData = ctx.createImageData(canvas.width, canvas.height);
 			const data = new Uint8ClampedArray(buffer);
+			if (data.length == 0) canvas.style.display = 'none';
 
 			if (tagTypes[hwtype].bpp == 16) {
-
 				const is16Bit = data.length == tagTypes[hwtype].width * tagTypes[hwtype].height * 2;
-				for (let i = 0; i < tagTypes[hwtype].width * tagTypes[hwtype].height; i++) {
+				for (let i = 0; i < min(tagTypes[hwtype].width * tagTypes[hwtype].height, data.length); i++) {
 					const dataIndex = is16Bit ? i * 2 : i;
 					const rgb = is16Bit ? (data[dataIndex] << 8) | data[dataIndex + 1] : data[dataIndex];
 
