@@ -4,10 +4,10 @@
 #include <ArduinoJson.h>
 #include <FS.h>
 #include <HTTPClient.h>
-#include "storage.h"
 #include <MD5Builder.h>
 #include <Update.h>
 
+#include "storage.h"
 #include "tag_db.h"
 #include "web.h"
 
@@ -38,7 +38,7 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["flashsize"] = ESP.getFlashChipSize();
     doc["rollback"] = Update.canRollBack();
 
-    size_t bufferSize = measureJson(doc) + 1;
+    const size_t bufferSize = measureJson(doc) + 1;
     AsyncResponseStream* response = request->beginResponseStream("application/json", bufferSize);
     serializeJson(doc, *response);
     request->send(response);
@@ -50,7 +50,7 @@ void handleCheckFile(AsyncWebServerRequest* request) {
         return;
     }
 
-    String filePath = request->getParam("path")->value();
+    const String filePath = request->getParam("path")->value();
     File file = contentFS->open(filePath, "r");
     if (!file) {
         StaticJsonDocument<64> doc;
@@ -62,13 +62,13 @@ void handleCheckFile(AsyncWebServerRequest* request) {
         return;
     }
 
-    size_t fileSize = file.size();
+    const size_t fileSize = file.size();
 
     MD5Builder md5;
     md5.begin();
     md5.addStream(file, fileSize);
     md5.calculate();
-    String md5Hash = md5.toString();
+    const String md5Hash = md5.toString();
 
     file.close();
 
@@ -77,22 +77,21 @@ void handleCheckFile(AsyncWebServerRequest* request) {
     doc["md5"] = md5Hash;
     String jsonResponse;
     serializeJson(doc, jsonResponse);
-
     request->send(200, "application/json", jsonResponse);
 }
 
 void handleGetExtUrl(AsyncWebServerRequest* request) {
     if (request->hasParam("url")) {
-        String url = request->getParam("url")->value();
+        const String url = request->getParam("url")->value();
         HTTPClient http;
         http.begin(url);
         http.setConnectTimeout(5000);
         http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-        int httpResponseCode = http.GET();
+        const int httpResponseCode = http.GET();
         if (httpResponseCode > 0) {
             Serial.println(httpResponseCode);
-            String contentType = http.header("Content-Type");
-            size_t contentLength = http.getSize();
+            const String contentType = http.header("Content-Type");
+            const size_t contentLength = http.getSize();
             if (contentLength > 0) {
                 String content = http.getString();
                 AsyncWebServerResponse* response = request->beginResponse(200, contentType, content);
@@ -169,7 +168,7 @@ void firmwareUpdateTask(void* parameter) {
     } else {
         const char* url = params->url.c_str();
         const char* md5 = params->md5.c_str();
-        size_t size = params->size;
+        const size_t size = params->size;
         updateFirmware(url, md5, size);
     }
 
@@ -177,9 +176,13 @@ void firmwareUpdateTask(void* parameter) {
     vTaskDelete(NULL);
 }
 
-void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
-    uint32_t freeStack = uxTaskGetStackHighWaterMark(NULL);
+inline void printHeap() {
+    const uint32_t freeStack = uxTaskGetStackHighWaterMark(NULL);
     Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
+}
+
+void updateFirmware(const char* url, const char* expectedMd5, const size_t size) {
+    printHeap();
 
     config.runStatus = RUNSTATUS_STOP;
     vTaskDelay(3000 / portTICK_PERIOD_MS);
@@ -194,11 +197,9 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
 
     httpClient.begin(url);
     httpClient.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-    freeStack = uxTaskGetStackHighWaterMark(NULL);
-    Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
-    int httpCode = httpClient.GET();
-    freeStack = uxTaskGetStackHighWaterMark(NULL);
-    Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
+    printHeap();
+    const int httpCode = httpClient.GET();
+    printHeap();
 
     if (httpCode == HTTP_CODE_OK) {
         if (Update.begin(size)) {
@@ -215,7 +216,7 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
                 }
             });
 
-            size_t written = Update.writeStream(httpClient.getStream());
+            const size_t written = Update.writeStream(httpClient.getStream());
             if (written == httpClient.getSize()) {
                 if (Update.end(true)) {
                     wsSerial("Firmware update successful");
@@ -248,7 +249,7 @@ void updateFirmware(const char* url, const char* expectedMd5, size_t size) {
 
 void handleRollback(AsyncWebServerRequest* request) {
     if (Update.canRollBack()) {
-        bool rollbackSuccess = Update.rollBack();
+        const bool rollbackSuccess = Update.rollBack();
         if (rollbackSuccess) {
             request->send(200, "Rollback successful");
             wsSerial("Rollback successful");
@@ -276,7 +277,7 @@ void handleUpdateActions(AsyncWebServerRequest* request) {
     }
     StaticJsonDocument<1000> doc;
     DeserializationError error = deserializeJson(doc, file);
-    JsonArray deleteFiles = doc["deletefile"].as<JsonArray>();
+    const JsonArray deleteFiles = doc["deletefile"].as<JsonArray>();
     for (const auto& filePath : deleteFiles) {
         if (contentFS->remove(filePath.as<const char*>())) {
             wsSerial("deleted file: " + filePath.as<String>());
