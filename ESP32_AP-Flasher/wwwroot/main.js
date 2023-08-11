@@ -8,7 +8,7 @@ const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
 const WAKEUP_REASON_WDT_RESET = 0xFE;
 
-var tagTypes = {};
+let tagTypes = {};
 
 const apstate = [
 	{ state: "offline", color: "red" },
@@ -30,7 +30,7 @@ const imageQueue = [];
 let isProcessing = false;
 let servertimediff = 0;
 let paintLoaded = false, paintShow = false;
-var cardconfig;
+let cardconfig;
 let otamodule;
 
 window.addEventListener("load", function () {
@@ -44,7 +44,7 @@ window.addEventListener("load", function () {
 		})
 		.catch(error => {
 			console.error('Error:', error);
-			alert("I can\'t load /www/content_cards.json.\r\nHave you upload it to the data partition?");
+			alert("I can't load /www/content_cards.json.\r\nHave you upload it to the data partition?");
 		});
 	fetch("/get_ap_config")
 		.then(response => response.json())
@@ -102,7 +102,7 @@ function connect() {
 			servertimediff = (Date.now() / 1000) - msg.sys.currtime;
 		}
 		if (msg.apitem) {
-			var row = $("#aptable").insertRow();
+			let row = $("#aptable").insertRow();
 			row.insertCell(0).innerHTML = "<a href=\"http://" + msg.apitem.ip + "\" target=\"_new\">" + msg.apitem.ip + "</a>";
 			row.insertCell(1).innerHTML = msg.apitem.alias;
 			row.insertCell(2).innerHTML = msg.apitem.count;
@@ -138,9 +138,9 @@ function convertSize(bytes) {
 
 function processTags(tagArray) {
 	for (const element of tagArray) {
-		tagmac = element.mac;
+		const tagmac = element.mac;
 
-		var div = $('#tag' + tagmac);
+		let div = $('#tag' + tagmac);
 		if (div == null) {
 			div = $('#tagtemplate').cloneNode(true);
 			div.setAttribute('id', 'tag' + tagmac);
@@ -202,15 +202,15 @@ function processTags(tagArray) {
 
 		if (element.contentMode == 20) {
 			$('#tag' + tagmac + ' .tagimg').style.display = 'none';
-		} else if (div.dataset.hash != element.hash && div.dataset.hwtype > -1 && (element.isexternal == false || element.contentMode != 12)) {
+		} else if (div.dataset.hash != element.hash && div.dataset.hwtype > -1 && (!element.isexternal || element.contentMode != 12)) {
 			loadImage(tagmac, '/current/' + tagmac + '.raw?' + element.hash);
 			div.dataset.hash = element.hash;
 		}
-		if (element.isexternal == true && element.contentMode == 12) $('#tag' + tagmac + ' .tagimg').style.display = 'none';
+		if (element.isexternal && element.contentMode == 12) $('#tag' + tagmac + ' .tagimg').style.display = 'none';
 
 		if (element.nextupdate > 1672531200 && element.nextupdate != 3216153600) {
-			var date = new Date(element.nextupdate * 1000);
-			var options = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+			const date = new Date(element.nextupdate * 1000);
+			const options = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
 			$('#tag' + tagmac + ' .nextupdate').innerHTML = "<span>next update</span>" + date.toLocaleString('nl-NL', options);
 		} else {
 			$('#tag' + tagmac + ' .nextupdate').innerHTML = "";
@@ -237,6 +237,7 @@ function processTags(tagArray) {
 			case WAKEUP_REASON_TIMED:
 				break;
 			case WAKEUP_REASON_BOOT:
+			case WAKEUP_REASON_FIRSTBOOT:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>First boot</font>"
 				$('#tag' + tagmac).style.background = "#b0d0b0";
 				break;
@@ -246,10 +247,6 @@ function processTags(tagArray) {
 				break;
 			case WAKEUP_REASON_NFC:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "NFC wakeup"
-				break;
-			case WAKEUP_REASON_FIRSTBOOT:
-				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>First boot</font>"
-				$('#tag' + tagmac).style.background = "#b0d0b0";
 				break;
 			case WAKEUP_REASON_NETWORK_SCAN:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>Network scan</font>"
@@ -337,7 +334,7 @@ function loadContentCard(mac) {
 	fetch("/get_db?mac=" + mac)
 		.then(response => response.json())
 		.then(data => {
-			var tagdata = data.tags[0];
+			const tagdata = data.tags[0];
 			$('#cfgalias').value = tagdata.alias;
 			$('#cfgmore').style.display = "none";
 			if (populateSelectTag(tagdata.hwType, tagdata.capabilities)) {
@@ -428,7 +425,7 @@ function sendCmd(mac, cmd) {
 	})
 		.then(response => response.text())
 		.then(data => {
-			var div = $('#tag' + $('#cfgmac').dataset.mac);
+			let div = $('#tag' + $('#cfgmac').dataset.mac);
 			if (cmd == "del") div.remove();
 			showMessage(data);
 		})
@@ -474,9 +471,9 @@ $('#rebootbutton').onclick = function () {
 }
 
 $('#apconfigbutton').onclick = function () {
-	var table = document.getElementById("aptable");
-	var rowCount = table.rows.length;
-	for (var i = rowCount - 1; i > 0; i--) {
+	let table = document.getElementById("aptable");
+	const rowCount = table.rows.length;
+	for (let i = rowCount - 1; i > 0; i--) {
 		table.deleteRow(i);
 	}
 	fetch("/get_ap_config")
@@ -539,7 +536,7 @@ $('#paintbutton').onclick = function () {
 		$('#customoptions').innerHTML = "<div id=\"buttonbar\"></div><div id=\"canvasdiv\"></div><div id=\"layersdiv\"></div><p id=\"savebar\"></p>";
 		const mac = $('#cfgmac').dataset.mac
 		const hwtype = $('#tag' + mac).dataset.hwtype;
-		var [width, height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
+		const [width, height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
 		if (paintLoaded) {
 			startPainter(mac, width, height);
 		} else {
@@ -551,7 +548,7 @@ $('#paintbutton').onclick = function () {
 }
 
 function loadScript(url, callback) {
-	var script = document.createElement('script');
+	let script = document.createElement('script');
 	script.src = url;
 	script.onload = function () {
 		if (callback) {
@@ -564,7 +561,7 @@ function loadScript(url, callback) {
 function contentselected() {
 	let contentMode = $('#cfgcontent').value;
 	$('#customoptions').innerHTML = "";
-	var obj = {};
+	let obj = {};
 	if ($('#cfgcontent').dataset.json && ($('#cfgcontent').dataset.json != "null")) {
 		obj = JSON.parse($('#cfgcontent').dataset.json);
 	}
@@ -577,14 +574,14 @@ function contentselected() {
 		$('#paintbutton').style.display = (contentMode == 0 ? 'inline-block' : 'none');
 		let extraoptions = contentDef?.param ?? null;
 		extraoptions?.forEach(element => {
-			var label = document.createElement("label");
+			let label = document.createElement("label");
 			label.innerHTML = element.name;
 			label.setAttribute("for", 'opt' + element.key);
 			if (element.desc) {
 				label.style.cursor = 'help';
 				label.title = element.desc;
 			}
-			var input = document.createElement("input");
+			let input = document.createElement("input");
 			switch (element.type) {
 				case 'text':
 					input.type = "text";
@@ -615,7 +612,7 @@ function contentselected() {
 			input.id = 'opt' + element.key;
 			input.title = element.desc;
 			if (obj[element.key]) input.value = obj[element.key];
-			var p = document.createElement("p");
+			let p = document.createElement("p");
 			p.appendChild(label);
 			p.appendChild(input);
 			$('#customoptions').appendChild(p);
@@ -626,13 +623,13 @@ function contentselected() {
 }
 
 function populateSelectTag(hwtype, capabilities) {
-	var selectTag = $("#cfgcontent");
+	let selectTag = $("#cfgcontent");
 	selectTag.innerHTML = "";
-	var optionsAdded = false;
-	var option;
+	let optionsAdded = false;
+	let option;
 	cardconfig.forEach(item => {
-		var capcheck = item.capabilities ?? 0;
-		var hwtypeArray = item.hwtype ?? [];
+		const capcheck = item.capabilities ?? 0;
+		const hwtypeArray = item.hwtype ?? [];
 		if ((hwtypeArray.includes(hwtype) || tagTypes[hwtype].contentids.includes(item.id)) && (capabilities & capcheck || capcheck == 0)) {
 			option = document.createElement("option");
 			option.value = item.id;
@@ -642,7 +639,7 @@ function populateSelectTag(hwtype, capabilities) {
 		}
 	});
 
-	var rotateTag = $("#cfgrotate");
+	let rotateTag = $("#cfgrotate");
 	rotateTag.innerHTML = "";
 
 	for (let i = 0; i < 4; i++) {
@@ -654,7 +651,7 @@ function populateSelectTag(hwtype, capabilities) {
 		}
 	}
 
-	var lutTag = $("#cfglut");
+	let lutTag = $("#cfglut");
 	lutTag.innerHTML = "";
 
 	option = document.createElement("option");
@@ -674,14 +671,14 @@ function populateSelectTag(hwtype, capabilities) {
 
 function getContentDefById(id) {
 	if (id == null) return null;
-	var obj = cardconfig.find(item => item.id == id);
-	return obj ? obj : null;
+	const obj = cardconfig.find(item => item.id == id);
+	return obj || null;
 }
 
 function showMessage(message, iserr) {
 	const messages = $('#messages');
-	var date = new Date(),
-		time = date.toLocaleTimeString('nl-NL', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+	const date = new Date();
+	const time = date.toLocaleTimeString('nl-NL', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 	if (iserr) {
 		messages.insertAdjacentHTML("afterbegin", '<li class="new error">' + htmlEncode(time + ' ' + message) + '</li>');
 	} else {
@@ -710,7 +707,7 @@ function processQueue() {
 	isProcessing = true;
 	const { id, imageSrc } = imageQueue.shift();
 	const hwtype = $('#tag' + id).dataset.hwtype;
-	if (tagTypes[hwtype] && tagTypes[hwtype].busy) {
+	if (tagTypes[hwtype]?.busy) {
 		imageQueue.push({ id, imageSrc });
 		setTimeout(processQueue, 50);
 		return;
@@ -744,8 +741,8 @@ function processQueue() {
 			} else {
 
 				const offsetRed = (data.length >= (canvas.width * canvas.height / 8) * 2) ? canvas.width * canvas.height / 8 : 0;
-				var pixelValue = 0;
-				var colorTable = tagTypes[hwtype].colortable;
+				let pixelValue = 0;
+				const colorTable = tagTypes[hwtype].colortable;
 				for (let i = 0; i < data.length; i++) {
 					for (let j = 0; j < 8; j++) {
 						const pixelIndex = i * 8 + j;
@@ -849,7 +846,7 @@ function GroupSortFilter() {
 		if ($('input[name="filter"][value="local"]').checked && item.dataset.isexternal == "true") show = false;
 		if ($('input[name="filter"][value="inactive"]').checked && item.querySelector('.warningicon').style.display != 'inline-block') show = false;
 		if ($('input[name="filter"][value="pending"]').checked && !item.classList.contains("tagpending")) show = false;
-		if (show == false) item.style.display = 'none'; else item.style.display = 'block';
+		if (!show) item.style.display = 'none'; else item.style.display = 'block';
 		item.style.order = order++;
 	});
 
@@ -871,7 +868,7 @@ $('#toggleFilters').addEventListener('click', () => {
 });
 
 async function getTagtype(hwtype) {
-	if (tagTypes[hwtype] && tagTypes[hwtype].busy) {
+	if (tagTypes[hwtype]?.busy) {
 		await new Promise(resolve => {
 			const checkBusy = setInterval(() => {
 				if (!tagTypes[hwtype].busy) {
