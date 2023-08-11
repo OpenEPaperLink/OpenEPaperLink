@@ -16,7 +16,7 @@ def gzip_files(source_folder, destination_folder):
 		
         print(f"Gzipping: {file}")
 		
-        with open(source_file_path, 'rb') as f_in, gzip.open(destination_file_path, 'wb') as f_out:
+        with open(source_file_path, 'rb') as f_in, gzip.GzipFile(destination_file_path, 'wb', mtime=0) as f_out:
             shutil.copyfileobj(f_in, f_out)
 
 if __name__ == "__main__":
@@ -24,4 +24,3 @@ if __name__ == "__main__":
     destination_folder = "data/www"  # Replace with the path of the destination folder
 
     gzip_files(source_folder, destination_folder)
-
