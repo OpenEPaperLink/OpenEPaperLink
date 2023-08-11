@@ -203,6 +203,14 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     long t = millis();
     Storage.begin();
 
+#ifdef YELLOW_IPS_AP
+    if (fileout == "direct") {
+        tft.setRotation(3);
+        spr.pushSprite(0, 0);
+        return;
+    }
+#endif
+
     fs::File f_out = contentFS->open(fileout, "w");
 
     switch (imageParams.bpp) {

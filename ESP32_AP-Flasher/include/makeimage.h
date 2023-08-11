@@ -3,6 +3,8 @@
 
 #pragma once
 
+extern TFT_eSPI tft;
+
 struct imgParam {
     bool hasRed;
     uint8_t dataType;

@@ -59,6 +59,15 @@
 			"items": 7,
 			"red": [0, 21, 296, 14],
 			"line": [5, 32, 15, "t0_14b_tf", 50]
-		}
+		},
+		"21": [
+			{ "text": [ 5, 5, "OpenEpaperLink AP", "bahnschrift20", 1, 0, 0 ] },
+			{ "text": [ 5, 50, "IP address:", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 120, 50, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 5, 70, "Channel:", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 120, 70, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 5, 90, "Tag count:", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 120, 90, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
+		]
 	}
 }

@@ -33,6 +33,16 @@
 		"10": {
 			"title": [ 10, 15, "t0_14b_tf" ],
 			"pos": [ 76, 20 ]
-		}
+		},
+		"21": [
+			{ "text": [ 2, 5, "OpenEpaperLink", "bahnschrift20", 1, 0, 0 ] },
+			{ "text": [ 2, 25, "Access Point", "bahnschrift20", 1, 0, 0 ] },
+			{ "text": [ 3, 65, "IP address:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 80, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 3, 95, "Channel:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 110, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 3, 125, "Tag count:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 140, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
+		]
 	}
 }

@@ -293,13 +293,19 @@
       {
         "key": "url",
         "name": "URL",
-        "desc": "Full URL of the json template. See OpenEpaperLink wiki for the right json format",
+        "desc": "Full URL of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
+        "type": "text"
+      },
+      {
+        "key": "filename",
+        "name": "Filename",
+        "desc": "Filename of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
         "type": "text"
       },
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often (in minutes) the template is being fetched. Minimum is 3 minutes.",
+        "desc": "In case of an url, wow often (in minutes) the template is being fetched. Minimum is 3 minutes.",
         "type": "int"
       }
     ]
@@ -607,5 +613,11 @@
         "type": "text"
       }
     ]
+  },
+  {
+    "id": 21,
+    "name": "Display access point info",
+    "desc": "Displays information about the currently connected access point",
+    "hwtype": [0, 1]
   }
 ]

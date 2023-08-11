@@ -89,6 +89,18 @@ void wsSendSysteminfo() {
     sys["wifistatus"] = WiFi.status();
     sys["wifissid"] = WiFi.SSID();
 
+    uint32_t timeoutcount = 0;
+    uint32_t tagcount = getTagCount(timeoutcount);
+    char result[40];
+    if (timeoutcount > 0) {
+        snprintf(result, sizeof(result), "%lu / %lu, %lu timeout", tagcount, tagDB.size(), timeoutcount);
+    } else {
+        snprintf(result, sizeof(result), "%lu / %lu", tagcount, tagDB.size());
+    }
+    setVarDB("ap_tagcount", result);
+    setVarDB("ap_ip", WiFi.localIP().toString());
+    setVarDB("ap_ch", String(apInfo.channel));
+
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
     xSemaphoreGive(wsMutex);
@@ -364,6 +376,37 @@ void init_web() {
         request->send(200, "text/plain", "Ok, saved");
     });
 
+    server.on("/set_var", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("key", true) && request->hasParam("val", true)) {
+            std::string key = request->getParam("key", true)->value().c_str();
+            String val = request->getParam("val", true)->value();
+            Serial.printf("set key %s value %s\n", key.c_str(), val);
+            setVarDB(key, val);
+            request->send(200, "text/plain", "Ok, saved");
+        } else {
+            request->send(500, "text/plain", "param error");
+        }
+    });
+    server.on("/set_vars", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("json", true)) {
+            DynamicJsonDocument jsonDocument(2048);
+            DeserializationError error = deserializeJson(jsonDocument, request->getParam("json", true)->value());
+            if (error) {
+                request->send(400, "text/plain", "Failed to parse JSON");
+                return;
+            }
+            for (JsonPair kv : jsonDocument.as<JsonObject>()) {
+                std::string key = kv.key().c_str();
+                String val = kv.value().as<String>();
+                Serial.printf("set key %s value %s\n", key.c_str(), val);
+                setVarDB(key, val);
+            }
+            request->send(200, "text/plain", "JSON uploaded and processed");
+        } else {
+            request->send(400, "text/plain", "No 'json' parameter found in request");
+        }
+    });
+
     // setup
 
     server.on("/setup", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -438,9 +481,14 @@ void init_web() {
     // end of setup
 
     server.on("/backup_db", HTTP_GET, [](AsyncWebServerRequest *request) {
-        saveDB("/current/tagDB.json");
+        // saveDB("/current/tagDB.json");
         File file = contentFS->open("/current/tagDB.json", "r");
+        if (!file) {
+            request->send(404);
+            return;
+        }
         AsyncWebServerResponse *response = request->beginResponse(file, "tagDB.json", String(), true);
+        response->addHeader("Content-Disposition", "attachment; filename=tagDB.json");
         request->send(response);
         file.close();
     });
@@ -490,16 +538,20 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
         request->_tempFile.close();
         if (request->hasParam("mac", true)) {
             String dst = request->getParam("mac", true)->value();
-            bool dither = true;
-            if (request->hasParam("dither", true)) {
-                if (request->getParam("dither", true)->value() == "0") dither = false;
-            }
             uint8_t mac[8];
             if (hex2mac(dst, mac)) {
                 tagRecord *taginfo = nullptr;
                 taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
-                    taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"0\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\"}";
+                    bool dither = true;
+                    if (request->hasParam("dither", true)) {
+                        if (request->getParam("dither", true)->value() == "0") dither = false;
+                    }
+                    uint32_t ttl = 0;
+                    if (request->hasParam("ttl", true)) {
+                        ttl = request->getParam("ttl", true)->value().toInt();
+                    }
+                    taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"" + String(ttl) + "\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\"}";
                     taginfo->contentMode = 0;
                     taginfo->nextupdate = 0;
                     wsSendTaginfo(mac, SYNC_USERCFG);
@@ -521,19 +573,23 @@ void doJsonUpload(AsyncWebServerRequest *request) {
     }
     if (request->hasParam("mac", true) && request->hasParam("json", true)) {
         String dst = request->getParam("mac", true)->value();
-        File file = LittleFS.open("/" + dst + ".json", "w");
-        if (!file) {
-            request->send(400, "text/plain", "Failed to create file");
-            return;
-        }
-        file.print(request->getParam("json", true)->value());
-        file.close();
         uint8_t mac[8];
         if (hex2mac(dst, mac)) {
+            File file = LittleFS.open("/current/" + dst + ".json", "w");
+            if (!file) {
+                request->send(400, "text/plain", "Failed to create file");
+                return;
+            }
+            file.print(request->getParam("json", true)->value());
+            file.close();
             tagRecord *taginfo = nullptr;
             taginfo = tagRecord::findByMAC(mac);
             if (taginfo != nullptr) {
-                taginfo->modeConfigJson = "{\"filename\":\"/" + dst + ".json\"}";
+                uint32_t ttl = 0;
+                if (request->hasParam("ttl", true)) {
+                    ttl = request->getParam("ttl", true)->value().toInt();
+                }
+                taginfo->modeConfigJson = "{\"filename\":\"/current/" + dst + ".json\",\"interval\":\"" + String(ttl) + "\"}";
                 taginfo->contentMode = 19;
                 taginfo->nextupdate = 0;
                 wsSendTaginfo(mac, SYNC_USERCFG);
