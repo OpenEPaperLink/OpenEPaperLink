@@ -481,16 +481,8 @@ void init_web() {
     // end of setup
 
     server.on("/backup_db", HTTP_GET, [](AsyncWebServerRequest *request) {
-        // saveDB("/current/tagDB.json");
-        File file = contentFS->open("/current/tagDB.json", "r");
-        if (!file) {
-            request->send(404);
-            return;
-        }
-        AsyncWebServerResponse *response = request->beginResponse(file, "tagDB.json", String(), true);
-        response->addHeader("Content-Disposition", "attachment; filename=tagDB.json");
-        request->send(response);
-        file.close();
+        saveDB("/current/tagDB.json");
+        request->send(*contentFS, "/current/tagDB.json", String(), true);
     });
 
     server.on("/sysinfo", HTTP_GET, handleSysinfoRequest);
