@@ -29,14 +29,14 @@ export async function initUpdate() {
                     print("Update it manually one last time.");
                     disableButtons(true);
                 }
-                return "{}";
+                return {};
             } else {
                 return response.json();
             }
         })
         .then(data => {
             if (data.env) {
-                let matchtest='';
+                let matchtest = '';
                 if (data.buildversion != filesystemversion && filesystemversion != "custom" && data.buildversion != "custom") matchtest = " <- not matching!"
                 print(`env:                ${data.env}`);
                 print(`build date:         ${formatEpoch(data.buildtime)}`);
@@ -45,7 +45,7 @@ export async function initUpdate() {
                 print(`sha:                ${data.sha}`);
                 print(`psram size:         ${data.psramsize}`);
                 print(`flash size:         ${data.flashsize}`);
-                print("--------------------------","gray");
+                print("--------------------------", "gray");
                 env = data.env;
                 currentVer = data.buildversion;
                 currentBuildtime = data.buildtime;
@@ -61,7 +61,6 @@ export async function initUpdate() {
         .then(data => {
             const releaseDetails = data.map(release => {
                 const assets = release.assets;
-                let fileUrl = null;
                 const filesJsonAsset = assets.find(asset => asset.name === 'filesystem.json');
                 const binariesJsonAsset = assets.find(asset => asset.name === 'binaries.json');
                 if (filesJsonAsset && binariesJsonAsset) {
@@ -82,7 +81,7 @@ export async function initUpdate() {
                 easyupdate.innerHTML = ("No releases found.");
             } else {
                 const release = releaseDetails[0];
-                if (release && release.tag_name) {
+                if (release?.tag_name) {
                     if (release.tag_name == currentVer) {
                         easyupdate.innerHTML = `Version ${currentVer}. You are up to date`;
                     } else if (release.date < formatEpoch(currentBuildtime)) {
@@ -100,7 +99,7 @@ export async function initUpdate() {
             table.appendChild(tableHeader);
 
             releaseDetails.forEach(release => {
-                if (release && release.html_url) {
+                if (release?.html_url) {
                     const tableRow = document.createElement('tr');
                     let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td><button onclick="otamodule.updateESP('${release.bin_url}', true)">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td>`;
                     if (release.tag_name == currentVer) {
@@ -163,7 +162,6 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
                     });
 
                 const checkfiles = async (files) => {
- 
                     const updateactions = files.find(files => files.name === "update_actions.json");
                     if (updateactions) {
                         await fetchAndPost(updateactions.url, updateactions.name, updateactions.path);
@@ -173,7 +171,7 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
                                 body: ''
                             });
                             if (response.ok) {
-                                const data = await response.text();
+                                await response.text();
                             } else {
                                 print(`error performing update actions: ${response.status}`, "red");
                                 errors++;
@@ -227,12 +225,12 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
                         consoleDiv.appendChild(newLine);
                         consoleDiv.scrollTop = consoleDiv.scrollHeight;
                     }
-                }; 
+                };
             } catch (error) {
                 print('Error: ' + error, "red");
                 errors++;
-                reject(error); 
-            }            
+                reject(error);
+            }
         })();
     });
 }
@@ -259,17 +257,16 @@ export async function updateESP(fileUrl, showConfirm) {
     while (retryCount < maxRetries) {
         try {
             const response = await fetch("/getexturl?url=" + fileUrl);
-
+            const responseBody = await response.text();
             if (!response.ok) {
-                throw new Error("Network response was not OK");
+                throw new Error("Network response was not OK: " + responseBody);
             }
 
-            const responseBody = await response.text();
-            if (responseBody.trim()[0] !== "[") {
+            if (!responseBody.trim().startsWith("[")) {
                 throw new Error("Failed to fetch the release info file");
             }
+
             const data = JSON.parse(responseBody);
-            
             const file = data.find((entry) => entry.name == env + '.bin');
             if (file) {
                 binurl = file.url;
@@ -291,7 +288,7 @@ export async function updateESP(fileUrl, showConfirm) {
                     });
 
                     if (response.ok) {
-                        const result = await response.text();
+                        await response.text();
                         print('OTA update initiated.');
                     } else {
                         print('Failed to initiate OTA update: ' + response.status, "red");
@@ -313,7 +310,7 @@ export async function updateESP(fileUrl, showConfirm) {
 
     if (retryCount === maxRetries) {
         print("Reached maximum retry count. Failed to execute the update.", "red");
-    }        
+    }
 
     running = false;
     disableButtons(false);
@@ -327,9 +324,9 @@ $('#rollbackBtn').onclick = function () {
     errors = 0;
     const consoleDiv = document.getElementById('updateconsole');
     consoleDiv.scrollTop = consoleDiv.scrollHeight;
-    
+
     print("Rolling back...");
-    
+
     fetch("/rollback", {
         method: "POST",
         body: ''
@@ -337,7 +334,6 @@ $('#rollbackBtn').onclick = function () {
 
     running = false;
     disableButtons(false);
-    
 }
 
 export function print(line, color = "white") {
@@ -360,7 +356,7 @@ export function print(line, color = "white") {
 
 export function reboot() {
     print("Rebooting now... Reloading webpage in 5 seconds...", "yellow");
-    fetch("/reboot",{method: "POST"});
+    fetch("/reboot", { method: "POST" });
     setTimeout(() => {
         location.reload();
     }, 5000);
