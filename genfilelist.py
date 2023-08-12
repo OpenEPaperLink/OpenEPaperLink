@@ -56,6 +56,7 @@ tagota = generate_file_hashes2(rp + "/binaries",tag)
 files1 = generate_file_hashes(rp + "/ESP32_AP-Flasher/data/www","/www/",tag)
 files1.extend(generate_file_hashes(rp + "/ESP32_AP-Flasher/data","/",tag))
 files1.extend(generate_file_hashes(rp + "/ESP32_AP-Flasher/data/fonts","/fonts/",tag))
+files1.extend(generate_file_hashes(rp + "/ESP32_AP-Flasher/data/tagtypes","/tagtypes/",tag))
 
 jsonarray = {
     "releaseid": tag,

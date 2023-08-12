@@ -165,34 +165,34 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                     color.b + error_bufferold[x].b - palette[best_color_index].b};
 
                 // Burkes Dithering
-                error_buffernew[x].r += error.r / 4.0f;
-                error_buffernew[x].g += error.g / 4.0f;
-                error_buffernew[x].b += error.b / 4.0f;
+                error_buffernew[x].r += error.r >> 2;
+                error_buffernew[x].g += error.g >> 2;
+                error_buffernew[x].b += error.b >> 2;
                 if (x > 0) {
-                    error_buffernew[x - 1].r += error.r / 8.0f;
-                    error_buffernew[x - 1].g += error.g / 8.0f;
-                    error_buffernew[x - 1].b += error.b / 8.0f;
+                    error_buffernew[x - 1].r += error.r >> 3;
+                    error_buffernew[x - 1].g += error.g >> 3;
+                    error_buffernew[x - 1].b += error.b >> 3;
                 }
                 if (x > 1) {
-                    error_buffernew[x - 2].r += error.r / 16.0f;
-                    error_buffernew[x - 2].g += error.g / 16.0f;
-                    error_buffernew[x - 2].b += error.b / 16.0f;
+                    error_buffernew[x - 2].r += error.r >> 4;
+                    error_buffernew[x - 2].g += error.g >> 4;
+                    error_buffernew[x - 2].b += error.b >> 4;
                 }
-                error_buffernew[x + 1].r += error.r / 8.0f;
-                error_buffernew[x + 1].g += error.g / 8.0f;
-                error_buffernew[x + 1].b += error.b / 8.0f;
+                error_buffernew[x + 1].r += error.r >> 3;
+                error_buffernew[x + 1].g += error.g >> 3;
+                error_buffernew[x + 1].b += error.b >> 3;
 
-                error_bufferold[x + 1].r += error.r / 4.0f;
-                error_bufferold[x + 1].g += error.g / 4.0f;
-                error_bufferold[x + 1].b += error.b / 4.0f;
+                error_bufferold[x + 1].r += error.r >> 2;
+                error_bufferold[x + 1].g += error.g >> 2;
+                error_bufferold[x + 1].b += error.b >> 2;
 
-                error_buffernew[x + 2].r += error.r / 16.0f;
-                error_buffernew[x + 2].g += error.g / 16.0f;
-                error_buffernew[x + 2].b += error.b / 16.0f;
+                error_buffernew[x + 2].r += error.r >> 4;
+                error_buffernew[x + 2].g += error.g >> 4;
+                error_buffernew[x + 2].b += error.b >> 4;
 
-                error_bufferold[x + 2].r += error.r / 8.0f;
-                error_bufferold[x + 2].g += error.g / 8.0f;
-                error_bufferold[x + 2].b += error.b / 8.0f;
+                error_bufferold[x + 2].r += error.r >> 3;
+                error_bufferold[x + 2].g += error.g >> 3;
+                error_bufferold[x + 2].b += error.b >> 3;
             }
         }
         memcpy(error_bufferold, error_buffernew, bufw * sizeof(Error));
