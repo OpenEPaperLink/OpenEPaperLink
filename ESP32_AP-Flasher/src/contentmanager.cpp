@@ -352,13 +352,13 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
         case 19:  // json template
         {
-            const String configFilenam = cfgobj["filename"].as<String>();
-            if (configFilenam) {
-                const int result = getJsonTemplateFile(filename, configFilenam, taginfo, imageParams);
+            const String configFilename = cfgobj["filename"].as<String>();
+            if (configFilename) {
+                const int result = getJsonTemplateFile(filename, configFilename, taginfo, imageParams);
                 if (result) {
                     updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
                 } else {
-                    wsErr("error opening file " + configFilenam);
+                    wsErr("error opening file " + configFilename);
                 }
                 taginfo->nextupdate = 3216153600;
             } else {
