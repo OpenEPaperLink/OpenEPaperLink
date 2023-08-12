@@ -926,17 +926,16 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
     uint8_t qrcodeData[qrcode_getBufferSize(2)];
     // https://github.com/ricmoo/QRCode
     qrcode_initText(&qrcode, qrcodeData, 2, ECC_MEDIUM, text);
-    int size = qrcode.size;
-    int xpos = 0, ypos = 0, dotsize = 1;
 
     StaticJsonDocument<512> loc;
     getTemplate(loc, 10, taginfo->hwType);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2]);
 
-    dotsize = int((imageParams.height - loc["pos"][1].as<int>()) / size);
-    xpos = loc["pos"][0].as<int>() - dotsize * size / 2;
-    ypos = loc["pos"][1];
+    const int size = qrcode.size;
+    const int dotsize = int((imageParams.height - loc["pos"][1].as<int>()) / size);
+    const int xpos = loc["pos"][0].as<int>() - dotsize * size / 2;
+    const int ypos = loc["pos"][1];
 
     for (int y = 0; y < size; y++) {
         for (int x = 0; x < size; x++) {
@@ -990,20 +989,37 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
 
         drawString(spr, "Buienradar", loc["title"][0], loc["title"][1], loc["title"][2]);
 
+        const auto &bars = loc["bars"];
+        const auto &cols = loc["cols"];
+        const int cols0 = cols[0].as<int>();
+        const int cols1 = cols[1].as<int>();
+        const int cols2 = cols[2].as<int>();
+        const String cols3 = cols[3].as<String>();
+        const int bars0 = bars[0].as<int>();
+        const int bars1 = bars[1].as<int>();
+        const int bars2 = bars[2].as<int>();
         for (int i = 0; i < 24; i++) {
-            int startPos = i * 11;
+            const int startPos = i * 11;
             uint8_t value = response.substring(startPos, startPos + 3).toInt();
-            String timestring = response.substring(startPos + 4, startPos + 9);
-            int minutes = timestring.substring(3).toInt();
-            if (value < 70) value = 70;
-            if (value > 180) value = 180;
-            if (value > 70 && i < 12) refresh = 5;
-            if (value > 70 && refresh > 5) refresh = 15;
+            const String timestring = response.substring(startPos + 4, startPos + 9);
+            const int minutes = timestring.substring(3).toInt();
+            if (value < 70) {
+                value = 70;
+            } else if (value > 180) {
+                value = 180;
+            }
+            if (value > 70) {
+                if (i < 12) {
+                    refresh = 5;
+                } else if (refresh > 5) {
+                    refresh = 15;
+                }
+            }
 
-            spr.fillRect(i * loc["cols"][2].as<int>() + loc["bars"][0].as<int>(), loc["bars"][1].as<int>() - (value - 70), loc["bars"][2], (value - 70), (value > 130 ? TFT_RED : TFT_BLACK));
+            spr.fillRect(i * cols2 + bars0, bars1 - (value - 70), bars2, (value - 70), (value > 130 ? TFT_RED : TFT_BLACK));
 
             if (minutes % 15 == 0) {
-                drawString(spr, timestring, i * loc["cols"][2].as<int>() + loc["cols"][0].as<int>(), loc["cols"][1], loc["cols"][3]);
+                drawString(spr, timestring, i * cols2 + cols0, cols1, cols3);
             }
         }
 
@@ -1029,8 +1045,8 @@ void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     getTemplate(loc, 21, taginfo->hwType);
 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
-    JsonArray jsonArray = loc.as<JsonArray>();
-    for (JsonVariant elem : jsonArray) {
+    const JsonArray jsonArray = loc.as<JsonArray>();
+    for (const JsonVariant &elem : jsonArray) {
         drawElement(elem, spr);
     }
 
@@ -1060,7 +1076,7 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
     http.addHeader("X-ESL-MAC", MAC);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setTimeout(5000);
-    int httpCode = http.GET();
+    const int httpCode = http.GET();
     if (httpCode == 200) {
         drawJsonStream(http.getStream(), filename, taginfo, imageParams);
     } else {
@@ -1097,11 +1113,10 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
 void drawElement(const JsonObject &element, TFT_eSprite &spr) {
     if (element.containsKey("text")) {
         const JsonArray &textArray = element["text"];
-        uint16_t align = textArray[5] | 0;
-        uint16_t size = textArray[6] | 0;
-        String bgcolorstr = textArray[7].as<String>();
-
-        uint16_t bgcolor = (bgcolorstr.length() > 0) ? getColor(bgcolorstr) : TFT_WHITE;
+        const uint16_t align = textArray[5] | 0;
+        const uint16_t size = textArray[6] | 0;
+        const String bgcolorstr = textArray[7].as<String>();
+        const uint16_t bgcolor = (bgcolorstr.length() > 0) ? getColor(bgcolorstr) : TFT_WHITE;
         drawString(spr, textArray[2], textArray[0].as<int>(), textArray[1].as<int>(), textArray[3], align, getColor(textArray[4]), size, bgcolor);
     } else if (element.containsKey("box")) {
         const JsonArray &boxArray = element["box"];
@@ -1115,10 +1130,10 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr) {
     }
 }
 
-uint16_t getColor(String color) {
-    if (color == "0" or color == "white") return TFT_WHITE;
-    if (color == "1" or color == "" or color == "black") return TFT_BLACK;
-    if (color == "2" or color == "red") return TFT_RED;
+uint16_t getColor(const String &color) {
+    if (color == "0" || color == "white") return TFT_WHITE;
+    if (color == "1" || color == "" || color == "black") return TFT_BLACK;
+    if (color == "2" || color == "red") return TFT_RED;
     uint16_t r, g, b;
     if (color.length() == 7 && color[0] == '#' &&
         sscanf(color.c_str(), "#%2hx%2hx%2hx", &r, &g, &b) == 3) {
@@ -1130,15 +1145,15 @@ uint16_t getColor(String color) {
 char *formatHttpDate(time_t t) {
     static char buf[40];
     struct tm *timeinfo;
-    timeinfo = localtime(&t);           // Get the local time
-    time_t utcTime = mktime(timeinfo);  // Convert to UTC
+    timeinfo = localtime(&t);                 // Get the local time
+    const time_t utcTime = mktime(timeinfo);  // Convert to UTC
     timeinfo = gmtime(&utcTime);
     strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", timeinfo);
     return buf;
 }
 
 String urlEncode(const char *msg) {
-    const char *hex = "0123456789ABCDEF";
+    static const char *hex = "0123456789ABCDEF";
     String encodedMsg = "";
 
     while (*msg != '\0') {
@@ -1155,10 +1170,11 @@ String urlEncode(const char *msg) {
     return encodedMsg;
 }
 
-int windSpeedToBeaufort(float windSpeed) {
+int windSpeedToBeaufort(const float windSpeed) {
+    constexpr static const float speeds[] = {0.3, 1.5, 3.3, 5.5, 8, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7};
+    constexpr static const int numSpeeds = sizeof(speeds) / sizeof(speeds[0]);
     int beaufort = 0;
-    float speeds[] = {0.3, 1.5, 3.3, 5.5, 8, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7};
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < numSpeeds; i++) {
         if (windSpeed >= speeds[i]) {
             beaufort = i + 1;
         }
@@ -1166,8 +1182,8 @@ int windSpeedToBeaufort(float windSpeed) {
     return beaufort;
 }
 
-String windDirectionIcon(int degrees) {
-    String directions[] = {"\uf044", "\uf043", "\uf048", "\uf087", "\uf058", "\uf057", "\uf04d", "\uf088"};
+String windDirectionIcon(const int degrees) {
+    static const String directions[] = {"\uf044", "\uf043", "\uf048", "\uf087", "\uf058", "\uf057", "\uf04d", "\uf088"};
     int index = (degrees + 22) / 45;
     if (index >= 8) {
         index = 0;
@@ -1212,7 +1228,7 @@ void prepareNFCReq(const uint8_t *dst, const char *url) {
     prepareDataAvail(data, len, DATATYPE_NFC_RAW_CONTENT, dst);
 }
 
-void prepareLUTreq(const uint8_t *dst, String input) {
+void prepareLUTreq(const uint8_t *dst, const String &input) {
     const char *delimiters = ", \t";
     const int maxValues = 76;
     uint8_t waveform[maxValues];
@@ -1222,11 +1238,11 @@ void prepareLUTreq(const uint8_t *dst, String input) {
         waveform[i++] = static_cast<uint8_t>(strtol(ptr, nullptr, 16));
         ptr = strtok(nullptr, delimiters);
     }
-    size_t waveformLen = sizeof(waveform);
+    const size_t waveformLen = sizeof(waveform);
     prepareDataAvail(waveform, waveformLen, DATATYPE_CUSTOM_LUT_OTA, dst);
 }
 
-void prepareConfigFile(const uint8_t *dst, const JsonObject config) {
+void prepareConfigFile(const uint8_t *dst, const JsonObject &config) {
     struct tagsettings tagSettings;
     tagSettings.settingsVer = 1;
     tagSettings.enableFastBoot = config["fastboot"].as<int>();
@@ -1243,7 +1259,7 @@ void prepareConfigFile(const uint8_t *dst, const JsonObject config) {
     prepareDataAvail((uint8_t *)&tagSettings, sizeof(tagSettings), 0xA8, dst);
 }
 
-void getTemplate(JsonDocument &json, uint8_t id, uint8_t hwtype) {
+void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
     StaticJsonDocument<80> filter;
     StaticJsonDocument<2048> doc;
 
@@ -1257,7 +1273,7 @@ void getTemplate(JsonDocument &json, uint8_t id, uint8_t hwtype) {
     if (jsonFile) {
         filter[templateKey][idstr] = true;
         filter["usetemplate"] = true;
-        DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
+        const DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
         jsonFile.close();
         if (!error && doc.containsKey(templateKey) && doc[templateKey].containsKey(idstr)) {
             json.set(doc[templateKey][idstr]);
@@ -1275,7 +1291,11 @@ void getTemplate(JsonDocument &json, uint8_t id, uint8_t hwtype) {
 }
 
 void setU8G2Font(const String &title, U8g2_for_TFT_eSPI &u8f) {
-    if (title == "glasstown_nbp_tf") u8f.setFont(u8g2_font_glasstown_nbp_tf);
-    if (title == "7x14_tf") u8f.setFont(u8g2_font_7x14_tf);
-    if (title == "t0_14b_tf") u8f.setFont(u8g2_font_t0_14b_tf);
+    if (title == "glasstown_nbp_tf") {
+        u8f.setFont(u8g2_font_glasstown_nbp_tf);
+    } else if (title == "7x14_tf") {
+        u8f.setFont(u8g2_font_7x14_tf);
+    } else if (title == "t0_14b_tf") {
+        u8f.setFont(u8g2_font_t0_14b_tf);
+    }
 }
