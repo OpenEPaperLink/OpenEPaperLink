@@ -593,28 +593,28 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
 /// @param id Icon identifier/index
 /// @param isNight Use night icons (true) or not (false)
 /// @return String reference to icon
-const String &getWeatherIcon(const uint8_t id, const bool isNight = false) {
-    static const String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
-                                          "\uf01a", "", "\uf01a", "", "\uf01a", "\uf017", "\uf017", "", "", "",
-                                          "\uf019", "", "\uf019", "", "\uf019", "\uf015", "\uf015", "", "", "",
-                                          "\uf01b", "", "\uf01b", "", "\uf01b", "", "\uf076", "", "", "\uf01a",
-                                          "\uf01a", "\uf01a", "", "", "\uf064", "\uf064", "", "", "", "",
-                                          "", "", "", "", "\uf01e", "\uf01d", "", "", "\uf01e"};
+const String getWeatherIcon(const uint8_t id, const bool isNight = false) {
+    const String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
+                                   "\uf01a", "", "\uf01a", "", "\uf01a", "\uf017", "\uf017", "", "", "",
+                                   "\uf019", "", "\uf019", "", "\uf019", "\uf015", "\uf015", "", "", "",
+                                   "\uf01b", "", "\uf01b", "", "\uf01b", "", "\uf076", "", "", "\uf01a",
+                                   "\uf01a", "\uf01a", "", "", "\uf064", "\uf064", "", "", "", "",
+                                   "", "", "", "", "\uf01e", "\uf01d", "", "", "\uf01e"};
     if (isNight && id <= 3) {
-        static const String nightIcons[] = {"\uf02e", "\uf083", "\uf086"};
+        const String nightIcons[] = {"\uf02e", "\uf083", "\uf086"};
         return nightIcons[id];
     }
     return weatherIcons[id];
 }
 
-void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
+void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams) {
     wsLog("get weather");
 
     getLocation(cfgobj);
 
-    String lat = cfgobj["#lat"];
-    String lon = cfgobj["#lon"];
-    String tz = cfgobj["#tz"];
+    const String lat = cfgobj["#lat"];
+    const String lon = cfgobj["#lon"];
+    const String tz = cfgobj["#tz"];
 
     StaticJsonDocument<1000> doc;
     const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true&windspeed_unit=ms&timezone=" + tz, doc, 5000);
@@ -626,7 +626,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
     const double temperature = currentWeather["temperature"].as<double>();
     const int windspeed = currentWeather["windspeed"].as<int>();
     const int winddirection = currentWeather["winddirection"].as<int>();
-    const uint8_t isday = currentWeather["is_day"].as<int>();
+    const bool isNight = currentWeather["is_day"].as<int>() == 0;
     uint8_t weathercode = currentWeather["weathercode"].as<int>();
     if (weathercode > 40) weathercode -= 40;
     const int beaufort = windSpeedToBeaufort(windspeed);
@@ -634,12 +634,12 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
     doc.clear();
 
     if (taginfo->hwType == SOLUM_SEG_UK) {
-        static const String weatherText[] = {"sun", "sun", "sun", "CLDY", "CLDY", "FOG", "", "", "FOG", "", "",
-                                             "DRZL", "", "DRZL", "", "DRZL", "ice", "ice", "", "", "",
-                                             "rain", "", "rain", "", "rain", "ice", "ice", "", "", "",
-                                             "SNOW", "", "SNOW", "", "SNOW", "", "SNOW", "", "", "rain",
-                                             "rain", "rain", "", "", "SNOW", "SNOW", "", "", "", "",
-                                             "", "", "", "", "STRM", "HAIL", "", "", "HAIL"};
+        const String weatherText[] = {"sun", "sun", "sun", "CLDY", "CLDY", "FOG", "", "", "FOG", "", "",
+                                      "DRZL", "", "DRZL", "", "DRZL", "ice", "ice", "", "", "",
+                                      "rain", "", "rain", "", "rain", "ice", "ice", "", "", "",
+                                      "SNOW", "", "SNOW", "", "SNOW", "", "SNOW", "", "", "rain",
+                                      "rain", "rain", "", "", "SNOW", "SNOW", "", "", "", "",
+                                      "", "", "", "", "STRM", "HAIL", "", "", "HAIL"};
         if (temperature < -9.9) {
             sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature), beaufort, weatherText[weathercode].c_str());
             imageParams.symbols = 0x00;
@@ -670,7 +670,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
                               ? TFT_RED
                               : TFT_BLACK;
     const auto &icon = doc["icon"];
-    drawString(spr, getWeatherIcon(weathercode, isday == 0), icon[0], icon[1], "/fonts/weathericons.ttf", icon[3], iconcolor, icon[2]);
+    drawString(spr, getWeatherIcon(weathercode, isNight), icon[0], icon[1], "/fonts/weathericons.ttf", icon[3], iconcolor, icon[2]);
     const auto &dir = doc["dir"];
     drawString(spr, windDirectionIcon(winddirection), dir[0], dir[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, dir[2]);
     if (weathercode > 10) {
@@ -682,9 +682,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
     spr.deleteSprite();
 }
 
-void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
-    TFT_eSprite spr = TFT_eSprite(&tft);
-
+void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams) {
     wsLog("get weather");
     getLocation(cfgobj);
 
@@ -698,6 +696,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
         return;
     }
 
+    TFT_eSprite spr = TFT_eSprite(&tft);
     tft.setTextWrap(false, false);
 
     StaticJsonDocument<512> loc;
