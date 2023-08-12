@@ -8,6 +8,50 @@
 
 namespace util {
 
+/// @brief Can be used to wrap a stream and see what's going on
+class DebugStream : public Stream {
+   public:
+    DebugStream(Stream &stream) : _stream(stream) {}
+
+    int available() override {
+        return _stream.available();
+    }
+
+    int read() override {
+        int data = _stream.read();
+        Serial.write(data);
+        return data;
+    }
+
+    int peek() override {
+        int data = _stream.peek();
+        Serial.print("Peek: ");
+        Serial.println(data);
+        return data;
+    }
+
+    void flush() override {
+        _stream.flush();
+        Serial.println("Flush");
+    }
+
+    size_t write(uint8_t data) override {
+        Serial.write(data);
+        return _stream.write(data);
+    }
+
+    size_t write(const uint8_t *buffer, size_t size) override {
+        for (size_t i = 0; i < size; i++) {
+            Serial.print("Write: ");
+            Serial.println(buffer[i]);
+        }
+        return _stream.write(buffer, size);
+    }
+
+   private:
+    Stream &_stream;
+};
+
 /// @brief Prints free heap, allocatbale heap and free stack
 static void printHeap() {
     const uint32_t freeStack = uxTaskGetStackHighWaterMark(NULL);
@@ -45,6 +89,14 @@ static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout)
         return false;
     }
     return true;
+}
+
+/// @brief Check if the given string is empty or contains "null"
+///
+/// @param str String to check
+/// @return True if empty or null, false if not
+static inline bool isEmptyOrNull(const String &str) {
+    return str.isEmpty() || str == "null";
 }
 
 }  // namespace util

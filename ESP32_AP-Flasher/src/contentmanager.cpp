@@ -72,8 +72,8 @@ void checkVars() {
     for (tagRecord *tag : tagDB) {
         if (tag->contentMode == 19) {
             deserializeJson(cfgobj, tag->modeConfigJson);
-            if (cfgobj["filename"]) {
-                const String jsonfile = cfgobj["filename"].as<String>();
+            const String jsonfile = cfgobj["filename"].as<String>();
+            if (!util::isEmptyOrNull(jsonfile)) {
                 File file = contentFS->open(jsonfile, "r");
                 if (file) {
                     const size_t fileSize = file.size();
@@ -187,7 +187,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
         case 0:  // Image
         {
             const String configFilename = cfgobj["filename"].as<String>();
-            if (!configFilename && configFilename != "null" && !cfgobj["#fetched"].as<bool>()) {
+            if (!util::isEmptyOrNull(configFilename) && !cfgobj["#fetched"].as<bool>()) {
                 imageParams.dither = cfgobj["dither"] && cfgobj["dither"] == "1";
                 jpg2buffer(configFilename, filename, imageParams);
                 if (imageParams.hasRed) {
@@ -242,7 +242,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
         case 5:  // Firmware
 
             filename = cfgobj["filename"].as<String>();
-            if (filename && filename != "null" && !cfgobj["#fetched"].as<bool>()) {
+            if (!util::isEmptyOrNull(filename) && !cfgobj["#fetched"].as<bool>()) {
                 if (prepareDataAvail(&filename, DATATYPE_FW_UPDATE, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
                 } else {
@@ -353,7 +353,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
         case 19:  // json template
         {
             const String configFilename = cfgobj["filename"].as<String>();
-            if (configFilename) {
+            if (!util::isEmptyOrNull(configFilename)) {
                 const int result = getJsonTemplateFile(filename, configFilename, taginfo, imageParams);
                 if (result) {
                     updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
@@ -664,10 +664,9 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
     const auto &temp = doc["temp"];
     drawString(spr, String(tmpOutput), temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? TFT_RED : TFT_BLACK));
 
-    int iconcolor = TFT_BLACK;
-    if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
-        iconcolor = TFT_RED;
-    }
+    const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99)
+                              ? TFT_RED
+                              : TFT_BLACK;
     const auto &icon = doc["icon"];
     drawString(spr, getWeatherIcon(weathercode, isday == 0), icon[0], icon[1], "/fonts/weathericons.ttf", icon[3], iconcolor, icon[2]);
     const auto &dir = doc["dir"];
@@ -718,7 +717,9 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
         uint8_t weathercode = daily["weathercode"][dag].as<int>();
         if (weathercode > 40) weathercode -= 40;
 
-        const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) ? TFT_RED : TFT_BLACK;
+        const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99)
+                                  ? TFT_RED
+                                  : TFT_BLACK;
         drawString(spr, getWeatherIcon(weathercode), loc["icon"][0].as<int>() + dag * column1, loc["icon"][1], "/fonts/weathericons.ttf", TC_DATUM, iconcolor, loc["icon"][2]);
 
         drawString(spr, windDirectionIcon(daily["winddirection_10m_dominant"][dag]), loc["wind"][0].as<int>() + dag * column1, loc["wind"][1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, loc["icon"][2]);
@@ -801,7 +802,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     getTemplate(loc, 9, taginfo->hwType);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
-    if (title == "" || title == "null") title = "RSS feed";
+    if (util::isEmptyOrNull(title)) title = "RSS feed";
     drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, TFT_BLACK);
 
     setU8G2Font(loc["font"], u8f);
@@ -882,7 +883,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     getTemplate(loc, 11, taginfo->hwType);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
-    if (title == "" || title == "null") title = "Calendar";
+    if (util::isEmptyOrNull(title)) title = "Calendar";
     drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, TFT_BLACK);
     drawString(spr, dateString, loc["date"][0], loc["date"][1], loc["title"][2], TR_DATUM, TFT_BLACK);
 
@@ -1092,7 +1093,6 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
     TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     DynamicJsonDocument doc(300);
-
     if (stream.find("[")) {
         do {
             DeserializationError error = deserializeJson(doc, stream);
@@ -1100,6 +1100,7 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
                 wsErr("json error " + String(error.c_str()));
                 break;
             } else {
+                Serial.println("drawElement");
                 drawElement(doc.as<JsonObject>(), spr);
                 doc.clear();
             }
@@ -1195,7 +1196,7 @@ void getLocation(JsonObject &cfgobj) {
     const String lat = cfgobj["#lat"];
     const String lon = cfgobj["#lon"];
 
-    if (lat == "null" || lon == "null") {
+    if (util::isEmptyOrNull(lat) || util::isEmptyOrNull(lon)) {
         wsLog("get location");
         StaticJsonDocument<1000> doc;
         if (util::httpGetJson("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(cfgobj["location"]) + "&count=1", doc, 5000)) {
