@@ -60,11 +60,12 @@ void wsErr(String text) {
     if (wsMutex) xSemaphoreGive(wsMutex);
 }
 
-size_t dbSize(){
+size_t dbSize() {
     size_t size = tagDB.size() * sizeof(tagRecord);
-    for(auto &tag : tagDB) {
-        if (tag->data)
+    for (auto &tag : tagDB) {
+        if (tag->data) {
             size += tag->len;
+        }
         size += tag->modeConfigJson.length();
     }
     return size;
@@ -106,7 +107,7 @@ void wsSendSysteminfo() {
     xSemaphoreGive(wsMutex);
 }
 
-void wsSendTaginfo(uint8_t *mac, uint8_t syncMode) {
+void wsSendTaginfo(const uint8_t *mac, uint8_t syncMode) {
     if (syncMode != SYNC_DELETE) {
         String json = "";
         json = tagDBtoJson(mac);

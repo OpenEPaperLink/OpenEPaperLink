@@ -43,22 +43,22 @@ void contentRunner() {
     time_t now;
     time(&now);
 
-    for (int32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord *taginfo = nullptr;
-        taginfo = tagDB.at(c);
-
+    for (tagRecord *taginfo : tagDB) {
         if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC) && config.runStatus == RUNSTATUS_RUN && Storage.freeSpace() > 31000) {
             drawNew(taginfo->mac, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
             taginfo->wakeupReason = 0;
         }
 
         if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pending == false) {
-            uint16_t minutesUntilNextUpdate = 0;
-            minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
-            if (minutesUntilNextUpdate > config.maxsleep) minutesUntilNextUpdate = config.maxsleep;
+            uint16_t minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
+            if (minutesUntilNextUpdate > config.maxsleep) {
+                minutesUntilNextUpdate = config.maxsleep;
+            }
             if (minutesUntilNextUpdate > 1 && (wsClientCount() == 0 || config.stopsleep == 0)) {
                 taginfo->pendingIdle = minutesUntilNextUpdate;
-                if (taginfo->isExternal == false) prepareIdleReq(taginfo->mac, minutesUntilNextUpdate);
+                if (taginfo->isExternal == false) {
+                    prepareIdleReq(taginfo->mac, minutesUntilNextUpdate);
+                }
             }
         }
 
@@ -67,23 +67,20 @@ void contentRunner() {
 }
 
 void checkVars() {
-    DynamicJsonDocument doc(500);
-    for (int32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord *tag = nullptr;
-        tag = tagDB.at(c);
+    DynamicJsonDocument cfgobj(500);
+    for (tagRecord *tag : tagDB) {
         if (tag->contentMode == 19) {
-            deserializeJson(doc, tag->modeConfigJson);
-            JsonObject cfgobj = doc.as<JsonObject>();
+            deserializeJson(cfgobj, tag->modeConfigJson);
             if (cfgobj["filename"]) {
-                String jsonfile = cfgobj["filename"].as<String>();
+                const String jsonfile = cfgobj["filename"].as<String>();
                 File file = contentFS->open(jsonfile, "r");
                 if (file) {
-                    size_t fileSize = file.size();
+                    const size_t fileSize = file.size();
                     std::unique_ptr<char[]> fileContent(new char[fileSize + 1]);
                     file.readBytes(fileContent.get(), fileSize);
                     file.close();
                     fileContent[fileSize] = '\0';
-                    char *contentPtr = fileContent.get();
+                    const char *contentPtr = fileContent.get();
                     for (const auto &entry : varDB) {
                         if (entry.second.changed && strstr(contentPtr, entry.first.c_str()) != nullptr) {
                             Serial.println("updating " + jsonfile + " because of var " + entry.first.c_str());
@@ -105,7 +102,7 @@ void checkVars() {
     }
 }
 
-void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
+void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo) {
     time_t now;
     time(&now);
 
@@ -369,7 +366,7 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     taginfo->modeConfigJson = doc.as<String>();
 }
 
-bool updateTagImage(String &filename, uint8_t *dst, uint16_t nextCheckin, tagRecord *&taginfo, imgParam &imageParams) {
+bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, tagRecord *&taginfo, imgParam &imageParams) {
     if (taginfo->hwType == SOLUM_SEG_UK) {
         sendAPSegmentedData(dst, (String)imageParams.segments, imageParams.symbols, imageParams.invert, (taginfo->isExternal == false));
     } else {
@@ -1191,7 +1188,7 @@ void getLocation(JsonObject &cfgobj) {
     }
 }
 
-void prepareNFCReq(uint8_t *dst, const char *url) {
+void prepareNFCReq(const uint8_t *dst, const char *url) {
     uint8_t *data;
     size_t len = strlen(url);
     data = new uint8_t[len + 8];
@@ -1213,7 +1210,7 @@ void prepareNFCReq(uint8_t *dst, const char *url) {
     prepareDataAvail(data, len, DATATYPE_NFC_RAW_CONTENT, dst);
 }
 
-void prepareLUTreq(uint8_t *dst, String input) {
+void prepareLUTreq(const uint8_t *dst, String input) {
     const char *delimiters = ", \t";
     const int maxValues = 76;
     uint8_t waveform[maxValues];
@@ -1227,7 +1224,7 @@ void prepareLUTreq(uint8_t *dst, String input) {
     prepareDataAvail(waveform, waveformLen, DATATYPE_CUSTOM_LUT_OTA, dst);
 }
 
-void prepareConfigFile(uint8_t *dst, JsonObject config) {
+void prepareConfigFile(const uint8_t *dst, const JsonObject config) {
     struct tagsettings tagSettings;
     tagSettings.settingsVer = 1;
     tagSettings.enableFastBoot = config["fastboot"].as<int>();

@@ -9,6 +9,7 @@
 
 #include "storage.h"
 #include "tag_db.h"
+#include "util.h"
 #include "web.h"
 
 #ifndef BUILD_ENV_NAME
@@ -176,13 +177,8 @@ void firmwareUpdateTask(void* parameter) {
     vTaskDelete(NULL);
 }
 
-inline void printHeap() {
-    const uint32_t freeStack = uxTaskGetStackHighWaterMark(NULL);
-    Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
-}
-
 void updateFirmware(const char* url, const char* expectedMd5, const size_t size) {
-    printHeap();
+    util::printHeap();
 
     config.runStatus = RUNSTATUS_STOP;
     vTaskDelay(3000 / portTICK_PERIOD_MS);
@@ -197,9 +193,9 @@ void updateFirmware(const char* url, const char* expectedMd5, const size_t size)
 
     httpClient.begin(url);
     httpClient.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-    printHeap();
+    util::printHeap();
     const int httpCode = httpClient.GET();
-    printHeap();
+    util::printHeap();
 
     if (httpCode == HTTP_CODE_OK) {
         if (Update.begin(size)) {

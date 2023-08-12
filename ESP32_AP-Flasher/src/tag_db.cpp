@@ -9,6 +9,7 @@
 
 #include "language.h"
 #include "storage.h"
+#include "util.h"
 
 std::vector<tagRecord*> tagDB;
 std::unordered_map<std::string, varStruct> varDB;
@@ -20,7 +21,7 @@ std::unordered_map<int, HwType> hwdata = {
 Config config;
 // SemaphoreHandle_t tagDBOwner;
 
-tagRecord* tagRecord::findByMAC(uint8_t mac[8]) {
+tagRecord* tagRecord::findByMAC(const uint8_t mac[8]) {
     for (int32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = nullptr;
         tag = tagDB.at(c);
@@ -31,10 +32,9 @@ tagRecord* tagRecord::findByMAC(uint8_t mac[8]) {
     return nullptr;
 }
 
-bool deleteRecord(uint8_t mac[8]) {
+bool deleteRecord(const uint8_t mac[8]) {
     for (int32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* tag = nullptr;
-        tag = tagDB.at(c);
+        tagRecord* tag = tagDB.at(c);
         if (memcmp(tag->mac, mac, 8) == 0) {
             if (tag->data != nullptr) {
                 free(tag->data);
@@ -48,7 +48,7 @@ bool deleteRecord(uint8_t mac[8]) {
     return false;
 }
 
-void mac2hex(uint8_t* mac, char* hexBuffer) {
+void mac2hex(const uint8_t* mac, char* hexBuffer) {
     sprintf(hexBuffer, "%02X%02X%02X%02X%02X%02X%02X%02X",
             mac[7], mac[6], mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
 }
@@ -69,7 +69,7 @@ bool hex2mac(const String& hexString, uint8_t* mac) {
     }
 }
 
-String tagDBtoJson(uint8_t mac[8], uint8_t startPos) {
+String tagDBtoJson(const uint8_t mac[8], uint8_t startPos) {
     DynamicJsonDocument doc(5000);
     JsonArray tags = doc.createNestedArray("tags");
 
@@ -241,7 +241,7 @@ void loadDB(String filename) {
 
 void destroyDB() {
     Serial.println("destoying DB");
-    Serial.printf("before, free heap: %d\n", ESP.getFreeHeap());
+    util::printHeap();
     for (uint32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = nullptr;
         tag = tagDB.at(c);
@@ -252,7 +252,7 @@ void destroyDB() {
         delete tagDB[c];
         tagDB.erase(tagDB.begin() + c);
     }
-    Serial.printf("after, free heap: %d\n", ESP.getFreeHeap());
+    util::printHeap();
 }
 
 uint32_t getTagCount() {
