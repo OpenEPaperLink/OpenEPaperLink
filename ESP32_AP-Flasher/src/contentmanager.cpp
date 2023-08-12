@@ -891,10 +891,10 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     int n = doc.size();
     if (n > loc["items"]) n = loc["items"];
     for (int i = 0; i < n; i++) {
-        JsonObject obj = doc[i];
-        String eventtitle = obj["title"];
-        time_t starttime = obj["start"];
-        time_t endtime = obj["end"];
+        const JsonObject &obj = doc[i];
+        const String eventtitle = obj["title"];
+        const time_t starttime = obj["start"];
+        const time_t endtime = obj["end"];
         setU8G2Font(loc["line"][3], u8f);
         if (starttime <= now && endtime > now) {
             u8f.setForegroundColor(TFT_WHITE);
