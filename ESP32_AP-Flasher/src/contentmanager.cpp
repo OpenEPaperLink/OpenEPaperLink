@@ -33,6 +33,7 @@
 #include "settings.h"
 #include "tag_db.h"
 #include "truetype.h"
+#include "util.h"
 #include "web.h"
 
 // https://csvjson.com/json_beautifier
@@ -590,92 +591,88 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
     wsLog("get weather");
 
     getLocation(cfgobj);
-    HTTPClient http;
 
     String lat = cfgobj["#lat"];
     String lon = cfgobj["#lon"];
     String tz = cfgobj["#tz"];
-    http.begin("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true&windspeed_unit=ms&timezone=" + tz);
-    http.setTimeout(5000);
-    int httpCode = http.GET();
 
-    if (httpCode == 200) {
-        StaticJsonDocument<1000> doc;
-        DeserializationError error = deserializeJson(doc, http.getString());
-        if (error) {
-            Serial.println(error.c_str());
-        }
-
-        auto temperature = doc["current_weather"]["temperature"].as<double>();
-        auto windspeed = doc["current_weather"]["windspeed"].as<int>();
-        auto winddirection = doc["current_weather"]["winddirection"].as<int>();
-        uint8_t weathercode = doc["current_weather"]["weathercode"].as<int>();
-        uint8_t isday = doc["current_weather"]["is_day"].as<int>();
-        if (weathercode > 40) weathercode -= 40;
-        int wind = windSpeedToBeaufort(windspeed);
-
-        doc.clear();
-
-        if (taginfo->hwType == SOLUM_SEG_UK) {
-            String weatherText[] = {"sun", "sun", "sun", "CLDY", "CLDY", "FOG", "", "", "FOG", "", "",
-                                    "DRZL", "", "DRZL", "", "DRZL", "ice", "ice", "", "", "",
-                                    "rain", "", "rain", "", "rain", "ice", "ice", "", "", "",
-                                    "SNOW", "", "SNOW", "", "SNOW", "", "SNOW", "", "", "rain",
-                                    "rain", "rain", "", "", "SNOW", "SNOW", "", "", "", "",
-                                    "", "", "", "", "STRM", "HAIL", "", "", "HAIL"};
-            if (temperature < -9.9) {
-                sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature), wind, weatherText[weathercode].c_str());
-                imageParams.symbols = 0x00;
-            } else {
-                sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature * 10), wind, weatherText[weathercode].c_str());
-                imageParams.symbols = 0x04;
-            }
-            http.end();
-            return;
-        }
-
-        StaticJsonDocument<512> loc;
-        getTemplate(loc, 4, taginfo->hwType);
-
-        String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
-                                 "\uf01a", "", "\uf01a", "", "\uf01a", "\uf017", "\uf017", "", "", "",
-                                 "\uf019", "", "\uf019", "", "\uf019", "\uf015", "\uf015", "", "", "",
-                                 "\uf01b", "", "\uf01b", "", "\uf01b", "", "\uf076", "", "", "\uf01a",
-                                 "\uf01a", "\uf01a", "", "", "\uf064", "\uf064", "", "", "", "",
-                                 "", "", "", "", "\uf01e", "\uf01d", "", "", "\uf01e"};
-        if (isday == 0) {
-            weatherIcons[0] = "\uf02e";
-            weatherIcons[1] = "\uf083";
-            weatherIcons[2] = "\uf086";
-        }
-
-        TFT_eSprite spr = TFT_eSprite(&tft);
-        tft.setTextWrap(false, false);
-
-        initSprite(spr, imageParams.width, imageParams.height, imageParams);
-        drawString(spr, cfgobj["location"], loc["location"][0], loc["location"][1], loc["location"][2]);
-        drawString(spr, String(wind), loc["wind"][0], loc["wind"][1], loc["wind"][2], TR_DATUM, (wind > 4 ? TFT_RED : TFT_BLACK));
-
-        char tmpOutput[5];
-        dtostrf(temperature, 2, 1, tmpOutput);
-        drawString(spr, String(tmpOutput), loc["temp"][0], loc["temp"][1], loc["temp"][2], TL_DATUM, (temperature < 0 ? TFT_RED : TFT_BLACK));
-
-        int iconcolor = TFT_BLACK;
-        if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
-            iconcolor = TFT_RED;
-        }
-        drawString(spr, weatherIcons[weathercode], loc["icon"][0], loc["icon"][1], "/fonts/weathericons.ttf", loc["icon"][3], iconcolor, loc["icon"][2]);
-        drawString(spr, windDirectionIcon(winddirection), loc["dir"][0], loc["dir"][1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, loc["dir"][2]);
-        if (weathercode > 10) {
-            drawString(spr, "\uf084", loc["umbrella"][0], loc["umbrella"][1], "/fonts/weathericons.ttf", TC_DATUM, TFT_RED, loc["umbrella"][2]);
-        }
-
-        spr2buffer(spr, filename, imageParams);
-        spr.deleteSprite();
-    } else {
-        wsErr("OpenMeteo http " + httpCode);
+    StaticJsonDocument<1000> doc;
+    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true&windspeed_unit=ms&timezone=" + tz, doc, 5000);
+    if (!success) {
+        return;
     }
-    http.end();
+
+    const auto &currentWeather = doc["current_weather"];
+    const double temperature = currentWeather["temperature"].as<double>();
+    const int windspeed = currentWeather["windspeed"].as<int>();
+    const int winddirection = currentWeather["winddirection"].as<int>();
+    const uint8_t isday = currentWeather["is_day"].as<int>();
+    uint8_t weathercode = currentWeather["weathercode"].as<int>();
+    if (weathercode > 40) weathercode -= 40;
+    const int beaufort = windSpeedToBeaufort(windspeed);
+
+    doc.clear();
+
+    if (taginfo->hwType == SOLUM_SEG_UK) {
+        static const String weatherText[] = {"sun", "sun", "sun", "CLDY", "CLDY", "FOG", "", "", "FOG", "", "",
+                                             "DRZL", "", "DRZL", "", "DRZL", "ice", "ice", "", "", "",
+                                             "rain", "", "rain", "", "rain", "ice", "ice", "", "", "",
+                                             "SNOW", "", "SNOW", "", "SNOW", "", "SNOW", "", "", "rain",
+                                             "rain", "rain", "", "", "SNOW", "SNOW", "", "", "", "",
+                                             "", "", "", "", "STRM", "HAIL", "", "", "HAIL"};
+        if (temperature < -9.9) {
+            sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature), beaufort, weatherText[weathercode].c_str());
+            imageParams.symbols = 0x00;
+        } else {
+            sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature * 10), beaufort, weatherText[weathercode].c_str());
+            imageParams.symbols = 0x04;
+        }
+        return;
+    }
+
+    getTemplate(doc, 4, taginfo->hwType);
+
+    static String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
+                                    "\uf01a", "", "\uf01a", "", "\uf01a", "\uf017", "\uf017", "", "", "",
+                                    "\uf019", "", "\uf019", "", "\uf019", "\uf015", "\uf015", "", "", "",
+                                    "\uf01b", "", "\uf01b", "", "\uf01b", "", "\uf076", "", "", "\uf01a",
+                                    "\uf01a", "\uf01a", "", "", "\uf064", "\uf064", "", "", "", "",
+                                    "", "", "", "", "\uf01e", "\uf01d", "", "", "\uf01e"};
+    if (isday == 0) {
+        weatherIcons[0] = "\uf02e";
+        weatherIcons[1] = "\uf083";
+        weatherIcons[2] = "\uf086";
+    }
+
+    TFT_eSprite spr = TFT_eSprite(&tft);
+    tft.setTextWrap(false, false);
+
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
+    const auto &location = doc["location"];
+    drawString(spr, cfgobj["location"], location[0], location[1], location[2]);
+    const auto &wind = doc["wind"];
+    drawString(spr, String(beaufort), wind[0], wind[1], wind[2], TR_DATUM, (beaufort > 4 ? TFT_RED : TFT_BLACK));
+
+    char tmpOutput[5];
+    dtostrf(temperature, 2, 1, tmpOutput);
+    const auto &temp = doc["temp"];
+    drawString(spr, String(tmpOutput), temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? TFT_RED : TFT_BLACK));
+
+    int iconcolor = TFT_BLACK;
+    if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
+        iconcolor = TFT_RED;
+    }
+    const auto &icon = doc["icon"];
+    drawString(spr, weatherIcons[weathercode], icon[0], icon[1], "/fonts/weathericons.ttf", icon[3], iconcolor, icon[2]);
+    const auto &dir = doc["dir"];
+    drawString(spr, windDirectionIcon(winddirection), dir[0], dir[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, dir[2]);
+    if (weathercode > 10) {
+        const auto &umbrella = doc["umbrella"];
+        drawString(spr, "\uf084", umbrella[0], umbrella[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_RED, umbrella[2]);
+    }
+
+    spr2buffer(spr, filename, imageParams);
+    spr.deleteSprite();
 }
 
 void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
@@ -683,85 +680,76 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
 
     wsLog("get weather");
     getLocation(cfgobj);
-    HTTPClient http;
 
     String lat = cfgobj["#lat"];
     String lon = cfgobj["#lon"];
     String tz = cfgobj["#tz"];
 
-    http.begin("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant&windspeed_unit=ms&timeformat=unixtime&timezone=" + tz);
-
-    http.setTimeout(5000);
-    int httpCode = http.GET();
-
-    if (httpCode == 200) {
-        DynamicJsonDocument doc(2000);
-        DeserializationError error = deserializeJson(doc, http.getString());
-        if (error) {
-            Serial.println(error.c_str());
-        }
-
-        String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
-                                 "\uf01a", "", "\uf01a", "", "\uf01a", "\uf017", "\uf017", "", "", "",
-                                 "\uf019", "", "\uf019", "", "\uf019", "\uf015", "\uf015", "", "", "",
-                                 "\uf01b", "", "\uf01b", "", "\uf01b", "", "\uf076", "", "", "\uf01a",
-                                 "\uf01a", "\uf01a", "", "", "\uf064", "\uf064", "", "", "", "",
-                                 "", "", "", "", "\uf01e", "\uf01d", "", "", "\uf01e"};
-
-        tft.setTextWrap(false, false);
-
-        StaticJsonDocument<512> loc;
-        getTemplate(loc, 8, taginfo->hwType);
-        initSprite(spr, imageParams.width, imageParams.height, imageParams);
-
-        drawString(spr, cfgobj["location"], loc["location"][0], loc["location"][1], loc["location"][2], TL_DATUM, TFT_BLACK);
-        for (uint8_t dag = 0; dag < loc["column"][0]; dag++) {
-            time_t weatherday = doc["daily"]["time"][dag].as<time_t>();
-            struct tm *datum = localtime(&weatherday);
-
-            drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][1], loc["day"][2], TC_DATUM, TFT_BLACK);
-
-            uint8_t weathercode = doc["daily"]["weathercode"][dag].as<int>();
-            if (weathercode > 40) weathercode -= 40;
-
-            int iconcolor = TFT_BLACK;
-            if (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) {
-                iconcolor = TFT_RED;
-            }
-            drawString(spr, weatherIcons[weathercode], loc["icon"][0].as<int>() + dag * loc["column"][1].as<int>(), loc["icon"][1], "/fonts/weathericons.ttf", TC_DATUM, iconcolor, loc["icon"][2]);
-
-            drawString(spr, windDirectionIcon(doc["daily"]["winddirection_10m_dominant"][dag]), loc["wind"][0].as<int>() + dag * loc["column"][1].as<int>(), loc["wind"][1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, loc["icon"][2]);
-
-            int8_t tmin = round(doc["daily"]["temperature_2m_min"][dag].as<double>());
-            int8_t tmax = round(doc["daily"]["temperature_2m_max"][dag].as<double>());
-            uint8_t wind = windSpeedToBeaufort(doc["daily"]["windspeed_10m_max"][dag].as<double>());
-
-            spr.loadFont(loc["day"][2], *contentFS);
-
-            if (loc["rain"]) {
-                int8_t rain = round(doc["daily"]["precipitation_sum"][dag].as<double>());
-                if (rain > 0) {
-                    drawString(spr, String(rain) + "mm", dag * loc["column"][1].as<int>() + loc["rain"][0].as<int>(), loc["rain"][1], "", TC_DATUM, (rain > 10 ? TFT_RED : TFT_BLACK));
-                }
-            }
-
-            drawString(spr, String(tmin) + " ", dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][4], "", TR_DATUM, (tmin < 0 ? TFT_RED : TFT_BLACK));
-            drawString(spr, String(" ") + String(tmax), dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][4], "", TL_DATUM, (tmax < 0 ? TFT_RED : TFT_BLACK));
-            drawString(spr, String(" ") + String(wind), dag * loc["column"][1].as<int>() + loc["day"][0].as<int>(), loc["day"][3], "", TL_DATUM, (wind > 5 ? TFT_RED : TFT_BLACK));
-            spr.unloadFont();
-            if (dag > 0) {
-                for (int i = loc["line"][0]; i < loc["line"][1]; i += 3) {
-                    spr.drawPixel(dag * loc["column"][1].as<int>(), i, TFT_BLACK);
-                }
-            }
-        }
-
-        spr2buffer(spr, filename, imageParams);
-        spr.deleteSprite();
-    } else {
-        wsErr("OpenMeteo http " + httpCode);
+    DynamicJsonDocument doc(2000);
+    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant&windspeed_unit=ms&timeformat=unixtime&timezone=" + tz, doc, 5000);
+    if (!success) {
+        return;
     }
-    http.end();
+
+    static const String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
+                                          "\uf01a", "", "\uf01a", "", "\uf01a", "\uf017", "\uf017", "", "", "",
+                                          "\uf019", "", "\uf019", "", "\uf019", "\uf015", "\uf015", "", "", "",
+                                          "\uf01b", "", "\uf01b", "", "\uf01b", "", "\uf076", "", "", "\uf01a",
+                                          "\uf01a", "\uf01a", "", "", "\uf064", "\uf064", "", "", "", "",
+                                          "", "", "", "", "\uf01e", "\uf01d", "", "", "\uf01e"};
+
+    tft.setTextWrap(false, false);
+
+    StaticJsonDocument<512> loc;
+    getTemplate(loc, 8, taginfo->hwType);
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
+
+    const auto &location = loc["location"];
+    drawString(spr, cfgobj["location"], location[0], location[1], location[2], TL_DATUM, TFT_BLACK);
+    const auto &daily = doc["daily"];
+    const auto &column = loc["column"];
+    const int column1 = column[1].as<int>();
+    const auto &day = loc["day"];
+    for (uint8_t dag = 0; dag < column[0]; dag++) {
+        const time_t weatherday = daily["time"][dag].as<time_t>();
+        const struct tm *datum = localtime(&weatherday);
+
+        drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * column1 + day[0].as<int>(), day[1], day[2], TC_DATUM, TFT_BLACK);
+
+        uint8_t weathercode = daily["weathercode"][dag].as<int>();
+        if (weathercode > 40) weathercode -= 40;
+
+        const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) ? TFT_RED : TFT_BLACK;
+        drawString(spr, weatherIcons[weathercode], loc["icon"][0].as<int>() + dag * column1, loc["icon"][1], "/fonts/weathericons.ttf", TC_DATUM, iconcolor, loc["icon"][2]);
+
+        drawString(spr, windDirectionIcon(daily["winddirection_10m_dominant"][dag]), loc["wind"][0].as<int>() + dag * column1, loc["wind"][1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, loc["icon"][2]);
+
+        const int8_t tmin = round(daily["temperature_2m_min"][dag].as<double>());
+        const int8_t tmax = round(daily["temperature_2m_max"][dag].as<double>());
+        const uint8_t wind = windSpeedToBeaufort(daily["windspeed_10m_max"][dag].as<double>());
+
+        spr.loadFont(day[2], *contentFS);
+
+        if (loc["rain"]) {
+            const int8_t rain = round(daily["precipitation_sum"][dag].as<double>());
+            if (rain > 0) {
+                drawString(spr, String(rain) + "mm", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], "", TC_DATUM, (rain > 10 ? TFT_RED : TFT_BLACK));
+            }
+        }
+
+        drawString(spr, String(tmin) + " ", dag * column1 + day[0].as<int>(), day[4], "", TR_DATUM, (tmin < 0 ? TFT_RED : TFT_BLACK));
+        drawString(spr, String(" ") + String(tmax), dag * column1 + day[0].as<int>(), day[4], "", TL_DATUM, (tmax < 0 ? TFT_RED : TFT_BLACK));
+        drawString(spr, String(" ") + String(wind), dag * column1 + day[0].as<int>(), day[3], "", TL_DATUM, (wind > 5 ? TFT_RED : TFT_BLACK));
+        spr.unloadFont();
+        if (dag > 0) {
+            for (int i = loc["line"][0]; i < loc["line"][1]; i += 3) {
+                spr.drawPixel(dag * column1, i, TFT_BLACK);
+            }
+        }
+    }
+
+    spr2buffer(spr, filename, imageParams);
+    spr.deleteSprite();
 }
 
 int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams, String MAC) {
@@ -1189,29 +1177,16 @@ String windDirectionIcon(int degrees) {
 }
 
 void getLocation(JsonObject &cfgobj) {
-    HTTPClient http;
-    StaticJsonDocument<1000> doc;
-
-    String lat = cfgobj["#lat"];
-    String lon = cfgobj["#lon"];
-    String tz = cfgobj["#tz"];
+    const String lat = cfgobj["#lat"];
+    const String lon = cfgobj["#lon"];
 
     if (lat == "null" || lon == "null") {
-        http.begin("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(cfgobj["location"]) + "&count=1");
-        http.setTimeout(5000);
-        int httpCode = http.GET();
-
-        if (httpCode == 200) {
-            DeserializationError error = deserializeJson(doc, http.getStream());
-            http.end();
-            lat = doc["results"][0]["latitude"].as<String>();
-            lon = doc["results"][0]["longitude"].as<String>();
-            tz = doc["results"][0]["timezone"].as<String>();
-            cfgobj["#lat"] = lat;
-            cfgobj["#lon"] = lon;
-            cfgobj["#tz"] = tz;
-        } else {
-            wsErr("getLocation http " + httpCode);
+        wsLog("get location");
+        StaticJsonDocument<1000> doc;
+        if (util::httpGetJson("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(cfgobj["location"]) + "&count=1", doc, 5000)) {
+            cfgobj["#lat"] = doc["results"][0]["latitude"].as<String>();
+            cfgobj["#lon"] = doc["results"][0]["longitude"].as<String>();
+            cfgobj["#tz"] = doc["results"][0]["timezone"].as<String>();
         }
     }
 }
