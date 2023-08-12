@@ -508,9 +508,9 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
 
-    int weekday_number = timeinfo.tm_wday;
-    int month_number = timeinfo.tm_mon;
-    int year_number = timeinfo.tm_year + 1900;
+    // const int weekday_number = timeinfo.tm_wday;
+    const int month_number = timeinfo.tm_mon;
+    const int year_number = timeinfo.tm_year + 1900;
 
     if (taginfo->hwType == SOLUM_SEG_UK) {
         sprintf(imageParams.segments, "%2d%2d%-2.2s%04d", timeinfo.tm_mday, month_number + 1, languageDays[getCurrentLanguage()][timeinfo.tm_wday], year_number);
@@ -525,13 +525,17 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
-    if (loc["date"]) {
-        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], loc["weekday"][0], loc["weekday"][1], loc["weekday"][2], TC_DATUM, TFT_RED);
-        drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], loc["date"][0], loc["date"][1], loc["date"][2], TC_DATUM);
+    const auto &date = loc["date"];
+    const auto &weekday = loc["weekday"];
+    if (date) {
+        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, TFT_RED);
+        drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], date[0], date[1], date[2], TC_DATUM);
     } else {
-        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], loc["weekday"][0], loc["weekday"][1], loc["weekday"][2], TC_DATUM, TFT_BLACK);
-        drawString(spr, String(languageMonth[getCurrentLanguage()][timeinfo.tm_mon]), loc["month"][0], loc["month"][1], loc["month"][2], TC_DATUM);
-        drawString(spr, String(timeinfo.tm_mday), loc["day"][0], loc["day"][1], loc["day"][2], TC_DATUM, TFT_RED);
+        const auto &month = loc["month"];
+        const auto &day = loc["month"];
+        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, TFT_BLACK);
+        drawString(spr, String(languageMonth[getCurrentLanguage()][timeinfo.tm_mon]), month[0], month[1], month[2], TC_DATUM);
+        drawString(spr, String(timeinfo.tm_mday), day[0], day[1], day[2], TC_DATUM, TFT_RED);
     }
 
     spr2buffer(spr, filename, imageParams);
