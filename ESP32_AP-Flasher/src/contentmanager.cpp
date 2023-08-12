@@ -587,6 +587,24 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     spr.deleteSprite();
 }
 
+/// @brief Get a weather icon
+/// @param id Icon identifier/index
+/// @param isNight Use night icons (true) or not (false)
+/// @return String reference to icon
+const String &getWeatherIcon(const uint8_t id, const bool isNight = false) {
+    static const String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
+                                          "\uf01a", "", "\uf01a", "", "\uf01a", "\uf017", "\uf017", "", "", "",
+                                          "\uf019", "", "\uf019", "", "\uf019", "\uf015", "\uf015", "", "", "",
+                                          "\uf01b", "", "\uf01b", "", "\uf01b", "", "\uf076", "", "", "\uf01a",
+                                          "\uf01a", "\uf01a", "", "", "\uf064", "\uf064", "", "", "", "",
+                                          "", "", "", "", "\uf01e", "\uf01d", "", "", "\uf01e"};
+    if (isNight && id <= 3) {
+        static const String nightIcons[] = {"\uf02e", "\uf083", "\uf086"};
+        return nightIcons[id];
+    }
+    return weatherIcons[id];
+}
+
 void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     wsLog("get weather");
 
@@ -632,18 +650,6 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
 
     getTemplate(doc, 4, taginfo->hwType);
 
-    static String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
-                                    "\uf01a", "", "\uf01a", "", "\uf01a", "\uf017", "\uf017", "", "", "",
-                                    "\uf019", "", "\uf019", "", "\uf019", "\uf015", "\uf015", "", "", "",
-                                    "\uf01b", "", "\uf01b", "", "\uf01b", "", "\uf076", "", "", "\uf01a",
-                                    "\uf01a", "\uf01a", "", "", "\uf064", "\uf064", "", "", "", "",
-                                    "", "", "", "", "\uf01e", "\uf01d", "", "", "\uf01e"};
-    if (isday == 0) {
-        weatherIcons[0] = "\uf02e";
-        weatherIcons[1] = "\uf083";
-        weatherIcons[2] = "\uf086";
-    }
-
     TFT_eSprite spr = TFT_eSprite(&tft);
     tft.setTextWrap(false, false);
 
@@ -663,7 +669,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgP
         iconcolor = TFT_RED;
     }
     const auto &icon = doc["icon"];
-    drawString(spr, weatherIcons[weathercode], icon[0], icon[1], "/fonts/weathericons.ttf", icon[3], iconcolor, icon[2]);
+    drawString(spr, getWeatherIcon(weathercode, isday == 0), icon[0], icon[1], "/fonts/weathericons.ttf", icon[3], iconcolor, icon[2]);
     const auto &dir = doc["dir"];
     drawString(spr, windDirectionIcon(winddirection), dir[0], dir[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, dir[2]);
     if (weathercode > 10) {
@@ -691,13 +697,6 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
         return;
     }
 
-    static const String weatherIcons[] = {"\uf00d", "\uf00c", "\uf002", "\uf013", "\uf013", "\uf014", "", "", "\uf014", "", "",
-                                          "\uf01a", "", "\uf01a", "", "\uf01a", "\uf017", "\uf017", "", "", "",
-                                          "\uf019", "", "\uf019", "", "\uf019", "\uf015", "\uf015", "", "", "",
-                                          "\uf01b", "", "\uf01b", "", "\uf01b", "", "\uf076", "", "", "\uf01a",
-                                          "\uf01a", "\uf01a", "", "", "\uf064", "\uf064", "", "", "", "",
-                                          "", "", "", "", "\uf01e", "\uf01d", "", "", "\uf01e"};
-
     tft.setTextWrap(false, false);
 
     StaticJsonDocument<512> loc;
@@ -720,7 +719,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, img
         if (weathercode > 40) weathercode -= 40;
 
         const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99) ? TFT_RED : TFT_BLACK;
-        drawString(spr, weatherIcons[weathercode], loc["icon"][0].as<int>() + dag * column1, loc["icon"][1], "/fonts/weathericons.ttf", TC_DATUM, iconcolor, loc["icon"][2]);
+        drawString(spr, getWeatherIcon(weathercode), loc["icon"][0].as<int>() + dag * column1, loc["icon"][1], "/fonts/weathericons.ttf", TC_DATUM, iconcolor, loc["icon"][2]);
 
         drawString(spr, windDirectionIcon(daily["winddirection_10m_dominant"][dag]), loc["wind"][0].as<int>() + dag * column1, loc["wind"][1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, loc["icon"][2]);
 
