@@ -1198,8 +1198,12 @@ void getLocation(JsonObject &cfgobj) {
 
     if (util::isEmptyOrNull(lat) || util::isEmptyOrNull(lon)) {
         wsLog("get location");
+        StaticJsonDocument<80> filter;
+        filter["results"][0]["latitude"] = true;
+        filter["results"][0]["longitude"] = true;
+        filter["results"][0]["timezone"] = true;
         StaticJsonDocument<1000> doc;
-        if (util::httpGetJson("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(cfgobj["location"]) + "&count=1", doc, 5000)) {
+        if (util::httpGetJson("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(cfgobj["location"]) + "&count=1", doc, 5000, &filter)) {
             cfgobj["#lat"] = doc["results"][0]["latitude"].as<String>();
             cfgobj["#lon"] = doc["results"][0]["longitude"].as<String>();
             cfgobj["#tz"] = doc["results"][0]["timezone"].as<String>();

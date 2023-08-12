@@ -69,7 +69,7 @@ static void printLargestFreeBlock() {
 /// @param timeout Request timeout
 /// @param redirects Redirects handling
 /// @return True on success, false on error (httpCode != 200 || deserialization error)
-static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout)  //, const followRedirects_t redirects = followRedirects_t::HTTPC_DISABLE_FOLLOW_REDIRECTS)
+static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout, JsonDocument *filter = nullptr)  //, const followRedirects_t redirects = followRedirects_t::HTTPC_DISABLE_FOLLOW_REDIRECTS)
 {
     HTTPClient http;
     http.begin(url);
@@ -82,7 +82,12 @@ static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout)
         return false;
     }
 
-    DeserializationError error = deserializeJson(json, http.getString());
+    DeserializationError error;
+    if (filter) {
+        error = deserializeJson(json, http.getString(), DeserializationOption::Filter(*filter));
+    } else {
+        error = deserializeJson(json, http.getString());
+    }
     http.end();
     if (error) {
         Serial.println(error.c_str());
