@@ -3,11 +3,11 @@
 #include <WiFi.h>
 #include <time.h>
 
-#include "storage.h"
 #include "contentmanager.h"
 #include "flasher.h"
 #include "serialap.h"
 #include "settings.h"
+#include "storage.h"
 #include "system.h"
 #include "tag_db.h"
 
@@ -18,6 +18,7 @@
 #include "language.h"
 #include "leds.h"
 #include "udp.h"
+#include "util.h"
 #include "web.h"
 
 void pinTest();
@@ -34,7 +35,7 @@ void delayedStart(void* parameter) {
 
 void timeTask(void* parameter) {
     wsSendSysteminfo();
-    Serial.printf("Free heap: %.2f kB\n", ESP.getFreeHeap() / 1024.0f);
+    util::printHeap();
     while (1) {
         time_t now;
         time(&now);
@@ -53,10 +54,10 @@ void timeTask(void* parameter) {
 void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
-    #ifdef YELLOW_IPS_AP
-        extern void yellow_ap_display_init(void);
-        yellow_ap_display_init();
-    #endif
+#ifdef YELLOW_IPS_AP
+    extern void yellow_ap_display_init(void);
+    yellow_ap_display_init();
+#endif
 
     xTaskCreate(ledTask, "ledhandler", 2000, NULL, 2, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -160,13 +161,13 @@ void loop() {
     while (1) {
         // pinTest();
         while (1) {
-            #ifdef YELLOW_IPS_AP
-                extern void yellow_ap_display_loop(void);
-                yellow_ap_display_loop();
-            #else
-                vTaskDelay(10000 / portTICK_PERIOD_MS);
-                // pinTest();
-            #endif
+#ifdef YELLOW_IPS_AP
+            extern void yellow_ap_display_loop(void);
+            yellow_ap_display_loop();
+#else
+            vTaskDelay(10000 / portTICK_PERIOD_MS);
+            // pinTest();
+#endif
         }
 #ifdef OPENEPAPERLINK_PCB
         if (extTagConnected()) {

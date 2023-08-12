@@ -3,14 +3,13 @@
 #include <Arduino.h>
 #include <FS.h>
 #include <HTTPClient.h>
-#include "storage.h"
 #include <MD5Builder.h>
 #include <time.h>
 
-#include "storage.h"
 #include "commstructs.h"
 #include "serialap.h"
 #include "settings.h"
+#include "storage.h"
 #include "system.h"
 #include "tag_db.h"
 #include "udp.h"
@@ -47,7 +46,7 @@ uint8_t* getDataForFile(fs::File* file) {
     return ret;
 }
 
-void prepareCancelPending(uint8_t dst[8]) {
+void prepareCancelPending(const uint8_t dst[8]) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     sendCancelPending(&pending);
@@ -63,7 +62,7 @@ void prepareCancelPending(uint8_t dst[8]) {
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
-void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
+void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin) {
     if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
     if (nextCheckin > 0) {
         struct pendingData pending = {0};
@@ -79,9 +78,8 @@ void prepareIdleReq(uint8_t* dst, uint16_t nextCheckin) {
     }
 }
 
-void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, uint8_t* dst) {
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(dst);
+void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8_t* dst) {
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
         wsErr("Tag not found, this shouldn't happen.");
         return;
@@ -117,9 +115,9 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, uint8_t* ds
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
-bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t nextCheckin) {
+bool prepareDataAvail(String* filename, uint8_t dataType, const uint8_t* dst, uint16_t nextCheckin) {
     if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
-    if (wsClientCount() && config.stopsleep == 1) nextCheckin=0;
+    if (wsClientCount() && config.stopsleep == 1) nextCheckin = 0;
 #ifdef YELLOW_IPS_AP
     if (*filename == "direct") {
         char dst_path[64];
@@ -129,7 +127,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, uint8_t* dst, uint16_t
     }
 #endif
 
-        tagRecord* taginfo = nullptr;
+    tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
         wsErr("Tag not found, this shouldn't happen.");
@@ -312,7 +310,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                         taginfo->dataType = pending->availdatainfo.dataType;
                         taginfo->pending = true;
                         taginfo->len = len;
-                    } 
+                    }
                 }
                 http.end();
                 break;
@@ -489,9 +487,12 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
 
             if (local) {
                 const char* reason = "";
-                if (eadr->adr.wakeupReason == WAKEUP_REASON_FIRSTBOOT) reason = "Booting";
-                else if (eadr->adr.wakeupReason == WAKEUP_REASON_NETWORK_SCAN) reason = "Network scan";
-                else if (eadr->adr.wakeupReason == WAKEUP_REASON_WDT_RESET) reason = "Watchdog reset";
+                if (eadr->adr.wakeupReason == WAKEUP_REASON_FIRSTBOOT)
+                    reason = "Booting";
+                else if (eadr->adr.wakeupReason == WAKEUP_REASON_NETWORK_SCAN)
+                    reason = "Network scan";
+                else if (eadr->adr.wakeupReason == WAKEUP_REASON_WDT_RESET)
+                    reason = "Watchdog reset";
                 sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X %s", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0], reason);
                 logLine(buffer);
             }
@@ -539,7 +540,7 @@ void refreshAllPending() {
     }
 };
 
-void updateContent(uint8_t* dst) {
+void updateContent(const uint8_t* dst) {
     tagRecord* taginfo = nullptr;
     taginfo = tagRecord::findByMAC(dst);
     if (taginfo != nullptr) {
@@ -564,7 +565,7 @@ void setAPchannel() {
     }
 }
 
-bool sendAPSegmentedData(uint8_t* dst, String data, uint16_t icons, bool inverted, bool local) {
+bool sendAPSegmentedData(const uint8_t* dst, String data, uint16_t icons, bool inverted, bool local) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     pending.availdatainfo.dataType = DATATYPE_UK_SEGMENTED;
@@ -584,7 +585,7 @@ bool sendAPSegmentedData(uint8_t* dst, String data, uint16_t icons, bool inverte
     }
 }
 
-bool showAPSegmentedInfo(uint8_t* dst, bool local) {
+bool showAPSegmentedInfo(const uint8_t* dst, bool local) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     pending.availdatainfo.dataType = DATATYPE_UK_SEGMENTED;
@@ -604,7 +605,7 @@ bool showAPSegmentedInfo(uint8_t* dst, bool local) {
     }
 }
 
-bool sendTagCommand(uint8_t* dst, uint8_t cmd, bool local) {
+bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     pending.availdatainfo.dataType = DATATYPE_COMMAND_DATA;
@@ -680,7 +681,6 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
             JsonObject cfgobj = doc.as<JsonObject>();
             uint8_t mac[8] = {0};
             if (hex2mac(cfgobj["mac"], mac) && memcmp(mac, taginfo->mac, sizeof(mac)) == 0) {
-
                 if (taginfo->data == nullptr) {
                     fs::File file = contentFS->open(taginfo->filename);
                     if (!file) {
@@ -694,7 +694,7 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
                 taginfo2->expectedNextCheckin = taginfo->expectedNextCheckin;
                 taginfo2->filename = taginfo->filename;
                 taginfo2->len = taginfo->len;
-                taginfo2->data = taginfo->data; // copy buffer pointer
+                taginfo2->data = taginfo->data;  // copy buffer pointer
                 taginfo2->dataType = taginfo->dataType;
                 taginfo2->pending = true;
                 taginfo2->nextupdate = 3216153600;

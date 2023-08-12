@@ -9,9 +9,9 @@ void doJsonUpload(AsyncWebServerRequest *request);
 extern void networkProcess(void *parameter);
 void wsLog(String text);
 void wsErr(String text);
-void wsSendTaginfo(uint8_t *mac, uint8_t syncMode);
+void wsSendTaginfo(const uint8_t *mac, uint8_t syncMode);
 void wsSendSysteminfo();
-void wsSendAPitem(struct APlist* apitem);
+void wsSendAPitem(struct APlist *apitem);
 void wsSerial(String text);
 uint8_t wsClientCount();
 
