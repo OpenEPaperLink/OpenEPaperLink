@@ -417,10 +417,11 @@ void replaceVariables(String &format) {
 
     while ((openBraceIndex = format.indexOf('{', startIndex)) != -1 &&
            (closeBraceIndex = format.indexOf('}', openBraceIndex + 1)) != -1) {
-        std::string variableName = format.substring(openBraceIndex + 1, closeBraceIndex).c_str();
-        std::string varKey = "{" + variableName + "}";
-        if (varDB.count(variableName) > 0) {
-            format.replace(varKey.c_str(), varDB.at(variableName).value);
+        const std::string variableName = format.substring(openBraceIndex + 1, closeBraceIndex).c_str();
+        const std::string varKey = "{" + variableName + "}";
+        auto var = varDB.find(variableName);
+        if (var != varDB.end()) {
+            format.replace(varKey.c_str(), var->second.value);
         }
         startIndex = closeBraceIndex + 1;
     }
