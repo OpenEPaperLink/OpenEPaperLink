@@ -761,7 +761,7 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
     http.addHeader("X-ESL-MAC", MAC);
     http.setTimeout(5000);  // timeout in ms
-    int httpCode = http.GET();
+    const int httpCode = http.GET();
     if (httpCode == 200) {
         File f = contentFS->open("/temp/temp.jpg", "w");
         if (f) {
