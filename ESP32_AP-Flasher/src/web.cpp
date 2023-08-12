@@ -93,7 +93,7 @@ void wsSendSysteminfo() {
     uint32_t tagcount = getTagCount(timeoutcount);
     char result[40];
     if (timeoutcount > 0) {
-        snprintf(result, sizeof(result), "%lu / %lu, %lu timeout", tagcount, tagDB.size(), timeoutcount);
+        snprintf(result, sizeof(result), "%lu / %lu, %lu timed out", tagcount, tagDB.size(), timeoutcount);
     } else {
         snprintf(result, sizeof(result), "%lu / %lu", tagcount, tagDB.size());
     }

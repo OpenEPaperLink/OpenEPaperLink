@@ -94,6 +94,11 @@ void checkVars() {
                 file.close();
             }
         }
+        if (tag->contentMode == 21) {
+            if (varDB["ap_tagcount"].changed || varDB["ap_ip"].changed || varDB["ap_ch"].changed) {
+                tag->nextupdate = 0;
+            }
+        }
     }
     for (const auto &entry : varDB) {
         if (entry.second.changed) varDB[entry.first].changed = false;
@@ -356,15 +361,8 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
 
         case 21:  // ap info
             drawAPinfo(filename, cfgobj, taginfo, imageParams);
-            /*
-            if (imageParams.bpp == 16) {
-                taginfo->nextupdate = now + 60;
-            } else {
-                taginfo->nextupdate = now + 600;
-            }
-            */
-            taginfo->nextupdate = 3216153600;
             updateTagImage(filename, mac, 0, taginfo, imageParams);
+            taginfo->nextupdate = 3216153600;
             break;
     }
 

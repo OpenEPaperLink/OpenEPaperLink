@@ -264,17 +264,20 @@ uint32_t getTagCount(uint32_t& timeoutcount) {
     uint32_t tagcount = 0;
     time_t now;
     time(&now);
-    // Serial.printf("now: %d\n", now);
     for (uint32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* taginfo = nullptr;
         taginfo = tagDB.at(c);
         if (taginfo->isExternal == false) tagcount++;
-        int32_t timeout1 = now - taginfo->lastseen;
-        int32_t timeout2 = taginfo->lastseen - taginfo->expectedNextCheckin;
-        // Serial.printf("%d expected: %d lastseen: %d ->    %d    %d\n", c, taginfo->expectedNextCheckin, timeout1, timeout2);
-        if (((taginfo->expectedNextCheckin < 3600 && timeout1 > 3600) ||
-             (taginfo->expectedNextCheckin > 3600 && timeout2 > 600)) &&
-            now > 3600 && millis() > 60000) timeoutcount++;
+        int32_t timeout = now - taginfo->lastseen;
+        if (taginfo->expectedNextCheckin < 3600) {
+            // not initialised, timeout if not seen last 10 minutes
+            if (timeout > 600) timeoutcount++;
+        } else {
+            if (now - taginfo->expectedNextCheckin > 600) {
+                //expected checkin is behind, timeout if not seen last 10 minutes
+                if (timeout > 600) timeoutcount++;
+            }
+        }
     }
     return tagcount;
 }
