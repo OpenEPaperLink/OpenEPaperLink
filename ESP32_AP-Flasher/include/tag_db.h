@@ -88,9 +88,9 @@ extern std::unordered_map<std::string, varStruct> varDB;
 extern DynamicJsonDocument APconfig;
 String tagDBtoJson(const uint8_t mac[8] = nullptr, uint8_t startPos = 0);
 bool deleteRecord(const uint8_t mac[8]);
-void fillNode(JsonObject& tag, tagRecord*& taginfo);
-void saveDB(String filename);
-void loadDB(String filename);
+void fillNode(JsonObject& tag, const tagRecord* taginfo);
+void saveDB(const String& filename);
+void loadDB(const String& filename);
 void destroyDB();
 uint32_t getTagCount();
 uint32_t getTagCount(uint32_t& timeoutcount);
@@ -99,7 +99,7 @@ bool hex2mac(const String& hexString, uint8_t* mac);
 void clearPending(tagRecord* taginfo);
 void initAPconfig();
 void saveAPconfig();
-HwType getHwType(uint8_t id);
+HwType getHwType(const uint8_t id);
 bool setVarDB(const std::string& key, const String& value);
 
 #pragma pack(pop)
