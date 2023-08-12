@@ -5,8 +5,9 @@
 #include <makeimage.h>
 #include <web.h>
 
-#include "storage.h"
 #include "leds.h"
+#include "storage.h"
+#include "util.h"
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
@@ -40,7 +41,7 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
     spr.createSprite(w, h);
     if (spr.getPointer() == nullptr) {
         wsErr("low on memory. Fallback to 1bpp");
-        Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
+        util::printLargestFreeBlock();
         spr.setColorDepth(1);
         spr.setBitmapColor(TFT_WHITE, TFT_BLACK);
         imageParams.bufferbpp = 1;
@@ -229,7 +230,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
 #endif
             if (!buffer) {
                 Serial.println("Failed to allocate buffer");
-                Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
+                util::printLargestFreeBlock();
                 return;
             }
             spr2color(spr, imageParams, buffer, buffer_size, false);

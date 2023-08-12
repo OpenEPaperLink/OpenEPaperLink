@@ -14,6 +14,11 @@ static void printHeap() {
     Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
 }
 
+/// @brief Prints the maximum continuous heap space
+static void printLargestFreeBlock() {
+    Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
+}
+
 /// @brief Do a GET request to the given url and fill the given json with the response
 /// @param url Request URL
 /// @param json Json document to fill

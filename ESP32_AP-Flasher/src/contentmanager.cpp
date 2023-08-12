@@ -491,7 +491,7 @@ void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams) {
     spr.setRotation(3);
     if (spr.getPointer() == nullptr) {
         wsErr("low on memory. Fallback to 1bpp");
-        Serial.println("Maximum Continuous Heap Space: " + String(heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)));
+        util::printLargestFreeBlock();
         spr.setColorDepth(1);
         spr.setBitmapColor(TFT_WHITE, TFT_BLACK);
         imageParams.bufferbpp = 1;
