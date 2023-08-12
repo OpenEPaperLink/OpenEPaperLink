@@ -1100,7 +1100,6 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
                 wsErr("json error " + String(error.c_str()));
                 break;
             } else {
-                Serial.println("drawElement");
                 drawElement(doc.as<JsonObject>(), spr);
                 doc.clear();
             }
