@@ -105,6 +105,16 @@ void checkVars() {
     }
 }
 
+bool isUrlHttpOrHttps(String url) {
+    if (url.indexOf("http://")==0) return true;
+    if (url.indexOf("https://")==0) return true;
+    return false;
+}
+
+bool isUrlFile(String url) {
+     return (url.indexOf("file://")==0);
+}
+
 void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
     time_t now;
     time(&now);
@@ -341,16 +351,26 @@ void drawNew(uint8_t mac[8], bool buttonPressed, tagRecord *&taginfo) {
                     wsErr("error opening file " + cfgobj["filename"].as<String>());
                 }
                 taginfo->nextupdate = 3216153600;
-            } else {
-                int httpcode = getJsonTemplateUrl(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], String(hexmac), taginfo, imageParams);
-                if (httpcode == 200) {
+            } else if(cfgobj["url"]){
+                if (isUrlHttpOrHttps(cfgobj["url"])) {
+                    int httpcode = getJsonTemplateUrl(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], String(hexmac), taginfo, imageParams);
+                    if (httpcode == 200) {
+                        taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                        updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
+                        cfgobj["#fetched"] = now;
+                    } else if (httpcode == 304) {
+                        taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                    } else {
+                        taginfo->nextupdate = now + 600;
+                    }
+                } else if (isUrlFile(cfgobj["url"])) {
+                    int result = getJsonTemplateFile(filename, cfgobj["url"].as<String>().substring(7), taginfo, imageParams);
+                    if (result) {
+                        updateTagImage(filename, mac, 0, taginfo, imageParams);
+                    } else {
+                        wsErr("error opening file " + cfgobj["url"].as<String>());
+                    }
                     taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
-                    updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
-                    cfgobj["#fetched"] = now;
-                } else if (httpcode == 304) {
-                    taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
-                } else {
-                    taginfo->nextupdate = now + 600;
                 }
             }
             break;
