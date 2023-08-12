@@ -22,8 +22,7 @@ Config config;
 // SemaphoreHandle_t tagDBOwner;
 
 tagRecord* tagRecord::findByMAC(const uint8_t mac[8]) {
-    for (int32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* tag = tagDB.at(c);
+    for (tagRecord* tag : tagDB) {
         if (memcmp(tag->mac, mac, 8) == 0) {
             return tag;
         }
@@ -259,8 +258,7 @@ uint32_t getTagCount(uint32_t& timeoutcount) {
     uint32_t tagcount = 0;
     time_t now;
     time(&now);
-    for (uint32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = tagDB.at(c);
+    for (tagRecord* taginfo : tagDB) {
         if (taginfo->isExternal == false) tagcount++;
         int32_t timeout = now - taginfo->lastseen;
         if (taginfo->expectedNextCheckin < 3600) {
@@ -281,10 +279,14 @@ void clearPending(tagRecord* taginfo) {
     if (taginfo->data != nullptr) {
         // check if this is the last copy of the buffer
         int datacount = 0;
-        for (uint32_t c = 0; c < tagDB.size(); c++) {
-            if (tagDB.at(c)->data == taginfo->data) datacount++;
+        for (tagRecord* tag : tagDB) {
+            if (tag->data == taginfo->data) {
+                datacount++;
+            }
         }
-        if (datacount == 1) free(taginfo->data);
+        if (datacount == 1) {
+            free(taginfo->data);
+        }
         taginfo->data = nullptr;
     }
     taginfo->pending = false;
