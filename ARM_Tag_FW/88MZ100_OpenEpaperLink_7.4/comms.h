@@ -4,12 +4,6 @@
 #include <stdint.h>
 #include "ccm.h"
 
-struct CommsInfo {
-	const uint8_t *myMac;
-	const uint8_t *masterMac;
-	const void *encrKey;
-	uint32_t *nextIV;
-};
 extern uint8_t  mLastLqi;
 extern int8_t  mLastRSSI;
 
@@ -23,8 +17,6 @@ extern int8_t  mLastRSSI;
 
 #define COMMS_MAX_PACKET_SZ				(127 /* max phy len */ - 21 /* max mac frame with panID compression */ - 2 /* FCS len */ - AES_CCM_MIC_SIZE - COMMS_IV_SIZE)
 
-bool commsTx(struct CommsInfo *info, bool bcast, const void *packet, uint32_t len);
-int32_t commsRx(struct CommsInfo *info, void *data, uint8_t *fromMac);	//returns length or COMMS_RX_ERR_*
 
 uint8_t commsGetLastPacketLQI(void);
 int8_t commsGetLastPacketRSSI(void);

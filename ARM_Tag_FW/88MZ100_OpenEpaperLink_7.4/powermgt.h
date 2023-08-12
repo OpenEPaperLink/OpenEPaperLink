@@ -60,20 +60,22 @@ extern void doSleep(const uint32_t  t);
 extern void addAverageValue();
 extern uint16_t getNextSleep();
 
+extern uint16_t doVoltageReading();
+
 extern uint32_t getNextScanSleep(const bool increment);
 extern void initPowerSaving(const uint16_t initialValue);
 
 extern uint8_t  wakeUpReason;
 
-extern uint8_t  capabilities;
+extern __attribute__((section(".aonshadow"))) uint8_t  capabilities;
 
 extern uint16_t  nextCheckInFromAP;
-extern uint8_t  dataReqLastAttempt;
-extern int8_t  temperature;
-extern uint16_t  batteryVoltage;
-extern bool  lowBattery;
-extern uint8_t  scanAttempts;
-extern uint16_t  longDataReqCounter;
-extern uint16_t  voltageCheckCounter;
+extern __attribute__((section(".aonshadow"))) uint8_t  dataReqLastAttempt;
+extern __attribute__((section(".aonshadow"))) int8_t  temperature;
+extern __attribute__((section(".aonshadow"))) uint16_t  batteryVoltage;
+extern __attribute__((section(".aonshadow"))) bool  lowBattery;
+extern __attribute__((section(".aonshadow"))) uint8_t  scanAttempts;
+extern __attribute__((section(".aonshadow"))) uint16_t  longDataReqCounter;
+extern __attribute__((section(".aonshadow"))) uint16_t  voltageCheckCounter;
 
 #endif

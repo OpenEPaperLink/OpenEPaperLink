@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdio.h>
+//#include <stdio.h>
 #include <stdint.h>
 #include "core_cm3.h"           
 #include "mz100_gpio.h"

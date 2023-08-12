@@ -1,65 +1,41 @@
-#ifndef _SETTINGS_H_
-#define _SETTINGS_H_
+#ifndef SETTINGS_H
+#define SETTINGS_H
 
 #include <stdint.h>
 
-#define SETTINGS_VER_NONE		(0x00000000)
-#define SETTINGS_VER_1			(0x00000001)
-#define SETTINGS_VER_2			(0x00000002)
-#define SETTINGS_VER_3			(0x00000003)
+#define FW_VERSION 20            // version number (max 2.5.5 :) )
+#define FW_VERSION_SUFFIX "-75"  // suffix, like -RC1 or whatever.
+// #define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
+// #define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
 
-struct SettingsHeader {
-	uint32_t magic;
-	uint64_t revision;
-	uint8_t structVersion;
-	uint8_t structSize;			//incl this header
+#define SETTINGS_STRUCT_VERSION 0x01
+
+#define DEFAULT_SETTING_FASTBOOT 0
+#define DEFAULT_SETTING_RFWAKE 0
+#define DEFAULT_SETTING_TAGROAMING 0
+#define DEFAULT_SETTING_SCANFORAP 1
+#define DEFAULT_SETTING_LOWBATSYMBOL 1
+#define DEFAULT_SETTING_NORFSYMBOL 1
+
+struct tagsettings {
+    uint8_t settingsVer;                  // the version of the struct as written to the infopage
+    uint8_t enableFastBoot;               // default 0; if set, it will skip splashscreen
+    uint8_t enableRFWake;                 // default 0; if set, it will enable RF wake. This will add about ~0.9µA idle power consumption
+    uint8_t enableTagRoaming;             // default 0; if set, the tag will scan for an accesspoint every few check-ins. This will increase power consumption quite a bit
+    uint8_t enableScanForAPAfterTimeout;  // default 1; if a the tag failed to check in, after a few attempts it will try to find a an AP on other channels
+    uint8_t enableLowBatSymbol;           // default 1; tag will show 'low battery' icon on screen if the battery is depleted
+    uint8_t enableNoRFSymbol;             // default 1; tag will show 'no signal' icon on screen if it failed to check in for a longer period of time
+    uint8_t fastBootCapabilities;         // holds the byte with 'capabilities' as detected during a normal tag boot; allows the tag to skip detecting buttons and NFC chip
+    uint8_t customMode;                   // default 0; if anything else, tag will bootup in a different 'mode'
+    uint16_t batLowVoltage;               // Low battery threshold voltage (2450 for 2.45v). defaults to BATTERY_VOLTAGE_MINIMUM from powermgt.h
+    uint16_t minimumCheckInTime;          // defaults to BASE_INTERVAL from powermgt.h
+    uint8_t fixedChannel;                 // default 0; if set to a valid channel number, the tag will stick to that channel
 } __attribute__((packed));
 
-enum SettingsThingType {
-	SettingsThingTypeNone,
-	SettingsThingTypeImage,
-	SettingsThingTypeUpdate,
-};
+extern __attribute__((section(".aonshadow")))struct tagsettings tagSettings;
 
-#define SETTING_CHANNEL_OFFSET		11
-
-struct Settings {				//V1
-	struct SettingsHeader hdr;
-	
-	//master address
-	uint8_t masterMac[8];
-	
-	//encryption things
-	uint32_t encrKey[4];
-	uint32_t nextIV;
-	
-	//checkin tracking
-	uint32_t checkinDelay;					//space between checkins, in msec
-	uint32_t retryDelay;
-	uint16_t failedCheckinsTillBlank;		//how many fails till we go blank
-	uint16_t failedCheckinsTillDissoc;		//how many fails till we dissociate
-	uint16_t numFailedCheckins;
-	
-	//state
-	uint8_t lastRxedLQI;
-	uint8_t isPaired				: 1;
-	uint8_t channel					: 4;	//minus SETTING_CHANNEL_OFFSET
-	uint8_t reserved				: 3;
-	
-	uint16_t prevDlProgress;
-	
-	int8_t lastRxedRSSI;
-	uint32_t helperInit;
-	
-} __attribute__((packed));
-
-#define SETTINGS_CURRENT		SETTINGS_VER_3
-
-
-void settingsRead(struct Settings* settings);
-void settingsWrite(struct Settings* settings);
-
-
-
-
+void loadDefaultSettings();
+void writeSettings();
+void loadSettings();
+void loadSettingsFromBuffer(uint8_t* p);
 #endif

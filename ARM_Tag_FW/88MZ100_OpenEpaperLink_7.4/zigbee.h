@@ -1,4 +1,5 @@
 #pragma once
+#include <stdlib.h>
 
 extern uint8_t channelList[6];
 
@@ -11,3 +12,10 @@ void radioInit();
 void radioSetChannel(uint8_t channel);
 void radioRxEnable(uint8_t channel);
 void radioRxFlush();
+
+struct zigbeeCalibDataStruct {
+    uint16_t len;
+    bool isValid;
+    uint32_t data[30];
+};
+extern __attribute__((section(".aon"))) volatile struct zigbeeCalibDataStruct zigbeeCalibData;

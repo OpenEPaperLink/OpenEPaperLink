@@ -1,5 +1,5 @@
 #include "nfc.h"
-#include <stdio.h>
+//#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -17,6 +17,8 @@
 #include "timer.h"
 #include "epd.h"
 #include "proto.h"
+#include "printf.h"
+
 
 #define WHO_AM_I 0x04
 uint8_t i2c_address = 0xAA;

@@ -1,6 +1,6 @@
 
 #include "nfc.h"
-#include <stdio.h>
+//#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -12,6 +12,8 @@
 #include "mz100_pinmux.h"
 #include "mz100_gpio.h"
 #include "util.h"
+#include "printf.h"
+
 
 void NVIC_some_IRQ1(unsigned int a1)
 {

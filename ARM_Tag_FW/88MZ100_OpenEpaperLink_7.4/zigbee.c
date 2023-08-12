@@ -1,7 +1,8 @@
-#include <stdio.h>
+//#include <stdio.h>
 #include <stdint.h>
 #include "util.h"
 #include "zigbee.h"
+#include "printf.h"
 
 volatile uint8_t calibration_irq_ocoured = 0;
 volatile uint8_t zigbee_tx_done = 0;
@@ -145,23 +146,28 @@ void fill_rx_regs()
         ;
 }
 
-void sub_1021E6()
+void load_calib()
 {
     int v0;
     unsigned int v1;
     unsigned int i;
 
     v0 = (*(volatile unsigned int *)0x4C01000C);
-    v1 = get_register(0x130004);
+    v1 = zigbeeCalibData.len;
     (*(volatile unsigned int *)0x4C010000) |= 4u;
     while (((*(volatile unsigned int *)0x4C010008) & 0x1000000) == 0)
         ;
     for (i = 0; i < v1; ++i)
-        set_register(v0 + 4 * i + 0x4C014000, *(uint32_t *)(4 * i + 0x130008));
+        set_register(v0 + 4 * i + 0x4C014000, zigbeeCalibData.data[i]);
     (*(volatile unsigned int *)0x4C010000) &= ~4u;
     while (((*(volatile unsigned int *)0x4C010008) & 0x1000000) != 0)
         ;
 }
+
+
+
+// It is from 0x130000 up to 0x1301000 But you can only use 0x130404 up to the 0x1301000
+
 
 void save_calib_in_ram()
 {
@@ -171,14 +177,14 @@ void save_calib_in_ram()
 
     v0 = (*(volatile unsigned int *)0x4C01000C) + 0x4C014000;
     v1 = ((unsigned int)(uint8_t)((*(volatile unsigned int *)0x4C010008) >> 2) + 3) >> 2;
-    set_register(0x130000u, 0x464C4147);
-    set_register(0x130004u, v1);
+    zigbeeCalibData.isValid = true;
     (*(volatile unsigned int *)0x4C01001C) = -5;
     (*(volatile unsigned int *)0x4C010000) |= 2u;
     while (((*(volatile unsigned int *)0x4C010008) & 0x1000000) == 0)
         ;
-    for (i = 0; i < v1; ++i)
-        set_register(4 * i + 0x130008, *(uint32_t *)(v0 + 4 * i));
+    for (i = 0; i < v1; ++i){
+        zigbeeCalibData.data[i] = *(uint32_t *)(v0 + 4 * i);
+    }
     (*(volatile unsigned int *)0x4C010000) &= ~2u;
     while (((*(volatile unsigned int *)0x4C010008) & 0x1000000) != 0)
         ;
@@ -189,12 +195,12 @@ int inner_calibration()
     int is_in_ram;
 
     (*(volatile unsigned int *)0x4C010000) |= 0x20u;
-    if (get_register(0x130000) == 0x464C4147)
+    if(zigbeeCalibData.isValid)
     {
         is_in_ram = 1;
         (*(volatile unsigned int *)0x4C010000) |= 8u;
         (*(volatile unsigned int *)0x4C010000) &= ~0x10u;
-        sub_1021E6();
+        load_calib();
     }
     else
     {

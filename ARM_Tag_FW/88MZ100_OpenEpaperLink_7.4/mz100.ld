@@ -4,8 +4,9 @@ GROUP(-lgcc -lc -lnosys)
 MEMORY
 {
   FLASH (rx) : ORIGIN = 0x100000, LENGTH = 80k
-  RAM (rwx) :  ORIGIN = 0x20100000 + 80k, LENGTH = 160k - 80k - 16k
-  RAM1 (rwx) :  ORIGIN = 0x20124000 , LENGTH = 16k
+  RAM (rwx) :  ORIGIN = 0x20100000 + 80k, LENGTH = 160k - 80k - 2k
+  AONSHADOW (rwx) : ORIGIN =   0x20128000 - 2k, LENGTH = 2k
+  AON (rwx) : ORIGIN = 0x20130000 , LENGTH = 4k
 }
 
 ENTRY(Reset_Handler)
@@ -123,6 +124,27 @@ SECTIONS
     
     /* Check if data + heap + stack exceeds RAM limit */
     ASSERT(__StackLimit >= __HeapLimit, "region RAM overflowed with stack")
+
+.aon (NOLOAD):
+  {
+        . = ALIGN(4);
+		_start_of_aon = .;
+	*(.aon)
+	*(.aon.*)
+        . = ALIGN(4);
+		_end_of_aon = .;
+
+  } > AON
+.aonshadow (NOLOAD):
+  {
+        . = ALIGN(4);
+                _start_of_aonshadow = .;
+        *(.aonshadow)
+        *(.aonshadow.*)
+        . = ALIGN(4);
+                _end_of_aonshadow = .;
+
+  } > AONSHADOW
 }
 
 
