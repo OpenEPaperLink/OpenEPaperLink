@@ -23,8 +23,7 @@ Config config;
 
 tagRecord* tagRecord::findByMAC(const uint8_t mac[8]) {
     for (int32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* tag = nullptr;
-        tag = tagDB.at(c);
+        tagRecord* tag = tagDB.at(c);
         if (memcmp(tag->mac, mac, 8) == 0) {
             return tag;
         }
@@ -74,8 +73,7 @@ String tagDBtoJson(const uint8_t mac[8], uint8_t startPos) {
     JsonArray tags = doc.createNestedArray("tags");
 
     for (int16_t c = startPos; c < tagDB.size(); c++) {
-        tagRecord* taginfo = nullptr;
-        taginfo = tagDB.at(c);
+        tagRecord* taginfo = tagDB.at(c);
 
         bool select = false;
         if (mac) {
@@ -146,8 +144,7 @@ void saveDB(String filename) {
 
     for (int32_t c = 0; c < tagDB.size(); c++) {
         doc.clear();
-        tagRecord* taginfo = nullptr;
-        taginfo = tagDB.at(c);
+        tagRecord* taginfo = tagDB.at(c);
 
         JsonObject tag = doc.createNestedObject();
         fillNode(tag, taginfo);
@@ -189,8 +186,7 @@ void loadDB(String filename) {
                 String dst = tag["mac"].as<String>();
                 uint8_t mac[8];
                 if (hex2mac(dst, mac)) {
-                    tagRecord* taginfo = nullptr;
-                    taginfo = tagRecord::findByMAC(mac);
+                    tagRecord* taginfo = tagRecord::findByMAC(mac);
                     if (taginfo == nullptr) {
                         taginfo = new tagRecord;
                         memcpy(taginfo->mac, mac, sizeof(taginfo->mac));
@@ -243,8 +239,7 @@ void destroyDB() {
     Serial.println("destoying DB");
     util::printHeap();
     for (uint32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* tag = nullptr;
-        tag = tagDB.at(c);
+        tagRecord* tag = tagDB.at(c);
         if (tag->data != nullptr) {
             free(tag->data);
         }
@@ -265,8 +260,7 @@ uint32_t getTagCount(uint32_t& timeoutcount) {
     time_t now;
     time(&now);
     for (uint32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = nullptr;
-        taginfo = tagDB.at(c);
+        tagRecord* taginfo = tagDB.at(c);
         if (taginfo->isExternal == false) tagcount++;
         int32_t timeout = now - taginfo->lastseen;
         if (taginfo->expectedNextCheckin < 3600) {

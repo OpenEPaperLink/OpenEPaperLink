@@ -35,8 +35,7 @@ bool checkCRC(void* p, uint8_t len) {
 }
 
 uint8_t* getDataForFile(fs::File* file) {
-    uint8_t* ret = nullptr;
-    ret = (uint8_t*)malloc(file->size());
+    uint8_t* ret = (uint8_t*)malloc(file->size());
     if (ret) {
         file->seek(0);
         file->readBytes((char*)ret, file->size());
@@ -51,8 +50,7 @@ void prepareCancelPending(const uint8_t dst[8]) {
     memcpy(pending.targetMac, dst, 8);
     sendCancelPending(&pending);
 
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(dst);
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
         wsErr("Tag not found, this shouldn't happen.");
         return;
@@ -127,8 +125,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, const uint8_t* dst, ui
     }
 #endif
 
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(dst);
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
         wsErr("Tag not found, this shouldn't happen.");
         return true;
@@ -236,8 +233,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, const uint8_t* dst, ui
 }
 
 void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(pending->targetMac);
+    tagRecord* taginfo = tagRecord::findByMAC(pending->targetMac);
     if (taginfo == nullptr) {
         return;
     }
@@ -335,8 +331,7 @@ void processBlockRequest(struct espBlockRequest* br) {
         return;
     }
 
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(br->src);
+    tagRecord* taginfo = tagRecord::findByMAC(br->src);
     if (taginfo == nullptr) {
         prepareCancelPending(br->src);
         Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
@@ -400,8 +395,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
 
     time_t now;
     time(&now);
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(xfc->src);
+    tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
         clearPending(taginfo);
@@ -430,8 +424,7 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
 
     time_t now;
     time(&now);
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(xfc->src);
+    tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         taginfo->expectedNextCheckin = now + 60;
         memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
@@ -445,8 +438,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
     if (config.runStatus == RUNSTATUS_STOP) return;
     char buffer[64];
 
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(eadr->src);
+    tagRecord* taginfo = tagRecord::findByMAC(eadr->src);
     if (taginfo == nullptr) {
         taginfo = new tagRecord;
         memcpy(taginfo->mac, eadr->src, sizeof(taginfo->mac));
@@ -528,8 +520,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
 
 void refreshAllPending() {
     for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = nullptr;
-        taginfo = tagDB.at(c);
+        tagRecord* taginfo = tagDB.at(c);
         if (taginfo->pending) {
             clearPending(taginfo);
             taginfo->nextupdate = 0;
@@ -541,8 +532,7 @@ void refreshAllPending() {
 };
 
 void updateContent(const uint8_t* dst) {
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(dst);
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo != nullptr) {
         clearPending(taginfo);
         taginfo->nextupdate = 0;
@@ -624,8 +614,7 @@ bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local) {
 }
 
 void updateTaginfoitem(struct TagInfo* taginfoitem) {
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(taginfoitem->mac);
+    tagRecord* taginfo = tagRecord::findByMAC(taginfoitem->mac);
 
     if (taginfo == nullptr) {
         taginfo = new tagRecord;
@@ -673,8 +662,7 @@ void updateTaginfoitem(struct TagInfo* taginfoitem) {
 
 bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo2 = nullptr;
-        taginfo2 = tagDB.at(c);
+        tagRecord* taginfo2 = tagDB.at(c);
         if (taginfo2->contentMode == 20) {
             DynamicJsonDocument doc(500);
             deserializeJson(doc, taginfo2->modeConfigJson);

@@ -17,8 +17,7 @@ int32_t tftid = -1;
 
 int32_t findId(uint8_t mac[8]) {
     for (uint32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* tag = nullptr;
-        tag = tagDB.at(c);
+        tagRecord* tag = tagDB.at(c);
         if (memcmp(tag->mac, mac, 8) == 0) {
             return c;
         }
@@ -65,8 +64,7 @@ void yellow_ap_display_loop(void) {
 
         // if ((uint32_t)WiFi.localIP() == (uint32_t)0) {}
 
-        tagRecord* tag = nullptr;
-        tag = tagDB.at(tftid);
+        tagRecord* tag = tagDB.at(tftid);
         if (tag->pending) {
             String filename = tag->filename;
             fs::File file = contentFS->open(filename);
@@ -83,7 +81,7 @@ void yellow_ap_display_loop(void) {
             void* spriteData = spr.getPointer();
             size_t bytesRead = file.readBytes((char*)spriteData, spr.width() * spr.height() * 2);
             file.close();
-            spr.pushSprite(0,0);
+            spr.pushSprite(0, 0);
 
             struct espXferComplete xfc = {0};
             memcpy(xfc.src, tag->mac, 8);
