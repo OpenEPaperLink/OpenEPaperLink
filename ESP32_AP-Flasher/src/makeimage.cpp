@@ -6,6 +6,7 @@
 #include <web.h>
 
 #include "storage.h"
+#include "leds.h"
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
@@ -64,16 +65,19 @@ struct Color {
 };
 
 struct Error {
-    float r;
-    float g;
-    float b;
+    int32_t r;
+    int32_t g;
+    int32_t b;
 };
 
-uint32_t colorDistance(const Color &c1, const Color &c2, const Error &e1) {
-    int32_t r_diff = c1.r + e1.r - c2.r;
-    int32_t g_diff = c1.g + e1.g - c2.g;
-    int32_t b_diff = c1.b + e1.b - c2.b;
-    return 3 * r_diff * r_diff + 6 * g_diff * g_diff + b_diff * b_diff;
+uint32_t colorDistance(Color &c1, Color &c2, Error &e1) {
+    e1.r = constrain(e1.r, -255, 255);
+    e1.g = constrain(e1.g, -255, 255);
+    e1.b = constrain(e1.b, -255, 255);
+    int32_t r_diff = gamma8[c1.r] + e1.r - gamma8[c2.r];
+    int32_t g_diff = gamma8[c1.g] + e1.g - gamma8[c2.g];
+    int32_t b_diff = gamma8[c1.b] + e1.b - gamma8[c2.b];
+    return 22 * r_diff * r_diff + 50 * g_diff * g_diff + 20 * b_diff * b_diff;
 }
 
 void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t buffer_size, bool is_red) {
@@ -155,9 +159,9 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
 
             if (imageParams.dither) {
                 Error error = {
-                    static_cast<float>(color.r) + error_bufferold[x].r - static_cast<float>(palette[best_color_index].r),
-                    static_cast<float>(color.g) + error_bufferold[x].g - static_cast<float>(palette[best_color_index].g),
-                    static_cast<float>(color.b) + error_bufferold[x].b - static_cast<float>(palette[best_color_index].b)};
+                    color.r + error_bufferold[x].r - palette[best_color_index].r,
+                    color.g + error_bufferold[x].g - palette[best_color_index].g,
+                    color.b + error_bufferold[x].b - palette[best_color_index].b};
 
                 // Burkes Dithering
                 error_buffernew[x].r += error.r / 4.0f;
