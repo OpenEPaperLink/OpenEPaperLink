@@ -102,6 +102,26 @@ void checkVars() {
     }
 }
 
+/// @brief Draw a counter
+/// @param mac Destination mac
+/// @param buttonPressed Was the button pressed (true) or not (false)
+/// @param taginfo Tag information
+/// @param cfgobj Tag config as json object
+/// @param filename Filename
+/// @param imageParams Image parameters
+/// @param nextupdate Next counter update
+/// @param nextCheckin Next tag checkin
+void drawCounter(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo, JsonObject &cfgobj, String &filename, imgParam &imageParams, const uint32_t nextupdate, const uint16_t nextCheckin) {
+    int32_t counter = cfgobj["counter"].as<int32_t>();
+    if (buttonPressed) {
+        counter = 0;
+    }
+    drawNumber(filename, counter, (int32_t)cfgobj["thresholdred"], taginfo, imageParams);
+    taginfo->nextupdate = nextupdate;
+    updateTagImage(filename, mac, (buttonPressed ? 0 : nextCheckin), taginfo, imageParams);
+    cfgobj["counter"] = counter + 1;
+}
+
 void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo) {
     time_t now;
     time(&now);
@@ -117,7 +137,8 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     WiFi.macAddress(wifimac);
     memset(&wifimac[6], 0, 2);
 
-    if ((taginfo->wakeupReason == WAKEUP_REASON_FIRSTBOOT || taginfo->wakeupReason == WAKEUP_REASON_WDT_RESET) && taginfo->contentMode == 0 && memcmp(mac, wifimac, 8) == 0) {
+    const bool isAp = memcmp(mac, wifimac, 8) == 0;
+    if ((taginfo->wakeupReason == WAKEUP_REASON_FIRSTBOOT || taginfo->wakeupReason == WAKEUP_REASON_WDT_RESET) && taginfo->contentMode == 0 && isAp) {
         taginfo->contentMode = 21;
         taginfo->nextupdate = 0;
     }
@@ -126,14 +147,16 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     mac2hex(mac, hexmac);
     String filename = "/" + String(hexmac) + ".raw";
 #ifdef YELLOW_IPS_AP
-    if (memcmp(mac, wifimac, 8) == 0) filename = "direct";
+    if (isAp) {
+        filename = "direct";
+    }
 #endif
 
     struct tm time_info;
     getLocalTime(&time_info);
     time_info.tm_hour = time_info.tm_min = time_info.tm_sec = 0;
     time_info.tm_mday++;
-    time_t midnight = mktime(&time_info);
+    const time_t midnight = mktime(&time_info);
 
     DynamicJsonDocument doc(500);
     deserializeJson(doc, taginfo->modeConfigJson);
@@ -161,20 +184,25 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
     switch (taginfo->contentMode) {
         case 0:  // Image
-
-            if (cfgobj["filename"].as<String>() && cfgobj["filename"].as<String>() != "null" && !cfgobj["#fetched"].as<bool>()) {
-                if (cfgobj["dither"] && cfgobj["dither"] == "1") imageParams.dither = true;
-                jpg2buffer(cfgobj["filename"].as<String>(), filename, imageParams);
-                if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
+        {
+            const String configFilename = cfgobj["filename"].as<String>();
+            if (!configFilename && configFilename != "null" && !cfgobj["#fetched"].as<bool>()) {
+                imageParams.dither = cfgobj["dither"] && cfgobj["dither"] == "1";
+                jpg2buffer(configFilename, filename, imageParams);
+                if (imageParams.hasRed) {
+                    imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
+                }
                 if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
-                    if (cfgobj["delete"].as<String>() == "1") contentFS->remove("/" + cfgobj["filename"].as<String>());
+                    if (cfgobj["delete"].as<String>() == "1") {
+                        contentFS->remove("/" + configFilename);
+                    }
                 } else {
                     wsErr("Error accessing " + filename);
                 }
             }
             taginfo->nextupdate = 3216153600;
-            break;
+        } break;
 
         case 1:  // Today
 
@@ -184,21 +212,11 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
             break;
 
         case 2:  // CountDays
-
-            if (buttonPressed) cfgobj["counter"] = 0;
-            drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo, imageParams);
-            taginfo->nextupdate = midnight;
-            updateTagImage(filename, mac, (buttonPressed ? 0 : 15), taginfo, imageParams);
-            cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
+            drawCounter(mac, buttonPressed, taginfo, cfgobj, filename, imageParams, midnight, 15);
             break;
 
         case 3:  // CountHours
-
-            if (buttonPressed) cfgobj["counter"] = 0;
-            drawNumber(filename, (int32_t)cfgobj["counter"], (int32_t)cfgobj["thresholdred"], taginfo, imageParams);
-            taginfo->nextupdate = now + 3600;
-            updateTagImage(filename, mac, (buttonPressed ? 0 : 5), taginfo, imageParams);
-            cfgobj["counter"] = (int32_t)cfgobj["counter"] + 1;
+            drawCounter(mac, buttonPressed, taginfo, cfgobj, filename, imageParams, now + 3600, 5);
             break;
 
         case 4:  // Weather
@@ -240,13 +258,14 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
         case 7:  // ImageUrl
 
         {
-            int httpcode = getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams, String(hexmac));
+            const int httpcode = getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams, String(hexmac));
+            const int interval = cfgobj["interval"].as<int>();
             if (httpcode == 200) {
-                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
-                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
+                taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
+                updateTagImage(filename, mac, interval, taginfo, imageParams);
                 cfgobj["#fetched"] = now;
             } else if (httpcode == 304) {
-                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
             } else {
                 taginfo->nextupdate = now + 300;
             }
@@ -256,8 +275,9 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
         case 9:  // RSSFeed
 
             if (getRssFeed(filename, cfgobj["url"], cfgobj["title"], taginfo, imageParams)) {
-                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 60 : cfgobj["interval"].as<int>());
-                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
+                const int interval = cfgobj["interval"].as<int>();
+                taginfo->nextupdate = now + 60 * (interval < 3 ? 60 : interval);
+                updateTagImage(filename, mac, interval, taginfo, imageParams);
             } else {
                 taginfo->nextupdate = now + 300;
             }
@@ -273,8 +293,9 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
         case 11:  // Calendar:
 
             if (getCalFeed(filename, cfgobj["apps_script_url"], cfgobj["title"], taginfo, imageParams)) {
-                taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
-                updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
+                const int interval = cfgobj["interval"].as<int>();
+                taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
+                updateTagImage(filename, mac, interval, taginfo, imageParams);
             } else {
                 taginfo->nextupdate = now + 300;
             }
@@ -308,7 +329,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
         case 16:  // buienradar
 
         {
-            uint8_t refresh = drawBuienradar(filename, cfgobj, taginfo, imageParams);
+            const uint8_t refresh = drawBuienradar(filename, cfgobj, taginfo, imageParams);
             taginfo->nextupdate = now + refresh * 60;
             updateTagImage(filename, mac, refresh, taginfo, imageParams);
             break;
@@ -330,22 +351,24 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
         case 19:  // json template
         {
-            if (cfgobj["filename"]) {
-                int result = getJsonTemplateFile(filename, cfgobj["filename"], taginfo, imageParams);
+            const String configFilenam = cfgobj["filename"].as<String>();
+            if (configFilenam) {
+                const int result = getJsonTemplateFile(filename, configFilenam, taginfo, imageParams);
                 if (result) {
                     updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
                 } else {
-                    wsErr("error opening file " + cfgobj["filename"].as<String>());
+                    wsErr("error opening file " + configFilenam);
                 }
                 taginfo->nextupdate = 3216153600;
             } else {
-                int httpcode = getJsonTemplateUrl(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], String(hexmac), taginfo, imageParams);
+                const int httpcode = getJsonTemplateUrl(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], String(hexmac), taginfo, imageParams);
+                const int interval = cfgobj["interval"].as<int>();
                 if (httpcode == 200) {
-                    taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
-                    updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
+                    taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
+                    updateTagImage(filename, mac, interval, taginfo, imageParams);
                     cfgobj["#fetched"] = now;
                 } else if (httpcode == 304) {
-                    taginfo->nextupdate = now + 60 * (cfgobj["interval"].as<int>() < 3 ? 15 : cfgobj["interval"].as<int>());
+                    taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
                 } else {
                     taginfo->nextupdate = now + 600;
                 }
