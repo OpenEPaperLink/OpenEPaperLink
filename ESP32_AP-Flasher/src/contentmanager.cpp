@@ -544,6 +544,8 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
 }
 
 void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo, imgParam &imageParams) {
+    int32_t countTemp = count;
+    count = abs(count);
     if (taginfo->hwType == SOLUM_SEG_UK) {
         imageParams.symbols = 0x00;
         if (count > 19999) {
@@ -570,7 +572,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     spr.setTextDatum(MC_DATUM);
-    if (count > thresholdred) {
+    if (countTemp > thresholdred) {
         spr.setTextColor(TFT_RED, TFT_WHITE);
     } else {
         spr.setTextColor(TFT_BLACK, TFT_WHITE);
