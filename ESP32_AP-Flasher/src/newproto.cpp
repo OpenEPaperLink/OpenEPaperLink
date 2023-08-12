@@ -46,7 +46,7 @@ uint8_t* getDataForFile(fs::File* file) {
     return ret;
 }
 
-void prepareCancelPending(uint8_t dst[8]) {
+void prepareCancelPending(const uint8_t dst[8]) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     sendCancelPending(&pending);
