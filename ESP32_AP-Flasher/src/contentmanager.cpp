@@ -193,7 +193,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
                 if (imageParams.hasRed) {
                     imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                 }
-                if (prepareDataAvail(&filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
+                if (prepareDataAvail(filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
                     if (cfgobj["delete"].as<String>() == "1") {
                         contentFS->remove("/" + configFilename);
@@ -243,7 +243,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
             filename = cfgobj["filename"].as<String>();
             if (!util::isEmptyOrNull(filename) && !cfgobj["#fetched"].as<bool>()) {
-                if (prepareDataAvail(&filename, DATATYPE_FW_UPDATE, mac, cfgobj["timetolive"].as<int>())) {
+                if (prepareDataAvail(filename, DATATYPE_FW_UPDATE, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
                 } else {
                     wsErr("Error accessing " + filename);
@@ -395,7 +395,7 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
         sendAPSegmentedData(dst, (String)imageParams.segments, imageParams.symbols, imageParams.invert, (taginfo->isExternal == false));
     } else {
         if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
-        prepareDataAvail(&filename, imageParams.dataType, dst, nextCheckin);
+        prepareDataAvail(filename, imageParams.dataType, dst, nextCheckin);
     }
     return true;
 }

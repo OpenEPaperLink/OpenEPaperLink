@@ -40,7 +40,7 @@ struct espSetChannelPower curChannel = {0, 11, 10};
 volatile uint32_t lastAPActivity = 0;
 struct APInfoS apInfo;
 
-extern uint8_t* getDataForFile(File* file);
+extern uint8_t* getDataForFile(File& file);
 
 struct rxCmd {
     uint8_t* data;
@@ -207,16 +207,16 @@ bool sendDataAvail(struct pendingData* pending) {
         for (uint8_t c = 0; c < sizeof(struct pendingData); c++) {
             AP_SERIAL_PORT.write(((uint8_t*)pending)[c]);
         }
-        if (waitCmdReply()) goto sdasend;
+        if (waitCmdReply()) {
+            txEnd();
+            return true;
+        }
         Serial.printf("SDA send failed in try %d\n", attempt);
         delay(200);
     }
     Serial.print("SDA failed to send...\n");
     txEnd();
     return false;
-sdasend:
-    txEnd();
-    return true;
 }
 bool sendCancelPending(struct pendingData* pending) {
     if (!apInfo.isOnline) return false;
@@ -228,15 +228,15 @@ bool sendCancelPending(struct pendingData* pending) {
         for (uint8_t c = 0; c < sizeof(struct pendingData); c++) {
             AP_SERIAL_PORT.write(((uint8_t*)pending)[c]);
         }
-        if (waitCmdReply()) goto cxdsent;
+        if (waitCmdReply()) {
+            txEnd();
+            return true;
+        }
         Serial.printf("CXD send failed in try %d\n", attempt);
     }
     Serial.print("CXD failed to send...\n");
     txEnd();
     return false;
-cxdsent:
-    txEnd();
-    return true;
 }
 bool sendChannelPower(struct espSetChannelPower* scp) {
     if ((apInfo.state != AP_STATE_ONLINE) && (apInfo.state != AP_STATE_COMING_ONLINE)) return false;
@@ -248,41 +248,41 @@ bool sendChannelPower(struct espSetChannelPower* scp) {
         for (uint8_t c = 0; c < sizeof(struct espSetChannelPower); c++) {
             AP_SERIAL_PORT.write(((uint8_t*)scp)[c]);
         }
-        if (waitCmdReply()) goto scpSent;
+        if (waitCmdReply()) {
+            txEnd();
+            return true;
+        }
         Serial.printf("SCP send failed in try %d\n", attempt);
     }
     Serial.print("SCP failed to send...\n");
     txEnd();
     return false;
-scpSent:
-    txEnd();
-    return true;
 }
 bool sendPing() {
     if (!txStart()) return false;
     for (uint8_t attempt = 0; attempt < 5; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
         AP_SERIAL_PORT.print("RDY?");
-        if (waitCmdReply()) goto pingSent;
+        if (waitCmdReply()) {
+            txEnd();
+            return true;
+        }
     }
     txEnd();
     return false;
-pingSent:
-    txEnd();
-    return true;
 }
 bool sendGetInfo() {
     if (!txStart()) return false;
     for (uint8_t attempt = 0; attempt < 5; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
         AP_SERIAL_PORT.print("NFO?");
-        if (waitCmdReply()) goto nfoRequested;
+        if (waitCmdReply()) {
+            txEnd();
+            return true;
+        }
     }
     txEnd();
     return false;
-nfoRequested:
-    txEnd();
-    return true;
 }
 
 // add RX'd request from the AP to the processor queue
