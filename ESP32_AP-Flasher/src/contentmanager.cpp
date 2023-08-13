@@ -792,8 +792,8 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     // https://www.nu.nl/rss/Algemeen
 
     const char *url = URL.c_str();
-    const char *tag = "title";
-    const int rssArticleSize = 128;
+    constexpr const char *tag = "title";
+    constexpr const int rssArticleSize = 128;
 
     TFT_eSprite spr = TFT_eSprite(&tft);
     U8g2_for_TFT_eSPI u8f;
@@ -856,7 +856,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     time(&now);
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
-    static char dateString[40];
+    char dateString[40];
     strftime(dateString, sizeof(dateString), "%d.%m.%Y", &timeinfo);
 
     HTTPClient http;
@@ -1143,7 +1143,7 @@ uint16_t getColor(const String &color) {
     return TFT_WHITE;
 }
 
-char *formatHttpDate(time_t t) {
+char *formatHttpDate(const time_t t) {
     static char buf[40];
     struct tm *timeinfo;
     timeinfo = localtime(&t);                 // Get the local time
@@ -1154,7 +1154,7 @@ char *formatHttpDate(time_t t) {
 }
 
 String urlEncode(const char *msg) {
-    static const char *hex = "0123456789ABCDEF";
+    constexpr const char *hex = "0123456789ABCDEF";
     String encodedMsg = "";
 
     while (*msg != '\0') {
@@ -1172,8 +1172,8 @@ String urlEncode(const char *msg) {
 }
 
 int windSpeedToBeaufort(const float windSpeed) {
-    constexpr static const float speeds[] = {0.3, 1.5, 3.3, 5.5, 8, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7};
-    constexpr static const int numSpeeds = sizeof(speeds) / sizeof(speeds[0]);
+    constexpr const float speeds[] = {0.3, 1.5, 3.3, 5.5, 8, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7};
+    constexpr const int numSpeeds = sizeof(speeds) / sizeof(speeds[0]);
     int beaufort = 0;
     for (int i = 0; i < numSpeeds; i++) {
         if (windSpeed >= speeds[i]) {
@@ -1184,7 +1184,7 @@ int windSpeedToBeaufort(const float windSpeed) {
 }
 
 String windDirectionIcon(const int degrees) {
-    static const String directions[] = {"\uf044", "\uf043", "\uf048", "\uf087", "\uf058", "\uf057", "\uf04d", "\uf088"};
+    const String directions[] = {"\uf044", "\uf043", "\uf048", "\uf087", "\uf058", "\uf057", "\uf04d", "\uf088"};
     int index = (degrees + 22) / 45;
     if (index >= 8) {
         index = 0;
@@ -1234,8 +1234,8 @@ void prepareNFCReq(const uint8_t *dst, const char *url) {
 }
 
 void prepareLUTreq(const uint8_t *dst, const String &input) {
-    const char *delimiters = ", \t";
-    const int maxValues = 76;
+    constexpr const char *delimiters = ", \t";
+    constexpr const int maxValues = 76;
     uint8_t waveform[maxValues];
     char *ptr = strtok(const_cast<char *>(input.c_str()), delimiters);
     int i = 0;
@@ -1269,7 +1269,7 @@ void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
     StaticJsonDocument<2048> doc;
 
     const String idstr = String(id);
-    const char *templateKey = "template";
+    constexpr const char *templateKey = "template";
 
     char filename[20];
     snprintf(filename, sizeof(filename), "/tagtypes/%02X.json", hwtype);
