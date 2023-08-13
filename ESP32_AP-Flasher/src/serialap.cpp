@@ -538,6 +538,15 @@ void ShowAPInfo() {
     Serial.printf("| Power|               %02X |\n", apInfo.power);
     Serial.printf("| MAC  | %02X%02X%02X%02X%02X%02X%02X%02X |\n", apInfo.mac[7], apInfo.mac[6], apInfo.mac[5], apInfo.mac[4], apInfo.mac[3], apInfo.mac[2], apInfo.mac[1], apInfo.mac[0]);
     Serial.printf("| Ver  |           0x%04X |\n", apInfo.version);
+
+    if (apInfo.type == SOLUM_154_SSD1619 || apInfo.type == SOLUM_29_SSD1619 || apInfo.type == SOLUM_29_UC8151 || apInfo.type == 0xE0) {
+            tagRecord* taginfo = nullptr;
+            taginfo = tagRecord::findByMAC(apInfo.mac);
+            if (taginfo != nullptr) {
+                taginfo->contentMode = 21;
+                taginfo->nextupdate = 0;
+            }
+    }
 }
 
 void notifySegmentedFlash() {
