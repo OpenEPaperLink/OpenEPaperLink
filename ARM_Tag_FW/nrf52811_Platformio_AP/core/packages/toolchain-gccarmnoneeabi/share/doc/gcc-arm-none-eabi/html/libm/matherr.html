@@ -1,0 +1,172 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Created by GNU Texinfo 5.2, http://www.gnu.org/software/texinfo/ -->
+<head>
+<title>LIBM: matherr</title>
+
+<meta name="description" content="LIBM: matherr">
+<meta name="keywords" content="LIBM: matherr">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link href="index.html#Top" rel="start" title="Top">
+<link href="Document-Index.html#Document-Index" rel="index" title="Document Index">
+<link href="Document-Index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Math.html#Math" rel="up" title="Math">
+<link href="modf.html#modf" rel="next" title="modf">
+<link href="lround.html#lround" rel="prev" title="lround">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.smallquotation {font-size: smaller}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.indentedblock {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+div.smalldisplay {margin-left: 3.2em}
+div.smallexample {margin-left: 3.2em}
+div.smallindentedblock {margin-left: 3.2em; font-size: smaller}
+div.smalllisp {margin-left: 3.2em}
+kbd {font-style:oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+pre.smalldisplay {font-family: inherit; font-size: smaller}
+pre.smallexample {font-size: smaller}
+pre.smallformat {font-family: inherit; font-size: smaller}
+pre.smalllisp {font-size: smaller}
+span.nocodebreak {white-space:nowrap}
+span.nolinebreak {white-space:nowrap}
+span.roman {font-family:serif; font-weight:normal}
+span.sansserif {font-family:sans-serif; font-weight:normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en" bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#800080" alink="#FF0000">
+<a name="matherr"></a>
+<div class="header">
+<p>
+Next: <a href="modf.html#modf" accesskey="n" rel="next">modf</a>, Previous: <a href="lround.html#lround" accesskey="p" rel="prev">lround</a>, Up: <a href="Math.html#Math" accesskey="u" rel="up">Math</a> &nbsp; [<a href="Document-Index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Document-Index.html#Document-Index" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<a name="matherr_002d_002d_002dmodifiable-math-error-handler"></a>
+<h3 class="section">1.41 <code>matherr</code>&mdash;modifiable math error handler</h3>
+<a name="index-matherr"></a>
+<p><strong>Synopsis</strong>
+</p><div class="example">
+<pre class="example">#include &lt;math.h&gt;
+int matherr(struct exception *<var>e</var>);
+
+</pre></div>
+<p><strong>Description</strong><br>
+<code>matherr</code> is called whenever a math library function generates an error.
+You can replace <code>matherr</code> by your own subroutine to customize
+error treatment.  The customized <code>matherr</code> must return 0 if
+it fails to resolve the error, and non-zero if the error is resolved.
+</p>
+<p>When <code>matherr</code> returns a nonzero value, no error message is printed
+and the value of <code>errno</code> is not modified.  You can accomplish either
+or both of these things in your own <code>matherr</code> using the information
+passed in the structure <code>*<var>e</var></code>.
+</p>
+<p>This is the <code>exception</code> structure (defined in &lsquo;<code>math.h</code>&rsquo;):
+</p><div class="smallexample">
+<pre class="smallexample">	struct exception {
+	        int type;
+	        char *name;
+	        double arg1, arg2, retval;
+		int err;
+	};
+</pre></div>
+
+<p>The members of the exception structure have the following meanings:
+</p><dl compact="compact">
+<dt><code>type</code></dt>
+<dd><p>The type of mathematical error that occured; macros encoding error
+types are also defined in &lsquo;<code>math.h</code>&rsquo;.
+</p>
+</dd>
+<dt><code>name</code></dt>
+<dd><p>a pointer to a null-terminated string holding the
+name of the math library function where the error occurred.
+</p>
+</dd>
+<dt><code>arg1, arg2</code></dt>
+<dd><p>The arguments which caused the error.
+</p>
+</dd>
+<dt><code>retval</code></dt>
+<dd><p>The error return value (what the calling function will return).
+</p>
+</dd>
+<dt><code>err</code></dt>
+<dd><p>If set to be non-zero, this is the new value assigned to <code>errno</code>.
+</p></dd>
+</dl>
+
+
+<p>The error types defined in &lsquo;<code>math.h</code>&rsquo; represent possible mathematical
+errors as follows:
+</p>
+<dl compact="compact">
+<dt><code>DOMAIN</code></dt>
+<dd><p>An argument was not in the domain of the function; e.g. <code>log(-1.0)</code>.
+</p>
+</dd>
+<dt><code>SING</code></dt>
+<dd><p>The requested calculation would result in a singularity; e.g. <code>pow(0.0,-2.0)</code>
+</p>
+</dd>
+<dt><code>OVERFLOW</code></dt>
+<dd><p>A calculation would produce a result too large to represent; e.g.
+<code>exp(1000.0)</code>. 
+</p>
+</dd>
+<dt><code>UNDERFLOW</code></dt>
+<dd><p>A calculation would produce a result too small to represent; e.g.
+<code>exp(-1000.0)</code>. 
+</p>
+</dd>
+<dt><code>TLOSS</code></dt>
+<dd><p>Total loss of precision.  The result would have no significant digits;
+e.g. <code>sin(10e70)</code>. 
+</p>
+</dd>
+<dt><code>PLOSS</code></dt>
+<dd><p>Partial loss of precision.
+</p></dd>
+</dl>
+
+
+<br>
+<p><strong>Returns</strong><br>
+The library definition for <code>matherr</code> returns <code>0</code> in all cases.
+</p>
+<p>You can change the calling function&rsquo;s result from a customized <code>matherr</code>
+by modifying <code>e-&gt;retval</code>, which propagates backs to the caller.
+</p>
+<p>If <code>matherr</code> returns <code>0</code> (indicating that it was not able to resolve
+the error) the caller sets <code>errno</code> to an appropriate value, and prints
+an error message.
+</p>
+<br>
+<p><strong>Portability</strong><br>
+<code>matherr</code> is not ANSI C.  
+</p>
+<br>
+<hr>
+<div class="header">
+<p>
+Next: <a href="modf.html#modf" accesskey="n" rel="next">modf</a>, Previous: <a href="lround.html#lround" accesskey="p" rel="prev">lround</a>, Up: <a href="Math.html#Math" accesskey="u" rel="up">Math</a> &nbsp; [<a href="Document-Index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Document-Index.html#Document-Index" title="Index" rel="index">Index</a>]</p>
+</div>
+
+
+
+</body>
+</html>

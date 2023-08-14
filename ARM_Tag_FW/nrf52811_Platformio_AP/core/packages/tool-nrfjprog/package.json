@@ -1,0 +1,15 @@
+{
+  "name": "tool-nrfjprog",
+  "version": "1.90702.1",
+  "description": "nRFx command line tools",
+  "keywords": [
+    "tools",
+    "uploader",
+    "nordic semiconductor"
+  ],
+  "homepage": "https://www.nordicsemi.com/Software-and-tools/Development-Tools/nRF-Command-Line-Tools",
+  "system": [
+    "windows_x86",
+    "windows_amd64"
+  ]
+}

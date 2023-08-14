@@ -1,0 +1,28 @@
+jlink.name=J-Link
+jlink.communication=USB
+jlink.protocol=jlink
+jlink.program.protocol=jlink
+jlink.program.tool=openocd
+jlink.program.setup_command=transport select swd; set WORKAREASIZE 0;
+
+stlink.name=ST-Link V2
+stlink.communication=USB
+stlink.protocol=stlink-v2
+stlink.program.protocol=stlink-v2
+stlink.program.tool=openocd
+stlink.program.setup_command=transport select hla_swd; set WORKAREASIZE 0x4000;
+
+cmsisdap.name=CMSIS-DAP
+cmsisdap.communication=USB
+cmsisdap.protocol=cmsis-dap
+cmsisdap.program.protocol=cmsis-dap
+cmsisdap.program.tool=openocd
+cmsisdap.program.setup_command=;
+
+blackmagicprobe.name=Black Magic Probe (GDB)
+blackmagicprobe.communication=USB
+blackmagicprobe.protocol=
+blackmagicprobe.program.protocol=
+blackmagicprobe.program.tool=blackmagicprobe
+blackmagicprobe.bootloader.tool=sandeepmistry:blackmagicprobe
+blackmagicprobe.program.extra_params=;

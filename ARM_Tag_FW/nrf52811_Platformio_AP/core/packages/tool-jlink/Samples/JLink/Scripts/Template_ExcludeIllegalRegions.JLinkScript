@@ -1,0 +1,53 @@
+/*********************************************************************
+*                   (c) SEGGER Microcontroller GmbH                  *
+*                        The Embedded Experts                        *
+*                           www.segger.com                           *
+**********************************************************************
+
+-------------------------- END-OF-HEADER -----------------------------
+
+File    : Template_ExcludeIllegalRegions.JLinkScript
+Purpose : Script which shows how to exclude specific memory regions
+Literature:
+  [1]  J-Link User Guide
+
+Additional information:
+  For more information about public functions that can be implemented in order to customize J-Link actions, please refer to [1]
+*/
+
+/*********************************************************************
+*
+*       Global functions
+*
+**********************************************************************
+*/
+/*********************************************************************
+*
+*       ConfigTargetSettings()
+*
+*  Function description
+*    Called before InitTarget(). Mainly used to set some global DLL variables to customize the
+*    normal connect procedure. For ARM CoreSight devices this may be specifying the base
+*    address of some CoreSight components (ETM, ...) that cannot be auto-detected by J-Link
+*    due to erroneous ROM tables etc. May also be used to specify the device name in case
+*    debugger does not pass it to the DLL.
+*
+*  Return value
+*    >= 0:  O.K.
+*     < 0:  Error
+*
+*  Notes
+*    (1)May not, under absolutely NO circumstances, call any API functions that perform target communication.
+*    (2)Should only set some global DLL variables.
+*/
+int ConfigTargetSettings(void) {
+  //
+  // The map region command can be used to exclude certain memory region(s).
+  // The J-Link DLL will ignore all read / write accesses to the specified region(s).
+  // This can be used if an IDE for example accesses an illegal memory address for some reason.
+  //
+  JLINK_ExecCommand("map region 0xC0000000-0xC000FFFF X");
+  return 0;
+}
+
+/*************************** end of file ****************************/

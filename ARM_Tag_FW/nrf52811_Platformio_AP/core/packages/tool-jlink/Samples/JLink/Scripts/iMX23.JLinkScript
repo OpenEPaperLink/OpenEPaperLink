@@ -1,0 +1,28 @@
+/*********************************************************************
+*                    SEGGER Microcontroller GmbH                     *
+*       Solutions for real time microcontroller applications         *
+**********************************************************************
+*                                                                    *
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                                                                    *
+*       www.segger.com     Support: support@segger.com               *
+*                                                                    *
+**********************************************************************
+----------------------------------------------------------------------
+File    : TMS570.JLinkScript
+Purpose : J-Link target setup file for Freescale iMX23.
+---------------------------END-OF-HEADER------------------------------
+*/
+
+/*********************************************************************
+*
+*       InitTarget
+*/
+void InitTarget(void) {
+  Report("iMX23 (ARM926EJ-S core) J-Link script");
+  JTAG_ResetPin = 0;
+  SYS_Sleep(50);
+  JTAG_ResetPin = 1;
+  SYS_Sleep(400);            // We need to wait for 400 ms
+  JTAG_AllowTAPReset=1;
+}

@@ -1,0 +1,93 @@
+Release notes for
+*************************************************
+GNU Tools for Arm Embedded Processors 7
+                               - Q4 2017
+*************************************************
+
+This release includes the following items:
+* Bare metal EABI pre-built binaries for running on a Windows host
+* Bare metal EABI pre-built binaries for running on a Linux host
+* Bare metal EABI pre-built binaries for running on a Mac OS X host
+* Source code package (together with build scripts and instructions to setup
+  build environment), composed of:
+
+  * gcc : ARM/embedded-7-branch revision 255204
+    svn://gcc.gnu.org/svn/gcc/branches/ARM/embedded-7-branch/
+
+  * binutils : 2.29 mainline
+    git://sourceware.org/git/binutils-gdb.git commit b23dc97fe237a1d9e850d7cbeee066183a00630b
+
+  * newlib and newlib-nano :
+    git://sourceware.org/git/newlib-cygwin.git commit 76bd5cab331a873ac422fdcb7ba5fe79abea94f0
+
+  * gdb : 8.0 mainline
+    git://sourceware.org/git/binutils-gdb.git commit b23dc97fe237a1d9e850d7cbeee066183a00630b
+
+Note that some or all of the following prerequisites are downloaded when
+building from source:
+
+  * EnvVarUpdate NSIS script :
+    http://nsis.sourceforge.net/mediawiki/images/a/ad/EnvVarUpdate.7z
+
+  * expat 2.1.1 :
+    http://jaist.dl.sourceforge.net/project/expat/expat/2.1.1/expat-2.1.1.tar.bz2
+
+  * gmp 6.1.0 : ftp://gcc.gnu.org/pub/gcc/infrastructure/gmp-6.1.0.tar.bz2
+
+  * isl 0.15 : ftp://gcc.gnu.org/pub/gcc/infrastructure/isl-0.15.tar.bz2
+
+  * libelf 0.8.13 : http://www.mr511.de/software/libelf-0.8.13.tar.gz
+
+  * libiconv 1.14 :
+    http://ftp.gnu.org/gnu/libiconv/libiconv-1.14.tar.gz
+
+  * mpc 1.0.3 : ftp://gcc.gnu.org/pub/gcc/infrastructure/mpc-1.0.3.tar.gz
+
+  * mpfr 3.1.4 : ftp://gcc.gnu.org/pub/gcc/infrastructure/mpfr-3.1.4.tar.bz2
+
+  * python 2.7.13 : https://www.python.org/ftp/python/2.7.13/python-2.7.13.msi
+
+  * zlib 1.2.8
+    http://sourceforge.net/projects/libpng/files/zlib/1.2.8/zlib-1.2.8.tar.gz/download
+
+Minimum host requirements:
+* Windows 7 32/64 bits or later (with installer and alternative zip package)
+* Linux
+  - Ubuntu 14.04 64 bits or later (tarball)
+  - Ubuntu supported releases 32 bits and 64 bits (PPA)
+    https://www.ubuntu.com/info/release-end-of-life
+  - RHEL 7 64 bits (tarball)
+* Mac OS X 10.7.3 and newer 64 bits (tarball)
+
+Supported target OS:
+* Bare metal EABI only
+
+Features:
+* All GCC 7 features, plus latest mainline features:
+  + Armv8-R and Arm Cortex-R52 support
+
+Tests:
+* Targets
+  + variety of Cortex-M0/M0+/M3/M4/M7/A9 boards
+  + Qemu
+  + Arm Fast Models
+* Hosts
+  + Windows 7 32/64 bits (with installer and alternative zip package)
+  + Linux 64 bits
+    - Ubuntu 14.04 and 16.04 (tarball and PPA)
+    - RHEL 7 (tarball)
+  + Mac OS X 10.7.3 (tarball)
+
+Important changes in 7 release:
+* Armv8-R and Arm Cortex-R52 support
+* Fix for https://gcc.gnu.org/bugzilla/show_bug.cgi?id=69866
+* GDB built with C++ enabled for Mac OS X
+
+Known Changes and Issues:
+* Thumb1 code size regression due to new register allocation:
+  https://gcc.gnu.org/bugzilla/show_bug.cgi?id=59535
+* Multilib is now enabled with --with-multilib-list=rmprofile when building the
+  toolchain from source
+* Windows installer now accepts the following options when running in silent mode:
+  - /P Adds the installation bin directory to the system PATH
+  - /R Adds an InstallFolder registry entry for the install.

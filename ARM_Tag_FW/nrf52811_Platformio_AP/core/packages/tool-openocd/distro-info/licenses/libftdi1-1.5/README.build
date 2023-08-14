@@ -1,0 +1,96 @@
+Here is a short tutorial on how to build libftdi git under
+Ubuntu 12.10, But it is similar on other Linux distros.
+
+1) Install the build tools
+sudo apt-get install build-essential (yum install make automake gcc gcc-c++ kernel-devel)
+sudo apt-get install git-core (yum install git)
+sudo apt-get install cmake (yum install cmake)
+sudo apt-get install doxygen (for building documentations) (yum install doxygen)
+
+2) Install dependencies
+sudo apt-get install libusb-1.0-devel (yum install libusb-devel)
+(if the system comes with older version like 1.0.8 or
+earlier, it is recommended you build libusbx-1.0.14 or later).
+
+sudo apt-get install libconfuse-dev (for ftdi-eeprom) (yum install libconfuse-devel)
+sudo apt-get install swig python-dev (for python bindings) (yum install swig python-devel)
+sudo apt-get install libboost-all-dev (for C++ binding and unit test) (yum install boost-devel)
+
+3) Clone the git repository
+mkdir libftdi
+cd libftdi
+git clone git://developer.intra2net.com/libftdi
+
+If you are building the release tar ball, just extract the source
+tar ball.
+
+4) Build the git source and install
+cd libftdi
+mkdir build
+cd build
+cmake  -DCMAKE_INSTALL_PREFIX="/usr" ../
+make
+sudo make install
+
+5) carry out some tests
+cd examples
+
+mcuee@Ubuntu1210VM:~/Desktop/build/libftdi/libftdi/build/examples$
+./find_all_pp  -v 0x0403 -p 0x6001
+Found devices ( VID: 0x403, PID: 0x6001 )
+------------------------------------------------
+FTDI (0x8730800): ftdi, usb serial converter, ftDEH51S (Open OK)
+FTDI (0x8730918): FTDI, FT232R USB UART, A8007Ub5 (Open OK)
+
+mcuee@Ubuntu1210VM:~/Desktop/build/libftdi/libftdi/build/examples$ ./eeprom
+2 FTDI devices found: Only Readout on EEPROM done. Use
+VID/PID/desc/serial to select device
+Decoded values of device 1:
+Chip type 1 ftdi_eeprom_size: 128
+0x000: 00 00 03 04 01 60 00 04  a0 16 08 00 10 01 94 0a .....`.. ........
+0x010: 9e 2a c8 12 0a 03 66 00  74 00 64 00 69 00 2a 03 .*....f. t.d.i.*.
+0x020: 75 00 73 00 62 00 20 00  73 00 65 00 72 00 69 00 u.s.b. . s.e.r.i.
+0x030: 61 00 6c 00 20 00 63 00  6f 00 6e 00 76 00 65 00 a.l. .c. o.n.v.e.
+0x040: 72 00 74 00 65 00 72 00  12 03 66 00 74 00 44 00 r.t.e.r. ..f.t.D.
+0x050: 45 00 48 00 35 00 31 00  53 00 02 03 00 00 00 00 E.H.5.1. S.......
+0x060: 00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ........ ........
+0x070: 00 00 00 00 00 00 00 00  00 00 00 00 01 00 16 02 ........ ........
+VID:     0x0403
+PID:     0x6001
+Release: 0x0400
+Bus Powered:  44 mA USB Remote Wake Up
+Manufacturer: ftdi
+Product:      usb serial converter
+Serial:       ftDEH51S
+Checksum      : 0216
+Enable Remote Wake Up
+PNP: 1
+Decoded values of device 2:
+Chip type 3 ftdi_eeprom_size: 128
+0x000: 00 40 03 04 01 60 00 00  a0 2d 08 00 00 00 98 0a .@...`.. .-......
+0x010: a2 20 c2 12 23 10 05 00  0a 03 46 00 54 00 44 00 . ..#... ..F.T.D.
+0x020: 49 00 20 03 46 00 54 00  32 00 33 00 32 00 52 00 I. .F.T. 2.3.2.R.
+0x030: 20 00 55 00 53 00 42 00  20 00 55 00 41 00 52 00  .U.S.B.  .U.A.R.
+0x040: 54 00 12 03 41 00 38 00  30 00 30 00 37 00 55 00 T...A.8. 0.0.7.U.
+0x050: 62 00 35 00 c9 bf 1c 80  00 00 00 00 00 00 00 00 b.5..... ........
+0x060: 00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ........ ........
+0x070: 00 00 00 00 00 00 00 00  00 00 00 00 00 00 0f 23 ........ .......#
+0x080: 2c 04 d3 fb 00 00 c9 bf  1c 80 42 00 00 00 00 00 ,....... ..B.....
+0x090: 00 00 00 00 00 00 00 00  38 41 32 52 4a 33 47 4f ........ 8A2RJ3GO
+VID:     0x0403
+PID:     0x6001
+Release: 0x0000
+Bus Powered:  90 mA USB Remote Wake Up
+Manufacturer: FTDI
+Product:      FT232R USB UART
+Serial:       A8007Ub5
+Checksum      : 230f
+Internal EEPROM
+Enable Remote Wake Up
+PNP: 1
+Channel A has Mode UART VCP
+C0 Function: TXLED
+C1 Function: RXLED
+C2 Function: TXDEN
+C3 Function: PWREN
+C4 Function: SLEEP

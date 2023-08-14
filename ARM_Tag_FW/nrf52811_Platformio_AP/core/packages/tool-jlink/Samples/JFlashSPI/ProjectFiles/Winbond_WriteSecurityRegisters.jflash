@@ -1,0 +1,114 @@
+  AppVersion = 50306
+[GENERAL]
+  ConnectMode = 0
+  CurrentFile = ""
+  DataFileSAddr = 0x00000000
+  GUIMode = 0
+  HostName = ""
+  USBPort = 0
+  USBSerialNo = 0x00000000
+[JTAG]
+  Speed0 = 4000
+  Speed1 = 4000
+[FLASH]
+  AutoDetect = 0x00000001
+  NumPages = 0x00002000
+  PageSizeShift = 0x00000008
+  SectorSizeShift = 0x0000000C
+[CPU]
+  //
+  // Set WE
+  //
+  ExitStep0_Action = "Activate CS"
+  ExitStep0_Comment = "Activate CS"
+  ExitStep0_Value0 = 0x00000000
+  ExitStep0_Value1 = 0x00000000
+  ExitStep1_Action = "Write Data"
+  ExitStep1_Comment = "Set write enable"
+  ExitStep1_Value0 = 1
+  ExitStep1_Value1[1] = 0x06
+  ExitStep2_Action = "Deactivate CS"
+  ExitStep2_Comment = "Deactivate CS"
+  ExitStep2_Value0 = 0x00000000
+  ExitStep2_Value1 = 0x00000000
+  //
+  // Set Erase security register 1
+  //
+  ExitStep3_Action = "Activate CS"
+  ExitStep3_Comment = "Activate CS"
+  ExitStep3_Value0 = 0x00000000
+  ExitStep3_Value1 = 0x00000000
+  ExitStep4_Action = "Write Data"
+  ExitStep4_Comment = "Erase sec reg 1"
+  ExitStep4_Value0 = 4
+  ExitStep4_Value1[4] = 0x44,0x00,0x10,0x00
+  ExitStep5_Action = "Deactivate CS"
+  ExitStep5_Comment = "Deactivate CS"
+  ExitStep5_Value0 = 0x00000000
+  ExitStep5_Value1 = 0x00000000
+  ExitStep6_Action = "Delay"
+  ExitStep6_Comment = "Wait until sec reg 1 has been erased"
+  ExitStep6_Value0 = 200
+  ExitStep6_Value1 = 0
+  //
+  // Set WE
+  //
+  ExitStep7_Action = "Activate CS"
+  ExitStep7_Comment = "Activate CS"
+  ExitStep7_Value0 = 0x00000000
+  ExitStep7_Value1 = 0x00000000
+  ExitStep8_Action = "Write Data"
+  ExitStep8_Comment = "Set write enable"
+  ExitStep8_Value0 = 1
+  ExitStep8_Value1[1] = 0x06
+  ExitStep9_Action = "Deactivate CS"
+  ExitStep9_Comment = "Deactivate CS"
+  ExitStep9_Value0 = 0x00000000
+  ExitStep9_Value1 = 0x00000000
+  //
+  // Program security register
+  //
+  ExitStep10_Action = "Activate CS"
+  ExitStep10_Comment = "Activate CS"
+  ExitStep10_Value0 = 0x00000000
+  ExitStep10_Value1 = 0x00000000
+  ExitStep11_Action = "Write Data"
+  ExitStep11_Comment = "Program sec reg 1"
+  ExitStep11_Value0 = 4
+  ExitStep11_Value1[4] = 0x42,0x00,0x10,0x00
+  ExitStep12_Action = "Write Data"
+  ExitStep12_Comment = "Program sec reg 1_1"
+  ExitStep12_Value0 = 16
+  ExitStep12_Value1[16] = 0x89,0x98,0x28,0x00,0x00,0x00,0x08,0x21,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+  ExitStep13_Action = "Write Data"
+  ExitStep13_Comment = "Program sec reg 1_2"
+  ExitStep13_Value0 = 16
+  ExitStep13_Value1[16] = 0x00,0x00,0x00,0x00,0x00,0x80,0x13,0x21,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+  ExitStep14_Action = "Write Data"
+  ExitStep14_Comment = "Program sec reg 1_3"
+  ExitStep14_Value0 = 16
+  ExitStep14_Value1[16] = 0x00,0x00,0x00,0x00,0xb8,0xbd,0xb9,0xbd,0x00,0x00,0x00,0x00,0xcf,0x88,0x00,0x00
+  ExitStep15_Action = "Deactivate CS"
+  ExitStep15_Comment = "Deactivate CS"
+  ExitStep15_Value0 = 0x00000000
+  ExitStep15_Value1 = 0x00000000
+  ExitStep16_Action = "Delay"
+  ExitStep16_Comment = "Wait until sec reg 1 has been programmed"
+  ExitStep16_Value0 = 200
+  ExitStep16_Value1 = 0
+  NumExitSteps = 16
+[SPI]
+  AddrBytesEraseSector = 0x03
+  AddrBytesReadData = 0x03
+  AddrBytesReadFast = 0x03
+  AddrBytesWritePage = 0x03
+  CmdEraseBulk = 0xC7
+  CmdEraseSector = 0xD8
+  CmdReadData = 0x03
+  CmdReadFast = 0x0B
+  CmdReadID = 0x9F
+  CmdReadStatus = 0x05
+  CmdWriteDisable = 0x04
+  CmdWriteEnable = 0x06
+  CmdWritePage = 0x02
+  CmdWriteStatus = 0x01

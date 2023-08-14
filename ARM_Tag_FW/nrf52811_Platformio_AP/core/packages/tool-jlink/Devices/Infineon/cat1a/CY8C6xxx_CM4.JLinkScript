@@ -1,0 +1,1076 @@
+/*********************************************************************
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                        The Embedded Experts                        *
+*                           www.segger.com                           *
+**********************************************************************
+
+-------------------------- END-OF-HEADER -----------------------------
+
+File    : CY8C6xxx_CM0p_tm.JLinkScript
+Purpose : J-Link script file for Infineon PSoC6A-1M/2M/512K/256K (CY8C6xxx)
+Literature:
+  [1] J-Link User Guide
+  [2] PSoC™ 6 MCU Programming Specifications (Document Number: 002-15554 https://www.infineon.com/dgdl/Infineon-PSoC_6_Programming_Specifications-Programming+Specifications-v12_00-EN.pdf?fileId=8ac78c8c7d0d8da4017d0f66d9bf5627)
+
+Additional information:
+  For more information about public functions that can be implemented in order to customize J-Link actions, please refer to [1]
+*/
+
+/*********************************************************************
+*       Constants (similar to defines)
+**********************************************************************
+*/
+
+/* Trace pins set for connected board */
+__constant U8 _TPINS_CY8CKIT_062_WIFI_BT    = 1;
+__constant U8 _TPINS_CY8CKIT_062S2_43012    = 2;
+__constant U8 _TPINS_VARIANT                = 0;
+
+/* Misc */
+__constant int _STATUS_OK                   = 0;  // Function return status: O.K.
+__constant int _STATUS_ERR                  = -1; // Function return status: Error
+__constant U8 _DEBUG_VERBOSE                = 0;  // Log or push to SWD the debug information and error status
+
+/* --- AP/DP registers --- */
+__constant U32 _ACC_DP                      = 0;  // APnDP for DP access
+__constant U32 _ACC_AP                      = 1;  // APnDP for AP access
+__constant U32 _AP_SELECT_APSEL_RSH         = 24; // AP->SELECT.APSEL (bits[31:24], 0xFF000000): Selects an AP
+
+/* ROM table defines */
+__constant U32 _BASE_ADDR_MASK              = 0xFFFFF000;
+__constant U32 _BASE_FORMAT_MASK            = 0x00000003;
+__constant U32 _PIDR0_ADDR                  = 0x00000FE0;
+__constant U32 _PIDR4_ADDR                  = 0x00000FD0;
+__constant U32 _PIDR_0_3_VALID_MASK         = 0x000FF000;
+__constant U32 _PIDR_0_3_VALID_VAL          = 0x000B4000;
+__constant U32 _FAMILY_ID_MASK              = 0x00000FFF;
+
+/* PSoC® 6 MCU definitions */
+__constant U32 _AP_SYS                      = 0; // AP[0]  SYS-AP (used for chip acquisition sequence)
+__constant U32 _AP_CM0                      = 1; // AP[1]  CM0-AP (used for J-Link communication with Cortex-M0 core)
+__constant U32 _AP_CM4                      = 2; // AP[2]  CM4-AP (used for J-Link communication with Cortex-M4 core)
+__constant U32 _AP_MYCORE                   = 2; // AP[2]  CM4 Core is used as the default for this script
+__constant U32 _SRAM_ERROR_ADDR             = 0x080002FC; // Address in SRAM for error code
+
+/* Device family defines */
+__constant U16 _PSOC6_UNKNOWN_FAMILY        = 0;
+__constant U16 _PSOC6_1M_FAMILY             = 0x100;
+__constant U16 _PSOC6_2M_FAMILY             = 0x102;
+__constant U16 _PSOC6_512K_FAMILY           = 0x105;
+__constant U16 _PSOC6_256K_FAMILY           = 0x10E;
+
+/* Si ID defines */
+__constant U32 _SIID_ADDR                   = 0x16000000;
+__constant U32 _SIID_MASK                   = 0xFFFF0000;
+__constant U8  _SIID_SHIFT                  = 16;
+__constant U32 _SIID_REV_MASK               = 0x0000FF00;
+__constant U8  _SIID_REV_SHIFT              = 8;
+__constant U32 _FAMILY_ADDR                 = 0x1600000C;
+__constant U32 _FAMILY_MASK                 = 0x00000FFF;
+__constant U8  _FAMILY_SHIFT                = 0;
+__constant U32 _FB_VER_HI_ADDR              = 0x16002004;
+__constant U32 _FB_VER_LO_ADDR              = 0x16002018;
+__constant U32 _SFLASH_SVN_VER_ADDR         = 0x16000028;
+__constant U32 _1M_CPUSS_PROT_REG           = 0x40210500;
+__constant U32 _2M_CPUSS_PROT_REG           = 0x402020C4;
+
+/*********************************************************************
+*
+*       TRACE REGISTERS DEFINITION
+*
+**********************************************************************
+*/
+
+/****************************** Common ******************************/
+/* Trace clock setup registers */
+__constant U32 _PERI_CLOCK_CTL_DIV_SEL_MASK    = 0x0000000F; // PERI_CLOCK_CTL.DIV_SEL
+__constant U32 _PERI_DIV_CMD_ENABLE_MASK       = 0x80000000; // ENABLE field in PERI_DIV_CMD
+__constant U32 _PERI_DIV_CMD_DISABLE_MASK      = 0x40000000; // DISABLE field in PERI_DIV_CMD
+/* Trace pins setup registers */
+__constant U32 _PRT_IO_SEL_MASK                = 0x1F; // Mask for IO[pin]_SEL field in HSIOM_PRT[port]_PORT_SEL[0/1] register
+__constant U32 _PRT_DRIVE_MODE_MASK            = 0xF;  // Mask for IN_EN[pin] & DRIVE_MODE[pin] fields in GPIO_PRT[port]_CFG register
+__constant U32 _PRT_SLOW_MASK                  = 0x1;  // Mask for SLOW[pin] field in GPIO_PRT[port]_CFG_OUT register
+__constant U32 _PRT_DRIVE_SEL_MASK             = 0x3;  // Mask for DRIVE_SEL[pin] field in GPIO_PRT[port]_CFG_OUT register
+/* ETM registers */
+__constant U32 _ETMCR_ARRD                     = 0xE0041000;
+__constant U32 _ETMSR_ARRD                     = 0xE0041010;
+__constant U32 _ETMCR_ETM_PROGRAMMING_MASK     = 0x00000400;
+__constant U32 _ETMSR_ETM_PROGRAMMING_MASK     = 0x00000002;
+
+/*************************** PSoC6A-1M ******************************/
+/* Trace clock setup registers */
+__constant U32 _1M_PERI_CLOCK_CTL54_ADDR       = 0x40010CD8; // Clock control register for cpuss.clock_trace_in
+__constant U32 _1M_PERI_DIV_8_CTL0_ADDR        = 0x40010800; // Divider control (for 8.0 divider)
+__constant U32 _1M_PERI_DIV_CMD_ADDR           = 0x40010400; // Divider command
+__constant U32 _1M_PERI_DIV_CMD_PA_SEL_ROL     = 0x00000008; // PA_TYPE_SEL + PA_DIV_SEL fields offset in PERI_DIV_CMD
+__constant U32 _1M_PERI_DIV_PA_SEL_MASK        = 0x000000FF; // PA_TYPE_SEL + PA_DIV_SEL fields mask (size)
+
+/* Trace pins setup registers */
+__constant U32 _1M_HSIOM_PRT7_PORT_SEL0        = 0x40310070; // Port 7 selection 0
+__constant U32 _1M_HSIOM_PRT9_PORT_SEL0        = 0x40310090; // Port 9 selection 0
+__constant U32 _1M_HSIOM_PRT10_PORT_SEL0       = 0x403100A0; // Port 10 selection 0
+__constant U32 _1M_GPIO_PRT7_CFG               = 0x403203A8; // Port 7 configuration
+__constant U32 _1M_GPIO_PRT9_CFG               = 0x403204A8; // Port 9 configuration
+__constant U32 _1M_GPIO_PRT10_CFG              = 0x40320528; // Port 10 configuration
+__constant U32 _1M_GPIO_PRT7_CFG_OUT           = 0x403203B0; // Port 7 output buffer configuration
+__constant U32 _1M_GPIO_PRT9_CFG_OUT           = 0x403204B0; // Port 9 output buffer configuration
+__constant U32 _1M_GPIO_PRT10_CFG_OUT          = 0x40320530; // Port 10 output buffer configuration
+
+/******************** PSoC6A-2M/512K/256K *********************/
+/* Trace clock setup registers */
+__constant U32 _2M_PERI_DIV_8_CTL0_ADDR        = 0x40001000; // Divider control (for 8.0 divider)
+__constant U32 _2M_PERI_DIV_CMD_ADDR           = 0x40000400; // Divider command
+__constant U32 _2M_PERI_DIV_CMD_PA_SEL_ROL     = 0x00000010; // PA_TYPE_SEL + PA_DIV_SEL fields offset in PERI_DIV_CMD
+__constant U32 _2M_PERI_DIV_PA_SEL_MASK        = 0x000003FF; // PA_TYPE_SEL + PA_DIV_SEL fields mask (size)
+/* Trace pins setup registers */
+__constant U32 _2M_HSIOM_PRT7_PORT_SEL0        = 0x40300070; // Port 7 selection 0
+__constant U32 _2M_HSIOM_PRT9_PORT_SEL0        = 0x40300090; // Port 9 selection 0
+__constant U32 _2M_HSIOM_PRT10_PORT_SEL0       = 0x403000A0; // Port 10 selection 0
+__constant U32 _2M_GPIO_PRT7_CFG               = 0x403103C4; // Port 7 configuration
+__constant U32 _2M_GPIO_PRT9_CFG               = 0x403104C4; // Port 9 configuration
+__constant U32 _2M_GPIO_PRT10_CFG              = 0x40310544; // Port 10 configuration
+__constant U32 _2M_GPIO_PRT7_CFG_OUT           = 0x403103CC; // Port 7 output buffer configuration
+__constant U32 _2M_GPIO_PRT9_CFG_OUT           = 0x403104CC; // Port 9 output buffer configuration
+__constant U32 _2M_GPIO_PRT10_CFG_OUT          = 0x4031054C; // Port 10 output buffer configuration
+
+/* 2M-specific */
+__constant U32 _2M_PERI_CLOCK_CTL50_ADDR       = 0x40000CC8; // Clock control register for cpuss.clock_trace_in
+
+/* 512K-specific */
+__constant U32 _512K_PERI_CLOCK_CTL23_ADDR     = 0x40000C5C; // Clock control register for cpuss.clock_trace_in
+
+/* 256K-specific */
+__constant U32 _256K_PERI_CLOCK_CTL21_ADDR     = 0x40000C54; // Clock control register for cpuss.clock_trace_in
+
+
+/* Global variables */
+/* Trace clock setup registers */
+U32 _PERI_CLOCK_CTL_ADDR;       // Clock control register for cpuss.clock_trace_in
+U32 _PERI_CLOCK_CTL_DIV_SEL;    // the IDx of PERI_CLOCK_CTL.DIV_SEL to use
+U32 _PERI_DIV_8_CTL0_ADDR;      // Divider control (for 8.0 divider)
+U32 _PERI_DIV_CMD_ADDR;         // Divider command
+U32 _PERI_DIV_CMD_PA_SEL_ROL;   // PA_TYPE_SEL + PA_DIV_SEL fields offset in PERI_DIV_CMD
+U32 _PERI_DIV_PA_SEL_MASK;      // PA_TYPE_SEL + PA_DIV_SEL fields mask (size)
+
+/* Trace pins setup registers */
+U32 _HSIOM_PRT7_PORT_SEL0;      // Port 7 selection 0
+U32 _HSIOM_PRT9_PORT_SEL0;      // Port 9 selection 0
+U32 _HSIOM_PRT10_PORT_SEL0;     // Port 10 selection 0
+U32 _GPIO_PRT7_CFG;             // Port 7 configuration
+U32 _GPIO_PRT9_CFG;             // Port 9 configuration
+U32 _GPIO_PRT10_CFG;            // Port 10 configuration
+U32 _GPIO_PRT7_CFG_OUT;         // Port 7 output buffer configuration
+U32 _GPIO_PRT9_CFG_OUT;         // Port 9 output buffer configuration
+U32 _GPIO_PRT10_CFG_OUT;        // Port 10 output buffer configuration
+
+/* Si Family ID value */
+U16 _familyID;
+U8 _FAMILY_TPINS_VARIANT;
+/* Si Id related variables */
+U16 _SI_ID;
+U8 _SI_REV;
+U16 _SI_FAMILY;
+U32 _FB_VER_LO;
+U32 _FB_VER_HI;
+U32 _SFLASH_SVN_VER;
+U32 _PROTECTION;
+
+char *_DELIM_STR      = "****************************************************";
+char *_SIID_STR       = "** Silicon: 0x0000, Family: 0x000, Rev.: 0x00 (  )";
+char *_FB_STR         = "** Flash Boot version: 0                            ";
+char *_SFLASH_STR     = "** SFlash version: 0                                ";
+char *_PROTECTION_STR = "** Chip Protection: X                               ";
+const char _HEX_STR[] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46 };
+__constant U8 _SIID_STR_POS = 14;
+__constant U8 _SIID_FAMILY_STR_POS = 30;
+__constant U8 _SIID_REV_STR_POS = 43;
+__constant U8 _SIID_REV_DECODED_STR_POS = 47;
+__constant U8 _FB_STR_POS = 23;
+__constant U8 _SFLASH_STR_POS = 19;
+__constant U8 _PROTECTION_STR_POS = 20;
+
+/* Trace config variables */
+U32 _TRACE_WIDTH_CONFIGURED                 = 0x0;
+U32 _SKIP_TRACE_CONFIGURATION               = 0x0;
+
+/*********************************************************************
+*       Local functions
+*********************************************************************/
+
+/*********************************************************************
+*
+* _SetupTraceClock() - Selects TPIU Clock divider for ETM Trace.
+*/
+int _SetupTraceClock(void) {
+  U32 ClockCtlVal;
+  U32 ClockDivCtlVal;
+  U32 ClockDivSel;
+  U32 ClockDivVal;
+  U32 ClockDivCmd;
+  U32 TRACE_CLOCK_CTL_ADDR;
+  U32 TRACE_CLOCK_DIV_CTL_ADDR;
+  U32 TRACE_CLOCK_DIV_CMD_ADDR;
+
+  TRACE_CLOCK_CTL_ADDR     = _PERI_CLOCK_CTL_ADDR;
+  TRACE_CLOCK_DIV_CTL_ADDR = _PERI_DIV_8_CTL0_ADDR;
+  TRACE_CLOCK_DIV_CMD_ADDR = _PERI_DIV_CMD_ADDR;
+
+  ClockDivSel = (_PERI_CLOCK_CTL_DIV_SEL & _PERI_CLOCK_CTL_DIV_SEL_MASK); // Peripheral clock divider index to use for trace clock
+  ClockDivVal = (0 & _PERI_DIV_PA_SEL_MASK);        // Peripheral clock divider value for trace clock
+                                                    // Actual divider is (1+ClockDivVal)
+
+  ClockCtlVal = JLINK_MEM_ReadU32(TRACE_CLOCK_CTL_ADDR);
+  ClockDivCtlVal = JLINK_MEM_ReadU32(TRACE_CLOCK_DIV_CTL_ADDR + (ClockDivSel*4));
+  if((ClockCtlVal != ClockDivSel) || (ClockDivCtlVal != ((ClockDivVal << _PERI_DIV_CMD_PA_SEL_ROL) | 0x1))){
+    JLINK_SYS_Report("JLinkScript/Trace: Setup TPIU clock");
+    //
+    // Select TPIU Clock divider
+    //
+
+    // DISABLE 8.0 DIV in PERI_DIV_CMD:
+    ClockDivCmd = _PERI_DIV_CMD_DISABLE_MASK | (_PERI_DIV_PA_SEL_MASK << _PERI_DIV_CMD_PA_SEL_ROL) | ClockDivSel;
+    JLINK_MEM_WriteU32(TRACE_CLOCK_DIV_CMD_ADDR, ClockDivCmd);
+    // Use selected divider (8.0) for cpuss.clock_trace_in
+    JLINK_MEM_WriteU32(TRACE_CLOCK_CTL_ADDR, ClockDivSel);
+    // Set 8.0 DIV = ClockDivVal
+    JLINK_MEM_WriteU32((TRACE_CLOCK_DIV_CTL_ADDR+(ClockDivSel*4)), (ClockDivVal << 8));
+    // ENABLE 8.0 DIV
+    ClockDivCmd = _PERI_DIV_CMD_ENABLE_MASK | (_PERI_DIV_PA_SEL_MASK << _PERI_DIV_CMD_PA_SEL_ROL) | ClockDivSel;
+    JLINK_MEM_WriteU32(TRACE_CLOCK_DIV_CMD_ADDR, ClockDivCmd);
+  }
+
+  return 0;
+}
+
+/*********************************************************************
+*
+* _SetupTracePin() - Configures Trace Pin.
+* Parameters:
+*   pin:                  Pin number
+*   hsiomPrtPortSel0Addr: HSIOM_PRT[port]_PORT_SEL0 register address
+*   ioSelVal:             IO[pin]_SEL field value (connection) for HSIOM_PRT[port]_PORT_SEL register
+*   gpioPrtCfgAddr:       GPIO_PRT[port]_CFG register address
+*   gpioPrtCfgOutAddr:    GPIO_PRT[port]_CFG_OUT register address
+*/
+int _SetupTracePin(U32 pin,
+                   U32 hsiomPrtPortSel0Addr, U32 ioSelVal,
+                   U32 gpioPrtCfgAddr,
+                   U32 gpioPrtCfgOutAddr) {
+  U32 reg0;
+  U32 reg1;
+  U32 offset;
+  U32 hsiomRegAddr; // Address of HSIOM_PRT[port]_PORT_SEL0 or HSIOM_PRT[port]_PORT_SEL1
+  U32 pMode;        // pin drive mode
+  U32 pSlew;        // pin slew rate
+  U32 pStrange;     // pin drive strange
+
+  //
+  // Select pin route connection in HSIOM_PRT[port]_PORT_SEL[0/1] register
+  // See HSIOM_PRT0_PORT_SEL0 in registers TRM for the bit-field map of HSIOM_PRT[port]_PORT_SEL0 registers
+  // See HSIOM_PRT2_PORT_SEL1 in registers TRM for the bit-field map of HSIOM_PRT[port]_PORT_SEL1 registers
+  if (pin < 4) { /* Pin[0-3] selection is in HSIOM_PRT[port]_PORT_SEL0 register */
+    hsiomRegAddr = hsiomPrtPortSel0Addr; // Use HSIOM_PRT[port]_PORT_SEL0
+    offset = pin * 8; // Offset of the IO[pin]_SEL field for required pin number,
+                      // where 8 = 5 bits for IO[pin]_SEL field + 3 not used bits
+  }
+  else { /* Pin[4-7] selection is in HSIOM_PRT[port]_PORT_SEL1 register */
+    hsiomRegAddr = hsiomPrtPortSel0Addr + 4; // Use HSIOM_PRT[port]_PORT_SEL1
+    offset = (pin - 4) * 8; // Offset of the IO[pin]_SEL field for required pin number,
+                            // where 8 = 5 bits for IO[pin]_SEL field + 3 not used bits
+  }
+  reg0 = JLINK_MEM_ReadU32(hsiomRegAddr);
+  reg1 = reg0;
+  reg1 &= ~(_PRT_IO_SEL_MASK << offset); // Clear IO[pin]_SEL field
+  reg1 |=  (ioSelVal         << offset); // Set field value
+  if (reg0 |= reg1) {
+    JLINK_MEM_WriteU32(hsiomRegAddr, reg1);
+  }
+
+  //
+  // Disable input buffer and set drive mode in GPIO_PRT[port]_CFG register
+  // See GPIO_PRT2_CFG in registers TRM for the bit-field map:
+  pMode = 6;      // DRIVE_MODE[pin]:
+                  //  0: HIGHZ:         Output buffer is off creating a high impedance input (default)
+                  //  1: RESERVED:      This mode is reserved and should not be used
+                  //  2: PULLUP:        Resistive pull up
+                  //  3: PULLDOWN:      Resistive pull down
+                  //  4: OD_DRIVESLOW:  Open drain, drives low
+                  //  5: OD_DRIVESHIGH: Open drain, drives high
+                  //  6: STRONG:        Strong D_OUTput buffer
+                  //  7: PULLUP_DOWN:   Pull up or pull down
+  reg0 = JLINK_MEM_ReadU32(gpioPrtCfgAddr);
+  reg1 = reg0;
+  offset = pin * 4; // Offset of the DRIVE_MODE[pin] field for required pin number,
+                    // where 4 = 3 bits for DRIVE_MODE[pin] + 1 bit for IN_EN fields
+  reg1 &= ~(_PRT_DRIVE_MODE_MASK << offset); // Clear IN_EN[pin] and DRIVE_MODE[pin] fields
+  reg1 |=  (pMode                << offset); // Set DRIVE_MODE[pin] field value
+  if (reg0 |= reg1) {
+    JLINK_MEM_WriteU32(gpioPrtCfgAddr, reg1);
+  }
+
+  //
+  // Set slew rate and drive strength in GPIO_PRT[port]_CFG_OUT register
+  // See GPIO_PRT2_CFG_OUT in registers TRM for the bit-field map:
+  pSlew = 0x0;    // SLOW[pin]:
+                  //  0 - Fast slew rate (default)
+                  //  1 - Slow slew rate
+  pStrange = 0x2; // DRIVE_SEL[pin]:
+                  //  0 - FULL_DRIVE:        Full drive strength: GPIO drives current at its max rated spec.
+                  //  1 - ONE_HALF_DRIVE:    1/2 drive strength: GPIO drives current at 1/2 of its max rated spec (default)
+                  //  2 - ONE_QUARTER_DRIVE: 1/4 drive strength: GPIO drives current at 1/4 of its max rated spec.
+                  //  3 - ONE_EIGHTH_DRIVE:  1/8 drive strength: GPIO drives current at 1/8 of its max rated spec.
+  reg0 = JLINK_MEM_ReadU32(gpioPrtCfgOutAddr);
+  reg1 = reg0;
+  offset = pin;
+  reg1 &= ~(_PRT_SLOW_MASK << offset); // Clear SLOW[pin] field
+  reg1 |=  (pSlew          << offset); // Set field value
+  offset = 16 + pin * 2;               // Offset of the DRIVE_SEL[pin] field for required pin number,
+                                       // where '16' is the offset of DRIVE_SEL[pin] for pin 0 and '2' is the size of DRIVE_SEL[pin]
+  reg1 &= ~(_PRT_DRIVE_SEL_MASK << offset); // Clear DRIVE_SEL[pin] field
+  reg1 |=  (pStrange            << offset); // Set field value
+  if (reg0 |= reg1) {
+    JLINK_MEM_WriteU32(gpioPrtCfgOutAddr, reg1);
+  }
+
+  return 0;
+}
+
+/*********************************************************************
+*
+* _SkipTraceConfiguration()
+*
+*  Function description
+*
+* Set the _SKIP_TRACE_CONFIGURATION flag to avoid trace double initialization.
+* It expects that trace clock and pins will have configured directly from IDE, like IAR EWARM.
+*/
+int _SkipTraceConfiguration() {
+  _SKIP_TRACE_CONFIGURATION = 1;
+  return 0;
+}
+
+/*********************************************************************
+*
+* _ToggleETMProgBit()
+*
+*  Function description
+*
+* Toggles the ETM programming bit in the ETMCR register, then waits for its effective value to change in the ETMSR register.
+*/
+void _ToggleETMProgBit() {
+  U32 regcr;
+  U32 regsr;
+  // Read current value of ETMCR register
+  regcr = JLINK_MEM_ReadU32(_ETMCR_ARRD);
+  // Invert ETM programming bit
+  regcr ^= _ETMCR_ETM_PROGRAMMING_MASK;
+  // Prepare desired effective value
+  if ((regcr & _ETMCR_ETM_PROGRAMMING_MASK) == 0) {
+    // Clean effective ETM programming bit
+    regsr = 0;
+  } else {
+    // Set effective ETM programming bit
+    regsr = _ETMSR_ETM_PROGRAMMING_MASK;
+  }
+  // Write new ETMCR register value
+  JLINK_MEM_WriteU32(_ETMCR_ARRD, regcr);
+  // Poll for change in effective value
+  while ( (JLINK_MEM_ReadU32(_ETMSR_ARRD) & _ETMSR_ETM_PROGRAMMING_MASK) != regsr);
+}
+
+/*********************************************************************
+*  Checks function result
+*
+*  Return value
+*    true   O.K.
+*    false  Error
+*/
+int _CheckStatus(int status) {
+  if (status >= _STATUS_OK) {
+    return _STATUS_OK;
+  } else {
+    if (_DEBUG_VERBOSE != 0) {
+      // Push error code to SWD that is it easier to debug the issues
+      JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, _ACC_AP, _SRAM_ERROR_ADDR);
+      JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_DATA, _ACC_AP, 0xDEADBEEF);
+    }
+    return _STATUS_ERR;
+  }
+}
+
+/*********************************************************************
+*  Writes U32 value to provided memory address.
+*  Used instead of JLINK_MEM_ReadU32 to validate transaction status
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*/
+int _ReadMem(U32 address, U32* value) {
+  int status;
+
+  status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ADDR, _ACC_AP, address); // AP.TAR <- address
+  if (_CheckStatus(status) == _STATUS_OK) {
+    status = JLINK_CORESIGHT_ReadDAP(JLINK_CORESIGHT_AP_REG_DATA, _ACC_AP, value);  // AP.DRW -> value
+  }
+
+  return status;
+}
+
+/*********************************************************************
+*  Obtain device family from ROM-table and select proper magic number address
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*/
+
+int _DapApGetFamilyID(void) {
+  int status;
+  U32 v;
+  U32 i;
+  U32 romBaseAddr;
+  U32 pidr_0_3;
+  U32 pidr_4_7;
+
+  // select bank 15
+  v = (_AP_CM4 << _AP_SELECT_APSEL_RSH) | 0xF0; // Current core AP, Bank 15
+  status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ROM, _ACC_DP, v);
+  if (_CheckStatus(status) != _STATUS_OK) {
+    return status;
+  }
+  status = JLINK_CORESIGHT_ReadDAP(JLINK_CORESIGHT_AP_REG_ROM, _ACC_AP, &romBaseAddr); // Get Debug ROM Address
+  if (_CheckStatus(status) != _STATUS_OK) {
+    return status;
+  }
+  // check format of BASE register
+  if ((romBaseAddr & _BASE_FORMAT_MASK) == _BASE_FORMAT_MASK) {
+    romBaseAddr &= _BASE_ADDR_MASK;
+  } else {
+    return _STATUS_ERR;
+  }
+  // Select bank 0
+  v = (_AP_CM4 << _AP_SELECT_APSEL_RSH); // Current core AP, Bank 0
+  status = JLINK_CORESIGHT_WriteDAP(JLINK_CORESIGHT_AP_REG_ROM, _ACC_DP, v);
+  if (_CheckStatus(status) != _STATUS_OK) {
+    return status;
+  }
+  // Read peripheral ID registers 0-3
+  pidr_0_3 = 0;
+  i = 0;
+  do {
+    status = _ReadMem(romBaseAddr + _PIDR0_ADDR + (i * 4), &v);
+    if (_CheckStatus(status) != _STATUS_OK) {
+      return status;
+    }
+    pidr_0_3 |= (v & 0x000000FF) << (i * 8);
+    i += 1;
+  } while (i < 4);
+
+  // Read peripheral ID registers 4-7
+  pidr_4_7 = 0;
+  i = 0;
+  do {
+    status = _ReadMem(romBaseAddr + _PIDR4_ADDR + (i * 4), &v);
+    if (_CheckStatus(status) != _STATUS_OK) {
+      return status;
+    }
+    pidr_4_7 |= (v & 0x000000FF) << (i * 8);
+    i += 1;
+  } while (i < 4);
+
+  // validate PIDR values and extract family ID
+  if (((pidr_0_3 & _PIDR_0_3_VALID_MASK) == _PIDR_0_3_VALID_VAL) && (pidr_4_7 == 0)) {
+    _familyID = pidr_0_3 & _FAMILY_ID_MASK;
+  } else {
+    status = _STATUS_ERR;
+  }
+  return status;
+}
+
+void SetTarget1M() {
+  /* Trace clock setup registers */
+  _PERI_CLOCK_CTL_ADDR      = _1M_PERI_CLOCK_CTL54_ADDR;
+  _PERI_CLOCK_CTL_DIV_SEL   = 0x07;     // 2M devices have 8 of 8-bit dividers - use the lastest available for tracing
+  _PERI_DIV_8_CTL0_ADDR     = 0x40010800;
+  _PERI_DIV_CMD_ADDR        = 0x40010400;
+  _PERI_DIV_CMD_PA_SEL_ROL  = 0x00000008;
+  _PERI_DIV_PA_SEL_MASK     = 0x000000FF;
+
+  /* Trace pins setup registers */
+  _HSIOM_PRT7_PORT_SEL0   = 0x40310070;
+  _HSIOM_PRT9_PORT_SEL0   = 0x40310090;
+  _HSIOM_PRT10_PORT_SEL0  = 0x403100A0;
+  _GPIO_PRT7_CFG          = 0x403203A8;
+  _GPIO_PRT9_CFG          = 0x403204A8;
+  _GPIO_PRT10_CFG         = 0x40320528;
+  _GPIO_PRT7_CFG_OUT      = 0x403203B0;
+  _GPIO_PRT9_CFG_OUT      = 0x403204B0;
+  _GPIO_PRT10_CFG_OUT     = 0x40320530;
+
+  _FAMILY_TPINS_VARIANT = _TPINS_CY8CKIT_062_WIFI_BT;
+}
+
+void SetTarget2MCommon(){
+  /* Trace clock setup registers */
+  _PERI_DIV_8_CTL0_ADDR     = 0x40001000;
+  _PERI_DIV_CMD_ADDR        = 0x40000400;
+  _PERI_DIV_CMD_PA_SEL_ROL  = 0x00000010;
+  _PERI_DIV_PA_SEL_MASK     = 0x000003FF;
+
+  /* Trace pins setup registers */
+  _HSIOM_PRT7_PORT_SEL0     = 0x40300070;
+  _HSIOM_PRT9_PORT_SEL0     = 0x40300090;
+  _HSIOM_PRT10_PORT_SEL0    = 0x403000A0;
+  _GPIO_PRT7_CFG            = 0x403103C4;
+  _GPIO_PRT9_CFG            = 0x403104C4;
+  _GPIO_PRT10_CFG           = 0x40310544;
+  _GPIO_PRT7_CFG_OUT        = 0x403103CC;
+  _GPIO_PRT9_CFG_OUT        = 0x403104CC;
+  _GPIO_PRT10_CFG_OUT       = 0x4031054C;
+
+  _FAMILY_TPINS_VARIANT = _TPINS_CY8CKIT_062S2_43012;
+}
+
+void SetTarget2M() {
+  SetTarget2MCommon();
+  _PERI_CLOCK_CTL_ADDR = _2M_PERI_CLOCK_CTL50_ADDR;
+  _PERI_CLOCK_CTL_DIV_SEL = 0x07;     // 2M devices have 8 of 8-bit dividers - use the lastest available for tracing
+}
+
+void SetTarget512K() {
+  SetTarget2MCommon();
+  _PERI_CLOCK_CTL_ADDR = _512K_PERI_CLOCK_CTL23_ADDR;
+  _PERI_CLOCK_CTL_DIV_SEL = 0x03; // 512K devices have 4 of 8-bit dividers - use the lastest available for tracing
+}
+
+void SetTarget256K() {
+  SetTarget2MCommon();
+  _PERI_CLOCK_CTL_ADDR = _256K_PERI_CLOCK_CTL21_ADDR;
+  _PERI_CLOCK_CTL_DIV_SEL = 0x03; // 256K devices have 4 of 8-bit dividers - use the lastest available for tracing
+}
+
+int SetTargetInfo(int id) {
+  int status;
+
+  status = _STATUS_OK;
+  if (id == _PSOC6_1M_FAMILY) {
+    SetTarget1M();
+  }
+  else if (id == _PSOC6_2M_FAMILY) {
+    SetTarget2M();
+  }
+  else if (id == _PSOC6_512K_FAMILY) {
+    SetTarget512K();
+  }
+  else if (id == _PSOC6_256K_FAMILY) {
+    SetTarget256K();
+  }
+  else {
+    status = _STATUS_ERR;
+  }
+  return status;
+}
+
+/*********************************************************************
+*  Replace single character at given position
+*  Return the position of next character
+*/
+char *ReplaceChar(char *pos, char ch) {
+  *pos = ch;
+  pos += 1;
+  return pos;
+}
+
+/*********************************************************************
+*  Replace substring at given position
+*  Return the position next of the last character replaced
+*/
+char *ReplaceSubStr(char *pos, char *sub) {
+  while (*sub != 0) {
+    *pos = *sub;
+    pos += 1;
+    sub += 1;
+  }
+  return pos;
+}
+
+
+/*********************************************************************
+*  Replace substring at given position by decimal number
+*  Return the position next of the last character replaced
+*/
+char *WriteDecStr(char *pos, U32 value, U8 digitnum) {
+  U8 digitvalue;
+  char ch;
+  U8 decadenum;
+  U32 decadeunit;
+  int firstnonzero;
+  U8 i;
+
+  decadenum = 10;
+  firstnonzero = 0;
+
+  while (decadenum > 0 ) {
+    digitvalue = 0;
+    i = decadenum;
+    decadeunit  = 1;
+    while (i > 1) {
+      decadeunit *= 10;
+      i -= 1;
+    }
+
+    while (value >= decadeunit) {
+      digitvalue += 1;
+      value -= decadeunit;
+    }
+    if (digitvalue != 0) {
+      firstnonzero = 1;
+    }
+    if ((firstnonzero != 0) || (digitnum >= decadenum)) {
+      ch = _HEX_STR[digitvalue];
+      pos = ReplaceChar(pos, ch);
+    }
+
+    decadenum -= 1;
+  }
+  return pos;
+}
+
+
+/*********************************************************************
+*  Replace substring at given position by hex string
+*  Return the position next of the last character replaced
+*/
+char *WriteHexStr(char *pos, U32 value, U8 digitnum) {
+  U8 digitvalue;
+  char ch;
+  while (digitnum > 0) {
+    digitnum -= 1;
+    digitvalue = (value >> (digitnum * 4)) & 0x0F;
+    ch = _HEX_STR[digitvalue];
+    pos = ReplaceChar(pos, ch);
+  }
+  return pos;
+}
+
+/*********************************************************************
+*  Get Si identification details
+*
+*  Return value
+*    >= 0  O.K.
+*    <  0  Error
+*/
+int GetSiID(void) {
+  U32 v;
+  char ch;
+  U8 b0;
+  U8 b1;
+  U8 b2;
+  U16 b3;
+  U16 patch;
+  U16 build;
+  char *pos;
+
+  // Si Id, Family & Rev.
+  v = JLINK_MEM_ReadU32(_SIID_ADDR);
+  _SI_ID = (v & _SIID_MASK) >> _SIID_SHIFT;
+  _SI_REV = (v & _SIID_REV_MASK) >> _SIID_REV_SHIFT;
+  v = JLINK_MEM_ReadU32(_FAMILY_ADDR);
+  _SI_FAMILY = (v & _FAMILY_MASK) >> _FAMILY_SHIFT;
+
+  WriteHexStr(_SIID_STR + _SIID_STR_POS, _SI_ID, 4);
+  WriteHexStr(_SIID_STR + _SIID_FAMILY_STR_POS, _SI_FAMILY, 3);
+  WriteHexStr(_SIID_STR + _SIID_REV_STR_POS, _SI_REV, 2);
+  // revision major
+  v = (_SI_REV >> 4) & 0x0F;
+  if (v == 0) {
+    ch = 0x2A; // '*' symbol
+  }
+  else {
+    ch = 0x40 + v;
+  }
+  pos = _SIID_STR + _SIID_REV_DECODED_STR_POS;
+  pos = ReplaceChar(pos, ch);
+  // revision minor
+  v = _SI_REV & 0x0F;
+  if (v == 0) {
+    ch = 0x2A; // '*' symbol
+  }
+  else {
+    ch = _HEX_STR[v - 1];
+  }
+  pos = ReplaceChar(pos, ch);
+
+  // FB
+  _FB_VER_HI = JLINK_MEM_ReadU32(_FB_VER_HI_ADDR);
+  if (_FB_VER_HI == 0) {
+    Report("Error: Invalid FlashBoot: High version word of Flash Boot is zero");
+    return _STATUS_ERR;
+  }
+  _FB_VER_LO = JLINK_MEM_ReadU32(_FB_VER_LO_ADDR);
+
+  b0 = _FB_VER_HI >> 28;
+  b1 = (_FB_VER_HI >> 24) & 0x0F;
+  b2 = (_FB_VER_HI >> 16) & 0xFF;
+  b3 = _FB_VER_HI & 0x0000FFFF;
+
+  if (b0 > 2) {
+    Report1("Error: Unsupported Flash Boot Version - Flash Boot Version [31:28] = ", b0);
+    return _STATUS_ERR;
+  }
+
+  if (b3 != 0x8001) {
+    Report("Error: Flash Boot is corrupted or non Flash Boot image programmed");
+    return _STATUS_ERR;
+  }
+
+  pos = _FB_STR + _FB_STR_POS;
+  if (b0 == 0) { // Versioning scheme #1 or #2, PSoC6A-BLE-2 device family
+    pos = ReplaceSubStr(pos, "1.");
+    if (b1 == 1) { // Versioning scheme #1, ** or *A
+      pos = WriteDecStr(pos, b2, 2);
+    }
+    if (b1 == 2) {
+      if (b2 < 20) {
+        pos = ReplaceSubStr(pos, "0.0.");
+        pos = WriteDecStr(pos, b2, 1);
+      }
+      else {
+        if ( b2 < 29 ) {
+          pos = ReplaceSubStr(pos, "0.1.");
+          pos = WriteDecStr(pos, b2, 1);
+        }
+        else {
+          pos = ReplaceSubStr(pos, "20.1.");
+          pos = WriteDecStr(pos, b2, 1);
+        }
+      }
+    }
+  }
+  if (b0 == 1) { // TVII-BE-1M **
+    pos = ReplaceSubStr(pos, "2.0.0.");
+    pos = WriteDecStr(pos, b2, 1);
+  }
+  if (b0 == 2) { // Versioning scheme #3
+    patch = _FB_VER_LO >> 24;
+    build = _FB_VER_LO & 0x0000FFFF;
+    pos = WriteDecStr(pos, b1, 1);
+    pos = ReplaceSubStr(pos, ".");
+    pos = WriteDecStr(pos, b2, 1);
+    pos = ReplaceSubStr(pos, ".");
+    pos = WriteDecStr(pos, patch, 1);
+    pos = ReplaceSubStr(pos, ".");
+    pos = WriteDecStr(pos, build, 1);
+  }
+  pos = ReplaceChar(pos, 0);
+
+  // SFLASH
+  _SFLASH_SVN_VER = JLINK_MEM_ReadU32(_SFLASH_SVN_VER_ADDR);
+  pos = _SFLASH_STR + _SFLASH_STR_POS;
+  pos = WriteDecStr(pos, _SFLASH_SVN_VER, 1);
+  pos = ReplaceChar(pos, 0);
+
+  // LCS
+  if (_SI_FAMILY == _PSOC6_1M_FAMILY) {
+    _PROTECTION = JLINK_MEM_ReadU32(_1M_CPUSS_PROT_REG);
+  }
+  else {
+    _PROTECTION = JLINK_MEM_ReadU32(_2M_CPUSS_PROT_REG);
+  }
+  pos = _PROTECTION_STR + _PROTECTION_STR_POS;
+  if (_PROTECTION == 1) {
+    pos = ReplaceSubStr(pos, "VIRGIN");
+  }
+  else {
+    if (_PROTECTION == 2) {
+      pos = ReplaceSubStr(pos, "NORMAL");
+    }
+    else {
+      if (_PROTECTION == 3) {
+        pos = ReplaceSubStr(pos, "SECURE");
+      }
+      else {
+        if (_PROTECTION == 4) {
+          pos = ReplaceSubStr(pos, "DEAD");
+        }
+        else {
+          pos = ReplaceSubStr(pos, "UNKNOWN");
+        }
+      }
+    }
+  }
+  pos = ReplaceChar(pos, 0);
+
+  return _STATUS_OK;
+}
+
+/*********************************************************************
+*       Global functions
+*********************************************************************/
+
+/*********************************************************************
+*  Called before InitTarget(). Mainly used to set some global DLL variables to customize the normal connect procedure.
+*  For ARM CoreSight devices this may be specifying the base address of some CoreSight components (ETM, ...)
+*  that cannot be automatically detected by J-Link due to erroneous ROM tables etc.
+*  May also be used to specify the device name in case debugger does not pass it to the DLL.
+*
+*  Notes
+*    (1) May not, under absolutely NO circumstances, call any API functions that perform target communication.
+*    (2) Should only set some global DLL variables
+*/
+int ConfigTargetSettings(void) {
+  //
+  // Mark a specific memory region as memory type illegal
+  // in order to make sure that the software is not allowed to access these regions
+  //
+  // Note: This does not work for J-Flash tool
+  //
+
+  // Exclude SFLASH regions
+  JLINK_ExecCommand("map region 0x16000000-0x160007FF XI"); // [SFLASH Start - User Data Start]
+  JLINK_ExecCommand("map region 0x16001000-0x160019FF XI"); // [User Data End - NAR Start]
+  JLINK_ExecCommand("map region 0x16001C00-0x160059FF XI"); // [NAR End - Public Key Start]
+  JLINK_ExecCommand("map region 0x16006600-0x16007BFF XI"); // [Public Key End - TOC2 Start]
+
+  // Exclude Cy Metadata
+  JLINK_ExecCommand("map region 0x90300000-0x903FFFFF XI"); // Cy Checksum
+  JLINK_ExecCommand("map region 0x90500000-0x905FFFFF XI"); // Cy Metadata
+
+  JLINK_CORESIGHT_AddAP(_AP_SYS, CORESIGHT_CUSTOM_AP); // AP[0]  SYS-AP (used for chip acquisition sequence)
+  JLINK_CORESIGHT_AddAP(_AP_CM0, CORESIGHT_AHB_AP);    // AP[1]  CM0-AP (used for J-Link communication with Cortex-M0 core)
+  JLINK_CORESIGHT_AddAP(_AP_CM4, CORESIGHT_AHB_AP);    // AP[2]  CM4-AP (used for J-Link communication with Cortex-M4 core)
+  JLINK_CORESIGHT_IndexAHBAPToUse = _AP_MYCORE;        // AP-Index of AHB-AP to use for communication with core
+  CPU=CORTEX_M4;
+
+  return _STATUS_OK;
+}
+
+/*********************************************************************
+*
+*       InitTarget()
+*
+*  Function description
+*    Replaces the target-CPU-auto-find procedure of the J-Link DLL. Useful for target CPUs that
+*    are not accessible by default and need some special steps to be executed before the normal
+*    debug probe connect procedure can be executed successfully. Example devices are MCUs
+*    from TI which have a so-called ICEPick JTAG unit on them that needs to be configured via
+*    JTAG, before the actual CPU core is accessible via JTAG.
+*
+*  Return value
+*    >= 0:  O.K.
+*     < 0:  Error
+*
+*  Notes
+*    (1) If target interface JTAG is used: JTAG chain has to be specified manually before leaving
+*        this function (meaning all devices and their TAP IDs have to be specified by the user).
+*        Also appropriate JTAG TAP number to communicate with during the debug session has
+*        to be manually specified in this function.
+*    (2) MUST NOT use any MEM_ API functions
+*    (3) Global DLL variable “CPU” MUST be set when implementing this function, so the DLL
+*        knows which CPU module to use internally.
+*/
+int InitTarget(void) {
+  Report("JLinkScript/InitTarget: CORESIGHT setup");
+  // Clear family ID value
+  _familyID = _PSOC6_UNKNOWN_FAMILY;
+  _SI_ID = 0;
+  _SI_REV = 0;
+  _SI_FAMILY = 0;
+
+  return _STATUS_OK;
+}
+
+/*********************************************************************
+*
+*       SetupTarget()
+*
+*  Function description
+*    If present, called after InitTarget() and after general debug connect sequence has been performed by J-Link.
+*    Usually used for more high-level CPU debug setup like writing certain memory locations, initializing PLL for faster download etc.
+*
+*  Return value
+*    >= 0:  O.K.
+*     < 0:  Error
+*
+*  Notes
+*    (1) Does not replace any DLL functionality but extends it.
+*    (2) May use MEM_ API functions
+*/
+int SetupTarget(void) {
+  int status;
+
+  if (_familyID == _PSOC6_UNKNOWN_FAMILY) {
+    status = _DapApGetFamilyID();
+    if (_CheckStatus(status) != _STATUS_OK) {
+      return status;
+    }
+    status = SetTargetInfo(_familyID);
+    if (_CheckStatus(status) != _STATUS_OK) {
+      Report1("JLinkScript/SetupTarget: Detected Family ID: ", _familyID);
+      Report("JLinkScript/SetupTarget: Detected Family ID is not supported by the selected JLink device");
+      return status;
+    }
+  }
+  else {
+    status = _STATUS_OK;
+  }
+
+  GetSiID();
+  Report(_DELIM_STR);
+  Report(_SIID_STR);
+  Report(_FB_STR);
+  if ((_SFLASH_SVN_VER != 0) && (_SFLASH_SVN_VER != 0xFFFFFFFF)) {
+    Report(_SFLASH_STR);
+  }
+  Report(_PROTECTION_STR);
+  Report(_DELIM_STR);
+
+  return status;
+}
+
+/*********************************************************************
+*
+*       OnTraceStart()
+*
+*  Function description
+*    If present, called right before trace is started.
+*    Used to initialize MCU specific trace related things like configuring the trace pins for alternate function.
+*
+*  Return value
+*    >= 0:  O.K.
+*     < 0:  Error
+*
+*  Notes
+*    (1) May use high-level API functions like JLINK_MEM_ etc.
+*    (2) Should not call JLINK_TARGET_Halt(). Can rely on target being halted when entering this function
+*/
+int OnTraceStart(void) {
+  U32 PortWidth;
+  U32 TPinsVariant;
+  U32 IO_SEL_ACT14;
+  U32 IO_SEL_ACT15;
+  //U32 IO_SEL_DS5;
+
+  if (_SKIP_TRACE_CONFIGURATION) {
+    // Do not configure clock and trace pins if they are configured from an IDE such as IAR EWARM
+    return 0;
+  }
+
+  PortWidth = JLINK_TRACE_PortWidth;
+  if (_TRACE_WIDTH_CONFIGURED == PortWidth) {
+    // Do not configure trace clock and pins for each step, but re-configure in case port width changed
+    // Note: trace clock reconfiguration in user app might break tracing
+    return 0;
+  }
+
+  // Adjust sampling point of trace pin (Optional: not needed for this cpu)
+  // JLINK_ExecCommand("TraceSampleAdjust TD=2000");
+
+  // Setup peripheral clocks for tracing
+  _SetupTraceClock();
+
+  /*----------------- Pin mapping for the TRACE signals ----------------
+    Copy 0
+      P6_4  DS #5   cpuss.swj_swo_tdo     (SWO DATA)
+      P7_0  ACT #14 cpuss.trace_clock     (ETM/SWO TRACECLK)
+      P9_3  ACT #15 cpuss.trace_data[0]:0 (ETM TRACEDATA[0])
+      P9_2  ACT #15 cpuss.trace_data[1]:0 (ETM TRACEDATA[1])
+      P9_1  ACT #15 cpuss.trace_data[2]:0 (ETM TRACEDATA[2])
+      P9_0  ACT #15 cpuss.trace_data[3]:0 (ETM TRACEDATA[3])
+    Copy 1
+      P10_3 ACT #15 cpuss.trace_data[0]:1 (ETM TRACEDATA[0])
+      P10_2 ACT #15 cpuss.trace_data[1]:1 (ETM TRACEDATA[1])
+      P10_1 ACT #15 cpuss.trace_data[2]:1 (ETM TRACEDATA[2])
+      P10_0 ACT #15 cpuss.trace_data[3]:1 (ETM TRACEDATA[3])
+    Copy 2
+      P7_7  ACT #15 cpuss.trace_data[0]:2 (ETM TRACEDATA[0])
+      P7_6  ACT #15 cpuss.trace_data[1]:2 (ETM TRACEDATA[1])
+      P7_5  ACT #15 cpuss.trace_data[2]:2 (ETM TRACEDATA[2])
+      P7_4  ACT #15 cpuss.trace_data[3]:2 (ETM TRACEDATA[3])
+  See 'Multiple Alternate Functions' table in device datasheet.
+
+  Examples:
+                                     | TCLK | TD0  | TD1  | TD2  | TD3
+  ---------------------------------------------------------------------
+  A) CY8CKIT-062-WIFI-BT Pioneer Kit | P7_0 | P9_3 | P7_6 | P7_5 | P7_4
+  B) PSoC 62S2 Wi-Fi BT Pioneer Kit  | P7_0 | P9_3 | P9_2 | P9_1 | P9_0
+  (CY8CKIT-062S2-43012)
+  */
+
+  IO_SEL_ACT14 = 0x1A; // Connection route for 'cpuss.trace_clock' signal (P7_0)
+  IO_SEL_ACT15 = 0x1B; // Connection route for 'cpuss.trace_data[0-3]' signals (P7, P9 and P10)
+  //IO_SEL_DS5 =   0x1D; // Connection route for 'cpuss.swj_swo_tdo' signal (P6_4)
+
+  if (_TPINS_VARIANT == 0) {
+    TPinsVariant = _FAMILY_TPINS_VARIANT;
+  } else {
+    TPinsVariant = _TPINS_VARIANT;
+  }
+
+  JLINK_SYS_Report("JLinkScript/Trace: Set TRACECLK to P7_0");
+   _SetupTracePin( /*P7_0*/ 0, _HSIOM_PRT7_PORT_SEL0, IO_SEL_ACT14, _GPIO_PRT7_CFG, _GPIO_PRT7_CFG_OUT);
+  if (TPinsVariant == _TPINS_CY8CKIT_062_WIFI_BT) {
+    JLINK_SYS_Report("JLinkScript/Trace: Set TRACEDATA[0] to P9_3");
+    _SetupTracePin( /*P9_3*/ 3, _HSIOM_PRT9_PORT_SEL0, IO_SEL_ACT15, _GPIO_PRT9_CFG, _GPIO_PRT9_CFG_OUT);
+    if (PortWidth > 1) {
+      JLINK_SYS_Report("JLinkScript/Trace: Set TRACEDATA[1] to P7_6");
+      _SetupTracePin( /*P7_6*/ 6, _HSIOM_PRT7_PORT_SEL0, IO_SEL_ACT15, _GPIO_PRT7_CFG, _GPIO_PRT7_CFG_OUT);
+      if (PortWidth > 2) {
+        JLINK_SYS_Report("JLinkScript/Trace: Set TRACEDATA[2] to P7_5");
+        JLINK_SYS_Report("JLinkScript/Trace: Set TRACEDATA[3] to P7_4");
+        _SetupTracePin( /*P7_5*/ 5, _HSIOM_PRT7_PORT_SEL0, IO_SEL_ACT15, _GPIO_PRT7_CFG, _GPIO_PRT7_CFG_OUT);
+        _SetupTracePin( /*P7_4*/ 4, _HSIOM_PRT7_PORT_SEL0, IO_SEL_ACT15, _GPIO_PRT7_CFG, _GPIO_PRT7_CFG_OUT);
+      }
+    }
+  }
+  if (TPinsVariant == _TPINS_CY8CKIT_062S2_43012) {
+    JLINK_SYS_Report("JLinkScript/Trace: Set TRACEDATA[0] to P9_3");
+    _SetupTracePin( /*P9_3*/ 3, _HSIOM_PRT9_PORT_SEL0, IO_SEL_ACT15, _GPIO_PRT9_CFG, _GPIO_PRT9_CFG_OUT);
+    if (PortWidth > 1) {
+      JLINK_SYS_Report("JLinkScript/Trace: Set TRACEDATA[1] to P9_2");
+      _SetupTracePin( /*P9_2*/ 2, _HSIOM_PRT9_PORT_SEL0, IO_SEL_ACT15, _GPIO_PRT9_CFG, _GPIO_PRT9_CFG_OUT);
+      if (PortWidth > 2) {
+        JLINK_SYS_Report("JLinkScript/Trace: Set TRACEDATA[2] to P9_1");
+        JLINK_SYS_Report("JLinkScript/Trace: Set TRACEDATA[3] to P9_0");
+        _SetupTracePin( /*P9_1*/ 1, _HSIOM_PRT9_PORT_SEL0, IO_SEL_ACT15, _GPIO_PRT9_CFG, _GPIO_PRT9_CFG_OUT);
+        _SetupTracePin( /*P9_0*/ 0, _HSIOM_PRT9_PORT_SEL0, IO_SEL_ACT15, _GPIO_PRT9_CFG, _GPIO_PRT9_CFG_OUT);
+      }
+    }
+  }
+
+  _TRACE_WIDTH_CONFIGURED = PortWidth;
+  return 0;
+}
+
+/*********************************************************************
+*
+*       OnTraceStop()
+*
+*  Function description
+*    Called right before capturing of trace data is stopped on the J-Link / J-Trace. On some
+*    target, an explicit flush of the trace FIFOs is necessary to get the latest trace data. If such
+*    a flush is not performed, the latest trace data may not be output by the target
+
+*
+*  Return value
+*    >= 0:  O.K.
+*     < 0:  Error
+*
+*  Notes
+*    (1) May use MEM_ functions
+*/
+int OnTraceStop(void) {
+  // Toggle ETM Programming bit four times to flush FIFOs
+  _ToggleETMProgBit();
+  _ToggleETMProgBit();
+  _ToggleETMProgBit();
+  _ToggleETMProgBit();
+
+  return 0;
+}
+
+int AfterResetTarget(void) {
+  _TRACE_WIDTH_CONFIGURED = 0;
+  return 0;
+}

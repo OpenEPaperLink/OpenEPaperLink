@@ -1,0 +1,44 @@
+{
+  "build": {
+    "cpu": "cortex-m4",
+    "f_cpu": "64000000L",
+    "mcu": "nrf52840",
+    "zephyr": {
+      "variant": "ubx_bmd345eval_nrf52840"
+    }
+  },
+  "connectivity": [
+    "bluetooth",
+    "nfc"
+  ],
+  "debug": {
+    "default_tools": [
+      "jlink"
+    ],
+    "jlink_device": "nRF52840_xxAA",
+    "onboard_tools": [
+      "cmsis-dap",
+      "jlink"
+    ],
+    "svd_path": "nrf52840.svd"
+  },
+  "frameworks": [
+    "zephyr"
+  ],
+  "name": "u-blox BMD-345-EVAL",
+  "upload": {
+    "maximum_ram_size": 262144,
+    "maximum_size": 1048576,
+    "protocol": "jlink",
+    "protocols": [
+      "blackmagic",
+      "cmsis-dap",
+      "jlink",
+      "nrfjprog",
+      "mbed",
+      "stlink"
+    ]
+  },
+  "url": "https://www.u-blox.com/en/product/bmd-34-series-open-cpu",
+  "vendor": "u-blox"
+}

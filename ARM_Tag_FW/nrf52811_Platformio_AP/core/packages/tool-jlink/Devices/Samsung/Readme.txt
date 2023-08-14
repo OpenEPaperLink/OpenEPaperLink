@@ -1,0 +1,2 @@
+The Samsung Artik05x series support comes without any warranty and support from SEGGER Microcontroller GmbH. Support is provided via Samsung Artik only.
+For support, please contact: artik@samsung.com (also visit to https://www.artik.io)

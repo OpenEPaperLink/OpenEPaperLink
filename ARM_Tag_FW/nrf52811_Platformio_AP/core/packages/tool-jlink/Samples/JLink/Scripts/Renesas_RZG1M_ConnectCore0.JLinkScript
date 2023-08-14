@@ -1,0 +1,120 @@
+/*********************************************************************
+*                    SEGGER Microcontroller GmbH                     *
+*        Solutions for real time microcontroller applications        *
+**********************************************************************
+*                                                                    *
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                                                                    *
+* Internet: www.segger.com Support: support@segger.com               *
+*                                                                    *
+**********************************************************************
+----------------------------------------------------------------------
+Purpose : 
+---------------------------END-OF-HEADER------------------------------
+*/
+
+/*********************************************************************
+*
+*       SetupTarget
+*/
+void SetupTarget(void) {
+  Report("******************************************************");
+  Report("J-Link script: SetupTarget()");
+  Report("Power up and enable Core 1");
+  Report("******************************************************");
+  MEM_WriteU32(0xE6152010, 0x00000002);  // CA15WUPCR: Wake up core 1
+  MEM_WriteU32(0xE6160040, 0xA5A50003);  // CA15RESCNT: Enable core 1
+}
+
+/*********************************************************************
+*
+*       ResetTarget
+*/
+void ResetTarget(void) {
+	int v;
+  int Speed;
+  int Ctrl;
+
+  Report("******************************************************");
+  Report("J-Link script: ResetTarget()");
+  Report("******************************************************");
+  Speed = JTAG_Speed;
+  JTAG_Speed = 100;
+  JTAG_WriteClocks(1);
+
+  //
+  // Select APB-AP and prepare control register
+  //
+  JLINK_CORESIGHT_WriteDP(2, (1 << 24) | (0 << 4));  // Select AP[1], bank 0
+  Ctrl =  0
+       | (2 << 0)    // AP-access size. Fixed to 2: 32-bit
+       | (1 << 4)    // Auto increment TAR after read/write access. Increment is NOT performed on access to banked data registers 0-3.
+       | (1 << 31)   // Enable software access to the Debug APB bus.
+       ;
+  JLINK_CORESIGHT_WriteAP(0, Ctrl);
+  //
+  // Perform some other init steps which are required to get full control of the debug logic
+  //
+  JLINK_CORESIGHT_WriteAP(1, 0x800B0000 + 0xFB0);
+  JLINK_CORESIGHT_WriteAP(3, 0xC5ACCE55);
+  JLINK_CORESIGHT_WriteAP(1, 0x800B0000 + 0x310);
+  JLINK_CORESIGHT_WriteAP(3, 1);
+  JLINK_CORESIGHT_WriteAP(1, 0x800B0000 + 0x314);
+  JLINK_CORESIGHT_ReadAP(3);
+
+  v = JLINK_CORESIGHT_ReadDP(3);
+  //
+  // Read & modify DSCR in order to enable debug halt mode
+  //
+  JLINK_CORESIGHT_WriteAP(1, 0x800B0000 + 0x88);
+  JLINK_CORESIGHT_ReadAP(3);
+  v = JLINK_CORESIGHT_ReadDP(3);
+  v |= (1 << 14);
+  JLINK_CORESIGHT_WriteAP(1, 0x800B0000 + 0x88);   // Enable debug halt mode by writing the DSCR
+  JLINK_CORESIGHT_WriteAP(3, v);
+  //
+  // Halt CPU by writing the halt request bit in the DRCR
+  //
+  JLINK_CORESIGHT_WriteAP(1, 0x800B0000 + 0x90);
+  JLINK_CORESIGHT_WriteAP(3, 1);
+  JTAG_WriteClocks(1);
+  JTAG_Speed = Speed;
+}
+
+/*********************************************************************
+*
+*       InitTarget
+*
+*  Notes
+*    (1) High-level functions like MEM_xxx functions must not be used here.
+*        They may only be used in SetupTarget() which is called later in the connect process.
+*/
+void InitTarget(void) {
+  Report("******************************************************");
+  Report("J-Link script: RZ/G1M (Cortex-A15 CPU0) J-Link script");
+  Report("******************************************************");
+  if (MAIN_ActiveTIF == JLINK_TIF_JTAG) {
+    JLINK_CORESIGHT_Configure("IRPre=0;DRPre=0;IRPost=0;DRPost=0;IRLenDevice=4");
+    JTAG_AllowTAPReset = 1;           // J-Link is allowed to use a TAP reset for JTAG-chain auto-detection
+    JTAG_SetDeviceId(0, 0x4BA00477);  // 4-bits IRLen
+  } else {
+    JLINK_CORESIGHT_Configure("");    // Perform SWD init sequence
+  }
+  //
+  // For the RZ/G1M there is 1 JTAG/SWD device
+  // For Cortex-A devices: Each core has its own set of debug registers in the APB-AP memory map
+  // To connect to a specific core, just tell J-Link which debug registers to use
+  // NOTE: The selected core *must* be powered and enabled when leaving this function (InitTarget())
+  //
+  // For RZ/G1M:
+  // 0x800B0000: Debug register Cortex-A15 core0
+  // 0x800B2000: Debug register Cortex-A15 core1
+  //
+  CORESIGHT_CoreBaseAddr = 0x800B0000;
+  CORESIGHT_AddAP(0, CORESIGHT_CUSTOM_AP);
+  CORESIGHT_AddAP(1, CORESIGHT_APB_AP);
+  CORESIGHT_IndexAPBAPToUse = 1;
+  CPU = CORTEX_A15;
+
+  ResetTarget();  // Reset and Halt Core
+}

@@ -1,0 +1,155 @@
+echo Setting up the environment for debugging gdb.\n
+
+set complaints 1
+set output-radix 16
+set input-radix 16
+set endian big
+
+dir .
+set prompt (ns9360-gdb) 
+
+# This connects to a target via netsiliconLibRemote
+# listening for commands on this PC's tcp port 2331
+target remote localhost:2331
+monitor speed 1000
+
+# Set netSiliconLibRemote to write short/long values
+# in big-endian
+monitor endian big
+
+# Set GDB in big-endian 
+set endian big
+
+# Reset the chip to get to a known state.
+
+monitor reset
+
+# Reset the chip to get it into a know state
+# Write to the Software 
+#monitor long 0xA0900178 = 0xFFFFFFFF
+# Set the watchdog timer
+
+#monitor long 0xA0900174 = 0x00000090
+# Reset the chip using the watchdog timer.
+#monitor long 0xA0900178 = 0xFFFFFF00
+# Set the watchdog timer
+
+#monitor long 0xA0900188 = 0x00008efa
+# Reset the chip using the watchdog timer.
+
+# Setup GPIO for clock enable
+monitor long 0x90600104 = 0x33313333
+
+#
+#  Minimal memory controller initialization--just enough to allow code
+#  to be downloaded.  Boot code will do the rest.
+#
+monitor long 0xA0700000 = 0x00000001
+# Enable the memory controller.
+monitor long 0xA0700024 = 0x00000006
+# Set the refresh counter, 60 is optimal, 30 is safer for now
+monitor long 0xA0700028 = 0x00000001
+# 
+monitor long 0xA0700030 = 0x00000001
+# Set the precharge period
+monitor long 0xA0700034 = 0x00000004
+# Active to precharge command period is 16 clock cycles
+monitor long 0xA070003C = 0x00000001
+# tAPR
+monitor long 0xA0700040 = 0x00000005
+# tDAL
+monitor long 0xA0700044 = 0x00000001
+# tWR
+monitor long 0xA0700048 = 0x00000006
+# tRC 32 clock cycles  
+monitor long 0xA070004C = 0x00000006
+# tRFC 32 clock cycles
+monitor long 0xA0700054 = 0x00000001
+# tRRD
+monitor long 0xA0700058 = 0x00000001
+# tMRD
+monitor long 0xA0700100 = 0x00004280
+# Dynamic Config 0 (cs4) 
+monitor long 0xA0700120 = 0x00004280
+# Dynamic Config 1 (cs5)
+monitor long 0xA0700140 = 0x00004280
+# Dynamic Config 2 (cs6)
+monitor long 0xA0700160 = 0x00004280
+# Dynamic Config 3 (cs7)
+
+monitor long 0xA0700104 = 0x00000203
+# CAS latency is 2 at 100 MHz
+monitor long 0xA0700124 = 0x00000203
+# CAS latency is 2 at 100 MHz
+monitor long 0xA0700144 = 0x00000203
+# CAS latency is 2 at 100 MHz
+monitor long 0xA0700164 = 0x00000203
+# CAS latency is 2 at 100 MHz
+
+monitor long 0xA0700020 = 0x00000103
+# issue SDRAM PALL command
+
+monitor long 0xA0700024 = 0x00000001
+# Set the refresh counter to be as small as possible
+
+# Add some dummy writes to give the SDRAM time to settle, it needs two
+# AHB clock cycles, here we poke in the debugger flag, this lets
+# the software know that we are in the debugger
+
+###################################################
+monitor long 0xA0900000 = 0x00000002
+monitor long 0xA0900000 = 0x00000002
+monitor long 0xA0900000 = 0x00000002
+monitor long 0xA0900000 = 0x00000002
+monitor long 0xA0900000 = 0x00000002
+
+monitor long 0xA0900000 
+monitor long 0xA0900000 
+monitor long 0xA0900000 
+monitor long 0xA0900000 
+monitor long 0xA0900000 
+######################################################
+
+monitor long 0xA0700024 = 0x00000030 
+# Set the refresh counter to "64" (was 30) 
+monitor long 0xA0700020 = 0x00000083 
+# Issue SDRAM MODE command
+
+# Next we perform a couple of reads to each RAM sector.
+# mw = move word.
+#mw 0x00022000, r3
+# 22000 for cas2 latency, 32000 for cas 3
+monitor long 0x00022000
+
+#mw 0x10022000, r3
+#mw 0x20022000, r3
+#mw 0x30022000, r3
+
+monitor long 0xA0700020 = 0x00000003 
+# issue SDRAM NORMAL command
+monitor long 0xA0700100 = 0x00084280 
+# Enable buffer access
+monitor long 0xA0700120 = 0x00084280 
+# Enable buffer access
+monitor long 0xA0700140 = 0x00084280 
+# Enable buffer access
+monitor long 0xA0700160 = 0x00084280 
+# Enable buffer access
+
+# Set the processor mode
+monitor reg cpsr = 0xd3
+monitor reg cpsr
+
+# Setup GDB FOR FASTER DOWNLOADS
+set remote memory-write-packet-size 1024
+set remote memory-write-packet-size fixed
+monitor speed 12000
+
+# Load the program executable called "image.elf"
+# load image.elf
+# Load the symbols for the program.
+
+load  ./image.elf 
+monitor reg cpsr = 0xd3
+monitor reg cpsr
+

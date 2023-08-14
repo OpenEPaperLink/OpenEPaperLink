@@ -1,0 +1,47 @@
+/*********************************************************************
+*                    SEGGER Microcontroller GmbH                     *
+*        Solutions for real time microcontroller applications        *
+**********************************************************************
+*                                                                    *
+*            (c) 1995 - 2018 SEGGER Microcontroller GmbH             *
+*                                                                    *
+* Internet: www.segger.com Support: support@segger.com               *
+*                                                                    *
+**********************************************************************
+----------------------------------------------------------------------
+Purpose : 
+---------------------------END-OF-HEADER------------------------------
+*/
+
+/*********************************************************************
+*
+*       ResetTarget
+*/
+void ResetTarget(void) {
+  // In case cores 1-3 are reset, we do nothing, 
+  //  as we would lose connection to these cores, when resetting the device
+  //  as a reset disables the clock to them.
+}
+
+/*********************************************************************
+*
+*       InitTarget
+*/
+void InitTarget(void) {
+  int WordAcc;
+  int v;
+
+  Report("******************************************************");
+  Report("J-Link script: iMX6 SoloX Cortex-M4 core J-Link script");
+  Report("******************************************************");
+  JLINK_CORESIGHT_Configure("IRPre=0;DRPre=0;IRPost=13;DRPost=3;IRLenDevice=4");
+  CPU = CORTEX_M4;                                                              // Pre-select that we have a Cortex-A5 connected
+  JTAG_AllowTAPReset = 1;                                                       // J-Link is allowed to use a TAP reset for JTAG-chain auto-detection
+  CORESIGHT_AddAP(0, CORESIGHT_AHB_AP);
+  CORESIGHT_AddAP(1, CORESIGHT_APB_AP);
+  CORESIGHT_IndexAHBAPToUse = 0;
+  JTAG_SetDeviceId(0, 0x4BA00477);  // 4-bits IRLen
+  JTAG_SetDeviceId(1, 0x4BA00477);  // 4-bits IRLen
+  JTAG_SetDeviceId(2, 0x00000001);  // 5-bits IRLen
+  JTAG_SetDeviceId(3, 0x0891C01D);  // 4-bits IRLen
+}

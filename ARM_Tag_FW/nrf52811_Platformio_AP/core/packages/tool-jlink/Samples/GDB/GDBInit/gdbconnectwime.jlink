@@ -1,0 +1,195 @@
+echo Setting up the environment for debugging gdb.\n
+
+set complaints 1
+set output-radix 16
+set input-radix 16
+set endian big
+dir .
+set prompt (netsilicon-gdb)
+
+# Set target for ROM at addr 0
+set rdiromatzero 1
+
+
+######################
+## attach-to-target ##
+######################
+
+define attach-to-target
+
+#
+# This targets a "Raven" debugger via "netsiliconLibRemote"
+# at the named address.
+#
+target remote localhost:2331
+monitor speed 30
+
+#
+# Notify netsiliconLibRemote that it should be big endian
+#
+monitor endian big
+
+#
+# Initialize the debugger
+#
+monitor reset 1 0
+monitor halt
+
+end
+
+
+###############
+## addresses ##
+###############
+
+define addresses
+set $portd_data = 0xffa00040
+set $portd_out  = 0xffa00044
+set $scr        = 0xffb00000
+set $pllcr      = 0xffb00008
+set $porta      = 0xffb00020
+set $portb      = 0xffb00024
+set $portc      = 0xffb00028
+set $ier        = 0xffb00030
+set $mmcr       = 0xffc00000
+set $csar0      = 0xffc00010
+set $csor0      = 0xffc00014
+set $csorb0     = 0xffc00018
+set $csar1      = 0xffc00020
+set $csor1      = 0xffc00024
+set $csorb1     = 0xffc00028
+set $csar2      = 0xffc00030
+set $csor2      = 0xffc00034
+set $csorb2     = 0xffc00038
+set $csar3      = 0xffc00040
+set $csor3      = 0xffc00044
+set $csorb3     = 0xffc00048
+set $csar4      = 0xffc00050
+set $csor4      = 0xffc00054
+set $csorb4     = 0xffc00058
+end
+
+
+##############
+## setup-cs ##
+##############
+
+define setup-cs
+
+monitor long 0xffb00000 = 0x4004a000
+monitor long 0xffc00000 = 0x0dc00000
+monitor long 0xffb00030 = 0x00000000
+
+monitor long 0xffc00014 = 0xf3000574
+monitor long 0xffc00018 = 0x00000005
+monitor long 0xffc00010 = 0x02000000
+
+monitor long 0xffc00024 = 0xf3000174
+monitor long 0xffc00028 = 0x00000001
+monitor long 0xffc00020 = 0x0000022d
+
+#
+# Initialize PORTA as all GPIO inputs, and PORTC
+# so that any pin which must not have a "sensible"
+# value prior to OS initialization is a GPIO input.
+#
+# This gives the EOS the best chance of initializing
+# the pins to the appropriate values at the beginning
+# of time.
+#
+monitor long 0xffb00020 = 0x00000000
+monitor long 0xffb00028 = 0x00000000
+
+# Disable CS2-4
+monitor long 0xffc00034 = 0
+monitor long 0xffc00038 = 0
+monitor long 0xffc00030 = 0
+monitor long 0xffc00044 = 0
+monitor long 0xffc00048 = 0
+monitor long 0xffc00040 = 0
+monitor long 0xffc00054 = 0
+monitor long 0xffc00058 = 0
+monitor long 0xffc00050 = 0
+
+monitor long 0x0 = 0
+
+# Set the processor mode
+monitor reg cpsr = 0xd3
+
+end
+
+
+##################
+## enable-flash ##
+##################
+
+define enable-flash
+monitor long 0xffc00010 = 0x02000001
+end
+
+
+###################
+## disable-flash ##
+###################
+
+define disable-flash
+monitor long 0xffc00010 = 0x02000000
+end
+
+
+#################
+## reset-sdram ##
+#################
+
+define reset-sdram
+monitor long $csar1 = 0
+monitor long $csor1 = 0xF3000174
+monitor long $csar1 = 0x22d
+end
+
+
+########
+## sb ##
+########
+
+#
+# Useful breakpoints to catch "catastrophic" failure
+#
+define sb
+# Breakpoints on the exception vectors
+b *0x0
+b *0x4
+b *0x8
+b *0xc
+b *0x10
+b *0x14
+# b*0x1c
+# b*0x20
+
+# Breakpoints on error handling functions
+b netosBreakpoint
+b netosFatalError
+b NARamSetupAbortHandler
+b crash
+b customizeErrorHandler
+b customizeExceptionHandler
+end
+
+
+###############
+###############
+
+addresses
+
+attach-to-target
+
+setup-cs
+
+# Setup GDB for faster downloads
+set remote memory-write-packet-size 1024
+set remote memory-write-packet-size fixed
+monitor speed auto
+
+# Load the executable and symbols (all in image.elf)
+load image.elf
+
