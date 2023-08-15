@@ -4,6 +4,7 @@
 #include <HardwareSerial.h>
 
 #include "commstructs.h"
+#include "contentmanager.h"
 #include "flasher.h"
 #include "leds.h"
 #include "newproto.h"
@@ -12,7 +13,6 @@
 #include "storage.h"
 #include "web.h"
 #include "zbs_interface.h"
-#include "contentmanager.h"
 
 QueueHandle_t rxCmdQueue;
 SemaphoreHandle_t txActive;
@@ -332,6 +332,10 @@ void rxCmdProcessor(void* parameter) {
                     break;
                 case RX_CMD_XTO:
                     processXferTimeout((struct espXferComplete*)rxcmd->data, true);
+                    break;
+                case RX_CMD_RSET:
+                    Serial.println("AP did reset, resending pending\n");
+                    refreshAllPending();
                     break;
             }
             if (rxcmd->data) free(rxcmd->data);
