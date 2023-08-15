@@ -430,6 +430,25 @@ ul.messages li.new {
 	box-shadow: 7px 10px 52px -19px rgba(255, 0, 0, 0.63);
 }
 
+#context-menu {
+	display: none;
+	position: absolute;
+	background: white;
+	border: 1px solid gray;
+	list-style: none;
+	z-index: 999;
+	padding: 2px 5px;
+}
+
+#context-menu li {
+	cursor: pointer;
+	padding: 1px 5px;
+}
+
+#context-menu li:hover {
+	background-color: #e0e0e0;
+}
+
 /* painter */
 
 #canvasdiv {

@@ -463,7 +463,7 @@
   {
     "id": 17,
     "name": "Send Command",
-    "desc": "Send a command to a tag to execute",
+    "desc": "Send a command to a tag to execute; only to be used for tests during development",
     "hwtype": [
       0,
       1,
@@ -476,16 +476,9 @@
     "param": [
       {
         "key": "cmd",
-        "name": "CMD",
+        "name": "CMD id",
         "desc": "Action",
-        "type": "select",
-        "options": {
-          "0": "Reboot",
-          "1": "Scan Channels",
-          "2": "Clear settings",
-          "3": "Enter Deep Sleep"
-
-        }
+        "type": "int"
       }
     ]
   },

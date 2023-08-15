@@ -426,7 +426,7 @@ function sendCmd(mac, cmd) {
 	})
 		.then(response => response.text())
 		.then(data => {
-			let div = $('#tag' + $('#cfgmac').dataset.mac);
+			let div = $('#tag' + mac);
 			if (cmd == "del") div.remove();
 			showMessage(data);
 		})
@@ -984,7 +984,8 @@ function dropUpload() {
 						} catch (error) {
 							console.error('Image upload failed', error);
 						}
-					}, 'image/jpeg');				};
+					}, 'image/jpeg');
+				};
 
 				image.onerror = function () {
 					console.error('Failed to load image.');
@@ -1002,3 +1003,49 @@ function dropUpload() {
 		return canvas;
 	}
 }
+
+const contextMenu = $('#context-menu');
+
+$('#taglist').addEventListener('contextmenu', (e) => {
+	console.log("contextmenu");
+	e.preventDefault();
+
+	const clickedGridItem = e.target.closest('.tagcard');
+	if (clickedGridItem) {
+		let mac = clickedGridItem.dataset.mac;
+		console.log("tagcard");
+		let contextMenuOptions = [
+			{ id: 'refresh', label: 'Force refresh' },
+			{ id: 'clear', label: 'Clear pending status' }
+		];
+		if (clickedGridItem.dataset.isexternal == "false") {
+			contextMenuOptions.push(
+				{ id: 'scan', label: 'Scan channels' },
+				{ id: 'reboot', label: 'Reboot tag' },
+			);
+		};
+		contextMenuOptions.push(
+			{ id: 'del', label: 'Delete tag from list' }
+		);
+		contextMenu.innerHTML = '';
+		contextMenuOptions.forEach(option => {
+			const li = document.createElement('li');
+			li.textContent = option.label;
+			li.addEventListener('click', (e) => {
+				e.preventDefault();
+				console.log(`${option.id} clicked for ${mac}`);
+				sendCmd(mac, option.id);
+				contextMenu.style.display = 'none';
+			});
+			contextMenu.appendChild(li);
+		});
+		const contextMenuPosition = { left: e.clientX, top: e.clientY };
+		contextMenu.style.left = `${contextMenuPosition.left}px`;
+		contextMenu.style.top = `${contextMenuPosition.top}px`;
+		contextMenu.style.display = 'block';
+	}
+});
+
+document.addEventListener('click', () => {
+	contextMenu.style.display = 'none';
+});
