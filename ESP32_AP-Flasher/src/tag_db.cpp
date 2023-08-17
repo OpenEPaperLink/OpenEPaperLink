@@ -22,9 +22,7 @@ Config config;
 // SemaphoreHandle_t tagDBOwner;
 
 tagRecord* tagRecord::findByMAC(const uint8_t mac[8]) {
-    for (int32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* tag = nullptr;
-        tag = tagDB.at(c);
+    for (tagRecord* tag : tagDB) {
         if (memcmp(tag->mac, mac, 8) == 0) {
             return tag;
         }
@@ -33,7 +31,7 @@ tagRecord* tagRecord::findByMAC(const uint8_t mac[8]) {
 }
 
 bool deleteRecord(const uint8_t mac[8]) {
-    for (int32_t c = 0; c < tagDB.size(); c++) {
+    for (uint32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = tagDB.at(c);
         if (memcmp(tag->mac, mac, 8) == 0) {
             if (tag->data != nullptr) {
@@ -73,18 +71,10 @@ String tagDBtoJson(const uint8_t mac[8], uint8_t startPos) {
     DynamicJsonDocument doc(5000);
     JsonArray tags = doc.createNestedArray("tags");
 
-    for (int16_t c = startPos; c < tagDB.size(); c++) {
-        tagRecord* taginfo = nullptr;
-        taginfo = tagDB.at(c);
+    for (uint32_t c = startPos; c < tagDB.size(); ++c) {
+        const tagRecord* taginfo = tagDB.at(c);
 
-        bool select = false;
-        if (mac) {
-            if (memcmp(taginfo->mac, mac, 8) == 0) {
-                select = true;
-            }
-        } else {
-            select = true;
-        }
+        const bool select = !mac || memcmp(taginfo->mac, mac, 8) == 0;
         if (select) {
             JsonObject tag = tags.createNestedObject();
             fillNode(tag, taginfo);
@@ -92,15 +82,17 @@ String tagDBtoJson(const uint8_t mac[8], uint8_t startPos) {
                 break;
             }
         }
+
         if (doc.capacity() - doc.memoryUsage() < doc.memoryUsage() / (c + 1) + 500) {
             doc["continu"] = c + 1;
             break;
         }
     }
+
     return doc.as<String>();
 }
 
-void fillNode(JsonObject& tag, tagRecord*& taginfo) {
+void fillNode(JsonObject& tag, const tagRecord* taginfo) {
     char hexmac[17];
     mac2hex(taginfo->mac, hexmac);
     tag["mac"] = String(hexmac);
@@ -130,10 +122,10 @@ void fillNode(JsonObject& tag, tagRecord*& taginfo) {
     tag["ver"] = taginfo->tagSoftwareVersion;
 }
 
-void saveDB(String filename) {
+void saveDB(const String& filename) {
     DynamicJsonDocument doc(2500);
 
-    long t = millis();
+    const long t = millis();
 
     Storage.begin();
     fs::File file = contentFS->open(filename, "w");
@@ -143,11 +135,9 @@ void saveDB(String filename) {
     }
 
     file.write('[');
-
-    for (int32_t c = 0; c < tagDB.size(); c++) {
+    for (size_t c = 0; c < tagDB.size(); c++) {
+        const tagRecord* taginfo = tagDB.at(c);
         doc.clear();
-        tagRecord* taginfo = nullptr;
-        taginfo = tagDB.at(c);
 
         JsonObject tag = doc.createNestedObject();
         fillNode(tag, taginfo);
@@ -160,15 +150,11 @@ void saveDB(String filename) {
 
     file.close();
     Serial.println("DB saved " + String(millis() - t) + "ms");
-
-    return;
 }
 
-void loadDB(String filename) {
-    StaticJsonDocument<1000> doc;
-
+void loadDB(const String& filename) {
     Serial.println("reading DB from file");
-    long t = millis();
+    const long t = millis();
 
     Storage.begin();
     fs::File readfile = contentFS->open(filename, "r");
@@ -182,6 +168,7 @@ void loadDB(String filename) {
     bool parsing = true;
 
     if (readfile.find("[")) {
+        StaticJsonDocument<1000> doc;
         while (parsing) {
             DeserializationError err = deserializeJson(doc, readfile);
             if (!err) {
@@ -189,8 +176,7 @@ void loadDB(String filename) {
                 String dst = tag["mac"].as<String>();
                 uint8_t mac[8];
                 if (hex2mac(dst, mac)) {
-                    tagRecord* taginfo = nullptr;
-                    taginfo = tagRecord::findByMAC(mac);
+                    tagRecord* taginfo = tagRecord::findByMAC(mac);
                     if (taginfo == nullptr) {
                         taginfo = new tagRecord;
                         memcpy(taginfo->mac, mac, sizeof(taginfo->mac));
@@ -198,7 +184,7 @@ void loadDB(String filename) {
                     }
                     String md5 = tag["hash"].as<String>();
                     if (md5.length() >= 32) {
-                        for (int i = 0; i < 16; i++) {
+                        for (uint8_t i = 0; i < 16; i++) {
                             taginfo->md5[i] = strtoul(md5.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
                         }
                     }
@@ -236,22 +222,20 @@ void loadDB(String filename) {
     }
 
     readfile.close();
-    return;
+    Serial.println("loadDB took " + String(millis() - t) + "ms");
 }
 
 void destroyDB() {
     Serial.println("destoying DB");
     util::printHeap();
-    for (uint32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* tag = nullptr;
-        tag = tagDB.at(c);
+    for (tagRecord*& tag : tagDB) {
         if (tag->data != nullptr) {
             free(tag->data);
         }
         tag->data = nullptr;
-        delete tagDB[c];
-        tagDB.erase(tagDB.begin() + c);
+        delete tag;
     }
+    tagDB.clear();
     util::printHeap();
 }
 
@@ -264,19 +248,15 @@ uint32_t getTagCount(uint32_t& timeoutcount) {
     uint32_t tagcount = 0;
     time_t now;
     time(&now);
-    for (uint32_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = nullptr;
-        taginfo = tagDB.at(c);
-        if (taginfo->isExternal == false) tagcount++;
-        int32_t timeout = now - taginfo->lastseen;
+    for (const tagRecord* taginfo : tagDB) {
+        if (!taginfo->isExternal) tagcount++;
+        const int32_t timeout = now - taginfo->lastseen;
         if (taginfo->expectedNextCheckin < 3600) {
             // not initialised, timeout if not seen last 10 minutes
             if (timeout > 600) timeoutcount++;
-        } else {
-            if (now - taginfo->expectedNextCheckin > 600) {
-                //expected checkin is behind, timeout if not seen last 10 minutes
-                if (timeout > 600) timeoutcount++;
-            }
+        } else if (now - taginfo->expectedNextCheckin > 600) {
+            //expected checkin is behind, timeout if not seen last 10 minutes
+            if (timeout > 600) timeoutcount++;
         }
     }
     return tagcount;
@@ -287,10 +267,14 @@ void clearPending(tagRecord* taginfo) {
     if (taginfo->data != nullptr) {
         // check if this is the last copy of the buffer
         int datacount = 0;
-        for (uint32_t c = 0; c < tagDB.size(); c++) {
-            if (tagDB.at(c)->data == taginfo->data) datacount++;
+        for (const tagRecord* tag : tagDB) {
+            if (tag->data == taginfo->data) {
+                datacount++;
+            }
         }
-        if (datacount == 1) free(taginfo->data);
+        if (datacount == 1) {
+            free(taginfo->data);
+        }
         taginfo->data = nullptr;
     }
     taginfo->pending = false;
@@ -342,7 +326,7 @@ void saveAPconfig() {
     configFile.close();
 }
 
-HwType getHwType(uint8_t id) {
+HwType getHwType(const uint8_t id) {
     try {
         return hwdata.at(id);
     } catch (const std::out_of_range&) {
@@ -383,13 +367,13 @@ bool setVarDB(const std::string& key, const String& value) {
         newVar.changed = true;
         varDB[key] = newVar;
         return true;
+    }
+
+    if (it->second.value != value) {
+        it->second.value = value;
+        it->second.changed = true;
+        return true;
     } else {
-        if (it->second.value != value) {
-            it->second.value = value;
-            it->second.changed = true;
-            return true;
-        } else {
-            return false;
-        }
+        return false;
     }
 }

@@ -13,6 +13,7 @@
 #include "system.h"
 #include "tag_db.h"
 #include "udp.h"
+#include "util.h"
 #include "web.h"
 
 extern uint16_t sendBlock(const void* data, const uint16_t len);
@@ -34,14 +35,15 @@ bool checkCRC(void* p, uint8_t len) {
     return ((uint8_t*)p)[0] == total;
 }
 
-uint8_t* getDataForFile(fs::File* file) {
-    uint8_t* ret = nullptr;
-    ret = (uint8_t*)malloc(file->size());
+uint8_t* getDataForFile(fs::File& file) {
+    const size_t fileSize = file.size();
+    uint8_t* ret = (uint8_t*)malloc(fileSize);
     if (ret) {
-        file->seek(0);
-        file->readBytes((char*)ret, file->size());
+        file.seek(0);
+        file.readBytes((char*)ret, fileSize);
     } else {
-        Serial.print("malloc failed for file...\n");
+        Serial.printf("malloc failed for file with size %d\n", fileSize);
+        util::printHeap();
     }
     return ret;
 }
@@ -51,8 +53,7 @@ void prepareCancelPending(const uint8_t dst[8]) {
     memcpy(pending.targetMac, dst, 8);
     sendCancelPending(&pending);
 
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(dst);
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
         wsErr("Tag not found, this shouldn't happen.");
         return;
@@ -71,9 +72,7 @@ void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin) {
         pending.availdatainfo.nextCheckIn = nextCheckin;
         pending.attemptsLeft = 10 + config.maxsleep;
 
-        char buffer[64];
-        sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X NOP\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        Serial.print(buffer);
+        Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X NOP\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
         sendDataAvail(&pending);
     }
 }
@@ -115,11 +114,11 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
-bool prepareDataAvail(String* filename, uint8_t dataType, const uint8_t* dst, uint16_t nextCheckin) {
+bool prepareDataAvail(String& filename, uint8_t dataType, const uint8_t* dst, uint16_t nextCheckin) {
     if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
     if (wsClientCount() && config.stopsleep == 1) nextCheckin = 0;
 #ifdef YELLOW_IPS_AP
-    if (*filename == "direct") {
+    if (filename == "direct") {
         char dst_path[64];
         sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
         contentFS->remove(dst_path);
@@ -127,26 +126,25 @@ bool prepareDataAvail(String* filename, uint8_t dataType, const uint8_t* dst, ui
     }
 #endif
 
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(dst);
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
         wsErr("Tag not found, this shouldn't happen.");
         return true;
     }
 
-    *filename = "/" + *filename;
+    filename = "/" + filename;
     Storage.begin();
 
-    if (!contentFS->exists(*filename)) {
-        wsErr("File not found. " + *filename);
+    if (!contentFS->exists(filename)) {
+        wsErr("File not found. " + filename);
         return false;
     }
 
-    fs::File file = contentFS->open(*filename);
+    fs::File file = contentFS->open(filename);
     uint32_t filesize = file.size();
     if (filesize == 0) {
         file.close();
-        wsErr("File has size 0. " + *filename);
+        wsErr("File has size 0. " + filename);
         return false;
     }
 
@@ -166,8 +164,8 @@ bool prepareDataAvail(String* filename, uint8_t dataType, const uint8_t* dst, ui
     if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
         wsLog("new image is the same as current or already pending image. not updating tag.");
         wsSendTaginfo(dst, SYNC_TAGSTATUS);
-        if (contentFS->exists(*filename)) {
-            contentFS->remove(*filename);
+        if (contentFS->exists(filename)) {
+            contentFS->remove(filename);
         }
         return true;
     }
@@ -190,15 +188,15 @@ bool prepareDataAvail(String* filename, uint8_t dataType, const uint8_t* dst, ui
         if (contentFS->exists(dst_path)) {
             contentFS->remove(dst_path);
         }
-        contentFS->rename(*filename, dst_path);
-        *filename = String(dst_path);
+        contentFS->rename(filename, dst_path);
+        filename = String(dst_path);
 
         wsLog("new image: " + String(dst_path));
         time_t now;
         time(&now);
         taginfo->expectedNextCheckin = now + nextCheckin * 60 + 60;
         clearPending(taginfo);
-        taginfo->filename = *filename;
+        taginfo->filename = filename;
         taginfo->len = filesize;
         taginfo->dataType = dataType;
         taginfo->pending = true;
@@ -206,7 +204,7 @@ bool prepareDataAvail(String* filename, uint8_t dataType, const uint8_t* dst, ui
     } else {
         wsLog("firmware upload pending");
         clearPending(taginfo);
-        taginfo->filename = *filename;
+        taginfo->filename = filename;
         taginfo->len = filesize;
         taginfo->dataType = dataType;
         taginfo->pending = true;
@@ -222,22 +220,18 @@ bool prepareDataAvail(String* filename, uint8_t dataType, const uint8_t* dst, ui
     pending.attemptsLeft = attempts;
     checkMirror(taginfo, &pending);
     if (taginfo->isExternal == false) {
-        char buffer[64];
-        sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X TYPE 0x%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], pending.availdatainfo.dataType);
-        Serial.print(buffer);
+        Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X TYPE 0x%02X\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], pending.availdatainfo.dataType);
         sendDataAvail(&pending);
     } else {
         udpsync.netSendDataAvail(&pending);
     }
 
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
-
     return true;
 }
 
 void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(pending->targetMac);
+    tagRecord* taginfo = tagRecord::findByMAC(pending->targetMac);
     if (taginfo == nullptr) {
         return;
     }
@@ -335,8 +329,7 @@ void processBlockRequest(struct espBlockRequest* br) {
         return;
     }
 
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(br->src);
+    tagRecord* taginfo = tagRecord::findByMAC(br->src);
     if (taginfo == nullptr) {
         prepareCancelPending(br->src);
         Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
@@ -351,7 +344,7 @@ void processBlockRequest(struct espBlockRequest* br) {
             prepareCancelPending(br->src);
             return;
         }
-        taginfo->data = getDataForFile(&file);
+        taginfo->data = getDataForFile(file);
         file.close();
     }
 
@@ -400,8 +393,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
 
     time_t now;
     time(&now);
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(xfc->src);
+    tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
         clearPending(taginfo);
@@ -430,8 +422,7 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
 
     time_t now;
     time(&now);
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(xfc->src);
+    tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         taginfo->expectedNextCheckin = now + 60;
         memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
@@ -445,8 +436,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
     if (config.runStatus == RUNSTATUS_STOP) return;
     char buffer[64];
 
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(eadr->src);
+    tagRecord* taginfo = tagRecord::findByMAC(eadr->src);
     if (taginfo == nullptr) {
         taginfo = new tagRecord;
         memcpy(taginfo->mac, eadr->src, sizeof(taginfo->mac));
@@ -528,8 +518,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
 
 void refreshAllPending() {
     for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = nullptr;
-        taginfo = tagDB.at(c);
+        tagRecord* taginfo = tagDB.at(c);
         if (taginfo->pending) {
             clearPending(taginfo);
             taginfo->nextupdate = 0;
@@ -541,8 +530,7 @@ void refreshAllPending() {
 };
 
 void updateContent(const uint8_t* dst) {
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(dst);
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo != nullptr) {
         clearPending(taginfo);
         taginfo->nextupdate = 0;
@@ -574,9 +562,7 @@ bool sendAPSegmentedData(const uint8_t* dst, String data, uint16_t icons, bool i
     pending.availdatainfo.dataTypeArgument = inverted;
     pending.availdatainfo.nextCheckIn = 0;
     pending.attemptsLeft = 120;
-    char buffer[64];
-    sprintf(buffer, ">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-    Serial.print(buffer);
+    Serial.printf(">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     if (local) {
         return sendDataAvail(&pending);
     } else {
@@ -594,9 +580,7 @@ bool showAPSegmentedInfo(const uint8_t* dst, bool local) {
     pending.availdatainfo.dataTypeArgument = 0;
     pending.availdatainfo.nextCheckIn = 0;
     pending.attemptsLeft = 120;
-    char buffer[64];
-    sprintf(buffer, ">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-    Serial.print(buffer);
+    Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     if (local) {
         return sendDataAvail(&pending);
     } else {
@@ -612,9 +596,7 @@ bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local) {
     pending.availdatainfo.dataTypeArgument = cmd;
     pending.availdatainfo.nextCheckIn = 0;
     pending.attemptsLeft = 120;
-    char buffer[64];
-    sprintf(buffer, ">Tag CMD %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-    Serial.print(buffer);
+    Serial.printf(">Tag CMD %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     if (local) {
         return sendDataAvail(&pending);
     } else {
@@ -624,8 +606,7 @@ bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local) {
 }
 
 void updateTaginfoitem(struct TagInfo* taginfoitem) {
-    tagRecord* taginfo = nullptr;
-    taginfo = tagRecord::findByMAC(taginfoitem->mac);
+    tagRecord* taginfo = tagRecord::findByMAC(taginfoitem->mac);
 
     if (taginfo == nullptr) {
         taginfo = new tagRecord;
@@ -673,8 +654,7 @@ void updateTaginfoitem(struct TagInfo* taginfoitem) {
 
 bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo2 = nullptr;
-        taginfo2 = tagDB.at(c);
+        tagRecord* taginfo2 = tagDB.at(c);
         if (taginfo2->contentMode == 20) {
             DynamicJsonDocument doc(500);
             deserializeJson(doc, taginfo2->modeConfigJson);
@@ -686,7 +666,7 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
                     if (!file) {
                         return false;
                     }
-                    taginfo->data = getDataForFile(&file);
+                    taginfo->data = getDataForFile(file);
                     file.close();
                 }
 

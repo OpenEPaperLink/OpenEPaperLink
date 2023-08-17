@@ -116,8 +116,7 @@ void wsSendTaginfo(const uint8_t *mac, uint8_t syncMode) {
         xSemaphoreGive(wsMutex);
     }
     if (syncMode > SYNC_NOSYNC) {
-        tagRecord *taginfo = nullptr;
-        taginfo = tagRecord::findByMAC(mac);
+        const tagRecord *taginfo = tagRecord::findByMAC(mac);
         if (taginfo != nullptr) {
             if (taginfo->contentMode != 12 || syncMode == SYNC_DELETE) {
                 UDPcomm udpsync;
@@ -237,8 +236,7 @@ void init_web() {
             String dst = request->getParam("mac")->value();
             uint8_t mac[8];
             if (hex2mac(dst, mac)) {
-                tagRecord *taginfo = nullptr;
-                taginfo = tagRecord::findByMAC(mac);
+                const tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
                     if (taginfo->pending == true) {
                         request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
@@ -255,8 +253,7 @@ void init_web() {
             String dst = request->getParam("mac", true)->value();
             uint8_t mac[8];
             if (hex2mac(dst, mac)) {
-                tagRecord *taginfo = nullptr;
-                taginfo = tagRecord::findByMAC(mac);
+                tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
                     taginfo->alias = request->getParam("alias", true)->value();
                     taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
@@ -285,8 +282,7 @@ void init_web() {
         if (request->hasParam("mac", true) && request->hasParam("cmd", true)) {
             uint8_t mac[8];
             if (hex2mac(request->getParam("mac", true)->value(), mac)) {
-                tagRecord *taginfo = nullptr;
-                taginfo = tagRecord::findByMAC(mac);
+                tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
                     const char *cmdValue = request->getParam("cmd", true)->value().c_str();
                     if (strcmp(cmdValue, "del") == 0) {
@@ -533,8 +529,7 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
             String dst = request->getParam("mac", true)->value();
             uint8_t mac[8];
             if (hex2mac(dst, mac)) {
-                tagRecord *taginfo = nullptr;
-                taginfo = tagRecord::findByMAC(mac);
+                tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
                     bool dither = true;
                     if (request->hasParam("dither", true)) {
@@ -575,8 +570,7 @@ void doJsonUpload(AsyncWebServerRequest *request) {
             }
             file.print(request->getParam("json", true)->value());
             file.close();
-            tagRecord *taginfo = nullptr;
-            taginfo = tagRecord::findByMAC(mac);
+            tagRecord *taginfo = tagRecord::findByMAC(mac);
             if (taginfo != nullptr) {
                 uint32_t ttl = 0;
                 if (request->hasParam("ttl", true)) {

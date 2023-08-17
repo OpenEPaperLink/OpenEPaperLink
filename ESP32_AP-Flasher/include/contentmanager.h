@@ -36,7 +36,7 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
 void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams);
 void drawElement(const JsonObject &element, TFT_eSprite &spr);
 uint16_t getColor(const String &color);
-char *formatHttpDate(time_t t);
+char *formatHttpDate(const time_t t);
 String urlEncode(const char *msg);
 int windSpeedToBeaufort(const float windSpeed);
 String windDirectionIcon(const int degrees);

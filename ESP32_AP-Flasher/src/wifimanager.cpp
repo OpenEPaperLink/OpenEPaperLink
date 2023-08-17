@@ -28,7 +28,7 @@ WifiManager::WifiManager() {
 }
 
 void WifiManager::poll() {
-    if (wifiStatus == AP && millis() > _nextReconnectCheck && _ssid!="") {
+    if (wifiStatus == AP && millis() > _nextReconnectCheck && _ssid != "") {
         if (apClients == 0) {
             Serial.println("Attempting to reconnect to WiFi.");
             _APstarted = false;
@@ -239,7 +239,7 @@ void WifiManager::WiFiEvent(WiFiEvent_t event) {
 #endif
 
 std::vector<std::string> getLocalUrl() {
-    return { String("http://" + WiFi.localIP().toString()).c_str() };
+    return {String("http://" + WiFi.localIP().toString()).c_str()};
 }
 
 void onErrorCallback(improv::Error err) {
