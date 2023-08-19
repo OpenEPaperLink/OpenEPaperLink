@@ -42,6 +42,8 @@ void timeTask(void* parameter) {
 
         if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE || config.runStatus != RUNSTATUS_RUN) {
             wsSendSysteminfo();
+        }
+        if (now % 10 == 8 && config.runStatus != RUNSTATUS_STOP) {
             checkVars();
         }
         if (now % 300 == 6 && config.runStatus != RUNSTATUS_STOP) saveDB("/current/tagDB.json");

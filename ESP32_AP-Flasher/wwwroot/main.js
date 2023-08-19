@@ -936,8 +936,8 @@ function dropUpload() {
 		event.preventDefault();
 		const file = event.dataTransfer.files[0];
 		const tagCard = event.target.closest('.tagcard');
+		const mac = tagCard.dataset.mac;
 		if (tagCard && file && file.type.startsWith('image/')) {
-			tagCard.classList.remove('drophighlight');
 			const itemId = tagCard.id;
 			const reader = new FileReader();
 
@@ -947,7 +947,6 @@ function dropUpload() {
 
 				image.onload = function () {
 					const hwtype = tagCard.dataset.hwtype;
-					const mac = tagCard.dataset.mac;
 					const [width, height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
 					const canvas = createCanvas(width, height);
 					const ctx = canvas.getContext('2d');
@@ -991,9 +990,35 @@ function dropUpload() {
 					console.error('Failed to load image.');
 				};
 			};
-
 			reader.readAsDataURL(file);
+
+		} else if (file.type === 'application/json') {
+
+			const reader = new FileReader();
+			reader.onload = function (event) {
+				const jsonContent = event.target.result;
+				const formData = new FormData();
+				formData.append('mac', mac);
+				formData.append('json', jsonContent);
+				fetch('/jsonupload', {
+					method: 'POST',
+					body: formData,
+				})
+					.then(response => {
+						if (response.ok) {
+							console.log('JSON uploaded successfully');
+						} else {
+							console.error('JSON upload failed');
+						}
+					})
+					.catch(error => {
+						console.error('JSON upload failed', error);
+					});
+			};
+			reader.readAsText(file);
+
 		}
+		tagCard.classList.remove('drophighlight');
 	});
 
 	function createCanvas(width, height) {

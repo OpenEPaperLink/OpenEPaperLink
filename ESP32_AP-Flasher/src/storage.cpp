@@ -52,7 +52,6 @@ size_t DynStorage::freeSpace(){
     return LittleFS.totalBytes() - LittleFS.usedBytes();
 }
 
-#ifdef HAS_SDCARD
 void copyFile(File in, File out) {
     Serial.print("Copying ");
     Serial.print(in.path());
@@ -65,6 +64,8 @@ void copyFile(File in, File out) {
         out.write(buf, n);
     }
 }
+
+#ifdef HAS_SDCARD
 
 void copyBetweenFS(FS& sourceFS, const char* source_path, FS& targetFS) {
     File root = sourceFS.open(source_path);
@@ -127,6 +128,7 @@ void DynStorage::begin() {
     copyIfNeeded("/index.html");
     copyIfNeeded("/fonts");
     copyIfNeeded("/www");
+    copyIfNeeded("/tagtypes");
     copyIfNeeded("/AP_FW_Pack.bin");
     copyIfNeeded("/tag_md5_db.json");
     copyIfNeeded("/update_actions.json");

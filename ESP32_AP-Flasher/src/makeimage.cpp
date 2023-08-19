@@ -78,7 +78,7 @@ uint32_t colorDistance(Color &c1, Color &c2, Error &e1) {
     int32_t r_diff = gamma8[c1.r] + e1.r - gamma8[c2.r];
     int32_t g_diff = gamma8[c1.g] + e1.g - gamma8[c2.g];
     int32_t b_diff = gamma8[c1.b] + e1.b - gamma8[c2.b];
-    return 22 * r_diff * r_diff + 50 * g_diff * g_diff + 20 * b_diff * b_diff;
+    return 3 * r_diff * r_diff + 6 * g_diff * g_diff + b_diff * b_diff;
 }
 
 void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t buffer_size, bool is_red) {
