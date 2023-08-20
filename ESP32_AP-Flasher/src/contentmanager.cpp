@@ -18,12 +18,11 @@
 
 #include <map>
 
-#include "storage.h"
-
 #include "U8g2_for_TFT_eSPI.h"
 #include "commstructs.h"
 #include "makeimage.h"
 #include "newproto.h"
+#include "storage.h"
 #ifdef CONTENT_QR
 #include "qrcode.h"
 #endif
@@ -638,21 +637,32 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
     const String lat = cfgobj["#lat"];
     const String lon = cfgobj["#lon"];
     const String tz = cfgobj["#tz"];
+    String units = "";
+    if (cfgobj["units"] == "1") {
+        units += "&temperature_unit=fahrenheit&windspeed_unit=mph";
+    }
 
     StaticJsonDocument<1000> doc;
-    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true&windspeed_unit=ms&timezone=" + tz, doc, 5000);
+    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true&windspeed_unit=ms&timezone=" + tz + units, doc, 5000);
     if (!success) {
         return;
     }
 
     const auto &currentWeather = doc["current_weather"];
     const double temperature = currentWeather["temperature"].as<double>();
-    const int windspeed = currentWeather["windspeed"].as<int>();
+    float windspeed = currentWeather["windspeed"].as<float>();
+    int windval = 0;
     const int winddirection = currentWeather["winddirection"].as<int>();
     const bool isNight = currentWeather["is_day"].as<int>() == 0;
     uint8_t weathercode = currentWeather["weathercode"].as<int>();
     if (weathercode > 40) weathercode -= 40;
-    const int beaufort = windSpeedToBeaufort(windspeed);
+
+    const uint8_t beaufort = windSpeedToBeaufort(windspeed);
+    if (cfgobj["units"] != "1") {
+        windval = beaufort;
+    } else {
+        windval = int(windspeed);
+    }
 
     doc.clear();
 
@@ -664,10 +674,10 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
                                       "rain", "rain", "", "", "SNOW", "SNOW", "", "", "", "",
                                       "", "", "", "", "STRM", "HAIL", "", "", "HAIL"};
         if (temperature < -9.9) {
-            sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature), beaufort, weatherText[weathercode].c_str());
+            sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature), windval, weatherText[weathercode].c_str());
             imageParams.symbols = 0x00;
         } else {
-            sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature * 10), beaufort, weatherText[weathercode].c_str());
+            sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature * 10), windval, weatherText[weathercode].c_str());
             imageParams.symbols = 0x04;
         }
         return;
@@ -682,7 +692,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
     const auto &location = doc["location"];
     drawString(spr, cfgobj["location"], location[0], location[1], location[2]);
     const auto &wind = doc["wind"];
-    drawString(spr, String(beaufort), wind[0], wind[1], wind[2], TR_DATUM, (beaufort > 4 ? TFT_RED : TFT_BLACK));
+    drawString(spr, String(windval), wind[0], wind[1], wind[2], TR_DATUM, (beaufort > 4 ? TFT_RED : TFT_BLACK));
 
     char tmpOutput[5];
     dtostrf(temperature, 2, 1, tmpOutput);
@@ -712,9 +722,13 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
     String lat = cfgobj["#lat"];
     String lon = cfgobj["#lon"];
     String tz = cfgobj["#tz"];
+    String units = "";
+    if (cfgobj["units"] == "1") {
+        units += "&temperature_unit=fahrenheit&windspeed_unit=mph";
+    }
 
     DynamicJsonDocument doc(2000);
-    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant&windspeed_unit=ms&timeformat=unixtime&timezone=" + tz, doc, 5000);
+    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant&windspeed_unit=ms&timeformat=unixtime&timezone=" + tz + units, doc, 5000);
     if (!success) {
         return;
     }
@@ -750,7 +764,13 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
 
         const int8_t tmin = round(daily["temperature_2m_min"][dag].as<double>());
         const int8_t tmax = round(daily["temperature_2m_max"][dag].as<double>());
-        const uint8_t wind = windSpeedToBeaufort(daily["windspeed_10m_max"][dag].as<double>());
+        uint8_t wind;
+        const int8_t beaufort = windSpeedToBeaufort(daily["windspeed_10m_max"][dag].as<double>());
+        if (cfgobj["units"] == "1") {
+            wind = daily["windspeed_10m_max"][dag].as<int>();
+        } else {
+            wind = beaufort;
+        }
 
         spr.loadFont(day[2], *contentFS);
 
@@ -763,7 +783,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
 
         drawString(spr, String(tmin) + " ", dag * column1 + day[0].as<int>(), day[4], "", TR_DATUM, (tmin < 0 ? TFT_RED : TFT_BLACK));
         drawString(spr, String(" ") + String(tmax), dag * column1 + day[0].as<int>(), day[4], "", TL_DATUM, (tmax < 0 ? TFT_RED : TFT_BLACK));
-        drawString(spr, String(" ") + String(wind), dag * column1 + day[0].as<int>(), day[3], "", TL_DATUM, (wind > 5 ? TFT_RED : TFT_BLACK));
+        drawString(spr, String(wind), dag * column1 + column1 - 10, day[3], "", TR_DATUM, (beaufort > 5 ? TFT_RED : TFT_BLACK));
         spr.unloadFont();
         if (dag > 0) {
             for (int i = loc["line"][0]; i < loc["line"][1]; i += 3) {

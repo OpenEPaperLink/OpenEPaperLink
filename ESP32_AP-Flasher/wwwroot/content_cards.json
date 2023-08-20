@@ -153,6 +153,16 @@
         "name": "Lon",
         "desc": "Longitude (set automatic when generating image)",
         "type": "ro"
+      },
+      {
+        "key": "units",
+        "name": "Units",
+        "desc": "Celcius or Fahrenheit?",
+        "type": "select",
+        "options": {
+          "0": "-Celcius / Beaufort / millimeters",
+          "1": "Fahrenheit / mph / millimeters"
+        }
       }
     ]
   },
@@ -185,6 +195,16 @@
         "name": "Lon",
         "desc": "Longitude (set automatic when generating image)",
         "type": "ro"
+      },
+      {
+        "key": "units",
+        "name": "Units",
+        "desc": "Celcius or Fahrenheit?",
+        "type": "select",
+        "options": {
+          "0": "-Celcius / Beaufort / millimeters",
+          "1": "Fahrenheit / mph / millimeters"
+        }
       }
     ]
   },
@@ -609,7 +629,7 @@
   },
   {
     "id": 21,
-    "name": "Display access point info",
+    "name": "Access point info",
     "desc": "Displays information about the currently connected access point",
     "hwtype": [0, 1]
   }
