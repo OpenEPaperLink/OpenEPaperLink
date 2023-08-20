@@ -64,7 +64,6 @@ void prepareCancelPending(const uint8_t dst[8]) {
 }
 
 void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin) {
-    if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
     if (nextCheckin > 0) {
         struct pendingData pending = {0};
         memcpy(pending.targetMac, dst, 8);
@@ -93,7 +92,7 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8
     memcpy(taginfo->data, data, len);
     taginfo->pending = true;
     taginfo->len = len;
-    taginfo->expectedNextCheckin = 0;
+    taginfo->pendingIdle = 0;
     taginfo->filename = String();
     taginfo->dataType = dataType;
     memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
@@ -114,7 +113,7 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
-bool prepareDataAvail(String& filename, uint8_t dataType, const uint8_t* dst, uint16_t nextCheckin) {
+bool prepareDataAvail(String& filename, uint8_t dataType, const uint8_t* dst, uint16_t nextCheckin, bool resend) {
     if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
     if (wsClientCount() && config.stopsleep == 1) nextCheckin = 0;
 #ifdef YELLOW_IPS_AP
@@ -164,7 +163,7 @@ bool prepareDataAvail(String& filename, uint8_t dataType, const uint8_t* dst, ui
     if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
         wsLog("new image is the same as current or already pending image. not updating tag.");
         wsSendTaginfo(dst, SYNC_TAGSTATUS);
-        if (contentFS->exists(filename)) {
+        if (contentFS->exists(filename) && resend == false) {
             contentFS->remove(filename);
         }
         return true;
@@ -188,13 +187,15 @@ bool prepareDataAvail(String& filename, uint8_t dataType, const uint8_t* dst, ui
         if (contentFS->exists(dst_path)) {
             contentFS->remove(dst_path);
         }
-        contentFS->rename(filename, dst_path);
-        filename = String(dst_path);
+        if (resend == false) {
+            contentFS->rename(filename, dst_path);
+            filename = String(dst_path);
+            wsLog("new image: " + String(dst_path));
+        }
 
-        wsLog("new image: " + String(dst_path));
         time_t now;
         time(&now);
-        taginfo->expectedNextCheckin = now + nextCheckin * 60 + 60;
+        taginfo->pendingIdle = now + nextCheckin * 60 + 60;
         clearPending(taginfo);
         taginfo->filename = filename;
         taginfo->len = filesize;
@@ -255,6 +256,16 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                     File file = contentFS->open(filename, "w");
                     http.writeToStream(&file);
                     file.close();
+                } else if (httpCode == 404) {
+                    imageUrl = "http://" + remoteIP.toString() + "/current/" + String(hexmac) + ".raw";
+                    http.end();
+                    http.begin(imageUrl);
+                    httpCode = http.GET();
+                    if (httpCode == 200) {
+                        File file = contentFS->open(filename, "w");
+                        http.writeToStream(&file);
+                        file.close();
+                    }
                 }
                 http.end();
 
@@ -424,7 +435,7 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
     time(&now);
     tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
-        taginfo->expectedNextCheckin = now + 60;
+        taginfo->pendingIdle = now + 60;
         memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
         clearPending(taginfo);
     }

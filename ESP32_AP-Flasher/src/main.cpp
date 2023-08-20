@@ -37,19 +37,25 @@ void timeTask(void* parameter) {
     wsSendSysteminfo();
     util::printHeap();
     while (1) {
+        unsigned long startMillis = millis();
         time_t now;
         time(&now);
-
         if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE || config.runStatus != RUNSTATUS_RUN) {
             wsSendSysteminfo();
         }
-        if (now % 10 == 8 && config.runStatus != RUNSTATUS_STOP) {
+        if (now % 10 == 9 && config.runStatus != RUNSTATUS_STOP) {
             checkVars();
         }
-        if (now % 300 == 6 && config.runStatus != RUNSTATUS_STOP) saveDB("/current/tagDB.json");
-        if (apInfo.state == AP_STATE_ONLINE) contentRunner();
+        if (now % 300 == 7 && config.runStatus != RUNSTATUS_STOP) {
+            saveDB("/current/tagDB.json");
+        }
+        if (apInfo.state == AP_STATE_ONLINE) {
+            contentRunner();
+        }
 
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        if (millis() - startMillis < 1000) {
+            vTaskDelay((1000 - millis() + startMillis) / portTICK_PERIOD_MS);
+        }
     }
 }
 

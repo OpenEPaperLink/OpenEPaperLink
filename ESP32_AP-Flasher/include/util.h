@@ -104,4 +104,24 @@ static inline bool isEmptyOrNull(const String &str) {
     return str.isEmpty() || str == "null";
 }
 
+/// @brief checks if the current time is between sleeptime1 and sleeptime2
+///
+/// @param sleeptime1 Start of time block
+/// @param sleeptime2 End of time block
+/// @return True if within time block, false is outside time block
+static bool isSleeping(int sleeptime1, int sleeptime2) {
+    if (sleeptime1 == sleeptime2) return false;
+
+    struct tm timeinfo;
+    getLocalTime(&timeinfo);
+    int currentHour = timeinfo.tm_hour;
+
+    if (sleeptime1 < sleeptime2) {
+        return currentHour >= sleeptime1 && currentHour < sleeptime2;
+    } else {
+        return currentHour >= sleeptime1 || currentHour < sleeptime2;
+    }
+}
+
+
 }  // namespace util

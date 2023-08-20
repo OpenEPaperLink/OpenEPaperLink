@@ -32,6 +32,9 @@ let servertimediff = 0;
 let paintLoaded = false, paintShow = false;
 let cardconfig;
 let otamodule;
+let socket;
+let finishedInitialLoading = false;
+let getTagtypeBusy = false;
 
 window.addEventListener("load", function () {
 	fetch('/content_cards.json')
@@ -55,9 +58,9 @@ window.addEventListener("load", function () {
 			}
 		});
 	dropUpload();
+	populateTimes($('#apcnight1'));
+	populateTimes($('#apcnight2'));
 });
-
-let socket;
 
 function loadTags(pos) {
 	fetch("/get_db?pos=" + pos)
@@ -65,6 +68,7 @@ function loadTags(pos) {
 		.then(data => {
 			processTags(data.tags);
 			if (data.continu && data.continu > pos) loadTags(data.continu);
+			finishedInitialLoading = true;
 		})
 	//.catch(error => showMessage('loadTags error: ' + error));
 }
@@ -489,6 +493,8 @@ $('#apconfigbutton').onclick = function () {
 			$("#apcpreview").value = data.preview;
 			$("#apcwifipower").value = data.wifipower;
 			$("#apctimezone").value = data.timezone;
+			$("#apcnight1").value = data.sleeptime1;
+			$("#apcnight2").value = data.sleeptime2;
 		})
 	$('#apconfigbox').style.display = 'block'
 }
@@ -504,6 +510,8 @@ $('#apcfgsave').onclick = function () {
 	formData.append('preview', $('#apcpreview').value);
 	formData.append('wifipower', $('#apcwifipower').value);
 	formData.append('timezone', $('#apctimezone').value);
+	formData.append('sleeptime1', $('#apcnight1').value);
+	formData.append('sleeptime2', $('#apcnight2').value);
 	fetch("/save_apcfg", {
 		method: "POST",
 		body: formData
@@ -706,11 +714,15 @@ function processQueue() {
 		return;
 	}
 	isProcessing = true;
+	if (!finishedInitialLoading) {
+		setTimeout(processQueue, 100);
+		return;
+	}
 	const { id, imageSrc } = imageQueue.shift();
 	const hwtype = $('#tag' + id).dataset.hwtype;
 	if (tagTypes[hwtype]?.busy) {
 		imageQueue.push({ id, imageSrc });
-		setTimeout(processQueue, 50);
+		setTimeout(processQueue, 100);
 		return;
 	};
 
@@ -869,6 +881,21 @@ $('#toggleFilters').addEventListener('click', () => {
 });
 
 async function getTagtype(hwtype) {
+	if (tagTypes[hwtype]) {
+		return tagTypes[hwtype];
+	}
+
+	if (getTagtypeBusy) {
+		await new Promise(resolve => {
+			const checkBusy = setInterval(() => {
+				if (!getTagtypeBusy) {
+					clearInterval(checkBusy);
+					resolve();
+				}
+			}, 50);
+		});
+	}
+
 	if (tagTypes[hwtype]?.busy) {
 		await new Promise(resolve => {
 			const checkBusy = setInterval(() => {
@@ -886,10 +913,12 @@ async function getTagtype(hwtype) {
 
 	try {
 		tagTypes[hwtype] = { busy: true };
+		getTagtypeBusy = true;
 		const response = await fetch('/tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json');
 		if (!response.ok) {
 			let data = { name: 'unknown id ' + hwtype, width: 0, height: 0, bpp: 0, rotatebuffer: 0, colortable: [], busy: false };
 			tagTypes[hwtype] = data;
+			getTagtypeBusy = false;
 			return data;
 		}
 		const jsonData = await response.json();
@@ -904,10 +933,12 @@ async function getTagtype(hwtype) {
 			busy: false
 		};
 		tagTypes[hwtype] = data;
+		getTagtypeBusy = false;
 		return data;
 
 	} catch (error) {
 		console.error('Error fetching data:', error);
+		getTagtypeBusy = false;
 		return null;
 	}
 }
@@ -1074,3 +1105,12 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 document.addEventListener('click', () => {
 	contextMenu.style.display = 'none';
 });
+
+function populateTimes(element) {
+	for (let i = 0; i < 24; i++) {
+		const option = document.createElement("option");
+		option.value = i;
+		option.text = i.toString().padStart(2, "0") + ":00";
+		element.appendChild(option);
+	}
+}

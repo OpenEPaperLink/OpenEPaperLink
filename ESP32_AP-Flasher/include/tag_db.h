@@ -66,6 +66,8 @@ struct Config {
     uint8_t preview;
     uint8_t wifiPower;
     char timeZone[52];
+    uint8_t sleepTime1;
+    uint8_t sleepTime2;
 };
 
 struct HwType {

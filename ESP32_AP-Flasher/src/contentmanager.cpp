@@ -20,9 +20,7 @@
 
 #include "storage.h"
 
-#if defined CONTENT_RSS || defined CONTENT_CAL
 #include "U8g2_for_TFT_eSPI.h"
-#endif
 #include "commstructs.h"
 #include "makeimage.h"
 #include "newproto.h"
@@ -45,19 +43,31 @@ void contentRunner() {
     time(&now);
 
     for (tagRecord *taginfo : tagDB) {
-        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC) && config.runStatus == RUNSTATUS_RUN && Storage.freeSpace() > 31000) {
+        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC) && config.runStatus == RUNSTATUS_RUN && Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
             drawNew(taginfo->mac, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
             taginfo->wakeupReason = 0;
         }
 
         if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pending == false) {
-            uint16_t minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
+            int16_t minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
             if (minutesUntilNextUpdate > config.maxsleep) {
                 minutesUntilNextUpdate = config.maxsleep;
+            }
+            if (util::isSleeping(config.sleepTime1, config.sleepTime2)) {
+                struct tm timeinfo;
+                getLocalTime(&timeinfo);
+                struct tm nextSleepTimeinfo = timeinfo;
+                nextSleepTimeinfo.tm_hour = config.sleepTime2;
+                nextSleepTimeinfo.tm_min = 0;
+                nextSleepTimeinfo.tm_sec = 0;
+                time_t nextWakeTime = mktime(&nextSleepTimeinfo);
+                if (nextWakeTime < now) nextWakeTime += 24 * 3600;
+                minutesUntilNextUpdate = (nextWakeTime - now) / 60 - 2;
             }
             if (minutesUntilNextUpdate > 1 && (wsClientCount() == 0 || config.stopsleep == 0)) {
                 taginfo->pendingIdle = minutesUntilNextUpdate;
                 if (taginfo->isExternal == false) {
+                    Serial.printf("sleeping for %d more minutes\n", minutesUntilNextUpdate);
                     prepareIdleReq(taginfo->mac, minutesUntilNextUpdate);
                 }
             }
@@ -186,15 +196,29 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     switch (taginfo->contentMode) {
         case 0:  // Image
         {
-            const String configFilename = cfgobj["filename"].as<String>();
-            if (!util::isEmptyOrNull(configFilename) && !cfgobj["#fetched"].as<bool>()) {
-                imageParams.dither = cfgobj["dither"] && cfgobj["dither"] == "1";
-                jpg2buffer(configFilename, filename, imageParams);
+            String configFilename = cfgobj["filename"].as<String>();
+            if (!util::isEmptyOrNull(configFilename)) {
+                if (!configFilename.startsWith("/")) {
+                    configFilename = "/" + configFilename;
+                }
+                if (contentFS->exists(configFilename)) {
+                    imageParams.dither = cfgobj["dither"] && cfgobj["dither"] == "1";
+                    jpg2buffer(configFilename, filename, imageParams);
+                } else {
+                    filename = "/current/" + String(hexmac) + ".raw";
+                    if (contentFS->exists(filename)) {
+                        prepareDataAvail(filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>(), true);
+                        wsLog("File " + configFilename + " not found, resending image " + filename);
+                    } else {
+                        wsErr("File " + configFilename + " not found");
+                    }
+                    taginfo->nextupdate = 3216153600;
+                    break;
+                }
                 if (imageParams.hasRed) {
                     imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                 }
                 if (prepareDataAvail(filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
-                    cfgobj["#fetched"] = true;
                     if (cfgobj["delete"].as<String>() == "1") {
                         contentFS->remove("/" + configFilename);
                     }
@@ -509,7 +533,6 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
 
-    // const int weekday_number = timeinfo.tm_wday;
     const int month_number = timeinfo.tm_mon;
     const int year_number = timeinfo.tm_year + 1900;
 

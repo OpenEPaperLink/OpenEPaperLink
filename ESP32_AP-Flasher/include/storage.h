@@ -35,5 +35,8 @@ class DynStorage {
 
 extern DynStorage Storage;
 extern fs::FS *contentFS;
+extern void copyFile(File in, File out);
 
 #endif
+
+

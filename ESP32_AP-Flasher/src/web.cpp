@@ -76,11 +76,15 @@ void wsSendSysteminfo() {
     JsonObject sys = doc.createNestedObject("sys");
     time_t now;
     time(&now);
+    static int freeSpaceLastRun = 0;
     sys["currtime"] = now;
     sys["heap"] = ESP.getFreeHeap();
     sys["recordcount"] = tagDB.size();
     sys["dbsize"] = dbSize();
-    sys["littlefsfree"] = Storage.freeSpace();
+    if (millis() - freeSpaceLastRun > 30000) {
+        sys["littlefsfree"] = Storage.freeSpace();
+        freeSpaceLastRun = millis();
+    }
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
 #if !defined(CONFIG_IDF_TARGET_ESP32)
@@ -90,17 +94,22 @@ void wsSendSysteminfo() {
     sys["wifistatus"] = WiFi.status();
     sys["wifissid"] = WiFi.SSID();
 
-    uint32_t timeoutcount = 0;
-    uint32_t tagcount = getTagCount(timeoutcount);
-    char result[40];
-    if (timeoutcount > 0) {
-        snprintf(result, sizeof(result), "%lu / %lu, %lu timed out", tagcount, tagDB.size(), timeoutcount);
-    } else {
-        snprintf(result, sizeof(result), "%lu / %lu", tagcount, tagDB.size());
-    }
-    setVarDB("ap_tagcount", result);
     setVarDB("ap_ip", WiFi.localIP().toString());
     setVarDB("ap_ch", String(apInfo.channel));
+
+    static uint32_t tagcounttimer = 0;
+    if (millis() - tagcounttimer > 60000) {
+        uint32_t timeoutcount = 0;
+        uint32_t tagcount = getTagCount(timeoutcount);
+        char result[40];
+        if (timeoutcount > 0) {
+            snprintf(result, sizeof(result), "%lu / %lu, %lu timed out", tagcount, tagDB.size(), timeoutcount);
+        } else {
+            snprintf(result, sizeof(result), "%lu / %lu", tagcount, tagDB.size());
+        }
+        setVarDB("ap_tagcount", result);
+        tagcounttimer = millis();
+    }
 
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -356,6 +365,10 @@ void init_web() {
             }
             if (request->hasParam("preview", true)) {
                 config.preview = static_cast<uint8_t>(request->getParam("preview", true)->value().toInt());
+            }
+            if (request->hasParam("sleeptime1", true)) {
+                config.sleepTime1 = static_cast<uint8_t>(request->getParam("sleeptime1", true)->value().toInt());
+                config.sleepTime2 = static_cast<uint8_t>(request->getParam("sleeptime2", true)->value().toInt());
             }
             if (request->hasParam("wifipower", true)) {
                 config.wifiPower = static_cast<uint8_t>(request->getParam("wifipower", true)->value().toInt());

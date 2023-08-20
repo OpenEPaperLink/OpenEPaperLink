@@ -300,6 +300,8 @@ void initAPconfig() {
     config.maxsleep = APconfig["maxsleep"] | 10;
     config.stopsleep = APconfig["stopsleep"] | 1;
     config.preview = APconfig["preview"] | 1;
+    config.sleepTime1 = APconfig["sleeptime1"] | 0;
+    config.sleepTime2 = APconfig["sleeptime2"] | 0;
     // default wifi power 8.5 dbM
     // see https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/src/WiFiGeneric.h#L111
     config.wifiPower = APconfig["wifipower"] | 34;
@@ -322,6 +324,8 @@ void saveAPconfig() {
     APconfig["preview"] = config.preview;
     APconfig["wifipower"] = config.wifiPower;
     APconfig["timezone"] = config.timeZone;
+    APconfig["sleeptime1"] = config.sleepTime1;
+    APconfig["sleeptime2"] = config.sleepTime2;
     serializeJsonPretty(APconfig, configFile);
     configFile.close();
 }
