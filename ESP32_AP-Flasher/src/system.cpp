@@ -31,7 +31,7 @@ void initTime(void* parameter) {
     vTaskDelete(NULL);
 }
 
-void logLine(char* buffer) {
+void logLine(const char* buffer) {
     logLine(String(buffer));
 }
 
@@ -40,7 +40,8 @@ void logLine(String text) {
     time(&now);
 
     char timeStr[24];
-    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S ", localtime(&now));
+    const char* format = (now < (time_t)1672531200) ? "           %H:%M:%S " : "%Y-%m-%d %H:%M:%S ";
+    strftime(timeStr, sizeof(timeStr), format, localtime(&now));
 
     File logFile = contentFS->open("/log.txt", "a");
     if (logFile) {

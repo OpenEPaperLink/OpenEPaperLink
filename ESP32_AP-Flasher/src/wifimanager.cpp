@@ -6,6 +6,7 @@
 
 #include "newproto.h"
 #include "tag_db.h"
+#include "system.h"
 #include "web.h"
 
 uint8_t WifiManager::apClients = 0;
@@ -31,6 +32,7 @@ void WifiManager::poll() {
     if (wifiStatus == AP && millis() > _nextReconnectCheck && _ssid != "") {
         if (apClients == 0) {
             Serial.println("Attempting to reconnect to WiFi.");
+            logLine("Attempting to reconnect to WiFi.");
             _APstarted = false;
             wifiStatus = NOINIT;
             connectToWifi();
@@ -43,6 +45,7 @@ void WifiManager::poll() {
         if (WiFi.status() != WL_CONNECTED) {
             _connected = false;
             Serial.println("WiFi connection lost. Attempting to reconnect.");
+            logLine("WiFi connection lost. Attempting to reconnect.");
             WiFi.reconnect();
             waitForConnection();
         } else {
@@ -60,6 +63,7 @@ bool WifiManager::connectToWifi() {
     _pass = preferences.getString("pw", WiFi_psk());
     if (_ssid == "") {
         Serial.println("No connection information specified");
+        logLine("No connection information specified");
         startManagementServer();
         return false;
     }
@@ -94,7 +98,7 @@ bool WifiManager::connectToWifi(String ssid, String pass, bool savewhensuccessfu
     WiFi.setSleep(WIFI_PS_NONE);
 
     Serial.println("Connecting to WiFi...");
-
+    logLine("Connecting to WiFi...");
     WiFi.persistent(savewhensuccessfull);
     WiFi.begin(_ssid.c_str(), _pass.c_str());
     _connected = waitForConnection();
@@ -107,7 +111,8 @@ bool WifiManager::waitForConnection() {
 
     while (WiFi.status() != WL_CONNECTED) {
         if (millis() > timeout) {
-            Serial.println("Unable to connect to WIFI");
+            Serial.println("Unable to connect to WiFi");
+            logLine("Unable to connect to WiFi");
             startManagementServer();
             return false;
         }
@@ -126,6 +131,7 @@ bool WifiManager::waitForConnection() {
     WiFi.persistent(true);
     IPAddress IP = WiFi.localIP();
     Serial.printf("Connected! IP Address: %s\n", IP.toString().c_str());
+    logLine("Connected! IP Address: " + String(IP.toString().c_str()));
     _nextReconnectCheck = millis() + _reconnectIntervalCheck;
     wifiStatus = CONNECTED;
     return true;
@@ -134,6 +140,7 @@ bool WifiManager::waitForConnection() {
 void WifiManager::startManagementServer() {
     if (!_APstarted) {
         Serial.println("Starting configuration AP, ssid OpenEPaperLink");
+        logLine("Starting configuration AP, ssid OpenEPaperLink");
         WiFi.mode(WIFI_AP);
         WiFi.softAP("OpenEPaperLink", "", 1, false);
         WiFi.softAPsetHostname("OpenEPaperLink");
@@ -179,47 +186,48 @@ void WifiManager::pollSerial() {
 // temporary write some more debug info
 void WifiManager::WiFiEvent(WiFiEvent_t event) {
     Serial.printf("[WiFi-event %d] ", event);
+    String eventname="";
 
     switch (event) {
         case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-            Serial.println("Connected to access point");
+            eventname = "Connected to access point";
             break;
         case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-            Serial.println("Disconnected from WiFi access point");
+            eventname = "Disconnected from WiFi access point";
             break;
         case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
-            Serial.println("Authentication mode of access point has changed");
+            eventname = "Authentication mode of access point has changed";
             break;
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-            Serial.print("Obtained IP address: ");
-            Serial.println(WiFi.localIP());
+            eventname = "Obtained IP address: " + String(WiFi.localIP().toString().c_str());
             break;
         case ARDUINO_EVENT_WIFI_STA_LOST_IP:
-            Serial.println("Lost IP address and IP address is reset to 0");
+            eventname = "Lost IP address and IP address is reset to 0";
             break;
 
         case ARDUINO_EVENT_WIFI_AP_START:
-            Serial.println("WiFi access point started");
+            eventname = "WiFi access point started";
             break;
         case ARDUINO_EVENT_WIFI_AP_STOP:
-            Serial.println("WiFi access point stopped");
+            eventname = "WiFi access point stopped";
             break;
         case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
             apClients++;
-            Serial.println("Client connected");
+            eventname = "Client connected";
             break;
         case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
             apClients--;
-            Serial.println("Client disconnected");
+            eventname = "Client disconnected";
             break;
         case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
-            Serial.println("Assigned IP address to client");
+            eventname = "Assigned IP address to client";
             break;
 
         default:
-            Serial.println();
             break;
     }
+    Serial.println(eventname);
+    logLine("WiFi event [" + String(event) + "]: " + eventname);
 }
 
 // *** Improv

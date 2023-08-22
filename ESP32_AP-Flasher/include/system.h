@@ -9,6 +9,6 @@
 #define WAKEUP_REASON_WDT_RESET 0xFE
 
 void initTime(void* parameter);
-void logLine(char* buffer);
+void logLine(const char* buffer);
 void logLine(String text);
 void logStartUp();
