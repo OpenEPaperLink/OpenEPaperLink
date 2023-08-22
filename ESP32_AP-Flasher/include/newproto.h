@@ -16,7 +16,7 @@ extern void processDataReq(struct espAvailDataReq* adr, bool local);
 extern bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local);
 extern bool sendAPSegmentedData(const uint8_t* dst, String data, uint16_t icons, bool inverted, bool local);
 extern bool showAPSegmentedInfo(const uint8_t* dst, bool local);
-extern void updateTaginfoitem(struct TagInfo* taginfoitem);
+extern void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP);
 bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending);
 
 void refreshAllPending();

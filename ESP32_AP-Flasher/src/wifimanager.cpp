@@ -200,6 +200,7 @@ void WifiManager::WiFiEvent(WiFiEvent_t event) {
             break;
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:
             eventname = "Obtained IP address: " + String(WiFi.localIP().toString().c_str());
+            init_udp();
             break;
         case ARDUINO_EVENT_WIFI_STA_LOST_IP:
             eventname = "Lost IP address and IP address is reset to 0";

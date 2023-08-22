@@ -324,8 +324,8 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 return;
             }
         }
-        taginfo->contentMode = 12;
-        taginfo->nextupdate = 3216153600;
+        // taginfo->contentMode = 12;
+        // taginfo->nextupdate = 3216153600;
         checkMirror(taginfo, pending);
         sendDataAvail(pending);
 
@@ -616,7 +616,7 @@ bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local) {
     }
 }
 
-void updateTaginfoitem(struct TagInfo* taginfoitem) {
+void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP) {
     tagRecord* taginfo = tagRecord::findByMAC(taginfoitem->mac);
 
     if (taginfo == nullptr) {
@@ -647,7 +647,7 @@ void updateTaginfoitem(struct TagInfo* taginfoitem) {
     char hexmac[17];
     mac2hex(taginfo->mac, hexmac);
     if (taginfo->contentMode != 12 && taginfoitem->contentMode != 12) {
-        wsLog("Remote AP takes control over tag " + String(hexmac));
+        wsLog("Remote AP at " + remoteIP.toString() + " takes control over tag " + String(hexmac));
         taginfo->contentMode = 12;
     }
 

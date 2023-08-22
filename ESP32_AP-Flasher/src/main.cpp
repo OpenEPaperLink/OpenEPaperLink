@@ -140,7 +140,6 @@ void setup() {
     updateBrightnessFromConfig();
 
     init_web();
-    init_udp();
 
 #ifdef HAS_RGB_LED
     rgbIdle();

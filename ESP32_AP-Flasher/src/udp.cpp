@@ -43,6 +43,7 @@ void UDPcomm::init() {
 void UDPcomm::processPacket(AsyncUDPPacket packet) {
 
     if (config.runStatus == RUNSTATUS_STOP) return;
+    IPAddress senderIP = packet.remoteIP();
 
     switch (packet.data()[0]) {
         case PKT_AVAIL_DATA_INFO: {
@@ -70,12 +71,10 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
             pendingData pending;
             memset(&pending, 0, sizeof(pendingData));
             memcpy(&pending, &packet.data()[1], std::min(packet.length() - 1, sizeof(pendingData)));
-            prepareExternalDataAvail(&pending, packet.remoteIP());
+            prepareExternalDataAvail(&pending, senderIP);
             break;
         }
         case PKT_APLIST_REQ: {
-            IPAddress senderIP = packet.remoteIP();
-
             APlist APitem;
             APitem.src = WiFi.localIP();
             strcpy(APitem.alias, config.alias);
@@ -103,10 +102,10 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
         case PKT_TAGINFO: {
             uint16_t syncversion = (packet.data()[2] << 8) | packet.data()[1];
             if (syncversion != SYNC_VERSION) {
-                wsErr("Got a packet from " + packet.remoteIP().toString() + " with mismatched udp sync version. Update firmware!");
+                wsErr("Got a packet from " + senderIP.toString() + " with mismatched udp sync version. Update firmware!");
             } else {
                 TagInfo* taginfoitem = (TagInfo*)&packet.data()[1];
-                updateTaginfoitem(taginfoitem);
+                updateTaginfoitem(taginfoitem, senderIP);
             }
         }
     }

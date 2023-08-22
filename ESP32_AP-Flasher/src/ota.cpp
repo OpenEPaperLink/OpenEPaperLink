@@ -81,35 +81,6 @@ void handleCheckFile(AsyncWebServerRequest* request) {
     request->send(200, "application/json", jsonResponse);
 }
 
-void handleGetExtUrl(AsyncWebServerRequest* request) {
-    if (request->hasParam("url")) {
-        const String url = request->getParam("url")->value();
-        HTTPClient http;
-        http.begin(url);
-        http.setConnectTimeout(5000);
-        http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-        const int httpResponseCode = http.GET();
-        if (httpResponseCode > 0) {
-            Serial.println(httpResponseCode);
-            const String contentType = http.header("Content-Type");
-            const size_t contentLength = http.getSize();
-            if (contentLength > 0) {
-                String content = http.getString();
-                AsyncWebServerResponse* response = request->beginResponse(200, contentType, content);
-                request->send(response);
-            } else {
-                request->send(500, "text/plain", "no size header");
-            }
-        } else {
-            request->send(httpResponseCode, "text/plain", "Failed to fetch URL");
-            wsSerial(http.errorToString(httpResponseCode));
-        }
-        http.end();
-    } else {
-        request->send(400, "text/plain", "Missing 'url' parameter");
-    }
-}
-
 void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final) {
     bool error = false;
     if (!index) {

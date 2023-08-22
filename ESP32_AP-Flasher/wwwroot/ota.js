@@ -256,7 +256,7 @@ export async function updateESP(fileUrl, showConfirm) {
 
     while (retryCount < maxRetries) {
         try {
-            const response = await fetch("https://openepaperlink.eu/getupdate/?url=" + fileUrl);
+            const response = await fetch("https://openepaperlink.eu/getupdate/?url=" + fileUrl + "&env=" + env);
             const responseBody = await response.text();
             if (!response.ok) {
                 throw new Error("Network response was not OK: " + responseBody);
