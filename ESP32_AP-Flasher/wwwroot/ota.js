@@ -152,7 +152,7 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
 
                 print("Updating littleFS partition...");
 
-                fetch("/getexturl?url=" + fileUrl)
+                fetch("https://openepaperlink.eu/getupdate/?url=" + fileUrl)
                     .then(response => response.json())
                     .then(data => {
                         checkfiles(data);
@@ -256,7 +256,7 @@ export async function updateESP(fileUrl, showConfirm) {
 
     while (retryCount < maxRetries) {
         try {
-            const response = await fetch("/getexturl?url=" + fileUrl);
+            const response = await fetch("https://openepaperlink.eu/getupdate/?url=" + fileUrl);
             const responseBody = await response.text();
             if (!response.ok) {
                 throw new Error("Network response was not OK: " + responseBody);
