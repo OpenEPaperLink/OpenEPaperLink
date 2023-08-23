@@ -251,7 +251,11 @@ static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t eve
                 {
                     uint8_t buf[data->rx.len];
                     size_t len = USBSerial.read(buf, data->rx.len);
-                    flasherUartHandler(buf, len);
+                    if (serialPassthroughState) {
+                        Serial2.write(buf, len);
+                    } else {
+                        flasherUartHandler(buf, len);
+                    }
                 }
                 break;
             case ARDUINO_USB_CDC_RX_OVERFLOW_EVENT:
@@ -520,7 +524,7 @@ void processFlasherCommand(struct flasherCommand* cmd) {
                 autoFlash(zbsflasherp);
                 zbsflasherp->zbs->reset();
                 delete zbsflasherp;
-                zbsflasherp=0;
+                zbsflasherp = 0;
                 USBSerial.write(0x04);
             } else {
                 USBSerial.println("Not yet implemented!");
@@ -570,7 +574,7 @@ void usbFlasherTask(void* parameter) {
     while (true) {
         while (serialPassthroughState) {
             tagDebugPassthrough();
-            vTaskDelay(10 / portTICK_PERIOD_MS);
+            vTaskDelay(1 / portTICK_PERIOD_MS);
         }
         BaseType_t queuereceive = xQueueReceive(flasherCmdQueue, &cmd, 1000 / portTICK_PERIOD_MS);  // timeout every second to make sure the timeout gets triggered after a while
         if (queuereceive == pdTRUE) {
