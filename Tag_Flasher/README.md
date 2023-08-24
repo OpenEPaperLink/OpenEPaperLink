@@ -30,7 +30,7 @@ MOSI | 8 | 37 | R |
 RXD | 9 | 40 | O | O | R
 RSET | 10 | 39 | R |  | O
 
-Not all connections are required by all tags! If you want to solder fewer wires, 
+Not all connections are required by all tags! If you want to solder fewer wires, skip the optional and unused ones.
 
 ## Flashing the flasher
 Clone the [Tag_Flasher repo](https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Tag_Flasher/ESP32_Flasher) and open into PlatformIO. Choose the correct COM-port and hit 'Upload'.
@@ -82,8 +82,9 @@ python3 OEPL-Flasher.py -e -n -p COM31 read blaat.bin --flash --pt
 ```
 
 ## Marvell 88MZ100-based
-Main article [here](https://github.com/jjwbruijn/OpenEPaperLink/wiki/88MZ100-Programming-and-interfacing)
-The Tag-Flasher is used in serial passthrough-mode in order to flash the 88MZ100 with a modified flasher-script.
+Main article [here](https://github.com/jjwbruijn/OpenEPaperLink/wiki/88MZ100-Programming-and-interfacing).
+
+The Tag-Flasher is used in serial passthrough-mode in order to flash the 88MZ100 with a modified flasher-script. A serial DTR/Reset line is used to reset the tag during the connection stage; this is however not strictly necessary! If you connect or reset the tag when prompted by the script, the flasher will work fine.
 ```
 python3 .\88MZ100-OEPL-Flasher.py COM31 write_flash '0130c8144117.bin'
 ```
