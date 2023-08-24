@@ -106,14 +106,15 @@ def validate_arguments(args):
         return False
     if args.command == "write" and not os.path.isfile(args.filename):
         print("Couldn't find the specified file!")
-        return False;
+        return False
     if args.command in ["read", "write"] and not args.filename:
         print("Please specify a file to save read data")
-        return False;
+        return False
     if args.command == "read" and len(args.filename) < 2:
         print("Please specify a file to save read data")
-        return False;
+        return False
     return True
+
 
 def read_from_serial(port, filename, flash):
     if flash:
@@ -145,6 +146,7 @@ def read_from_serial(port, filename, flash):
         else:
             print("Failed reading block, timeout?")
 
+
 def write_to_serial(port, filename, flash):
 
     if flash:
@@ -167,7 +169,7 @@ def write_to_serial(port, filename, flash):
     else:
         print(f"Writing info page data from file: {filename}\n")
 
-    chunk_size = 1024
+    chunk_size = 256
 
     if filename.endswith('.bin'):
         file_data = read_binary_file(filename)
@@ -192,6 +194,7 @@ def write_to_serial(port, filename, flash):
             return
     print('\rAll done writing! ', end='', flush=True)
 
+
 def short_passthough(period_time):
     start_time = time.time()
     while time.time() - start_time < period_time:
@@ -200,6 +203,7 @@ def short_passthough(period_time):
             print(data.decode(), end='')
             if chr(0x04) in data.decode():
                 break
+
 
 def main():
     try:
@@ -224,7 +228,7 @@ def main():
                             help="Selects the external(side) port")
         parser.add_argument("--altradio", action="store_true",
                             help="Selects the alternate radio port")
-        parser.add_argument("--pt","--passthrough", action="store_true",
+        parser.add_argument("--pt", "--passthrough", action="store_true",
                             help="Enters serial passthrough for debug output after flashing")
 
         args = parser.parse_args()
@@ -237,7 +241,7 @@ def main():
             return
 
         global ser
-        ser = serial.Serial(args.port, baudrate=500000)
+        ser = serial.Serial(args.port, baudrate=115200)
         time.sleep(1)  # Flush serial data
         while (ser.inWaiting() > 0):
             data_str = ser.read(ser.inWaiting())
@@ -251,8 +255,9 @@ def main():
             print(
                 "Couldn't establish a connection with the flasher, did you select the correct serial port?")
             exit(0)
-
-        if (args.command!="debug"):
+        send_cmd(CMD_SET_POWER, bytearray([1]))
+        cmd, answer = wait_for_command()
+        if (args.command != "debug"):
             if args.internalap:
                 send_cmd(CMD_SELECT_PORT, bytearray([0]))
             if args.external:
@@ -264,8 +269,9 @@ def main():
                 send_cmd(CMD_SELECT_NRF82511, bytearray([]))
             if args.zbs243:
                 send_cmd(CMD_SELECT_ZBS243, bytearray([]))
-
             cmd, answer = wait_for_command()
+#            send_cmd(CMD_SET_POWER, bytearray([1]))
+#            cmd, answer = wait_for_command()
             if (answer[0] == 1):
                 print("Connection established to microcontroller")
             else:
@@ -278,22 +284,20 @@ def main():
                 write_to_serial(ser, args.filename, args.flash)
             elif args.command == "autoflash":
                 print("Starting automatic tag flash")
-                send_cmd(CMD_AUTOFLASH , bytearray([]))
+                send_cmd(CMD_AUTOFLASH, bytearray([]))
                 short_passthough(30)
             else:
                 print("Invalid command!")
 
             send_cmd(CMD_RESET, bytearray([]))
             cmd, answer = wait_for_command()
-            send_cmd(CMD_SET_POWER, bytearray([1]))
-            cmd, answer = wait_for_command()
 
-
-        if (args.pt or args.command=="debug"):
+        if (args.pt or args.command == "debug"):
             # enter passthrough mode
-            send_cmd(CMD_PASS_THROUGH , bytearray([]))
-            print("Now showing debug output from the tag - CTRL+C to quit");
-            print("---------------------------------------------------------------------------------");
+            send_cmd(CMD_PASS_THROUGH, bytearray([]))
+            print("Now showing debug output from the tag - CTRL+C to quit")
+            print(
+                "---------------------------------------------------------------------------------")
             while True:
                 try:
                     data = ser.read()
@@ -306,7 +310,6 @@ def main():
                     print(data.decode(), end='')
                     if chr(0x04) in data.decode():
                         break
-
 
     except KeyboardInterrupt:
         print("\nBye!")
