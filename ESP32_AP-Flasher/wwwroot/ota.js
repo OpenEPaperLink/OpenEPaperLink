@@ -152,7 +152,7 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
 
                 print("Updating littleFS partition...");
 
-                fetch("https://openepaperlink.eu/getupdate/?url=" + fileUrl)
+                fetch("http://openepaperlink.eu/getupdate/?url=" + fileUrl)
                     .then(response => response.json())
                     .then(data => {
                         checkfiles(data);
@@ -256,7 +256,7 @@ export async function updateESP(fileUrl, showConfirm) {
 
     while (retryCount < maxRetries) {
         try {
-            const response = await fetch("https://openepaperlink.eu/getupdate/?url=" + fileUrl + "&env=" + env);
+            const response = await fetch("http://openepaperlink.eu/getupdate/?url=" + fileUrl + "&env=" + env);
             const responseBody = await response.text();
             if (!response.ok) {
                 throw new Error("Network response was not OK: " + responseBody);
@@ -269,7 +269,7 @@ export async function updateESP(fileUrl, showConfirm) {
             const data = JSON.parse(responseBody);
             const file = data.find((entry) => entry.name == env + '.bin');
             if (file) {
-                binurl = file.url;
+                binurl = "http://openepaperlink.eu/getupdate/?url=" + encodeURIComponent(file.url);
                 binmd5 = file.md5;
                 binsize = file.size;
                 console.log(`URL for "${file.name}": ${binurl}`);
