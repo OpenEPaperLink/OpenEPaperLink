@@ -19,7 +19,7 @@
 #include "proto.h"
 #include "sdkconfig.h"
 #include "soc/uart_struct.h"
-#include "soc\lp_uart_reg.h"
+#include "soc/lp_uart_reg.h"
 
 static const char *TAG = "SECOND_UART";
 
