@@ -17,7 +17,7 @@
 #include "proto.h"
 #include "sdkconfig.h"
 #include "soc/uart_struct.h"
-#include "soc\lp_uart_reg.h"
+#include "soc/lp_uart_reg.h"
 #include "radio.h"
 #include "utils.h"
 #include "led.h"
