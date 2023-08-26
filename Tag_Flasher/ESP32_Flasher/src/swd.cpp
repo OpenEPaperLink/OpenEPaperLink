@@ -169,16 +169,16 @@ bool nrfswd::init() {
     uint32_t temp = swd_Init();
     nrf_abort_all();
     if (temp == 0x2ba01477) {  // if core id is readable the connection is working
-        if (showDebug) Serial.printf("Connected to nRF\n");
+        if (showDebug) Serial0.printf("Connected to nRF\n");
         isConnected = true;
         if (nrf_read_lock_state()) {  // nRF is unlocked so we can talk to the debugging interface
-            if (showDebug) Serial.printf("nRF is unlocked!\n");
+            if (showDebug) Serial0.printf("nRF is unlocked!\n");
             isLocked = false;
             nrf_halt();
             nrf_read_ufcr();
             return true;
         } else {
-            if (showDebug) Serial.printf("nRF is locked ;_;\n");
+            if (showDebug) Serial0.printf("nRF is locked ;_;\n");
             isLocked = true;
         }
     } else {
@@ -195,7 +195,7 @@ uint32_t nrfswd::nrf_read_port(bool APorDP, uint8_t address) {
         DP_Read(address, temp);
     DP_Read(DP_RDBUFF, temp);
     DP_Read(DP_RDBUFF, temp);
-    Serial.printf("%s Read reg: 0x%02x : 0x%08x\r\n", APorDP ? "AP" : "DP", address, temp);
+    if (showDebug) Serial0.printf("%s Read reg: 0x%02x : 0x%08x\r\n", APorDP ? "AP" : "DP", address, temp);
     return temp;
 }
 void nrfswd::nrf_write_port(bool APorDP, uint8_t address, uint32_t value) {
@@ -206,7 +206,7 @@ void nrfswd::nrf_write_port(bool APorDP, uint8_t address, uint32_t value) {
         DP_Write(address, value);
     DP_Read(DP_RDBUFF, temp);
     DP_Read(DP_RDBUFF, temp);
-    Serial.printf("%s Write reg: 0x%02x : 0x%08x\r\n", APorDP ? "AP" : "DP", address, value);
+    if (showDebug) Serial0.printf("%s Write reg: 0x%02x : 0x%08x\r\n", APorDP ? "AP" : "DP", address, value);
 }
 void nrfswd::nrf_abort_all() {
     nrf_write_port(0, DP_ABORT, 0x1e);
@@ -244,8 +244,8 @@ void nrfswd::nrf_read_ufcr() {
     nrf_info.ucir_lock = read_register(0x10001208);
 
     if (showDebug) {
-        Serial.printf("Device: nRF%8X\n", nrf_info.info_part);
-        Serial.printf("Flash size: %i\r\n", nrf_info.flash_size);
+        Serial0.printf("Device: nRF%8X\n", nrf_info.info_part);
+        Serial0.printf("Flash size: %i\r\n", nrf_info.flash_size);
     }
 }
 uint32_t nrfswd::read_register(uint32_t address) {
@@ -255,7 +255,7 @@ uint32_t nrfswd::read_register(uint32_t address) {
     bool state3 = DP_Read(DP_RDBUFF, temp);
     bool state4 = DP_Read(DP_RDBUFF, temp);
     if (showDebug)
-        Serial.printf("%i%i%i%i Read Register: 0x%08x : 0x%08x\r\n", state1, state2, state3, state4, address, temp);
+        Serial0.printf("%i%i%i%i Read Register: 0x%08x : 0x%08x\r\n", state1, state2, state3, state4, address, temp);
     return temp;
 }
 void nrfswd::write_register(uint32_t address, uint32_t value) {
@@ -264,7 +264,7 @@ void nrfswd::write_register(uint32_t address, uint32_t value) {
     bool state2 = AP_Write(AP_DRW, value);
     bool state3 = DP_Read(DP_RDBUFF, temp);
     if (showDebug)
-        Serial.printf("%i%i%i Write Register: 0x%08x : 0x%08x\r\n", state1, state2, state3, address, value);
+        Serial0.printf("%i%i%i Write Register: 0x%08x : 0x%08x\r\n", state1, state2, state3, address, value);
 }
 
 uint8_t nrfswd::erase_all_flash() {
@@ -324,12 +324,12 @@ uint8_t nrfswd::erase_page(uint32_t page) {
     return 0;
 }
 
-void nrfswd::nrf_soft_reset(){
-  nrf_port_selection(1);
-  nrf_write_port(1, AP_NRF_RESET, 1);
-  delay(100);
-  nrf_write_port(1, AP_NRF_RESET, 0);
-  nrf_port_selection(0);
+void nrfswd::nrf_soft_reset() {
+    nrf_port_selection(1);
+    nrf_write_port(1, AP_NRF_RESET, 1);
+    delay(100);
+    nrf_write_port(1, AP_NRF_RESET, 0);
+    nrf_port_selection(0);
 }
 
 uint8_t nrfswd::nrf_write_bank(uint32_t address, uint32_t buffer[], int size) {

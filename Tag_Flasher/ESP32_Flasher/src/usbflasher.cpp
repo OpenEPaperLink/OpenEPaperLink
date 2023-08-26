@@ -199,6 +199,7 @@ void resetFlasherState() {
         Serial1.end();
     }
     serialPassthroughState = false;
+    ESP.restart();
 }
 
 static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
@@ -375,9 +376,9 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             break;
         case CMD_SELECT_NRF82511:
 
-            powerControl(true, (uint8_t*)powerPins2, 4);
+            //powerControl(true, (uint8_t*)powerPins2, 4);
             nrfflasherp = new nrfswd(FLASHER_EXT_MISO, FLASHER_EXT_CLK);
-
+            nrfflasherp->showDebug = false;
             nrfflasherp->init();
             temp_buff[0] = (nrfflasherp->isConnected && !nrfflasherp->isLocked);
             sendFlasherAnswer(CMD_SELECT_NRF82511, temp_buff, 1);
