@@ -199,7 +199,6 @@ void resetFlasherState() {
         Serial1.end();
     }
     serialPassthroughState = false;
-    ESP.restart();
 }
 
 static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
@@ -234,6 +233,7 @@ static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t eve
                 break;
             case ARDUINO_USB_CDC_DISCONNECTED_EVENT:
                 ets_printf("CDC DISCONNECTED\n");
+                ESP.restart();
                 resetFlasherState();
                 break;
             case ARDUINO_USB_CDC_LINE_STATE_EVENT:
