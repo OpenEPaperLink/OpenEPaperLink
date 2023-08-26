@@ -17,7 +17,7 @@
 #include "proto.h"
 #include "sdkconfig.h"
 #include "soc/uart_struct.h"
-#include "soc\lp_uart_reg.h"
+#include "soc/lp_uart_reg.h"
 #include "nvs_flash.h"
 
 void delay(int ms) { vTaskDelay(pdMS_TO_TICKS(ms)); }
