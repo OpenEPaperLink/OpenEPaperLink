@@ -25,6 +25,8 @@ On the 2.9" tags, both the UC8151 and SSD1619 display variants are supported
 
 ## What is required to set up OpenEPaperLink
 
+On the [Wiki](https://github.com/jjwbruijn/OpenEPaperLink/wiki) there is a ton of information regarding all kinds of tags and building the access points.
+
 The entire setup requires a few tags, and an ESP32. A tag is used as an 802.15.4 radio for the ESP32. You'll need a ZBS_Flasher in order to flash the tags. Using the 'mac' option on ZBS_Flasher makes sure a tag flashed with a custom firmware has a valid mac address; it used the stock mac address assigned to the tag if it hasn't been flashed before. If you want to set it yourself, you can edit the mac address in the infopage.
 
 You can hook the AP tag up to the ESP32 with mod wires or a flex pcb. The esp will flash the AP firmware to the Tag automatically. In some cases, a power off/on cycle is required. Please check the serial console output for status information.
@@ -73,7 +75,7 @@ Hats off to these legends!
 - After a PR gets merged to the main branch, the ESP32 code will automatically be compiled.
 - On release, files are added to enable OTA
 
-![Test](https://github.com/jjwbruijn/OpenEPaperLink/actions/workflows/build-esp32.yml/badge.svg)
+![Test](https://github.com/jjwbruijn/OpenEPaperLink/actions/workflows/build-test.yml/badge.svg)
 
 ![Release](https://github.com/jjwbruijn/OpenEPaperLink/actions/workflows/release.yml/badge.svg)
 
