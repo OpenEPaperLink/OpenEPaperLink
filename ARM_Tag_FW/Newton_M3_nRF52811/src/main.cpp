@@ -112,19 +112,10 @@ void setup() {
     printf("BOOTED>  %d.%d.%d%s\n", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
 
     powerUp(INIT_I2C);
-
-    // i2cBusScan();
-
-    /*if (i2cCheckDevice(0x55)) {
-        powerDown(INIT_I2C);
-        capabilities |= CAPABILITY_HAS_NFC;
-        if (supportsNFCWake()) {
-            printf("This board supports NFC wake!\n");
-            capabilities |= CAPABILITY_NFC_WAKE;
-        }
-    } else {
-        powerDown(INIT_I2C);
-    }*/
+    
+    //we always have NFC + NFC wake
+    capabilities |= CAPABILITY_HAS_NFC;
+    capabilities |= CAPABILITY_NFC_WAKE;
 
     printf("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
     printf("%02X%02X", mSelfMac[2], mSelfMac[3]);

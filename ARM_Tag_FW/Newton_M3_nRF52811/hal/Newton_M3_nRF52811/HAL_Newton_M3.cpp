@@ -55,6 +55,26 @@ void watchdog_enable(int timeout) {
 }
 
 uint32_t sleepMsEntry = 0;
+uint32_t ledinerv = 2500;
+uint32_t ledtime = 2000;
+bool ledred = false;
+bool ledgreen = false;
+bool ledblue = false;
+uint32_t loops = 0;
+
+void setled(bool r,bool g,bool b){
+    ledred = r;
+    ledgreen = g;
+    ledblue = b;
+    ledinerv = 2500;
+    ledtime = 2000;
+}
+
+void resettimer(){
+    sleepMsEntry = sleepMsEntry + 999999999;
+    loops = 0;
+}
+
 void sleepForMs(uint32_t ms) {
     // Turn everything off for minimal deep sleep current
     radioRxEnable(0);
@@ -63,13 +83,30 @@ void sleepForMs(uint32_t ms) {
         ;
     Serial.end();
     yield();
-    // here we set the rtc to sleep for the time we want
-    initRTC0(ms);
+    //led and sleep stuff
+    if(!ledred && !ledgreen && !ledblue)ledinerv = 99999999;
+    uint32_t sleepinterval = ledinerv;
+    loops = ms / ledinerv;
+    if(loops == 0){
+        loops = 1;
+        sleepinterval = ms;
+    }
+    if(sleepinterval > ms)sleepinterval = ms;
+    for(uint32_t i = 0;i < loops;i++){
+    digitalWrite(LED_RED, !ledred);
+    digitalWrite(LED_GREEN, !ledgreen);
+    digitalWrite(LED_BLUE, !ledblue);
+    nrf_delay_us(ledtime);
+    digitalWrite(LED_RED, HIGH);
+    digitalWrite(LED_GREEN, HIGH);
+    digitalWrite(LED_BLUE, HIGH);
+    initRTC0(sleepinterval);
     sleepMsEntry = millis();
-    while (millis() - sleepMsEntry < ms) {
+    while (millis() - sleepMsEntry < sleepinterval){
         __WFE();
         __SEV();
         __WFE();
+    }
     }
     Serial.begin(115200);
 }
