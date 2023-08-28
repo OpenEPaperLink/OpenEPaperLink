@@ -1,6 +1,6 @@
 {
   "name": "tool-jlink",
-  "version": "1.77001.0",
+  "version": "1.78811.0",
   "description": "Software and Documentation Pack for SEGGER J-Link debug probes",
   "keywords": [
     "tools",
@@ -10,6 +10,6 @@
   ],
   "homepage": "https://www.segger.com/downloads/jlink/",
   "system": [
-    "windows_amd64"
+    "linux_x86_64"
   ]
 }

@@ -1,7 +1,7 @@
   AppVersion = 39600
 [GENERAL]
   ConnectMode = 0
-  CurrentFile = "\\fileserver\Project\KTech\0811_NS7250_JFlash\image.bin"
+  CurrentFile = "\\fileserver.segger.local\Project\KTech\0811_NS7250_JFlash\image.bin"
   DataFileSAddr = 0x00000000
   GUIMode = 0
   HostName = ""

@@ -14,9 +14,7 @@
   "homepage": "https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm",
   "license": "GPL-2.0-or-later",
   "system": [
-    "windows",
-    "windows_amd64",
-    "windows_x86"
+    "linux_x86_64"
   ],
   "repository": {
     "type": "git",

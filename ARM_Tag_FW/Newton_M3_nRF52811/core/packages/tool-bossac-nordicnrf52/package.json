@@ -14,8 +14,6 @@
     "url": "https://github.com/shumatech/BOSSA"
   },
   "system": [
-    "windows",
-    "windows_x86",
-    "windows_amd64"
+    "linux_x86_64"
   ]
 }

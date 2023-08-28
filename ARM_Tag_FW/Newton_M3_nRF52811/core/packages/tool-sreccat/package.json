@@ -9,9 +9,7 @@
   "homepage": "http://srecord.sourceforge.net",
   "license": "GPL-3.0-or-later",
   "system": [
-    "windows",
-    "windows_amd64",
-    "windows_x86"
+    "linux_x86_64"
   ],
   "repository": {
     "type": "git",

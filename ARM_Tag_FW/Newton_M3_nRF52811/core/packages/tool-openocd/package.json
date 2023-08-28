@@ -15,6 +15,6 @@
     "url": "https://sourceforge.net/p/openocd/code/ci/master/tree/"
   },
   "system": [
-    "windows_amd64"
+    "linux_x86_64"
   ]
 }

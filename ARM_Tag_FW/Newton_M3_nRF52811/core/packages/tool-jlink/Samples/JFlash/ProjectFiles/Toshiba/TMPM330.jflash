@@ -1,7 +1,7 @@
   AppVersion = 40909
 [GENERAL]
   ConnectMode = 0
-  CurrentFile = "\\fileserver\Exchange\Alex\Start_TMPM330.mot"
+  CurrentFile = "\\fileserver.segger.local\Exchange\Alex\Start_TMPM330.mot"
   DataFileSAddr = 0x00000000
   GUIMode = 0
   HostName = ""
