@@ -77,14 +77,16 @@ void wsSendSysteminfo() {
     time_t now;
     time(&now);
     static int freeSpaceLastRun = 0;
+    static size_t freeSpace = Storage.freeSpace();
     sys["currtime"] = now;
     sys["heap"] = ESP.getFreeHeap();
     sys["recordcount"] = tagDB.size();
     sys["dbsize"] = dbSize();
     if (millis() - freeSpaceLastRun > 30000) {
-        sys["littlefsfree"] = Storage.freeSpace();
+        freeSpace = Storage.freeSpace();
         freeSpaceLastRun = millis();
     }
+    sys["littlefsfree"] = freeSpace;
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
 #if !defined(CONFIG_IDF_TARGET_ESP32)

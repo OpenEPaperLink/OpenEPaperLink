@@ -4,6 +4,8 @@ const WAKEUP_REASON_TIMED = 0;
 const WAKEUP_REASON_BOOT = 1;
 const WAKEUP_REASON_GPIO = 2;
 const WAKEUP_REASON_NFC = 3;
+const WAKEUP_REASON_BUTTON1 = 4;
+const WAKEUP_REASON_BUTTON2 = 5;
 const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
 const WAKEUP_REASON_WDT_RESET = 0xFE;
@@ -248,6 +250,14 @@ function processTags(tagArray) {
 				break;
 			case WAKEUP_REASON_GPIO:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "GPIO wakeup"
+				$('#tag' + tagmac).style.background = "#c8f1bb";
+				break;
+			case WAKEUP_REASON_BUTTON1:
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Button 1 pressed"
+				$('#tag' + tagmac).style.background = "#c8f1bb";
+				break;
+			case WAKEUP_REASON_BUTTON2:
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Button 2 pressed"
 				$('#tag' + tagmac).style.background = "#c8f1bb";
 				break;
 			case WAKEUP_REASON_NFC:
@@ -1063,7 +1073,6 @@ function dropUpload() {
 const contextMenu = $('#context-menu');
 
 $('#taglist').addEventListener('contextmenu', (e) => {
-	console.log("contextmenu");
 	e.preventDefault();
 
 	const clickedGridItem = e.target.closest('.tagcard');
@@ -1095,7 +1104,10 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 			});
 			contextMenu.appendChild(li);
 		});
-		const contextMenuPosition = { left: e.clientX, top: e.clientY };
+		const contextMenuPosition = {
+			left: e.clientX + window.scrollX,
+			top: e.clientY + window.scrollY
+		};
 		contextMenu.style.left = `${contextMenuPosition.left}px`;
 		contextMenu.style.top = `${contextMenuPosition.top}px`;
 		contextMenu.style.display = 'block';
