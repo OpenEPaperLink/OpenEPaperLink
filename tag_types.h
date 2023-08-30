@@ -5,6 +5,7 @@
 #define SOLUM_SEG_UK 0xF0
 #define SOLUM_SEG_EU 0xF1
 #define SOLUM_NODISPLAY 0xFF
+#define ESP32_C6 0xC6
 
 #define SOLUM_M2_BWR_16 0x20
 #define SOLUM_M2_BWR_29 0x23
