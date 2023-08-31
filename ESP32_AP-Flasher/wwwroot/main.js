@@ -943,6 +943,7 @@ async function getTagtype(hwtype) {
 			busy: false
 		};
 		tagTypes[hwtype] = data;
+		localStorage.setItem("tagTypes", JSON.stringify(tagTypes));
 		getTagtypeBusy = false;
 		return data;
 
