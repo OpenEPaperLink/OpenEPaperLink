@@ -320,14 +320,65 @@ void init_web() {
                     if (strcmp(cmdValue, "deepsleep") == 0) {
                         sendTagCommand(mac, CMD_DO_DEEPSLEEP, !taginfo->isExternal);
                     }
+                    if (strcmp(cmdValue, "ledflash") == 0) {
+                    }
                     request->send(200, "text/plain", "Ok, done");
                 } else {
-                    request->send(200, "text/plain", "Error: mac not found");
+                    request->send(400, "text/plain", "Error: mac not found");
                 }
             }
         } else {
             request->send(500, "text/plain", "param error");
         }
+    });
+
+    server.on("/led_flash", HTTP_GET, [](AsyncWebServerRequest *request) {
+        //  color picker: https://roger-random.github.io/RGB332_color_wheel_three.js/
+        //  http GET to /led_flash?mac=000000000000&pattern=3/0x1C,4,5/0xE0,3,1/0x4F,5,10/5
+        //  (flashDuration/color1,flashCount1,delay1/color2,flashCount2,delay2/color3,flashCount3,delay3/repeats)
+        if (request->hasParam("mac")) {
+            String dst = request->getParam("mac")->value();
+            uint8_t mac[8];
+            if (hex2mac(dst, mac)) {
+                tagRecord *taginfo = tagRecord::findByMAC(mac);
+                if (taginfo != nullptr) {
+                    if (request->hasParam("pattern")) {
+                        String pattern = request->getParam("pattern")->value();
+                        struct ledFlash flashData;
+
+                        int values[13];
+                        int numValues = sscanf(
+                            pattern.c_str(),
+                            "%i/%i,%i,%i/%i,%i,%i/%i,%i,%i/%i",
+                            &values[1], &values[2], &values[3], &values[4], &values[5],
+                            &values[6], &values[7], &values[8], &values[9], &values[10], &values[11]);
+
+                        if (numValues != 11) {
+                            request->send(400, "text/plain", "Error: wrong number of inputs in pattern");
+                            return;
+                        } else {
+                            flashData.mode = 0;
+                            flashData.flashDuration = values[1] & 0x0F;
+                            flashData.color1 = values[2];
+                            flashData.flashCount1 = values[3] & 0x0F;
+                            flashData.delay1 = values[4] & 0x0F;
+                            flashData.color2 = values[5];
+                            flashData.flashCount2 = values[6] & 0x0F;
+                            flashData.delay2 = values[7] & 0x0F;
+                            flashData.color3 = values[8];
+                            flashData.flashCount3 = values[9] & 0x0F;
+                            flashData.delay3 = values[10] & 0x0F;
+                            flashData.repeats = values[11];
+                            flashData.spare = 0;
+
+                            const uint8_t *payload = reinterpret_cast<const uint8_t *>(&flashData);
+                            sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
+                        }
+                    }
+                }
+            }
+        }
+        request->send(400, "text/plain", "parameters are missing");
     });
 
     server.on("/get_ap_config", HTTP_GET, [](AsyncWebServerRequest *request) {
