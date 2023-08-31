@@ -324,7 +324,8 @@ void     processSerial(uint8_t lastchar) {
                     curPower   = scp->power;
                     radioSetChannel(scp->channel);
                     radioSetTxPower(scp->power);
-                    pr("ACK>");
+					ESP_LOGI(TAG, "Set channel: %d power: %d", curChannel, curPower);
+					pr("ACK>");
                 } else {
                 SCPfailed:
                     pr("NOK>");

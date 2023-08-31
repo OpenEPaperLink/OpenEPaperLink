@@ -100,7 +100,7 @@ void wsSendSysteminfo() {
     setVarDB("ap_ch", String(apInfo.channel));
 
     static uint32_t tagcounttimer = 0;
-    if (millis() - tagcounttimer > 60000) {
+    if (millis() - tagcounttimer > 60000 || tagcounttimer == 0) {
         uint32_t timeoutcount = 0;
         uint32_t tagcount = getTagCount(timeoutcount);
         char result[40];

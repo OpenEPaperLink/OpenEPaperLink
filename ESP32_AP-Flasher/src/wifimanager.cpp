@@ -9,6 +9,7 @@
 #include "tag_db.h"
 #include "udp.h"
 #include "web.h"
+#include "ips_display.h"
 
 uint8_t WifiManager::apClients = 0;
 uint8_t x_buffer[100];
@@ -29,10 +30,17 @@ WifiManager::WifiManager() {
     WiFi.onEvent(WiFiEvent);
 }
 
+void WifiManager::terminalLog(String text) {
+    Serial.println(text);
+#ifdef YELLOW_IPS_AP
+    TFTLog(text);
+#endif
+}
+
 void WifiManager::poll() {
     if (wifiStatus == AP && millis() > _nextReconnectCheck && _ssid != "") {
         if (apClients == 0) {
-            Serial.println("Attempting to reconnect to WiFi.");
+            terminalLog("Attempting to reconnect to WiFi.");
             logLine("Attempting to reconnect to WiFi.");
             _APstarted = false;
             wifiStatus = NOINIT;
@@ -45,7 +53,7 @@ void WifiManager::poll() {
     if (wifiStatus == CONNECTED && millis() > _nextReconnectCheck) {
         if (WiFi.status() != WL_CONNECTED) {
             _connected = false;
-            Serial.println("WiFi connection lost. Attempting to reconnect.");
+            terminalLog("WiFi connection lost. Attempting to reconnect.");
             logLine("WiFi connection lost. Attempting to reconnect.");
             WiFi.reconnect();
             waitForConnection();
@@ -63,12 +71,12 @@ bool WifiManager::connectToWifi() {
     _ssid = preferences.getString("ssid", WiFi_SSID());
     _pass = preferences.getString("pw", WiFi_psk());
     if (_ssid == "") {
-        Serial.println("No connection information specified");
-        logLine("No connection information specified");
+        terminalLog("No connection information saved");
+        logLine("No connection information saved");
         startManagementServer();
         return false;
     }
-    Serial.println("Stored ssid: " + String(_ssid));
+    terminalLog("Stored ssid: " + String(_ssid));
 
     String ip = preferences.getString("ip", "");
     String mask = preferences.getString("mask", "");
@@ -80,7 +88,7 @@ bool WifiManager::connectToWifi() {
         if (staticIP.fromString(ip) && subnetMask.fromString(mask) && gatewayIP.fromString(gw)) {
             if (dns.length() > 0) dnsIP.fromString(dns);
             WiFi.config(staticIP, gatewayIP, subnetMask, dnsIP);
-            Serial.println("Setting static IP");
+            terminalLog("Setting static IP: " + ip);
         }
     }
 
@@ -98,7 +106,7 @@ bool WifiManager::connectToWifi(String ssid, String pass, bool savewhensuccessfu
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(WIFI_PS_NONE);
 
-    Serial.println("Connecting to WiFi...");
+    terminalLog("Connecting to WiFi...");
     logLine("Connecting to WiFi...");
     WiFi.persistent(savewhensuccessfull);
     WiFi.begin(_ssid.c_str(), _pass.c_str());
@@ -112,7 +120,7 @@ bool WifiManager::waitForConnection() {
 
     while (WiFi.status() != WL_CONNECTED) {
         if (millis() > timeout) {
-            Serial.println("Unable to connect to WiFi");
+            terminalLog("!Unable to connect to WiFi");
             logLine("Unable to connect to WiFi");
             startManagementServer();
             return false;
@@ -131,8 +139,8 @@ bool WifiManager::waitForConnection() {
     WiFi.setAutoReconnect(true);
     WiFi.persistent(true);
     IPAddress IP = WiFi.localIP();
-    Serial.printf("Connected! IP Address: %s\n", IP.toString().c_str());
-    logLine("Connected! IP Address: " + String(IP.toString().c_str()));
+    terminalLog("Connected!");
+    logLine("Connected!");
     _nextReconnectCheck = millis() + _reconnectIntervalCheck;
     wifiStatus = CONNECTED;
     return true;
@@ -140,13 +148,13 @@ bool WifiManager::waitForConnection() {
 
 void WifiManager::startManagementServer() {
     if (!_APstarted) {
-        Serial.println("Starting configuration AP, ssid OpenEPaperLink");
+        terminalLog("Starting configuration AP, ssid: OpenEPaperLink");
         logLine("Starting configuration AP, ssid OpenEPaperLink");
         WiFi.mode(WIFI_AP);
         WiFi.softAP("OpenEPaperLink", "", 1, false);
         WiFi.softAPsetHostname("OpenEPaperLink");
         IPAddress IP = WiFi.softAPIP();
-        Serial.printf("IP Address: %s\n", IP.toString().c_str());
+        terminalLog("Connect to it, visit http://" + String(IP.toString().c_str()) + "/setup");
         _APstarted = true;
         _nextReconnectCheck = millis() + _retryIntervalCheck;
         wifiStatus = AP;
@@ -194,7 +202,7 @@ void WifiManager::WiFiEvent(WiFiEvent_t event) {
             eventname = "Connected to access point";
             break;
         case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-            eventname = "Disconnected from WiFi access point";
+            // eventname = "Disconnected from WiFi access point";
             break;
         case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
             eventname = "Authentication mode of access point has changed";
@@ -208,27 +216,27 @@ void WifiManager::WiFiEvent(WiFiEvent_t event) {
             break;
 
         case ARDUINO_EVENT_WIFI_AP_START:
-            eventname = "WiFi access point started";
+            // eventname = "WiFi access point started";
             break;
         case ARDUINO_EVENT_WIFI_AP_STOP:
-            eventname = "WiFi access point stopped";
+            // eventname = "WiFi access point stopped";
             break;
         case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
             apClients++;
-            eventname = "Client connected";
+            // eventname = "Client connected";
             break;
         case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
             apClients--;
-            eventname = "Client disconnected";
+            // eventname = "Client disconnected";
             break;
         case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
-            eventname = "Assigned IP address to client";
+            // eventname = "Assigned IP address to client";
             break;
 
         default:
             break;
     }
-    Serial.println(eventname);
+    terminalLog(eventname);
     logLine("WiFi event [" + String(event) + "]: " + eventname);
 }
 

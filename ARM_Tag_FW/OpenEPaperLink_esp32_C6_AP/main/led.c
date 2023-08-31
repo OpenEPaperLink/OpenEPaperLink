@@ -32,7 +32,7 @@ void init_led() {
 	gpio_config(&led1);
 
 	for (int i = 0; i < NUM_LEDS; i++) {
-		led_timers[i] = xTimerCreate("led_timer", pdMS_TO_TICKS(100), pdFALSE, (void *)i, led_timer_callback);
+		led_timers[i] = xTimerCreate("led_timer", pdMS_TO_TICKS(50), pdFALSE, (void *)i, led_timer_callback);
 	}
 }
 

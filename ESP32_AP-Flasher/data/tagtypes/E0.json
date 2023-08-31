@@ -1,7 +1,7 @@
 {
-	"name": "TFT 320x170",
+	"name": "TFT 320x172",
 	"width": 320,
-	"height": 170,
+	"height": 172,
 	"rotatebuffer": 0,
 	"bpp": 16,
 	"colors": 4,
@@ -16,14 +16,14 @@
 	"usetemplate": 1,
 	"template": {
 		"21": [
-			{ "box": [ 0, 0, 320, 170, 1 ] },
-			{ "text": [ 5, 5, "OpenEpaperLink AP", "calibrib30", 2, 0, 0, 1 ] },
-			{ "text": [ 5, 60, "IP address:", "bahnschrift20", "#888888", 0, 0, 1 ] },
-			{ "text": [ 120, 60, "{ap_ip}", "bahnschrift20", 0, 0, 0, 1 ] },
-			{ "text": [ 5, 85, "Channel:", "bahnschrift20", "#888888", 0, 0, 1 ] },
-			{ "text": [ 120, 85, "{ap_ch}", "bahnschrift20", 0, 0, 0, "1" ] },
-			{ "text": [ 5, 110, "Tag count:", "bahnschrift20", "#888888", 0, 0, 1 ] },
-			{ "text": [ 120, 110, "{ap_tagcount}", "bahnschrift20", 0, 0, 0, "1" ] }
+			{ "box": [ 0, 0, 320, 172, 1 ] },
+			{ "text": [ 10, 15, "OpenEpaperLink AP", "calibrib30", 2, 0, 0, 1 ] },
+			{ "text": [ 10, 70, "IP address:", "bahnschrift20", "#888888", 0, 0, 1 ] },
+			{ "text": [ 120, 70, "{ap_ip}", "bahnschrift20", 0, 0, 0, 1 ] },
+			{ "text": [ 10, 95, "Channel:", "bahnschrift20", "#888888", 0, 0, 1 ] },
+			{ "text": [ 120, 95, "{ap_ch}", "bahnschrift20", 0, 0, 0, "1" ] },
+			{ "text": [ 10, 120, "Tag count:", "bahnschrift20", "#888888", 0, 0, 1 ] },
+			{ "text": [ 120, 120, "{ap_tagcount}", "bahnschrift20", 0, 0, 0, "1" ] }
 		]
 	}
 }

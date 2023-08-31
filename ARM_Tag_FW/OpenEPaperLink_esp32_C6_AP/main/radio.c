@@ -65,11 +65,11 @@ void radio_init() {
 uint32_t lastZbTx = 0;
 bool radioTx(uint8_t *packet) {
     static uint8_t txPKT[130];
-    led_flash(1);
     while (isInTransmit) {
     }
     while (getMillis() - lastZbTx < 6) {
     }
+    led_flash(1);
     memcpy(txPKT, packet, packet[0]);
     isInTransmit = 1;
     lastZbTx = getMillis();
