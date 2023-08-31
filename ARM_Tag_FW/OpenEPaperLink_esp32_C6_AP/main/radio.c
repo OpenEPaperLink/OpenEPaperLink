@@ -29,7 +29,7 @@ volatile uint8_t isInTransmit = 0;
 QueueHandle_t packet_buffer = NULL;
 
 void esp_ieee802154_receive_done(uint8_t *frame, esp_ieee802154_frame_info_t *frame_info) {
-    ESP_EARLY_LOGI(TAG, "RX <- : %d", frame[0]);
+    ESP_EARLY_LOGI(TAG, "RX %d", frame[0]);
     BaseType_t xHigherPriorityTaskWoken;
     static uint8_t inner_rxPKT[130];
     memcpy(inner_rxPKT, &frame[0], frame[0] + 1);
@@ -44,7 +44,7 @@ void esp_ieee802154_transmit_failed(const uint8_t *frame, esp_ieee802154_tx_erro
 
 void esp_ieee802154_transmit_done(const uint8_t *frame, const uint8_t *ack, esp_ieee802154_frame_info_t *ack_frame_info) {
     isInTransmit = 0;
-    ESP_EARLY_LOGI(TAG, "TX -> : %d", frame[0]);
+    ESP_EARLY_LOGI(TAG, "TX %d", frame[0]);
 }
 
 void radio_init() {

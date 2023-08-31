@@ -52,7 +52,6 @@ void init_second_uart() {
 }
 
 void uart_switch_speed(int baudrate) {
-	ESP_ERROR_CHECK(uart_driver_delete(1));
 	uart_config_t uart_config = {
 		.baud_rate = baudrate,
 		.data_bits = UART_DATA_8_BITS,
@@ -61,9 +60,7 @@ void uart_switch_speed(int baudrate) {
 		.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
 		.source_clk = UART_SCLK_DEFAULT,
 	};
-	ESP_ERROR_CHECK(uart_driver_install(1, BUF_SIZE * 2, BUF_SIZE * 2, 20, &uart0_queue, 0));
 	ESP_ERROR_CHECK(uart_param_config(1, &uart_config));
-	ESP_ERROR_CHECK(uart_set_pin(1, 3, 2, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 }
 
 void uartTx(uint8_t data) { uart_write_bytes(1, (const char *) &data, 1); }

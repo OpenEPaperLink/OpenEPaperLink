@@ -194,7 +194,7 @@ blksend:
     for (c = 0; c < 32; c++) {
         AP_SERIAL_PORT.write(0xF5);
     }
-    delay(10);
+    if (apInfo.type != ESP32_C6) delay(10);
     txEnd();
     return bd->checksum;
 }
@@ -622,6 +622,7 @@ bool bringAPOnline() {
     apInfo.isOnline = false;
     apInfo.state = AP_STATE_OFFLINE;
     // try without rebooting
+    AP_SERIAL_PORT.updateBaudRate(115200);
     uint32_t bootTimeout = millis();
     bool APrdy = false;
     while ((!APrdy) && (millis() - bootTimeout < 3 * 1000)) {
@@ -648,16 +649,15 @@ bool bringAPOnline() {
             apInfo.state = AP_STATE_OFFLINE;
             return false;
         }
-        /*    // work in progress
         if (apInfo.type == ESP32_C6) {
             if (sendHighspeed()) {
                 AP_SERIAL_PORT.flush();
                 vTaskDelay(10 / portTICK_PERIOD_MS);
-                AP_SERIAL_PORT.updateBaudRate(921000);
-                Serial.println("switched to 921000 baud");
+                AP_SERIAL_PORT.updateBaudRate(2000000);
+                Serial.println("switched to 2000000 baud");
             }
         }
-        */
+        
         vTaskDelay(200 / portTICK_PERIOD_MS);
         apInfo.isOnline = true;
         apInfo.state = AP_STATE_ONLINE;

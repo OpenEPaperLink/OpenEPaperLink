@@ -71,6 +71,8 @@ uint8_t curPower   = 10;
 uint8_t curPendingData = 0;
 uint8_t curNoUpdate    = 0;
 
+bool highspeedSerial = false;
+
 void sendXferCompleteAck(uint8_t *dst);
 void sendCancelXfer(uint8_t *dst);
 void espNotifyAPInfo();
@@ -193,7 +195,7 @@ void     processSerial(uint8_t lastchar) {
     static uint8_t *serialbufferp;
     static uint8_t  bytesRemain = 0;
     static uint32_t lastSerial  = 0;
-	static uint32_t blockStartTime = 0;
+    static uint32_t blockStartTime = 0;
     if ((RXState != ZBS_RX_WAIT_HEADER) && ((getMillis() - lastSerial) > 1000)) {
         RXState = ZBS_RX_WAIT_HEADER;
         ESP_LOGI(TAG, "UART Timeout");
@@ -210,7 +212,7 @@ void     processSerial(uint8_t lastchar) {
             if (isSame(cmdbuffer + 1, ">D>", 3)) {
                 pr("ACK>");
                 blockStartTime = getMillis();
-                ESP_LOGI(TAG, "Starting BlkData");
+                ESP_LOGI(TAG, "Starting BlkData, %lu ms after request", blockStartTime - nextBlockAttempt );
                 blockPosition = 0;
                 RXState       = ZBS_RX_WAIT_BLOCKDATA;
             }
@@ -254,18 +256,21 @@ void     processSerial(uint8_t lastchar) {
                 // TODO RESET US HERE
                 RXState = ZBS_RX_WAIT_HEADER;
             }
-			if (isSame(cmdbuffer, "HSPD", 4)) {
-				pr("ACK>");
-				ESP_LOGI(TAG, "HSPD In, switching to 921000");
-				delay(100);
-				uart_switch_speed(921000);
-				RXState = ZBS_RX_WAIT_HEADER;
-			}
-			break;
-		case ZBS_RX_WAIT_BLOCKDATA:
+            if (isSame(cmdbuffer, "HSPD", 4)) {
+                pr("ACK>");
+                ESP_LOGI(TAG, "HSPD In, switching to 2000000");
+                delay(100);
+                uart_switch_speed(2000000);
+                delay(100);
+                highspeedSerial = true;
+                pr("ACK>");
+                RXState = ZBS_RX_WAIT_HEADER;
+            }
+            break;
+        case ZBS_RX_WAIT_BLOCKDATA:
             blockbuffer[blockPosition++] = 0xAA ^ lastchar;
             if (blockPosition >= 4100) {
-                ESP_LOGI(TAG, "Blockdata fully received %lu", getMillis() - blockStartTime);
+                ESP_LOGI(TAG, "Blockdata fully received in %lu ms, %lu ms after the request", getMillis() - blockStartTime, getMillis() - nextBlockAttempt);
                 RXState = ZBS_RX_WAIT_HEADER;
             }
             break;
@@ -324,8 +329,8 @@ void     processSerial(uint8_t lastchar) {
                     curPower   = scp->power;
                     radioSetChannel(scp->channel);
                     radioSetTxPower(scp->power);
-					ESP_LOGI(TAG, "Set channel: %d power: %d", curChannel, curPower);
-					pr("ACK>");
+                    ESP_LOGI(TAG, "Set channel: %d power: %d", curChannel, curPower);
+                    pr("ACK>");
                 } else {
                 SCPfailed:
                     pr("NOK>");
@@ -459,18 +464,17 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
 
     if (blockStartTimer == 0) {
         if (requestDataDownload) {
-            // check if we need to download the first block; we need to give the ESP32 some additional time to cache the file
-            if (blockReq->blockId == 0) {
-                blockRequestAck->pleaseWaitMs = 450;
+            if (highspeedSerial == true) {
+                blockRequestAck->pleaseWaitMs = 220;
             } else {
-                blockRequestAck->pleaseWaitMs = 450;
+                blockRequestAck->pleaseWaitMs = 550;
             }
         } else {
             // block is already in buffer
-            blockRequestAck->pleaseWaitMs = 50;
+            blockRequestAck->pleaseWaitMs = 30;
         }
     } else {
-        blockRequestAck->pleaseWaitMs = 50;
+        blockRequestAck->pleaseWaitMs = 30;
     }
     blockStartTimer = getMillis() + blockRequestAck->pleaseWaitMs;
 
@@ -633,8 +637,8 @@ void sendPong(void *buf) {
 }
 
 void app_main(void) {
-	init_nvs();
-	init_led();
+    init_nvs();
+    init_led();
     init_second_uart();
 
     esp_event_loop_create_default();
@@ -656,15 +660,15 @@ void app_main(void) {
         while ((getMillis() - housekeepingTimer) < ((1000 * HOUSEKEEPING_INTERVAL) - 100)) {
             int8_t ret = commsRxUnencrypted(radiorxbuffer);
             if (ret > 1) {
-				led_flash(0);
-				// received a packet, lets see what it is
+                led_flash(0);
+                // received a packet, lets see what it is
                 switch (getPacketType(radiorxbuffer)) {
                     case PKT_AVAIL_DATA_REQ:
                         if (ret == 28) {
                             // old version of the AvailDataReq struct, set all the new fields to zero, so it will pass the CRC
-                            processAvailDataReq(radiorxbuffer);
                             memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast) + sizeof(struct oldAvailDataReq), 0,
                                    sizeof(struct AvailDataReq) - sizeof(struct oldAvailDataReq) + 2);
+                            processAvailDataReq(radiorxbuffer);
                         } else if (ret == 40) {
                             // new version of the AvailDataReq struct
                             processAvailDataReq(radiorxbuffer);
@@ -694,9 +698,9 @@ void app_main(void) {
                     default:
                         ESP_LOGI(TAG, "t=%02X" , getPacketType(radiorxbuffer));
                         break;
-				}
-			} else if (blockStartTimer == 0) {
-    			vTaskDelay(10 / portTICK_PERIOD_MS);
+                }
+            } else if (blockStartTimer == 0) {
+                vTaskDelay(10 / portTICK_PERIOD_MS);
             }
 
             uint8_t curr_char;
@@ -708,9 +712,9 @@ void app_main(void) {
                     blockStartTimer = 0;
                 }
             }
-		}
+        }
 
-		for (uint8_t cCount = 0; cCount < MAX_PENDING_MACS; cCount++) {
+        for (uint8_t cCount = 0; cCount < MAX_PENDING_MACS; cCount++) {
             if (pendingDataArr[cCount].attemptsLeft == 1) {
                 if (pendingDataArr[cCount].availdatainfo.dataType != DATATYPE_NOUPDATE) {
                     espNotifyTimeOut(pendingDataArr[cCount].targetMac);
