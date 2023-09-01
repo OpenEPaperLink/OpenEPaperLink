@@ -149,6 +149,9 @@ void rgbIdleStep() {
 
 void setBrightness(int brightness) {
     maxledbrightness = brightness;
+#ifdef YELLOW_IPS_AP
+    // ledcWrite(6, config.led);
+#endif
 #ifdef HAS_RGB_LED
     FastLED.setBrightness(maxledbrightness);
 #endif
@@ -180,10 +183,10 @@ void addFadeMono(uint8_t value) {
 }
 
 void showMono(uint8_t brightness) {
-#ifdef CONFIG_IDF_TARGET_ESP32S2
-    ledcWrite(7, gamma8[brightness]);
-#else
+#ifdef CONFIG_IDF_TARGET_ESP32
     ledcWrite(7, 255 - gamma8[brightness]);
+#else
+    ledcWrite(7, gamma8[brightness]);
 #endif
 }
 

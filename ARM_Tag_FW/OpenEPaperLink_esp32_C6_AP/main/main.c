@@ -1,10 +1,6 @@
 // Ported to ESP32-C6 By ATC1441(ATCnetz.de) for OpenEPaperLink at ~08.2023
 
 #include "main.h"
-#include <esp_mac.h>
-#include <math.h>
-#include <stdarg.h>
-#include <string.h>
 #include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_err.h"
@@ -16,21 +12,27 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "led.h"
 #include "proto.h"
 #include "radio.h"
 #include "sdkconfig.h"
 #include "second_uart.h"
-#include "soc/uart_struct.h"
 #include "soc/lp_uart_reg.h"
+#include "soc/uart_struct.h"
 #include "utils.h"
-#include "led.h"
+#include <esp_mac.h>
+#include <math.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
 
 static const char *TAG = "MAIN";
 
 const uint8_t channelList[6] = {11, 15, 20, 25, 26, 27};
 
 #define DATATYPE_NOUPDATE 0
-#define HW_TYPE           0xFF
+#define HW_TYPE           0xC6
 
 #define MAX_PENDING_MACS      250
 #define HOUSEKEEPING_INTERVAL 60UL
@@ -38,7 +40,7 @@ const uint8_t channelList[6] = {11, 15, 20, 25, 26, 27};
 struct pendingData pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t version = 0x0017;
+uint16_t version = 0x0018;
 
 #define RAW_PKT_PADDING 2
 
@@ -68,6 +70,8 @@ uint8_t curPower   = 10;
 
 uint8_t curPendingData = 0;
 uint8_t curNoUpdate    = 0;
+
+bool highspeedSerial = false;
 
 void sendXferCompleteAck(uint8_t *dst);
 void sendCancelXfer(uint8_t *dst);
@@ -191,7 +195,7 @@ void     processSerial(uint8_t lastchar) {
     static uint8_t *serialbufferp;
     static uint8_t  bytesRemain = 0;
     static uint32_t lastSerial  = 0;
-	static uint32_t blockStartTime = 0;
+    static uint32_t blockStartTime = 0;
     if ((RXState != ZBS_RX_WAIT_HEADER) && ((getMillis() - lastSerial) > 1000)) {
         RXState = ZBS_RX_WAIT_HEADER;
         ESP_LOGI(TAG, "UART Timeout");
@@ -206,9 +210,9 @@ void     processSerial(uint8_t lastchar) {
             cmdbuffer[3] = lastchar;
 
             if (isSame(cmdbuffer + 1, ">D>", 3)) {
-                pr("ACK>\n");
+                pr("ACK>");
                 blockStartTime = getMillis();
-                ESP_LOGI(TAG, "Starting BlkData");
+                ESP_LOGI(TAG, "Starting BlkData, %lu ms after request", blockStartTime - nextBlockAttempt );
                 blockPosition = 0;
                 RXState       = ZBS_RX_WAIT_BLOCKDATA;
             }
@@ -252,11 +256,21 @@ void     processSerial(uint8_t lastchar) {
                 // TODO RESET US HERE
                 RXState = ZBS_RX_WAIT_HEADER;
             }
+            if (isSame(cmdbuffer, "HSPD", 4)) {
+                pr("ACK>");
+                ESP_LOGI(TAG, "HSPD In, switching to 2000000");
+                delay(100);
+                uart_switch_speed(2000000);
+                delay(100);
+                highspeedSerial = true;
+                pr("ACK>");
+                RXState = ZBS_RX_WAIT_HEADER;
+            }
             break;
         case ZBS_RX_WAIT_BLOCKDATA:
             blockbuffer[blockPosition++] = 0xAA ^ lastchar;
             if (blockPosition >= 4100) {
-                ESP_LOGI(TAG, "Blockdata fully received %lu", getMillis() - blockStartTime);
+                ESP_LOGI(TAG, "Blockdata fully received in %lu ms, %lu ms after the request", getMillis() - blockStartTime, getMillis() - nextBlockAttempt);
                 RXState = ZBS_RX_WAIT_HEADER;
             }
             break;
@@ -272,12 +286,12 @@ void     processSerial(uint8_t lastchar) {
                     if (slot == -1) slot = findFreeSlot();
                     if (slot != -1) {
                         memcpy(&(pendingDataArr[slot]), serialbuffer, sizeof(struct pendingData));
-                        pr("ACK>\n");
+                        pr("ACK>");
                     } else {
-                        pr("NOQ>\n");
+                        pr("NOQ>");
                     }
                 } else {
-                    pr("NOK>\n");
+                    pr("NOK>");
                 }
 
                 RXState = ZBS_RX_WAIT_HEADER;
@@ -290,11 +304,10 @@ void     processSerial(uint8_t lastchar) {
             if (bytesRemain == 0) {
                 if (checkCRC(serialbuffer, sizeof(struct pendingData))) {
                     struct pendingData *pd = (struct pendingData *) serialbuffer;
-                    // deleteAllPendingDataForVer((uint8_t *)&pd->availdatainfo.dataVer);
                     deleteAllPendingDataForMac((uint8_t *) &pd->targetMac);
-                    pr("ACK>\n");
+                    pr("ACK>");
                 } else {
-                    pr("NOK>\n");
+                    pr("NOK>");
                 }
 
                 RXState = ZBS_RX_WAIT_HEADER;
@@ -316,10 +329,11 @@ void     processSerial(uint8_t lastchar) {
                     curPower   = scp->power;
                     radioSetChannel(scp->channel);
                     radioSetTxPower(scp->power);
-                    pr("ACK>\n");
+                    ESP_LOGI(TAG, "Set channel: %d power: %d", curChannel, curPower);
+                    pr("ACK>");
                 } else {
                 SCPfailed:
-                    pr("NOK>\n");
+                    pr("NOK>");
                 }
                 RXState = ZBS_RX_WAIT_HEADER;
             }
@@ -381,17 +395,17 @@ void espNotifyTimeOut(const uint8_t *src) {
     }
 }
 void espNotifyAPInfo() {
-    pr("TYP>%02X\n", HW_TYPE);
-    pr("VER>%04X\n", version);
+    pr("TYP>%02X", HW_TYPE);
+    pr("VER>%04X", version);
     pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
     pr("%02X%02X", mSelfMac[2], mSelfMac[3]);
     pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
-    pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
-    pr("ZCH>%02X\n", curChannel);
-    pr("ZPW>%02X\n", curPower);
+    pr("%02X%02X", mSelfMac[6], mSelfMac[7]);
+    pr("ZCH>%02X", curChannel);
+    pr("ZPW>%02X", curPower);
     countSlots();
-    pr("PEN>%02X\n", curPendingData);
-    pr("NOP>%02X\n", curNoUpdate);
+    pr("PEN>%02X", curPendingData);
+    pr("NOP>%02X", curNoUpdate);
 }
 
 // process data from tag
@@ -450,18 +464,17 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
 
     if (blockStartTimer == 0) {
         if (requestDataDownload) {
-            // check if we need to download the first block; we need to give the ESP32 some additional time to cache the file
-            if (blockReq->blockId == 0) {
-                blockRequestAck->pleaseWaitMs = 450;
+            if (highspeedSerial == true) {
+                blockRequestAck->pleaseWaitMs = 220;
             } else {
-                blockRequestAck->pleaseWaitMs = 450;
+                blockRequestAck->pleaseWaitMs = 550;
             }
         } else {
             // block is already in buffer
-            blockRequestAck->pleaseWaitMs = 50;
+            blockRequestAck->pleaseWaitMs = 30;
         }
     } else {
-        blockRequestAck->pleaseWaitMs = 50;
+        blockRequestAck->pleaseWaitMs = 30;
     }
     blockStartTimer = getMillis() + blockRequestAck->pleaseWaitMs;
 
@@ -624,8 +637,8 @@ void sendPong(void *buf) {
 }
 
 void app_main(void) {
-	init_nvs();
-	init_led();
+    init_nvs();
+    init_led();
     init_second_uart();
 
     esp_event_loop_create_default();
@@ -639,23 +652,23 @@ void app_main(void) {
     radioSetChannel(curChannel);
     radioSetTxPower(10);
 
-    pr("RES>\n");
-    pr("RDY>\n");
+    pr("RES>");
+    pr("RDY>");
 
     housekeepingTimer = getMillis();
     while (1) {
         while ((getMillis() - housekeepingTimer) < ((1000 * HOUSEKEEPING_INTERVAL) - 100)) {
             int8_t ret = commsRxUnencrypted(radiorxbuffer);
             if (ret > 1) {
-				led_set(LED1, 1);
+                led_flash(0);
                 // received a packet, lets see what it is
                 switch (getPacketType(radiorxbuffer)) {
                     case PKT_AVAIL_DATA_REQ:
                         if (ret == 28) {
                             // old version of the AvailDataReq struct, set all the new fields to zero, so it will pass the CRC
-                            processAvailDataReq(radiorxbuffer);
                             memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast) + sizeof(struct oldAvailDataReq), 0,
                                    sizeof(struct AvailDataReq) - sizeof(struct oldAvailDataReq) + 2);
+                            processAvailDataReq(radiorxbuffer);
                         } else if (ret == 40) {
                             // new version of the AvailDataReq struct
                             processAvailDataReq(radiorxbuffer);
@@ -683,22 +696,24 @@ void app_main(void) {
                         }
                         break;
                     default:
-                        pr("t=%02X\n", getPacketType(radiorxbuffer));
+                        ESP_LOGI(TAG, "t=%02X" , getPacketType(radiorxbuffer));
                         break;
                 }
-				led_set(LED1, 0);
+            } else if (blockStartTimer == 0) {
+                vTaskDelay(10 / portTICK_PERIOD_MS);
             }
+
             uint8_t curr_char;
             while (getRxCharSecond(&curr_char)) processSerial(curr_char);
 
             if (blockStartTimer) {
-                // BUG: uint32 overflowing; this will break every once in a while. Don't know how to fix this other than ugly global variables
                 if (getMillis() > blockStartTimer) {
                     sendBlockData();
                     blockStartTimer = 0;
                 }
             }
         }
+
         for (uint8_t cCount = 0; cCount < MAX_PENDING_MACS; cCount++) {
             if (pendingDataArr[cCount].attemptsLeft == 1) {
                 if (pendingDataArr[cCount].availdatainfo.dataType != DATATYPE_NOUPDATE) {

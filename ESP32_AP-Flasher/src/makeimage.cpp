@@ -209,8 +209,9 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     Storage.begin();
 
 #ifdef YELLOW_IPS_AP
+    extern uint8_t YellowSense;
     if (fileout == "direct") {
-        tft.setRotation(3);
+        tft.setRotation(YellowSense == 1 ? 1 : 3);
         spr.pushSprite(0, 0);
         return;
     }

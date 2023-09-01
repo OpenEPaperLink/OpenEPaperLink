@@ -600,12 +600,16 @@ bool showAPSegmentedInfo(const uint8_t* dst, bool local) {
     }
 }
 
-bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local) {
+bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* payload) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     pending.availdatainfo.dataType = DATATYPE_COMMAND_DATA;
     pending.availdatainfo.dataTypeArgument = cmd;
     pending.availdatainfo.nextCheckIn = 0;
+    if (payload != nullptr) {
+        memcpy(&pending.availdatainfo.dataVer, payload, sizeof(uint64_t));
+        memcpy(&pending.availdatainfo.dataSize, payload + sizeof(uint64_t), sizeof(uint32_t));
+    }
     pending.attemptsLeft = 120;
     Serial.printf(">Tag CMD %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     if (local) {

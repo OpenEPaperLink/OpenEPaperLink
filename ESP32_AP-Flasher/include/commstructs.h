@@ -126,4 +126,20 @@ struct tagsettings {
     uint8_t fixedChannel;                 // default 0; if set to a valid channel number, the tag will stick to that channel
 } __packed;
 
+struct ledFlash {
+    uint8_t mode : 4;
+    uint8_t flashDuration : 4;
+    uint8_t color1;
+    uint8_t flashCount1 : 4;
+    uint8_t delay1 : 4;
+    uint8_t color2;
+    uint8_t flashCount2 : 4;
+    uint8_t delay2 : 4;
+    uint8_t color3;
+    uint8_t flashCount3 : 4;
+    uint8_t delay3 : 4;
+    uint8_t repeats;
+    uint8_t spare;
+} __packed;
+
 #pragma pack(pop)
