@@ -32,6 +32,14 @@ jobs:
 #          git config --global user.email "bot@openepaperlink.de"
 #          git commit -am "Zipped web files"
 #          git push origin HEAD:master
+
+      - name: Build NRF firmware
+        run: |
+          cd ARM_Tag_FW/Newton_M3_nRF52811
+          pio run --environment Newton_M3_29_BWR
+          pio run --environment Newton_M3_75_BWR
+          cp .pio/build/Newton_M3_29_BWR/firmware.hex /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_29_BWR.hex
+          cp .pio/build/Newton_M3_75_BWR/firmware.hex  //home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_75_BWR.hex
           
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
