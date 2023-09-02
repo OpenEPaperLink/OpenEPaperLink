@@ -35,7 +35,7 @@ jobs:
           
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
-
+ 
       - name: Build NRF firmware
         run: |
           cd ARM_Tag_FW/Newton_M3_nRF52811
