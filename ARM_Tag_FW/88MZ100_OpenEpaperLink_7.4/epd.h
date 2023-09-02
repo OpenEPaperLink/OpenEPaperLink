@@ -32,7 +32,7 @@
 void init_GPIO_EPD();
 void display_send_buffer();
 
-void epd_refresh_and_sleep();
+void epd_refresh_and_sleep(uint8_t lut);
 
 void display_tx_byte(uint8_t data);
 void display_send_start(uint8_t inverted);
@@ -51,3 +51,8 @@ void epd_pin_enable(int a1);
 
 void fillWindow(uint16_t x, uint16_t y, uint16_t xe, uint16_t ye, uint8_t color);
 void epdPrintf(uint16_t x, uint16_t y, bool color, const char* c, ...);
+
+void interleaveColor(uint8_t b, uint8_t r);
+void interleaveBW(uint8_t);
+
+void drawImg(uint16_t x, uint16_t y, const uint8_t *img);

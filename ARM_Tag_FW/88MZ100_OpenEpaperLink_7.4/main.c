@@ -2,11 +2,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-// #include <stdio.h>
 #include <string.h>
 
-#include "ccm.h"
-#include "chars.h"
 #include "comms.h"
 #include "core_cm3.h"
 #include "eeprom.h"
@@ -48,73 +45,24 @@ char macStr1[32];
 __attribute__((section(".aon"))) uint8_t currentTagMode = TAG_MODE_CHANSEARCH;
 __attribute__((section(".aon"))) volatile struct zigbeeCalibDataStruct zigbeeCalibData;
 
-void prvApplyUpdateIfNeeded() {
-    uint32_t ofst, now, size, pieceSz = 0x2000;
-    uint8_t chunkStore[0x2000];
-    (*(volatile unsigned int *)0x130000) = 0;  // Invalidate RAM in any case so the next boot will be a full one
-    (*(volatile unsigned int *)0x130400) = 0;
-
-    printf("Applying update\r\n");
-    qspiEraseRange(EEPROM_OS_START, EEPROM_OS_LEN);
-
-    size = EEPROM_OS_LEN;
-    for (ofst = 0; ofst < size; ofst += now) {
-        now = size - ofst;
-        if (now > pieceSz)
-            now = pieceSz;
-        printf("Cpy 0x%06x + 0x%04x to 0x%06x\r\n", EEPROM_UPDATE_START + ofst, now, EEPROM_OS_START + ofst);
-        FLASH_Read(0, EEPROM_UPDATE_START + ofst, chunkStore, now);
-        FLASH_Write(false, EEPROM_OS_START + ofst, chunkStore, now);
-        WDT_RestartCounter();
-    }
-
-    // printf("Erz IMAGES\r\n");
-    // qspiEraseRange(EEPROM_IMG_START, EEPROM_IMG_LEN);
-    // printf("Erz update\r\n");
-    // qspiEraseRange(EEPROM_UPDATE_START, EEPROM_UPDATE_LEN);
-    sleep_with_with_wakeup(1000);
-}
-
-void prvEepromIndex(struct EepromContentsInfo *eci) {
-    struct EepromImageHeader eih;
-    uint32_t addr;
-
-    for (addr = EEPROM_IMG_START; addr - EEPROM_IMG_START < EEPROM_IMG_LEN; addr += EEPROM_IMG_EACH) {
-        uint32_t *addrP, *szP = NULL;
-        uint64_t *verP = NULL;
-
-        FLASH_Read(0, addr, (uint8_t *)&eih, sizeof(struct EepromImageHeader));
-        printf("DATA slot 0x%06x: type 0x%08x ver 0x%08x%08x\r\n", addr, eih.validMarker, (uint32_t)(eih.version >> 32), (uint32_t)eih.version);
-
-        switch (eih.validMarker) {
-            case EEPROM_IMG_INPROGRESS:
-                verP = &eci->latestInprogressImgVer;
-                addrP = &eci->latestInprogressImgAddr;
-                break;
-
-            case EEPROM_IMG_VALID:
-                verP = &eci->latestCompleteImgVer;
-                addrP = &eci->latestCompleteImgAddr;
-                szP = &eci->latestCompleteImgSize;
-                break;
+bool protectedFlashWrite(uint32_t address, uint8_t *buffer, uint32_t num) {
+    uint8_t attempt = 3;
+    uint8_t *buf2 = (uint8_t *)malloc(num);
+    while (attempt--) {
+        qspiEraseRange(address, num);
+        delay(50);
+        FLASH_Write(false, address, buffer, num);
+        FLASH_Read(0, address, buf2, num);
+        if (memcmp(buffer, buf2, num) == 0) {
+            printf("Flash block at %06X written successfully\n", address);
+            free(buf2);
+            return true;
         }
-
-        if (verP && eih.version >= *verP) {
-            *verP = eih.version;
-            *addrP = addr;
-            if (szP)
-                *szP = eih.size;
-        }
+        printf("Failed attempt to write flash block at %lu\n", address);
     }
-}
-void prvWriteNewHeader(struct EepromImageHeaderOld *eih, uint32_t addr, uint32_t eeSize, uint64_t ver, uint32_t size) {
-    qspiEraseRange(addr, eeSize);
-    // bzero(eih, sizeof(struct EepromImageHeaderOld));
-    eih->version = ver;
-    eih->validMarker = EEPROM_IMG_INPROGRESS;
-    eih->size = size;
-    memset(eih->piecesMissing, 0xff, sizeof(eih->piecesMissing));
-    FLASH_Write(false, addr, (uint8_t *)eih, sizeof(struct EepromImageHeaderOld));
+    free(buf2);
+    printf("Giving up on writing block at %lu\n", address);
+    return false;
 }
 
 static void prvGetSelfMac(void) {
@@ -158,6 +106,7 @@ uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
 }
 
 uint8_t channelSelect() {  // returns 0 if no accesspoints were found
+    printf("Doing chansearch...\n");
     uint8_t result[16];
     memset(result, 0, sizeof(result));
 
@@ -336,7 +285,6 @@ void TagAssociated() {
         if ((lowBattery && !lowBatteryShown && tagSettings.enableLowBatSymbol) || (noAPShown && tagSettings.enableNoRFSymbol)) {
             printf("For some reason, we're going to redraw the image. lowbat=%d, lowbatshown=%d, noAPShown=%d\n", lowBattery, lowBatteryShown, noAPShown);
             // Check if we were already displaying an image
-            /*
             if (curImgSlot != 0xFF) {
                 powerUp(INIT_EEPROM | INIT_EPD);
                 wdt60s();
@@ -347,7 +295,6 @@ void TagAssociated() {
                 showAPFound();
                 powerDown(INIT_EPD);
             }
-            */
         }
 
         powerUp(INIT_RADIO);
@@ -473,6 +420,8 @@ int main(void) {
         printf("AON is not valid!\n");
         setupRTC();
         clearAonRam();
+
+        showSplashScreen();
         currentChannel = 0;
         zigbeeCalibData.isValid = false;
         wakeUpReason = WAKEUP_REASON_FIRSTBOOT;
@@ -483,8 +432,6 @@ int main(void) {
         loadDefaultSettings();
         doVoltageReading();
 
-        qspiEraseRange(EEPROM_IMG_START, EEPROM_IMG_LEN);
-        qspiEraseRange(EEPROM_UPDATE_START, EEPROM_UPDATE_LEN);
         qspiEraseRange(EEPROM_SETTINGS_AREA_START, EEPROM_SETTINGS_AREA_LEN);
 
         sprintf(macStr, "(" MACFMT ")", MACCVT(mSelfMac));
@@ -498,6 +445,7 @@ int main(void) {
             currentTagMode = TAG_MODE_ASSOCIATED;
         } else {
             printf("No AP found\r\n");
+            showNoAP();
             sleep_with_with_wakeup(120000UL);
             currentTagMode = TAG_MODE_CHANSEARCH;
         }
@@ -511,8 +459,8 @@ int main(void) {
         memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
     }
 
+    powerUp(INIT_UART);
     while (1) {
-        powerUp(INIT_UART);
         wdt10s();
         switch (currentTagMode) {
             case TAG_MODE_ASSOCIATED:
@@ -533,4 +481,29 @@ int _write(int file, char *ptr, int len) {
 
 void _putchar(char c) {
     _write(0, &c, 1);
+}
+
+void applyUpdate() {
+    uint32_t ofst, now, size, pieceSz = 0x2000;
+    uint8_t chunkStore[0x2000];
+
+    printf("Applying update\r\n");
+
+    // apparently, the flash process is more reliable if we do these two first
+    setupCLKCalib();
+    setupRTC();
+    
+    showApplyUpdate();
+
+    size = EEPROM_OS_LEN;
+    for (ofst = 0; ofst < size; ofst += now) {
+        now = size - ofst;
+        if (now > pieceSz)
+            now = pieceSz;
+        printf("Cpy 0x%06x + 0x%04x to 0x%06x\r\n", EEPROM_UPDATE_START + ofst, now, EEPROM_OS_START + ofst);
+        FLASH_Read(0, EEPROM_UPDATE_START + ofst, chunkStore, now);
+        protectedFlashWrite(EEPROM_OS_START + ofst, chunkStore, now);
+        WDT_RestartCounter();
+    }
+    NVIC_SystemReset();
 }

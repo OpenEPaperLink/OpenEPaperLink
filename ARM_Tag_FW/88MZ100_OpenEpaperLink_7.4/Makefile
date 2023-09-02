@@ -49,8 +49,8 @@ compile:
 	@$(CC) $(CC_FlAGS) -c mz100_aon_ram.c       -o build/mz100_aon_ram.o
 	@$(CC) $(CC_FlAGS) -c printf.c		-o build/printf.o
 	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c zigbee.c        -o build/zigbee.o
-	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c ccm.c        -o build/ccm.o
-	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c chars.c        -o build/chars.o
+#	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c ccm.c        -o build/ccm.o
+#	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c chars.c        -o build/chars.o
 	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c drawing.c        -o build/drawing.o
 	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c powermgt.c        -o build/powermgt.o
 	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c syncedproto.c        -o build/syncedproto.o
@@ -62,7 +62,7 @@ compile:
 	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c epd.c        -o build/epd.o
 	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c userinterface.c	-o build/userinterface.o
 	@$(CC) $(CC_FlAGS) $(CC_WARNING_FLAGS) -c main.c             -o build/main.o
-	@$(CC) $(CC_END_FLAGS) $(CC_WARNING_FLAGS) build/main.o build/userinterface.o build/printf.o build/mz100_aon_ram.o build/zigbee.o build/chars.o build/drawing.o build/powermgt.o build/syncedproto.o build/comms.o build/settings.o build/timer.o build/util.o build/gpio.o build/epd.o build/mz100_sleep.o build/core_cm3.o build/mz100_ssp.o build/mz100_wdt.o build/mz100_gpio.o build/mz100_driver.o build/mz100_adc.o build/mz100_flash.o build/mz100_clock.o build/mz100_rtc.o build/mz100_pinmux.o build/mz100_pmu.o build/mz100_qspi.o build/mz100_aes.o build/mz100_gpt.o build/mz100_uart.o build/startup.o -o main.axf
+	@$(CC) $(CC_END_FLAGS) $(CC_WARNING_FLAGS) build/main.o build/userinterface.o build/printf.o build/mz100_aon_ram.o build/zigbee.o build/drawing.o build/powermgt.o build/syncedproto.o build/comms.o build/settings.o build/timer.o build/util.o build/gpio.o build/epd.o build/mz100_sleep.o build/core_cm3.o build/mz100_ssp.o build/mz100_wdt.o build/mz100_gpio.o build/mz100_driver.o build/mz100_adc.o build/mz100_flash.o build/mz100_clock.o build/mz100_rtc.o build/mz100_pinmux.o build/mz100_pmu.o build/mz100_qspi.o build/mz100_aes.o build/mz100_gpt.o build/mz100_uart.o build/startup.o -o main.axf
 	@$(OBJCOPY) -v -O binary main.axf main.bin
 	
 clean:

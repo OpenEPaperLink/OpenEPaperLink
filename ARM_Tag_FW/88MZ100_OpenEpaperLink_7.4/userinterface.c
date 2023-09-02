@@ -41,14 +41,13 @@ void addCapabilities() {
 
 void addOverlay() {
     if ((currentChannel == 0) && (tagSettings.enableNoRFSymbol)) {
-        // loadRawBitmap(ant, SCREEN_WIDTH - 24, 6, EPD_COLOR_BLACK);
-        // loadRawBitmap(cross, SCREEN_WIDTH - 16, 13, EPD_COLOR_RED);
+        drawImg(0, 3, norf);
         noAPShown = true;
     } else {
         noAPShown = false;
     }
     if ((batteryVoltage < tagSettings.batLowVoltage) && (tagSettings.enableLowBatSymbol)) {
-        // loadRawBitmap(battery, SCREEN_WIDTH - 16, SCREEN_HEIGHT - 10, EPD_COLOR_BLACK);
+        drawImg(0, 366, batlow);
         lowBatteryShown = true;
     } else {
         lowBatteryShown = false;
@@ -68,65 +67,39 @@ void afterFlashScreenSaver() {
 }
 
 void showSplashScreen() {
-    // selectLUT(EPD_LUT_NO_REPEATS);
-    // clearScreen();
-#if (SCREEN_WIDTH == 400)  // 4.2"
-    epdPrintBegin(3, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    epdpr("Starting");
-    epdPrintEnd();
-
-    epdPrintBegin(2, 252, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    addCapabilities();
-    epdPrintEnd();
-
-    epdPrintBegin(3, 268, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    epdpr("zbs42v033 %d.%d.%d%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
-    epdPrintEnd();
-    epdPrintBegin(3, 284, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    epdpr("MAC: %02X:%02X", mSelfMac[7], mSelfMac[6]);
-    epdpr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
-    epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
-    epdpr(":%02X:%02X", mSelfMac[1], mSelfMac[0]);
-    epdPrintEnd();
-
-    loadRawBitmap(oepli, 136, 22, EPD_COLOR_BLACK);
-    loadRawBitmap(cloud, 136, 10, EPD_COLOR_RED);
-
-    uint8_t __xdata buffer[17];
-    spr(buffer, "%02X%02X", mSelfMac[7], mSelfMac[6]);
-    spr(buffer + 4, "%02X%02X", mSelfMac[5], mSelfMac[4]);
-    spr(buffer + 8, "%02X%02X", mSelfMac[3], mSelfMac[2]);
-    spr(buffer + 12, "%02X%02X", mSelfMac[1], mSelfMac[0]);
-    printBarcode(buffer, 392, 264);
-    printBarcode(buffer, 384, 264);
-
-#endif
-    // drawWithSleep();
+    init_epd();
+    fillWindow(0, 0, 640, 384, 1);
+    epdPrintf(10, 10, 1, "OpenEPaperLink starting!");
+    addOverlay();
+    epd_refresh_and_sleep(1);
 }
 
 void showApplyUpdate() {
-    // selectLUT(1);
-    // clearScreen();
-#if (SCREEN_WIDTH == 400)
-    epdPrintBegin(136, 134, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-#endif
+    init_epd();
 
-    // epdpr("Updating!");
-    // epdPrintEnd();
-    // drawNoWait();
+    fillWindow(0, 0, 640, 384, 1);
+
+   
+    epdPrintf(90, 170, 1, "Performing update... This shouldn't take too long!");
+
+
+    addOverlay();
+    epd_refresh_and_sleep(1);
 }
 
 void showAPFound() {
-
     init_epd();
+
     fillWindow(0, 0, 640, 384, 1);
+
     epdPrintf(10, 10, 1, "OpenEPaperLink");
     epdPrintf(10, 40, 1, "AP Found at channel %d", currentChannel);
     epdPrintf(10, 60, 1, "AP MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", APmac[7], APmac[6], APmac[5], APmac[4], APmac[3], APmac[2], APmac[1], APmac[0]);
 
     epdPrintf(10, 330, 1, "Battery: %d.%dV", batteryVoltage / 1000, batteryVoltage % 1000);
     epdPrintf(10, 350, 1, "Tag MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
-    epd_refresh_and_sleep();
+    addOverlay();
+    epd_refresh_and_sleep(1);
 }
 
 void showNoAP() {
@@ -135,8 +108,8 @@ void showNoAP() {
     epdPrintf(10, 10, 1, "OpenEPaperLink ");
     epdPrintf(10, 40, 1, "No AP found... We'll try again in a little while though!");
     epdPrintf(10, 350, 1, "Tag MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
-
-    epd_refresh_and_sleep();
+    addOverlay();
+    epd_refresh_and_sleep(1);
 }
 
 void showLongTermSleep() {

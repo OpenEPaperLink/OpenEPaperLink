@@ -8,11 +8,11 @@
 #include "main.h"
 #include "mz100_sleep.h"
 #include "powermgt.h"
+#include "printf.h"
 #include "proto.h"
 #include "timer.h"
 #include "util.h"
 #include "zigbee.h"
-#include "printf.h"
 
 // download-stuff
 uint8_t blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
@@ -438,11 +438,11 @@ static uint8_t findSlot(const uint8_t *ver) {
     return 0xFF;
 }
 static void eraseUpdateBlock() {
-    eepromErase(EEPROM_UPDATA_AREA_START, (uint16_t)EEPROM_UPDATE_AREA_LEN);
+    qspiEraseRange(EEPROM_UPDATE_START, EEPROM_UPDATE_LEN);
 }
 static void saveUpdateBlockData(uint8_t blockId) {
     printf("EEPROM writing UpdateBlock %i\n", blockId);
-    if (!eepromWrite(EEPROM_UPDATA_AREA_START + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
+    if (!eepromWrite(EEPROM_UPDATE_START + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
         printf("EEPROM write failed\n");
 }
 static void saveImgBlockData(const uint8_t imgSlot, const uint8_t blockId) {
@@ -478,11 +478,9 @@ static uint32_t getHighSlotId() {
     return temp;
 }
 
-static uint8_t partsThisBlock = 0;
-static uint8_t blockAttempts = 0;  // these CAN be local to the function, but for some reason, they won't survive sleep?
-                                   // they get overwritten with  7F 32 44 20 00 00 00 00 11, I don't know why.
-
 static bool getDataBlock(const uint16_t blockSize) {
+    static uint8_t partsThisBlock = 0;
+    static uint8_t blockAttempts = 0;
     blockAttempts = BLOCK_TRANSFER_ATTEMPTS;
     if (blockSize == BLOCK_DATA_SIZE) {
         partsThisBlock = BLOCK_MAX_PARTS;
@@ -587,6 +585,7 @@ static bool downloadFWUpdate(const struct AvailDataInfo *avail) {
         curBlock.type = avail->dataType;
         memcpy(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
         eraseUpdateBlock();
+        delay(100);
     }
 
     while (curDataInfo.dataSize) {
@@ -767,7 +766,7 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
 
                 powerUp(INIT_EEPROM);
                 wdt60s();
-                prvApplyUpdateIfNeeded();
+                applyUpdate();
             } else {
                 return false;
             }
