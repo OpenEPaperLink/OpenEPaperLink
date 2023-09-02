@@ -193,7 +193,7 @@ function processTags(tagArray) {
 				statusline = "AP";
 			}
 			if (element.batteryMv != 0 && element.batteryMv != 1337) {
-				statusline += ", " + (element.batteryMv >= 2600 ? "&#x2265;" : "") + (element.batteryMv / 1000) + "V";
+				statusline += ", " + (element.batteryMv == 2600 ? "&#x2265;" : "") + (element.batteryMv / 1000) + "V";
 			}
 			if (element.ver != 0 && element.ver != 1) {
 				$('#tag' + tagmac + ' .received').title = `fw: ${element.ver}`;
