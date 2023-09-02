@@ -40,6 +40,7 @@ class WifiManager {
 
     bool waitForConnection();
     void pollSerial();
+    static void terminalLog(String text);
 
    public:
     WifiManager();

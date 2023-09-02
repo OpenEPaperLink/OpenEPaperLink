@@ -1,14 +1,11 @@
 #pragma once
 
 void init_second_uart();
+void uart_switch_speed(int baudrate);
 
 void uartTx(uint8_t data);
 bool getRxCharSecond(uint8_t *newChar);
 
-int  u_printf(const char *fmt, ...);
-int  u_sprintf(char *s, const char *fmt, ...);
-void u_array_printf(unsigned char *data, unsigned int len);
+void uart_printf(const char *format, ...);
 
-#define pr        u_printf
-#define sprf      u_sprintf
-#define array_prf u_array_printf
+#define pr uart_printf
