@@ -2,7 +2,7 @@
 #define _BOARDHEADER_H_
 
 #include "../../../../tag_types.h"
-#include "hal_Newton_M3.h"
+#include "HAL_Newton_M3.h"
 
 // eeprom map
 #define EEPROM_SETTINGS_AREA_START (0x01000UL)

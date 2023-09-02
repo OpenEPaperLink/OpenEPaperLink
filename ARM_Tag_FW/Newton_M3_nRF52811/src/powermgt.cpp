@@ -37,6 +37,21 @@ uint8_t checkButtonOrJig() {
     return DETECT_P1_0_NOTHING;
 }
 
+void button1wake(){
+    wakeUpReason = WAKEUP_REASON_BUTTON1;
+    resettimer();
+}
+
+void button2wake(){
+    wakeUpReason = WAKEUP_REASON_BUTTON2;
+    resettimer();
+}
+
+void nfcwake(){
+    wakeUpReason = WAKEUP_REASON_NFC;
+    resettimer();
+}
+
 void setupPortsInitial() {
     digitalWrite(LED_RED, HIGH);
     digitalWrite(LED_GREEN, HIGH);
@@ -46,12 +61,18 @@ void setupPortsInitial() {
     pinMode(LED_BLUE, OUTPUT);
     pinMode(BUTTON1, INPUT_PULLUP);
     pinMode(BUTTON2, INPUT_PULLUP);
+    pinMode(NFC_POWER, INPUT_PULLDOWN);
+    pinMode(NFC_IRQ, INPUT_PULLDOWN);
 
     pinMode(FLASH_MISO, INPUT);
     pinMode(FLASH_CLK, OUTPUT);
     pinMode(FLASH_MOSI, OUTPUT);
     digitalWrite(FLASH_CS, HIGH);
     pinMode(FLASH_CS, OUTPUT);
+
+    attachInterrupt(digitalPinToInterrupt(BUTTON1), button1wake, FALLING);
+    attachInterrupt(digitalPinToInterrupt(BUTTON2), button2wake, FALLING);
+    attachInterrupt(digitalPinToInterrupt(NFC_IRQ), nfcwake, RISING);
 }
 
 void initPowerSaving(const uint16_t initialValue) {
@@ -96,20 +117,11 @@ static void configI2C(const bool setup) {
     if (setup == i2cActive)
         return;
     if (setup) {
-        /*P1DIR &= ~(1 << 6);
-        P1_6 = 1;
-        P1FUNC |= (1 << 4) | (1 << 5);
-        P1PULL |= (1 << 4) | (1 << 5);
-        i2cInit();
-        i2cCheckDevice(0x50); */
-        // first transaction after init fails, this makes sure everything is ready for the first transaction
+        pinMode(NFC_I2C_SCL,OUTPUT);
+        pinMode(NFC_I2C_SDA,OUTPUT);
     } else {
-        /*P1DIR |= (1 << 6);
-        P1_6 = 0;
-        P1FUNC &= ~((1 << 4) | (1 << 5));
-        P1PULL &= ~((1 << 4) | (1 << 5));
-        CLKEN &= ~0x10;
-        IEN1 &= ~4;*/
+        pinMode(NFC_I2C_SDA,INPUT);
+        pinMode(NFC_I2C_SCL,INPUT);
     }
     i2cActive = setup;
 }
@@ -151,7 +163,7 @@ void powerUp(const uint8_t parts) {
     }
 
     if (parts & INIT_TEMPREADING) {
-        // temperature = adcSampleTemperature();
+        //temperature = nrf_temp_read();
     }
 
     if (parts & INIT_RADIO) {

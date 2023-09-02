@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-#include "hal_Newton_M3.h"
+#include "HAL_Newton_M3.h"
 #include "wdt.h"
 
 void epd_busy() {

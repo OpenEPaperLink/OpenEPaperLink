@@ -1,0 +1,53 @@
+{
+  "build": {
+    "arduino":{
+      "ldscript": "linker_script.ld"
+    },
+    "core": "arduino",
+    "cpu": "cortex-m4",
+    "extra_flags": "-DARDUINO_ARDUINO_NANO33BLE -DARDUINO_ARCH_NRF52840",
+    "f_cpu": "64000000L",
+    "hwids": [
+      [
+        "0x2341",
+        "0x005a"
+      ],
+      [
+        "0x2341",
+        "0x805a"
+      ]
+    ],
+    "mcu": "nrf52840",
+    "variant": "ARDUINO_NANO33BLE"
+  },
+  "connectivity": [
+    "bluetooth"
+  ],
+  "debug": {
+    "jlink_device": "nRF52840_xxAA",
+    "openocd_target": "nrf52.cfg",
+    "svd_path": "nrf52840.svd"
+  },
+  "frameworks": [
+    "arduino"
+  ],
+  "name": "Arduino Nano 33 BLE",
+  "upload": {
+    "maximum_ram_size": 262144,
+    "maximum_size": 983040,
+    "protocol": "sam-ba",
+    "protocols": [
+      "jlink",
+      "nrfjprog",
+      "nrfutil",
+      "cmsis-dap",
+      "sam-ba",
+      "blackmagic"
+    ],
+    "use_1200bps_touch": true,
+    "require_upload_port": true,
+    "wait_for_upload_port": true
+  },
+  "url": "https://store.arduino.cc/arduino-nano-33-ble",
+  "vendor": "Arduino"
+}

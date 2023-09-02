@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include "zigbee.h"
-#include "hal_Newton_M3.h"
+#include "HAL_Newton_M3.h"
 
 uint8_t channelList[6] = {11, 15, 20, 25, 26, 27};
 

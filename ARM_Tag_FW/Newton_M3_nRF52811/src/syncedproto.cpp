@@ -695,37 +695,6 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
 
 bool processAvailDataInfo(struct AvailDataInfo *avail) {
     switch (avail->dataType) {
-#if (SCREEN_WIDTH == 152)
-        // the 1.54" screen is pretty small, we can write an entire 1bpp image from the block transfer buffer directly to the EPD buffer
-        case DATATYPE_IMG_RAW_1BPP_DIRECT:
-            printf("Direct draw image received\n");
-            if (curDataInfo.dataSize == 0 && !memcmp((const void *)&avail->dataVer, (const void *)&curDataInfo.dataVer, 8)) {
-                // we've downloaded this already, we're guessing it's already displayed
-                printf("currently shown image, send xfc\n");
-                powerUp(INIT_RADIO);
-                sendXferComplete();
-                powerDown(INIT_RADIO);
-                return true;
-            }
-            memcpy(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
-            if (avail->dataSize > 4096)
-                avail->dataSize = 4096;
-
-            if (getDataBlock(avail->dataSize)) {
-                powerUp(INIT_RADIO);
-                sendXferComplete();
-                powerDown(INIT_RADIO);
-
-                curDataInfo.dataSize = 0;  // mark as transfer not pending
-                powerUp(INIT_EPD);
-                drawImageFromBuffer(blockXferBuffer, drawWithLut);
-                powerDown(INIT_EPD);
-                drawWithLut = 0;  // default back to the regular ol' stock/OTP LUT
-                return true;
-            }
-            return false;
-            break;
-#endif
         case DATATYPE_IMG_BMP:
         case DATATYPE_IMG_DIFF:
         case DATATYPE_IMG_RAW_1BPP:
@@ -852,6 +821,18 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
             return false;
             break;
         }
+        case DATATYPE_COMMAND_DATA:
+            printf("CMD received\n");
+
+            if(avail->dataTypeArgument == 4){
+                Serial.println("LED CMD");
+                setled(avail->dataVer,avail->dataSize);
+            }
+            powerUp(INIT_RADIO);
+            sendXferComplete();
+            powerDown(INIT_RADIO);
+            return true;
+        break;
         case DATATYPE_CUSTOM_LUT_OTA:
             // Handle data for the NFC IC (if we have it)
 

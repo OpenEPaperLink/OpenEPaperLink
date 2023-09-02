@@ -1,2 +1,0 @@
-As part of the init / connect sequence, this project checks if the MX25R3235F
-operates in "Ultra low power mode". If so, it changes the mode to the high performance one.

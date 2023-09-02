@@ -1,0 +1,38 @@
+{
+  "build": {
+    "arduino":{
+      "ldscript": "nrf52_xxaa.ld"
+    },
+    "core": "nRF5",
+    "cpu": "cortex-m4",
+    "extra_flags": "-DARDUINO_STCT_NRF52_minidev",
+    "f_cpu": "64000000L",
+    "mcu": "nrf52832",
+    "variant": "Taida_Century_nRF52_minidev"
+  },
+  "connectivity": [
+    "bluetooth"
+  ],
+  "debug": {
+    "jlink_device": "nRF52832_xxAA",
+    "svd_path": "nrf52.svd"
+  },
+  "frameworks": [
+    "arduino"
+  ],
+  "name": "Taida Century nRF52 mini board",
+  "upload": {
+    "maximum_ram_size": 65536,
+    "maximum_size": 524288,
+    "protocol": "jlink",
+    "protocols": [
+      "jlink",
+      "nrfjprog",
+      "stlink",
+      "cmsis-dap",
+      "blackmagic"
+    ]
+  },
+  "url": "http://taida-century.com/en/index.asp",
+  "vendor": "Taida Century"
+}
