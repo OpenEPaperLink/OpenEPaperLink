@@ -52,5 +52,5 @@ int8_t startHFCLK(void);
 uint8_t isHFCLKstable(void);
 void boardGetOwnMac(uint8_t *mac);
 void sleepForMs(uint32_t ms);
-void setled(bool r,bool g,bool b);
+void setled(uint64_t parta,u_int32_t partb);
 void resettimer();

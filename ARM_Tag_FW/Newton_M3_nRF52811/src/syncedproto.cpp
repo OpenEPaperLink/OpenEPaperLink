@@ -823,17 +823,11 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
         }
         case DATATYPE_COMMAND_DATA:
             printf("CMD received\n");
-        
-            //led cmd handeling
-            if(avail->dataTypeArgument == CMD_LED_OFF)setled(false,false,false);
-            if(avail->dataTypeArgument == CMD_LED_RED)setled(true,false,false);
-            if(avail->dataTypeArgument == CMD_LED_GREEN)setled(false,true,false);
-            if(avail->dataTypeArgument == CMD_LED_BLUE)setled(false,false,true);
-            if(avail->dataTypeArgument == CMD_LED_YELLOW)setled(true,true,false);
-            if(avail->dataTypeArgument == CMD_LED_CYAN)setled(false,true,true);
-            if(avail->dataTypeArgument == CMD_LED_MAGENTA)setled(true,false,true);
-            if(avail->dataTypeArgument == CMD_LED_WHITE)setled(true,true,true);
 
+            if(avail->dataTypeArgument == 4){
+                Serial.println("LED CMD");
+                setled(avail->dataVer,avail->dataSize);
+            }
             powerUp(INIT_RADIO);
             sendXferComplete();
             powerDown(INIT_RADIO);

@@ -2,6 +2,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <SoftWire.h>
+#include <AsyncDelay.h>
 
 #include "comms.h"
 #include "drawing.h"
@@ -11,6 +13,8 @@
 #include "hal.h"
 #include "userinterface.h"
 #include "wdt.h"
+
+SoftWire sw(NFC_I2C_SDA, NFC_I2C_SCL);
 
 extern "C" int _write(int file, char *ptr, int len) {
     (void)file; /* Not used, avoid warning */
@@ -111,7 +115,48 @@ void setup() {
 
     printf("BOOTED>  %d.%d.%d%s\n", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
 
+    /*
     powerUp(INIT_I2C);
+    pinMode(NFC_POWER, OUTPUT);
+    digitalWrite(NFC_POWER,HIGH);
+
+    sw.setTimeout_ms(40);
+    sw.begin();
+    delay(50);
+
+    const uint8_t firstAddr = 1;
+    const uint8_t lastAddr = 0x7F;
+    Serial.println();
+    Serial.print("I2C scan in range 0x");
+    Serial.print(firstAddr, HEX);
+    Serial.print(" - 0x");
+    Serial.print(lastAddr, HEX);
+    Serial.println(" (inclusive) ...");
+    for (uint8_t addr = firstAddr; addr <= lastAddr; addr++) {
+     delayMicroseconds(50);
+     uint8_t startResult = sw.llStart((addr << 1) + 1); // Signal a read
+     sw.stop();
+     if (startResult == 0) {
+       Serial.print("\rDevice found at 0x");
+       Serial.println(addr, HEX);
+       Serial.flush();
+     }
+     delay(50);
+    }
+    Serial.println("Finished");
+    
+    Serial.println((uint8_t)0x55 << 1);
+
+    sw.beginTransmission(30);
+    sw.write(uint8_t(0)); // Access the first register
+    sw.endTransmission();
+    
+    digitalWrite(NFC_POWER,LOW);
+    pinMode(NFC_POWER, INPUT_PULLDOWN);
+
+    powerDown(INIT_I2C);
+
+    */
     
     //we always have NFC + NFC wake
     capabilities |= CAPABILITY_HAS_NFC;

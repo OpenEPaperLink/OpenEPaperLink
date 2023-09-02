@@ -117,20 +117,11 @@ static void configI2C(const bool setup) {
     if (setup == i2cActive)
         return;
     if (setup) {
-        /*P1DIR &= ~(1 << 6);
-        P1_6 = 1;
-        P1FUNC |= (1 << 4) | (1 << 5);
-        P1PULL |= (1 << 4) | (1 << 5);
-        i2cInit();
-        i2cCheckDevice(0x50); */
-        // first transaction after init fails, this makes sure everything is ready for the first transaction
+        pinMode(NFC_I2C_SCL,OUTPUT);
+        pinMode(NFC_I2C_SDA,OUTPUT);
     } else {
-        /*P1DIR |= (1 << 6);
-        P1_6 = 0;
-        P1FUNC &= ~((1 << 4) | (1 << 5));
-        P1PULL &= ~((1 << 4) | (1 << 5));
-        CLKEN &= ~0x10;
-        IEN1 &= ~4;*/
+        pinMode(NFC_I2C_SDA,INPUT);
+        pinMode(NFC_I2C_SCL,INPUT);
     }
     i2cActive = setup;
 }
