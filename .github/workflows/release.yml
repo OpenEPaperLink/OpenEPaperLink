@@ -42,7 +42,7 @@ jobs:
           pio run --environment Newton_M3_29_BWR
           pio run --environment Newton_M3_75_BWR
           cp .pio/build/Newton_M3_29_BWR/firmware.hex /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_29_BWR.hex
-          cp .pio/build/Newton_M3_75_BWR/firmware.hex  //home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_75_BWR.hex
+          cp .pio/build/Newton_M3_75_BWR/firmware.hex /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_75_BWR.hex
 
       - name: Install esptool
         run: pip install esptool
