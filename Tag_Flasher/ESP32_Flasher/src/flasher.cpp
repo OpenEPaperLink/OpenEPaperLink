@@ -53,7 +53,7 @@ void dump(uint8_t *a, uint16_t l) {
 }
 
 
-int8_t powerPinsExt[] = FLASHER_EXT_POWER;
+int8_t powerPinsExt[] = {16,17,18,21};
 
 uint8_t pinsExt[] = {FLASHER_EXT_CLK, FLASHER_EXT_MISO, FLASHER_EXT_MOSI, FLASHER_EXT_RESET, FLASHER_EXT_RXD, FLASHER_EXT_SS, FLASHER_EXT_TEST, FLASHER_EXT_TXD};
 

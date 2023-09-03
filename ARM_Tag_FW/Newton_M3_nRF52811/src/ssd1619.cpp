@@ -437,7 +437,7 @@ void clearWindow(bool color) {
     }
 }
 void clearScreen() {
-    setWindowX(0, SCREEN_WIDTH);
+    setWindowX(SCREEN_XOFFSET, SCREEN_WIDTH + SCREEN_XOFFSET);
     setWindowY(0, SCREEN_HEIGHT);
     setPosXY(0, 0);
     shortCommand1(CMD_DATA_ENTRY_MODE, 3);  // was 3
@@ -489,6 +489,8 @@ void epdWaitRdy() {
     epdBusyWaitFalling(120000);
 }
 void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y) {
+    x1 = x1 + SCREEN_XOFFSET;
+    x2 = x2 + SCREEN_XOFFSET;
     setWindowX(x1, x2);
     setWindowY(y, y + 1);
     if (color) {
@@ -499,6 +501,7 @@ void drawLineHorizontal(bool color, uint16_t x1, uint16_t x2, uint16_t y) {
     epdBusyWaitFalling(100);
 }
 void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2) {
+    x = x + SCREEN_XOFFSET;
     setWindowY(y1, y2);
     setWindowX(x, x + 8);
     shortCommand1(CMD_DATA_ENTRY_MODE, 3);
@@ -517,7 +520,7 @@ void drawLineVertical(bool color, uint16_t x, uint16_t y1, uint16_t y2) {
 }
 void beginFullscreenImage() {
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
-    setWindowX(0, SCREEN_WIDTH);
+    setWindowX(SCREEN_XOFFSET, SCREEN_WIDTH + SCREEN_XOFFSET);
     setWindowY(0, SCREEN_HEIGHT);
     shortCommand1(CMD_DATA_ENTRY_MODE, 3);
     setPosXY(0, 0);
@@ -534,6 +537,7 @@ void endWriteFramebuffer() {
     commandEnd();
 }
 void loadRawBitmap(uint8_t *bmp, uint16_t x, uint16_t y, bool color) {
+    x = x + SCREEN_XOFFSET;
     uint16_t xsize = bmp[0] / 8;
     if (bmp[0] % 8)
         xsize++;
@@ -689,6 +693,7 @@ void writeCharEPD(uint8_t c) {
 
 // Print text to the EPD. Origin is top-left
 void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool color) {
+    x = x + SCREEN_XOFFSET;
     directionY = direction;
     epdCharSize = 1 + fontsize;
     if (directionY) {
@@ -724,7 +729,7 @@ void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool c
         }
         setPosXY(x, y);
         fontCurXpos = x;
-        setWindowX(x, SCREEN_WIDTH);
+        setWindowX(x + SCREEN_XOFFSET, SCREEN_WIDTH + SCREEN_XOFFSET);
         shortCommand1(CMD_DATA_ENTRY_MODE, 7);
         memset(rbuffer, 0, 32);
     }
