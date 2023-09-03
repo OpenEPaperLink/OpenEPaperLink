@@ -1,10 +1,8 @@
 #include "comms.h"
 
 #include <stdint.h>
-//#include <stdio.h>
 #include <string.h>
-
-#include "ccm.h"
+#include <stdbool.h>
 #include "proto.h"
 
 extern uint8_t Zigbee_tx_buffer(uint8_t tx_buffer[], int len);

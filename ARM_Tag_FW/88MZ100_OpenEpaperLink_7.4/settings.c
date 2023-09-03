@@ -1,9 +1,11 @@
 #include "settings.h"
+#include "proto.h"
 #include <string.h>
 #include "eeprom.h"
 #include "util.h"
 #include "mz100_flash.h"
 #include "powermgt.h"
+
 
  __attribute__((section(".aonshadow"))) struct tagsettings tagSettings = {0};
 extern uint8_t  blockXferBuffer[];

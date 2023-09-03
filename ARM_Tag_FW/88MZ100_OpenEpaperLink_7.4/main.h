@@ -28,11 +28,7 @@
 #define EPD_BUSY 27
 #define EPD_HLT_CTRL 25
 
+
 #define RADIO_FIRST_CHANNEL				(11)		//2.4-GHz channels start at 11
-struct EepromContentsInfo
-{
-    uint32_t latestCompleteImgAddr, latestInprogressImgAddr, latestCompleteImgSize;
-    uint64_t latestCompleteImgVer, latestInprogressImgVer;
-};
-void uiPrvFullscreenMsg(const char *str, const char *line2, const char *line3);
-void prvApplyUpdateIfNeeded();
+
+void applyUpdate();

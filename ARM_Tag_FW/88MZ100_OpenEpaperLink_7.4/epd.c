@@ -2,8 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-//#include <stdio.h>
-#include "printf.h"
+// #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -16,6 +15,7 @@
 #include "mz100_pinmux.h"
 #include "mz100_ssp.h"
 #include "mz100_wdt.h"
+#include "printf.h"
 #include "stdarg.h"
 #include "util.h"
 
@@ -62,6 +62,17 @@
 #define EPD_UNKNOWN_1 0xE5
 
 static uint8_t EPDtempBracket = 0;
+
+#define CHAR_WIDTH_BYTES 2
+#define CHAR_HEIGHT 20
+#define CHAR_WIDTH 12
+#define SCREEN_WIDTH 640
+
+uint8_t buffer[CHAR_HEIGHT][640 / 8];
+uint8_t charbuffer[CHAR_HEIGHT][CHAR_WIDTH_BYTES + 1];
+
+#define CHAR_SPACING 1
+#define EMPTY_SPACING 3
 
 struct epd_colorlutpart {
     uint8_t repeat;
@@ -114,13 +125,39 @@ struct epd_xonlut {
     struct epd_xonlutpart part[20];
 } __packed;
 
-void interleaveColor(uint8_t b) {
+void interleaveBW(uint8_t b) {
     b ^= 0xFF;
     uint8_t b_out = 0;
     for (uint8_t shift = 0; shift < 4; shift++) {
         b_out = 0;
-        if ((b >> 2 * shift) & 0x01) b_out |= 0x30;
-        if ((b >> 2 * shift) & 0x02) b_out |= 0x03;
+        if ((b >> 2 * shift) & 0x01) b_out |= 0x30;  // 0x30
+        if ((b >> 2 * shift) & 0x02) b_out |= 0x03;  // 0x03
+        display_tx_byte(b_out);
+    }
+}
+
+void interleaveColor(uint8_t b, uint8_t r) {
+    b ^= 0xFF;
+    uint8_t b_out = 0;
+    for (int8_t shift = 3; shift >= 0; shift--) {
+        b_out = 0;
+        if (((b >> 2 * shift) & 0x01) && ((r >> 2 * shift) & 0x01)) {
+            b_out |= 0x04;  // 0x30
+        } else if ((b >> 2 * shift) & 0x01) {
+            b_out |= 0x03;                     // 0x30
+        } else if ((r >> 2 * shift) & 0x01) {  // 4 or 5
+            b_out |= 0x04;                     // 0x30
+        } else {
+        }
+
+        if (((b >> 2 * shift) & 0x02) && ((r >> 2 * shift) & 0x02)) {
+            b_out |= 0x40;  // 0x30
+        } else if ((b >> 2 * shift) & 0x02) {
+            b_out |= 0x30;  // 0x30
+        } else if ((r >> 2 * shift) & 0x02) {
+            b_out |= 0x40;  // 0x30
+        } else {
+        }
         display_tx_byte(b_out);
     }
 }
@@ -423,21 +460,9 @@ void shiftLeftByX(uint8_t *data, int X, int N) {
         data[i] = (data[i] << X) | ((data[i - 1] >> (8 - X)) & ((1 << X) - 1));
     }
 }
-#define CHAR_WIDTH_BYTES 2
-#define CHAR_HEIGHT 20
-#define CHAR_WIDTH 12
-#define SCREEN_WIDTH 640
-
-uint8_t buffer[CHAR_HEIGHT][640 / 8];
-uint8_t charbuffer[CHAR_HEIGHT][CHAR_WIDTH_BYTES + 1];
-
-// uint16_t curX = 0;
-#define CHAR_SPACING 1
-#define EMPTY_SPACING 3
 
 uint16_t loadCharacter(uint8_t currentChar, uint16_t curX, bool first) {
-
-    currentChar-=0x20;
+    currentChar -= 0x20;
 
     memset(charbuffer, 0, sizeof(charbuffer));
     for (uint8_t d = 0; d < CHAR_HEIGHT; d++) {
@@ -507,19 +532,29 @@ void dumpBuffer(uint16_t xloc, uint16_t yloc, uint16_t width) {
     display_send_start(0);
     for (uint8_t curY = 0; curY < CHAR_HEIGHT; curY++) {
         for (uint16_t curX = 0; curX < width; curX += 8) {
-            interleaveColor(buffer[curY][curX / 8]);
+            interleaveBW(buffer[curY][curX / 8]);
         }
     }
     display_send_stop();
 }
 
-void loadLUTSfromEEPROM() {
-    uint8_t bracket = getTempBracket();
+void loadLUTSfromEEPROM(uint8_t bracket) {
     for (uint8_t c = EPD_LUT_B; c <= EPD_LUT_R3; c++) {
         struct epd_colorlut *colorlut = (struct epd_colorlut *)loadLUT(c, bracket);
-        for (uint8_t part = 0; part < 20; part++) {
+
+        for (uint8_t d = 0; d < 8; d++) {
+            colorlut->part[1].length[d] = 1;
+            colorlut->part[0].length[d] = 1;
+        }
+
+        for (uint8_t part = 0; part < 4; part++) {
             if (colorlut->part[part].repeat) colorlut->part[part].repeat = 1;
         }
+
+        for (uint8_t part = 4; part < 20; part++) {
+            if (colorlut->part[part].repeat) colorlut->part[part].repeat = 0;
+        }
+
         lutBeginTX(c);
         for (uint16_t d = 0; d < 260; d++) {
             display_tx_byte(((uint8_t *)colorlut)[d]);
@@ -529,8 +564,9 @@ void loadLUTSfromEEPROM() {
     }
 
     struct epd_vcomlut *vcomlut = (struct epd_vcomlut *)loadLUT(EPD_LUT_VCOM, bracket);
+
     for (uint8_t part = 0; part < 20; part++) {
-        if (vcomlut->part[part].repeat) vcomlut->part[part].repeat = 1;
+        if (vcomlut->part[part].repeat) vcomlut->part[part].repeat = 0;
     }
     lutBeginTX(EPD_LUT_VCOM);
     for (uint16_t d = 0; d < 220; d++) {
@@ -540,8 +576,12 @@ void loadLUTSfromEEPROM() {
     if (vcomlut) free(vcomlut);
 
     struct epd_xonlut *xonlut = (struct epd_xonlut *)loadLUT(EPD_LUT_XON, bracket);
+
+    // memset(&(xonlut->part[0].repeat), 0x00, sizeof(struct epd_xonlutpart));
+    // memset(&(xonlut->part[1].repeat), 0x00, sizeof(struct epd_xonlutpart));
+
     for (uint8_t part = 0; part < 20; part++) {
-        if (xonlut->part[part].repeat) xonlut->part[part].repeat = 1;
+        if (xonlut->part[part].repeat) xonlut->part[part].repeat = 0;
     }
     lutBeginTX(EPD_LUT_XON);
     for (uint16_t d = 0; d < 200; d++) {
@@ -595,31 +635,45 @@ void fillWindow(uint16_t x, uint16_t y, uint16_t xe, uint16_t ye, uint8_t color)
     display_send_start(0);
 
     for (uint32_t c = 0; c < (xe - x) * (ye - y) / 8; c++) {
-        interleaveColor(0x00);
+        interleaveBW(0x00);
     }
 
     display_send_stop();
 }
 
-void epd_refresh_and_sleep() {
-    loadLUTSfromEEPROM(EPDtempBracket);
+void epd_refresh_and_sleep(uint8_t lut) {
+    if (lut) {
+        epdWrite(EPD_PANEL_SETTING, 2, 0xC3, 0x88);  // 0xC3-0x88 // lut from register
+        loadLUTSfromEEPROM(EPDtempBracket);
+    } else {
+        epdWrite(EPD_PANEL_SETTING, 2, 0xC3, 0x08);  // 0xC3-0x88 // lut from EEPROM
+        epdWrite(EPD_UNKNOWN_1, 1, 0x03);            // load lut, probably
+    }
 
     // epdPrintf(50,100,false,"Blaat! Dit is een test %d", 6);
 
     EPD_cmd(EPD_REFRESH);
-    delay(100000);
+
+    unsigned int v2 = 0;
+    while (GPIO_ReadPinLevel(EPD_BUSY) == GPIO_IO_HIGH) {
+        WDT_RestartCounter();
+        delay(10000);
+        v2++;
+        if (v2 > 10)
+            break;
+    }
     do_sleeped_epd_refresh();
     init_GPIO_EPD();
     epd_reset();
-    epd_reset();
+    //    epd_reset();
     EPD_cmd(EPD_POWER_SETTING);
     EPD_data(2);
     EPD_data(0);
     EPD_data(0);
     EPD_data(0);
-    delay_us(500000);
+    delay_us(50000);
     EPD_cmd(EPD_POWER_OFF);
-    delay_us(1000000);
+    delay_us(100000);
     BUSY_wait(0x32u);
     EPD_cmd(EPD_SPI_FLASH_CONTROL);
     EPD_data(1);
@@ -701,9 +755,9 @@ void init_epd(void) {
     epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0x00);
 
     epdWrite(EPD_POWER_SETTING, 4, 0x37, 0x00, 0x05, 0x05);  // 0x37 - 00- 05 05
-    epdWrite(EPD_PANEL_SETTING, 2, 0xC3, 0x88);              // CB-88 // CB-08 // C3-reverse
+    // epdWrite(EPD_POWER_SETTING, 4, 0x07, 0x00, 0x05, 0x05);  // 0x37 - 00- 05 05
 
-    // epdWrite(EPD_UNKNOWN_1, 1, 0x03);
+    epdWrite(EPD_PANEL_SETTING, 2, 0xC3, 0x08);  // 0xC3-0x88 // lut from EEPROM
 
     epdWrite(EPD_POWER_OFF_SEQUENCE, 1, 0x00);
     epdWrite(EPD_BOOSTER_SOFT_START, 0x03, 199, 204, 45);
@@ -714,12 +768,9 @@ void init_epd(void) {
     epdWrite(EPD_TCON_SET, 0x01, 34);
     epdWrite(EPD_TRES, 0x04, 2, 128, 1, 128);
 
-    //setDisplayWindow(96, 32, 496, 332);
-
     EPDtempBracket = getTempBracket();
     loadFrameRatePLL(EPDtempBracket);
     loadTempVCOMDC(EPDtempBracket);
-    printf("EPD Powerup complete\n");
 }
 
 void epdPrintf(uint16_t x, uint16_t y, bool color, const char *c, ...) {
@@ -731,7 +782,7 @@ void epdPrintf(uint16_t x, uint16_t y, bool color, const char *c, ...) {
     memset(charbuffer, 0, sizeof(charbuffer));
     va_list lst;
     va_start(lst, c);
-    vsnprintf(out_buffer,256, c, lst);
+    vsnprintf(out_buffer, 256, c, lst);
     va_end(lst);
 
     curX = x % 8;
@@ -750,4 +801,18 @@ void epdPrintf(uint16_t x, uint16_t y, bool color, const char *c, ...) {
     x /= 8;
     x *= 8;
     dumpBuffer(x, y, curX);
+}
+
+void drawImg(uint16_t x, uint16_t y, const uint8_t *img) {
+    uint16_t width = img[0];
+    uint16_t height = img[1];
+    img += 2;
+    setDisplayWindow(x, y, x + width, y + height);
+    display_send_start(0);
+    for (uint8_t curY = 0; curY < height; curY++) {
+        for (uint16_t curX = 0; curX < width; curX += 8) {
+            interleaveColor(*(img++), 0x00);
+        }
+    }
+    display_send_stop();
 }

@@ -7,8 +7,7 @@
 #define EEPROM_ERZ_SECTOR_SZ		4096	//erase size and alignment
 //pages are 4K in size
 //an update can be stored in any 2 image slots
-#define EEPROM_UPDATA_AREA_START		(0x17000UL)
-#define EEPROM_UPDATE_AREA_LEN			(0x10000UL)
+
 #define EEPROM_PAGE_SIZE			(0x01000UL)
 
 #define EEPROM_OS_START				(0x00000UL)
@@ -32,18 +31,7 @@
 #define EEPROM_IMG_VALID			(0x494d4721)
 
 
-#define EEPROM_PIECE_SZ				(88)
-struct EepromImageHeaderOld {
-	uint64_t version;
-	uint32_t validMarker;
-	uint32_t size;
-	uint32_t rfu[8];				//zero-filled for now
-	uint8_t piecesMissing[256];		//each bit represents a 64-byte piece
-	
-	//image data here
-	//os update here possibly (EEPROM_OS_UPDATE_SZ_PER_IMG bytes each piece)
-	//we pre-erase so progress can be calculated by finding the first non-0xff byte
-};
+//#define EEPROM_PIECE_SZ				(88)
 
 struct EepromImageHeader {				//each image space is 0x17000 bytes, we have space for ten of them
 	uint64_t version;

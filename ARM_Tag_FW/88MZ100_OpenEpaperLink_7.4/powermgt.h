@@ -26,7 +26,7 @@
 
 // power saving algorithm
 #define INTERVAL_BASE 40              // interval (in seconds) (when 1 packet is sent/received) for target current (7.2µA)
-#define INTERVAL_AT_MAX_ATTEMPTS 600  // interval (in seconds) (at max attempts) for target average current
+#define INTERVAL_AT_MAX_ATTEMPTS 300  // interval (in seconds) (at max attempts) for target average current
 #define DATA_REQ_RX_WINDOW_SIZE 5UL   // How many milliseconds we should wait for a packet during the data_request.
                                       // If the AP holds a long list of data for tags, it may need a little more time to lookup the mac address
 #define DATA_REQ_MAX_ATTEMPTS 3      // How many attempts (at most) we should do to get something back from the AP

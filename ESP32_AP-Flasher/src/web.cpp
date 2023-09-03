@@ -373,6 +373,8 @@ void init_web() {
 
                             const uint8_t *payload = reinterpret_cast<const uint8_t *>(&flashData);
                             sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
+                            request->send(200, "text/plain", "ok, request transmitted");
+                            return;
                         }
                     }
                 }

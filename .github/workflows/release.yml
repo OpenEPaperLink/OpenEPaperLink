@@ -35,6 +35,14 @@ jobs:
           
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
+ 
+      - name: Build NRF firmware
+        run: |
+          cd ARM_Tag_FW/Newton_M3_nRF52811
+          pio run --environment Newton_M3_29_BWR
+          pio run --environment Newton_M3_75_BWR
+          cp .pio/build/Newton_M3_29_BWR/firmware.hex /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_29_BWR.hex
+          cp .pio/build/Newton_M3_75_BWR/firmware.hex /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_75_BWR.hex
 
       - name: Install esptool
         run: pip install esptool
@@ -42,6 +50,24 @@ jobs:
       - name: create folders
         run: |
           mkdir espbinaries
+
+      - name: Build firmware for Tag_Flasher
+        run: |
+          cd Tag_Flasher/ESP32_Flasher
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          pio run --environment S2_Tag_Flasher
+          pio run --target buildfs --environment S2_Tag_Flasher
+          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/S2_Tag_Flasher
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/S2_Tag_Flasher/boot_app0.bin
+          cp .pio/build/S2_Tag_Flasher/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/S2_Tag_Flasher/firmware.bin
+          cp .pio/build/S2_Tag_Flasher/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/S2_Tag_Flasher/bootloader.bin
+          cp .pio/build/S2_Tag_Flasher/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/S2_Tag_Flasher/partitions.bin
+          cp .pio/build/S2_Tag_Flasher/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/S2_Tag_Flasher/littlefs.bin
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/S2_Tag_Flasher
+          esptool.py --chip esp32-s2 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 4MB 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x290000 littlefs.bin
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+          cp S2_Tag_Flasher/firmware.bin espbinaries/S2_Tag_Flasher.bin
+          cp S2_Tag_Flasher/merged-firmware.bin espbinaries/S2_Tag_Flasher_full.bin
           
       - name: Build firmware for Simple_AP
         run: |
