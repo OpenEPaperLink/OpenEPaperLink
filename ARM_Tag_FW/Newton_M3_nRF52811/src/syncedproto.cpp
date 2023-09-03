@@ -11,6 +11,16 @@
 #include "userinterface.h"
 #include "wdt.h"
 
+#define FW_LOC 0
+#define FW_METADATA_LOC 196608
+#define MAGIC1 0xABBAABBA
+#define MAGIC2 0xDEADBEEF
+struct fwmetadata {
+    uint32_t fwsize;
+    uint32_t magic1;
+    uint32_t magic2;
+};
+
 // download-stuff
 uint8_t blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
 static struct blockRequest curBlock = {0};      // used by the block-requester, contains the next request that we'll send
@@ -383,7 +393,7 @@ static void sendXferComplete() {
 }
 static bool validateBlockData() {
     struct blockData *bd = (struct blockData *)blockXferBuffer;
-    printf("expected len = %04X, checksum=%04X\n", bd->size, bd->checksum);
+    //printf("expected len = %04X, checksum=%04X\n", bd->size, bd->checksum);
     if (bd->size > BLOCK_XFER_BUFFER_SIZE - sizeof(blockData)) {
         printf("Impossible data size, we abort here\n");
         return false;
@@ -429,14 +439,21 @@ static uint8_t findSlot(const uint8_t *ver) {
     return 0xFF;
 }
 static void eraseUpdateBlock() {
-    eepromErase(EEPROM_UPDATE_AREA_START, EEPROM_UPDATE_AREA_LEN / EEPROM_ERZ_SECTOR_SZ);
+    eepromErase(FW_LOC, (FW_METADATA_LOC+EEPROM_ERZ_SECTOR_SZ) / EEPROM_ERZ_SECTOR_SZ);
 }
 static void eraseImageBlock(const uint8_t c) {
     eepromErase(getAddressForSlot(c), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
 }
 static void saveUpdateBlockData(uint8_t blockId) {
-    if (!eepromWrite(EEPROM_UPDATE_AREA_START + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
+    if (!eepromWrite(FW_LOC + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
         printf("EEPROM write failed\n");
+}
+static void saveUpdateMetadata(uint32_t size){
+    struct fwmetadata metadata;
+    metadata.magic1 = MAGIC1;
+    metadata.magic2 = MAGIC2;
+    metadata.fwsize = size;
+    eepromWrite(FW_METADATA_LOC, &metadata, sizeof(struct fwmetadata));
 }
 static void saveImgBlockData(const uint8_t imgSlot, const uint8_t blockId) {
     uint32_t length = EEPROM_IMG_EACH - (sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE));
@@ -550,7 +567,7 @@ static bool getDataBlock(const uint16_t blockSize) {
             printf("- COMPLETE\n");
 #endif
             if (validateBlockData()) {
-                printf("- Validated\n");
+                //printf("- Validated\n");
                 // block download complete, validated
                 return true;
             } else {
@@ -572,6 +589,8 @@ static bool getDataBlock(const uint16_t blockSize) {
     return false;
 }
 uint16_t dataRequestSize = 0;
+uint32_t curXferSize = 0;
+
 static bool downloadFWUpdate(const struct AvailDataInfo *avail) {
     // check if we already started the transfer of this information & haven't completed it
     if (!memcmp((const void *)&avail->dataVer, (const void *)&curDataInfo.dataVer, 8) && curDataInfo.dataSize) {
@@ -582,6 +601,7 @@ static bool downloadFWUpdate(const struct AvailDataInfo *avail) {
         memcpy(&(curBlock.ver), &(avail->dataVer), 8);
         curBlock.type = avail->dataType;
         memcpy(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+        curXferSize = avail->dataSize;
         eraseUpdateBlock();
     }
 
@@ -610,7 +630,7 @@ static bool downloadFWUpdate(const struct AvailDataInfo *avail) {
     return true;
 }
 
-uint16_t imageSize = 0;
+
 static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
     // check if we already started the transfer of this information & haven't completed it
     if (!memcmp((const void *)&avail->dataVer, (const void *)&curDataInfo.dataVer, 8) && curDataInfo.dataSize) {
@@ -646,7 +666,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
         memcpy(&(curBlock.ver), &(avail->dataVer), 8);
         curBlock.type = avail->dataType;
         memcpy(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
-        imageSize = curDataInfo.dataSize;
+        curXferSize = curDataInfo.dataSize;
     }
 
     while (curDataInfo.dataSize) {
@@ -680,7 +700,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
     memcpy(&eih->version, &curDataInfo.dataVer, 8);
     eih->validMarker = EEPROM_IMG_VALID;
     eih->id = ++curHighSlotId;
-    eih->size = imageSize;
+    eih->size = curXferSize;
     eih->dataType = curDataInfo.dataType;
 
 #ifdef DEBUGBLOCKS
@@ -767,8 +787,8 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
 
                 powerUp(INIT_EEPROM);
                 wdt60s();
-                eepromReadStart(EEPROM_UPDATE_AREA_START);
-                // selfUpdate();
+                saveUpdateMetadata(curXferSize);
+                NVIC_SystemReset();
             } else {
                 return false;
             }
