@@ -6,7 +6,6 @@
 #include "flasher.h"
 #include "leds.h"
 #include "settings.h"
-#include "udp.h"
 #include "usbflasher.h"
 #include "powermgt.h"
 

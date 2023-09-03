@@ -29,6 +29,7 @@
 
 #define SCREEN_WIDTH 168
 #define SCREEN_HEIGHT 384
-
+#define SCREEN_XOFFSET 0
+#define SCREEN_YOFFSET 0
 
 #endif

@@ -29,7 +29,7 @@ struct flasherCommand {
     uint8_t* data = nullptr;
 };
 
-int8_t powerPins2[] = FLASHER_EXT_POWER;
+int8_t powerPins2[] = {16,17,18,21};
 
 bool autoFlash(flasher* f) {
     f->getFirmwareMD5();
