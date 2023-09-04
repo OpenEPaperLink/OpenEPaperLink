@@ -22,3 +22,10 @@ env.AddPostAction(
         "python", "mergehex.py", "OEPL_bootloader.hex", "$BUILD_DIR/${PROGNAME}.hex", "-o ${PIOENV}-full-flash.hex", "--overlap=replace"
     ]), "Generating full-flash including bootloader ${PIOENV}-full-flash.hex")       
 )
+
+env.AddPostAction(
+    "$BUILD_DIR/${PROGNAME}.elf",
+    env.VerboseAction(" ".join([
+        "python", "hextobin.py", "${PIOENV}-full-flash.hex", "${PIOENV}-full-flash.bin"
+    ]), "Generating full-flash including bootloader ${PIOENV}-full-flash.bin")       
+)
