@@ -20,7 +20,7 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
         
-      - name: Install PlatformIO Core
+      - name: Install intelhex
         run: pip install --upgrade intelhex
         
       - name: Build NRF firmware
