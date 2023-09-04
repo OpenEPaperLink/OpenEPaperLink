@@ -1,2 +1,0 @@
-After power on reset, all sectors of the AT25DF081A SPI flash are software protected (Status Register --> SWP [3:2] == 11).
-This project clears the software protection in the status register as part of the init steps.

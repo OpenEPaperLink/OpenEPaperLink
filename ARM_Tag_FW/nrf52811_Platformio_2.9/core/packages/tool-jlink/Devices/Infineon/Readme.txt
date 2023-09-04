@@ -1,2 +1,0 @@
-Infineon Technologies TLE98xy series support comes without any warranty and support from SEGGER Microcontroller GmbH. Support is provided via Infineon Technologies only.
-For support, please contact: kay.claussen@infineon.com
