@@ -15,7 +15,7 @@
 // Mac fixed part
 // 7E22CC67B298 (B29)
 #define MAC_ID_0 0xB1
-#define MAC_ID_1 0x91
+#define MAC_ID_1 0x90
 
 // AP mode definitions
 #define HAS_EEPROM 1
