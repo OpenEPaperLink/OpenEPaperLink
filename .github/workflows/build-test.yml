@@ -19,7 +19,10 @@ jobs:
           python-version: '3.9'
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
-
+        
+      - name: Install PlatformIO Core
+        run: pip install --upgrade intelhex
+        
       - name: Build NRF firmware
         run: |
           cd ARM_Tag_FW/Newton_M3_nRF52811
