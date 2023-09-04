@@ -1,3 +1,0 @@
-[submodule "builder/frameworks/arduino"]
-	path = builder/frameworks/arduino
-	url = https://github.com/platformio/builder-framework-arduino-nrf5.git
