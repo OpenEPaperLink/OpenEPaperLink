@@ -1,13 +1,14 @@
 #include "syncedproto.h"
 
 #include <Arduino.h>
+#include <md5.h>
 
 #include "comms.h"
 #include "drawing.h"
 #include "eeprom.h"
+#include "hal.h"
 #include "powermgt.h"
 #include "proto.h"
-#include "hal.h"
 #include "userinterface.h"
 #include "wdt.h"
 
@@ -393,7 +394,7 @@ static void sendXferComplete() {
 }
 static bool validateBlockData() {
     struct blockData *bd = (struct blockData *)blockXferBuffer;
-    //printf("expected len = %04X, checksum=%04X\n", bd->size, bd->checksum);
+    // printf("expected len = %04X, checksum=%04X\n", bd->size, bd->checksum);
     if (bd->size > BLOCK_XFER_BUFFER_SIZE - sizeof(blockData)) {
         printf("Impossible data size, we abort here\n");
         return false;
@@ -406,6 +407,32 @@ static bool validateBlockData() {
 }
 
 // EEprom related stuff
+static bool validateEepromMD5(uint64_t ver, uint32_t eepromstart, uint32_t flen) {
+    unsigned char hash[16];
+    char chunk[512];
+    MD5 md5;
+
+    // Open the executable itself for reading
+    md5.reset();
+    for (uint32_t offset = 0; offset < flen; offset += 512) {
+        uint32_t len = flen - offset;
+        if (len > 512) len = 512;
+        eepromRead(eepromstart + offset, chunk, 512);
+        md5.update(chunk, len);
+    }
+
+    // Retrieve the final hash
+    md5.finalize(hash);
+
+    bool isValid = ver == *((uint64_t *)hash);
+    if (!isValid) {
+        printf("MD5 failed check! This is what we should get:\n");
+        dump((const uint8_t *)&(curDataInfo.dataVer), 8);
+        printf("This is what we got:\n");
+        dump(hash, 16);
+    }
+    return isValid;
+}
 static uint32_t getAddressForSlot(const uint8_t s) {
     return EEPROM_IMG_START + (EEPROM_IMG_EACH * s);
 }
@@ -425,7 +452,7 @@ static void getNumSlots() {
     printf("EEPROM reported size = %lu, %d slots\n", eeSize, imgSlots);
 }
 static uint8_t findSlot(const uint8_t *ver) {
-    //return 0xFF;  // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
+    // return 0xFF;  // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
     uint32_t markerValid = EEPROM_IMG_VALID;
     for (uint8_t c = 0; c < imgSlots; c++) {
         struct EepromImageHeader *eih = (struct EepromImageHeader *)blockXferBuffer;
@@ -439,7 +466,7 @@ static uint8_t findSlot(const uint8_t *ver) {
     return 0xFF;
 }
 static void eraseUpdateBlock() {
-    eepromErase(FW_LOC, (FW_METADATA_LOC+EEPROM_ERZ_SECTOR_SZ) / EEPROM_ERZ_SECTOR_SZ);
+    eepromErase(FW_LOC, (FW_METADATA_LOC + EEPROM_ERZ_SECTOR_SZ) / EEPROM_ERZ_SECTOR_SZ);
 }
 static void eraseImageBlock(const uint8_t c) {
     eepromErase(getAddressForSlot(c), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
@@ -448,7 +475,7 @@ static void saveUpdateBlockData(uint8_t blockId) {
     if (!eepromWrite(FW_LOC + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
         printf("EEPROM write failed\n");
 }
-static void saveUpdateMetadata(uint32_t size){
+static void saveUpdateMetadata(uint32_t size) {
     struct fwmetadata metadata;
     metadata.magic1 = MAGIC1;
     metadata.magic2 = MAGIC2;
@@ -567,8 +594,8 @@ static bool getDataBlock(const uint16_t blockSize) {
             printf("- COMPLETE\n");
 #endif
             if (validateBlockData()) {
-                //printf("- Validated\n");
-                // block download complete, validated
+                // printf("- Validated\n");
+                //  block download complete, validated
                 return true;
             } else {
                 for (uint8_t c = 0; c < partsThisBlock; c++) {
@@ -626,10 +653,20 @@ static bool downloadFWUpdate(const struct AvailDataInfo *avail) {
             return false;
         }
     }
+    
     // no more data, download complete
-    return true;
+    powerUp(INIT_EEPROM);
+    if (validateEepromMD5(curDataInfo.dataVer, FW_LOC, curXferSize)) {
+        // md5 matches
+        powerDown(INIT_EEPROM);
+        return true;
+    } else {
+        // md5 does not match, invalidate current transfer result, forcing a restart of the transfer
+        memset((void *)&curDataInfo, 0, sizeof(struct AvailDataInfo));
+        powerDown(INIT_EEPROM);
+        return false;
+    }
 }
-
 
 static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
     // check if we already started the transfer of this information & haven't completed it
@@ -660,7 +697,6 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
         NVIC_SystemReset();
     eraseSuccess:
         printf("new download, writing to slot %d\n", curImgSlot);
-
         // start, or restart the transfer. Copy data from the AvailDataInfo struct, and the struct intself. This forces a new transfer
         curBlock.blockId = 0;
         memcpy(&(curBlock.ver), &(avail->dataVer), 8);
@@ -706,11 +742,19 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
 #ifdef DEBUGBLOCKS
     printf("Now writing datatype 0x%02X to slot %d\n", curDataInfo.dataType, curImgSlot);
 #endif
-    powerUp(INIT_EEPROM);
-    eepromWrite(getAddressForSlot(curImgSlot), eih, sizeof(struct EepromImageHeader));
-    powerDown(INIT_EEPROM);
 
-    return true;
+    powerUp(INIT_EEPROM);
+    if (validateEepromMD5(curDataInfo.dataVer, getAddressForSlot(curImgSlot) + sizeof(struct EepromImageHeader), curXferSize)) {
+        // md5 matches
+        eepromWrite(getAddressForSlot(curImgSlot), eih, sizeof(struct EepromImageHeader));
+        powerDown(INIT_EEPROM);
+        return true;
+    } else {
+        // md5 does not match, invalidate current transfer result, forcing a restart of the transfer
+        memset((void *)&curDataInfo, 0, sizeof(struct AvailDataInfo));
+        powerDown(INIT_EEPROM);
+        return false;
+    }
 }
 
 bool processAvailDataInfo(struct AvailDataInfo *avail) {
@@ -844,15 +888,15 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
         case DATATYPE_COMMAND_DATA:
             printf("CMD received\n");
 
-            if(avail->dataTypeArgument == 4){
+            if (avail->dataTypeArgument == 4) {
                 Serial.println("LED CMD");
-                setled(avail->dataVer,avail->dataSize);
+                setled(avail->dataVer, avail->dataSize);
             }
             powerUp(INIT_RADIO);
             sendXferComplete();
             powerDown(INIT_RADIO);
             return true;
-        break;
+            break;
         case DATATYPE_CUSTOM_LUT_OTA:
             // Handle data for the NFC IC (if we have it)
 
