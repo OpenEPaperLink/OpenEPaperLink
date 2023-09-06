@@ -32,6 +32,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
 uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
 void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
 bool getJsonTemplateFile(String &filename, String jsonfile, tagRecord *&taginfo, imgParam &imageParams);
+extern bool getJsonTemplateFileExtractVariables(String &filename, String jsonfile, JsonDocument &variables, tagRecord *&taginfo, imgParam &imageParams);
 int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC, tagRecord *&taginfo, imgParam &imageParams);
 void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams);
 void drawElement(const JsonObject &element, TFT_eSprite &spr);
