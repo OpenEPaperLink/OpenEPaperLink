@@ -26,3 +26,10 @@ struct espAvailDataReq {
     struct AvailDataReq adr;
 } __packed;
 
+struct espTagReturnData {
+    uint8_t checksum;
+    uint8_t src[8];
+    uint8_t len;
+    struct tagReturnData returnData;
+} __packed;
+

@@ -56,6 +56,8 @@ struct MacFrameBcast {
     uint8_t src[8];
 } __packed;
 
+#define PKT_TAG_RETURN_DATA 0xE1
+#define PKT_TAG_RETURN_DATA_ACK 0xE2
 #define PKT_AVAIL_DATA_SHORTREQ 0xE3
 #define PKT_AVAIL_DATA_REQ 0xE5
 #define PKT_AVAIL_DATA_INFO 0xE6
@@ -123,9 +125,14 @@ struct blockData {
     uint8_t data[];
 } __packed;
 
-struct burstMacData {
-    uint16_t offset;
-    uint8_t targetMac[8];
+#define TAG_RETURN_DATA_SIZE 90
+
+struct tagReturnData {
+    uint8_t checksum;
+    uint8_t partId;
+    uint64_t dataVer;
+    uint8_t dataType;
+    uint8_t data[TAG_RETURN_DATA_SIZE];
 } __packed;
 
 #define BLOCK_PART_DATA_SIZE 99
@@ -177,4 +184,3 @@ struct ledFlash {
     uint8_t repeats;
     uint8_t spare;
 } __packed;
-
