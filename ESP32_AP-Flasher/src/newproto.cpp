@@ -113,7 +113,7 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
-bool prepareDataAvail(String& filename, uint8_t dataType, const uint8_t* dst, uint16_t nextCheckin, bool resend) {
+bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgument, const uint8_t* dst, uint16_t nextCheckin, bool resend) {
     if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
     if (wsClientCount() && config.stopsleep == 1) nextCheckin = 0;
 #ifdef YELLOW_IPS_AP
@@ -158,7 +158,6 @@ bool prepareDataAvail(String& filename, uint8_t dataType, const uint8_t* dst, ui
 
     file.close();
     uint16_t attempts = 60 * 24;
-    uint8_t lut = EPD_LUT_NO_REPEATS;
 
     if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
         wsLog("new image is the same as current or already pending image. not updating tag.");
@@ -167,18 +166,6 @@ bool prepareDataAvail(String& filename, uint8_t dataType, const uint8_t* dst, ui
             contentFS->remove(filename);
         }
         return true;
-    }
-
-    time_t now;
-    time(&now);
-    time_t last_midnight = now - now % (24 * 60 * 60) + 3 * 3600;  // somewhere in the middle of the night
-    if (taginfo->lastfullupdate < last_midnight || taginfo->hwType == SOLUM_29_UC8151 || taginfo->lut == 1) {
-        lut = EPD_LUT_DEFAULT;  // full update once a day
-        taginfo->lastfullupdate = now;
-    }
-    if (taginfo->hasCustomLUT && taginfo->capabilities & CAPABILITY_SUPPORTS_CUSTOM_LUTS && taginfo->lut != 1) {
-        Serial.println("using custom LUT");
-        lut = EPD_LUT_OTA;
     }
 
     if (dataType != DATATYPE_FW_UPDATE) {
@@ -216,7 +203,7 @@ bool prepareDataAvail(String& filename, uint8_t dataType, const uint8_t* dst, ui
     pending.availdatainfo.dataType = dataType;
     pending.availdatainfo.dataVer = *((uint64_t*)md5bytes);
     pending.availdatainfo.dataSize = filesize;
-    pending.availdatainfo.dataTypeArgument = lut;
+    pending.availdatainfo.dataTypeArgument = dataTypeArgument;
     pending.availdatainfo.nextCheckIn = nextCheckin;
     pending.attemptsLeft = attempts;
     checkMirror(taginfo, &pending);
@@ -542,22 +529,11 @@ void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local)
     uint8_t* actualPayload = (uint8_t*)calloc(actualPayloadLength, 1);
     memcpy(actualPayload, trd->returnData.data, actualPayloadLength);
 }
-    void refreshAllPending() {
-        for (int16_t c = 0; c < tagDB.size(); c++) {
-            tagRecord* taginfo = tagDB.at(c);
-            if (taginfo->pending) {
-                clearPending(taginfo);
-                taginfo->nextupdate = 0;
-                memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-                memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
-                wsSendTaginfo(taginfo->mac, SYNC_TAGSTATUS);
-            }
-        }
-    };
 
-    void updateContent(const uint8_t* dst) {
-        tagRecord* taginfo = tagRecord::findByMAC(dst);
-        if (taginfo != nullptr) {
+void refreshAllPending() {
+    for (int16_t c = 0; c < tagDB.size(); c++) {
+        tagRecord* taginfo = tagDB.at(c);
+        if (taginfo->pending) {
             clearPending(taginfo);
             taginfo->nextupdate = 0;
             memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
@@ -565,176 +541,188 @@ void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local)
             wsSendTaginfo(taginfo->mac, SYNC_TAGSTATUS);
         }
     }
+};
 
-    void setAPchannel() {
-        if (config.channel == 0) {
-            // trigger channel autoselect
-            UDPcomm udpsync;
-            udpsync.getAPList();
-        } else {
-            if (curChannel.channel != config.channel) {
-                curChannel.channel = config.channel;
-                sendChannelPower(&curChannel);
-            }
+void updateContent(const uint8_t* dst) {
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
+    if (taginfo != nullptr) {
+        clearPending(taginfo);
+        taginfo->nextupdate = 0;
+        memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
+        memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
+        wsSendTaginfo(taginfo->mac, SYNC_TAGSTATUS);
+    }
+}
+
+void setAPchannel() {
+    if (config.channel == 0) {
+        // trigger channel autoselect
+        UDPcomm udpsync;
+        udpsync.getAPList();
+    } else {
+        if (curChannel.channel != config.channel) {
+            curChannel.channel = config.channel;
+            sendChannelPower(&curChannel);
         }
     }
+}
 
-    bool sendAPSegmentedData(const uint8_t* dst, String data, uint16_t icons, bool inverted, bool local) {
-        struct pendingData pending = {0};
-        memcpy(pending.targetMac, dst, 8);
-        pending.availdatainfo.dataType = DATATYPE_UK_SEGMENTED;
-        pending.availdatainfo.dataSize = icons << 16;
-        memcpy((void*)&(pending.availdatainfo.dataVer), data.c_str(), 10);
-        pending.availdatainfo.dataTypeArgument = inverted;
-        pending.availdatainfo.nextCheckIn = 0;
-        pending.attemptsLeft = 120;
-        Serial.printf(">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        if (local) {
-            return sendDataAvail(&pending);
-        } else {
-            udpsync.netSendDataAvail(&pending);
-            return true;
-        }
+bool sendAPSegmentedData(const uint8_t* dst, String data, uint16_t icons, bool inverted, bool local) {
+    struct pendingData pending = {0};
+    memcpy(pending.targetMac, dst, 8);
+    pending.availdatainfo.dataType = DATATYPE_UK_SEGMENTED;
+    pending.availdatainfo.dataSize = icons << 16;
+    memcpy((void*)&(pending.availdatainfo.dataVer), data.c_str(), 10);
+    pending.availdatainfo.dataTypeArgument = inverted;
+    pending.availdatainfo.nextCheckIn = 0;
+    pending.attemptsLeft = 120;
+    Serial.printf(">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+    if (local) {
+        return sendDataAvail(&pending);
+    } else {
+        udpsync.netSendDataAvail(&pending);
+        return true;
+    }
+}
+
+bool showAPSegmentedInfo(const uint8_t* dst, bool local) {
+    struct pendingData pending = {0};
+    memcpy(pending.targetMac, dst, 8);
+    pending.availdatainfo.dataType = DATATYPE_UK_SEGMENTED;
+    pending.availdatainfo.dataSize = 0x00;
+    pending.availdatainfo.dataVer = 0x00;
+    pending.availdatainfo.dataTypeArgument = 0;
+    pending.availdatainfo.nextCheckIn = 0;
+    pending.attemptsLeft = 120;
+    Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+    if (local) {
+        return sendDataAvail(&pending);
+    } else {
+        udpsync.netSendDataAvail(&pending);
+        return true;
+    }
+}
+
+bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* payload) {
+    struct pendingData pending = {0};
+    memcpy(pending.targetMac, dst, 8);
+    pending.availdatainfo.dataType = DATATYPE_COMMAND_DATA;
+    pending.availdatainfo.dataTypeArgument = cmd;
+    pending.availdatainfo.nextCheckIn = 0;
+    if (payload != nullptr) {
+        memcpy(&pending.availdatainfo.dataVer, payload, sizeof(uint64_t));
+        memcpy(&pending.availdatainfo.dataSize, payload + sizeof(uint64_t), sizeof(uint32_t));
+    }
+    pending.attemptsLeft = 120;
+    Serial.printf(">Tag CMD %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+    if (local) {
+        return sendDataAvail(&pending);
+    } else {
+        udpsync.netSendDataAvail(&pending);
+        return true;
+    }
+}
+
+void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP) {
+    tagRecord* taginfo = tagRecord::findByMAC(taginfoitem->mac);
+
+    if (taginfo == nullptr) {
+        taginfo = new tagRecord;
+        memcpy(taginfo->mac, taginfoitem->mac, sizeof(taginfo->mac));
+        taginfo->pending = false;
+        tagDB.push_back(taginfo);
+    }
+    tagRecord initialTagInfo = *taginfo;
+
+    switch (taginfoitem->syncMode) {
+        case SYNC_USERCFG:
+            taginfo->alias = String(taginfoitem->alias);
+            taginfo->nextupdate = taginfoitem->nextupdate;
+            break;
+        case SYNC_TAGSTATUS:
+            taginfo->lastseen = taginfoitem->lastseen;
+            taginfo->nextupdate = taginfoitem->nextupdate;
+            taginfo->pending = taginfoitem->pending;
+            taginfo->expectedNextCheckin = taginfoitem->expectedNextCheckin;
+            taginfo->hwType = taginfoitem->hwType;
+            taginfo->wakeupReason = taginfoitem->wakeupReason;
+            taginfo->capabilities = taginfoitem->capabilities;
+            taginfo->pendingIdle = taginfoitem->pendingIdle;
+            break;
     }
 
-    bool showAPSegmentedInfo(const uint8_t* dst, bool local) {
-        struct pendingData pending = {0};
-        memcpy(pending.targetMac, dst, 8);
-        pending.availdatainfo.dataType = DATATYPE_UK_SEGMENTED;
-        pending.availdatainfo.dataSize = 0x00;
-        pending.availdatainfo.dataVer = 0x00;
-        pending.availdatainfo.dataTypeArgument = 0;
-        pending.availdatainfo.nextCheckIn = 0;
-        pending.attemptsLeft = 120;
-        Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        if (local) {
-            return sendDataAvail(&pending);
-        } else {
-            udpsync.netSendDataAvail(&pending);
-            return true;
-        }
+    char hexmac[17];
+    mac2hex(taginfo->mac, hexmac);
+    if (taginfo->contentMode != 12 && taginfoitem->contentMode != 12) {
+        wsLog("Remote AP at " + remoteIP.toString() + " takes control over tag " + String(hexmac));
+        taginfo->contentMode = 12;
     }
 
-    bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* payload) {
-        struct pendingData pending = {0};
-        memcpy(pending.targetMac, dst, 8);
-        pending.availdatainfo.dataType = DATATYPE_COMMAND_DATA;
-        pending.availdatainfo.dataTypeArgument = cmd;
-        pending.availdatainfo.nextCheckIn = 0;
-        if (payload != nullptr) {
-            memcpy(&pending.availdatainfo.dataVer, payload, sizeof(uint64_t));
-            memcpy(&pending.availdatainfo.dataSize, payload + sizeof(uint64_t), sizeof(uint32_t));
-        }
-        pending.attemptsLeft = 120;
-        Serial.printf(">Tag CMD %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        if (local) {
-            return sendDataAvail(&pending);
-        } else {
-            udpsync.netSendDataAvail(&pending);
-            return true;
-        }
-    }
-
-    void updateTaginfoitem(struct TagInfo * taginfoitem, IPAddress remoteIP) {
-        tagRecord* taginfo = tagRecord::findByMAC(taginfoitem->mac);
-
-        if (taginfo == nullptr) {
-            taginfo = new tagRecord;
-            memcpy(taginfo->mac, taginfoitem->mac, sizeof(taginfo->mac));
-            taginfo->pending = false;
-            tagDB.push_back(taginfo);
-        }
-        tagRecord initialTagInfo = *taginfo;
-
-        switch (taginfoitem->syncMode) {
-            case SYNC_USERCFG:
-                taginfo->alias = String(taginfoitem->alias);
-                taginfo->nextupdate = taginfoitem->nextupdate;
-                break;
-            case SYNC_TAGSTATUS:
-                taginfo->lastseen = taginfoitem->lastseen;
-                taginfo->nextupdate = taginfoitem->nextupdate;
-                taginfo->pending = taginfoitem->pending;
-                taginfo->expectedNextCheckin = taginfoitem->expectedNextCheckin;
-                taginfo->hwType = taginfoitem->hwType;
-                taginfo->wakeupReason = taginfoitem->wakeupReason;
-                taginfo->capabilities = taginfoitem->capabilities;
-                taginfo->pendingIdle = taginfoitem->pendingIdle;
-                break;
-        }
-
-        char hexmac[17];
-        mac2hex(taginfo->mac, hexmac);
-        if (taginfo->contentMode != 12 && taginfoitem->contentMode != 12) {
-            wsLog("Remote AP at " + remoteIP.toString() + " takes control over tag " + String(hexmac));
-            taginfo->contentMode = 12;
-        }
-
-        if (taginfoitem->syncMode == SYNC_DELETE) {
-            taginfo->contentMode = 255;
+    if (taginfoitem->syncMode == SYNC_DELETE) {
+        taginfo->contentMode = 255;
+        wsSendTaginfo(taginfo->mac, SYNC_NOSYNC);
+        deleteRecord(taginfoitem->mac);
+    } else {
+        bool hasChanges = (memcmp(&initialTagInfo, taginfo, sizeof(tagRecord)) != 0);
+        if (hasChanges) {
             wsSendTaginfo(taginfo->mac, SYNC_NOSYNC);
-            deleteRecord(taginfoitem->mac);
-        } else {
-            bool hasChanges = (memcmp(&initialTagInfo, taginfo, sizeof(tagRecord)) != 0);
-            if (hasChanges) {
-                wsSendTaginfo(taginfo->mac, SYNC_NOSYNC);
-            }
         }
     }
+}
 
-    bool checkMirror(struct tagRecord * taginfo, struct pendingData * pending) {
-        for (int16_t c = 0; c < tagDB.size(); c++) {
-            tagRecord* taginfo2 = tagDB.at(c);
-            if (taginfo2->contentMode == 20) {
-                DynamicJsonDocument doc(500);
-                deserializeJson(doc, taginfo2->modeConfigJson);
-                JsonObject cfgobj = doc.as<JsonObject>();
-                uint8_t mac[8] = {0};
-                if (hex2mac(cfgobj["mac"], mac) && memcmp(mac, taginfo->mac, sizeof(mac)) == 0) {
-                    if (taginfo->data == nullptr) {
-                        fs::File file = contentFS->open(taginfo->filename);
-                        if (!file) {
-                            return false;
-                        }
-                        taginfo->data = getDataForFile(file);
-                        file.close();
+bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
+    for (int16_t c = 0; c < tagDB.size(); c++) {
+        tagRecord* taginfo2 = tagDB.at(c);
+        if (taginfo2->contentMode == 20) {
+            DynamicJsonDocument doc(500);
+            deserializeJson(doc, taginfo2->modeConfigJson);
+            JsonObject cfgobj = doc.as<JsonObject>();
+            uint8_t mac[8] = {0};
+            if (hex2mac(cfgobj["mac"], mac) && memcmp(mac, taginfo->mac, sizeof(mac)) == 0) {
+                if (taginfo->data == nullptr) {
+                    fs::File file = contentFS->open(taginfo->filename);
+                    if (!file) {
+                        return false;
                     }
-
-                    clearPending(taginfo2);
-                    taginfo2->expectedNextCheckin = taginfo->expectedNextCheckin;
-                    taginfo2->filename = taginfo->filename;
-                    taginfo2->len = taginfo->len;
-                    taginfo2->data = taginfo->data;  // copy buffer pointer
-                    taginfo2->dataType = taginfo->dataType;
-                    taginfo2->pending = true;
-                    taginfo2->nextupdate = 3216153600;
-                    memcpy(taginfo2->md5pending, taginfo->md5pending, sizeof(taginfo->md5pending));
-
-                    struct pendingData pending2 = {0};
-                    memcpy(pending2.targetMac, taginfo2->mac, 8);
-                    pending2.availdatainfo.dataType = taginfo2->dataType;
-                    pending2.availdatainfo.dataVer = *((uint64_t*)taginfo2->md5pending);
-                    pending2.availdatainfo.dataSize = taginfo2->len;
-                    pending2.availdatainfo.dataTypeArgument = pending->availdatainfo.dataTypeArgument;
-                    pending2.availdatainfo.nextCheckIn = pending->availdatainfo.nextCheckIn;
-                    pending2.attemptsLeft = pending->attemptsLeft;
-
-                    if (taginfo2->isExternal == false) {
-                        sendDataAvail(&pending2);
-                    } else {
-                        char dst_path[64];
-                        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", taginfo2->mac[7], taginfo2->mac[6], taginfo2->mac[5], taginfo2->mac[4], taginfo2->mac[3], taginfo2->mac[2], taginfo2->mac[1], taginfo2->mac[0]);
-                        File file = contentFS->open(dst_path, "w");
-                        if (file) {
-                            file.write(taginfo2->data, taginfo2->len);
-                            file.close();
-                            udpsync.netSendDataAvail(&pending2);
-                        }
-                    }
-
-                    wsSendTaginfo(taginfo2->mac, SYNC_TAGSTATUS);
+                    taginfo->data = getDataForFile(file);
+                    file.close();
                 }
+
+                clearPending(taginfo2);
+                taginfo2->expectedNextCheckin = taginfo->expectedNextCheckin;
+                taginfo2->filename = taginfo->filename;
+                taginfo2->len = taginfo->len;
+                taginfo2->data = taginfo->data;  // copy buffer pointer
+                taginfo2->dataType = taginfo->dataType;
+                taginfo2->pending = true;
+                taginfo2->nextupdate = 3216153600;
+                memcpy(taginfo2->md5pending, taginfo->md5pending, sizeof(taginfo->md5pending));
+
+                struct pendingData pending2 = {0};
+                memcpy(pending2.targetMac, taginfo2->mac, 8);
+                pending2.availdatainfo.dataType = taginfo2->dataType;
+                pending2.availdatainfo.dataVer = *((uint64_t*)taginfo2->md5pending);
+                pending2.availdatainfo.dataSize = taginfo2->len;
+                pending2.availdatainfo.dataTypeArgument = pending->availdatainfo.dataTypeArgument;
+                pending2.availdatainfo.nextCheckIn = pending->availdatainfo.nextCheckIn;
+                pending2.attemptsLeft = pending->attemptsLeft;
+
+                if (taginfo2->isExternal == false) {
+                    sendDataAvail(&pending2);
+                } else {
+                    char dst_path[64];
+                    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", taginfo2->mac[7], taginfo2->mac[6], taginfo2->mac[5], taginfo2->mac[4], taginfo2->mac[3], taginfo2->mac[2], taginfo2->mac[1], taginfo2->mac[0]);
+                    File file = contentFS->open(dst_path, "w");
+                    if (file) {
+                        file.write(taginfo2->data, taginfo2->len);
+                        file.close();
+                        udpsync.netSendDataAvail(&pending2);
+                    }
+                }
+
+                wsSendTaginfo(taginfo2->mac, SYNC_TAGSTATUS);
             }
         }
-        return false;
     }
+    return false;
+}

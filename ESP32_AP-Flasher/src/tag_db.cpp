@@ -346,6 +346,7 @@ HwType getHwType(const uint8_t id) {
             filter["height"] = true;
             filter["rotatebuffer"] = true;
             filter["bpp"] = true;
+            filter["shortlut"] = true;
             StaticJsonDocument<250> doc;
             DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
             jsonFile.close();
@@ -357,10 +358,11 @@ HwType getHwType(const uint8_t id) {
                 hwdata[id].height = doc["height"];
                 hwdata[id].rotatebuffer = doc["rotatebuffer"];
                 hwdata[id].bpp = doc["bpp"];
+                hwdata[id].shortlut = doc["shortlut"];
                 return hwdata.at(id);
             }
         }
-        return {0, 0, 0, 0};
+        return {0, 0, 0, 0, 0};
     }
 }
 

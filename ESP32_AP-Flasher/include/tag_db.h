@@ -77,6 +77,7 @@ struct HwType {
     uint16_t height;
     uint8_t rotatebuffer;
     uint8_t bpp;
+    uint8_t shortlut;
 };
 
 struct varStruct {
