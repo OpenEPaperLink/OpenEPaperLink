@@ -35,6 +35,7 @@ struct espSetChannelPower curChannel = {0, 11, 10};
 #define RX_CMD_XTO 0x04
 #define RX_CMD_RDY 0x05
 #define RX_CMD_RSET 0x06
+#define RX_CMD_TRD 0x07
 
 #define AP_ACTIVITY_MAX_INTERVAL 30 * 1000
 volatile uint32_t lastAPActivity = 0;
@@ -65,6 +66,7 @@ struct rxCmd {
 #define ZBS_RX_WAIT_PENDING 15
 #define ZBS_RX_WAIT_NOP 16
 #define ZBS_RX_WAIT_TYPE 17
+#define ZBS_RX_WAIT_TAG_RETURN_DATA 18
 
 bool txStart() {
     while (1) {
@@ -356,6 +358,10 @@ void rxCmdProcessor(void* parameter) {
                     refreshAllPending();
                     sendChannelPower(&curChannel);
                     break;
+                case RX_CMD_TRD:
+                    // received tag return data
+                    processTagReturnData((struct espTagReturnData*)rxcmd->data, rxcmd->len, true);
+                    break;
             }
             if (rxcmd->data) free(rxcmd->data);
             if (rxcmd) free(rxcmd);
@@ -457,6 +463,13 @@ void rxSerialTask(void* parameter) {
                     if (strncmp(cmdbuffer, "RDY>", 4) == 0) {
                         addRXQueue(NULL, 0, RX_CMD_RDY);
                     }
+                    if (strncmp(cmdbuffer, "TRD>", 4) == 0) {
+                        RXState = ZBS_RX_WAIT_TAG_RETURN_DATA;
+                        pktindex = 0;
+                        packetp = (uint8_t*)calloc(sizeof(struct espTagReturnData) + 8, 1);
+                        memset(cmdbuffer, 0x00, 4);
+                        lastAPActivity = millis();
+                    }
                     break;
                 case ZBS_RX_BLOCK_REQUEST:
                     packetp[pktindex] = lastchar;
@@ -490,6 +503,14 @@ void rxSerialTask(void* parameter) {
                         RXState = ZBS_RX_WAIT_HEADER;
                     }
                     break;
+                case ZBS_RX_WAIT_TAG_RETURN_DATA: {
+                    packetp[pktindex] = lastchar;
+                    pktindex++;
+                    if ((pktindex > 10) && (pktindex >= (packetp[9]+10))) {
+                        addRXQueue(packetp, pktindex, RX_CMD_TRD);
+                        RXState = ZBS_RX_WAIT_HEADER;
+                    }
+                } break;
                 case ZBS_RX_WAIT_VER:
                     cmdbuffer[charindex] = lastchar;
                     charindex++;
@@ -657,7 +678,7 @@ bool bringAPOnline() {
                 Serial.println("switched to 2000000 baud");
             }
         }
-        
+
         vTaskDelay(200 / portTICK_PERIOD_MS);
         apInfo.isOnline = true;
         apInfo.state = AP_STATE_ONLINE;

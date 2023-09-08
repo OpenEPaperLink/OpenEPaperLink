@@ -12,6 +12,7 @@ extern void prepareExternalDataAvail(struct pendingData* pending, IPAddress remo
 extern void processXferComplete(struct espXferComplete* xfc, bool local);
 extern void processXferTimeout(struct espXferComplete* xfc, bool local);
 extern void processDataReq(struct espAvailDataReq* adr, bool local);
+extern void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local);
 
 extern bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* payload = nullptr);
 extern bool sendAPSegmentedData(const uint8_t* dst, String data, uint16_t icons, bool inverted, bool local);
