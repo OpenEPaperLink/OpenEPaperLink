@@ -321,6 +321,31 @@ void init_web() {
                         sendTagCommand(mac, CMD_DO_DEEPSLEEP, !taginfo->isExternal);
                     }
                     if (strcmp(cmdValue, "ledflash") == 0) {
+                        struct ledFlash flashData = {0};
+                        flashData.flashDuration = 8;
+                        flashData.color1 = 0x3C;  // green
+                        flashData.color2 = 0xE4;  // red
+                        flashData.color3 = 0x03;  // blue
+                        flashData.flashCount1 = 1;
+                        flashData.flashCount2 = 1;
+                        flashData.flashCount3 = 1;
+                        flashData.delay1 = 10;
+                        flashData.delay2 = 10;
+                        flashData.delay3 = 10;
+                        flashData.repeats = 2;
+                        const uint8_t *payload = reinterpret_cast<const uint8_t *>(&flashData);
+                        sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
+                    }
+                    if (strcmp(cmdValue, "ledflash_long") == 0) {
+                        struct ledFlash flashData = {0};
+                        flashData.flashDuration = 15;
+                        flashData.color1 = 0xE4;  // red
+                        flashData.flashCount1 = 5;
+                        flashData.delay1 = 5;
+                        flashData.delay3 = 15;
+                        flashData.repeats = 10;
+                        const uint8_t *payload = reinterpret_cast<const uint8_t *>(&flashData);
+                        sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
                     }
                     request->send(200, "text/plain", "Ok, done");
                 } else {

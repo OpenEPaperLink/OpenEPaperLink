@@ -11,6 +11,7 @@
 		"red": [255, 0, 0],
 		"gray": [150, 150, 150]
 	},
-	"capabilities": ["button", "customlut"],
+	"shortlut": 0,
+	"options": ["button"],
 	"usetemplate": 1		
 }
