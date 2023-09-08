@@ -2,7 +2,8 @@
 #define _BOARD_H_
 
 #include <stdint.h>
-#include "proto.h"
+#define __packed
+#include "../oepl-definitions.h"
 #include "spi.h"
 
 #define eepromByte				spiByte

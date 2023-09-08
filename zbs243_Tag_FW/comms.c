@@ -1,8 +1,6 @@
 #define __packed
 
 #include <string.h>
-
-#include "proto.h"
 #include "asmUtil.h"
 #include "printf.h"
 #include "radio.h"

@@ -17,7 +17,10 @@
 #include "i2c.h"
 #include "printf.h"
 #include "timer.h"
-#include "proto.h"
+
+#define __packed
+#include "../oepl-definitions.h"
+#include "../oepl-proto.h"
 
 extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when done
 

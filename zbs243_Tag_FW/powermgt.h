@@ -30,6 +30,8 @@
 #define VOLTAGE_CHECK_INTERVAL 288    // How often the tag should do a battery voltage check (multiplied by LONG_DATAREQ_INTERVAL)
 #define BATTERY_VOLTAGE_MINIMUM 2450  // 2600 or below is the best we can do on the EPD
 
+#define MAX_RETURN_DATA_ATTEMPTS 15
+
 // power saving when no AP's were found (scanning every X)
 #define VOLTAGEREADING_DURING_SCAN_INTERVAL 2  // how often we should read voltages; this is done every scan attempt in interval bracket 3
 #define INTERVAL_1_TIME 3600UL                 // Try every hour

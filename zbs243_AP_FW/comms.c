@@ -3,7 +3,7 @@
 #include <string.h>
 #include "asmUtil.h"
 #include "printf.h"
-#include "proto.h"
+#include "../oepl-definitions.h"
 #include "radio.h"
 
 static uint8_t __xdata mCommsBuf[127];

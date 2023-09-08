@@ -5,12 +5,15 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../oepl-definitions.h"
+#include "../oepl-proto.h"
+#include "../oepl-esp-ap-proto.h"
+
 #include "asmUtil.h"
 #include "board.h"
 #include "comms.h"
 #include "cpu.h"
 #include "printf.h"
-#include "proto.h"
 #include "radio.h"
 #include "timer.h"
 #include "uart.h"
@@ -30,7 +33,7 @@
 struct pendingData __xdata pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t __xdata version = 0x0017;
+uint16_t __xdata version = 0x0019;
 
 #define RAW_PKT_PADDING 2
 
@@ -61,6 +64,7 @@ uint8_t *__xdata blockXferBuffer = blockbuffer;
 #define CONCURRENT_REQUEST_DELAY 1200UL * TIMER_TICKS_PER_MS
 uint32_t __xdata lastBlockRequest = 0;
 uint8_t __xdata lastBlockMac[8];
+uint8_t __xdata lastTagReturn[8];
 
 uint8_t __xdata curChannel = 11;
 uint8_t __xdata curPower = 10;
@@ -416,9 +420,32 @@ void espNotifyAPInfo() {
     countSlots();
     pr("PEN>%02X\n", curPendingData);
     pr("NOP>%02X\n", curNoUpdate);
-//#if (AP_EMULATE_TAG == 1)
-//    fakeTagCheckIn(); // removed this for now to ensure IP info is properly displayed; first tag check in now happens after the first round of housekeeping (30s)
-//#endif
+    // #if (AP_EMULATE_TAG == 1)
+    //     fakeTagCheckIn(); // removed this for now to ensure IP info is properly displayed; first tag check in now happens after the first round of housekeeping (30s)
+    // #endif
+}
+void espNotifyTagReturnData(uint8_t *src, uint8_t len) {
+    struct tagReturnData *trd = (struct tagReturnData *)(radiorxbuffer + sizeof(struct MacFrameBcast) + 1);  // oh how I'd love to pass this as an argument, but sdcc won't let me
+    struct espTagReturnData *etrd = (struct espTagReturnData *)radiotxbuffer;
+
+    if (memcmp((void *__xdata) & trd->dataVer, lastTagReturn, 8) == 0) {
+        return;
+    } else {
+        xMemCopyShort((void *__xdata)lastTagReturn, (void *__xdata) & trd->dataVer, 8);
+    }
+
+    memcpy(etrd->src, src, 8);
+    etrd->len = len;
+    memcpy((void*)etrd->returnData, trd, len);
+    addCRC(etrd, len+10);
+
+    uartTx('T');
+    uartTx('R');
+    uartTx('D');
+    uartTx('>');
+    for (uint8_t c = 0; c < len+10; c++) {
+        uartTx(((uint8_t *)etrd)[c]);
+    }
 }
 
 // process data from tag
@@ -580,6 +607,25 @@ void processXferComplete(uint8_t *buffer) {
         int8_t slot = findSlotForMac(rxHeader->src);
         if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
     }
+}
+void processTagReturnData(uint8_t *buffer, uint8_t len) {
+    struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buffer;
+    struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
+
+    if (!checkCRC((buffer + sizeof(struct MacFrameBcast) + 1), len - (sizeof(struct MacFrameBcast) + 1))) {
+        return;
+    }
+    radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_TAG_RETURN_DATA_ACK;
+    radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + RAW_PKT_PADDING;
+    memcpy(frameHeader->src, mSelfMac, 8);
+    memcpy(frameHeader->dst, rxframe->src, 8);
+    radiotxbuffer[1] = 0x41;  // fast way to set the appropriate bits
+    radiotxbuffer[2] = 0xCC;  // normal frame
+    frameHeader->seq = seq++;
+    frameHeader->pan = rxframe->srcPan;
+    radioTx(radiotxbuffer);
+
+    espNotifyTagReturnData(rxframe->src, len - (sizeof(struct MacFrameBcast) + 1));
 }
 
 // send block data to the tag
@@ -769,8 +815,11 @@ void main(void) {
                             processAvailDataReq(radiorxbuffer);
                         }
                         break;
+                    case PKT_TAG_RETURN_DATA:
+                        processTagReturnData(radiorxbuffer, ret);
+                        break;
                     default:
-                        pr("t=%02X\n", getPacketType(radiorxbuffer));
+                        // pr("t=%02X\n", getPacketType(radiorxbuffer));
                         break;
                 }
                 loopCount = 10000;
@@ -805,6 +854,7 @@ void main(void) {
 #if (AP_EMULATE_TAG == 1)
         fakeTagCheckIn();
 #endif
+        memset(&lastTagReturn, 0, 8);
         for (uint8_t __xdata c = 0; c < MAX_PENDING_MACS; c++) {
             if (pendingDataArr[c].attemptsLeft == 1) {
                 if (pendingDataArr[c].availdatainfo.dataType != DATATYPE_NOUPDATE) {

@@ -16,7 +16,8 @@
 #include "i2cdevices.h"
 #include "powermgt.h"
 #include "printf.h"
-#include "proto.h"
+#include "../oepl-definitions.h"
+#include "../oepl-proto.h"
 #include "radio.h"
 #include "screen.h"
 #include "settings.h"
@@ -50,7 +51,7 @@ uint8_t __xdata currentChannel = 0;
 static uint8_t __xdata inBuffer[128] = {0};
 static uint8_t __xdata outBuffer[128] = {0};
 
-extern void executeCommand(uint8_t cmd); // this is defined in main.c
+extern void executeCommand(uint8_t cmd);  // this is defined in main.c
 
 // tools
 static uint8_t __xdata getPacketType(const void *__xdata buffer) {
@@ -251,6 +252,50 @@ struct AvailDataInfo *__xdata getShortAvailDataInfo() {
     dataReqLastAttempt = DATA_REQ_MAX_ATTEMPTS;
     return NULL;
 }
+
+#ifdef ENABLE_RETURN_DATA
+static void sendTagReturnDataPacket(const uint8_t *data, uint8_t len, uint8_t type) {
+    struct MacFrameBcast __xdata *txframe = (struct MacFrameBcast *)(outBuffer + 1);
+    memset(outBuffer, 0, sizeof(struct MacFrameBcast) + sizeof(struct AvailDataReq) + 2 + 4);
+    struct tagReturnData *__xdata trd = (struct tagReturnData *)(outBuffer + 2 + sizeof(struct MacFrameBcast));
+    outBuffer[0] = sizeof(struct MacFrameBcast) + 11 + len + 1 + 2;
+    outBuffer[sizeof(struct MacFrameBcast) + 1] = PKT_TAG_RETURN_DATA;
+    memcpy(txframe->src, mSelfMac, 8);
+    txframe->fcs.frameType = 1;
+    txframe->fcs.ackReqd = 1;
+    txframe->fcs.destAddrType = 2;
+    txframe->fcs.srcAddrType = 3;
+    txframe->seq = seq++;
+    txframe->dstPan = PROTO_PAN_ID;
+    txframe->dstAddr = 0xFFFF;
+    txframe->srcPan = PROTO_PAN_ID;
+    memcpy(trd->data, data, len);
+    trd->dataType = type;
+    memcpy(&trd->dataVer, mSelfMac, 8);
+    memcpy(&trd->dataVer, data, 4);
+    addCRC(trd, 11 + len);
+    commsTxNoCpy(outBuffer);
+}
+
+bool sendTagReturnData(uint8_t __xdata *data, uint8_t len, uint8_t type) {
+    radioRxEnable(true, true);
+    uint32_t __xdata t;
+    for (uint8_t c = 0; c < MAX_RETURN_DATA_ATTEMPTS; c++) {
+        sendTagReturnDataPacket(data, len, type);
+        t = timerGet() + (TIMER_TICKS_PER_MS * DATA_REQ_RX_WINDOW_SIZE);
+        while (timerGet() < t) {
+            int8_t __xdata ret = commsRxUnencrypted(inBuffer);
+            if (ret > 1) {
+                if ((getPacketType(inBuffer) == PKT_TAG_RETURN_DATA_ACK) && (pktIsUnicast(inBuffer))) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+#endif
+
 static bool processBlockPart(const struct blockPart *bp) {
     uint16_t __xdata start = bp->blockPart * BLOCK_PART_DATA_SIZE;
     uint16_t __xdata size = BLOCK_PART_DATA_SIZE;

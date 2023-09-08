@@ -1,3 +1,4 @@
+#define __packed
 #include "settings.h"
 
 #include <flash.h>
@@ -7,10 +8,13 @@
 #include <stdio.h>
 #include <string.h>
 
+
 #include "asmUtil.h"
 #include "powermgt.h"
 #include "printf.h"
 #include "syncedproto.h"
+#include "../oepl-definitions.h"
+#include "../oepl-proto.h"
 
 struct tagsettings __xdata tagSettings = {0};
 extern uint8_t __xdata blockXferBuffer[];

@@ -3,10 +3,12 @@
 
 #include <stdint.h>
 
-#define FW_VERSION 20            // version number (max 2.5.5 :) )
-#define FW_VERSION_SUFFIX "-DSLP"  // suffix, like -RC1 or whatever.
+#define FW_VERSION 21             // version number (max 2.5.5 :) )
+#define FW_VERSION_SUFFIX "-RET"  // suffix, like -RC1 or whatever.
 // #define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
 // #define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
+
+// #define ENABLE_RETURN_DATA  // enables the tag to send blocks of data back. Enabling this costs about 4 IRAM bytes
 
 #define SETTINGS_STRUCT_VERSION 0x01
 
@@ -17,6 +19,7 @@
 #define DEFAULT_SETTING_LOWBATSYMBOL 1
 #define DEFAULT_SETTING_NORFSYMBOL 1
 
+/*
 struct tagsettings {
     uint8_t settingsVer;                  // the version of the struct as written to the infopage
     uint8_t enableFastBoot;               // default 0; if set, it will skip splashscreen
@@ -31,6 +34,7 @@ struct tagsettings {
     uint16_t minimumCheckInTime;          // defaults to BASE_INTERVAL from powermgt.h
     uint8_t fixedChannel;                 // default 0; if set to a valid channel number, the tag will stick to that channel
 } __packed;
+*/
 
 extern struct tagsettings tagSettings;
 

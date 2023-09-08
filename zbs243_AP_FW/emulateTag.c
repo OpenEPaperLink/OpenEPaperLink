@@ -7,12 +7,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
 #include "asmUtil.h"
 #include "comms.h"
 #include "cpu.h"
 #include "printf.h"
-#include "proto.h"
+#include "../oepl-definitions.h"
+#include "../oepl-proto.h"
 #include "radio.h"
 #include "screen.h"
 #include "timer.h"

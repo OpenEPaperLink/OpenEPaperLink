@@ -8,7 +8,7 @@
 #include "eeprom.h"
 #include "screen.h"
 #include "printf.h"
-#include "proto.h"
+#include "../oepl-definitions.h"
 #include "screen.h"
 #include "timer.h"
 #include "userinterface.h"  // for addIcons

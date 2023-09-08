@@ -12,7 +12,7 @@
 #include "i2cdevices.h"
 #include "powermgt.h"
 #include "printf.h"
-#include "proto.h"
+
 #include "radio.h"
 #include "screen.h"
 #include "settings.h"
@@ -20,6 +20,10 @@
 #include "timer.h"
 #include "userinterface.h"
 #include "wdt.h"
+
+#include "../oepl-definitions.h"
+#include "../oepl-proto.h"
+
 
 // #define DEBUG_MODE
 
@@ -255,6 +259,15 @@ void TagAssociated() {
         }
     } else {
         powerUp(INIT_RADIO);
+
+
+
+#ifdef ENABLE_RETURN_DATA
+        // example code to send data back to the AP. Up to 90 bytes can be sent in one packet
+        uint8_t __xdata blaat[2] = {0xAB, 0xBA};
+        sendTagReturnData(blaat, 2, 0x55);
+#endif
+
         avail = getShortAvailDataInfo();
         powerDown(INIT_RADIO);
     }

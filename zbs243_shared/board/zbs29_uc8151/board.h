@@ -2,8 +2,11 @@
 #define _BOARD_H_
 
 #include <stdint.h>
-#include "proto.h"
 #include "spi.h"
+
+#define __packed
+#include "../oepl-definitions.h"
+
 
 #define eepromByte				spiByte
 #define eepromPrvSelect()		do { __asm__("nop\nnop\nnop\n"); P1_1 = 0; __asm__("nop\nnop\nnop\n"); } while(0)
