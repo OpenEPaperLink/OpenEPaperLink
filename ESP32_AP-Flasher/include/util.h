@@ -78,7 +78,7 @@ static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout,
     const int httpCode = http.GET();
     if (httpCode != 200) {
         http.end();
-        wsErr("http " + httpCode);
+        wsErr(String("[httpGetJson] http code") + httpCode);
         return false;
     }
 
@@ -90,7 +90,7 @@ static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout,
     }
     http.end();
     if (error) {
-        Serial.println(error.c_str());
+        Serial.printf("[httpGetJson] JSON: %s\n", error.c_str());
         return false;
     }
     return true;
