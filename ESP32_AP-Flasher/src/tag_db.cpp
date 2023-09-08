@@ -331,9 +331,10 @@ void saveAPconfig() {
 }
 
 HwType getHwType(const uint8_t id) {
-    try {
-        return hwdata.at(id);
-    } catch (const std::out_of_range&) {
+    auto it = hwdata.find(id);
+    if (it != hwdata.end()) {
+        return it->second;
+    } else {
         char filename[20];
         snprintf(filename, sizeof(filename), "/tagtypes/%02X.json", id);
         Serial.printf("read %s\n", filename);
