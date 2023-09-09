@@ -10,6 +10,7 @@
 #include "udp.h"
 #include "web.h"
 #include "ips_display.h"
+#include "tag_db.h"
 
 uint8_t WifiManager::apClients = 0;
 uint8_t x_buffer[100];
@@ -103,8 +104,23 @@ bool WifiManager::connectToWifi(String ssid, String pass, bool savewhensuccessfu
 
     _APstarted = false;
     WiFi.disconnect(false, true);
+    WiFi.mode(WIFI_MODE_NULL);
+    char hostname[32] = "OpenEpaperLink-AP\0";
+    if (config.alias[0] != '\0') {
+        int len = strlen(config.alias);
+        int j = 0;
+        for (int i = 0; i < len; i++) {
+            char c = config.alias[i];
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+                hostname[j] = c;
+                j++;
+            }
+        }
+        hostname[j] = '\0';
+    }
+    WiFi.setHostname(hostname);
     WiFi.mode(WIFI_STA);
-    WiFi.setSleep(WIFI_PS_NONE);
+    WiFi.setSleep(WIFI_PS_MIN_MODEM);
 
     terminalLog("Connecting to WiFi...");
     logLine("Connecting to WiFi...");
