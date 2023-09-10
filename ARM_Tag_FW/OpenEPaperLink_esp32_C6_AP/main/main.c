@@ -66,7 +66,7 @@ uint32_t lastBlockRequest = 0;
 uint8_t  lastBlockMac[8];
 uint8_t  lastTagReturn[8];
 
-uint8_t curChannel = 11;
+uint8_t curChannel = 25;
 uint8_t curPower   = 10;
 
 uint8_t curPendingData = 0;
@@ -326,13 +326,15 @@ void     processSerial(uint8_t lastchar) {
                     }
                     goto SCPfailed;
                 SCPchannelFound:
-                    curChannel = scp->channel;
-                    curPower   = scp->power;
-                    radioSetChannel(scp->channel);
+					pr("ACK>");
+					if (curChannel != scp->channel) {
+						radioSetChannel(scp->channel);
+						curChannel = scp->channel;
+					}
+					curPower   = scp->power;
                     radioSetTxPower(scp->power);
                     ESP_LOGI(TAG, "Set channel: %d power: %d", curChannel, curPower);
-                    pr("ACK>");
-                } else {
+				} else {
                 SCPfailed:
                     pr("NOK>");
                 }
@@ -682,25 +684,24 @@ void sendPong(void *buf) {
 }
 
 void app_main(void) {
+	esp_event_loop_create_default();
+	
     init_nvs();
-    init_led();
+	init_led();
     init_second_uart();
-
-    esp_event_loop_create_default();
-
-    radio_init();
 
     requestedData.blockId = 0xFF;
     // clear the array with pending information
     memset(pendingDataArr, 0, sizeof(pendingDataArr));
 
-    radioSetChannel(curChannel);
+	radio_init(curChannel);
     radioSetTxPower(10);
 
     pr("RES>");
     pr("RDY>");
+	ESP_LOGI(TAG, "C6 ready!");
 
-    housekeepingTimer = getMillis();
+	housekeepingTimer = getMillis();
     while (1) {
         while ((getMillis() - housekeepingTimer) < ((1000 * HOUSEKEEPING_INTERVAL) - 100)) {
             int8_t ret = commsRxUnencrypted(radiorxbuffer);

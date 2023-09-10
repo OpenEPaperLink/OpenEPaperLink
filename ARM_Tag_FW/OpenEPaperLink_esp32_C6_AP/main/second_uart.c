@@ -32,7 +32,8 @@ volatile int     curr_buff_pos   = 0;
 volatile int     worked_buff_pos = 0;
 volatile uint8_t buff_pos[MAX_BUFF_POS + 5];
 
-
+#define S3_TX_PIN 3
+#define S3_RX_PIN 2
 
 static void uart_event_task(void *pvParameters);
 void init_second_uart() {
@@ -46,9 +47,9 @@ void init_second_uart() {
     };
     ESP_ERROR_CHECK(uart_driver_install(1, BUF_SIZE * 2, BUF_SIZE * 2, 20, &uart0_queue, 0));
     ESP_ERROR_CHECK(uart_param_config(1, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(1, 3, 2, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+	ESP_ERROR_CHECK(uart_set_pin(1, S3_TX_PIN, S3_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
-    xTaskCreate(uart_event_task, "uart_event_task", 16384, NULL, 12, NULL);
+	xTaskCreate(uart_event_task, "uart_event_task", 16384, NULL, 12, NULL);
 }
 
 void uart_switch_speed(int baudrate) {
@@ -92,7 +93,7 @@ static void uart_event_task(void *pvParameters) {
                     }
                     break;
                 default:
-                    ESP_LOGI(TAG, "uart event type: %d", event.type);
+                    // ESP_LOGI(TAG, "uart event type: %d", event.type);
                     break;
             }
         }

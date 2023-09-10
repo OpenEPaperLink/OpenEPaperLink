@@ -29,7 +29,8 @@ void APTask(void* parameter);
 bool sendCancelPending(struct pendingData* pending);
 bool sendDataAvail(struct pendingData* pending);
 bool sendPing();
-
 void APEnterEarlyReset();
-
 bool sendChannelPower(struct espSetChannelPower* scp);
+void rxSerialTask2(void* parameter);
+void APTagReset();
+bool bringAPOnline();

@@ -578,6 +578,7 @@ void init_web() {
     server.on("/sysinfo", HTTP_GET, handleSysinfoRequest);
     server.on("/check_file", HTTP_GET, handleCheckFile);
     server.on("/rollback", HTTP_POST, handleRollback);
+    server.on("/update_c6", HTTP_POST, handleUpdateC6);
     server.on("/update_actions", HTTP_POST, handleUpdateActions);
     server.on("/update_ota", HTTP_POST, [](AsyncWebServerRequest *request) {
         handleUpdateOTA(request);

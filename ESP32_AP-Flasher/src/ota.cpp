@@ -7,6 +7,8 @@
 #include <MD5Builder.h>
 #include <Update.h>
 
+#include "espflasher.h"
+#include "serialap.h"
 #include "storage.h"
 #include "tag_db.h"
 #include "util.h"
@@ -232,6 +234,60 @@ void handleRollback(AsyncWebServerRequest* request) {
         wsSerial("Rollback not allowed");
         request->send(400, "Rollback not allowed");
     }
+}
+
+void C6firmwareUpdateTask(void* parameter) {
+    wsSerial("Stopping AP service");
+
+    apInfo.isOnline = false;
+    apInfo.state = AP_STATE_FLASHING;
+    config.runStatus = RUNSTATUS_STOP;
+    extern bool rxSerialStopTask2;
+    rxSerialStopTask2 = true;
+    Serial1.end();
+    delay(250);
+
+    wsSerial("C6 flash starting");
+
+    bool result = doC6flash();
+
+    wsSerial("C6 flash end");
+
+    if (result) {
+        apInfo.state = AP_STATE_OFFLINE;
+        
+        wsSerial("Finishing config...");
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+
+        wsSerial("starting monitor");
+        Serial1.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
+        rxSerialStopTask2 = false;
+#ifdef FLASHER_DEBUG_RXD
+        xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, configMAX_PRIORITIES - 4, NULL);
+#endif
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+        wsSerial("resetting AP");
+        APTagReset();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+        wsSerial("bringing AP online");
+        if (bringAPOnline()) config.runStatus = RUNSTATUS_RUN;
+
+        wsSerial("Finished!");
+    } else {
+        wsSerial("Flashing failed. :-(");
+    }
+    vTaskDelete(NULL);
+}
+
+void handleUpdateC6(AsyncWebServerRequest* request) {
+#ifdef YELLOW_IPS_AP
+    xTaskCreate(C6firmwareUpdateTask, "OTAUpdateTask", 6144, NULL, 10, NULL);
+    request->send(200, "Ok");
+#else
+    request->send(400, "C6 flashing not implemented");
+#endif
 }
 
 void handleUpdateActions(AsyncWebServerRequest* request) {
