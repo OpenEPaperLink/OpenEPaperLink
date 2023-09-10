@@ -6,7 +6,7 @@ You can use the following flasher-scripts to program various types of tags with 
 * 88MZ100-based tags
 
 This is the schematic for the flasher, including a pinout for the debug-header that is used by quite a few Solum tags. This flasher is also compatible with the OEPL-AP-Flasher jig/programming boards. 
-![image](https://github.com/jjwbruijn/OpenEPaperLink/assets/2544995/25227120-d3cb-4c2d-b19d-99fdc795bda1)
+![image](https://github.com/jjwbruijn/OpenEPaperLink/assets/2544995/1fa5bef8-6624-4e53-9caa-aeaaf4dbdc55)
 
 This is what it looks like with the wires connected. I've chosen to use 0.635mm pitch wires, to be able to use the jigs with the 1.27mm FDC connectors. After soldering, you can add a little bit of hot-glue to make sure they stay attached.
 
