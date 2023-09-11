@@ -145,6 +145,7 @@ void setup() {
     rgbIdle();
 #endif
     loadDB("/current/tagDB.json");
+    cleanupCurrent();
     // tagDBOwner = xSemaphoreCreateMutex();
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
     xTaskCreate(networkProcess, "Wifi", 6000, NULL, configMAX_PRIORITIES - 10, NULL);

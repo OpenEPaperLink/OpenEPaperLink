@@ -106,5 +106,6 @@ extern void initAPconfig();
 extern void saveAPconfig();
 extern HwType getHwType(const uint8_t id);
 extern bool setVarDB(const std::string& key, const String& value);
+extern void cleanupCurrent();
 
 #pragma pack(pop)
