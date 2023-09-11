@@ -182,7 +182,7 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
 
         time_t now;
         time(&now);
-        taginfo->pendingIdle = now + nextCheckin * 60 + 60;
+        taginfo->pendingIdle = nextCheckin * 60 + 60;
         clearPending(taginfo);
         taginfo->filename = filename;
         taginfo->len = filesize;
@@ -422,7 +422,7 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
     time(&now);
     tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
-        taginfo->pendingIdle = now + 60;
+        taginfo->pendingIdle = 60;
         memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
         clearPending(taginfo);
     }
