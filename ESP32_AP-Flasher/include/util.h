@@ -100,7 +100,7 @@ static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout,
 ///
 /// @param str String to check
 /// @return True if empty or null, false if not
-static inline bool isEmptyOrNull(const String &str) {
+inline bool isEmptyOrNull(const String &str) {
     return str.isEmpty() || str == "null";
 }
 
@@ -144,5 +144,39 @@ class Timer {
     unsigned long interval_;
     unsigned long previousMillis_;
 };
+
+/// @brief Create a String from format
+/// @param format String format
+/// @return String
+inline String formatString(const char *format, ...) {
+    va_list args;
+
+    va_start(args, format);
+    const size_t size = vsnprintf(NULL, 0, format, args) + 1;  // +1 for the null terminator
+    va_end(args);
+
+    char buffer[size];
+
+    va_start(args, format);
+    vsnprintf(buffer, size, format, args);
+    va_end(args);
+
+    return String(buffer);
+}
+
+/// @brief Create a String from format
+/// @param buffer Buffer to use for sprintf
+/// @param format String format
+/// @return String
+template <size_t bufSize>
+inline String formatString(char buffer[bufSize], const char *format, ...) {
+    va_list args;
+
+    va_start(args, format);
+    vsnprintf(buffer, bufSize, format, args);
+    va_end(args);
+
+    return String(buffer);
+}
 
 }  // namespace util
