@@ -12,6 +12,7 @@
 #include "storage.h"
 #include "system.h"
 #include "tag_db.h"
+#include "tagdata.h"
 #include "udp.h"
 #include "util.h"
 #include "web.h"
@@ -534,9 +535,8 @@ void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local)
     sprintf(buffer, "TRD Data: len=%d, type=%d, ver=0x%08X\n", trd->len - 11, trd->returnData.dataType, trd->returnData.dataVer);
     wsLog((String)buffer);
 
-    uint8_t actualPayloadLength = trd->len - 11;
-    uint8_t* actualPayload = (uint8_t*)calloc(actualPayloadLength, 1);
-    memcpy(actualPayload, trd->returnData.data, actualPayloadLength);
+    const uint8_t actualPayloadLength = trd->len - 11;
+    TagData::parse(trd->src, trd->returnData.dataType, trd->returnData.data, actualPayloadLength);
 }
 
 void refreshAllPending() {
