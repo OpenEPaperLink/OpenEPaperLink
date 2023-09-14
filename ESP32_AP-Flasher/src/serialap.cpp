@@ -15,6 +15,7 @@
 #include "zbs_interface.h"
 
 QueueHandle_t rxCmdQueue;
+
 SemaphoreHandle_t txActive;
 
 // If a command is sent, it will wait for a reply here
@@ -25,8 +26,9 @@ SemaphoreHandle_t txActive;
 volatile uint8_t cmdReplyValue = CMD_REPLY_WAIT;
 
 #define AP_SERIAL_PORT Serial1
+volatile bool rxSerialStopTask2 = false;
 
-uint8_t channelList[6];
+    uint8_t channelList[6];
 struct espSetChannelPower curChannel = {0, 11, 10};
 
 #define RX_CMD_RQB 0x01
@@ -264,6 +266,7 @@ bool sendChannelPower(struct espSetChannelPower* scp) {
     return false;
 }
 bool sendPing() {
+    if (apInfo.state == AP_STATE_FLASHING) return true;
     Serial.print("ping");
     int t = millis();
     if (!txStart()) return false;
@@ -582,13 +585,16 @@ void rxSerialTask(void* parameter) {
 void rxSerialTask2(void* parameter) {
     char lastchar = 0;
     Serial2.begin(115200, SERIAL_8N1, FLASHER_DEBUG_TXD, FLASHER_DEBUG_RXD);
-    while (1) {
+    while (rxSerialStopTask2 == false) {
         while (Serial2.available()) {
             lastchar = Serial2.read();
             Serial.write(lastchar);
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
     }
+    Serial2.end();
+    Serial.println("Exiting AP serial monitor");
+    vTaskDelete(NULL);
 }
 #endif
 
@@ -640,6 +646,7 @@ void segmentedShowIp() {
 }
 
 bool bringAPOnline() {
+    if (apInfo.state == AP_STATE_FLASHING) return false;
     apInfo.isOnline = false;
     apInfo.state = AP_STATE_OFFLINE;
     // try without rebooting
@@ -651,6 +658,7 @@ bool bringAPOnline() {
         vTaskDelay(300 / portTICK_PERIOD_MS);
     }
     if (!APrdy) {
+        if (apInfo.state == AP_STATE_FLASHING) return false;
         APTagReset();
         vTaskDelay(500 / portTICK_PERIOD_MS);
         bootTimeout = millis();
@@ -733,39 +741,42 @@ void APTask(void* parameter) {
             updateContent(apInfo.mac);
         }
 
-        uint16_t fsversion;
-        fsversion = getAPUpdateVersion(apInfo.type);
-        if ((fsversion) && (apInfo.version != fsversion) && (FLASHER_AP_MOSI != -1)) {
-            Serial.printf("Firmware version on LittleFS: %04X\n", fsversion);
 
-            Serial.printf("We're going to try to update the AP's FW in\n");
-            flashCountDown(30);
-            Serial.printf("\n");
-            notifySegmentedFlash();
-            apInfo.isOnline = false;
-            apInfo.state = AP_STATE_FLASHING;
-            if (doAPUpdate(apInfo.type)) {
-                checkWaitPowerCycle();
-                Serial.printf("Flash completed, let's try to boot the AP!\n");
-                if (bringAPOnline()) {
-                    // AP works
-                    ShowAPInfo();
-                    setAPchannel();
+        uint16_t fsversion;
+        if (FLASHER_AP_MOSI != -1) {
+            fsversion = getAPUpdateVersion(apInfo.type);
+            if ((fsversion) && (apInfo.version != fsversion)) {
+                Serial.printf("Firmware version on LittleFS: %04X\n", fsversion);
+
+                Serial.printf("We're going to try to update the AP's FW in\n");
+                flashCountDown(30);
+                Serial.printf("\n");
+                notifySegmentedFlash();
+                apInfo.isOnline = false;
+                apInfo.state = AP_STATE_FLASHING;
+                if (doAPUpdate(apInfo.type)) {
+                    checkWaitPowerCycle();
+                    Serial.printf("Flash completed, let's try to boot the AP!\n");
+                    if (bringAPOnline()) {
+                        // AP works
+                        ShowAPInfo();
+                        setAPchannel();
+                    } else {
+                        Serial.printf("Failed to bring up the AP after flashing seemed successful... That's not supposed to happen!\n");
+                        Serial.printf("This can be caused by a bad AP firmware, failed or failing hardware, or the inability to fully power-cycle the AP\n");
+                        apInfo.state = AP_STATE_FAILED;
+    #ifdef HAS_RGB_LED
+                        showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
+    #endif
+                    }
                 } else {
-                    Serial.printf("Failed to bring up the AP after flashing seemed successful... That's not supposed to happen!\n");
-                    Serial.printf("This can be caused by a bad AP firmware, failed or failing hardware, or the inability to fully power-cycle the AP\n");
                     apInfo.state = AP_STATE_FAILED;
-#ifdef HAS_RGB_LED
-                    showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
-#endif
+                    checkWaitPowerCycle();
+                    Serial.println("Failed to update version on the AP :(\n");
+    #ifdef HAS_RGB_LED
+                    showColorPattern(CRGB::Red, CRGB::Red, CRGB::Red);
+    #endif
                 }
-            } else {
-                apInfo.state = AP_STATE_FAILED;
-                checkWaitPowerCycle();
-                Serial.println("Failed to update version on the AP :(\n");
-#ifdef HAS_RGB_LED
-                showColorPattern(CRGB::Red, CRGB::Red, CRGB::Red);
-#endif
             }
         }
         refreshAllPending();
@@ -774,14 +785,23 @@ void APTask(void* parameter) {
 #define FLASH_TIMEOUT 30
 #endif
 
-        // AP unavailable, maybe time to flash?
-        apInfo.isOnline = false;
-        apInfo.state = AP_STATE_OFFLINE;
-        Serial.printf("I wasn't able to connect to a ZBS (AP) tag.\n");
-        Serial.printf("This could be the first time this AP is booted and the AP-tag may be unflashed.\n");
-        Serial.printf("If this tag was previously flashed succesfully but this message still shows up, there's probably something wrong with the serial connections.\n");
-        Serial.printf("The build of this firmware expects an AP tag with TXD/RXD on ESP32 pins %d and %d, does this match with your wiring?\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
-        if (FLASHER_AP_MOSI != -1) {
+        if (FLASHER_AP_MOSI == -1) {
+            Serial.printf("I wasn't able to connect to the AP radio. Did you flash it?\n");
+            Serial.printf("The build of this firmware expects an AP tag with TXD/RXD on ESP32 pins %d and %d, does this match with your wiring?\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
+#ifdef HAS_RGB_LED
+            showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
+#endif
+            apInfo.isOnline = false;
+            apInfo.state = AP_STATE_FAILED;        
+        } else {
+            // AP unavailable, maybe time to flash?
+            apInfo.isOnline = false;
+            apInfo.state = AP_STATE_OFFLINE;
+
+            Serial.printf("I wasn't able to connect to a ZBS (AP) tag.\n");
+            Serial.printf("This could be the first time this AP is booted and the AP-tag may be unflashed.\n");
+            Serial.printf("If this tag was previously flashed succesfully but this message still shows up, there's probably something wrong with the serial connections.\n");
+            Serial.printf("The build of this firmware expects an AP tag with TXD/RXD on ESP32 pins %d and %d, does this match with your wiring?\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
             Serial.printf("Performing firmware flash in about %d seconds!\n", FLASH_TIMEOUT);
             flashCountDown(FLASH_TIMEOUT);
             if (doAPFlash()) {

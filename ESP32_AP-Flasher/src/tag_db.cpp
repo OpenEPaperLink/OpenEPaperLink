@@ -331,9 +331,10 @@ void saveAPconfig() {
 }
 
 HwType getHwType(const uint8_t id) {
-    try {
-        return hwdata.at(id);
-    } catch (const std::out_of_range&) {
+    auto it = hwdata.find(id);
+    if (it != hwdata.end()) {
+        return it->second;
+    } else {
         char filename[20];
         snprintf(filename, sizeof(filename), "/tagtypes/%02X.json", id);
         Serial.printf("read %s\n", filename);
@@ -345,6 +346,7 @@ HwType getHwType(const uint8_t id) {
             filter["height"] = true;
             filter["rotatebuffer"] = true;
             filter["bpp"] = true;
+            filter["shortlut"] = true;
             StaticJsonDocument<250> doc;
             DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
             jsonFile.close();
@@ -356,10 +358,11 @@ HwType getHwType(const uint8_t id) {
                 hwdata[id].height = doc["height"];
                 hwdata[id].rotatebuffer = doc["rotatebuffer"];
                 hwdata[id].bpp = doc["bpp"];
+                hwdata[id].shortlut = doc["shortlut"];
                 return hwdata.at(id);
             }
         }
-        return {0, 0, 0, 0};
+        return {0, 0, 0, 0, 0};
     }
 }
 
@@ -380,4 +383,35 @@ bool setVarDB(const std::string& key, const String& value) {
     } else {
         return false;
     }
+}
+
+String getBaseName(const String& filename) {
+    int lastDotIndex = filename.lastIndexOf('.');
+    return lastDotIndex != -1 ? filename.substring(0, lastDotIndex) : filename;
+}
+
+void cleanupCurrent() {
+    // clean unknown previews
+    File dir = contentFS->open("/current");
+    File file = dir.openNextFile();
+    while (file) {
+        String filename = file.name();
+        uint8_t mac[8];
+        if (hex2mac(getBaseName(filename), mac)) {
+            bool found = false;
+            for (tagRecord* record : tagDB) {
+                if (memcmp(record->mac, mac, 8) == 0) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                filename = file.path();
+                file.close();
+                contentFS->remove(filename);
+            }
+        }
+        file = dir.openNextFile();
+    }
+    dir.close();
 }

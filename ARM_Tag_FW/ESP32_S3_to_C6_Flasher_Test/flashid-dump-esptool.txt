@@ -1,0 +1,281 @@
+
+
+TRACE +0.008 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=00100040
+TRACE +0.000 Write 14 bytes: c0000a04000000000000100040c0
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04006f80e02c00000000c0
+TRACE +0.000 Received full packet: 010a04006f80e02c00000000
+
+Detecting chip type...
+
+TRACE +0.000 command op=0x14 data len=0 wait_response=1 timeout=3.000 data=
+TRACE +0.000 Write 10 bytes: c00014000000000000c0
+TRACE +0.008 Read 1 bytes: c0
+TRACE +0.000 Read 33 bytes: 
+    011418006f80e02c 0000000000000000 | ....o..,........
+    0000000c0d000000 0000000000000000 | ................
+    c0                                | .
+TRACE +0.000 Received full packet: 
+    011418006f80e02c 0000000000000000 | ....o..,........
+    0000000c0d000000 0000000000000000 | ................
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=80f58740
+TRACE +0.000 Write 14 bytes: c0000a04000000000080f58740c0
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04000000000000000000c0
+TRACE +0.000 Received full packet: 010a04000000000000000000
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=50080b60
+TRACE +0.000 Write 14 bytes: c0000a04000000000050080b60c0
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04000000000800000000c0
+TRACE +0.000 Received full packet: 010a04000000000800000000
+
+TRACE +0.008 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=50080b60
+TRACE +0.000 Write 14 bytes: c0000a04000000000050080b60c0
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04000000000800000000c0
+TRACE +0.000 Received full packet: 010a04000000000800000000
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=50080b60
+TRACE +0.000 Write 14 bytes: c0000a04000000000050080b60c0
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04000000000800000000c0
+TRACE +0.000 Received full packet: 010a04000000000800000000
+
+Chip is ESP32-C6 (QFN40) (revision v0.0)
+Features: WiFi 6, BT 5, IEEE802.15.4
+Crystal is 40MHz
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=44080b60
+TRACE +0.000 Write 14 bytes: c0000a04000000000044080b60c0
+TRACE +0.010 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a0400e85342ca00000000c0
+TRACE +0.000 Received full packet: 010a0400e85342ca00000000
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=48080b60
+TRACE +0.000 Write 14 bytes: c0000a04000000000048080b60c0
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04004c40feff00000000c0
+TRACE +0.000 Received full packet: 010a04004c40feff00000000
+
+MAC: 40:4c:ca:ff:fe:42:53:e8
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=44080b60
+TRACE +0.000 Write 14 bytes: c0000a04000000000044080b60c0
+TRACE +0.008 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a0400e85342ca00000000c0
+TRACE +0.000 Received full packet: 010a0400e85342ca00000000
+
+TRACE +0.002 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=48080b60
+TRACE +0.000 Write 14 bytes: c0000a04000000000048080b60c0
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04004c40feff00000000c0
+TRACE +0.000 Received full packet: 010a04004c40feff00000000
+
+BASE MAC: 40:4c:ca:42:53:e8
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=44080b60
+TRACE +0.000 Write 14 bytes: c0000a04000000000044080b60c0
+TRACE +0.008 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a0400e85342ca00000000c0
+TRACE +0.000 Received full packet: 010a0400e85342ca00000000
+
+!!! TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=48080b60
+TRACE +0.000 Write 14 bytes: c0000a04000000000048080b60c0
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04004c40feff00000000c0
+TRACE +0.000 Received full packet: 010a04004c40feff00000000
+
+MAC_EXT: ff:fe
+
+Enabling default SPI flash mode...
+
+!!!! TRACE +0.000 command op=0x0d data len=8 wait_response=1 timeout=3.000 data=0000000000000000
+TRACE +0.000 Write 18 bytes: 
+    c0000d0800000000 0000000000000000 | ................
+    00c0                              | ..
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010d04004c40feff00000000c0
+TRACE +0.000 Received full packet: 010d04004c40feff00000000
+
+v TRACE +0.008 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=18300060
+TRACE +0.000 Write 14 bytes: c0000a04000000000018300060c0
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04000000008000000000c0
+TRACE +0.000 Received full packet: 010a04000000008000000000
+
+v TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=20300060
+TRACE +0.000 Write 14 bytes: c0000a04000000000020300060c0
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04000000007000000000c0
+TRACE +0.000 Received full packet: 010a04000000007000000000
+
+v TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=2830006017000000ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0028300060170000 | .........(0.`...
+    00ffffffff000000 00c0             | ..........
+TRACE +0.010 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=1830006000000090ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0018300060000000 | ..........0.`...
+    90ffffffff000000 00c0             | ..........
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.008 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=203000609f000070ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 00203000609f0000 | ......... 0.`...
+    70ffffffff000000 00c0             | p.........
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=5830006000000000ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0058300060000000 | .........X0.`...
+    00ffffffff000000 00c0             | ..........
+TRACE +0.008 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=0030006000000400ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0000300060000004 | ..........0.`...
+    00ffffffff000000 00c0             | ..........
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=00300060
+TRACE +0.000 Write 14 bytes: c0000a04000000000000300060c0
+TRACE +0.008 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04000000000000000000c0
+TRACE +0.000 Received full packet: 010a04000000000000000000
+
+!!! TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=58300060
+TRACE +0.000 Write 14 bytes: c0000a04000000000058300060c0
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a0400c840170000000000c0
+TRACE +0.000 Received full packet: 010a0400c840170000000000
+
+!!! TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=1830006000000080ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0018300060000000 | ..........0.`...
+    80ffffffff000000 00c0             | ..........
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.008 Read 13 bytes: 01090400c840170000000000c0
+TRACE +0.000 Received full packet: 01090400c840170000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=2030006000000070ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0020300060000000 | ......... 0.`...
+    70ffffffff000000 00c0             | p.........
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 01090400c840170000000000c0
+TRACE +0.000 Received full packet: 01090400c840170000000000
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=18300060
+TRACE +0.000 Write 14 bytes: c0000a04000000000018300060c0
+TRACE +0.008 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04000000008000000000c0
+TRACE +0.000 Received full packet: 010a04000000008000000000
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=20300060
+TRACE +0.000 Write 14 bytes: c0000a04000000000020300060c0
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04000000007000000000c0
+TRACE +0.000 Received full packet: 010a04000000007000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=2830006007000000ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0028300060070000 | .........(0.`...
+    00ffffffff000000 00c0             | ..........
+TRACE +0.008 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=1c3000600700005cffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 001c300060070000 | ..........0.`...
+    5cffffffff000000 00c0             | \.........
+TRACE +0.002 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=18300060000000f0ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0018300060000000 | ..........0.`...
+    f0ffffffff000000 00c0             | ..........
+TRACE +0.008 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=203000605a000070ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 00203000605a0000 | ......... 0.`Z..
+    70ffffffff000000 00c0             | p.........
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=0430006010000000ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0004300060100000 | ..........0.`...
+    00ffffffff000000 00c0             | ..........
+TRACE +0.012 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=5830006000000000ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0058300060000000 | .........X0.`...
+    00ffffffff000000 00c0             | ..........
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=0030006000000400ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0000300060000004 | ..........0.`...
+    00ffffffff000000 00c0             | ..........
+TRACE +0.010 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010904000000007000000000c0
+TRACE +0.000 Received full packet: 010904000000007000000000
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=00300060
+TRACE +0.000 Write 14 bytes: c0000a04000000000000300060c0
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a04000000000000000000c0
+TRACE +0.000 Received full packet: 010a04000000000000000000
+
+TRACE +0.000 command op=0x0a data len=4 wait_response=1 timeout=3.000 data=58300060
+TRACE +0.000 Write 14 bytes: c0000a04000000000058300060c0
+TRACE +0.010 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 010a0400c800000000000000c0
+TRACE +0.000 Received full packet: 010a0400c800000000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=1830006000000080ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0018300060000000 | ..........0.`...
+    80ffffffff000000 00c0             | ..........
+TRACE +0.000 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 01090400c800000000000000c0
+TRACE +0.000 Received full packet: 01090400c800000000000000
+
+TRACE +0.000 command op=0x09 data len=16 wait_response=1 timeout=3.000 data=2030006000000070ffffffff00000000
+TRACE +0.000 Write 26 bytes: 
+    c000091000000000 0020300060000000 | ......... 0.`...
+    70ffffffff000000 00c0             | p.........
+TRACE +0.010 Read 1 bytes: c0
+TRACE +0.000 Read 13 bytes: 01090400c800000000000000c0
+TRACE +0.000 Received full packet: 01090400c800000000000000
+
+Manufacturer: c8
+Device: 4017
+Detected flash size: 8MB
+

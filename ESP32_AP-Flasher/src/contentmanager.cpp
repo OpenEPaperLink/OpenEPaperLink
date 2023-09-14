@@ -192,6 +192,19 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     imageParams.symbols = 0;
     imageParams.rotate = taginfo->rotate;
 
+    imageParams.shortlut = hwdata.shortlut;
+
+    imageParams.lut = EPD_LUT_NO_REPEATS;
+    time_t last_midnight = now - now % (24 * 60 * 60) + 3 * 3600;  // somewhere in the middle of the night
+    if (imageParams.shortlut == SHORTLUT_DISABLED || taginfo->lastfullupdate < last_midnight || taginfo->lut == 1) {
+        imageParams.lut = EPD_LUT_DEFAULT;
+        taginfo->lastfullupdate = now;
+    }
+    if (taginfo->hasCustomLUT && taginfo->capabilities & CAPABILITY_SUPPORTS_CUSTOM_LUTS && taginfo->lut != 1) {
+        Serial.println("using custom LUT");
+        imageParams.lut = EPD_LUT_OTA;
+    }
+
     switch (taginfo->contentMode) {
         case 0:  // Image
         {
@@ -206,7 +219,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
                 } else {
                     filename = "/current/" + String(hexmac) + ".raw";
                     if (contentFS->exists(filename)) {
-                        prepareDataAvail(filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>(), true);
+                        prepareDataAvail(filename, imageParams.dataType, imageParams.lut, mac, cfgobj["timetolive"].as<int>(), true);
                         wsLog("File " + configFilename + " not found, resending image " + filename);
                     } else {
                         wsErr("File " + configFilename + " not found");
@@ -216,8 +229,9 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
                 }
                 if (imageParams.hasRed) {
                     imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
+                    if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) imageParams.lut = EPD_LUT_DEFAULT;
                 }
-                if (prepareDataAvail(filename, imageParams.dataType, mac, cfgobj["timetolive"].as<int>())) {
+                if (prepareDataAvail(filename, imageParams.dataType, imageParams.lut, mac, cfgobj["timetolive"].as<int>())) {
                     if (cfgobj["delete"].as<String>() == "1") {
                         contentFS->remove("/" + configFilename);
                     }
@@ -266,7 +280,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
             filename = cfgobj["filename"].as<String>();
             if (!util::isEmptyOrNull(filename) && !cfgobj["#fetched"].as<bool>()) {
-                if (prepareDataAvail(filename, DATATYPE_FW_UPDATE, mac, cfgobj["timetolive"].as<int>())) {
+                if (prepareDataAvail(filename, DATATYPE_FW_UPDATE, 0, mac, cfgobj["timetolive"].as<int>())) {
                     cfgobj["#fetched"] = true;
                 } else {
                     wsErr("Error accessing " + filename);
@@ -435,8 +449,11 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
     if (taginfo->hwType == SOLUM_SEG_UK) {
         sendAPSegmentedData(dst, (String)imageParams.segments, imageParams.symbols, imageParams.invert, (taginfo->isExternal == false));
     } else {
-        if (imageParams.hasRed) imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
-        prepareDataAvail(filename, imageParams.dataType, dst, nextCheckin);
+        if (imageParams.hasRed) {
+            imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
+            if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) imageParams.lut = EPD_LUT_DEFAULT;
+        }
+        prepareDataAvail(filename, imageParams.dataType, imageParams.lut, dst, nextCheckin);
     }
     return true;
 }

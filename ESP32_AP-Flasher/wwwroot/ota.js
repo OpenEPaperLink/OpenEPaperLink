@@ -336,6 +336,25 @@ $('#rollbackBtn').onclick = function () {
     disableButtons(false);
 }
 
+$('#updateC6Btn').onclick = function () {
+    if (running) return;
+    disableButtons(true);
+    running = true;
+    errors = 0;
+    const consoleDiv = document.getElementById('updateconsole');
+    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+
+    print("Flashing ESP32-C6...");
+
+    fetch("/update_c6", {
+        method: "POST",
+        body: ''
+    })
+
+    running = false;
+    disableButtons(false);
+}
+
 export function print(line, color = "white") {
     const consoleDiv = document.getElementById('updateconsole');
     if (consoleDiv) {

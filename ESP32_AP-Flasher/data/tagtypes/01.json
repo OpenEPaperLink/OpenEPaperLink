@@ -11,7 +11,8 @@
 		"red": [255, 0, 0],
 		"gray": [150, 150, 150]
 	},
-	"capabilities": ["button", "customlut"],
+	"shortlut": 2,
+	"options": ["button", "customlut"],
 	"template": {
 		"1": {
 			"weekday": [148, 10, "fonts/calibrib60"],

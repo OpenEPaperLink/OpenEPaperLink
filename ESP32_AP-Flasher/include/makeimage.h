@@ -5,6 +5,10 @@
 
 extern TFT_eSPI tft;
 
+#define SHORTLUT_DISABLED 0
+#define SHORTLUT_ONLY_BLACK 1
+#define SHORTLUT_ALLOWED 2
+
 struct imgParam {
     bool hasRed;
     uint8_t dataType;
@@ -21,6 +25,9 @@ struct imgParam {
     char segments[12];
     uint16_t symbols;
     bool invert;
+
+    uint8_t lut;
+    uint8_t shortlut;
 };
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams);

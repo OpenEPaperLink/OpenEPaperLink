@@ -532,6 +532,11 @@ ul.messages li.new {
 	display: none;
 }
 
+#advanceddiv div:nth-child(2) {
+	display: flex;
+	gap: 10px;
+}
+
 #releasetable {
 	margin: 10px 0px;
 }

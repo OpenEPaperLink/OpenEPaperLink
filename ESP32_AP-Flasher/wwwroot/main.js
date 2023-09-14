@@ -940,6 +940,7 @@ async function getTagtype(hwtype) {
 			rotatebuffer: jsonData.rotatebuffer,
 			colortable: Object.values(jsonData.colortable),
 			contentids: Object.values(jsonData.contentids ?? []),
+			options: Object.values(jsonData.options ?? []),
 			busy: false
 		};
 		tagTypes[hwtype] = data;
@@ -1079,7 +1080,7 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 	const clickedGridItem = e.target.closest('.tagcard');
 	if (clickedGridItem) {
 		let mac = clickedGridItem.dataset.mac;
-		console.log("tagcard");
+		const hwtype = clickedGridItem.dataset.hwtype;
 		let contextMenuOptions = [
 			{ id: 'refresh', label: 'Force refresh' },
 			{ id: 'clear', label: 'Clear pending status' }
@@ -1090,6 +1091,12 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 				{ id: 'reboot', label: 'Reboot tag' },
 			);
 		};
+		if (tagTypes[hwtype].options?.includes("led")) {
+			contextMenuOptions.push(
+				{ id: 'ledflash', label: 'Flash the LED' },
+				{ id: 'ledflash_long', label: 'Flash the LED (long)' }
+			);
+		}
 		contextMenuOptions.push(
 			{ id: 'del', label: 'Delete tag from list' }
 		);

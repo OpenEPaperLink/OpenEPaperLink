@@ -6,7 +6,8 @@
 	"bpp": 1,
 	"colors": 0,
 	"colortable": {},
-	"capabilities": [],
+	"shortlut": 0,
+	"options": [],
 	"template": {
 	}
 }

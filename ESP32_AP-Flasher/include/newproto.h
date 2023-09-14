@@ -7,7 +7,7 @@ extern void processBlockRequest(struct espBlockRequest* br);
 extern void prepareCancelPending(const uint8_t dst[8]);
 extern void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin);
 extern void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8_t* dst);
-extern bool prepareDataAvail(String& filename, uint8_t dataType, const uint8_t* dst, uint16_t nextCheckin, bool resend = false);
+extern bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgument, const uint8_t* dst, uint16_t nextCheckin, bool resend = false);
 extern void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP);
 extern void processXferComplete(struct espXferComplete* xfc, bool local);
 extern void processXferTimeout(struct espXferComplete* xfc, bool local);
