@@ -23,15 +23,15 @@ void TagData::loadParsers(const String& filename) {
             DeserializationError err = deserializeJson(doc, file);
             if (!err) {
                 const JsonObject parserDoc = doc[0];
-                const uint8_t id = parserDoc["id"].as<uint8_t>();
-                const String name = parserDoc["name"].as<String>();
-                // if (!id || !name) {
-                //     Serial.printf("Error: Parser must have name and id\n");
-                //     continue;
-                // }
+                const auto& id = parserDoc["id"];
+                const auto& name = parserDoc["name"];
+                if (!id || !name) {
+                    Serial.printf("Error: Parser must have name and id\n");
+                    continue;
+                }
 
                 Parser parser;
-                parser.name = name;
+                parser.name = name.as<String>();
 
                 for (const auto& parserField : parserDoc["parser"].as<JsonArray>()) {
                     const uint8_t type = parserField["type"].as<uint8_t>();
@@ -40,7 +40,7 @@ void TagData::loadParsers(const String& filename) {
                         continue;
                     }
 
-                    const auto mult = parserField["mult"];
+                    const auto& mult = parserField["mult"];
                     const uint8_t decimals = parserField["decimals"].as<uint8_t>();
                     if (mult) {
                         parser.fields.emplace_back(parserField["name"].as<String>(),
@@ -56,7 +56,7 @@ void TagData::loadParsers(const String& filename) {
                     }
                 }
 
-                parsers.emplace(id, parser);
+                parsers.emplace(id.as<uint8_t>(), parser);
             } else {
                 Serial.print(F("deserializeJson() failed: "));
                 Serial.println(err.c_str());
@@ -82,9 +82,9 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
         return;
     }
 
-    const String mac = util::formatString(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X.", src[7], src[6], src[5], src[4], src[3], src[2], src[1], src[0]);
+    const String mac = util::formatString<64>(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X.", src[7], src[6], src[5], src[4], src[3], src[2], src[1], src[0]);
 
-    uint8_t offset = 0;
+    uint16_t offset = 0;
     for (const Field& field : it->second.fields) {
         const String& name = field.name;
         const uint8_t length = field.length;
@@ -99,6 +99,7 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
 
         const Type type = field.type;
         const uint8_t* fieldData = data + offset;
+        offset += length;
         String value = "";
         switch (type) {
             case Type::INT: {
@@ -133,15 +134,18 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
                 break;
         }
 
-        if (!value.isEmpty()) {
-            const std::string varName = (mac + name).c_str();
-            setVarDB(varName, value);
-
-            sprintf(buffer, "Set %s to %s", varName.c_str(), value.c_str());
+        if (value.isEmpty()) {
+            sprintf(buffer, "Error: Empty value for field %s", name.c_str());
             wsLog((String)buffer);
-            Serial.printf("Set %s to %s\n", varName.c_str(), value.c_str());
+            Serial.printf("Error: Empty value for field %s\n", name.c_str());
+            continue;
         }
 
-        offset += length;
+        const std::string varName = (mac + name).c_str();
+        setVarDB(varName, value);
+
+        sprintf(buffer, "Set %s to %s", varName.c_str(), value.c_str());
+        wsLog((String)buffer);
+        Serial.printf("Set %s to %s\n", varName.c_str(), value.c_str());
     }
 }

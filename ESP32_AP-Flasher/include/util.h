@@ -146,25 +146,6 @@ class Timer {
 };
 
 /// @brief Create a String from format
-/// @param format String format
-/// @return String
-inline String formatString(const char *format, ...) {
-    va_list args;
-
-    va_start(args, format);
-    const size_t size = vsnprintf(NULL, 0, format, args) + 1;  // +1 for the null terminator
-    va_end(args);
-
-    char buffer[size];
-
-    va_start(args, format);
-    vsnprintf(buffer, size, format, args);
-    va_end(args);
-
-    return String(buffer);
-}
-
-/// @brief Create a String from format
 /// @param buffer Buffer to use for sprintf
 /// @param format String format
 /// @return String
@@ -173,10 +154,10 @@ inline String formatString(char buffer[bufSize], const char *format, ...) {
     va_list args;
 
     va_start(args, format);
-    vsnprintf(buffer, bufSize, format, args);
+    const size_t size = vsnprintf(buffer, bufSize, format, args);
     va_end(args);
 
-    return String(buffer);
+    return String(buffer, size);
 }
 
 }  // namespace util
