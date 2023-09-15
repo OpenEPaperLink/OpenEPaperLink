@@ -105,7 +105,13 @@ bool WifiManager::connectToWifi(String ssid, String pass, bool savewhensuccessfu
     _APstarted = false;
     WiFi.disconnect(false, true);
     WiFi.mode(WIFI_MODE_NULL);
-    char hostname[32] = "OpenEpaperLink-AP\0";
+    char hostname[32] = "OpenEpaperLink-";
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    char lastTwoBytes[5];
+    sprintf(lastTwoBytes, "%02X%02X", mac[4], mac[5]);
+    strcat(hostname, lastTwoBytes);
+
     if (config.alias[0] != '\0') {
         int len = strlen(config.alias);
         int j = 0;
@@ -166,6 +172,7 @@ void WifiManager::startManagementServer() {
     if (!_APstarted) {
         terminalLog("Starting configuration AP, ssid: OpenEPaperLink");
         logLine("Starting configuration AP, ssid OpenEPaperLink");
+        WiFi.disconnect(false, true);
         WiFi.mode(WIFI_AP);
         WiFi.softAP("OpenEPaperLink", "", 1, false);
         WiFi.softAPsetHostname("OpenEPaperLink");
