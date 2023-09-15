@@ -12,5 +12,5 @@
 
 void initTime(void* parameter);
 void logLine(const char* buffer);
-void logLine(String text);
+void logLine(const String& text);
 void logStartUp();

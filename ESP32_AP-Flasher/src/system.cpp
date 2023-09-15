@@ -35,7 +35,7 @@ void logLine(const char* buffer) {
     logLine(String(buffer));
 }
 
-void logLine(String text) {
+void logLine(const String& text) {
     time_t now;
     time(&now);
 
