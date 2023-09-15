@@ -528,15 +528,17 @@ void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local)
     if (!checkCRC(trd, len)) {
         return;
     }
-    char buffer[64];
+
+    const uint8_t payloadLength = trd->len - 11;
+
     // Replace this stuff with something that handles the data coming from the tag. This is here for demo purposes!
+    char buffer[64];
     sprintf(buffer, "<TRD %02X%02X%02X%02X%02X%02X%02X%02X\n", trd->src[7], trd->src[6], trd->src[5], trd->src[4], trd->src[3], trd->src[2], trd->src[1], trd->src[0]);
     wsLog((String)buffer);
-    sprintf(buffer, "TRD Data: len=%d, type=%d, ver=0x%08X\n", trd->len - 11, trd->returnData.dataType, trd->returnData.dataVer);
+    sprintf(buffer, "TRD Data: len=%d, type=%d, ver=0x%08X\n", payloadLength, trd->returnData.dataType, trd->returnData.dataVer);
     wsLog((String)buffer);
 
-    const uint8_t actualPayloadLength = trd->len - 11;
-    TagData::parse(trd->src, trd->returnData.dataType, trd->returnData.data, actualPayloadLength);
+    TagData::parse(trd->src, trd->returnData.dataType, trd->returnData.data, payloadLength);
 }
 
 void refreshAllPending() {
