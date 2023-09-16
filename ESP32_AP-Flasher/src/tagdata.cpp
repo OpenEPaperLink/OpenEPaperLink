@@ -104,19 +104,19 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
         switch (type) {
             case Type::INT: {
                 const double mult = field.mult.value_or(1.0);
-                value = String(static_cast<int32_t>(bytesToInt(fieldData, length)) * mult, (unsigned int)field.decimals);
+                value = String(bytesTo<int64_t>(fieldData, length) * mult, (unsigned int)field.decimals);
             } break;
             case Type::UINT: {
                 const double mult = field.mult.value_or(1.0f);
-                value = String(bytesToInt(fieldData, length) * mult, (unsigned int)field.decimals);
+                value = String(bytesTo<uint64_t>(fieldData, length) * mult, (unsigned int)field.decimals);
             } break;
             case Type::FLOAT: {
                 const double mult = field.mult.value_or(1.0f);
 
                 if (length == 4) {
-                    value = String(bytesToFloat(fieldData) * mult, (unsigned int)field.decimals);
+                    value = String(bytesTo<float>(fieldData, length) * mult, (unsigned int)field.decimals);
                 } else if (length == 8) {
-                    value = String(bytesToDouble(fieldData) * mult, (unsigned int)field.decimals);
+                    value = String(bytesTo<double>(fieldData, length) * mult, (unsigned int)field.decimals);
                 } else {
                     sprintf(buffer, "Error: Float can only be 4 or 8 bytes long");
                     wsLog((String)buffer);
@@ -124,7 +124,7 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
                 }
             } break;
             case Type::STRING: {
-                value = bytesToString(fieldData, length);
+                value = bytesTo<String>(fieldData, length);
             } break;
 
             default:
