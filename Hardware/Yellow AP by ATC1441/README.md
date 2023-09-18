@@ -18,7 +18,7 @@ Parts for the PCB:
 - 1x ESP32-C6
 - 2x 0603 LEDs in the color of your choice
 - 2x 0603 Resistor 1K for the LEDs (0805 fits as well)
-- 2x 0603 Resistor 10K for Enable and Boot line of ESP32-C6 (0805 fits as well)
+- 3x 0603 Resistor 10K for Enable, flash pull-up and Boot line of ESP32-C6 (0805 fits as well)
 - 1x 0603 Capacitor 100nf for 3.3V Rail
 - 1x 0805 Capacitor 1uf for the 3.3V Rail
 
