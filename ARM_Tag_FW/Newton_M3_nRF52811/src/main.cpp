@@ -47,7 +47,7 @@ uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
         }
     }
     powerDown(INIT_RADIO);
-    epdWaitRdy();
+    // epdWaitRdy();
     mLastLqi = highestLqi;
     return highestSlot;
 }
@@ -144,23 +144,28 @@ void setup() {
      delay(50);
     }
     Serial.println("Finished");
-    
+
     Serial.println((uint8_t)0x55 << 1);
 
     sw.beginTransmission(30);
     sw.write(uint8_t(0)); // Access the first register
     sw.endTransmission();
-    
+
     digitalWrite(NFC_POWER,LOW);
     pinMode(NFC_POWER, INPUT_PULLDOWN);
 
     powerDown(INIT_I2C);
 
     */
-    
-    //we always have NFC + NFC wake
+
+    // we always have NFC + NFC wake
     capabilities |= CAPABILITY_HAS_NFC;
     capabilities |= CAPABILITY_NFC_WAKE;
+
+    setupBatteryVoltage();
+    getVoltage();
+    setupTemperature();
+    getTemperature();
 
     printf("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
     printf("%02X%02X", mSelfMac[2], mSelfMac[3]);
@@ -223,8 +228,11 @@ void loop() {
     powerUp(INIT_UART);
     wdt10s();
     if (currentChannel) {
+#ifdef NO_BUTTONS
+        disablePinInterruptSleep = true;
+#endif
         // associated
-
+        
         struct AvailDataInfo *avail;
         // Is there any reason why we should do a long (full) get data request (including reason, status)?
         if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
@@ -304,6 +312,9 @@ void loop() {
             doSleep(getNextSleep() * 1000UL);
         }
     } else {
+#ifdef NO_BUTTONS
+        disablePinInterruptSleep = false;
+#endif
         // not associated
         if (((scanAttempts != 0) && (scanAttempts % VOLTAGEREADING_DURING_SCAN_INTERVAL == 0)) || (scanAttempts > (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS))) {
             powerUp(INIT_RADIO);  // load down the battery using the radio to get a good reading

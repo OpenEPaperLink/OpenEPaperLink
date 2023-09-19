@@ -6,6 +6,19 @@
 #include "syncedproto.h"
 #include "hal.h"
 
+// *****************************************************************************
+// when using HW SPI, this file requires the following to be present in the HAL
+// uint8_t eepromSPIByte(uint8_t data);
+// void eepromSPIBlockRead(uint8_t* dst, uint16_t len);
+// void eepromSPIBlockWrite(uint8_t* src, uint16_t len);
+
+#define EEPROM_USE_HW_SPI
+
+#ifdef EEPROM_USE_HW_SPI
+#define eepromByte eepromSPIByte
+#endif
+
+#ifndef EEPROM_USE_HW_SPI
 uint8_t eepromByte(uint8_t data) {
     uint8_t temp = 0;
     for (uint8_t i = 0; i < 8; i++) {
@@ -22,6 +35,7 @@ uint8_t eepromByte(uint8_t data) {
     }
     return temp;
 }
+#endif
 
 static uint32_t mEepromSize;
 static uint8_t mOpcodeErz4K = 0, mOpcodeErz32K = 0, mOpcodeErz64K = 0;
@@ -49,9 +63,12 @@ void eepromRead(uint32_t addr, void *dstP, uint16_t len) {
     eepromByte(addr >> 16);
     eepromByte(addr >> 8);
     eepromByte(addr & 0xff);
-
+#ifdef EEPROM_USE_HW_SPI
+    eepromSPIBlockRead(dst, len);
+#else
     while (len--)
         *dst++ = eepromByte(0);
+#endif
     eepromPrvDeselect();
 }
 
@@ -84,8 +101,12 @@ static bool eepromWriteLL(uint32_t addr, const void *srcP, uint16_t len) {
     eepromByte(addr >> 8);
     eepromByte(addr & 0xff);
 
+#ifdef EEPROM_USE_HW_SPI
+    eepromSPIBlockWrite((uint8_t *)src, len);
+#else
     while (len--)
         eepromByte(*src++);
+#endif
     eepromPrvDeselect();
 
     return eepromPrvBusyWait();

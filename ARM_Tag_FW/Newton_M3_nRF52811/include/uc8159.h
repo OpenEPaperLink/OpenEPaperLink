@@ -9,16 +9,15 @@
 #define EPD_LUT_FAST_NO_REDS  2
 #define EPD_LUT_FAST 3
 
-
 void epdSetup();
 void epdEnterSleep();
 
 
 void draw();
 void drawNoWait();
+
 void epdWaitRdy();
 
 void selectLUT(uint8_t lut);
-
 
 #endif

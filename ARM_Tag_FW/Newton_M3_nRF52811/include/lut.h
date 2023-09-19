@@ -1,19 +1,17 @@
 #pragma once
 #include <Arduino.h>
 
+#define LUTGROUP_NEGATIVE 0
+#define LUTGROUP_FASTBLINK 1
+#define LUTGROUP_SLOWBLINK 2
+#define LUTGROUP_SET 3
+#define LUTGROUP_IMPROVE_SHARPNESS 4
+#define LUTGROUP_IMPROVE_REDS 5
+#define LUTGROUP_UNUSED 6
 
-#define LUTGROUP_NEGATIVE           0
-#define LUTGROUP_FASTBLINK          1
-#define LUTGROUP_SLOWBLINK          2
-#define LUTGROUP_SET                3
-#define LUTGROUP_IMPROVE_SHARPNESS  4
-#define LUTGROUP_IMPROVE_REDS       5
-#define LUTGROUP_UNUSED             6
-
-#define LUTGROUP_UNKNOWN            7
-#define LUTGROUP_UNUSED3            8  
-#define LUTGROUP_UNUSED4            9
-
+#define LUTGROUP_UNKNOWN 7
+#define LUTGROUP_UNUSED3 8
+#define LUTGROUP_UNUSED4 9
 
 #pragma pack(1)
 struct vgroup {
@@ -29,12 +27,26 @@ struct lut {
 
 struct lut10 {
     struct vgroup group[10];
-} ;
+};
+
+struct lut12 {
+    struct vgroup group[12];
+};
 
 struct group {
     uint8_t phaselength[4];
     uint8_t repeat;
-} ;
+};
+
+struct group12 {
+    uint8_t tp0a;
+    uint8_t tp0b;
+    uint8_t sr0ab;
+    uint8_t tp0c;
+    uint8_t tp0d;
+    uint8_t sr0cd;
+    uint8_t repeat;
+};
 
 struct waveform {
     struct lut lut[5];
@@ -43,7 +55,7 @@ struct waveform {
     uint8_t sourcelevel[3];
     uint8_t dummyline;
     uint8_t gatewidth;
-} ;
+};
 
 struct waveform10 {
     struct lut10 lut[5];
@@ -52,5 +64,12 @@ struct waveform10 {
     uint8_t sourcelevel[3];
     uint8_t dummyline;
     uint8_t gatewidth;
-} ;
+};
+
+struct waveform12 {
+    struct lut12 lut[5];
+    struct group12 group[12];
+    uint8_t fr[6];
+    uint8_t xon[3];
+};
 #pragma pack(0)

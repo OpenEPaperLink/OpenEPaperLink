@@ -5,26 +5,26 @@
 #include "HAL_Newton_M3.h"
 
 
-
 // Mac fixed part
-// 7E22CC67B298 (B29)
-#define MAC_ID_0 0xBC
-#define MAC_ID_1 0x90
+// 062E4793B899 (B29)
+#define MAC_ID_0 0xB8
+#define MAC_ID_1 0x90  // FIX FOR THIS TYPE!!
+
 // AP mode definitions
 #define HAS_EEPROM 1
 #define HAS_SCREEN 1
 #define AP_EMULATE_TAG 1
 
 // hw type
-#define HW_TYPE SOLUM_M3_BWR_75
+#define HW_TYPE SOLUM_M3_BWR_60
 
-#include "../include/uc8179.h"
+#include "../include/uc8159.h"
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 480
+#define SCREEN_WIDTH 600    
+#define SCREEN_HEIGHT 448
 #define SCREEN_XOFFSET 0
 #define SCREEN_YOFFSET 0
 
-#define EEPROM_IMG_EACH (0x18000UL) // 800 * 480 * 2 / 8 = 0x17700
+#define EEPROM_IMG_EACH (0x11000UL)
 
 #endif

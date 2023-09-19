@@ -19,9 +19,6 @@ uint16_t nextCheckInFromAP = 0;
 uint8_t wakeUpReason = 0;
 uint8_t scanAttempts = 0;
 
-int8_t temperature = 0;
-uint16_t batteryVoltage = 0;
-bool lowBattery = false;
 uint16_t longDataReqCounter = 0;
 uint16_t voltageCheckCounter = 0;
 
@@ -37,17 +34,17 @@ uint8_t checkButtonOrJig() {
     return DETECT_P1_0_NOTHING;
 }
 
-void button1wake(){
+void button1wake() {
     wakeUpReason = WAKEUP_REASON_BUTTON1;
     resettimer();
 }
 
-void button2wake(){
+void button2wake() {
     wakeUpReason = WAKEUP_REASON_BUTTON2;
     resettimer();
 }
 
-void nfcwake(){
+void nfcwake() {
     wakeUpReason = WAKEUP_REASON_NFC;
     resettimer();
 }
@@ -64,11 +61,18 @@ void setupPortsInitial() {
     pinMode(NFC_POWER, INPUT_PULLDOWN);
     pinMode(NFC_IRQ, INPUT_PULLDOWN);
 
+    pinMode(EPD_POWER, DEFAULT);
+
     pinMode(FLASH_MISO, INPUT);
     pinMode(FLASH_CLK, OUTPUT);
     pinMode(FLASH_MOSI, OUTPUT);
     digitalWrite(FLASH_CS, HIGH);
     pinMode(FLASH_CS, OUTPUT);
+
+    // pinMode(EPD_VPP, OUTPUT);
+    // digitalWrite(EPD_VPP, HIGH);
+    // pinMode(EPD_HLT, OUTPUT);
+    // digitalWrite(EPD_HLT, HIGH);
 
     attachInterrupt(digitalPinToInterrupt(BUTTON1), button1wake, FALLING);
     attachInterrupt(digitalPinToInterrupt(BUTTON2), button2wake, FALLING);
@@ -86,19 +90,22 @@ static void configSPI(const bool setup) {
 }
 
 static void configUART(const bool setup) {
-    /* if (setup == uartActive)
-         return;
-     uartActive = setup;
-     if (setup)
-         Serial.begin(115200);
-     else
-         Serial.end();*/
+    return;
+    if (setup == uartActive)
+        return;
+    uartActive = setup;
+    if (setup) {
+        NRF_UART0->ENABLE = 4;
+    } else {
+        NRF_UART0->ENABLE = 0;
+    }
 }
 
 static void configEEPROM(const bool setup) {
     if (setup == eepromActive)
         return;
     if (setup) {
+        setupEepromHWSPI(true);
         if (!eepromInit()) {
             printf("Eeprom init error\r\n");
             powerDown(INIT_RADIO);
@@ -109,19 +116,20 @@ static void configEEPROM(const bool setup) {
             NVIC_SystemReset();
         }
     } else {
-        digitalWrite(FLASH_CS, HIGH);
+        setupEepromHWSPI(false);
     }
+    eepromActive = setup;
 }
 
 static void configI2C(const bool setup) {
     if (setup == i2cActive)
         return;
     if (setup) {
-        pinMode(NFC_I2C_SCL,OUTPUT);
-        pinMode(NFC_I2C_SDA,OUTPUT);
+        pinMode(NFC_I2C_SCL, OUTPUT);
+        pinMode(NFC_I2C_SDA, OUTPUT);
     } else {
-        pinMode(NFC_I2C_SDA,INPUT);
-        pinMode(NFC_I2C_SCL,INPUT);
+        pinMode(NFC_I2C_SDA, INPUT);
+        pinMode(NFC_I2C_SCL, INPUT);
     }
     i2cActive = setup;
 }
@@ -141,16 +149,12 @@ void powerUp(const uint8_t parts) {
     }
 
     if (parts & INIT_EPD_VOLTREADING) {
-        epdConfigGPIO(true);
-        configSPI(true);
-        batteryVoltage = epdGetBattery();
+        getVoltage();
         if (batteryVoltage < BATTERY_VOLTAGE_MINIMUM) {
             lowBattery = true;
         } else {
             lowBattery = false;
         }
-        configSPI(false);
-        epdConfigGPIO(false);
     }
 
     if (parts & INIT_UART) {
@@ -163,7 +167,7 @@ void powerUp(const uint8_t parts) {
     }
 
     if (parts & INIT_TEMPREADING) {
-        //temperature = nrf_temp_read();
+        getTemperature();
     }
 
     if (parts & INIT_RADIO) {
@@ -207,7 +211,7 @@ void powerDown(const uint8_t parts) {
 }
 
 void doSleep(const uint32_t t) {
-    printf("Sleeping for: %d ms\r\n", t);
+    printf("Sleeping for: %lu ms\r\n", t);
     sleepForMs(t);
 }
 

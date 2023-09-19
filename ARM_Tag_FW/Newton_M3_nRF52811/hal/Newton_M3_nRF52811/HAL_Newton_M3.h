@@ -1,9 +1,10 @@
 #include "zigbee.h"
 #include "epd_spi.h"
+#include "eeprom_spi.h"
 
-#define RADIO_FIRST_CHANNEL				(11)		//2.4-GHz channels start at 11
+#define RADIO_FIRST_CHANNEL (11)  // 2.4-GHz channels start at 11
 
-#define eepromByte spiByte
+// #define eepromByte spiByte ??
 #define eepromPrvSelect()            \
     do {                             \
         digitalWrite(FLASH_CS, LOW); \
@@ -28,6 +29,12 @@
 #define EPD_CLK 19
 #define EPD_MOSI 20
 
+// these are used by the UC8159 controller.
+// EPD_HLT is External (EPD)EEPROM _CS
+#define EPD_HLT 23
+// This is the EEPROM MISO pin (from SPI EEPROM to nRF)
+#define EPD_VPP 24
+
 #define NFC_I2C_SDA 8
 #define NFC_I2C_SCL 9
 #define NFC_POWER 10
@@ -47,10 +54,22 @@
 #define DBG_RXD 26
 #define DBG_TEST 27
 
+#define BATTERY_VOLTAGE_MINIMUM 2450  // 2600 or below is the best we can do on the EPD
+
 void initRTC0(uint32_t ms);
 int8_t startHFCLK(void);
 uint8_t isHFCLKstable(void);
 void boardGetOwnMac(uint8_t *mac);
 void sleepForMs(uint32_t ms);
-void setled(uint64_t parta,u_int32_t partb);
+void setled(uint64_t parta, u_int32_t partb);
 void resettimer();
+
+extern uint16_t batteryVoltage;
+extern bool lowBattery;
+extern int8_t temperature;
+extern bool disablePinInterruptSleep;
+
+void setupBatteryVoltage();
+void getVoltage();
+void setupTemperature();
+void getTemperature();

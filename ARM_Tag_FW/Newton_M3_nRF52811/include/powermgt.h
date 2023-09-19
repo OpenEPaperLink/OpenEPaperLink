@@ -44,9 +44,8 @@
 #define MAXIMUM_PING_ATTEMPTS 20      // How many attempts to discover an AP the tag should do
 #define PING_REPLY_WINDOW 5UL
 
-#define LONG_DATAREQ_INTERVAL 300     // How often (in seconds, approximately) the tag should do a long datareq (including temperature)
-#define VOLTAGE_CHECK_INTERVAL 288    // How often the tag should do a battery voltage check (multiplied by LONG_DATAREQ_INTERVAL)
-#define BATTERY_VOLTAGE_MINIMUM 2450  // 2600 or below is the best we can do on the EPD
+#define LONG_DATAREQ_INTERVAL 300   // How often (in seconds, approximately) the tag should do a long datareq (including temperature)
+#define VOLTAGE_CHECK_INTERVAL 288  // How often the tag should do a battery voltage check (multiplied by LONG_DATAREQ_INTERVAL)
 
 // power saving when no AP's were found (scanning every X)
 #define VOLTAGEREADING_DURING_SCAN_INTERVAL 2  // how often we should read voltages; this is done every scan attempt in interval bracket 3
@@ -64,7 +63,7 @@ extern void powerUp(const uint8_t parts);
 extern void powerDown(const uint8_t parts);
 
 extern void initAfterWake();
-extern void doSleep(const uint32_t  t);
+extern void doSleep(const uint32_t t);
 
 extern void addAverageValue();
 extern uint16_t getNextSleep();
@@ -72,17 +71,14 @@ extern uint16_t getNextSleep();
 extern uint32_t getNextScanSleep(const bool increment);
 extern void initPowerSaving(const uint16_t initialValue);
 
-extern uint8_t  wakeUpReason;
+extern uint8_t wakeUpReason;
 
-extern uint8_t  capabilities;
+extern uint8_t capabilities;
 
-extern uint16_t  nextCheckInFromAP;
-extern uint8_t  dataReqLastAttempt;
-extern int8_t  temperature;
-extern uint16_t  batteryVoltage;
-extern bool  lowBattery;
-extern uint8_t  scanAttempts;
-extern uint16_t  longDataReqCounter;
-extern uint16_t  voltageCheckCounter;
+extern uint16_t nextCheckInFromAP;
+extern uint8_t dataReqLastAttempt;
+extern uint8_t scanAttempts;
+extern uint16_t longDataReqCounter;
+extern uint16_t voltageCheckCounter;
 
 #endif

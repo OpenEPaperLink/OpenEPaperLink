@@ -22,6 +22,8 @@ struct fwmetadata {
     uint32_t magic2;
 };
 
+#define EEPROM_SETTINGS_SIZE 4096
+
 // download-stuff
 uint8_t blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
 static struct blockRequest curBlock = {0};      // used by the block-requester, contains the next request that we'll send
@@ -434,13 +436,13 @@ static bool validateEepromMD5(uint64_t ver, uint32_t eepromstart, uint32_t flen)
     return isValid;
 }
 static uint32_t getAddressForSlot(const uint8_t s) {
-    return EEPROM_IMG_START + (EEPROM_IMG_EACH * s);
+    return (EEPROM_IMG_EACH * s);
 }
 static void getNumSlots() {
     uint32_t eeSize = eepromGetSize();
 
-    uint16_t nSlots = (eeSize - EEPROM_IMG_START) / (EEPROM_IMG_EACH >> 8) >> 8;
-    if (eeSize < EEPROM_IMG_START || !nSlots) {
+    uint16_t nSlots = (eeSize - EEPROM_SETTINGS_SIZE) / (EEPROM_IMG_EACH >> 8) >> 8;
+    if (!nSlots) {
         printf("eeprom is too small\n");
         while (1)
             ;

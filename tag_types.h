@@ -12,6 +12,9 @@
 #define SOLUM_M2_BWR_42 0x24
 #define SOLUM_M2_BWR_75 0x26
 
+// this one didn't fit in the 0x3_-range anymore... 
+#define SOLUM_M3_BWR_43 0x2F
+
 #define SOLUM_M3_BWR_16 0x30
 #define SOLUM_M3_BWY_16 0x38
 #define SOLUM_M3_BWR_22 0x31
