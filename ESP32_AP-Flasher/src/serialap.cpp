@@ -597,7 +597,6 @@ void rxSerialTask2(void* parameter) {
 
         time_t currentTime = millis();
         if (currentTime - startTime >= 2000) {
-            Serial.println("rx2: " + String(charCount));
             if (charCount > 2000) {
                 rxSerialStopTask2 = true;
                 Serial.println("Serial monitor stopped because of flooding");
