@@ -584,13 +584,27 @@ void rxSerialTask(void* parameter) {
 #ifdef FLASHER_DEBUG_RXD
 void rxSerialTask2(void* parameter) {
     char lastchar = 0;
+    time_t startTime = millis();
+    int charCount = 0;
     Serial2.begin(115200, SERIAL_8N1, FLASHER_DEBUG_TXD, FLASHER_DEBUG_RXD);
     while (rxSerialStopTask2 == false) {
         while (Serial2.available()) {
             lastchar = Serial2.read();
+            charCount++;
             Serial.write(lastchar);
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
+
+        time_t currentTime = millis();
+        if (currentTime - startTime >= 2000) {
+            Serial.println("rx2: " + String(charCount));
+            if (charCount > 2000) {
+                rxSerialStopTask2 = true;
+                Serial.println("Serial monitor stopped because of flooding");
+            }
+            startTime = currentTime;
+            charCount = 0;
+        }
     }
     Serial2.end();
     Serial.println("Exiting AP serial monitor");

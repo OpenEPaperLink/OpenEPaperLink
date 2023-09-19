@@ -1,4 +1,7 @@
 #include <Arduino.h>
+#include <ArduinoJson.h>
+#include <FS.h>
+#include <HTTPClient.h>
 #include <esp_loader.h>
 
 #include "esp32_port.h"
@@ -38,7 +41,7 @@ esp_loader_error_t connect_to_target(uint32_t higher_transmission_rate) {
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-esp_loader_error_t flash_binary(const char *file_path, size_t address) {
+esp_loader_error_t flash_binary(String &file_path, size_t address) {
     esp_loader_error_t err;
 
     wsSerial("Flashing " + String(file_path));
@@ -114,72 +117,120 @@ esp_loader_error_t flash_binary(const char *file_path, size_t address) {
     return ESP_LOADER_SUCCESS;
 }
 
-bool doC6flash() {
-    const loader_esp32_config_t config = {
-        .baud_rate = 115200,
-        .uart_port = 2,
-        .uart_rx_pin = FLASHER_DEBUG_TXD,
-        .uart_tx_pin = FLASHER_DEBUG_RXD,
-        .reset_trigger_pin = FLASHER_AP_RESET,
-        .gpio0_trigger_pin = FLASHER_DEBUG_PROG,
-    };
+bool downloadAndWriteBinary(String &filename, const char *url) {
+    HTTPClient binaryHttp;
+    Serial.println(url);
+    binaryHttp.begin(url);
 
-    if (loader_port_esp32_init(&config) != ESP_LOADER_SUCCESS) {
-        wsSerial("Serial initialization failed");
-        loader_port_esp32_deinit();
-        return false;
-    }
-
-    if (connect_to_target(230400) == ESP_LOADER_SUCCESS) {
-        if (esp_loader_get_target() == ESP32C6_CHIP) {
-            wsSerial("Connected to ESP32-C6");
-            int maxRetries = 5;
-            esp_loader_error_t err;
-
-            for (int retry = 0; retry < maxRetries; retry++) {
-                err = flash_binary("/bootloader.bin", 0x0);
-                if (err == ESP_LOADER_SUCCESS) break;
-                Serial.printf("Flash failed with error %d. Retrying...\n", err);
-                delay(1000);
+    int binaryResponseCode = binaryHttp.GET();
+    Serial.println(binaryResponseCode);
+    if (binaryResponseCode == HTTP_CODE_OK) {
+        File file = contentFS->open(filename, "wb");
+        if (file) {
+            wsSerial("downloading " + String(filename));
+            WiFiClient *stream = binaryHttp.getStreamPtr();
+            uint8_t buffer[128];
+            while (stream->available()) {
+                size_t bytesRead = stream->readBytes(buffer, sizeof(buffer));
+                file.write(buffer, bytesRead);
             }
-            if (err != ESP_LOADER_SUCCESS) {
-                loader_port_esp32_deinit();
-                return false;
-            }
-
-            for (int retry = 0; retry < maxRetries; retry++) {
-                err = flash_binary("/partition-table.bin", 0x8000);
-                if (err == ESP_LOADER_SUCCESS) break;
-                Serial.printf("Flash failed with error %d. Retrying...\n", err);
-                delay(1000);
-            }
-            if (err != ESP_LOADER_SUCCESS) {
-                loader_port_esp32_deinit();
-                return false;
-            }
-
-            for (int retry = 0; retry < maxRetries; retry++) {
-                err = flash_binary("/OpenEPaperLink_esp32_C6.bin", 0x10000);
-                if (err == ESP_LOADER_SUCCESS) break;
-                Serial.printf("Flash failed with error %d. Retrying...\n", err);
-                delay(1000);
-            }
-            if (err != ESP_LOADER_SUCCESS) {
-                loader_port_esp32_deinit();
-                return false;
-            }
-
-            Serial.println("Done!");
+            file.close();
+            binaryHttp.end();
+            return true;
         } else {
-            wsSerial("Connected to wrong ESP32 type");
+            wsSerial("file open error " + String(filename));
+        }
+    } else {
+        wsSerial("http error " + String(binaryResponseCode) + " fetching " + String(url));
+    }
+    binaryHttp.end();
+    return false;
+}
+
+bool doC6flash(uint8_t doDownload) {
+    const char *githubUrl = "https://raw.githubusercontent.com/jjwbruijn/OpenEPaperLink/master/binaries/ESP32-C6/firmware.json";
+
+    HTTPClient http;
+    Serial.println(githubUrl);
+    http.begin(githubUrl);
+    http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+    int httpResponseCode = http.GET();
+    Serial.println(httpResponseCode);
+    if (httpResponseCode == HTTP_CODE_OK) {
+        DynamicJsonDocument jsonDoc(1024);
+        DeserializationError jsonError = deserializeJson(jsonDoc, http.getStream());
+        http.end();
+
+        if (!jsonError) {
+            if (doDownload) {
+                JsonArray jsonArray = jsonDoc.as<JsonArray>();
+                for (JsonObject obj : jsonArray) {
+                    String filename = "/" + obj["filename"].as<String>();
+                    String binaryUrl = "https://raw.githubusercontent.com/jjwbruijn/OpenEPaperLink/master/binaries/ESP32-C6" + String(filename);
+                    if (!downloadAndWriteBinary(filename, binaryUrl.c_str())) {
+                        return false;
+                    }
+                }
+            }
+        } else {
+            wsSerial("json error fetching " + String(githubUrl));
+            return false;
+        }
+
+        const loader_esp32_config_t config = {
+            .baud_rate = 115200,
+            .uart_port = 2,
+            .uart_rx_pin = FLASHER_DEBUG_TXD,
+            .uart_tx_pin = FLASHER_DEBUG_RXD,
+            .reset_trigger_pin = FLASHER_AP_RESET,
+            .gpio0_trigger_pin = FLASHER_DEBUG_PROG,
+        };
+
+        if (loader_port_esp32_init(&config) != ESP_LOADER_SUCCESS) {
+            wsSerial("Serial initialization failed");
             loader_port_esp32_deinit();
             return false;
         }
-    } else {
-        wsSerial("Connection failed");
+
+        if (connect_to_target(115200) == ESP_LOADER_SUCCESS) {
+            if (esp_loader_get_target() == ESP32C6_CHIP) {
+                wsSerial("Connected to ESP32-C6");
+                int maxRetries = 5;
+                esp_loader_error_t err;
+
+                JsonArray jsonArray = jsonDoc.as<JsonArray>();
+                for (JsonObject obj : jsonArray) {
+                    String filename = "/" + obj["filename"].as<String>();
+                    const char *addressStr = obj["address"];
+                    uint32_t address = strtoul(addressStr, NULL, 16);
+
+                    for (int retry = 0; retry < maxRetries; retry++) {
+                        err = flash_binary(filename, address);
+                        if (err == ESP_LOADER_SUCCESS) break;
+                        Serial.printf("Flash failed with error %d. Retrying...\n", err);
+                        delay(1000);
+                    }
+                    if (err != ESP_LOADER_SUCCESS) {
+                        loader_port_esp32_deinit();
+                        return false;
+                    }
+                }
+
+                Serial.println("Done!");
+            } else {
+                wsSerial("Connected to wrong ESP32 type");
+                loader_port_esp32_deinit();
+                return false;
+            }
+        } else {
+            wsSerial("Connection failed");
+            loader_port_esp32_deinit();
+            return false;
+        }
         loader_port_esp32_deinit();
+    } else {
+        wsSerial("http error " + String(httpResponseCode) + " fetching " + String(githubUrl));
         return false;
     }
-    loader_port_esp32_deinit();
     return true;
 }

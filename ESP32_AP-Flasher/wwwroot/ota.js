@@ -98,8 +98,9 @@ export async function initUpdate() {
             tableHeader.innerHTML = '<th>Release</th><th>Date</th><th>Name</th><th colspan="2">Update:</th><th>Remark</th>';
             table.appendChild(tableHeader);
 
+            let rowCounter = 0;
             releaseDetails.forEach(release => {
-                if (release?.html_url) {
+                if (rowCounter < 3 && release?.html_url) {
                     const tableRow = document.createElement('tr');
                     let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td><button onclick="otamodule.updateESP('${release.bin_url}', true)">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td>`;
                     if (release.tag_name == currentVer) {
@@ -111,6 +112,7 @@ export async function initUpdate() {
                     }
                     tableRow.innerHTML = tablerow;
                     table.appendChild(tableRow);
+                    rowCounter++;
                 }
             });
 
@@ -346,9 +348,13 @@ $('#updateC6Btn').onclick = function () {
 
     print("Flashing ESP32-C6...");
 
+    const isChecked = $('#c6download').checked;
+    const formData = new FormData();
+    formData.append('download', isChecked ? '1' : '0'); // Convert to '1' or '0'
+
     fetch("/update_c6", {
         method: "POST",
-        body: ''
+        body: formData
     })
 
     running = false;

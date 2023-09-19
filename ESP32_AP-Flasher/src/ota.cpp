@@ -237,6 +237,7 @@ void handleRollback(AsyncWebServerRequest* request) {
 }
 
 void C6firmwareUpdateTask(void* parameter) {
+    uint8_t doDownload = *((uint8_t*)parameter);
     wsSerial("Stopping AP service");
 
     apInfo.isOnline = false;
@@ -249,7 +250,7 @@ void C6firmwareUpdateTask(void* parameter) {
 
     wsSerial("C6 flash starting");
 
-    bool result = doC6flash();
+    bool result = doC6flash(doDownload);
 
     wsSerial("C6 flash end");
 
@@ -283,7 +284,11 @@ void C6firmwareUpdateTask(void* parameter) {
 
 void handleUpdateC6(AsyncWebServerRequest* request) {
 #ifdef YELLOW_IPS_AP
-    xTaskCreate(C6firmwareUpdateTask, "OTAUpdateTask", 6144, NULL, 10, NULL);
+    uint8_t doDownload = 1;
+    if (request->hasParam("download", true)) {
+        doDownload = atoi(request->getParam("download", true)->value().c_str());
+    }
+    xTaskCreate(C6firmwareUpdateTask, "OTAUpdateTask", 6144, &doDownload, 10, NULL);
     request->send(200, "Ok");
 #else
     request->send(400, "C6 flashing not implemented");
