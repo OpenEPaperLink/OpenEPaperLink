@@ -50,6 +50,7 @@ export async function initUpdate() {
                 currentVer = data.buildversion;
                 currentBuildtime = data.buildtime;
                 if (data.rollback) $("#rollbackOption").style.display = 'block';
+                if (data.env == 'ESP32_S3_16_8_YELLOW_AP') $("#c6Option").style.display = 'block';
             }
         })
         .catch(error => {

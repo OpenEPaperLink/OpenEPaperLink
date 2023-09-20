@@ -571,6 +571,10 @@ ul.messages li.new {
 	background-color: #a0a0a0;
 }
 
+#c6Option {
+	display: none;
+}
+
 .console {
 	width: 100%;
 	background-color: black;

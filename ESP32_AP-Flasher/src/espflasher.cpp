@@ -121,7 +121,7 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
     HTTPClient binaryHttp;
     Serial.println(url);
     binaryHttp.begin(url);
-
+    binaryHttp.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
     int binaryResponseCode = binaryHttp.GET();
     Serial.println(binaryResponseCode);
     if (binaryResponseCode == HTTP_CODE_OK) {
@@ -129,14 +129,26 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
         if (file) {
             wsSerial("downloading " + String(filename));
             WiFiClient *stream = binaryHttp.getStreamPtr();
-            uint8_t buffer[128];
+            uint8_t buffer[256];
+            size_t totalBytesRead = 0;
             while (stream->available()) {
                 size_t bytesRead = stream->readBytes(buffer, sizeof(buffer));
                 file.write(buffer, bytesRead);
+                totalBytesRead += bytesRead;
+                vTaskDelay(1 / portTICK_PERIOD_MS);
             }
             file.close();
             binaryHttp.end();
-            return true;
+
+            file = contentFS->open(filename, "r");
+            if (file) {
+                if (totalBytesRead == file.size() && file.size() > 0) {
+                    file.close();
+                    return true;
+                }
+                wsSerial("Download failed, " + String(file.size()) + " bytes");
+                file.close();
+            }
         } else {
             wsSerial("file open error " + String(filename));
         }
@@ -167,8 +179,16 @@ bool doC6flash(uint8_t doDownload) {
                 for (JsonObject obj : jsonArray) {
                     String filename = "/" + obj["filename"].as<String>();
                     String binaryUrl = "https://raw.githubusercontent.com/jjwbruijn/OpenEPaperLink/master/binaries/ESP32-C6" + String(filename);
-                    if (!downloadAndWriteBinary(filename, binaryUrl.c_str())) {
-                        return false;
+                    for (int retry = 0; retry < 10; retry++) {
+                        if (downloadAndWriteBinary(filename, binaryUrl.c_str())) {
+                            break;
+                        }
+                        wsSerial("Retry " + String(retry));
+                        if (retry < 9) {
+                            delay(1000);
+                        } else {
+                            return false;
+                        }
                     }
                 }
             }

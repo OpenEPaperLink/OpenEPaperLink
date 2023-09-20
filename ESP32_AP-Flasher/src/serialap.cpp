@@ -596,10 +596,10 @@ void rxSerialTask2(void* parameter) {
         vTaskDelay(1 / portTICK_PERIOD_MS);
 
         time_t currentTime = millis();
-        if (currentTime - startTime >= 2000) {
-            if (charCount > 2000) {
+        if (currentTime - startTime >= 1000) {
+            if (charCount > 6000) {
                 rxSerialStopTask2 = true;
-                Serial.println("Serial monitor stopped because of flooding");
+                Serial.println("Serial monitor stopped because of flooding (" + String(charCount) + " characters per second");
             }
             startTime = currentTime;
             charCount = 0;
