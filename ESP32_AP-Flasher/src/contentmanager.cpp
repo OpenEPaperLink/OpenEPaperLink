@@ -148,9 +148,24 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     memset(&wifimac[6], 0, 2);
 
     const bool isAp = memcmp(mac, wifimac, 8) == 0;
-    if ((taginfo->wakeupReason == WAKEUP_REASON_FIRSTBOOT || taginfo->wakeupReason == WAKEUP_REASON_WDT_RESET) && taginfo->contentMode == 0 && isAp) {
-        taginfo->contentMode = 21;
-        taginfo->nextupdate = 0;
+    if ((taginfo->wakeupReason == WAKEUP_REASON_FIRSTBOOT || taginfo->wakeupReason == WAKEUP_REASON_WDT_RESET) && taginfo->contentMode == 0) {
+        if (isAp) {
+            taginfo->contentMode = 21;
+            taginfo->nextupdate = 0;
+        } else if (contentFS->exists("/tag_defaults.json")) {
+            StaticJsonDocument<3000> doc;
+            fs::File tagDefaults = contentFS->open("/tag_defaults.json", "r");
+            DeserializationError err = deserializeJson(doc, tagDefaults);
+            if (!err) {
+                if (doc.containsKey("contentMode")) {
+                    taginfo->contentMode = doc["contentMode"];
+                }
+                if (doc.containsKey("modecfgjson")) {
+                    taginfo->modeConfigJson = doc["modecfgjson"].as<String>();
+                }
+            }
+            tagDefaults.close();
+        }
     }
 
     char hexmac[17];
