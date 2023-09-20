@@ -75,10 +75,9 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
 
     const auto it = parsers.find(id);
     if (it == parsers.end()) {
-        sprintf(buffer, "Error: No parser with id %d found(%d)\n", id, parsers.size());
-        wsLog((String)buffer);
-
-        Serial.printf("Error: No parser with id %d found\n", id);
+        const String log = util::formatString<64>(buffer, "Error: No parser with id %d found(%d)", id, parsers.size());
+        wsErr(log);
+        Serial.println(log);
         return;
     }
 
@@ -90,10 +89,9 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
         const uint8_t length = field.length;
 
         if (offset + length > len) {
-            sprintf(buffer, "Error: Not enough data for field %s", name.c_str());
-            wsLog((String)buffer);
-
-            Serial.printf("Error: Not enough data for field %s\n", name.c_str());
+            const String log = util::formatString<64>(buffer, "Error: Not enough data for field %s", name.c_str());
+            wsErr(log);
+            Serial.println(log);
             return;
         }
 
@@ -118,9 +116,9 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
                 } else if (length == 8) {
                     value = String(bytesTo<double>(fieldData, length) * mult, (unsigned int)field.decimals);
                 } else {
-                    sprintf(buffer, "Error: Float can only be 4 or 8 bytes long");
-                    wsLog((String)buffer);
-                    Serial.printf("Error: Float can only be 4 or 8 bytes long\n");
+                    const String log = "Error: Float can only be 4 or 8 bytes long";
+                    wsErr(log);
+                    Serial.println(log);
                 }
             } break;
             case Type::STRING: {
@@ -128,24 +126,21 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
             } break;
 
             default:
-                sprintf(buffer, "Error: Type %d not implemented", type);
-                wsLog((String)buffer);
-                Serial.printf("Error: Type %d not implemented\n", type);
+                const String log = util::formatString<64>(buffer, "Error: Type %d not implemented", static_cast<uint8_t>(type));
+                wsErr(log);
+                Serial.println(log);
                 break;
         }
 
         if (value.isEmpty()) {
-            sprintf(buffer, "Error: Empty value for field %s", name.c_str());
-            wsLog((String)buffer);
-            Serial.printf("Error: Empty value for field %s\n", name.c_str());
+            const String log = util::formatString<64>(buffer, "Error: Empty value for field %s", name.c_str());
+            wsErr(log);
+            Serial.println(log);
             continue;
         }
 
         const std::string varName = (mac + name).c_str();
         setVarDB(varName, value);
-
-        sprintf(buffer, "Set %s to %s", varName.c_str(), value.c_str());
-        wsLog((String)buffer);
         Serial.printf("Set %s to %s\n", varName.c_str(), value.c_str());
     }
 }
