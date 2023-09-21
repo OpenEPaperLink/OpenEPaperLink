@@ -538,12 +538,13 @@ $('#apcfgsave').onclick = function () {
 		body: formData
 	})
 		.then(response => response.text())
-		.then(data => showMessage(data))
+		.then(data => {
+			showMessage(data);
+			window.dispatchEvent(loadConfig);
+		})
 		.catch(error => showMessage('Error: ' + error));
 	
 	$('#apconfigbox').style.display = 'none';
-
-	window.dispatchEvent(loadConfig);
 }
 
 $('#updatebutton').onclick = function () {
