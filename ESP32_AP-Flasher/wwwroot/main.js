@@ -11,6 +11,7 @@ const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
 const WAKEUP_REASON_WDT_RESET = 0xFE;
 
 let tagTypes = {};
+let apConfig = {};
 
 const apstate = [
 	{ state: "offline", color: "red" },
@@ -38,6 +39,19 @@ let socket;
 let finishedInitialLoading = false;
 let getTagtypeBusy = false;
 
+const loadConfig = new Event("loadConfig");
+window.addEventListener("loadConfig", function() {
+	fetch("/get_ap_config")
+		.then(response => response.json())
+		.then(data => {
+			apConfig = data;
+			if (data.alias) {
+				$(".logo").innerHTML = data.alias;
+				this.document.title = data.alias;
+			}
+		});
+});
+
 window.addEventListener("load", function () {
 	fetch('/content_cards.json')
 		.then(response => response.json())
@@ -51,14 +65,8 @@ window.addEventListener("load", function () {
 			console.error('Error:', error);
 			alert("I can't load /www/content_cards.json.\r\nHave you upload it to the data partition?");
 		});
-	fetch("/get_ap_config")
-		.then(response => response.json())
-		.then(data => {
-			if (data.alias) {
-				$(".logo").innerHTML = data.alias;
-				this.document.title = data.alias;
-			}
-		});
+
+	this.window.dispatchEvent(loadConfig);
 	dropUpload();
 	populateTimes($('#apcnight1'));
 	populateTimes($('#apcnight2'));
@@ -207,13 +215,12 @@ function processTags(tagArray) {
 			$('#tag' + tagmac + ' .received').style.opacity = "0";
 		}
 
-		if (element.contentMode == 20) {
-			$('#tag' + tagmac + ' .tagimg').style.display = 'none';
+		if (!apConfig.preview || element.contentMode == 20 || (element.isexternal && element.contentMode == 12)) {
+			$('#tag' + tagmac + ' .tagimg').style.display = 'none'
 		} else if (div.dataset.hash != element.hash && div.dataset.hwtype > -1 && (!element.isexternal || element.contentMode != 12)) {
 			loadImage(tagmac, '/current/' + tagmac + '.raw?' + element.hash);
 			div.dataset.hash = element.hash;
 		}
-		if (element.isexternal && element.contentMode == 12) $('#tag' + tagmac + ' .tagimg').style.display = 'none';
 
 		if (element.nextupdate > 1672531200 && element.nextupdate != 3216153600) {
 			const date = new Date(element.nextupdate * 1000);
@@ -494,6 +501,7 @@ $('#apconfigbutton').onclick = function () {
 	fetch("/get_ap_config")
 		.then(response => response.json())
 		.then(data => {
+			apConfig = data;
 			$('#apcfgalias').value = data.alias;
 			$('#apcfgchid').value = data.channel;
 			$("#apcfgledbrightness").value = data.led;
@@ -522,6 +530,7 @@ $('#apcfgsave').onclick = function () {
 	formData.append('timezone', $('#apctimezone').value);
 	formData.append('sleeptime1', $('#apcnight1').value);
 	formData.append('sleeptime2', $('#apcnight2').value);
+
 	fetch("/save_apcfg", {
 		method: "POST",
 		body: formData
@@ -529,8 +538,10 @@ $('#apcfgsave').onclick = function () {
 		.then(response => response.text())
 		.then(data => showMessage(data))
 		.catch(error => showMessage('Error: ' + error));
-	$(".logo").innerHTML = $('#apcfgalias').value;
+	
 	$('#apconfigbox').style.display = 'none';
+
+	this.window.dispatchEvent(loadConfig);
 }
 
 $('#updatebutton').onclick = function () {
