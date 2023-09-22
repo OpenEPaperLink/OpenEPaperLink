@@ -146,7 +146,6 @@ void setup() {
 #endif
     loadDB("/current/tagDB.json");
     cleanupCurrent();
-    // tagDBOwner = xSemaphoreCreateMutex();
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
     xTaskCreate(networkProcess, "Wifi", 6000, NULL, configMAX_PRIORITIES - 10, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -158,7 +157,7 @@ void setup() {
         config.runStatus = RUNSTATUS_PAUSE;
     }
 
-    xTaskCreate(timeTask, "timed tasks", 12000, NULL, 2, NULL);
+    xTaskCreate(timeTask, "timed tasks", 14000, NULL, 2, NULL);
     xTaskCreate(initTime, "init time", 5000, NULL, 2, NULL);
     xTaskCreate(delayedStart, "delaystart", 2000, NULL, 2, NULL);
 }

@@ -271,11 +271,13 @@ bool flasher::backupFlash() {
     getFirmwareMD5();
     if (!zbs->select_flash(0)) return false;
     md5char[16] = 0x00;
+    xSemaphoreTake(fsMutex, portMAX_DELAY);
     fs::File backup = contentFS->open("/" + (String)md5char + "_backup.bin", "w", true);
     for (uint32_t c = 0; c < 65535; c++) {
         backup.write(zbs->read_flash(c));
     }
     backup.close();
+    xSemaphoreGive(fsMutex);
     return true;
 }
 

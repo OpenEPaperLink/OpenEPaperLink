@@ -125,6 +125,7 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
     int binaryResponseCode = binaryHttp.GET();
     Serial.println(binaryResponseCode);
     if (binaryResponseCode == HTTP_CODE_OK) {
+        xSemaphoreTake(fsMutex, portMAX_DELAY);
         File file = contentFS->open(filename, "wb");
         if (file) {
             wsSerial("downloading " + String(filename));
@@ -138,6 +139,7 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
                 vTaskDelay(1 / portTICK_PERIOD_MS);
             }
             file.close();
+            xSemaphoreGive(fsMutex);
             binaryHttp.end();
 
             file = contentFS->open(filename, "r");
@@ -150,6 +152,7 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
                 file.close();
             }
         } else {
+            xSemaphoreGive(fsMutex);
             wsSerial("file open error " + String(filename));
         }
     } else {

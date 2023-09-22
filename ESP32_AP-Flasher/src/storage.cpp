@@ -10,6 +10,8 @@
 
 DynStorage::DynStorage() : isInited(0) {}
 
+SemaphoreHandle_t fsMutex;
+
 static void initLittleFS() {
     LittleFS.begin();
     contentFS = &LittleFS;
@@ -86,12 +88,15 @@ void copyBetweenFS(FS& sourceFS, const char* source_path, FS& targetFS) {
 
                 copyBetweenFS(sourceFS, file.path(), targetFS);
             } else {
+                xSemaphoreTake(fsMutex, portMAX_DELAY);
                 File target = contentFS->open(file.path(), "w");
                 if (target) {
                     copyFile(file, target);
                     target.close();
                     file.close();
+                    xSemaphoreGive(fsMutex);
                 } else {
+                    xSemaphoreGive(fsMutex);
                     Serial.print("Couldn't create high target file");
                     Serial.println(file.path());
                     return;
@@ -100,10 +105,14 @@ void copyBetweenFS(FS& sourceFS, const char* source_path, FS& targetFS) {
             file = root.openNextFile();
         }
     } else {
+        xSemaphoreTake(fsMutex, portMAX_DELAY);
         File target = contentFS->open(root.path(), "w");
         if (target) {
             copyFile(root, target);
+            target.close();
+            xSemaphoreGive(fsMutex);
         } else {
+            xSemaphoreGive(fsMutex);
             Serial.print("Couldn't create target file ");
             Serial.println(root.path());
             return;
@@ -120,6 +129,7 @@ void copyIfNeeded(const char* path) {
 #endif
 
 void DynStorage::begin() {
+    fsMutex = xSemaphoreCreateMutex();
     initLittleFS();
 
 #ifdef HAS_SDCARD

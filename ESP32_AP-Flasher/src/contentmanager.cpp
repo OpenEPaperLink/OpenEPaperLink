@@ -857,11 +857,15 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
     http.setTimeout(5000);  // timeout in ms
     const int httpCode = http.GET();
     if (httpCode == 200) {
+        xSemaphoreTake(fsMutex, portMAX_DELAY);
         File f = contentFS->open("/temp/temp.jpg", "w");
         if (f) {
             http.writeToStream(&f);
             f.close();
+            xSemaphoreGive(fsMutex);
             jpg2buffer("/temp/temp.jpg", filename, imageParams);
+        } else {
+            xSemaphoreGive(fsMutex);
         }
     } else {
         if (httpCode != 304) {

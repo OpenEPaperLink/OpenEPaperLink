@@ -217,6 +217,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     }
 #endif
 
+    xSemaphoreTake(fsMutex, portMAX_DELAY);
     fs::File f_out = contentFS->open(fileout, "w");
 
     switch (imageParams.bpp) {
@@ -232,6 +233,8 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
             if (!buffer) {
                 Serial.println("Failed to allocate buffer");
                 util::printLargestFreeBlock();
+                f_out.close();
+                xSemaphoreGive(fsMutex);
                 return;
             }
             spr2color(spr, imageParams, buffer, buffer_size, false);
@@ -251,5 +254,6 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     }
 
     f_out.close();
+    xSemaphoreGive(fsMutex);
     Serial.println("finished writing buffer " + String(millis() - t) + "ms");
 }

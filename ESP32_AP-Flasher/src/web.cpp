@@ -611,6 +611,7 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
         } else {
             filename = "unknown.jpg";
         }
+        xSemaphoreTake(fsMutex, portMAX_DELAY);
         request->_tempFile = contentFS->open("/" + filename, "w");
     }
     if (len) {
@@ -618,6 +619,7 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
     }
     if (final) {
         request->_tempFile.close();
+        xSemaphoreGive(fsMutex);
         if (request->hasParam("mac", true)) {
             String dst = request->getParam("mac", true)->value();
             uint8_t mac[8];
@@ -656,13 +658,16 @@ void doJsonUpload(AsyncWebServerRequest *request) {
         String dst = request->getParam("mac", true)->value();
         uint8_t mac[8];
         if (hex2mac(dst, mac)) {
+            xSemaphoreTake(fsMutex, portMAX_DELAY);
             File file = LittleFS.open("/current/" + dst + ".json", "w");
             if (!file) {
                 request->send(400, "text/plain", "Failed to create file");
+                xSemaphoreGive(fsMutex);
                 return;
             }
             file.print(request->getParam("json", true)->value());
             file.close();
+            xSemaphoreGive(fsMutex);
             tagRecord *taginfo = tagRecord::findByMAC(mac);
             if (taginfo != nullptr) {
                 uint32_t ttl = 0;

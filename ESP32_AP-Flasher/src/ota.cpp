@@ -94,6 +94,7 @@ void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_
         } else {
             path = request->getParam("path", true)->value();
             Serial.println("update " + path);
+            xSemaphoreTake(fsMutex, portMAX_DELAY);
             request->_tempFile = contentFS->open(path, "w", true);
         }
     }
@@ -105,6 +106,7 @@ void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_
     }
     if (final) {
         request->_tempFile.close();
+        xSemaphoreGive(fsMutex);
         if (error) {
             request->send(507, "text/plain", "Error. Disk full?");
         } else {
@@ -155,7 +157,6 @@ void updateFirmware(const char* url, const char* expectedMd5, const size_t size)
 
     config.runStatus = RUNSTATUS_STOP;
     vTaskDelay(3000 / portTICK_PERIOD_MS);
-    // xSemaphoreTake(tagDBOwner, portMAX_DELAY);
     saveDB("/current/tagDB.json");
     // destroyDB();
 
@@ -213,7 +214,6 @@ void updateFirmware(const char* url, const char* expectedMd5, const size_t size)
     httpClient.end();
     // loadDB("/current/tagDB.json");
     config.runStatus = RUNSTATUS_RUN;
-    // xSemaphoreGive(tagDBOwner);
 }
 
 void handleRollback(AsyncWebServerRequest* request) {

@@ -85,7 +85,6 @@ struct varStruct {
     bool changed;
 };
 
-// extern SemaphoreHandle_t tagDBOwner;
 extern Config config;
 extern std::vector<tagRecord*> tagDB;
 extern std::unordered_map<int, HwType> hwtype;

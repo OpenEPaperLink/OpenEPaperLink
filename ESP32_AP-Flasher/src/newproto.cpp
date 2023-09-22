@@ -240,18 +240,22 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 http.begin(imageUrl);
                 int httpCode = http.GET();
                 if (httpCode == 200) {
+                    xSemaphoreTake(fsMutex, portMAX_DELAY);
                     File file = contentFS->open(filename, "w");
                     http.writeToStream(&file);
                     file.close();
+                    xSemaphoreGive(fsMutex);
                 } else if (httpCode == 404) {
                     imageUrl = "http://" + remoteIP.toString() + "/current/" + String(hexmac) + ".raw";
                     http.end();
                     http.begin(imageUrl);
                     httpCode = http.GET();
                     if (httpCode == 200) {
+                        xSemaphoreTake(fsMutex, portMAX_DELAY);
                         File file = contentFS->open(filename, "w");
                         http.writeToStream(&file);
                         file.close();
+                        xSemaphoreGive(fsMutex);
                     }
                 }
                 http.end();
@@ -653,7 +657,7 @@ void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP) {
 
     char hexmac[17];
     mac2hex(taginfo->mac, hexmac);
-    if (taginfo->contentMode != 12 && taginfoitem->contentMode != 12) {
+    if (taginfo->contentMode != 12 && taginfoitem->contentMode != 12 && taginfoitem->contentMode != 0) {
         wsLog("Remote AP at " + remoteIP.toString() + " takes control over tag " + String(hexmac));
         taginfo->contentMode = 12;
     }
@@ -712,11 +716,15 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
                 } else {
                     char dst_path[64];
                     sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", taginfo2->mac[7], taginfo2->mac[6], taginfo2->mac[5], taginfo2->mac[4], taginfo2->mac[3], taginfo2->mac[2], taginfo2->mac[1], taginfo2->mac[0]);
+                    xSemaphoreTake(fsMutex, portMAX_DELAY);
                     File file = contentFS->open(dst_path, "w");
                     if (file) {
                         file.write(taginfo2->data, taginfo2->len);
                         file.close();
+                        xSemaphoreGive(fsMutex);
                         udpsync.netSendDataAvail(&pending2);
+                    } else {
+                        xSemaphoreGive(fsMutex);
                     }
                 }
 

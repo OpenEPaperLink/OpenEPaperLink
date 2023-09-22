@@ -33,6 +33,7 @@ class DynStorage {
     bool isInited;
 };
 
+extern SemaphoreHandle_t fsMutex;
 extern DynStorage Storage;
 extern fs::FS *contentFS;
 extern void copyFile(File in, File out);

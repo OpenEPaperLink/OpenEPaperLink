@@ -19,7 +19,6 @@ std::unordered_map<int, HwType> hwdata = {
     {2, {400, 300, 0, 2}}};
 
 Config config;
-// SemaphoreHandle_t tagDBOwner;
 
 tagRecord* tagRecord::findByMAC(const uint8_t mac[8]) {
     for (tagRecord* tag : tagDB) {
@@ -128,9 +127,11 @@ void saveDB(const String& filename) {
     const long t = millis();
 
     Storage.begin();
+    xSemaphoreTake(fsMutex, portMAX_DELAY);
     fs::File file = contentFS->open(filename, "w");
     if (!file) {
         Serial.println("saveDB: Failed to open file");
+        xSemaphoreGive(fsMutex);
         return;
     }
 
@@ -149,6 +150,7 @@ void saveDB(const String& filename) {
     file.write(']');
 
     file.close();
+    xSemaphoreGive(fsMutex);
     Serial.println("DB saved " + String(millis() - t) + "ms");
 }
 
@@ -313,6 +315,7 @@ void initAPconfig() {
 }
 
 void saveAPconfig() {
+    xSemaphoreTake(fsMutex, portMAX_DELAY);
     fs::File configFile = contentFS->open("/current/apconfig.json", "w");
     DynamicJsonDocument APconfig(500);
     APconfig["channel"] = config.channel;
@@ -328,6 +331,7 @@ void saveAPconfig() {
     APconfig["sleeptime2"] = config.sleepTime2;
     serializeJsonPretty(APconfig, configFile);
     configFile.close();
+    xSemaphoreGive(fsMutex);
 }
 
 HwType getHwType(const uint8_t id) {
