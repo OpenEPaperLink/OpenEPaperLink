@@ -303,7 +303,7 @@ void handleUpdateActions(AsyncWebServerRequest* request) {
         request->send(200, "No update actions needed");
         return;
     }
-    StaticJsonDocument<1000> doc;
+    DynamicJsonDocument doc(1000);
     DeserializationError error = deserializeJson(doc, file);
     const JsonArray deleteFiles = doc["deletefile"].as<JsonArray>();
     for (const auto& filePath : deleteFiles) {

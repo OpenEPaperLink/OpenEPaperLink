@@ -35,15 +35,6 @@ WifiManager wm;
 SemaphoreHandle_t wsMutex;
 uint32_t lastssidscan = 0;
 
-void networkProcess(void *parameter) {
-    wsMutex = xSemaphoreCreateMutex();
-    while (true) {
-        ws.cleanupClients();
-        wm.poll();
-        vTaskDelay(50 / portTICK_PERIOD_MS);
-    }
-}
-
 void wsLog(String text) {
     StaticJsonDocument<250> doc;
     doc["logMsg"] = text;
@@ -72,33 +63,47 @@ size_t dbSize() {
 }
 
 void wsSendSysteminfo() {
+    Serial.println("wsSendSysteminfo begin");
     DynamicJsonDocument doc(250);
     JsonObject sys = doc.createNestedObject("sys");
     time_t now;
     time(&now);
+    Serial.print("1");
     static int freeSpaceLastRun = 0;
+    static size_t tagDBsize = 0;
     static size_t freeSpace = Storage.freeSpace();
+    Serial.print("2");
     sys["currtime"] = now;
+    Serial.print("3");
     sys["heap"] = ESP.getFreeHeap();
-    sys["recordcount"] = tagDB.size();
+    Serial.print("4");
+    sys["recordcount"] = tagDBsize;
+    Serial.print("5");
     sys["dbsize"] = dbSize();
-    if (millis() - freeSpaceLastRun > 30000) {
+    Serial.print("6");
+    if (millis() - freeSpaceLastRun > 30000 || freeSpaceLastRun == 0) {
         freeSpace = Storage.freeSpace();
+        tagDBsize = tagDB.size();
         freeSpaceLastRun = millis();
     }
+    Serial.print("7");
     sys["littlefsfree"] = freeSpace;
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
+    Serial.print("8");
 #if !defined(CONFIG_IDF_TARGET_ESP32)
-    sys["temp"] = temperatureRead();
+    // sys["temp"] = temperatureRead();
 #endif
+    Serial.print("9");
     sys["rssi"] = WiFi.RSSI();
     sys["wifistatus"] = WiFi.status();
     sys["wifissid"] = WiFi.SSID();
 
+    Serial.print("a");
     setVarDB("ap_ip", WiFi.localIP().toString());
     setVarDB("ap_ch", String(apInfo.channel));
 
+    Serial.print("b");
     static uint32_t tagcounttimer = 0;
     if (millis() - tagcounttimer > 60000 || tagcounttimer == 0) {
         uint32_t timeoutcount = 0;
@@ -112,6 +117,7 @@ void wsSendSysteminfo() {
         setVarDB("ap_tagcount", result);
         tagcounttimer = millis();
     }
+    Serial.println("wsSendSysteminfo end");
 
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -188,6 +194,7 @@ uint8_t wsClientCount() {
 }
 
 void init_web() {
+    wsMutex = xSemaphoreCreateMutex();
     Storage.begin();
     WiFi.mode(WIFI_STA);
 

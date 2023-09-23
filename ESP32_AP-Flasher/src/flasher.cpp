@@ -175,7 +175,7 @@ bool flasher::getInfoBlockType() {
 }
 
 bool flasher::findTagByMD5() {
-    StaticJsonDocument<3000> doc;
+    DynamicJsonDocument doc(3000);
     DynamicJsonDocument APconfig(600);
     fs::File readfile = contentFS->open("/tag_md5_db.json", "r");
     DeserializationError err = deserializeJson(doc, readfile);
@@ -205,7 +205,7 @@ bool flasher::findTagByMD5() {
 }
 
 bool flasher::findTagByType(uint8_t type) {
-    StaticJsonDocument<3000> doc;
+    DynamicJsonDocument doc(3000);
     DynamicJsonDocument APconfig(600);
     fs::File readfile = contentFS->open("/tag_md5_db.json", "r");
     DeserializationError err = deserializeJson(doc, readfile);

@@ -43,7 +43,9 @@ void contentRunner() {
 
     for (tagRecord *taginfo : tagDB) {
         if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC) && config.runStatus == RUNSTATUS_RUN && Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
+            Serial.println("drawnew start");
             drawNew(taginfo->mac, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
+            Serial.println("drawnew end");
             taginfo->wakeupReason = 0;
         }
 
@@ -77,6 +79,7 @@ void contentRunner() {
 }
 
 void checkVars() {
+    Serial.println("checkvars begin");
     DynamicJsonDocument cfgobj(500);
     for (tagRecord *tag : tagDB) {
         if (tag->contentMode == 19) {
@@ -110,6 +113,7 @@ void checkVars() {
     for (const auto &entry : varDB) {
         if (entry.second.changed) varDB[entry.first].changed = false;
     }
+    Serial.println("checkvars end");
 }
 
 /// @brief Draw a counter
@@ -153,7 +157,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
             taginfo->contentMode = 21;
             taginfo->nextupdate = 0;
         } else if (contentFS->exists("/tag_defaults.json")) {
-            StaticJsonDocument<3000> doc;
+            DynamicJsonDocument doc(1000);
             fs::File tagDefaults = contentFS->open("/tag_defaults.json", "r");
             DeserializationError err = deserializeJson(doc, tagDefaults);
             if (!err) {
@@ -408,7 +412,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
             if (!util::isEmptyOrNull(configFilename)) {
                 String configUrl = cfgobj["url"].as<String>();
                 if (!util::isEmptyOrNull(configUrl)) {
-                    StaticJsonDocument<1000> json;
+                    DynamicJsonDocument json(1000);
                     Serial.println("Get json url + file");
                     if (util::httpGetJson(configUrl, json, 1000)) {
                         if (getJsonTemplateFileExtractVariables(filename, configFilename, json, taginfo, imageParams)) {
@@ -691,7 +695,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
         units += "&temperature_unit=fahrenheit&windspeed_unit=mph";
     }
 
-    StaticJsonDocument<1000> doc;
+    DynamicJsonDocument doc(1000);
     const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true&windspeed_unit=ms&timezone=" + tz + units, doc, 5000);
     if (!success) {
         return;
@@ -1139,7 +1143,7 @@ void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     }
 
     TFT_eSprite spr = TFT_eSprite(&tft);
-    StaticJsonDocument<2048> loc;
+    DynamicJsonDocument loc(2048);
     getTemplate(loc, 21, taginfo->hwType);
 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
@@ -1448,7 +1452,7 @@ void getLocation(JsonObject &cfgobj) {
         filter["results"][0]["latitude"] = true;
         filter["results"][0]["longitude"] = true;
         filter["results"][0]["timezone"] = true;
-        StaticJsonDocument<1000> doc;
+        DynamicJsonDocument doc(1000);
         if (util::httpGetJson("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(cfgobj["location"]) + "&count=1", doc, 5000, &filter)) {
             cfgobj["#lat"] = doc["results"][0]["latitude"].as<String>();
             cfgobj["#lon"] = doc["results"][0]["longitude"].as<String>();
@@ -1512,7 +1516,7 @@ void prepareConfigFile(const uint8_t *dst, const JsonObject &config) {
 
 void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
     StaticJsonDocument<80> filter;
-    StaticJsonDocument<2048> doc;
+    DynamicJsonDocument doc(2048);
 
     const String idstr = String(id);
     constexpr const char *templateKey = "template";

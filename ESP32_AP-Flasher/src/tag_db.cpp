@@ -122,6 +122,7 @@ void fillNode(JsonObject& tag, const tagRecord* taginfo) {
 }
 
 void saveDB(const String& filename) {
+    Serial.println("saveDB start");
     DynamicJsonDocument doc(2500);
 
     const long t = millis();
@@ -152,6 +153,7 @@ void saveDB(const String& filename) {
     file.close();
     xSemaphoreGive(fsMutex);
     Serial.println("DB saved " + String(millis() - t) + "ms");
+    Serial.println("saveDB end");
 }
 
 void loadDB(const String& filename) {
@@ -170,7 +172,7 @@ void loadDB(const String& filename) {
     bool parsing = true;
 
     if (readfile.find("[")) {
-        StaticJsonDocument<1000> doc;
+        DynamicJsonDocument doc(1000);
         while (parsing) {
             DeserializationError err = deserializeJson(doc, readfile);
             if (!err) {

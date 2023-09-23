@@ -123,5 +123,26 @@ static bool isSleeping(int sleeptime1, int sleeptime2) {
     }
 }
 
+class Timer {
+   public:
+    Timer(unsigned long interval) : interval_(interval), previousMillis_(0) {}
+
+    void setInterval(unsigned long interval) {
+        interval_ = interval;
+    }
+
+    bool doRun() {
+        unsigned long currentMillis = millis();
+        if (currentMillis - previousMillis_ >= interval_) {
+            previousMillis_ = currentMillis;
+            return true;
+        }
+        return false;
+    }
+
+   private:
+    unsigned long interval_;
+    unsigned long previousMillis_;
+};
 
 }  // namespace util

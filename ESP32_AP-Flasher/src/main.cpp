@@ -10,6 +10,7 @@
 #include "storage.h"
 #include "system.h"
 #include "tag_db.h"
+#include "wifimanager.h"
 
 #ifdef HAS_USB
 #include "usbflasher.h"
@@ -21,6 +22,13 @@
 #include "util.h"
 #include "web.h"
 
+util::Timer intervalSysinfo(3000);
+util::Timer intervalVars(10000);
+util::Timer intervalSaveDB(300000);
+util::Timer intervalContentRunner(1000);
+
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);
+
 void pinTest();
 
 void delayedStart(void* parameter) {
@@ -31,32 +39,6 @@ void delayedStart(void* parameter) {
     }
     vTaskDelay(10 / portTICK_PERIOD_MS);
     vTaskDelete(NULL);
-}
-
-void timeTask(void* parameter) {
-    wsSendSysteminfo();
-    util::printHeap();
-    while (1) {
-        unsigned long startMillis = millis();
-        time_t now;
-        time(&now);
-        if (now % 5 == 0 || apInfo.state != AP_STATE_ONLINE || config.runStatus != RUNSTATUS_RUN) {
-            wsSendSysteminfo();
-        }
-        if (now % 10 == 9 && config.runStatus != RUNSTATUS_STOP) {
-            checkVars();
-        }
-        if (now % 300 == 7 && config.runStatus != RUNSTATUS_STOP) {
-            saveDB("/current/tagDB.json");
-        }
-        if (apInfo.state == AP_STATE_ONLINE) {
-            contentRunner();
-        }
-
-        if (millis() - startMillis < 1000) {
-            vTaskDelay((1000 - millis() + startMillis) / portTICK_PERIOD_MS);
-        }
-    }
 }
 
 void setup() {
@@ -147,7 +129,6 @@ void setup() {
     loadDB("/current/tagDB.json");
     cleanupCurrent();
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
-    xTaskCreate(networkProcess, "Wifi", 6000, NULL, configMAX_PRIORITIES - 10, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
     config.runStatus = RUNSTATUS_INIT;
@@ -157,26 +138,39 @@ void setup() {
         config.runStatus = RUNSTATUS_PAUSE;
     }
 
-    xTaskCreate(timeTask, "timed tasks", 14000, NULL, 2, NULL);
     xTaskCreate(initTime, "init time", 5000, NULL, 2, NULL);
     xTaskCreate(delayedStart, "delaystart", 2000, NULL, 2, NULL);
+
+    wsSendSysteminfo();
+    util::printHeap();
 }
 
 void loop() {
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
-    // performDeviceFlash();
-    while (1) {
-        // pinTest();
-        while (1) {
+    ws.cleanupClients();
+    wm.poll();
+
+    if (intervalSysinfo.doRun()) {
+        wsSendSysteminfo();
+    }
+    if (intervalVars.doRun() && config.runStatus != RUNSTATUS_STOP) {
+        checkVars();
+    }
+    if (intervalSaveDB.doRun() && config.runStatus != RUNSTATUS_STOP) {
+        saveDB("/current/tagDB.json");
+    }
+    if (intervalContentRunner.doRun() && apInfo.state == AP_STATE_ONLINE) {
+        contentRunner();
+    }
+
 #ifdef YELLOW_IPS_AP
-            extern void yellow_ap_display_loop(void);
-            yellow_ap_display_loop();
-#else
-            vTaskDelay(10000 / portTICK_PERIOD_MS);
-            // pinTest();
+    extern void yellow_ap_display_loop(void);
+    yellow_ap_display_loop();
 #endif
-        }
+
 #ifdef OPENEPAPERLINK_PCB
+    time_t tagConnectTimer = 0;
+    if (millis() - tagConnectTimer > 1000) {
+        tagConnectTimer = millis();
         if (extTagConnected()) {
             flashCountDown(3);
 
@@ -189,7 +183,8 @@ void loop() {
             pinMode(FLASHER_EXT_TEST, INPUT);
             vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
-#endif
-        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
+#endif
+
+    vTaskDelay(100 / portTICK_PERIOD_MS);
 }
