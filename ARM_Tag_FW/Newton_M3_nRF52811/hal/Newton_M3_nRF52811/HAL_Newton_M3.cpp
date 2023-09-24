@@ -160,7 +160,7 @@ void watchdog_enable(int timeout) {
 
 uint32_t sleepMsEntry = 0;
 uint32_t loops = 0;
-bool interruped = false;
+bool interrupted = false;
 
 // uint8_t ledcfg[12] = {0b00100010,0x78,0b00100100,5,0x03,0b01000011,1,0xC2,0b1100001,10,10,0};
 // uint8_t ledcfg[12] = {0b00010010,0x7D,0,0,0x03,0xE8,0,0,0,0,0,0};
@@ -185,14 +185,14 @@ void resettimer() {
     // tell the sleep function to net sleep again
     sleepMsEntry = sleepMsEntry - 999999999;
     loops = 0;
-    interruped = true;
+    interrupted = true;
 }
 
-void flashled(uint8_t color, uint8_t brightnes) {
+void flashled(uint8_t color, uint8_t brightness) {
     uint8_t colorred = (color >> 5) & 0b00000111;
     uint8_t colorgreen = (color >> 2) & 0b00000111;
     uint8_t colorblue = color & 0b00000011;
-    for (uint16_t i = 0; i < brightnes; i++) {
+    for (uint16_t i = 0; i < brightness; i++) {
         digitalWrite(LED_RED, !(colorred >= 7));
         digitalWrite(LED_GREEN, !(colorgreen >= 7));
         digitalWrite(LED_BLUE, !(colorblue >= 3));
@@ -248,11 +248,10 @@ void sleepwithinterrupts(uint32_t sleepinterval) {
 
 void ledflashlogic(uint32_t ms) {
     watchdog_enable(ms + 1000);
-    uint8_t brightnes = ledcfg[0] >> 4 & 0b00001111;
+    uint8_t brightness = ledcfg[0] >> 4 & 0b00001111;
     uint8_t mode = ledcfg[0] & 0b00001111;
     // lets not blink for short delays
     if (ms < 2000) mode = 15;
-    // if(mode == 0)sleepwithinterrupts(ms);
     if (mode == 1) {
         uint8_t color = ledcfg[1];
         uint32_t ledinerv = (ledcfg[2] << 24) + (ledcfg[3] << 16) + (ledcfg[4] << 8) + ledcfg[5];
@@ -264,11 +263,12 @@ void ledflashlogic(uint32_t ms) {
         }
         if (sleepinterval > ms) sleepinterval = ms;
         for (uint32_t i = 0; i < loops; i++) {
-            flashled(color, brightnes);
+            flashled(color, brightness);
             sleepwithinterrupts(sleepinterval);
         }
-    } else if (mode == 0) {
-        interruped = false;
+    } 
+    else if (mode == 0) {
+        interrupted = false;
         uint8_t interloopdelayfactor = 100;
         u_int8_t loopdelayfactor = 100;
         uint8_t c1 = ledcfg[1];
@@ -290,36 +290,40 @@ void ledflashlogic(uint32_t ms) {
         uint32_t looptimesum = fulllooptime1 + fulllooptime2 + fulllooptime3;
         int fittingrepeats = (int)ms / looptimesum;
 
-        grouprepeats = fittingrepeats;
-        if (grouprepeats == 0) grouprepeats = 1;
+        //catch edge case
+        if (grouprepeats == 0) sleepwithinterrupts(ms);
 
-        for (int j = 0; j < grouprepeats; j++) {
-            if (!interruped) {
+        for (int j = 0; j < fittingrepeats; j++) {
+            if(j > grouprepeats){
+                    brightness = 0;
+                    ledcfg[0] = 0xff;
+            }
+            if (!interrupted) {
                 for (int i = 0; i < loopcnt1; i++) {
-                    flashled(c1, brightnes);
+                    flashled(c1, brightness);
                     sleepwithinterrupts(loop1delay * loopdelayfactor);
-                    if (interruped) break;
+                    if (interrupted) break;
                 }
                 sleepwithinterrupts(ildelay1 * interloopdelayfactor);
             }
-            if (!interruped) {
+            if (!interrupted) {
                 for (int i = 0; i < loopcnt2; i++) {
-                    flashled(c2, brightnes);
+                    flashled(c2, brightness);
                     sleepwithinterrupts(loop2delay * loopdelayfactor);
-                    if (interruped) break;
+                    if (interrupted) break;
                 }
                 sleepwithinterrupts(ildelay2 * interloopdelayfactor);
             }
 
-            if (!interruped) {
+            if (!interrupted) {
                 for (int i = 0; i < loopcnt3; i++) {
-                    flashled(c3, brightnes);
+                    flashled(c3, brightness);
                     sleepwithinterrupts(loop3delay * loopdelayfactor);
-                    if (interruped) break;
+                    if (interrupted) break;
                 }
                 sleepwithinterrupts(ildelay3 * interloopdelayfactor);
             }
-            if (interruped) break;
+            if (interrupted) break;
         }
     } else
         sleepwithinterrupts(ms);
