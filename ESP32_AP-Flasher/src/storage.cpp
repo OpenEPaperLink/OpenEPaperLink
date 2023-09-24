@@ -24,7 +24,7 @@ static void initSDCard() {
     uint8_t spi_bus = VSPI;
 
     // SD.begin and spi.begin are allocating memory so we dont want to do that
-    if(!spi) { 
+    if (!spi) {
         spi = new SPIClass(spi_bus);
         spi->begin(SD_CARD_CLK, SD_CARD_MISO, SD_CARD_MOSI, SD_CARD_SS);
 
@@ -46,7 +46,7 @@ static void initSDCard() {
 }
 #endif
 
-size_t DynStorage::freeSpace(){
+uint64_t DynStorage::freeSpace() {
     this->begin();
 #ifdef HAS_SDCARD
     return SD.totalBytes() - SD.usedBytes();
