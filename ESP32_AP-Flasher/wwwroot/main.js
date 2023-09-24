@@ -12,6 +12,7 @@ const WAKEUP_REASON_WDT_RESET = 0xFE;
 
 let tagTypes = {};
 let apConfig = {};
+let tagDB = {};
 
 const apstate = [
 	{ state: "offline", color: "red" },
@@ -93,7 +94,7 @@ function connect() {
 	});
 
 	socket.addEventListener("message", (event) => {
-		// console.log(event.data)
+		console.log(event.data)
 		const msg = JSON.parse(event.data);
 		if (msg.logMsg) {
 			showMessage(msg.logMsg, false);
@@ -156,6 +157,7 @@ function convertSize(bytes) {
 function processTags(tagArray) {
 	for (const element of tagArray) {
 		const tagmac = element.mac;
+		tagDB[tagmac] = element;
 
 		let div = $('#tag' + tagmac);
 		if (div == null) {
@@ -217,10 +219,16 @@ function processTags(tagArray) {
 			$('#tag' + tagmac + ' .received').style.opacity = "0";
 		}
 
-		if (!apConfig.preview || element.contentMode == 20 || (element.isexternal && element.contentMode == 12)) {
+		if (!apConfig.preview || element.contentMode == 20) {
 			$('#tag' + tagmac + ' .tagimg').style.display = 'none'
-		} else if (div.dataset.hash != element.hash && div.dataset.hwtype > -1 && (!element.isexternal || element.contentMode != 12)) {
-			loadImage(tagmac, '/current/' + tagmac + '.raw?' + element.hash);
+		} else if (div.dataset.hash != element.hash && div.dataset.hwtype > -1) {
+			let cachetag = element.hash;
+			if (element.hash == '00000000000000000000000000000000') cachetag = Math.random();
+			if (element.isexternal && element.contentMode == 12) {
+				loadImage(tagmac, 'http://' + tagDB[tagmac].apip + '/current/' + tagmac + '.raw?' + cachetag);
+			} else {
+				loadImage(tagmac, '/current/' + tagmac + '.raw?' + cachetag);
+			}
 			div.dataset.hash = element.hash;
 		}
 
@@ -1108,7 +1116,8 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 		if (tagTypes[hwtype].options?.includes("led")) {
 			contextMenuOptions.push(
 				{ id: 'ledflash', label: 'Flash the LED' },
-				{ id: 'ledflash_long', label: 'Flash the LED (long)' }
+				{ id: 'ledflash_long', label: 'Flash the LED (long)' },
+				{ id: 'ledflash_stop', label: 'Stop flashing' }
 			);
 		}
 		contextMenuOptions.push(

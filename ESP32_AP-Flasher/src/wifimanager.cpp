@@ -215,7 +215,6 @@ void WifiManager::pollSerial() {
     }
 }
 
-// temporary write some more debug info
 void WifiManager::WiFiEvent(WiFiEvent_t event) {
     Serial.printf("[WiFi-event %d] ", event);
     String eventname="";
@@ -259,8 +258,8 @@ void WifiManager::WiFiEvent(WiFiEvent_t event) {
         default:
             break;
     }
-    terminalLog(eventname);
-    logLine("WiFi event [" + String(event) + "]: " + eventname);
+    if (eventname) terminalLog(eventname);
+    // logLine("WiFi event [" + String(event) + "]: " + eventname);
 }
 
 // *** Improv

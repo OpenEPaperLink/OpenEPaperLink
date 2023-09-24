@@ -115,6 +115,7 @@ void fillNode(JsonObject& tag, const tagRecord* taginfo) {
     tag["capabilities"] = taginfo->capabilities;
     tag["modecfgjson"] = taginfo->modeConfigJson;
     tag["isexternal"] = taginfo->isExternal;
+    tag["apip"] = taginfo->apIp.toString();
     tag["rotate"] = taginfo->rotate;
     tag["lut"] = taginfo->lut;
     tag["ch"] = taginfo->currentChannel;
@@ -122,7 +123,6 @@ void fillNode(JsonObject& tag, const tagRecord* taginfo) {
 }
 
 void saveDB(const String& filename) {
-    Serial.println("saveDB start");
     DynamicJsonDocument doc(2500);
 
     const long t = millis();
@@ -153,7 +153,6 @@ void saveDB(const String& filename) {
     file.close();
     xSemaphoreGive(fsMutex);
     Serial.println("DB saved " + String(millis() - t) + "ms");
-    Serial.println("saveDB end");
 }
 
 void loadDB(const String& filename) {
@@ -211,6 +210,7 @@ void loadDB(const String& filename) {
                     taginfo->capabilities = tag["capabilities"];
                     taginfo->modeConfigJson = tag["modecfgjson"].as<String>();
                     taginfo->isExternal = tag["isexternal"].as<bool>();
+                    taginfo->apIp.fromString(tag["apip"].as<String>());
                     taginfo->rotate = tag["rotate"] | 0;
                     taginfo->lut = tag["lut"] | 0;
                     taginfo->currentChannel = tag["ch"] | 0;

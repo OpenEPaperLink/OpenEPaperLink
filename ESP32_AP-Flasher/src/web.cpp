@@ -63,47 +63,35 @@ size_t dbSize() {
 }
 
 void wsSendSysteminfo() {
-    Serial.println("wsSendSysteminfo begin");
     DynamicJsonDocument doc(250);
     JsonObject sys = doc.createNestedObject("sys");
     time_t now;
     time(&now);
-    Serial.print("1");
     static int freeSpaceLastRun = 0;
     static size_t tagDBsize = 0;
     static size_t freeSpace = Storage.freeSpace();
-    Serial.print("2");
     sys["currtime"] = now;
-    Serial.print("3");
     sys["heap"] = ESP.getFreeHeap();
-    Serial.print("4");
     sys["recordcount"] = tagDBsize;
-    Serial.print("5");
     sys["dbsize"] = dbSize();
-    Serial.print("6");
     if (millis() - freeSpaceLastRun > 30000 || freeSpaceLastRun == 0) {
         freeSpace = Storage.freeSpace();
         tagDBsize = tagDB.size();
         freeSpaceLastRun = millis();
     }
-    Serial.print("7");
     sys["littlefsfree"] = freeSpace;
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
-    Serial.print("8");
 #if !defined(CONFIG_IDF_TARGET_ESP32)
     // sys["temp"] = temperatureRead();
 #endif
-    Serial.print("9");
     sys["rssi"] = WiFi.RSSI();
     sys["wifistatus"] = WiFi.status();
     sys["wifissid"] = WiFi.SSID();
 
-    Serial.print("a");
     setVarDB("ap_ip", WiFi.localIP().toString());
     setVarDB("ap_ch", String(apInfo.channel));
 
-    Serial.print("b");
     static uint32_t tagcounttimer = 0;
     if (millis() - tagcounttimer > 60000 || tagcounttimer == 0) {
         uint32_t timeoutcount = 0;
@@ -117,7 +105,6 @@ void wsSendSysteminfo() {
         setVarDB("ap_tagcount", result);
         tagcounttimer = millis();
     }
-    Serial.println("wsSendSysteminfo end");
 
     xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -329,6 +316,7 @@ void init_web() {
                     }
                     if (strcmp(cmdValue, "ledflash") == 0) {
                         struct ledFlash flashData = {0};
+                        flashData.mode = 1;
                         flashData.flashDuration = 8;
                         flashData.color1 = 0x3C;  // green
                         flashData.color2 = 0xE4;  // red
@@ -345,12 +333,19 @@ void init_web() {
                     }
                     if (strcmp(cmdValue, "ledflash_long") == 0) {
                         struct ledFlash flashData = {0};
+                        flashData.mode = 1;
                         flashData.flashDuration = 15;
                         flashData.color1 = 0xE4;  // red
                         flashData.flashCount1 = 5;
                         flashData.delay1 = 5;
                         flashData.delay3 = 15;
                         flashData.repeats = 10;
+                        const uint8_t *payload = reinterpret_cast<const uint8_t *>(&flashData);
+                        sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
+                    }
+                    if (strcmp(cmdValue, "ledflash_stop") == 0) {
+                        struct ledFlash flashData = {0};
+                        flashData.mode = 0;
                         const uint8_t *payload = reinterpret_cast<const uint8_t *>(&flashData);
                         sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
                     }
@@ -367,6 +362,7 @@ void init_web() {
     server.on("/led_flash", HTTP_GET, [](AsyncWebServerRequest *request) {
         //  color picker: https://roger-random.github.io/RGB332_color_wheel_three.js/
         //  http GET to /led_flash?mac=000000000000&pattern=3/0x1C,4,5/0xE0,3,1/0x4F,5,10/5
+        //  http://192.168.178.198/led_flash?mac=00007E1F250CB29C&pattern=1/0x1C,1,15/0xE0,1,15/0x4F,1,15/1
         //  (flashDuration/color1,flashCount1,delay1/color2,flashCount2,delay2/color3,flashCount3,delay3/repeats)
         if (request->hasParam("mac")) {
             String dst = request->getParam("mac")->value();
@@ -603,6 +599,9 @@ void init_web() {
         }
         request->send(404);
     });
+
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "content-type");
 
     server.begin();
 }

@@ -11,7 +11,7 @@ extern bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTyp
 extern void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP);
 extern void processXferComplete(struct espXferComplete* xfc, bool local);
 extern void processXferTimeout(struct espXferComplete* xfc, bool local);
-extern void processDataReq(struct espAvailDataReq* adr, bool local);
+extern void processDataReq(struct espAvailDataReq* adr, bool local, IPAddress remoteIP = IPAddress(0, 0, 0, 0));
 extern void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local);
 
 extern bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* payload = nullptr);

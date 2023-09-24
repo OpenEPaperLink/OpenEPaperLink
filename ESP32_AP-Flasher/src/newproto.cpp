@@ -110,6 +110,7 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8
     } else {
         sendDataAvail(&pending);
     }
+
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
@@ -434,7 +435,7 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
     if (local) udpsync.netProcessXferTimeout(xfc);
 }
 
-void processDataReq(struct espAvailDataReq* eadr, bool local) {
+void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP) {
     if (config.runStatus == RUNSTATUS_STOP) return;
     char buffer[64];
 
@@ -454,13 +455,15 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
     if (!local) {
         if (taginfo->isExternal == false) {
             wsLog("moved AP from local to external " + String(hexmac));
+            taginfo->isExternal = true;
         }
-        taginfo->isExternal = true;
+        taginfo->apIp = remoteIP;
     } else {
         if (taginfo->isExternal == true) {
             wsLog("moved AP from external to local " + String(hexmac));
+            taginfo->isExternal = false;
         }
-        taginfo->isExternal = false;
+        taginfo->apIp = IPAddress(0, 0, 0, 0);
     }
 
     if (taginfo->pendingIdle == 0) {
@@ -512,9 +515,11 @@ void processDataReq(struct espAvailDataReq* eadr, bool local) {
         // sprintf(buffer, "<REMOTE ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
     }
 
-    wsSendTaginfo(eadr->src, SYNC_TAGSTATUS);
     if (local) {
+        wsSendTaginfo(eadr->src, SYNC_TAGSTATUS);
         udpsync.netProcessDataReq(eadr);
+    } else {
+        wsSendTaginfo(eadr->src, SYNC_NOSYNC);
     }
 }
 

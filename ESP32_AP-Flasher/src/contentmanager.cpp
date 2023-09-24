@@ -43,9 +43,7 @@ void contentRunner() {
 
     for (tagRecord *taginfo : tagDB) {
         if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC) && config.runStatus == RUNSTATUS_RUN && Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
-            Serial.println("drawnew start");
             drawNew(taginfo->mac, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
-            Serial.println("drawnew end");
             taginfo->wakeupReason = 0;
         }
 
@@ -79,7 +77,6 @@ void contentRunner() {
 }
 
 void checkVars() {
-    Serial.println("checkvars begin");
     DynamicJsonDocument cfgobj(500);
     for (tagRecord *tag : tagDB) {
         if (tag->contentMode == 19) {
@@ -113,7 +110,6 @@ void checkVars() {
     for (const auto &entry : varDB) {
         if (entry.second.changed) varDB[entry.first].changed = false;
     }
-    Serial.println("checkvars end");
 }
 
 /// @brief Draw a counter
