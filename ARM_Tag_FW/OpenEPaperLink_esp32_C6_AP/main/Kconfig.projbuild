@@ -1,0 +1,30 @@
+menu "OEPL Hardware Config"
+
+  choice HARDWARE_PROFILE
+      prompt "Select predefined hardware configuration"
+      default HARDWARE_PROFILE_DEFAULT
+
+      config HARDWARE_PROFILE_DEFAULT
+          bool "Default"
+          help "This is the default pinout used by e.g. the yellow ap by ATC"
+          # select HARDWARE_PROFILE_DEFAULT
+      config HARDWARE_PROFILE_POE_AP
+          bool "PoE-AP"
+          # select HARDWARE_PROFILE_POE_AP
+      config HARDWARE_PROFILE_CUSTOM
+          bool "Custom"
+          # select HARDWARE_PROFILE_DEFAULT
+
+  endchoice
+
+  config HARDWARE_UART_TX_PIN
+    depends on HARDWARE_PROFILE_CUSTOM
+    int "UART TX Pin"
+    default 3
+  
+  config HARDWARE_UART_RX_PIN
+    depends on HARDWARE_PROFILE_CUSTOM
+    int "UART RX Pin"
+    default 2
+
+endmenu

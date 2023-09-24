@@ -27,7 +27,7 @@ class DynStorage {
     void begin();
     void end();
     void listFiles();
-    size_t freeSpace();
+    uint64_t freeSpace();
 
    private:
     bool isInited;
@@ -39,5 +39,3 @@ extern fs::FS *contentFS;
 extern void copyFile(File in, File out);
 
 #endif
-
-
