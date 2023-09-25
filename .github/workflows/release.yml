@@ -39,18 +39,18 @@ jobs:
       - name: Install intelhex
         run: pip install --upgrade intelhex
  
-      - name: Build NRF firmware
-        run: |
-          cd ARM_Tag_FW/Newton_M3_nRF52811
-          pio run --environment Newton_M3_22_BWR
-          pio run --environment Newton_M3_29_BWR
-          pio run --environment Newton_M3_75_BWR
-          cp Newton_M3_22_BWR-ota.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_22_BWR-ota.bin
-          cp Newton_M3_22_BWR-full-flash.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_22_BWR-full-flash.bin
-          cp Newton_M3_29_BWR-ota.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_29_BWR-ota.bin
-          cp Newton_M3_29_BWR-full-flash.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_29_BWR-full-flash.bin
-          cp Newton_M3_75_BWR-ota.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_75_BWR-ota.bin
-          cp Newton_M3_75_BWR-full-flash.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_75_BWR-full-flash.bin
+#      - name: Build NRF firmware
+#        run: |
+#          cd ARM_Tag_FW/Newton_M3_nRF52811
+#          pio run --environment Newton_M3_22_BWR
+#          pio run --environment Newton_M3_29_BWR
+#          pio run --environment Newton_M3_75_BWR
+#          cp Newton_M3_22_BWR-ota.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_22_BWR-ota.bin
+#          cp Newton_M3_22_BWR-full-flash.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_22_BWR-full-flash.bin
+#          cp Newton_M3_29_BWR-ota.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_29_BWR-ota.bin
+#          cp Newton_M3_29_BWR-full-flash.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_29_BWR-full-flash.bin
+#          cp Newton_M3_75_BWR-ota.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_75_BWR-ota.bin
+#          cp Newton_M3_75_BWR-full-flash.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_75_BWR-full-flash.bin
 
       - name: Install esptool
         run: pip install esptool
@@ -199,14 +199,14 @@ jobs:
           file_glob: true
           overwrite: true
         
-      - name: Add tag bins to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: binaries/*
-          tag: ${{ github.ref }}
-          file_glob: true
-          overwrite: true
+#      - name: Add tag bins to release
+#        uses: svenstaro/upload-release-action@v2
+#        with:
+#          repo_token: ${{ secrets.GITHUB_TOKEN }}
+#          file: binaries/*
+#          tag: ${{ github.ref }}
+#          file_glob: true
+#          overwrite: true
           
 # this is down here intentionally to be able to modify the binary folder before adding it to the Tag_Flasher later (ota binaries can be removed)
 
