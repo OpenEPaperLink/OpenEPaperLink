@@ -1,7 +1,7 @@
 * {
-	margin:0;
-	padding:0;
-	border:0;
+	margin: 0;
+	padding: 0;
+	border: 0;
 	list-style-type: none;
 	outline: none;
 	font-weight: 400;
@@ -12,7 +12,8 @@
 	-webkit-font-smoothing: antialiased;
 }
 
-html, body {
+html,
+body {
 	height: 100%;
 }
 
@@ -24,60 +25,263 @@ body {
 }
 
 header {
-	height: 50px;
 	background-color: #646260;
+	z-index: 999;
+	position: sticky;
+	top: 0px;
+	width: 100%;
 }
 
-label {
-	width: 120px;
-	display: inline-block;
-	vertical-align: top;
-	padding: 3px 0px;
-}
-
-.logo {
-	margin: 0 auto;
-	height: 50px;
-	text-indent: 50px;
-	overflow:hidden;
-	font-size: 2.5em;
-	color: white;
-}
-
-.window {
-	margin: 0 auto;
-	max-width: 94%;
-}
-
-.actionbox { 
-	margin: 5px;
-}
-
-.actionbox>div:first-child>div:first-child {
+nav>div:first-child>div:first-child {
 	flex-grow: 2;
 }
 
-.actionbox>div {
-	display:flex;
+nav>div {
+	display: flex;
 	gap: 20px;
 	padding: 10px;
 	background-color: white;
 }
 
-.actionbox label {
+nav label {
 	padding: 0px 5px;
 	vertical-align: text-bottom;
 	width: auto;
 	cursor: pointer;
 }
 
-#rebootbutton, #updatebutton, #downloadDBbutton, #apconfigbutton, .filebutton {
-	padding: 2px 5px;
-	background-color: #cccccc;
+footer {
+	padding: 5px;
+	position: fixed;
+	bottom: 0;
+	width: 100%;
+	background-color: white;
+
+	#sysinfo {
+		float: right;
+	}
+}
+
+.logo {
+	margin: 0 auto;
+	height: 50px;
+	text-indent: 50px;
+	overflow: hidden;
+	font-size: 2.5em;
+	color: white;
+}
+
+h3 {
+	padding-bottom: 10px;
+	font-size: 1.5em;
+}
+
+/* tabs */
+
+.tab-container {
+	display: flex;
+	gap: 1rem;
+}
+
+.tablinks {
+	background-color: #f2f2f2;
+	padding: 5px 10px;
+	border: none;
+	cursor: pointer;
+	transition: background-color 0.3s;
+	transition: all 0.2s ease-in-out;
+
+	&:hover {
+		background-color: #ddd;
+	}
+}
+
+.tab-container .active {
+	background-color: #ccc;
+	margin-top: 10px;
+	margin-bottom: -10px;
+	padding-bottom: 0px;
+}
+
+.tabcontent {
+	display: none;
+	border-top: 1px solid #ccc;
+}
+
+
+label {
+	width: 200px;
+	display: inline-block;
+	vertical-align: top;
+	padding: 4px 20px;
+}
+
+.container {
+	padding-bottom: 20px;
+	;
+}
+
+#hometab {
+	font-size: 24px;
+
+	& table {
+		margin: 20px;
+		background: #fff;
+		padding: 5px 20px;
+		border-spacing: 0px;
+	}
+
+	& td {
+		padding: 10px 12px;
+	}
+
+	& td:nth-child(3) {
+		text-align: right;
+		font-size: 32px;
+	}
+
+	& tr:hover {
+		background-color: #ccc;
+		cursor: pointer;
+	}
+
+	& .material-symbols-outlined {
+		font-size: 48px;
+	}
+}
+
+.tagheader {
+	width: 100%;
+	padding: 10px 10px;
+	display: flex;
+	gap: 2em;
+	justify-content: space-between;
+
+	& #toggleFilters {
+		padding: 0px 10px;
+	}
+
+	& h3 {
+		padding-bottom: 0px;
+	}
+
+	& #activefilter {
+		flex-grow: 2;
+		align-self: center;
+	}
+}
+
+.tabheader {
+	background-color: white;
+	padding: 5px 10px;
+	display: flex;
+	gap: 2em;
+}
+
+#filterOptions {
+	background-color: white;
+	max-height: 0;
+	padding: 0px 10px;
+	overflow: hidden;
+	transition: all 0.3s ease-in-out;
+	display: flex;
+	gap: 1rem;
+
+	&.active {
+		padding: 10px 10px;
+		max-height: 100px;
+		margin-bottom: 10px;
+	}
+
+	& label {
+		width: inherit;
+		display: inline-block;
+		vertical-align: top;
+		padding: 0px 5px;
+	}
+}
+
+#aptab,
+#configtab {
+	padding: 10px;
+
+	& p {
+		padding: 3px;
+	}
+}
+
+#aplist {
+	display: flex;
+	gap: 1em;
+	flex-flow: wrap;
+}
+
+.apcard {
+	background-color: #fff;
+	border: 1px solid #ccc;
+	padding: 10px;
+	width: 300px;
+
+	& .apalias {
+		font-size: 1.5em;
+	}
+
+	& .space {
+		padding-left: 20px;
+	}
+
+	& div {
+		display: flex;
+		font-size: 2.0em;
+		align-items: center;
+		gap: 0.2em;
+	}
+
+}
+
+#apcard {
+	display: none;
+}
+
+#apcfgsave {
+	margin: 20px 205px;
+}
+
+.filebutton {
+	width: inherit;
+	padding: 5px 10px;
+	margin-bottom: 0px;
+	margin-top: -1px;
+	background-color: #ccc;
 	text-decoration: none;
 	color: black;
 	cursor: pointer;
 	white-space: nowrap;
+	text-align: center;
+
+	&:hover {
+		background-color: #aaa;
+	}
+}
+
+#rebootbutton,
+#updatebutton,
+#downloadDBbutton,
+.wifibutton {
+	padding: 4px 5px;
+	background-color: #ccc;
+	text-decoration: none;
+	color: black;
+	cursor: pointer;
+	white-space: nowrap;
+	width: 120px;
+	margin: 2px 5px 2px 20px;
+	display: inline-block;
+	text-align: center;
+
+	&:hover {
+		background-color: #aaa;
+	}
 }
 
 .columns div {
@@ -100,15 +304,17 @@ input {
 	border-radius: 0px;
 }
 
-input[type=button], button {
+input[type=button],
+button {
 	border: 0px;
 	padding: 4px 10px;
-	cursor:pointer;
+	cursor: pointer;
+	background-color: #ccc;
 }
 
 input[type=button]:hover,
 button:hover {
-	background-color:#aaaaaa;
+	background-color: #aaaaaa;
 }
 
 select {
@@ -117,7 +323,8 @@ select {
 	border: solid 1px #cccccc;
 }
 
-#configbox, #apconfigbox, #apupdatebox {
+#apconfigbox,
+#apupdatebox {
 	display: none;
 	position: fixed;
 	top: 65px;
@@ -131,19 +338,35 @@ select {
 	max-height: calc(100vh - 75px);
 }
 
-#configbox p, #apconfigbox p, #apupdatebox p {
+#configbox {
+	margin: auto;
+	min-width: 380px;
+	padding: 15px;
+	background-color: #f0e6d3;
+	z-index: 999;
+	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
+	overflow: auto;
+	max-height: calc(100vh - 75px);
+}
+
+#configbox p,
+#apconfigbox p,
+#apupdatebox p {
 	padding: 5px;
 	display: flex;
 	gap: 5px;
 	align-items: flex-start;
 }
 
-#configbox h3, #apconfigbox h3, #apupdatebox h3 {
+#configbox h3,
+#apconfigbox h3,
+#apupdatebox h3 {
 	font-size: 1.5em;
 	font-weight: bold;
 }
 
-#configbox input, #apconfigbox input {
+#configbox input,
+#apconfigbox input {
 	border: solid 1px #cccccc;
 }
 
@@ -191,31 +414,6 @@ select {
 	background-color: #e6f0d3;
 }
 
-#aptable {
-	width: 100%;
-	border-spacing: 0;
-}
-
-#aptable th {
-	text-align: left;
-	background-color: #00000020;
-	padding: 0px 3px;
-}
-
-#aptable th, #aptable td {
-	border-right: 1px solid #000010;
-	padding: 0px 3px;
-}
-
-#aptable td:nth-child(1), #aptable th:nth-child(1) {
-	border-left: 1px solid #000010;
-}
-
-#aptable td:nth-child(3),
-#aptable td:nth-child(4) {
-	text-align: right;
-}
-
 #apupdatebox {
 	background-color: #f0d0c8;
 	width: 700px;
@@ -228,7 +426,8 @@ select {
 	padding: 2px 10px;
 }
 
-.closebtn {
+.closebtn,
+.closebtn2 {
 	border: 1px solid black;
 	float: right;
 	width: 19px;
@@ -239,22 +438,21 @@ select {
 	cursor: pointer;
 }
 
-.logbox {
-	margin: 5px;
-}
+#logtab {
+	& img {
+		vertical-align: bottom;
+		cursor: pointer;
+	}
 
-.logbox p {
-	background-color: #ffffff;
-	padding: 5px 10px;
-}
+	& label {
+		width: inherit;
+		vertical-align: top;
+		padding: 4px 10px;
+	}
 
-.logbox img {
-	vertical-align: bottom;
-	cursor:pointer;
-}
-
-.logbox #sysinfo {
-	float: right;
+	& input {
+		vertical-align: text-bottom;
+	}
 }
 
 .blink-red {
@@ -265,10 +463,11 @@ select {
 .taglist {
 	display: flex;
 	flex-wrap: wrap;
+	margin: 0px 10px 30px 10px;
 }
 
 #tagtemplate {
-	display:none;
+	display: none;
 }
 
 .tagcard {
@@ -280,12 +479,12 @@ select {
 	background-color: #ffffff;
 	border: 1px solid #cccccc;
 	transition: box-shadow 0.3s ease;
-}
 
-.tagcard:hover {
-	cursor:pointer;
-	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
-	filter: brightness(1.02);
+	&:hover {
+		cursor: pointer;
+		box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
+		filter: brightness(1.02);
+	}
 }
 
 .tagflash {
@@ -305,30 +504,19 @@ select {
 	margin: 0px 5px;
 }
 
-#filterOptions {
-	max-height: 0;
-	padding: 0 10px;
-	overflow: hidden;
-	transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out;
-}
-
-#filterOptions.active {
-	max-height: 100px;
-	padding: 10px 10px;
-}
-
 .currimg {
 	float: right;
 }
 
-.currimg img, .currimg canvas {
+.currimg img,
+.currimg canvas {
 	max-width: 50px;
 	border: 1px solid #c0c0c0;
 }
 
 .mac {
 	font-size: 0.9em;
-	cursor:pointer;
+	cursor: pointer;
 }
 
 .alias {
@@ -344,6 +532,7 @@ select {
 	font-size: .85em;
 	padding-bottom: 5px;
 }
+
 .received div {
 	display: inline-block;
 }
@@ -354,16 +543,19 @@ select {
 	padding-bottom: 5px;
 }
 
-.lastseen, .nextcheckin, .nextupdate {
+.lastseen,
+.nextcheckin,
+.nextupdate {
 	font-size: 0.9em;
 }
 
 .lastseen span,
 .nextcheckin span,
 .nextupdate span {
-	width:105px;
-	display:inline-block;
+	width: 105px;
+	display: inline-block;
 }
+
 .corner {
 	position: absolute;
 	right: 0px;
@@ -383,7 +575,7 @@ select {
 }
 
 .warningicon {
-	display:none;
+	display: none;
 	font-size: 1.3em;
 	background-color: yellow;
 	color: black;
@@ -412,12 +604,24 @@ ul.messages li.new {
 	color: red;
 }
 
+.mono {
+	font-family: monospace;
+	word-break: break-all;
+	background-color: #666;
+	color: #ccc;
+	padding: 2px;
+}
+
+.quote {
+	color: white;
+}
+
 #paintbutton {
 	padding: 1px 3px;
 	border: 1px solid black;
 	font-size: 1.3em;
 	vertical-align: top;
-	margin-left:12px;
+	margin-left: 12px;
 	cursor: pointer;
 }
 
@@ -472,6 +676,7 @@ ul.messages li.new {
 	background-color: #dddddd;
 	width: 40px;
 }
+
 #buttonbar button {
 	font-size: 1.2em;
 	font-weight: bold;
@@ -513,7 +718,7 @@ ul.messages li.new {
 
 /* updatescreens */
 
-#easyupdate{
+#easyupdate {
 	margin-top: 10px;
 }
 
@@ -578,7 +783,7 @@ ul.messages li.new {
 .console {
 	width: 100%;
 	background-color: black;
-	font-family: 'lucida console','ui-monospace';
+	font-family: 'lucida console', 'ui-monospace';
 	color: white;
 	padding: 5px 10px;
 	margin: 20px 0px;
@@ -587,6 +792,7 @@ ul.messages li.new {
 	overflow-y: scroll;
 	white-space: break-spaces;
 }
+
 .console div {
 	word-break: break-all;
 }
@@ -594,36 +800,62 @@ ul.messages li.new {
 /* media */
 
 @media(max-width: 460px) {
-	.messages li div, ul.messages li div.date, ul.messages li div.message {
-		display:block;
-		position:relative;
+
+	.messages li div,
+	ul.messages li div.date,
+	ul.messages li div.message {
+		display: block;
+		position: relative;
 		padding: 0;
 		left: auto;
 	}
-	.messages li div.message, li.pending {
+
+	.messages li div.message,
+	li.pending {
 		margin-bottom: 8px;
 	}
+
 	ul.messages {
 		padding-bottom: 4px;
 	}
 }
 
 @keyframes new {
-    0%   { background-color: rgba(255, 255, 204, 1); }
-    50%  { background-color: rgba(255, 255, 204, .5); }
-    100% { background-color: rgba(255, 255, 204, 0); }
+	0% {
+		background-color: rgba(255, 255, 204, 1);
+	}
+
+	50% {
+		background-color: rgba(255, 255, 204, .5);
+	}
+
+	100% {
+		background-color: rgba(255, 255, 204, 0);
+	}
 }
 
 @keyframes tagflash {
-	0% { opacity: 1; }
-	50% { opacity: 0; }
-	100% { opacity: 1; }
+	0% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 0;
+	}
+
+	100% {
+		opacity: 1;
+	}
 }
 
 @keyframes pending {
-	0% { }
-	50% { background-color: #d4d4f5;}
-	100% { }
+	0% {}
+
+	50% {
+		background-color: #d4d4f5;
+	}
+
+	100% {}
 }
 
 @media screen and (max-width: 480px) {
@@ -638,7 +870,7 @@ ul.messages li.new {
 		min-height: 200px;
 	}
 
-	.logbox #sysinfo {
+	footer #sysinfo {
 		float: none;
 		display: block;
 	}
