@@ -34,6 +34,7 @@ Not all connections are required by all tags! If you want to solder fewer wires,
 
 ## Flashing the flasher
 Clone the [Tag_Flasher repo](https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Tag_Flasher/ESP32_Flasher) and open into PlatformIO. Choose the correct COM-port and hit 'Upload'.
+Also, the precompiled binaries are part of any [release](/releases), and to make it even easier, you can use the web flasher on https://install.openepaperlink.nl to even flash it without installing any extra software.
 
 ## OEPL-Flasher.py
 
