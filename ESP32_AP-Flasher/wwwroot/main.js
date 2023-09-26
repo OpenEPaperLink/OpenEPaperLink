@@ -41,7 +41,7 @@ let finishedInitialLoading = false;
 let getTagtypeBusy = false;
 
 const loadConfig = new Event("loadConfig");
-window.addEventListener("loadConfig", function() {
+window.addEventListener("loadConfig", function () {
 	fetch("/get_ap_config")
 		.then(response => response.json())
 		.then(data => {
@@ -55,6 +55,7 @@ window.addEventListener("loadConfig", function() {
 });
 
 window.addEventListener("load", function () {
+	initTabs();
 	fetch('/content_cards.json')
 		.then(response => response.json())
 		.then(data => {
@@ -69,11 +70,35 @@ window.addEventListener("load", function () {
 		});
 
 	window.dispatchEvent(loadConfig);
-	
+
 	dropUpload();
 	populateTimes($('#apcnight1'));
 	populateTimes($('#apcnight2'));
 });
+
+/* tabs */
+let activeTab = '';
+function initTabs() {
+	const tabLinks = document.querySelectorAll(".tablinks");
+	const tabContents = document.querySelectorAll(".tabcontent");
+
+	tabLinks.forEach(tabLink => {
+		tabLink.addEventListener("click", function () {
+			const targetId = this.getAttribute("data-target");
+			const loadTabEvent = new CustomEvent('loadTab', { detail: targetId });
+			document.dispatchEvent(loadTabEvent);
+			tabContents.forEach(tabContent => {
+				tabContent.style.display = "none";
+			});
+			tabLinks.forEach(link => {
+				link.classList.remove("active");
+			});
+			document.getElementById(targetId).style.display = "block";
+			this.classList.add("active");
+		});
+	});
+	tabLinks[0].click();
+};
 
 function loadTags(pos) {
 	fetch("/get_db?pos=" + pos)
@@ -94,7 +119,10 @@ function connect() {
 	});
 
 	socket.addEventListener("message", (event) => {
-		console.log(event.data)
+		if ($('#showdebug').checked) {
+			showMessage(event.data);
+			console.log(event.data);
+		}
 		const msg = JSON.parse(event.data);
 		if (msg.logMsg) {
 			showMessage(msg.logMsg, false);
@@ -115,17 +143,12 @@ function connect() {
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
 				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;
 				$("#runstate").innerHTML = runstate[msg.sys.runstate].state;
-				if (msg.sys.temp) $("#temp").innerHTML = msg.sys.temp.toFixed(1) + '°C';
+				$('#dashboardStatus').innerHTML = apstate[msg.sys.apstate].state;
 			}
 			servertimediff = (Date.now() / 1000) - msg.sys.currtime;
 		}
 		if (msg.apitem) {
-			let row = $("#aptable").insertRow();
-			row.insertCell(0).innerHTML = "<a href=\"http://" + msg.apitem.ip + "\" target=\"_new\">" + msg.apitem.ip + "</a>";
-			row.insertCell(1).innerHTML = msg.apitem.alias;
-			row.insertCell(2).innerHTML = msg.apitem.count;
-			row.insertCell(3).innerHTML = msg.apitem.channel;
-			row.insertCell(4).innerHTML = msg.apitem.version;
+			populateAPCard(msg.apitem);
 		}
 		if (msg.console) {
 			if (otamodule && typeof (otamodule.print) === "function") {
@@ -301,9 +324,16 @@ function processTags(tagArray) {
 
 function updatecards() {
 	if (servertimediff > 1000000000) servertimediff = 0;
+	let tagcount = 0;
+	let pendingcount = 0;
+	let timeoutcount = 0;
+	let lowbattcount = 0;
+
 	$('#taglist').querySelectorAll('[data-mac]').forEach(item => {
 		let tagmac = item.dataset.mac;
-
+		tagcount++;
+		if (tagDB[tagmac].pending) pendingcount++;
+		if (tagDB[tagmac].batteryMv < 2400 && tagDB[tagmac].batteryMv != 0 && tagDB[tagmac].batteryMv != 1337) lowbattcount++;
 		if (item.dataset.lastseen && item.dataset.lastseen > (Date.now() / 1000) - servertimediff - 30 * 24 * 3600 * 60) {
 			let idletime = (Date.now() / 1000) - servertimediff - item.dataset.lastseen;
 			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>" + displayTime(Math.floor(idletime)) + " ago";
@@ -311,6 +341,7 @@ function updatecards() {
 				$('#tag' + tagmac + ' .warningicon').style.display = 'inline-block';
 				$('#tag' + tagmac).classList.remove("tagpending")
 				$('#tag' + tagmac).style.background = '#e0e0a0';
+				timeoutcount++;
 			}
 			if (idletime > 24 * 3600) {
 				$('#tag' + tagmac).style.opacity = '.5';
@@ -331,6 +362,11 @@ function updatecards() {
 			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "";
 		}
 	})
+
+	$('#dashboardTagCount').innerHTML = tagcount;
+	$('#dashboardPending').innerHTML = pendingcount;
+	$('#dashboardLowBatt').innerHTML = lowbattcount;
+	$('#dashboardTimeout').innerHTML = timeoutcount;
 }
 
 $('#clearlog').onclick = function () {
@@ -340,6 +376,13 @@ $('#clearlog').onclick = function () {
 document.querySelectorAll('.closebtn').forEach(button => {
 	button.addEventListener('click', (event) => {
 		event.target.parentNode.style.display = 'none';
+		$('#advancedoptions').style.height = '0px';
+	});
+});
+
+document.querySelectorAll('.closebtn2').forEach(button => {
+	button.addEventListener('click', (event) => {
+		event.target.parentNode.close();
 		$('#advancedoptions').style.height = '0px';
 	});
 });
@@ -382,7 +425,7 @@ function loadContentCard(mac) {
 			$('#cfgrotate').value = tagdata.rotate;
 			$('#cfglut').value = tagdata.lut;
 			$('#cfgmore').innerHTML = '&#x25BC;';
-			$('#configbox').style.display = 'block';
+			$('#configbox').showModal();
 		})
 }
 
@@ -444,7 +487,7 @@ $('#cfgsave').onclick = function () {
 		.catch(error => showMessage('Error: ' + error));
 
 	$('#advancedoptions').style.height = '0px';
-	$('#configbox').style.display = 'none';
+	$('#configbox').close();
 }
 
 function sendCmd(mac, cmd) {
@@ -463,7 +506,7 @@ function sendCmd(mac, cmd) {
 		})
 		.catch(error => showMessage('Error: ' + error));
 	$('#advancedoptions').style.height = '0px';
-	$('#configbox').style.display = 'none';
+	$('#configbox').close();
 }
 
 $('#cfgdelete').onclick = function () {
@@ -494,7 +537,8 @@ $('#cfgreset').onclick = function () {
 	sendCmd($('#cfgmac').dataset.mac, "reset");
 }
 
-$('#rebootbutton').onclick = function () {
+$('#rebootbutton').onclick = function (event) {
+	event.preventDefault();
 	showMessage("rebooting AP....", true);
 	fetch("/reboot", {
 		method: "POST"
@@ -502,30 +546,37 @@ $('#rebootbutton').onclick = function () {
 	socket.close();
 }
 
-$('#apconfigbutton').onclick = function () {
-	let table = document.getElementById("aptable");
-	const rowCount = table.rows.length;
-	for (let i = rowCount - 1; i > 0; i--) {
-		table.deleteRow(i);
+$('#configbox').addEventListener('click', (event) => {
+	if (event.target.nodeName === 'DIALOG') {
+		$('#configbox').close();
 	}
-	fetch("/get_ap_config")
-		.then(response => response.json())
-		.then(data => {
-			apConfig = data;
-			$('#apcfgalias').value = data.alias;
-			$('#apcfgchid').value = data.channel;
-			$("#apcfgledbrightness").value = data.led;
-			$("#apcfglanguage").value = data.language;
-			$("#apclatency").value = data.maxsleep;
-			$("#apcpreventsleep").value = data.stopsleep;
-			$("#apcpreview").value = data.preview;
-			$("#apcwifipower").value = data.wifipower;
-			$("#apctimezone").value = data.timezone;
-			$("#apcnight1").value = data.sleeptime1;
-			$("#apcnight2").value = data.sleeptime2;
-		})
-	$('#apconfigbox').style.display = 'block'
-}
+});
+
+document.addEventListener("loadTab", function (event) {
+	activeTab = event.detail;
+	switch (event.detail) {
+		case 'configtab':
+		case 'aptab':
+			fetch("/get_ap_config")
+				.then(response => response.json())
+				.then(data => {
+					apConfig = data;
+					$('#apcfgalias').value = data.alias;
+					$('#apcfgchid').value = data.channel;
+					$("#apcfgledbrightness").value = data.led;
+					$("#apcfglanguage").value = data.language;
+					$("#apclatency").value = data.maxsleep;
+					$("#apcpreventsleep").value = data.stopsleep;
+					$("#apcpreview").value = data.preview;
+					$("#apcwifipower").value = data.wifipower;
+					$("#apctimezone").value = data.timezone;
+					$("#apcnight1").value = data.sleeptime1;
+					$("#apcnight2").value = data.sleeptime2;
+				})
+			$('#apcfgmsg').innerHTML = '';
+			break;
+	}
+});
 
 $('#apcfgsave').onclick = function () {
 	let formData = new FormData();
@@ -549,14 +600,13 @@ $('#apcfgsave').onclick = function () {
 		.then(data => {
 			showMessage(data);
 			window.dispatchEvent(loadConfig);
+			$('#apcfgmsg').innerHTML = 'OK, Saved';
 		})
 		.catch(error => showMessage('Error: ' + error));
-	
-	$('#apconfigbox').style.display = 'none';
 }
 
-$('#updatebutton').onclick = function () {
-	$('#apconfigbox').style.display = 'none';
+$('#updatebutton').onclick = function (event) {
+	event.preventDefault();
 	$('#apupdatebox').style.display = 'block';
 	loadOTA();
 }
@@ -720,7 +770,9 @@ function showMessage(message, iserr) {
 	const messages = $('#messages');
 	const date = new Date();
 	const time = date.toLocaleTimeString('nl-NL', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-	if (iserr) {
+	if (message.startsWith('{')) {
+		messages.insertAdjacentHTML("afterbegin", '<li class="new">' + htmlEncode(time) + ' <span class="mono">' + message.replace(/"([^"]+)"/g, '"<span class="quote">$1</span>"') + '</span></li>');
+	} else if (iserr) {
 		messages.insertAdjacentHTML("afterbegin", '<li class="new error">' + htmlEncode(time + ' ' + message) + '</li>');
 	} else {
 		messages.insertAdjacentHTML("afterbegin", '<li class="new">' + htmlEncode(time + ' ' + message) + '</li>');
@@ -887,12 +939,18 @@ function GroupSortFilter() {
 		}
 
 		let show = true;
+		let batteryMv = tagDB[item.dataset.mac].batteryMv;
 		if ($('input[name="filter"][value="remote"]').checked && item.dataset.isexternal == "false") show = false;
 		if ($('input[name="filter"][value="local"]').checked && item.dataset.isexternal == "true") show = false;
 		if ($('input[name="filter"][value="inactive"]').checked && item.querySelector('.warningicon').style.display != 'inline-block') show = false;
 		if ($('input[name="filter"][value="pending"]').checked && !item.classList.contains("tagpending")) show = false;
+		if ($('input[name="filter"][value="lowbatt"]').checked && (batteryMv >= 2400 || batteryMv == 0 || batteryMv == 1337)) show = false;
 		if (!show) item.style.display = 'none'; else item.style.display = 'block';
 		item.style.order = order++;
+		const checkedValues = Array.from(document.querySelectorAll('input[name="filter"]:checked'))
+			.map(checkbox => checkbox.value)
+			.join(', ');
+		$('#activefilter').innerHTML = (checkedValues ? 'filtered by ' + checkedValues : '');
 	});
 
 	headItems = Array.from($('#taglist').getElementsByClassName('taggroup'));
@@ -901,7 +959,7 @@ function GroupSortFilter() {
 	})
 }
 
-$('#toggleFilters').addEventListener('click', () => {
+$('#toggleFilters').addEventListener('click', (event) => {
 	event.preventDefault();
 	const filterOptions = $('#filterOptions');
 	filterOptions.classList.toggle('active');
@@ -910,6 +968,13 @@ $('#toggleFilters').addEventListener('click', () => {
 	} else {
 		filterOptions.style.maxHeight = 0;
 	}
+});
+
+$('#activefilter').addEventListener('click', (event) => {
+	event.preventDefault();
+	const filterOptions = $('#filterOptions');
+	filterOptions.classList.add('active');
+	filterOptions.style.maxHeight = filterOptions.scrollHeight + 20 + 'px';
 });
 
 async function getTagtype(hwtype) {
@@ -1156,4 +1221,83 @@ function populateTimes(element) {
 		option.text = i.toString().padStart(2, "0") + ":00";
 		element.appendChild(option);
 	}
+}
+
+function populateAPCard(msg) {
+	let apip = msg.ip;
+	let apid = apip.replace(/\./g, "-");
+	if (!$('#ap' + apid)) {
+		div = $('#apcard').cloneNode(true);
+		div.setAttribute('id', 'ap' + apid);
+		$('#aplist').appendChild(div);
+	}
+	let alias = msg.alias;
+	if (!alias) alias = apip;
+	$('#ap' + apid + ' .apip').innerHTML = "<a href=\"http://" + apip + "\" target=\"_new\">" + apip + "</a>";
+	$('#ap' + apid + ' .apalias').innerHTML = alias;
+	$('#ap' + apid + ' .aptagcount').innerHTML = msg.count;
+	$('#ap' + apid + ' .apchannel').innerHTML = msg.channel;
+
+	const elements = document.querySelectorAll('.apchannel');
+	Array.from(elements).forEach(element => {
+		if (element.textContent === msg.channel && element.id !== 'ap' + apid) {
+			$('#ap' + apid + ' .apchannel').style.color = 'red';
+			$('#ap' + apid + ' .apchannel').innerHTML += ' conflict';
+		}
+	});
+
+	// $('#ap' + apid + ' .apversion').innerHTML = msg.version;
+	if (activeTab == 'aptab') {
+		populateAPInfo(apip);
+	}
+}
+
+function populateAPInfo(apip) {
+	let apid = apip.replace(/\./g, "-");
+	fetch('http://' + apip + '/sysinfo')
+		.then(response => {
+			if (response.status != 200) {
+				$('#ap' + apid + ' .apswversion').innerHTML = "Error fetching sysinfo: " + response.status;
+				return {};
+			} else {
+				return response.json();
+			}
+		})
+		.then(data => {
+			if (data.env) {
+				let version = '';
+				version += `env:                ${data.env}<br>`;
+				version += `build date:         ${formatEpoch(data.buildtime)}<br>`;
+				version += `esp32 version:      ${data.buildversion}<br>`;
+				version += `psram size:         ${data.psramsize}<br>`;
+				version += `flash size:         ${data.flashsize}<br>`;
+				$('#ap' + apid + ' .apswversion').innerHTML = version;
+				// if (data.env == 'ESP32_S3_16_8_YELLOW_AP') $("#c6Option").style.display = 'block';
+			}
+		})
+		.catch(error => {
+			$('#ap' + apid + ' .apswversion').innerHTML = "Error fetching sysinfo: " + error;
+		});
+}
+
+function formatEpoch(epochTime) {
+	const date = new Date(epochTime * 1000); // Convert seconds to milliseconds
+
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+	const day = String(date.getDate()).padStart(2, '0');
+	const hours = String(date.getHours()).padStart(2, '0');
+	const minutes = String(date.getMinutes()).padStart(2, '0');
+
+	return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+function setFilterAndShow(filter) {
+	$('input[name="filter"][value="remote"]').checked = false;
+	$('input[name="filter"][value="local"]').checked = false;
+	$('input[name="filter"][value="inactive"]').checked = (filter == 'inactive');
+	$('input[name="filter"][value="pending"]').checked = (filter == 'pending');
+	$('input[name="filter"][value="lowbatt"]').checked = (filter == 'lowbatt');
+	GroupSortFilter();
+	$(`[data-target='tagtab']`).click();
 }
