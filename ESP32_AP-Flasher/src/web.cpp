@@ -71,14 +71,11 @@ void wsSendSysteminfo() {
     Serial.print("1");
     static int freeSpaceLastRun = 0;
     static size_t tagDBsize = 0;
-    static uint64_t freeSpace = Storage.freeSpace();
+    static size_t freeSpace = Storage.freeSpace();
     Serial.print("2");
     sys["currtime"] = now;
     Serial.print("3");
     sys["heap"] = ESP.getFreeHeap();
-#ifdef BOARD_HAS_PSRAM
-    sys["psfree"] = ESP.getFreePsram();
-#endif
     Serial.print("4");
     sys["recordcount"] = tagDBsize;
     Serial.print("5");
