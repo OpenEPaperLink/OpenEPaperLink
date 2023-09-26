@@ -35,7 +35,7 @@ WifiManager wm;
 SemaphoreHandle_t wsMutex;
 uint32_t lastssidscan = 0;
 
-void wsLog(String text) {
+void wsLog(const String &text) {
     StaticJsonDocument<250> doc;
     doc["logMsg"] = text;
     if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
@@ -43,7 +43,7 @@ void wsLog(String text) {
     if (wsMutex) xSemaphoreGive(wsMutex);
 }
 
-void wsErr(String text) {
+void wsErr(const String &text) {
     StaticJsonDocument<250> doc;
     doc["errMsg"] = text;
     if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
@@ -167,7 +167,7 @@ void wsSendAPitem(struct APlist *apitem) {
     if (wsMutex) xSemaphoreGive(wsMutex);
 }
 
-void wsSerial(String text) {
+void wsSerial(const String &text) {
     StaticJsonDocument<250> doc;
     doc["console"] = text;
     Serial.println(text);

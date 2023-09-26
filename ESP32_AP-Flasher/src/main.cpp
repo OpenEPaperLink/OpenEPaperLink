@@ -10,6 +10,7 @@
 #include "storage.h"
 #include "system.h"
 #include "tag_db.h"
+#include "tagdata.h"
 #include "wifimanager.h"
 
 #ifdef HAS_USB
@@ -126,6 +127,7 @@ void setup() {
 #ifdef HAS_RGB_LED
     rgbIdle();
 #endif
+    TagData::loadParsers("/parsers.json");
     loadDB("/current/tagDB.json");
     cleanupCurrent();
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
