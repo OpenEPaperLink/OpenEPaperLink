@@ -18,6 +18,7 @@
 #include "nvs_flash.h"
 #include "proto.h"
 #include "sdkconfig.h"
+#include "second_uart.h"
 #include "soc/uart_struct.h"
 #include "soc/lp_uart_reg.h"
 
