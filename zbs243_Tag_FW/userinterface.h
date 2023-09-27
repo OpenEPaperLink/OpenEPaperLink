@@ -4,16 +4,21 @@
 
 void addOverlay();
 
+bool displayCustomImage(uint8_t imagetype);
+
 void afterFlashScreenSaver();
 void showSplashScreen();
 void showApplyUpdate();
-void showScanningWindow();
-void addScanResult(uint8_t channel, uint8_t lqi);
 void showAPFound();
 void showNoAP();
 void showLongTermSleep();
 void showNoEEPROM();
 void showNoMAC();
+
+
+void gpioButton1();
+void gpioButton2();
+void gpioButtonOther();
 
 extern const uint16_t __code fwVersion;
 extern const char __code fwVersionSuffix[];

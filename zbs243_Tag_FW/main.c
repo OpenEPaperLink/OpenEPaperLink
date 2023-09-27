@@ -24,14 +24,22 @@
 #include "../oepl-definitions.h"
 #include "../oepl-proto.h"
 
-
 // #define DEBUG_MODE
 
 static const uint64_t __code __at(0x008b) mVersionRom = 0x1000011300000000ull;
 
 #define TAG_MODE_CHANSEARCH 0
 #define TAG_MODE_ASSOCIATED 1
+
+#define DELAY_SLIDESHOW_FAST 30
+#define DELAY_SLIDESHOW_MEDIUM 60
+#define DELAY_SLIDESHOW_SLOW 300
+#define DELAY_SLIDESHOW_GLACIAL 1800
+
 uint8_t currentTagMode = TAG_MODE_CHANSEARCH;
+
+uint8_t __xdata slideShowCurrentImg = 0;
+uint8_t __xdata slideShowRefreshCount = 1;
 
 void displayLoop() {
     powerUp(INIT_BASE | INIT_UART);
@@ -44,22 +52,6 @@ void displayLoop() {
     pr("Update screen\n");
     powerUp(INIT_EPD);
     showApplyUpdate();
-    timerDelay(TIMER_TICKS_PER_SECOND * 4);
-
-    wdt60s();
-
-    pr("Scanning screen - ");
-    powerUp(INIT_EPD);
-    showScanningWindow();
-    timerDelay(TIMER_TICKS_PER_SECOND * 8);
-    for (uint8_t i = 0; i < 5; i++) {
-        for (uint8_t c = 0; c < 16; c++) {
-            addScanResult(11 + c, 2 * i + 60 + c);
-        }
-        pr("redraw... ");
-        draw();
-    }
-    pr("\n");
     timerDelay(TIMER_TICKS_PER_SECOND * 4);
 
     wdt30s();
@@ -99,43 +91,16 @@ void displayLoop() {
     wdtDeviceReset();
 }
 
-uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
-    uint8_t __xdata result[sizeof(channelList)];
-    memset(result, 0, sizeof(result));
-    showScanningWindow();
-    drawNoWait();
-    powerUp(INIT_RADIO);
-    for (uint8_t i = 0; i < 4; i++) {
-        for (uint8_t c = 0; c < sizeof(channelList); c++) {
-            if (detectAP(channelList[c])) {
-                if (mLastLqi > result[c]) result[c] = mLastLqi;
-                pr("Channel: %d - LQI: %d RSSI %d\n", channelList[c], mLastLqi, mLastRSSI);
-            }
-        }
-    }
-
-    uint8_t __xdata highestLqi = 0;
-    uint8_t __xdata highestSlot = 0;
-    for (uint8_t c = 0; c < sizeof(result); c++) {
-        if (result[c] > highestLqi) {
-            highestSlot = channelList[c];
-            highestLqi = result[c];
-        }
-    }
-    powerDown(INIT_RADIO);
-    epdWaitRdy();
-    mLastLqi = highestLqi;
-    return highestSlot;
-}
-uint8_t channelSelect() {  // returns 0 if no accesspoints were found
+uint8_t channelSelect(uint8_t rounds) {  // returns 0 if no accesspoints were found
     powerUp(INIT_RADIO);
     uint8_t __xdata result[16];
     memset(result, 0, sizeof(result));
 
-    for (uint8_t i = 0; i < 2; i++) {
+    for (uint8_t i = 0; i < rounds; i++) {
         for (uint8_t c = 0; c < sizeof(channelList); c++) {
             if (detectAP(channelList[c])) {
                 if (mLastLqi > result[c]) result[c] = mLastLqi;
+                if (rounds > 2) pr("Channel: %d - LQI: %d RSSI %d\n", channelList[c], mLastLqi, mLastRSSI);
             }
         }
     }
@@ -215,6 +180,7 @@ void detectButtonOrJig() {
 
 void TagAssociated() {
     // associated
+    bool fastNextCheckin = false;
     struct AvailDataInfo *__xdata avail;
     // Is there any reason why we should do a long (full) get data request (including reason, status)?
     if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
@@ -234,7 +200,8 @@ void TagAssociated() {
             if (curImgSlot != 0xFF) {
                 powerUp(INIT_EEPROM | INIT_EPD);
                 wdt60s();
-                drawImageFromEeprom(curImgSlot);
+                uint8_t lut = getEepromImageDataArgument(curImgSlot) & 0x03;
+                drawImageFromEeprom(curImgSlot, lut);
                 powerDown(INIT_EEPROM | INIT_EPD);
             } else {
                 powerUp(INIT_EPD);
@@ -247,6 +214,23 @@ void TagAssociated() {
         avail = getAvailDataInfo();
         powerDown(INIT_RADIO);
 
+        switch (wakeUpReason) {
+            case WAKEUP_REASON_BUTTON1:
+                gpioButton1();
+                fastNextCheckin = true;
+                break;
+            case WAKEUP_REASON_BUTTON2:
+                gpioButton2();
+                fastNextCheckin = true;
+                break;
+#ifdef ENABLE_GPIO_WAKE
+            case WAKEUP_REASON_GPIO:
+                gpioButtonOther();
+                fastNextCheckin = true;
+                break;
+#endif
+        }
+
         if (avail != NULL) {
             // we got some data!
             longDataReqCounter = 0;
@@ -254,13 +238,11 @@ void TagAssociated() {
             wakeUpReason = WAKEUP_REASON_TIMED;
         }
         if (tagSettings.enableTagRoaming) {
-            uint8_t roamChannel = channelSelect();
+            uint8_t roamChannel = channelSelect(1);
             if (roamChannel) currentChannel = roamChannel;
         }
     } else {
         powerUp(INIT_RADIO);
-
-
 
 #ifdef ENABLE_RETURN_DATA
         // example code to send data back to the AP. Up to 90 bytes can be sent in one packet
@@ -304,11 +286,22 @@ void TagAssociated() {
         }
     }
 
-    // if the AP told us to sleep for a specific period, do so.
-    if (nextCheckInFromAP) {
-        doSleep(nextCheckInFromAP * 60000UL);
+    if (fastNextCheckin) {
+        // do a fast check-in next
+        fastNextCheckin = false;
+        doSleep(100UL);
     } else {
-        doSleep(getNextSleep() * 1000UL);
+        if (nextCheckInFromAP) {
+            // if the AP told us to sleep for a specific period, do so.
+            if (nextCheckInFromAP & 0x8000) {
+                doSleep((nextCheckInFromAP & 0x7FFF) * 1000UL);
+            } else {
+                doSleep(nextCheckInFromAP * 60000UL);
+            }
+        } else {
+            // sleep determined by algorithm
+            doSleep(getNextSleep() * 1000UL);
+        }
     }
 }
 
@@ -319,7 +312,7 @@ void TagChanSearch() {
     }
 
     // try to find a working channel
-    currentChannel = channelSelect();
+    currentChannel = channelSelect(2);
 
     // Check if we should redraw the screen with icons, info screen or screensaver
     if ((!currentChannel && !noAPShown && tagSettings.enableNoRFSymbol) ||
@@ -328,9 +321,12 @@ void TagChanSearch() {
         powerUp(INIT_EPD);
         wdt60s();
         if (curImgSlot != 0xFF) {
-            powerUp(INIT_EEPROM);
-            drawImageFromEeprom(curImgSlot);
-            powerDown(INIT_EEPROM);
+            if (!displayCustomImage(CUSTOM_IMAGE_LOST_CONNECTION)) {
+                powerUp(INIT_EEPROM);
+                uint8_t lut = getEepromImageDataArgument(curImgSlot) & 0x03;
+                drawImageFromEeprom(curImgSlot, lut);
+                powerDown(INIT_EEPROM);
+            }
         } else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
             showLongTermSleep();
         } else {
@@ -354,6 +350,72 @@ void TagChanSearch() {
     }
 }
 
+void TagSlideShow() {
+    currentChannel = 11;  // suppress the no-rf image thing
+    displayCustomImage(CUSTOM_IMAGE_SPLASHSCREEN);
+
+    // do a short channel search
+    currentChannel = channelSelect(2);
+
+    pr("Slideshow mode ch: %d\n", currentChannel);
+
+    // if we did find an AP, check in once
+    if (currentChannel) {
+        doVoltageReading();
+        struct AvailDataInfo *__xdata avail;
+        powerUp(INIT_RADIO);
+        avail = getAvailDataInfo();
+
+        if (avail != NULL) {
+            processAvailDataInfo(avail);
+        }
+    }
+    powerDown(INIT_RADIO);
+
+    // suppress the no-rf image
+    currentChannel = 11;
+
+    while (1) {
+        powerUp(INIT_UART);
+        wdt60s();
+        powerUp(INIT_EEPROM);
+        uint8_t img = findNextSlideshowImage(slideShowCurrentImg);
+        if (img != slideShowCurrentImg) {
+            slideShowCurrentImg = img;
+            uint8_t lut = getEepromImageDataArgument(img) & 0x03;
+            powerUp(INIT_EPD);
+            if (SLIDESHOW_FORCE_FULL_REFRESH_EVERY) {
+                slideShowRefreshCount++;
+            }
+            if ((slideShowRefreshCount == SLIDESHOW_FORCE_FULL_REFRESH_EVERY) || (lut == 0)) {
+                slideShowRefreshCount = 1;
+                lut = 0;
+            }
+            drawImageFromEeprom(img, lut);
+            powerDown(INIT_EPD | INIT_EEPROM);
+        } else {
+            // same image, so don't update the screen; this only happens when there's exactly one slideshow image
+            powerDown(INIT_EEPROM);
+        }
+
+        switch (tagSettings.customMode) {
+            case TAG_CUSTOM_SLIDESHOW_FAST:
+                doSleep(1000UL * SLIDESHOW_INTERVAL_FAST);
+                break;
+            case TAG_CUSTOM_SLIDESHOW_MEDIUM:
+                doSleep(1000UL * SLIDESHOW_INTERVAL_MEDIUM);
+                break;
+            case TAG_CUSTOM_SLIDESHOW_SLOW:
+                doSleep(1000UL * SLIDESHOW_INTERVAL_SLOW);
+                break;
+            case TAG_CUSTOM_SLIDESHOW_GLACIAL:
+                doSleep(1000UL * SLIDESHOW_INTERVAL_GLACIAL);
+                break;
+        }
+        pr("wake...\n");
+    }
+}
+
 void executeCommand(uint8_t cmd) {
     switch (cmd) {
         case CMD_DO_REBOOT:
@@ -364,7 +426,7 @@ void executeCommand(uint8_t cmd) {
             writeSettings();
             break;
         case CMD_DO_SCAN:
-            currentChannel = channelSelect();
+            currentChannel = channelSelect(4);
             break;
         case CMD_DO_DEEPSLEEP:
             powerUp(INIT_EPD);
@@ -373,6 +435,61 @@ void executeCommand(uint8_t cmd) {
             while (1) {
                 doSleep(-1);
             }
+            break;
+        case CMD_ERASE_EEPROM_IMAGES:
+            powerUp(INIT_EEPROM);
+            eraseImageBlocks();
+            powerDown(INIT_EEPROM);
+            break;
+        case CMD_ENTER_SLIDESHOW_FAST:
+            powerUp(INIT_EEPROM);
+            if (findSlotDataTypeArg(CUSTOM_IMAGE_SLIDESHOW << 3) == 0xFF) {
+                powerDown(INIT_EEPROM);
+                return;
+            }
+            powerDown(INIT_EEPROM);
+            tagSettings.customMode = TAG_CUSTOM_SLIDESHOW_FAST;
+            writeSettings();
+            wdtDeviceReset();
+            break;
+        case CMD_ENTER_SLIDESHOW_MEDIUM:
+            powerUp(INIT_EEPROM);
+            if (findSlotDataTypeArg(CUSTOM_IMAGE_SLIDESHOW << 3) == 0xFF) {
+                powerDown(INIT_EEPROM);
+                return;
+            }
+            powerDown(INIT_EEPROM);
+            tagSettings.customMode = TAG_CUSTOM_SLIDESHOW_MEDIUM;
+            writeSettings();
+            wdtDeviceReset();
+            break;
+        case CMD_ENTER_SLIDESHOW_SLOW:
+            powerUp(INIT_EEPROM);
+            if (findSlotDataTypeArg(CUSTOM_IMAGE_SLIDESHOW << 3) == 0xFF) {
+                powerDown(INIT_EEPROM);
+                return;
+            }
+            powerDown(INIT_EEPROM);
+
+            tagSettings.customMode = TAG_CUSTOM_SLIDESHOW_SLOW;
+            writeSettings();
+            wdtDeviceReset();
+            break;
+        case CMD_ENTER_SLIDESHOW_GLACIAL:
+            powerUp(INIT_EEPROM);
+            if (findSlotDataTypeArg(CUSTOM_IMAGE_SLIDESHOW << 3) == 0xFF) {
+                powerDown(INIT_EEPROM);
+                return;
+            }
+            powerDown(INIT_EEPROM);
+            tagSettings.customMode = TAG_CUSTOM_SLIDESHOW_GLACIAL;
+            writeSettings();
+            wdtDeviceReset();
+            break;
+        case CMD_ENTER_NORMAL_MODE:
+            tagSettings.customMode = TAG_CUSTOM_MODE_NONE;
+            writeSettings();
+            wdtDeviceReset();
             break;
     }
 }
@@ -399,6 +516,17 @@ void main() {
     // get the highest slot number, number of slots
     initializeProto();
 
+    switch (tagSettings.customMode) {
+        case TAG_CUSTOM_SLIDESHOW_FAST:
+        case TAG_CUSTOM_SLIDESHOW_MEDIUM:
+        case TAG_CUSTOM_SLIDESHOW_SLOW:
+        case TAG_CUSTOM_SLIDESHOW_GLACIAL:
+            TagSlideShow();
+            break;
+        default:
+            break;
+    }
+
     if (tagSettings.enableFastBoot) {
         // Fastboot
         pr("Doing fast boot\n");
@@ -406,7 +534,7 @@ void main() {
         if (tagSettings.fixedChannel) {
             currentChannel = tagSettings.fixedChannel;
         } else {
-            currentChannel = channelSelect();
+            currentChannel = channelSelect(2);
         }
     } else {
         // Normal boot/startup
@@ -426,9 +554,9 @@ void main() {
         detectButtonOrJig();
 
         // show the splashscreen
-        pr("EPD: First powerup\n");
-        powerUp(INIT_EPD);
+        currentChannel = 11;
         showSplashScreen();
+        currentChannel = 0;
 
 // we've now displayed something on the screen; for the SSD1619, we are now aware of the lut-size
 #ifdef EPD_SSD1619
@@ -443,28 +571,25 @@ void main() {
         writeSettings();
 
         // scan for channels
-        powerUp(INIT_EPD);
         wdt30s();
         if (tagSettings.fixedChannel) {
             currentChannel = tagSettings.fixedChannel;
         } else {
-            currentChannel = showChannelSelect();
+            currentChannel = channelSelect(4);
         }
     }
-
     // end of the fastboot option split
+
     wdt10s();
     powerUp(INIT_EPD);
     if (currentChannel) {
         showAPFound();
         initPowerSaving(INTERVAL_BASE);
-        powerDown(INIT_EPD | INIT_UART);
         currentTagMode = TAG_MODE_ASSOCIATED;
         doSleep(5000UL);
     } else {
         showNoAP();
         initPowerSaving(INTERVAL_AT_MAX_ATTEMPTS);
-        powerDown(INIT_EPD | INIT_UART);
         currentTagMode = TAG_MODE_CHANSEARCH;
         doSleep(120000UL);
     }

@@ -3,11 +3,11 @@
 
 #include <stdint.h>
 
-#define FW_VERSION 21             // version number (max 2.5.5 :) )
-#define FW_VERSION_SUFFIX "-RET"  // suffix, like -RC1 or whatever.
+#define FW_VERSION 22             // version number (max 2.5.5 :) )
+#define FW_VERSION_SUFFIX "-BUT"  // suffix, like -RC1 or whatever.
 // #define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
 // #define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
-
+#define ENABLE_GPIO_WAKE            // uncomment to enable GPIO wake
 // #define ENABLE_RETURN_DATA  // enables the tag to send blocks of data back. Enabling this costs about 4 IRAM bytes
 
 #define SETTINGS_STRUCT_VERSION 0x01

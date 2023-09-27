@@ -292,16 +292,34 @@ void doSleep(const uint32_t __xdata t) {
         P1DIR |= (1 << 0);
         P1PULL |= (1 << 0);
         P1LVLSEL |= (1 << 0);
-        P1INTEN = (1 << 0);
+        P1INTEN |= (1 << 0);
         P1CHSTA &= ~(1 << 0);
+
+        // Button setup on RXD pin 0.7 (input pullup)
+        P0FUNC &= ~(1 << 7);
+        P0DIR |= (1 << 7);
+        P0PULL |= (1 << 7);
+        P0LVLSEL |= (1 << 7);
+        P0INTEN |= (1 << 7);
+        P0CHSTA &= ~(1 << 7);
     }
+
+#ifdef ENABLE_GPIO_WAKE
+    // enable wake on pin 0.2 (MISO)
+    P0FUNC &= ~(1 << 3);
+    P0DIR |= (1 << 3);
+    P0PULL |= (1 << 3);
+    P0LVLSEL |= (1 << 3);
+    P0INTEN |= (1 << 3);
+    P0CHSTA &= ~(1 << 3);
+#endif
 
     if (capabilities & CAPABILITY_NFC_WAKE) {
         P1FUNC &= ~(1 << 3);
         P1DIR |= (1 << 3);
         P1PULL |= (1 << 3);
         P1LVLSEL |= (1 << 3);
-        P1INTEN = (1 << 3);
+        P1INTEN |= (1 << 3);
         P1CHSTA &= ~(1 << 3);
     }
 
@@ -313,15 +331,29 @@ void doSleep(const uint32_t __xdata t) {
     // sleepy time
     sleepForMsec(t);
     P1INTEN = 0;
+    P0INTEN = 0;
     if ((P1CHSTA & (1 << 0)) && (capabilities & CAPABILITY_HAS_WAKE_BUTTON)) {
-        wakeUpReason = WAKEUP_REASON_GPIO;
+        wakeUpReason = WAKEUP_REASON_BUTTON1;
         P1CHSTA &= ~(1 << 0);
+    }
+
+    if ((P0CHSTA & (1 << 7)) && (capabilities & CAPABILITY_HAS_WAKE_BUTTON)) {
+        wakeUpReason = WAKEUP_REASON_BUTTON2;
+        P0CHSTA &= ~(1 << 7);
     }
 
     if ((P1CHSTA & (1 << 3)) && (capabilities & CAPABILITY_NFC_WAKE)) {
         wakeUpReason = WAKEUP_REASON_NFC;
         P1CHSTA &= ~(1 << 3);
     }
+
+#ifdef ENABLE_GPIO_WAKE
+    if (P0CHSTA & (1 << 3)) {
+        wakeUpReason = WAKEUP_REASON_GPIO;
+        P0CHSTA &= ~(1 << 3);
+    }
+#endif
+
 }
 
 void doVoltageReading() {

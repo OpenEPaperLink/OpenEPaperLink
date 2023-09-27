@@ -40,6 +40,13 @@
 #define INTERVAL_2_ATTEMPTS 12                 // for 12 attempts (an additional day)
 #define INTERVAL_3_TIME 86400UL                // Finally, try every day
 
+// slideshow power settings
+#define SLIDESHOW_FORCE_FULL_REFRESH_EVERY 16  // force a full refresh every X screen draws
+#define SLIDESHOW_INTERVAL_FAST 15             // interval for 'fast'
+#define SLIDESHOW_INTERVAL_MEDIUM 60  
+#define SLIDESHOW_INTERVAL_SLOW 300  
+#define SLIDESHOW_INTERVAL_GLACIAL 1800  
+
 extern uint8_t checkButtonOrJig();
 
 extern void setupPortsInitial();

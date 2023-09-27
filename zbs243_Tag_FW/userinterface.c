@@ -52,7 +52,7 @@ void addCapabilities() {
 }
 
 void addOverlay() {
-    if ((currentChannel == 0)&&(tagSettings.enableNoRFSymbol)) {
+    if ((currentChannel == 0) && (tagSettings.enableNoRFSymbol)) {
 #if (SCREEN_WIDTH == 152)
         loadRawBitmap(ant, SCREEN_WIDTH - 16, 0, EPD_COLOR_BLACK);
         loadRawBitmap(cross, SCREEN_WIDTH - 8, 7, EPD_COLOR_RED);
@@ -83,6 +83,7 @@ void addOverlay() {
 }
 
 void afterFlashScreenSaver() {
+    if (displayCustomImage(CUSTOM_IMAGE_LONGTERMSLEEP)) return;
     selectLUT(EPD_LUT_DEFAULT);
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
@@ -91,7 +92,6 @@ void afterFlashScreenSaver() {
     epdPrintBegin(0, 0, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("OpenEPaperLink");
     epdPrintEnd();
-
 
     epdPrintBegin(100, 32, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
     epdpr("v%d.%d.%d", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10));
@@ -172,7 +172,7 @@ void afterFlashScreenSaver() {
     epdpr("v%d.%d.%d", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10));
     epdPrintEnd();
 
-        epdPrintBegin(10, 48, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+    epdPrintBegin(10, 48, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("I'm fast asleep... UwU   To wake me:");
     epdPrintEnd();
 
@@ -201,6 +201,8 @@ void afterFlashScreenSaver() {
 }
 
 void showSplashScreen() {
+    if (displayCustomImage(CUSTOM_IMAGE_SPLASHSCREEN)) return;
+    powerUp(INIT_EPD);
     selectLUT(EPD_LUT_NO_REPEATS);
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
@@ -298,6 +300,7 @@ void showSplashScreen() {
 
 #endif
     drawWithSleep();
+            powerUp(INIT_EPD);
 }
 
 void showApplyUpdate() {
@@ -322,60 +325,10 @@ void showApplyUpdate() {
     drawNoWait();
 }
 
-uint8_t __xdata resultcounter = 0;
-
-void showScanningWindow() {
-    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
-    selectLUT(EPD_LUT_FAST_NO_REDS);
-    clearScreen();
-#if (SCREEN_WIDTH == 128)  // 2.9"
-    epdPrintBegin(2, 275, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    epdpr("Scanning for APs");
-    epdPrintEnd();
-    // epdPrintBegin(40, 262, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    // epdpr("Channel - Quality");
-    // epdPrintEnd();
-    loadRawBitmap(receive, 36, 24, EPD_COLOR_BLACK);
-#endif
-#if (SCREEN_WIDTH == 152)  // 1.54"
-    loadRawBitmap(receive, 96, 28, EPD_COLOR_BLACK);
-    epdPrintBegin(3, 0, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    epdpr("Scanning...");
-    epdPrintEnd();
-#endif
-#if (SCREEN_WIDTH == 400)  // 4.2"
-    epdPrintBegin(2, 2, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    epdpr("Scanning for APs");
-    epdPrintEnd();
-
-    // epdPrintBegin(2, 40, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
-    // epdpr("Channel - Quality");
-    // epdPrintEnd();
-    loadRawBitmap(receive, 320, 125, EPD_COLOR_BLACK);
-#endif
-
-    draw();
-    selectLUT(EPD_LUT_FAST);
-    resultcounter = 0;
-}
-
-void addScanResult(uint8_t channel, uint8_t lqi) {
-    if (channel == 11) resultcounter = 0;
-#if (SCREEN_WIDTH == 128)  // 2.9"
-    epdPrintBegin(56 + ((resultcounter % 4) * 16), 282 - (47 * (resultcounter / 4)), EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-#endif
-#if (SCREEN_WIDTH == 152)  // 1.54"
-    epdPrintBegin(4 + (47 * (resultcounter / 8)), 31 + (15 * (resultcounter % 8)), EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-#endif
-#if (SCREEN_WIDTH == 400)  // 4.2"
-    epdPrintBegin(4 + (47 * (resultcounter / 8)), 58 + (15 * (resultcounter % 8)), EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-#endif
-    epdpr("%d-%d", channel, lqi);
-    epdPrintEnd();
-    resultcounter++;
-}
-
 void showAPFound() {
+    if (displayCustomImage(CUSTOM_IMAGE_APFOUND)) return;
+        powerUp(INIT_EPD | INIT_EEPROM);
+
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     selectLUT(1);
@@ -479,9 +432,14 @@ void showAPFound() {
 #endif
     addOverlay();
     drawWithSleep();
+        powerDown(INIT_EPD | INIT_EEPROM);
+
 }
 
 void showNoAP() {
+    if (displayCustomImage(CUSTOM_IMAGE_NOAPFOUND)) return;
+    powerUp(INIT_EPD | INIT_EEPROM);
+
     selectLUT(EPD_LUT_NO_REPEATS);
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     clearScreen();
@@ -525,9 +483,11 @@ void showNoAP() {
 #endif
     addOverlay();
     drawWithSleep();
+    powerDown(INIT_EPD | INIT_EEPROM);
 }
 
 void showLongTermSleep() {
+    if (displayCustomImage(CUSTOM_IMAGE_LONGTERMSLEEP)) return;
     selectLUT(EPD_LUT_NO_REPEATS);
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     clearScreen();
@@ -617,3 +577,70 @@ void showNoMAC() {
 #endif
     drawWithSleep();
 }
+
+bool displayCustomImage(uint8_t imagetype) {
+    powerUp(INIT_EEPROM);
+    uint8_t slot = findSlotDataTypeArg(imagetype << 3);
+    if (slot != 0xFF) {
+        // found a slot for gpio button 1
+
+        uint8_t lut = getEepromImageDataArgument(slot);
+        lut &= 0x03;
+        powerUp(INIT_EPD);
+        drawImageFromEeprom(slot, lut);
+        powerDown(INIT_EPD | INIT_EEPROM);
+        return true;
+    } else {
+        powerDown(INIT_EEPROM);
+    }
+    return false;
+}
+
+void gpioButton1() {
+    if (displayCustomImage(CUSTOM_IMAGE_BUTTON1)) {
+        sleepForMsec(2000);
+
+        // if something else was previously on the display, draw that
+        if (curImgSlot != 0xFF) {
+            powerUp(INIT_EEPROM);
+            uint8_t lut = getEepromImageDataArgument(curImgSlot);
+            lut &= 0x03;
+            powerUp(INIT_EPD);
+            drawImageFromEeprom(curImgSlot, lut);
+            powerDown(INIT_EPD | INIT_EEPROM);
+        }
+    }
+}
+
+void gpioButton2() {
+    if (displayCustomImage(CUSTOM_IMAGE_BUTTON1)) {
+        sleepForMsec(2000);
+
+        // if something else was previously on the display, draw that
+        if (curImgSlot != 0xFF) {
+            powerUp(INIT_EEPROM);
+            uint8_t lut = getEepromImageDataArgument(curImgSlot);
+            lut &= 0x03;
+            powerUp(INIT_EPD);
+            drawImageFromEeprom(curImgSlot, lut);
+            powerDown(INIT_EPD | INIT_EEPROM);
+        }
+    }
+}
+
+#ifdef ENABLE_GPIO_WAKE
+void gpioButtonOther() {
+    if (displayCustomImage(CUSTOM_IMAGE_GPIO)) {
+        sleepForMsec(2000);
+        // if something else was previously on the display, draw that
+        if (curImgSlot != 0xFF) {
+            powerUp(INIT_EEPROM);
+            uint8_t lut = getEepromImageDataArgument(curImgSlot);
+            lut &= 0x03;
+            powerUp(INIT_EPD);
+            drawImageFromEeprom(curImgSlot, lut);
+            powerDown(INIT_EPD | INIT_EEPROM);
+        }
+    }
+}
+#endif
