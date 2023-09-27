@@ -28,6 +28,10 @@ struct imgParam {
 
     uint8_t lut;
     uint8_t shortlut;
+
+    bool preload;
+    uint8_t preloadtype;
+    uint8_t preloadlut;
 };
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams);

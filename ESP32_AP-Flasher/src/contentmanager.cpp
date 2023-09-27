@@ -230,6 +230,11 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
                 }
                 if (contentFS->exists(configFilename)) {
                     imageParams.dither = cfgobj["dither"] && cfgobj["dither"] == "1";
+
+                    imageParams.preload = cfgobj["preload"] && cfgobj["preload"] == "1";
+                    imageParams.preloadlut = cfgobj["preload_lut"];
+                    imageParams.preloadtype = cfgobj["preload_type"];
+
                     jpg2buffer(configFilename, filename, imageParams);
                 } else {
                     filename = "/current/" + String(hexmac) + ".raw";
@@ -246,7 +251,18 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
                     imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                     if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) imageParams.lut = EPD_LUT_DEFAULT;
                 }
-                if (prepareDataAvail(filename, imageParams.dataType, imageParams.lut, mac, cfgobj["timetolive"].as<int>())) {
+
+                struct imageDataTypeArgStruct arg = {0};
+                // load parameters in case we do need to preload an image
+                if (imageParams.preload) {
+                    arg.preloadImage = 1;
+                    arg.specialType = imageParams.preloadtype;
+                    arg.lut = imageParams.preloadlut;
+                } else {
+                    arg.lut = imageParams.lut & 0x03;
+                }
+
+                if (prepareDataAvail(filename, imageParams.dataType, *((uint8_t *)&arg), mac, cfgobj["timetolive"].as<int>())) {
                     if (cfgobj["delete"].as<String>() == "1") {
                         contentFS->remove("/" + configFilename);
                     }

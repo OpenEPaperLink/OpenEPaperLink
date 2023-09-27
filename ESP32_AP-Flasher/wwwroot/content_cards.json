@@ -34,6 +34,47 @@
           "0": "off",
           "1": "on"
         }
+      },
+      {
+        "key": "preload",
+        "name": "Display or Preload",
+        "desc": "Display now or preload for later use",
+        "type": "select",
+        "options": {
+          "0": "Display",
+          "1": "Preload"
+        }
+      },
+      {
+        "key": "preload_lut",
+        "name": "Preload LUT",
+        "desc": "Triggered preload images will display with this LUT",
+        "type": "select",
+        "options": {
+          "0": "Default",
+          "1": "No Repeats",
+          "2": "Fast No Reds",
+          "3": "Fast"
+        }
+      },
+      {
+        "key": "preload_type",
+        "name": "Preload Image type",
+        "desc": "Preload type to send to tag, for later recall, or special use",
+        "type": "select",
+        "options": {
+          "0": "Normal",
+          "1": "UI: Splash Screen",
+          "2": "UI: Lost connection",
+          "3": "UI: AP Found",
+          "4": "UI: No AP Found",
+          "5": "UI: Long Term Sleep",
+          "15": "Slideshow image",
+          "16": "Wake: Button 1",
+          "17": "Wake: Button 2",
+          "29": "Wake: GPIO",
+          "30": "Wake: NFC"
+        }
       }
     ]
   },
@@ -649,6 +690,9 @@
     "id": 21,
     "name": "Access point info",
     "desc": "Displays information about the currently connected access point",
-    "hwtype": [0, 1]
+    "hwtype": [
+      0,
+      1
+    ]
   }
 ]
