@@ -187,3 +187,9 @@ struct ledFlash {
     uint8_t repeats;
     uint8_t spare;
 } __packed;
+
+struct imageDataTypeArgStruct {
+    uint8_t lut : 2;
+    uint8_t preloadImage : 1;  // set to 0 will draw image immediately
+    uint8_t specialType : 5;
+} __packed;

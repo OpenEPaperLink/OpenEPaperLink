@@ -57,6 +57,7 @@
 #define CMD_DO_RESET_SETTINGS 2
 #define CMD_DO_DEEPSLEEP 3
 #define CMD_DO_LEDFLASH 4
+#define CMD_ERASE_EEPROM_IMAGES 5
 
 #define WAKEUP_REASON_TIMED 0
 #define WAKEUP_REASON_GPIO 2
@@ -72,3 +73,18 @@
 #define EPD_LUT_FAST_NO_REDS 2
 #define EPD_LUT_FAST 3
 #define EPD_LUT_OTA 0x10
+
+// these are the 'custom image' arguments that will be sent in addition to their 'type'. 
+#define CUSTOM_IMAGE_NOCUSTOM 0x00         // regular image type
+#define CUSTOM_IMAGE_SPLASHSCREEN 0x01     // will show at first boot/powerup
+#define CUSTOM_IMAGE_LOST_CONNECTION 0x02  // this image will be shown (if it exists on the tag) if the tag looses its connection
+#define CUSTOM_IMAGE_APFOUND 0x03          // this image will be shown during bootup if an AP was found
+#define CUSTOM_IMAGE_NOAPFOUND 0x04        // shown if during bootup no AP was found
+#define CUSTOM_IMAGE_LONGTERMSLEEP 0x05     // shown if long term sleep is entered via command
+// UNUSED: 0x06-0x0F
+#define CUSTOM_IMAGE_SLIDESHOW 0x0F  // image is part of a slideshow
+#define CUSTOM_IMAGE_BUTTON1 0x10
+#define CUSTOM_IMAGE_BUTTON2 0x11
+// UNUSED: 0x12 to 0x1C
+#define CUSTOM_IMAGE_GPIO 0x1D
+#define CUSTOM_IMAGE_NFC_WAKE 0x1E
