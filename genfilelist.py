@@ -52,7 +52,7 @@ dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
 tag = sys.argv[1]
 
 binaries = generate_file_hashes2(rp + "/espbinaries",tag)
-tagota = generate_file_hashes2(rp + "/binaries",tag)
+#tagota = generate_file_hashes2(rp + "/binaries",tag)
 files1 = generate_file_hashes(rp + "/ESP32_AP-Flasher/data/www","/www/",tag)
 files1.extend(generate_file_hashes(rp + "/ESP32_AP-Flasher/data","/",tag))
 files1.extend(generate_file_hashes(rp + "/ESP32_AP-Flasher/data/fonts","/fonts/",tag))
@@ -65,7 +65,7 @@ jsonarray = {
     "builddate": dt_string,
     "binaries": binaries,
     "files": files1,
-    "tagota": tagota,
+#    "tagota": tagota,
     }
 
 with open("jsonfiles/binaries.json", "w") as json_file:
@@ -74,8 +74,8 @@ with open("jsonfiles/binaries.json", "w") as json_file:
 with open("jsonfiles/files.json", "w") as json_file:
     json.dump(jsonarray, json_file, indent=4)
     
-with open("jsonfiles/tagota.json", "w") as json_file:
-    json.dump(tagota, json_file, indent=4)
+#with open("jsonfiles/tagota.json", "w") as json_file:
+#    json.dump(tagota, json_file, indent=4)
     
 with open("jsonfiles/filesystem.json", "w") as json_file:
     json.dump(files1, json_file, indent=4)
