@@ -11,6 +11,9 @@
 #include "storage.h"
 #include "util.h"
 
+#define STR_IMPL(x) #x
+#define STR(x) STR_IMPL(x)
+
 std::vector<tagRecord*> tagDB;
 std::unordered_map<std::string, varStruct> varDB;
 std::unordered_map<int, HwType> hwdata = {
@@ -309,6 +312,8 @@ void initAPconfig() {
     // default wifi power 8.5 dbM
     // see https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/src/WiFiGeneric.h#L111
     config.wifiPower = APconfig["wifipower"] | 34;
+    config.repo = APconfig["repo"] | "jjwbruijn/OpenEPaperLink";
+    config.env = APconfig["env"] | STR(BUILD_ENV_NAME);
     if (APconfig["timezone"]) {
         strlcpy(config.timeZone, APconfig["timezone"], sizeof(config.timeZone));
     } else {
@@ -331,6 +336,8 @@ void saveAPconfig() {
     APconfig["timezone"] = config.timeZone;
     APconfig["sleeptime1"] = config.sleepTime1;
     APconfig["sleeptime2"] = config.sleepTime2;
+    APconfig["repo"] = config.repo;
+    APconfig["env"] = config.env;
     serializeJsonPretty(APconfig, configFile);
     configFile.close();
     xSemaphoreGive(fsMutex);

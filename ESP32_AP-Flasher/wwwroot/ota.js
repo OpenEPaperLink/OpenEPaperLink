@@ -1,4 +1,5 @@
-const repoUrl = 'https://api.github.com/repos/jjwbruijn/OpenEPaperLink/releases';
+var repo = apConfig.repo || 'jjwbruijn/OpenEPaperLink';
+var repoUrl = 'https://api.github.com/repos/' + repo + '/releases';
 
 const $ = document.querySelector.bind(document);
 
@@ -8,17 +9,26 @@ let env = '', currentVer = '', currentBuildtime = 0;
 let buttonState = false;
 
 export async function initUpdate() {
-    if (!$("#updateconsole")) {
-        const consoleDiv = document.createElement('div');
-        consoleDiv.classList.add('console');
-        consoleDiv.id = "updateconsole";
-        $('#apupdatebox').appendChild(consoleDiv);
-    }
-    $("#updateconsole").innerHTML = "";
 
     const response = await fetch("/version.txt");
     let filesystemversion = await response.text();
     if (!filesystemversion) filesystemversion = "unknown";
+    $('#repo').value = repo;
+
+    const envBox = $('#environment');
+    if (envBox?.tagName === 'SELECT') {
+        const inputElement = document.createElement('input');
+        inputElement.type = 'text';
+        inputElement.id = 'environment';
+        envBox.parentNode.replaceChild(inputElement, envBox);
+    }
+    $('#environment').value = '';
+    $('#environment').setAttribute('readonly', true);
+    $('#repo').removeAttribute('readonly');
+    $('#confirmSelectRepo').style.display = 'none';
+    $('#cancelSelectRepo').style.display = 'none';
+    $('#selectRepo').style.display = 'inline-block';
+    $('#repoWarning').style.display = 'none';
 
     fetch("/sysinfo")
         .then(response => {
@@ -42,7 +52,6 @@ export async function initUpdate() {
                 print(`build date:         ${formatEpoch(data.buildtime)}`);
                 print(`esp32 version:      ${data.buildversion}`);
                 print(`filesystem version: ${filesystemversion}` + matchtest);
-                print(`sha:                ${data.sha}`);
                 print(`psram size:         ${data.psramsize}`);
                 print(`flash size:         ${data.flashsize}`);
                 print("--------------------------", "gray");
@@ -51,6 +60,7 @@ export async function initUpdate() {
                 currentBuildtime = data.buildtime;
                 if (data.rollback) $("#rollbackOption").style.display = 'block';
                 if (data.env == 'ESP32_S3_16_8_YELLOW_AP') $("#c6Option").style.display = 'block';
+                $('#environment').value = env;
             }
         })
         .catch(error => {
@@ -92,7 +102,6 @@ export async function initUpdate() {
                     }
                 }
             }
-            easyupdate.innerHTML += "<br><a onclick=\"$('#advanceddiv').style.display='block'\">advanced options</a>"
 
             const table = document.createElement('table');
             const tableHeader = document.createElement('tr');
@@ -101,9 +110,9 @@ export async function initUpdate() {
 
             let rowCounter = 0;
             releaseDetails.forEach(release => {
-                if (rowCounter < 3 && release?.html_url) {
+                if (rowCounter < 4 && release?.html_url) {
                     const tableRow = document.createElement('tr');
-                    let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td><button onclick="otamodule.updateESP('${release.bin_url}', true)">ESP32</button></td><td><button onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td>`;
+                    let tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td><td><button type="button" onclick="otamodule.updateWebpage('${release.file_url}','${release.tag_name}', true)">Filesystem</button></td><td><button type="button" onclick="otamodule.updateESP('${release.bin_url}', true)">ESP32</button></td>`;
                     if (release.tag_name == currentVer) {
                         tablerow += "<td>current version</td>";
                     } else if (release.date < formatEpoch(currentBuildtime)) {
@@ -362,6 +371,90 @@ $('#updateC6Btn').onclick = function () {
     disableButtons(false);
 }
 
+$('#selectRepo').onclick = function (event) {
+    event.preventDefault();
+    $('#updateconsole').innerHTML = '';
+
+    let repoUrl = 'https://api.github.com/repos/' + $('#repo').value + '/releases';
+    fetch(repoUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (Array.isArray(data) && data.length > 0) {
+                const release = data[0];
+                print("Repo found! Latest release: " + release.name + " created " + release.created_at);
+                const assets = release.assets;
+                const filesJsonAsset = assets.find(asset => asset.name === 'filesystem.json');
+                const binariesJsonAsset = assets.find(asset => asset.name === 'binaries.json');
+                if (filesJsonAsset && binariesJsonAsset) {
+                    const updateUrl = "http://openepaperlink.eu/getupdate/?url=" + binariesJsonAsset.browser_download_url + "&env=" + $('#repo').value;
+                    return fetch(updateUrl);
+                } else {
+                    throw new Error("Json file binaries.json and/or filesystem.json not found in the release assets");
+                }            
+            };
+        })
+        .then(updateResponse => {
+            if (!updateResponse.ok) {
+                throw new Error("Network response was not OK");
+            }
+            return updateResponse.text();
+        })
+        .then(responseBody => {
+            if (!responseBody.trim().startsWith("[")) {
+                throw new Error("Failed to fetch the release info file");
+            }
+            const updateData = JSON.parse(responseBody).filter(item => !item.name.endsWith('_full.bin'));
+
+            const inputParent = $('#environment').parentNode;
+            const selectElement = document.createElement('select');
+            selectElement.id = 'environment';
+            updateData.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.name.replace('.bin', '');
+                option.text = item.name.replace('.bin', '');
+                selectElement.appendChild(option);
+            });
+            inputParent.replaceChild(selectElement, $('#environment'));
+            $('#environment').value = env;
+            $('#confirmSelectRepo').style.display = 'inline-block';
+            $('#cancelSelectRepo').style.display = 'inline-block';
+            $('#selectRepo').style.display = 'none';
+            $('#repo').setAttribute('readonly', true);
+            $('#repoWarning').style.display = 'block';
+        })
+        .catch(error => {
+            print('Error fetching releases:' + error, "red");
+        });    
+}
+
+$('#cancelSelectRepo').onclick = function (event) {
+    event.preventDefault();
+    $('#updateconsole').innerHTML = '';
+    initUpdate();
+}
+
+$('#confirmSelectRepo').onclick = function (event) {
+    event.preventDefault();
+
+    repo = $('#repo').value;
+    let formData = new FormData();
+    formData.append("repo", repo);
+    formData.append("env", $('#environment').value);
+    fetch("/save_apcfg", {
+        method: "POST",
+        body: formData
+    })
+        .then(response => response.text())
+        .then(data => {
+            window.dispatchEvent(loadConfig);
+            print('OK, Saved');
+        })
+        .catch(error => print('Error: ' + error));
+    $('#updateconsole').innerHTML = '';
+    repoUrl = 'https://api.github.com/repos/' + repo + '/releases';
+    initUpdate();
+}
+
 export function print(line, color = "white") {
     const consoleDiv = document.getElementById('updateconsole');
     if (consoleDiv) {
@@ -464,7 +557,7 @@ const writeVersion = async (content, name, path) => {
 };
 
 function disableButtons(active) {
-    $("#apupdatebox").querySelectorAll('button').forEach(button => {
+    $("#configtab").querySelectorAll('button').forEach(button => {
         button.disabled = active;
     });
     buttonState = active;

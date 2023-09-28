@@ -71,6 +71,8 @@ struct Config {
     char timeZone[52];
     uint8_t sleepTime1;
     uint8_t sleepTime2;
+    String repo;
+    String env;
 };
 
 struct HwType {
@@ -90,7 +92,6 @@ extern Config config;
 extern std::vector<tagRecord*> tagDB;
 extern std::unordered_map<int, HwType> hwtype;
 extern std::unordered_map<std::string, varStruct> varDB;
-extern DynamicJsonDocument APconfig;
 extern String tagDBtoJson(const uint8_t mac[8] = nullptr, uint8_t startPos = 0);
 extern bool deleteRecord(const uint8_t mac[8]);
 extern void fillNode(JsonObject& tag, const tagRecord* taginfo);

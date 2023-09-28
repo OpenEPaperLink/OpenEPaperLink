@@ -7,6 +7,7 @@
 #include "esp32_port.h"
 #include "esp_littlefs.h"
 #include "storage.h"
+#include "tag_db.h"
 #include "web.h"
 
 esp_loader_error_t connect_to_target(uint32_t higher_transmission_rate) {
@@ -163,8 +164,7 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
 }
 
 bool doC6flash(uint8_t doDownload) {
-    const char *githubUrl = "https://raw.githubusercontent.com/jjwbruijn/OpenEPaperLink/master/binaries/ESP32-C6/firmware.json";
-
+    const String githubUrl = "https://raw.githubusercontent.com/" + config.repo + "/master/binaries/ESP32-C6/firmware.json";
     HTTPClient http;
     Serial.println(githubUrl);
     http.begin(githubUrl);
@@ -181,7 +181,7 @@ bool doC6flash(uint8_t doDownload) {
                 JsonArray jsonArray = jsonDoc.as<JsonArray>();
                 for (JsonObject obj : jsonArray) {
                     String filename = "/" + obj["filename"].as<String>();
-                    String binaryUrl = "https://raw.githubusercontent.com/jjwbruijn/OpenEPaperLink/master/binaries/ESP32-C6" + String(filename);
+                    String binaryUrl = "https://raw.githubusercontent.com/" + config.repo + "/master/binaries/ESP32-C6" + String(filename);
                     for (int retry = 0; retry < 10; retry++) {
                         if (downloadAndWriteBinary(filename, binaryUrl.c_str())) {
                             break;

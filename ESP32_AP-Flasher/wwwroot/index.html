@@ -39,376 +39,409 @@
 		</nav>
 	</header>
 
-	<form>
-		<div class="container">
+	<div class="container">
 
-			<div class="window">
+		<div class="window">
 
-				<div id="hometab" class="tabcontent">
-					<table>
-						<tr onclick="setFilterAndShow('')">
-							<td class="material-symbols-outlined" style="color:#239f26" id="dashboardStatusIcon">
-								check_circle
-							</td>
-							<td id="dashboardStatus" style="color:#239f26" colspan="2">
-								initialising...
-							</td>
-						</tr>
-						<tr onclick="setFilterAndShow('')">
-							<td class="material-symbols-outlined" style="color:#77239e">
+			<div id="hometab" class="tabcontent">
+				<table>
+					<tr onclick="setFilterAndShow('')">
+						<td class="material-symbols-outlined" style="color:#239f26" id="dashboardStatusIcon">
+							check_circle
+						</td>
+						<td id="dashboardStatus" style="color:#239f26" colspan="2">
+							initialising...
+						</td>
+					</tr>
+					<tr onclick="setFilterAndShow('')">
+						<td class="material-symbols-outlined" style="color:#77239e">
+							sell
+						</td>
+						<td>
+							tags
+						</td>
+						<td id="dashboardTagCount" style="color:#77239e">
+							0
+						</td>
+					</tr>
+					<tr onclick="setFilterAndShow('pending')">
+						<td class="material-symbols-outlined" style="color:#235f9e">
+							hourglass_empty
+						</td>
+						<td>
+							pending data
+						</td>
+						<td id="dashboardPending" style="color:#235f9e">
+							0
+						</td>
+					</tr>
+					<tr onclick="setFilterAndShow('lowbatt')">
+						<td class="material-symbols-outlined" style="color:#9e9223">
+							battery_low
+						</td>
+						<td>
+							low battery
+						</td>
+						<td id="dashboardLowBatt" style="color:#9e9223">
+							0
+						</td>
+					</tr>
+					<tr onclick="setFilterAndShow('inactive')">
+						<td class="material-symbols-outlined" style="color:#9e2323">
+							signal_disconnected
+						</td>
+						<td>
+							timeout
+						</td>
+						<td id="dashboardTimeout" style="color:#9e2323">
+							0
+						</td>
+					</tr>
+					<!--
+					<tr onclick="$(`[data-target='aptab']`).click()">
+						<td class="material-symbols-outlined" style="color:#239f26">
+							cell_tower
+						</td>
+						<td>
+							access points
+						</td>
+						<td id="dashboardApCount" style="color:#239f26">
+
+						</td>
+					</tr>
+				-->
+				</table>
+			</div>
+
+			<div id="tagtab" class="tabcontent">
+				<div class="tagheader">
+					<h3>Currently active tags</h3>
+					<div id="activefilter"></div><button class="material-symbols-outlined"
+							id="toggleFilters">filter_alt</button>
+				</div>
+				<div id="filterOptions">
+					<div>
+						<div>group by</div>
+						<div>
+							<input type="radio" name="group" value="" id="rnone" checked><label
+									for="rnone">None</label>
+						</div>
+						<div>
+							<input type="radio" name="group" value="model" id="rtagtype"><label for="rtagtype">Tag
+								model</label>
+						</div>
+						<div>
+							<input type="radio" name="group" value="contentmode" id="rcontent"><label
+									for="rcontent">Content</label>
+						</div>
+						<div>
+							<input type="radio" name="group" value="data-channel" id="rchannel"><label
+									for="rchannel">Channel</label>
+						</div>
+					</div>
+					<div>
+						<div>sort by</div>
+						<div>
+							<input type="radio" name="sort" value="alias" id="ralias" checked><label
+									for="ralias">Alias</label>
+						</div>
+						<div>
+							<input type="radio" name="sort" value="mac" id="rmac"><label for="rmac">Mac</label>
+						</div>
+						<div>
+							<input type="radio" name="sort" value="data-lastseen" id="rlastseen"><label
+									for="rlastseen">Last seen</label>
+						</div>
+						<div>
+							<input type="radio" name="sort" value="data-nextupdate" id="rnext"><label
+									for="rnext">Next update</label>
+						</div>
+					</div>
+					<div>
+						<div>filter</div>
+						<div>
+							<input type="checkbox" name="filter" value="local" id="rlocal"><label
+									for="rlocal">local</label>
+						</div>
+						<div>
+							<input type="checkbox" name="filter" value="remote" id="rremote"><label
+									for="rremote">remote</label>
+						</div>
+						<div>
+							<input type="checkbox" name="filter" value="inactive" id="rinactive"><label
+									for="rinactive">timed out</label>
+						</div>
+						<div>
+							<input type="checkbox" name="filter" value="pending" id="rpending"><label
+									for="rpending">pending</label>
+						</div>
+						<div>
+							<input type="checkbox" name="filter" value="lowbatt" id="rlowbatt"><label
+									for="rlowbatt">low battery</label>
+						</div>
+					</div>
+				</div>
+				<div id="taglist" class="taglist">
+					<div class="tagcard" id="tagtemplate">
+						<div class="currimg"><canvas class="tagimg"></div>
+						<div class="mac"></div>
+						<div class="alias"></div>
+						<div class="model"></div>
+						<div class="received"></div>
+						<div class="contentmode"></div>
+						<div class="lastseen"></div>
+						<div class="nextcheckin"></div>
+						<div class="nextupdate"></div>
+						<div class="corner">
+							<div class="pendingicon" title="A new message is waiting for the tag to pick up">
+								&circlearrowright;</div>
+							<div class="warningicon" title="This tag has not been seen for a long time">&#9888;
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div id="logtab" class="tabcontent">
+				<div class="tabheader">
+					<div><img id="clearlog" src="data:image/gif;base64,R0lGODlhEAAQAPMAANXV1e3t7d/f39HR0dvb2/Hx8dTU1OLi4urq6mZmZpmZmf///wAAAAAAAAAAAAAAACH5BAEAAAwALAAAAAAQABAAAARBkMlJq71Yrp3ZXkr4WWCYnOZSgQVyEMYwJCq1nHhe20qgCAoA7QLyAYU7njE4JPV+zOSkCEUSFbmTVPPpbjvgTAQAOw==
+				"></div>
+					<div><input type="checkbox" id="showdebug" value="1"><label for="showdebug">Show all websocket
+							traffic</label></div>
+				</div>
+				<ul id="messages" class="messages">
+				</ul>
+			</div>
+
+			<div id="aptab" class="tabcontent">
+				<h3>Active access points</h3>
+
+				<div id="aplist">
+					<div id="apcard" class="apcard">
+						<p class="apip">194.109.6.66</p>
+						<p class="apalias">AP kitchen</p>
+						<div>
+							<span class="material-symbols-outlined">
 								sell
-							</td>
-							<td>
-								tags
-							</td>
-							<td id="dashboardTagCount" style="color:#77239e">
-								0
-							</td>
-						</tr>
-						<tr onclick="setFilterAndShow('pending')">
-							<td class="material-symbols-outlined" style="color:#235f9e">
-								hourglass_empty
-							</td>
-							<td>
-								pending data
-							</td>
-							<td id="dashboardPending" style="color:#235f9e">
-								0
-							</td>
-						</tr>
-						<tr onclick="setFilterAndShow('lowbatt')">
-							<td class="material-symbols-outlined" style="color:#9e9223">
-								battery_low
-							</td>
-							<td>
-								low battery
-							</td>
-							<td id="dashboardLowBatt" style="color:#9e9223">
-								0
-							</td>
-						</tr>
-						<tr onclick="setFilterAndShow('inactive')">
-							<td class="material-symbols-outlined" style="color:#9e2323">
-								signal_disconnected
-							</td>
-							<td>
-								timeout
-							</td>
-							<td id="dashboardTimeout" style="color:#9e2323">
-								0
-							</td>
-						</tr>
-						<!--
-						<tr onclick="$(`[data-target='aptab']`).click()">
-							<td class="material-symbols-outlined" style="color:#239f26">
+							</span>
+							<span class="aptagcount">13</span>
+							<span class="material-symbols-outlined space">
 								cell_tower
-							</td>
-							<td>
-								access points
-							</td>
-							<td id="dashboardApCount" style="color:#239f26">
-
-							</td>
-						</tr>
-					-->
-					</table>
-				</div>
-
-				<div id="tagtab" class="tabcontent">
-					<div class="tagheader">
-						<h3>Currently active tags</h3>
-						<div id="activefilter"></div><button class="material-symbols-outlined"
-								id="toggleFilters">filter_alt</button>
-					</div>
-					<div id="filterOptions">
-						<div>
-							<div>group by</div>
-							<div>
-								<input type="radio" name="group" value="" id="rnone" checked><label
-									   for="rnone">None</label>
-							</div>
-							<div>
-								<input type="radio" name="group" value="model" id="rtagtype"><label for="rtagtype">Tag
-									model</label>
-							</div>
-							<div>
-								<input type="radio" name="group" value="contentmode" id="rcontent"><label
-									   for="rcontent">Content</label>
-							</div>
-							<div>
-								<input type="radio" name="group" value="data-channel" id="rchannel"><label
-									   for="rchannel">Channel</label>
-							</div>
+							</span>
+							<span class="apchannel">25</span>
 						</div>
-						<div>
-							<div>sort by</div>
-							<div>
-								<input type="radio" name="sort" value="alias" id="ralias" checked><label
-									   for="ralias">Alias</label>
-							</div>
-							<div>
-								<input type="radio" name="sort" value="mac" id="rmac"><label for="rmac">Mac</label>
-							</div>
-							<div>
-								<input type="radio" name="sort" value="data-lastseen" id="rlastseen"><label
-									   for="rlastseen">Last seen</label>
-							</div>
-							<div>
-								<input type="radio" name="sort" value="data-nextupdate" id="rnext"><label
-									   for="rnext">Next update</label>
-							</div>
-						</div>
-						<div>
-							<div>filter</div>
-							<div>
-								<input type="checkbox" name="filter" value="local" id="rlocal"><label
-									   for="rlocal">local</label>
-							</div>
-							<div>
-								<input type="checkbox" name="filter" value="remote" id="rremote"><label
-									   for="rremote">remote</label>
-							</div>
-							<div>
-								<input type="checkbox" name="filter" value="inactive" id="rinactive"><label
-									   for="rinactive">timed out</label>
-							</div>
-							<div>
-								<input type="checkbox" name="filter" value="pending" id="rpending"><label
-									   for="rpending">pending</label>
-							</div>
-							<div>
-								<input type="checkbox" name="filter" value="lowbatt" id="rlowbatt"><label
-									   for="rlowbatt">low battery</label>
-							</div>
-						</div>
-					</div>
-					<div id="taglist" class="taglist">
-						<div class="tagcard" id="tagtemplate">
-							<div class="currimg"><canvas class="tagimg"></div>
-							<div class="mac"></div>
-							<div class="alias"></div>
-							<div class="model"></div>
-							<div class="received"></div>
-							<div class="contentmode"></div>
-							<div class="lastseen"></div>
-							<div class="nextcheckin"></div>
-							<div class="nextupdate"></div>
-							<div class="corner">
-								<div class="pendingicon" title="A new message is waiting for the tag to pick up">
-									&circlearrowright;</div>
-								<div class="warningicon" title="This tag has not been seen for a long time">&#9888;
-								</div>
-							</div>
-						</div>
+						<p class="apswversion">
+							fetching software version...
+						</p>
 					</div>
 				</div>
+			</div>
 
-				<div id="logtab" class="tabcontent">
-					<div class="tabheader">
-						<div><img id="clearlog" src="data:image/gif;base64,R0lGODlhEAAQAPMAANXV1e3t7d/f39HR0dvb2/Hx8dTU1OLi4urq6mZmZpmZmf///wAAAAAAAAAAAAAAACH5BAEAAAwALAAAAAAQABAAAARBkMlJq71Yrp3ZXkr4WWCYnOZSgQVyEMYwJCq1nHhe20qgCAoA7QLyAYU7njE4JPV+zOSkCEUSFbmTVPPpbjvgTAQAOw==
-					"></div>
-						<div><input type="checkbox" id="showdebug" value="1"><label for="showdebug">Show all websocket
-								traffic</label></div>
-					</div>
-					<ul id="messages" class="messages">
-					</ul>
-				</div>
+			<div id="templatetab" class="tabcontent">
+				Work in progress...
+			</div>
 
-				<div id="aptab" class="tabcontent">
-					<h3>Active access points</h3>
+			<div id="configtab" class="tabcontent">
+				<h3>Access Point config</h3>
+				<p>
+					<label for="apcfgalias">Alias</label>
+					<input id="apcfgalias" type="text">
+				</p>
+				<p>
+					<label for="apcfgchid">IEEE 802.15.4 channel</label>
+					<select id="apcfgchid">
+						<option value="0" selected>auto</option>
+						<option value="11">11</option>
+						<option value="15">15</option>
+						<option value="20">20</option>
+						<option value="25">25</option>
+						<option value="26">26</option>
+						<option value="27">27</option>
+					</select>
+				</p>
+				<p>
+					<label for="apcfgledbrightness">LED brightness</label>
+					<select id="apcfgledbrightness">
+						<option value="-1">off</option>
+						<option value="20">10%</option>
+						<option value="64">25%</option>
+						<option value="128" selected>50%</option>
+						<option value="192">75%</option>
+						<option value="255">100%</option>
+					</select>
+				</p>
+				<p>
+					<label for="apcfglanguage">Content language</label>
+					<select id="apcfglanguage">
+						<option value="0" selected>EN English</option>
+						<option value="1">NL Nederlands</option>
+						<option value="2">DE Deutsch</option>
+					</select>
+				</p>
+				<p title="Depending on the content, a tag can sleep for
+			longer periods when no updates are expected
+			(like a date display). This setting specifies
+			the maximum sleep time.">
+					<label for="apclatency">Maximum sleep</label>
+					<select id="apclatency">
+						<option value="0" selected>shortest (40 sec)</option>
+						<option value="5">5 minutes</option>
+						<option value="10">10 minute</option>
+						<option value="30">30 minutes</option>
+						<option value="60">1 hour</option>
+					</select>
+				</p>
+				<p title="If connected to the website, don't sleep extra.
+			Latency will be around 40 seconds.">
+					<label for="apcpreventsleep">Shorten latency during config</label>
+					<select id="apcpreventsleep">
+						<option value="0">no</option>
+						<option value="1" selected>yes</option>
+					</select>
+				</p>
+				<p
+					title="Stops updates at night, and put the tags to sleep. During the configured night time, this overrides the maximum sleep time.">
+					<label for="apcnight1">No updates between</label>
+					<select id="apcnight1"></select>
+					<span style="align-self:center;">and</span>
+					<select id="apcnight2"></select>
+				</p>
+				<p title="Turn off preview images on the webpage if you want to manage many tags,
+			to save file system space">
+					<label for="apcpreview">Preview images</label>
+					<select id="apcpreview">
+						<option value="1" selected>yes</option>
+						<option value="0">no</option>
+					</select>
+				</p>
+				<p title="Wifi transmit power">
+					<label for="apcwifipower">Wifi power</label>
+					<select id="apcwifipower">
+						<option value="78">19.5 dBm</option>
+						<option value="76">19.0 dBm</option>
+						<option value="74">18.5 dBm</option>
+						<option value="68">17.0 dBm</option>
+						<option value="60">15.0 dBm</option>
+						<option value="52">13.0 dBm</option>
+						<option value="44">11.0 dBm</option>
+						<option value="34" selected>8.5 dBm</option>
+						<option value="28">7.0 dBm</option>
+						<option value="20">5.0 dBm</option>
+						<option value="8">2.0 dBm</option>
+					</select>
+				</p>
+				<p title="Your local time zone">
+					<label for="apctimezone">Local time zone</label>
+					<select id="apctimezone">
+						<optgroup label="Europe">
+							<option value="CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00" selected>Central European
+								Time</option>
+							<option value="EET-2EEST-3,M3.5.0/03:00:00,M10.5.0/04:00:00">Athens, Greece</option>
+							<option value="GMT+0IST-1,M3.5.0/01:00:00,M10.5.0/02:00:00">Dublin, Ireland</option>
+							<option value="EET-2EEST-3,M3.5.0/03:00:00,M10.5.0/04:00:00">Helsinki, Finland</option>
+							<option value="WET-0WEST-1,M3.5.0/01:00:00,M10.5.0/02:00:00">Lisbon, Portugal</option>
+							<option value="GMT+0BST-1,M3.5.0/01:00:00,M10.5.0/02:00:00">London, Great Britain
+							</option>
+							<option value="EET-2EEST,M3.5.0/3,M10.5.0/4">Kyiv, Ukraine</option>
+						</optgroup>
+						<optgroup label="USA / Canada">
+							<option value="HAW10">Hawaii Time</option>
+							<option value="AKST9AKDT">Alaska Time</option>
+							<option value="PST8PDT">Pacific Time</option>
+							<option value="MST7MDT">Mountain Time</option>
+							<option value="MST7">Arizona, no DST</option>
+							<option value="CST6CDT">Central Time</option>
+							<option value="EST5EDT">Eastern Time</option>
+						</optgroup>
+						<optgroup label="Australia / New Zealand">
+							<option value="EST-10EDT-11,M10.5.0/02:00:00,M3.5.0/03:00:00">Melbourne, Sydney</option>
+							<option value="WST-8">Perth</option>
+							<option value="EST-10">Brisbane</option>
+							<option value="CST-9:30CDT-10:30,M10.5.0/02:00:00,M3.5.0/03:00:00">Adelaide</option>
+							<option value="CST-9:30">Darwin</option>
+							<option value="EST-10EDT-11,M10.1.0/02:00:00,M3.5.0/03:00:00">Hobart</option>
+							<option value="NZST-12NZDT-13,M9.4.0/02:00:00,M4.1.0/03:00:00">New Zealand</option>
+						</optgroup>
+						<optgroup label="Asia">
+							<option value="JST-9">Tokyo</option>
+							<option value="WIB-7">Jakarta</option>
+							<option value="GMT+2">Jerusalem</option>
+							<option value="SGT-8">Singapore</option>
+							<option value="ULAT-8ULAST,M3.5.0/2,M9.5.0/2">Ulaanbaatar, Mongolia</option>
+						</optgroup>
+						<optgroup label="Central and South America">
+							<option value="BRST+3BRDT+2,M10.3.0,M2.3.0">Brazil, Sao Paulo</option>
+							<option value="UTC+3">Argentina</option>
+							<option value="CST+6">Central America</option>
+						</optgroup>
+					</select>
+				</p>
+				<p>
+					<input type="button" value="Save" id="apcfgsave"><span id="apcfgmsg"></span>
+				</p>
+				<h3>Manage</h3>
+				<p>
+					<button type="button" id="rebootbutton">Reboot AP</button> Saves the tagDB and instantly reboots the Access
+					Point
+				</p>
+				<p>
+					<a href="/backup_db" id="downloadDBbutton">Download tagDB</a>
+				</p>
+				<p>
+					<button type="button" id="updatebutton" class="tablinks" data-target="updatetab" title="Update">Update</button> Manage firmware of the ESP32
+				</p>
+				<p>
+					<a href="/setup" target="setup" class="wifibutton">WiFi config</a> Opens a new window with WiFi
+					config options
+				</p>
+				<p>
+					<br>
+					<a href="https://github.com/jjwbruijn/OpenEPaperLink" target="_new">Github
+						OpenEPaperLink</a><br>
+					<a href="https://github.com/jjwbruijn/OpenEPaperLink/wiki" target="_new">OpenEPaperLink
+						Wiki</a><br>
+				</p>
+			</div>
 
-					<div id="aplist">
-						<div id="apcard" class="apcard">
-							<p class="apip">194.109.6.66</p>
-							<p class="apalias">AP kitchen</p>
-							<div>
-								<span class="material-symbols-outlined">
-									sell
+			<div id="updatetab" class="tabcontent">
+				<h3>Firmware Updates</h3>
+				<div>
+					<div class="updateCol1">
+						<div id="easyupdate"></div>
+						<h4>Repository</h4>
+						<div>
+							<label for="repo">Repo</label><input type="text" id="repo" value="">
+							<button id="selectRepo">Change</button><br>
+							<p id="repoWarning" style="display:none" class="warning">
+								To change to this repository, select and confirm the build environment.
+							</p>
+							<label for="environment">Environment</label><input type="text" id="environment" readonly value="">
+							<button id="confirmSelectRepo">Confirm</button><button id="cancelSelectRepo">Cancel</button>
+						</div>
+						<h4>Releases</h4>
+						<div id="releasetable"></div>
+						<h4>Other actions</h4>
+						<div>
+							<p>
+								<div id="rollbackOption" style="display:none"><button type="button" id="rollbackBtn">Rollback to previous
+									firmware</button></div>
+							</p>
+							<p>
+								<span id="c6Option">
+								<div id="updateC6Option"><button type="button" id="updateC6Btn">Update ESP32-C6</button> <input type="checkbox"
+											value="1" checked id="c6download"> download latest version</div>
 								</span>
-								<span class="aptagcount">13</span>
-								<span class="material-symbols-outlined space">
-									cell_tower
-								</span>
-								<span class="apchannel">25</span>
-							</div>
-							<p class="apswversion">
-								fetching software version...
 							</p>
 						</div>
 					</div>
+					<div class="console" id="updateconsole"></div>
 				</div>
-
-				<div id="templatetab" class="tabcontent">
-					Work in progress...
-				</div>
-
-				<div id="configtab" class="tabcontent">
-					<h3>Access Point config</h3>
-					<p>
-						<label for="apcfgalias">Alias</label>
-						<input id="apcfgalias" type="text">
-					</p>
-					<p>
-						<label for="apcfgchid">Channel</label>
-						<select id="apcfgchid">
-							<option value="0" selected>auto</option>
-							<option value="11">11</option>
-							<option value="15">15</option>
-							<option value="20">20</option>
-							<option value="25">25</option>
-							<option value="26">26</option>
-							<option value="27">27</option>
-						</select>
-					</p>
-					<p>
-						<label for="apcfgledbrightness">LED brightness</label>
-						<select id="apcfgledbrightness">
-							<option value="-1">off</option>
-							<option value="20">10%</option>
-							<option value="64">25%</option>
-							<option value="128" selected>50%</option>
-							<option value="192">75%</option>
-							<option value="255">100%</option>
-						</select>
-					</p>
-					<p>
-						<label for="apcfglanguage">Content language</label>
-						<select id="apcfglanguage">
-							<option value="0" selected>EN English</option>
-							<option value="1">NL Nederlands</option>
-							<option value="2">DE Deutsch</option>
-						</select>
-					</p>
-					<p title="Depending on the content, a tag can sleep for
-				longer periods when no updates are expected
-				(like a date display). This setting specifies
-				the maximum sleep time.">
-						<label for="apclatency">Maximum sleep</label>
-						<select id="apclatency">
-							<option value="0" selected>shortest (40 sec)</option>
-							<option value="5">5 minutes</option>
-							<option value="10">10 minute</option>
-							<option value="30">30 minutes</option>
-							<option value="60">1 hour</option>
-						</select>
-					</p>
-					<p title="If connected to the website, don't sleep extra.
-				Latency will be around 40 seconds.">
-						<label for="apcpreventsleep">Shorten latency during config</label>
-						<select id="apcpreventsleep">
-							<option value="0">no</option>
-							<option value="1" selected>yes</option>
-						</select>
-					</p>
-					<p
-					   title="Stops updates at night, and put the tags to sleep. During the configured night time, this overrides the maximum sleep time.">
-						<label for="apcnight1">No updates between</label>
-						<select id="apcnight1"></select>
-						<span style="align-self:center;">and</span>
-						<select id="apcnight2"></select>
-					</p>
-					<p title="Turn off preview images on the webpage if you want to manage many tags,
-				to save file system space">
-						<label for="apcpreview">Preview images</label>
-						<select id="apcpreview">
-							<option value="1" selected>yes</option>
-							<option value="0">no</option>
-						</select>
-					</p>
-					<p title="Wifi transmit power">
-						<label for="apcwifipower">Wifi power</label>
-						<select id="apcwifipower">
-							<option value="78">19.5 dBm</option>
-							<option value="76">19.0 dBm</option>
-							<option value="74">18.5 dBm</option>
-							<option value="68">17.0 dBm</option>
-							<option value="60">15.0 dBm</option>
-							<option value="52">13.0 dBm</option>
-							<option value="44">11.0 dBm</option>
-							<option value="34" selected>8.5 dBm</option>
-							<option value="28">7.0 dBm</option>
-							<option value="20">5.0 dBm</option>
-							<option value="8">2.0 dBm</option>
-						</select>
-					</p>
-					<p title="Your local time zone">
-						<label for="apctimezone">Local time zone</label>
-						<select id="apctimezone">
-							<optgroup label="Europe">
-								<option value="CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00" selected>Central European
-									Time</option>
-								<option value="EET-2EEST-3,M3.5.0/03:00:00,M10.5.0/04:00:00">Athens, Greece</option>
-								<option value="GMT+0IST-1,M3.5.0/01:00:00,M10.5.0/02:00:00">Dublin, Ireland</option>
-								<option value="EET-2EEST-3,M3.5.0/03:00:00,M10.5.0/04:00:00">Helsinki, Finland</option>
-								<option value="WET-0WEST-1,M3.5.0/01:00:00,M10.5.0/02:00:00">Lisbon, Portugal</option>
-								<option value="GMT+0BST-1,M3.5.0/01:00:00,M10.5.0/02:00:00">London, Great Britain
-								</option>
-								<option value="EET-2EEST,M3.5.0/3,M10.5.0/4">Kyiv, Ukraine</option>
-							</optgroup>
-							<optgroup label="USA / Canada">
-								<option value="HAW10">Hawaii Time</option>
-								<option value="AKST9AKDT">Alaska Time</option>
-								<option value="PST8PDT">Pacific Time</option>
-								<option value="MST7MDT">Mountain Time</option>
-								<option value="MST7">Arizona, no DST</option>
-								<option value="CST6CDT">Central Time</option>
-								<option value="EST5EDT">Eastern Time</option>
-							</optgroup>
-							<optgroup label="Australia / New Zealand">
-								<option value="EST-10EDT-11,M10.5.0/02:00:00,M3.5.0/03:00:00">Melbourne, Sydney</option>
-								<option value="WST-8">Perth</option>
-								<option value="EST-10">Brisbane</option>
-								<option value="CST-9:30CDT-10:30,M10.5.0/02:00:00,M3.5.0/03:00:00">Adelaide</option>
-								<option value="CST-9:30">Darwin</option>
-								<option value="EST-10EDT-11,M10.1.0/02:00:00,M3.5.0/03:00:00">Hobart</option>
-								<option value="NZST-12NZDT-13,M9.4.0/02:00:00,M4.1.0/03:00:00">New Zealand</option>
-							</optgroup>
-							<optgroup label="Asia">
-								<option value="JST-9">Tokyo</option>
-								<option value="WIB-7">Jakarta</option>
-								<option value="GMT+2">Jerusalem</option>
-								<option value="SGT-8">Singapore</option>
-								<option value="ULAT-8ULAST,M3.5.0/2,M9.5.0/2">Ulaanbaatar, Mongolia</option>
-							</optgroup>
-							<optgroup label="Central and South America">
-								<option value="BRST+3BRDT+2,M10.3.0,M2.3.0">Brazil, Sao Paulo</option>
-								<option value="UTC+3">Argentina</option>
-								<option value="CST+6">Central America</option>
-							</optgroup>
-						</select>
-					</p>
-					<p>
-						<input type="button" value="Save" id="apcfgsave"><span id="apcfgmsg"></span>
-					</p>
-					<h3>Manage</h3>
-					<p>
-						<button id="rebootbutton">Reboot AP</button> Saves the tagDB and instantly reboots the Access
-						Point
-					</p>
-					<p>
-						<a href="/backup_db" id="downloadDBbutton">Download tagDB</a>
-					</p>
-					<p>
-						<button id="updatebutton">Update</button> Manage firmware of the ESP32
-					</p>
-					<p>
-						<a href="/setup" target="setup" class="wifibutton">WiFi config</a> Opens a new window with WiFi
-						config options
-					</p>
-					<p>
-						<br>
-						<a href="https://github.com/jjwbruijn/OpenEPaperLink" target="_new">Github
-							OpenEPaperLink</a><br>
-						<a href="https://github.com/jjwbruijn/OpenEPaperLink/wiki" target="_new">OpenEPaperLink
-							Wiki</a><br>
-					</p>
-				</div>
-
 			</div>
 
-
 		</div>
-	</form>
+
+
+	</div>
 
 	<footer class="logbox">
 		<p>
@@ -463,27 +496,6 @@
 			<span id="cfgmore" title="advanced options">&#x25BC;</span>
 		</p>
 	</dialog>
-
-	<div id="apupdatebox">
-		<div class="closebtn">&#10006;</div>
-		<h3>Update dashboard</h3>
-		<div id="easyupdate"></div>
-		<div id="advanceddiv">
-			<!--<div>
-				repo: <input type="text" name="repo"> <button id="switchRepo">Switch</button><br>
-				environment: <span id="environment">environment</span>
-			</div>-->
-			<div id="releasetable"></div>
-			<div>
-				<div id="rollbackOption" style="display:none"><button id="rollbackBtn">Rollback to previous
-						firmware</button></div>
-				<span id="c6Option">
-					<div id="updateC6Option"><button id="updateC6Btn">Update ESP32-C6</button> <input type="checkbox"
-							   value="1" checked id="c6download"> download latest version</div>
-				</span>
-			</div>
-		</div>
-	</div>
 
 	<ul id="context-menu"
 		style="display: none; position: absolute; background: white; border: 1px solid gray; padding: 0; list-style: none;">

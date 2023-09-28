@@ -26,8 +26,6 @@
 
 extern uint8_t data_to_send[];
 
-// const char *http_username = "admin";
-// const char *http_password = "admin";
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 WifiManager wm;
@@ -189,7 +187,6 @@ void init_web() {
 
     wm.connectToWifi();
 
-    // server.addHandler(new SPIFFSEditor(*contentFS, http_username, http_password));
     server.addHandler(new SPIFFSEditor(*contentFS));
 
     server.addHandler(&ws);
@@ -424,48 +421,55 @@ void init_web() {
     });
 
     server.on("/save_apcfg", HTTP_POST, [](AsyncWebServerRequest *request) {
-        if (request->hasParam("alias", true) && request->hasParam("channel", true)) {
+        if (request->hasParam("alias", true)) {
             String aliasValue = request->getParam("alias", true)->value();
             size_t aliasLength = aliasValue.length();
             if (aliasLength > 31) aliasLength = 31;
             aliasValue.toCharArray(config.alias, aliasLength + 1);
             config.alias[aliasLength] = '\0';
-
-            config.channel = static_cast<uint8_t>(request->getParam("channel", true)->value().toInt());
-            if (request->hasParam("led", true)) {
-                config.led = static_cast<int16_t>(request->getParam("led", true)->value().toInt());
-                updateBrightnessFromConfig();
-            }
-            if (request->hasParam("language", true)) {
-                config.language = static_cast<uint8_t>(request->getParam("language", true)->value().toInt());
-                updateLanguageFromConfig();
-            }
-            if (request->hasParam("maxsleep", true)) {
-                config.maxsleep = static_cast<uint8_t>(request->getParam("maxsleep", true)->value().toInt());
-            }
-            if (request->hasParam("stopsleep", true)) {
-                config.stopsleep = static_cast<uint8_t>(request->getParam("stopsleep", true)->value().toInt());
-            }
-            if (request->hasParam("preview", true)) {
-                config.preview = static_cast<uint8_t>(request->getParam("preview", true)->value().toInt());
-            }
-            if (request->hasParam("sleeptime1", true)) {
-                config.sleepTime1 = static_cast<uint8_t>(request->getParam("sleeptime1", true)->value().toInt());
-                config.sleepTime2 = static_cast<uint8_t>(request->getParam("sleeptime2", true)->value().toInt());
-            }
-            if (request->hasParam("wifipower", true)) {
-                config.wifiPower = static_cast<uint8_t>(request->getParam("wifipower", true)->value().toInt());
-                WiFi.setTxPower(static_cast<wifi_power_t>(config.wifiPower));
-            }
-            if (request->hasParam("timezone", true)) {
-                strncpy(config.timeZone, request->getParam("timezone", true)->value().c_str(), sizeof(config.timeZone) - 1);
-                config.timeZone[sizeof(config.timeZone) - 1] = '\0';
-                setenv("TZ", config.timeZone, 1);
-                tzset();
-            }
-            saveAPconfig();
-            setAPchannel();
         }
+        if (request->hasParam("channel", true)) {
+            config.channel = static_cast<uint8_t>(request->getParam("channel", true)->value().toInt());
+        }
+        if (request->hasParam("led", true)) {
+            config.led = static_cast<int16_t>(request->getParam("led", true)->value().toInt());
+            updateBrightnessFromConfig();
+        }
+        if (request->hasParam("language", true)) {
+            config.language = static_cast<uint8_t>(request->getParam("language", true)->value().toInt());
+            updateLanguageFromConfig();
+        }
+        if (request->hasParam("maxsleep", true)) {
+            config.maxsleep = static_cast<uint8_t>(request->getParam("maxsleep", true)->value().toInt());
+        }
+        if (request->hasParam("stopsleep", true)) {
+            config.stopsleep = static_cast<uint8_t>(request->getParam("stopsleep", true)->value().toInt());
+        }
+        if (request->hasParam("preview", true)) {
+            config.preview = static_cast<uint8_t>(request->getParam("preview", true)->value().toInt());
+        }
+        if (request->hasParam("sleeptime1", true)) {
+            config.sleepTime1 = static_cast<uint8_t>(request->getParam("sleeptime1", true)->value().toInt());
+            config.sleepTime2 = static_cast<uint8_t>(request->getParam("sleeptime2", true)->value().toInt());
+        }
+        if (request->hasParam("wifipower", true)) {
+            config.wifiPower = static_cast<uint8_t>(request->getParam("wifipower", true)->value().toInt());
+            WiFi.setTxPower(static_cast<wifi_power_t>(config.wifiPower));
+        }
+        if (request->hasParam("timezone", true)) {
+            strncpy(config.timeZone, request->getParam("timezone", true)->value().c_str(), sizeof(config.timeZone) - 1);
+            config.timeZone[sizeof(config.timeZone) - 1] = '\0';
+            setenv("TZ", config.timeZone, 1);
+            tzset();
+        }
+        if (request->hasParam("repo", true)) {
+            config.repo = request->getParam("repo", true)->value();
+        }
+        if (request->hasParam("env", true)) {
+            config.env = request->getParam("env", true)->value();
+        }
+        saveAPconfig();
+        setAPchannel();
         request->send(200, "text/plain", "Ok, saved");
     });
 

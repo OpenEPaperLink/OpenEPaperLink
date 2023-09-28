@@ -83,7 +83,8 @@ function initTabs() {
 	const tabContents = document.querySelectorAll(".tabcontent");
 
 	tabLinks.forEach(tabLink => {
-		tabLink.addEventListener("click", function () {
+		tabLink.addEventListener("click", function (event) {
+			event.preventDefault();
 			const targetId = this.getAttribute("data-target");
 			const loadTabEvent = new CustomEvent('loadTab', { detail: targetId });
 			document.dispatchEvent(loadTabEvent);
@@ -575,6 +576,10 @@ document.addEventListener("loadTab", function (event) {
 				})
 			$('#apcfgmsg').innerHTML = '';
 			break;
+		case 'updatetab':
+			$('#updateconsole').innerHTML = '';
+			loadOTA();
+			break;
 	}
 });
 
@@ -603,12 +608,6 @@ $('#apcfgsave').onclick = function () {
 			$('#apcfgmsg').innerHTML = 'OK, Saved';
 		})
 		.catch(error => showMessage('Error: ' + error));
-}
-
-$('#updatebutton').onclick = function (event) {
-	event.preventDefault();
-	$('#apupdatebox').style.display = 'block';
-	loadOTA();
 }
 
 async function loadOTA() {

@@ -65,7 +65,7 @@ footer {
 .logo {
 	margin: 0 auto;
 	height: 50px;
-	text-indent: 50px;
+	text-indent: 12px;
 	overflow: hidden;
 	font-size: 2.5em;
 	color: white;
@@ -202,11 +202,41 @@ label {
 }
 
 #aptab,
-#configtab {
+#configtab,
+#updatetab {
 	padding: 10px;
 
 	& p {
 		padding: 3px;
+	}
+}
+
+#updatetab {
+	&>div {
+		display: flex;
+		gap: 2em;
+		flex-flow: wrap;
+	}
+	& label {
+		width: 100px;
+		display: inline-block;
+		vertical-align: baseline;
+		padding: 7px 0px;
+	}
+	& input[type="text"] {
+		width: 200px;
+	}
+	& button {
+		margin: 0px 5px;
+	}
+	& input:read-only {
+		background-color: #ccc;
+	}
+	& .warning {
+		padding: 5px;
+		color: #f02000;
+		background-color: #ffffc0;
+		font-weight: bold;
 	}
 }
 
@@ -719,7 +749,10 @@ ul.messages li.new {
 /* updatescreens */
 
 #easyupdate {
-	margin-top: 10px;
+	padding: 10px;
+	background-color: white;
+	width: 400px;
+	margin-bottom: 20px;
 }
 
 #easyupdate button {
@@ -733,13 +766,10 @@ ul.messages li.new {
 	text-decoration: underline;
 }
 
-#advanceddiv {
-	display: none;
-}
-
-#advanceddiv div:nth-child(2) {
-	display: flex;
-	gap: 10px;
+h4 {
+	font-size: 1.25em;
+	margin: 10px 0px;
+	font-weight: bold;
 }
 
 #releasetable {
@@ -764,7 +794,7 @@ ul.messages li.new {
 }
 
 #releasetable td:nth-child(2) {
-	word-wrap: nowrap;
+	white-space: nowrap;
 }
 
 #releasetable button {
@@ -780,17 +810,21 @@ ul.messages li.new {
 	display: none;
 }
 
+.updateCol1 {
+	flex-grow: 1;
+}
+
 .console {
-	width: 100%;
+	width: 450px;
 	background-color: black;
 	font-family: 'lucida console', 'ui-monospace';
 	color: white;
 	padding: 5px 10px;
-	margin: 20px 0px;
 	padding-bottom: 25px;
-	height: 400px;
+	height: calc(100vh - 200px);
 	overflow-y: scroll;
 	white-space: break-spaces;
+	flex-grow: 1;
 }
 
 .console div {
