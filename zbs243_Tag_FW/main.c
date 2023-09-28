@@ -216,19 +216,25 @@ void TagAssociated() {
 
         switch (wakeUpReason) {
             case WAKEUP_REASON_BUTTON1:
-                gpioButton1();
+                externalWakeHandler(CUSTOM_IMAGE_BUTTON1);
                 fastNextCheckin = true;
                 break;
             case WAKEUP_REASON_BUTTON2:
-                gpioButton2();
+                externalWakeHandler(CUSTOM_IMAGE_BUTTON2);
                 fastNextCheckin = true;
                 break;
-#ifdef ENABLE_GPIO_WAKE
             case WAKEUP_REASON_GPIO:
-                gpioButtonOther();
+                externalWakeHandler(CUSTOM_IMAGE_GPIO);
                 fastNextCheckin = true;
                 break;
-#endif
+            case WAKEUP_REASON_RF:
+                externalWakeHandler(CUSTOM_IMAGE_RF_WAKE);
+                fastNextCheckin = true;
+                break;
+            case WAKEUP_REASON_NFC:
+                externalWakeHandler(CUSTOM_IMAGE_NFC_WAKE);
+                fastNextCheckin = true;
+                break;
         }
 
         if (avail != NULL) {

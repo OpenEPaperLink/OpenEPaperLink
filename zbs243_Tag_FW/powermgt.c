@@ -286,6 +286,8 @@ void doSleep(const uint32_t __xdata t) {
     uartActive = false;
     eepromActive = false;
 
+    capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
+
     if (capabilities & CAPABILITY_HAS_WAKE_BUTTON) {
         // Button setup on TEST pin 1.0 (input pullup)
         P1FUNC &= ~(1 << 0);
@@ -324,7 +326,7 @@ void doSleep(const uint32_t __xdata t) {
     }
 
     if (tagSettings.enableRFWake) {
-        // enabled RF wake, adds a little extra energy draw!
+        //  enabled RF wake, adds a little extra energy draw!
         RADIO_RadioPowerCtl &= 0xFB;
     }
 
@@ -332,28 +334,36 @@ void doSleep(const uint32_t __xdata t) {
     sleepForMsec(t);
     P1INTEN = 0;
     P0INTEN = 0;
-    if ((P1CHSTA & (1 << 0)) && (capabilities & CAPABILITY_HAS_WAKE_BUTTON)) {
-        wakeUpReason = WAKEUP_REASON_BUTTON1;
-        P1CHSTA &= ~(1 << 0);
-    }
 
-    if ((P0CHSTA & (1 << 7)) && (capabilities & CAPABILITY_HAS_WAKE_BUTTON)) {
-        wakeUpReason = WAKEUP_REASON_BUTTON2;
-        P0CHSTA &= ~(1 << 7);
-    }
+    switch (RADIO_Wake_Reason) {
+        case RADIO_WAKE_REASON_TIMER:
+            break;
+        case RADIO_WAKE_REASON_EXT:
+            if ((P1CHSTA & (1 << 0)) && (capabilities & CAPABILITY_HAS_WAKE_BUTTON)) {
+                wakeUpReason = WAKEUP_REASON_BUTTON1;
+                P1CHSTA &= ~(1 << 0);
+            }
 
-    if ((P1CHSTA & (1 << 3)) && (capabilities & CAPABILITY_NFC_WAKE)) {
-        wakeUpReason = WAKEUP_REASON_NFC;
-        P1CHSTA &= ~(1 << 3);
-    }
+            if ((P0CHSTA & (1 << 7)) && (capabilities & CAPABILITY_HAS_WAKE_BUTTON)) {
+                wakeUpReason = WAKEUP_REASON_BUTTON2;
+                P0CHSTA &= ~(1 << 7);
+            }
 
+            if ((P1CHSTA & (1 << 3)) && (capabilities & CAPABILITY_NFC_WAKE)) {
+                wakeUpReason = WAKEUP_REASON_NFC;
+                P1CHSTA &= ~(1 << 3);
+            }
 #ifdef ENABLE_GPIO_WAKE
-    if (P0CHSTA & (1 << 3)) {
-        wakeUpReason = WAKEUP_REASON_GPIO;
-        P0CHSTA &= ~(1 << 3);
-    }
+            if (P0CHSTA & (1 << 3)) {
+                wakeUpReason = WAKEUP_REASON_GPIO;
+                P0CHSTA &= ~(1 << 3);
+            }
 #endif
-
+            break;
+        case RADIO_WAKE_REASON_RF:
+            wakeUpReason = WAKEUP_REASON_RF;
+            break;
+    }
 }
 
 void doVoltageReading() {

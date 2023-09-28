@@ -278,12 +278,18 @@ static __xdata __at (0xdfe2) unsigned char RADIO_unk_E2;
 static __xdata __at (0xdff0) unsigned char RADIO_unk_F0;
 static __xdata __at (0xdff3) unsigned char RADIO_SleepTimerSettings;	//0x16 for one second tick, 0x56 for 1/32k second tick
 static __xdata __at (0xdff4) unsigned char RADIO_RadioPowerCtl;
+static __xdata __at (0xdffb) unsigned char RADIO_Wake_Reason; // 0x04 ext interrupt, 0x08 timer, 0x02 RF wake
 static __xdata __at (0xdffd) unsigned char RADIO_perChannelSetting1;	//relevant fo rRX
 
 #define RADIO_CMD_RECEIVE			0xc2	//tx always goes to RX anyways
 #define RADIO_CMD_FLUSH_RX_FIFO		0xc6
 #define RADIO_CMD_FLUSH_TX_FIFO		0xc7
 #define RADIO_CMD_LOAD_TX_FIFO		0xcb
+
+
+#define RADIO_WAKE_REASON_RF 0x02
+#define RADIO_WAKE_REASON_EXT 0x04
+#define RADIO_WAKE_REASON_TIMER 0x08
 
 
 #endif

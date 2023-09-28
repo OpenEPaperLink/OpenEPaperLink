@@ -300,7 +300,7 @@ void showSplashScreen() {
 
 #endif
     drawWithSleep();
-            powerUp(INIT_EPD);
+    powerUp(INIT_EPD);
 }
 
 void showApplyUpdate() {
@@ -327,7 +327,7 @@ void showApplyUpdate() {
 
 void showAPFound() {
     if (displayCustomImage(CUSTOM_IMAGE_APFOUND)) return;
-        powerUp(INIT_EPD | INIT_EEPROM);
+    powerUp(INIT_EPD | INIT_EEPROM);
 
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
@@ -432,8 +432,7 @@ void showAPFound() {
 #endif
     addOverlay();
     drawWithSleep();
-        powerDown(INIT_EPD | INIT_EEPROM);
-
+    powerDown(INIT_EPD | INIT_EEPROM);
 }
 
 void showNoAP() {
@@ -596,8 +595,8 @@ bool displayCustomImage(uint8_t imagetype) {
     return false;
 }
 
-void gpioButton1() {
-    if (displayCustomImage(CUSTOM_IMAGE_BUTTON1)) {
+void externalWakeHandler(uint8_t type) {
+    if (displayCustomImage(type)) {
         sleepForMsec(2000);
 
         // if something else was previously on the display, draw that
@@ -611,36 +610,3 @@ void gpioButton1() {
         }
     }
 }
-
-void gpioButton2() {
-    if (displayCustomImage(CUSTOM_IMAGE_BUTTON1)) {
-        sleepForMsec(2000);
-
-        // if something else was previously on the display, draw that
-        if (curImgSlot != 0xFF) {
-            powerUp(INIT_EEPROM);
-            uint8_t lut = getEepromImageDataArgument(curImgSlot);
-            lut &= 0x03;
-            powerUp(INIT_EPD);
-            drawImageFromEeprom(curImgSlot, lut);
-            powerDown(INIT_EPD | INIT_EEPROM);
-        }
-    }
-}
-
-#ifdef ENABLE_GPIO_WAKE
-void gpioButtonOther() {
-    if (displayCustomImage(CUSTOM_IMAGE_GPIO)) {
-        sleepForMsec(2000);
-        // if something else was previously on the display, draw that
-        if (curImgSlot != 0xFF) {
-            powerUp(INIT_EEPROM);
-            uint8_t lut = getEepromImageDataArgument(curImgSlot);
-            lut &= 0x03;
-            powerUp(INIT_EPD);
-            drawImageFromEeprom(curImgSlot, lut);
-            powerDown(INIT_EPD | INIT_EEPROM);
-        }
-    }
-}
-#endif
