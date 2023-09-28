@@ -203,7 +203,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     imageParams.dither = false;
     if (taginfo->hasCustomLUT && taginfo->lut != 1) imageParams.grayLut = true;
 
-    imageParams.invert = false;
+    imageParams.invert = taginfo->invert;
     imageParams.symbols = 0;
     imageParams.rotate = taginfo->rotate;
 
@@ -237,10 +237,13 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
                     jpg2buffer(configFilename, filename, imageParams);
                 } else {
-                    filename = "/current/" + String(hexmac) + ".raw";
+                    filename = "/current/" + String(hexmac) + ".pending";
+                    if (!contentFS->exists(filename)) {
+                        filename = "/current/" + String(hexmac) + ".raw";
+                    }
                     if (contentFS->exists(filename)) {
                         prepareDataAvail(filename, imageParams.dataType, imageParams.lut, mac, cfgobj["timetolive"].as<int>(), true);
-                        wsLog("File " + configFilename + " not found, resending image " + filename);
+                        wsLog("Resending image " + filename);
                     } else {
                         wsErr("File " + configFilename + " not found");
                     }
@@ -478,7 +481,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
 bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, tagRecord *&taginfo, imgParam &imageParams) {
     if (taginfo->hwType == SOLUM_SEG_UK) {
-        sendAPSegmentedData(dst, (String)imageParams.segments, imageParams.symbols, imageParams.invert, (taginfo->isExternal == false));
+        sendAPSegmentedData(dst, (String)imageParams.segments, imageParams.symbols, (imageParams.invert == 1), (taginfo->isExternal == false));
     } else {
         if (imageParams.hasRed) {
             imageParams.dataType = DATATYPE_IMG_RAW_2BPP;

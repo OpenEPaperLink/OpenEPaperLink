@@ -43,6 +43,37 @@ bool SPIFFSEditor::canHandle(AsyncWebServerRequest *request) {
     return false;
 }
 
+String SPIFFSEditor::listFilesRecursively(String path, bool recursive) {
+    if (recursive && (path == "//www" || path == "//tagtypes" || path == "//current")) return "";
+
+    File dir = _fs.open(path);
+    String output = "";
+
+    File file = dir.openNextFile();
+    bool isFirstFile = true;
+
+    while (file) {
+        if (file.isDirectory()) {
+            if (recursive) {
+                String subDirPath = String(path + "/" + file.name());
+                String subDirOutput = listFilesRecursively(subDirPath, true);
+                output += subDirOutput;
+            } else {
+                output += ",{\"type\":\"dir\",\"name\":\"" + String(file.name()) + "\"}";
+            }
+        } else {
+            if (recursive) {
+                output += ",{\"type\":\"file\",\"name\":\"" + path.substring(2) + "/" + String(file.name()) + "\",\"size\":" + file.size() + "}";
+            } else {
+                output += ",{\"type\":\"file\",\"name\":\"" + String(file.name()) + "\",\"size\":" + file.size() + "}";
+            }
+        }
+        file = dir.openNextFile();
+    }
+    dir.close();
+    return output;
+}
+
 void SPIFFSEditor::handleRequest(AsyncWebServerRequest *request) {
     if (_username.length() && _password.length() && !request->authenticate(_username.c_str(), _password.c_str())) {
         return request->requestAuthentication();
@@ -51,23 +82,7 @@ void SPIFFSEditor::handleRequest(AsyncWebServerRequest *request) {
     if (request->method() == HTTP_GET) {
         if (request->hasParam("list")) {
             const String path = request->getParam("list")->value();
-
-            File dir = _fs.open(path);
-            String output = "[";
-            File file = dir.openNextFile();
-            while (file) {
-                if (output != "[") {
-                    output += ',';
-                }
-                if (file.isDirectory()) {
-                    output += "{\"type\":\"dir\",\"name\":\"" + String(file.name()) + "\",\"size\":" + file.size() + "}";
-                } else {
-                    output += "{\"type\":\"file\",\"name\":\"" + String(file.name()) + "\",\"size\":" + file.size() + "}";
-                }
-                file = dir.openNextFile();
-            }
-            dir.close();
-            output += "]";
+            String output = "[" + listFilesRecursively(path, request->hasParam("recursive")).substring(1) + "]";
             request->send(200, "application/json", output);
         } else if (request->hasParam("edit") || request->hasParam("download")) {
             request->send(request->_tempFile, request->_tempFile.name(), String(), request->hasParam("download"));

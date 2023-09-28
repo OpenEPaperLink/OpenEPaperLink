@@ -8,6 +8,7 @@
 #include <Update.h>
 
 #include "espflasher.h"
+#include "leds.h"
 #include "serialap.h"
 #include "storage.h"
 #include "tag_db.h"
@@ -240,8 +241,7 @@ void C6firmwareUpdateTask(void* parameter) {
     uint8_t doDownload = *((uint8_t*)parameter);
     wsSerial("Stopping AP service");
 
-    apInfo.isOnline = false;
-    apInfo.state = AP_STATE_FLASHING;
+    setAPstate(false, AP_STATE_FLASHING);
     config.runStatus = RUNSTATUS_STOP;
     extern bool rxSerialStopTask2;
     rxSerialStopTask2 = true;
@@ -255,7 +255,7 @@ void C6firmwareUpdateTask(void* parameter) {
     wsSerial("C6 flash end");
 
     if (result) {
-        apInfo.state = AP_STATE_OFFLINE;
+        setAPstate(false, AP_STATE_OFFLINE);
         
         wsSerial("Finishing config...");
         vTaskDelay(3000 / portTICK_PERIOD_MS);

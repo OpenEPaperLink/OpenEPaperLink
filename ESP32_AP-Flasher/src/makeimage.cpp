@@ -97,6 +97,9 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
         {0, 0, 0},        // Black
         {255, 0, 0}       // Red
     };
+    if (imageParams.invert == 1) {
+        std::swap(palette[0], palette[1]);
+    }
     if (imageParams.grayLut) {
         Color newColor = {160, 160, 160};
         palette.push_back(newColor);

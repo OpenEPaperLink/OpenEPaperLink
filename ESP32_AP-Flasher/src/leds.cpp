@@ -14,6 +14,7 @@ int maxledbrightness = 255;
 
 #ifdef HAS_RGB_LED
 QueueHandle_t rgbLedQueue;
+CRGB rgbIdleColor = CRGB::Green;
 
 struct ledInstructionRGB {
     CRGB ledColor;
@@ -56,6 +57,7 @@ void addFadeColor(CRGB cname) {
 }
 
 void shortBlink(CRGB cname) {
+#ifndef YELLOW_IPS_AP
     struct ledInstructionRGB* rgb = new struct ledInstructionRGB;
     rgb->ledColor = CRGB::Black;
     rgb->fadeTime = 0;
@@ -72,6 +74,7 @@ void shortBlink(CRGB cname) {
     rgb->fadeTime = 0;
     rgb->length = 3;
     addToRGBQueue(rgb, false);
+#endif
 }
 
 void flushRGBQueue() {
@@ -119,8 +122,7 @@ void showRGB() {
     FastLED.show();
 }
 
-volatile CRGB rgbIdleColor = CRGB::Green;
-volatile uint16_t rgbIdlePeriod = 800;
+volatile uint16_t rgbIdlePeriod = 767;
 
 void rgbIdleStep() {
     static bool dirUp = true;
@@ -139,7 +141,7 @@ void rgbIdleStep() {
             dirUp = true;
         }
     }
-    CRGB newvalue = blend(CRGB::Black, (const CRGB&)rgbIdleColor, gamma8[map(step, 0, rgbIdlePeriod, 0, 255)]);
+    CRGB newvalue = blend(CRGB::Black, (const CRGB&)rgbIdleColor, map(step, 0, rgbIdlePeriod, 0, 255));
     if (newvalue != leds[0]) {
         leds[0] = newvalue;
         showRGB();
@@ -150,7 +152,7 @@ void rgbIdleStep() {
 void setBrightness(int brightness) {
     maxledbrightness = brightness;
 #ifdef YELLOW_IPS_AP
-    // ledcWrite(6, config.led);
+    ledcWrite(6, config.tft);
 #endif
 #ifdef HAS_RGB_LED
     FastLED.setBrightness(maxledbrightness);
@@ -165,6 +167,7 @@ void updateBrightnessFromConfig() {
             setBrightness(newbrightness);
         }
     }
+    ledcWrite(6, config.tft);
 }
 
 void addToMonoQueue(struct ledInstruction* mono) {
@@ -193,7 +196,11 @@ void showMono(uint8_t brightness) {
 void quickBlink(uint8_t repeat) {
     for (int i = 0; i < repeat; i++) {
         struct ledInstruction* mono = new struct ledInstruction;
+#ifdef YELLOW_IPS_AP
+        mono->value = 255;
+#else
         mono->value = maxledbrightness;
+#endif
         mono->fadeTime = 120 / repeat;
         mono->length = 0;
         addToMonoQueue(mono);
@@ -206,31 +213,6 @@ void quickBlink(uint8_t repeat) {
 }
 
 volatile uint16_t monoIdlePeriod = 900;
-
-uint8_t monoValue = 0;
-
-void monoIdleStep() {
-    static bool dirUp = true;
-    static uint16_t step = 0;
-    if (dirUp) {
-        // up
-        step++;
-        if (step == monoIdlePeriod) {
-            dirUp = false;
-        }
-    } else {
-        // down
-        step--;
-        if (step == 0) {
-            dirUp = true;
-        }
-    }
-    uint8_t newvalue = map(step, 0, monoIdlePeriod, 0, maxledbrightness);
-    if (newvalue != monoValue) {
-        monoValue = newvalue;
-        showMono(newvalue);
-    }
-}
 
 void ledTask(void* parameter) {
 #ifdef HAS_RGB_LED
@@ -263,7 +245,11 @@ void ledTask(void* parameter) {
     struct ledInstruction* monoled = nullptr;
 
     addFadeMono(0);
+#ifdef YELLOW_IPS_AP
+    addFadeMono(255);
+#else
     addFadeMono(maxledbrightness);
+#endif
     addFadeMono(0);
 
     uint8_t oldBrightness = 0;
@@ -324,9 +310,7 @@ void ledTask(void* parameter) {
                 if (monoled->fadeTime <= 1) {
                     showMono(monoled->value);
                 }
-            } else {
-                // monoIdleStep();
-            }
+            } 
         } else {
             if (monoled->fadeTime) {
                 monoled->fadeTime--;

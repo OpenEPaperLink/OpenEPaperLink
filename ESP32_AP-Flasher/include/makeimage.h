@@ -24,7 +24,7 @@ struct imgParam {
 
     char segments[12];
     uint16_t symbols;
-    bool invert;
+    uint8_t invert;
 
     uint8_t lut;
     uint8_t shortlut;

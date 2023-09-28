@@ -260,14 +260,25 @@
 					</select>
 				</p>
 				<p>
-					<label for="apcfgledbrightness">LED brightness</label>
+					<label for="apcfgledbrightness">RGB LED brightness</label>
 					<select id="apcfgledbrightness">
 						<option value="-1">off</option>
+						<option value="15">10%</option>
+						<option value="31">25%</option>
+						<option value="127" selected>50%</option>
+						<option value="191">75%</option>
+						<option value="255">100%</option>
+					</select>
+				</p>
+				<p>
+					<label for="apcfgtftbrightness">TFT brightness</label>
+					<select id="apcfgtftbrightness">
+						<option value="0">off</option>
 						<option value="20">10%</option>
 						<option value="64">25%</option>
-						<option value="128" selected>50%</option>
+						<option value="128">50%</option>
 						<option value="192">75%</option>
-						<option value="255">100%</option>
+						<option value="255" selected>100%</option>
 					</select>
 				</p>
 				<p>
@@ -478,6 +489,13 @@
 				<label for="cfglut">LUT</label>
 				<select id="cfglut">
 					<option value="0">auto</option>
+				</select>
+			</p>
+			<p>
+				<label for="cfginvert">Invert colors</label>
+				<select id="cfginvert">
+					<option value="0">off</option>
+					<option value="1">on</option>
 				</select>
 			</p>
 			<p class="tagbuttons">

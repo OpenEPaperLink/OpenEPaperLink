@@ -386,6 +386,7 @@ select {
 	display: flex;
 	gap: 5px;
 	align-items: flex-start;
+	max-width: 400px;
 }
 
 #configbox h3,

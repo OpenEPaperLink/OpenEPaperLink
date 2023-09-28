@@ -34,3 +34,4 @@ bool sendChannelPower(struct espSetChannelPower* scp);
 void rxSerialTask2(void* parameter);
 void APTagReset();
 bool bringAPOnline();
+void setAPstate(bool isOnline, uint8_t state);

@@ -303,6 +303,7 @@ function processTags(tagArray) {
 				break;
 			case WAKEUP_REASON_NFC:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "NFC wakeup"
+				$('#tag' + tagmac).style.background = "#c8f1bb";
 				break;
 			case WAKEUP_REASON_NETWORK_SCAN:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>Network scan</font>"
@@ -333,7 +334,6 @@ function updatecards() {
 	$('#taglist').querySelectorAll('[data-mac]').forEach(item => {
 		let tagmac = item.dataset.mac;
 		tagcount++;
-		if (tagDB[tagmac].pending) pendingcount++;
 		if (tagDB[tagmac].batteryMv < 2400 && tagDB[tagmac].batteryMv != 0 && tagDB[tagmac].batteryMv != 1337) lowbattcount++;
 		if (item.dataset.lastseen && item.dataset.lastseen > (Date.now() / 1000) - servertimediff - 30 * 24 * 3600 * 60) {
 			let idletime = (Date.now() / 1000) - servertimediff - item.dataset.lastseen;
@@ -343,6 +343,8 @@ function updatecards() {
 				$('#tag' + tagmac).classList.remove("tagpending")
 				$('#tag' + tagmac).style.background = '#e0e0a0';
 				timeoutcount++;
+			} else {
+				if (tagDB[tagmac].pending) pendingcount++;
 			}
 			if (idletime > 24 * 3600) {
 				$('#tag' + tagmac).style.opacity = '.5';
@@ -425,6 +427,7 @@ function loadContentCard(mac) {
 			}
 			$('#cfgrotate').value = tagdata.rotate;
 			$('#cfglut').value = tagdata.lut;
+			$('#cfginvert').value = tagdata.invert;
 			$('#cfgmore').innerHTML = '&#x25BC;';
 			$('#configbox').showModal();
 		})
@@ -478,6 +481,7 @@ $('#cfgsave').onclick = function () {
 
 	formData.append("rotate", $('#cfgrotate').value);
 	formData.append("lut", $('#cfglut').value);
+	formData.append("invert", $('#cfginvert').value);
 
 	fetch("/save_cfg", {
 		method: "POST",
@@ -540,11 +544,13 @@ $('#cfgreset').onclick = function () {
 
 $('#rebootbutton').onclick = function (event) {
 	event.preventDefault();
-	showMessage("rebooting AP....", true);
+	if (!confirm('Reboot AP now?')) return;
+	socket.close();
 	fetch("/reboot", {
 		method: "POST"
 	});
-	socket.close();
+	alert('Rebooted. Webpage will reload.');
+	location.reload()	
 }
 
 $('#configbox').addEventListener('click', (event) => {
@@ -565,6 +571,7 @@ document.addEventListener("loadTab", function (event) {
 					$('#apcfgalias').value = data.alias;
 					$('#apcfgchid').value = data.channel;
 					$("#apcfgledbrightness").value = data.led;
+					$("#apcfgtftbrightness").value = data.tft;
 					$("#apcfglanguage").value = data.language;
 					$("#apclatency").value = data.maxsleep;
 					$("#apcpreventsleep").value = data.stopsleep;
@@ -588,6 +595,7 @@ $('#apcfgsave').onclick = function () {
 	formData.append("alias", $('#apcfgalias').value);
 	formData.append("channel", $('#apcfgchid').value);
 	formData.append('led', $('#apcfgledbrightness').value);
+	formData.append('tft', $('#apcfgtftbrightness').value);
 	formData.append('language', $('#apcfglanguage').value);
 	formData.append('maxsleep', $('#apclatency').value);
 	formData.append('stopsleep', $('#apcpreventsleep').value);
@@ -682,6 +690,31 @@ function contentselected() {
 				case 'ro':
 					input.type = "text";
 					input.disabled = true;
+					break;
+				case 'jpgfile':
+				case 'binfile':
+				case 'jsonfile':
+					input = document.createElement("select");
+					fetch('/edit?list=%2F&recursive=1')
+						.then(response => response.json())
+						.then(data => {
+							let files = data.filter(item => item.type === "file" && item.name.endsWith(".jpg"));
+							if (element.type == 'binfile') files = data.filter(item => item.type === "file" && item.name.endsWith(".bin"));
+							if (element.type == 'jsonfile') files = data.filter(item => item.type === "file" && item.name.endsWith(".json"));
+							const optionElement = document.createElement("option");
+							optionElement.value = "";
+							optionElement.text = "";
+							input.appendChild(optionElement);
+							files.forEach(item => {
+								const optionElement = document.createElement("option");
+								optionElement.value = item.name;
+								optionElement.text = item.name;
+								input.appendChild(optionElement);
+							})
+						})
+						.catch(error => {
+							console.error("Error fetching JSON data:", error);
+						});
 					break;
 				case 'select':
 					input = document.createElement("select");

@@ -267,6 +267,9 @@ void init_web() {
                     if (request->hasParam("lut", true)) {
                         taginfo->lut = atoi(request->getParam("lut", true)->value().c_str());
                     }
+                    if (request->hasParam("invert", true)) {
+                        taginfo->invert = atoi(request->getParam("invert", true)->value().c_str());
+                    }
                     // memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
                     // memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
                     wsSendTaginfo(mac, SYNC_USERCFG);
@@ -433,6 +436,10 @@ void init_web() {
         }
         if (request->hasParam("led", true)) {
             config.led = static_cast<int16_t>(request->getParam("led", true)->value().toInt());
+            updateBrightnessFromConfig();
+        }
+        if (request->hasParam("tft", true)) {
+            config.tft = static_cast<int16_t>(request->getParam("tft", true)->value().toInt());
             updateBrightnessFromConfig();
         }
         if (request->hasParam("language", true)) {

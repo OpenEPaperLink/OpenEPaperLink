@@ -2,7 +2,7 @@
   {
     "id": 0,
     "name": "Static image",
-    "desc": "Shows a static image, from file system, painter or external source",
+    "desc": "Shows a static image, from file system, painter or external source. Make sure to resize the image to the correct resolution.",
     "hwtype": [
       0,
       1,
@@ -17,7 +17,7 @@
         "key": "filename",
         "name": "Filename",
         "desc": "Local filename on the littlefs drive",
-        "type": "text"
+        "type": "jpgfile"
       },
       {
         "key": "timetolive",
@@ -373,7 +373,7 @@
         "key": "filename",
         "name": "Filename",
         "desc": "Filename of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
-        "type": "text"
+        "type": "jsonfile"
       },
       {
         "key": "interval",
@@ -447,7 +447,7 @@
   {
     "id": 5,
     "name": "Firmware update",
-    "desc": "To update tag firmware",
+    "desc": "To update tag firmware. Make sure you send the right .bin file! You can brick your tag if you send a wrong file.",
     "hwtype": [
       0,
       1,
@@ -463,7 +463,7 @@
         "key": "filename",
         "name": "Filename",
         "desc": "Local file on littlefs partition",
-        "type": "text"
+        "type": "binfile"
       }
     ]
   },

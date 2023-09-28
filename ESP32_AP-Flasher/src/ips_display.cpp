@@ -84,7 +84,7 @@ void yellow_ap_display_init(void) {
 
     ledcSetup(6, 5000, 8);
     ledcAttachPin(TFT_BACKLIGHT, 6);
-    ledcWrite(6, 255);  // config.led
+    ledcWrite(6, config.tft);
 
     tft2.init();
     tft2.setRotation(YellowSense == 1 ? 1 : 3);

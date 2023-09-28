@@ -137,6 +137,23 @@ void APEnterEarlyReset() {
     digitalWrite(AP_RESET_PIN, LOW);
 }
 
+void setAPstate(bool isOnline, uint8_t state) {
+    apInfo.isOnline = isOnline;
+    apInfo.state = state;
+#ifdef HAS_RGB_LED
+    CRGB colorMap[7] = {
+        CRGB::Orange,
+        CRGB::Green,
+        CRGB::Blue,
+        CRGB::Yellow,
+        CRGB::Aqua,
+        CRGB::Red,
+        CRGB::YellowGreen
+    };
+    rgbIdleColor = colorMap[state];
+#endif
+}
+
 // Reset the tag
 void APTagReset() {
     Serial.println("Resetting tag");
@@ -632,8 +649,7 @@ void notifySegmentedFlash() {
 void checkWaitPowerCycle() {
     // check if we should wait for a power cycle. If we do, try to inform the user the best we can, and hang.
 #ifdef POWER_NO_SOFT_POWER
-    apInfo.isOnline = false;
-    apInfo.state = AP_STATE_REQUIRED_POWER_CYCLE;
+    setAPstate(false, AP_STATE_REQUIRED_POWER_CYCLE);
     // If we have no soft power control, we'll now wait until the device is power-cycled
     Serial.printf("Please power-cycle your AP/device\n");
 #ifdef HAS_RGB_LED
@@ -660,8 +676,7 @@ void segmentedShowIp() {
 
 bool bringAPOnline() {
     if (apInfo.state == AP_STATE_FLASHING) return false;
-    apInfo.isOnline = false;
-    apInfo.state = AP_STATE_OFFLINE;
+    setAPstate(false, AP_STATE_OFFLINE);
     // try without rebooting
     AP_SERIAL_PORT.updateBaudRate(115200);
     uint32_t bootTimeout = millis();
@@ -684,11 +699,11 @@ bool bringAPOnline() {
     if (!APrdy) {
         return false;
     } else {
-        apInfo.state = AP_STATE_COMING_ONLINE;
+        setAPstate(false, AP_STATE_COMING_ONLINE);
         sendChannelPower(&curChannel);
         vTaskDelay(200 / portTICK_PERIOD_MS);
         if (!sendGetInfo()) {
-            apInfo.state = AP_STATE_OFFLINE;
+            setAPstate(false, AP_STATE_OFFLINE);
             return false;
         }
         if (apInfo.type == ESP32_C6) {
@@ -701,8 +716,7 @@ bool bringAPOnline() {
         }
 
         vTaskDelay(200 / portTICK_PERIOD_MS);
-        apInfo.isOnline = true;
-        apInfo.state = AP_STATE_ONLINE;
+        setAPstate(true, AP_STATE_ONLINE);
         return true;
     }
 }
@@ -735,8 +749,7 @@ void APTask(void* parameter) {
         Serial.printf("We're going to try to perform an 'AP forced flash' in\n");
         flashCountDown(10);
         Serial.printf("\nPerforming force flash of the AP\n");
-        apInfo.isOnline = false;
-        apInfo.state = AP_STATE_FLASHING;
+        setAPstate(false, AP_STATE_FLASHING);
         doForcedAPFlash();
         checkWaitPowerCycle();
         bringAPOnline();
@@ -747,10 +760,10 @@ void APTask(void* parameter) {
         ShowAPInfo();
 
         if (apInfo.type == SOLUM_SEG_UK) {
-            apInfo.state = AP_STATE_COMING_ONLINE;
+            setAPstate(false, AP_STATE_COMING_ONLINE);
             segmentedShowIp();
             showAPSegmentedInfo(apInfo.mac, true);
-            apInfo.state = AP_STATE_ONLINE;
+            setAPstate(false, AP_STATE_ONLINE);
             updateContent(apInfo.mac);
         }
 
@@ -765,8 +778,7 @@ void APTask(void* parameter) {
                 flashCountDown(30);
                 Serial.printf("\n");
                 notifySegmentedFlash();
-                apInfo.isOnline = false;
-                apInfo.state = AP_STATE_FLASHING;
+                setAPstate(false, AP_STATE_FLASHING);
                 if (doAPUpdate(apInfo.type)) {
                     checkWaitPowerCycle();
                     Serial.printf("Flash completed, let's try to boot the AP!\n");
@@ -777,18 +789,18 @@ void APTask(void* parameter) {
                     } else {
                         Serial.printf("Failed to bring up the AP after flashing seemed successful... That's not supposed to happen!\n");
                         Serial.printf("This can be caused by a bad AP firmware, failed or failing hardware, or the inability to fully power-cycle the AP\n");
-                        apInfo.state = AP_STATE_FAILED;
-    #ifdef HAS_RGB_LED
+                        setAPstate(false, AP_STATE_FAILED);
+#ifdef HAS_RGB_LED
                         showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
-    #endif
+#endif
                     }
                 } else {
-                    apInfo.state = AP_STATE_FAILED;
+                    setAPstate(false, AP_STATE_FAILED);
                     checkWaitPowerCycle();
                     Serial.println("Failed to update version on the AP :(\n");
-    #ifdef HAS_RGB_LED
+#ifdef HAS_RGB_LED
                     showColorPattern(CRGB::Red, CRGB::Red, CRGB::Red);
-    #endif
+#endif
                 }
             }
         }
@@ -804,12 +816,10 @@ void APTask(void* parameter) {
 #ifdef HAS_RGB_LED
             showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
 #endif
-            apInfo.isOnline = false;
-            apInfo.state = AP_STATE_FAILED;        
+            setAPstate(false, AP_STATE_FAILED);
         } else {
             // AP unavailable, maybe time to flash?
-            apInfo.isOnline = false;
-            apInfo.state = AP_STATE_OFFLINE;
+            setAPstate(false, AP_STATE_OFFLINE);
 
             Serial.printf("I wasn't able to connect to a ZBS (AP) tag.\n");
             Serial.printf("This could be the first time this AP is booted and the AP-tag may be unflashed.\n");
@@ -840,16 +850,14 @@ void APTask(void* parameter) {
 #ifdef HAS_RGB_LED
                     showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
 #endif
-                    apInfo.isOnline = false;
-                    apInfo.state = AP_STATE_FAILED;
+                    setAPstate(false, AP_STATE_FAILED);
                 }
             } else {
                 // failed to flash
 #ifdef HAS_RGB_LED
                 showColorPattern(CRGB::Red, CRGB::Red, CRGB::Red);
 #endif
-                apInfo.isOnline = false;
-                apInfo.state = AP_STATE_FAILED;
+                setAPstate(false, AP_STATE_FAILED);
                 Serial.println("Failed to flash the AP :(");
                 Serial.println("Seems like you're running into some issues with the wiring, or (very small chance) the tag itself");
                 Serial.println("This ESP32-build expects the following pins connected to the ZBS243:");
@@ -890,17 +898,15 @@ void APTask(void* parameter) {
                 attempts = 0;
             }
             if (attempts > 5) {
-                apInfo.state = AP_STATE_WAIT_RESET;
-                apInfo.isOnline = false;
+                setAPstate(false, AP_STATE_WAIT_RESET);
                 if (!bringAPOnline()) {
                     // tried to reset the AP, but we failed... Maybe the AP-Tag died?
-                    apInfo.state = AP_STATE_FAILED;
+                    setAPstate(false, AP_STATE_FAILED);
 #ifdef HAS_RGB_LED
                     showColorPattern(CRGB::Yellow, CRGB::Yellow, CRGB::Red);
 #endif
                 } else {
-                    apInfo.state = AP_STATE_ONLINE;
-                    apInfo.isOnline = true;
+                    setAPstate(true, AP_STATE_ONLINE);
                     attempts = 0;
                     refreshAllPending();
                 }

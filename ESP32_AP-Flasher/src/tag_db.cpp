@@ -121,6 +121,7 @@ void fillNode(JsonObject& tag, const tagRecord* taginfo) {
     tag["apip"] = taginfo->apIp.toString();
     tag["rotate"] = taginfo->rotate;
     tag["lut"] = taginfo->lut;
+    tag["invert"] = taginfo->invert;
     tag["ch"] = taginfo->currentChannel;
     tag["ver"] = taginfo->tagSoftwareVersion;
 }
@@ -216,6 +217,7 @@ void loadDB(const String& filename) {
                     taginfo->apIp.fromString(tag["apip"].as<String>());
                     taginfo->rotate = tag["rotate"] | 0;
                     taginfo->lut = tag["lut"] | 0;
+                    taginfo->invert = tag["invert"] | 0;
                     taginfo->currentChannel = tag["ch"] | 0;
                     taginfo->tagSoftwareVersion = tag["ver"] | 0;
                 }
@@ -303,6 +305,7 @@ void initAPconfig() {
     config.channel = APconfig["channel"] | 0;
     if (APconfig["alias"]) strlcpy(config.alias, APconfig["alias"], sizeof(config.alias));
     config.led = APconfig["led"] | 255;
+    config.tft = APconfig["tft"] | 255;
     config.language = APconfig["language"] | getDefaultLanguage();
     config.maxsleep = APconfig["maxsleep"] | 10;
     config.stopsleep = APconfig["stopsleep"] | 1;
@@ -328,6 +331,7 @@ void saveAPconfig() {
     APconfig["channel"] = config.channel;
     APconfig["alias"] = config.alias;
     APconfig["led"] = config.led;
+    APconfig["tft"] = config.tft;
     APconfig["language"] = config.language;
     APconfig["maxsleep"] = config.maxsleep;
     APconfig["stopsleep"] = config.stopsleep;
