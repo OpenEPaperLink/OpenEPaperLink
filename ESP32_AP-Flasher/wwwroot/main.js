@@ -135,11 +135,24 @@ function connect() {
 			processTags(msg.tags);
 		}
 		if (msg.sys) {
-			let filesystem = 'filesystem free: ' + convertSize(msg.sys.littlefsfree);
-			if (msg.sys.littlefsfree < 31000) {
-				filesystem = 'filesystem <span class="blink-red" title="Generating content is paused">FULL! ' + convertSize(msg.sys.littlefsfree) + '</span>';
-			}
-			$('#sysinfo').innerHTML = 'free heap: ' + convertSize(msg.sys.heap) + ' &#x2507; db size: ' + convertSize(msg.sys.dbsize) + ' &#x2507; db record count: ' + msg.sys.recordcount + ' &#x2507; ' + filesystem;
+			let str = "";
+      str += `free heap: ${convertSize(msg.sys.heap)} &#x2507; `;
+      if (msg.sys.psfree) {
+        str += `free PSRAM: ${convertSize(msg.sys.psfree)}  &#x2507; `;
+      }
+      str += `db size: ${convertSize(msg.sys.dbsize)} &#x2507; `;
+      str += `db record count: ${msg.sys.recordcount} &#x2507; `;
+
+      if (msg.sys.littlefsfree < 31000) {
+        str += `filesystem <span class="blink-red" title="Generating content is paused">FULL! ${convertSize(
+          msg.sys.littlefsfree
+        )} </span>`;
+      } else {
+        str += `filesystem free: ${convertSize(msg.sys.littlefsfree)}`;
+      }
+
+      $("#sysinfo").innerHTML = str;
+
 			if (msg.sys.apstate) {
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
 				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;

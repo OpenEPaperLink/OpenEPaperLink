@@ -78,6 +78,11 @@ void wsSendSysteminfo() {
         freeSpaceLastRun = millis();
     }
     sys["littlefsfree"] = freeSpace;
+
+#if BOARD_HAS_PSRAM
+    sys["psfree"] = ESP.getFreePsram();
+#endif
+
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
 #if !defined(CONFIG_IDF_TARGET_ESP32)
