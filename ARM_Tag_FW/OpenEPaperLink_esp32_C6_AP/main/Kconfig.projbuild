@@ -1,0 +1,28 @@
+menu "OEPL Hardware config"
+
+  choice OEPL_HARDWARE_PROFILE
+    prompt "Hardware profile"
+    default OEPL_HARDWARE_PROFILE_DEFAULT
+
+    config OEPL_HARDWARE_PROFILE_DEFAULT
+      bool "Default"
+
+    config OEPL_HARDWARE_PROFILE_POE_AP
+      bool "PoE-AP"
+
+    config OEPL_HARDWARE_PROFILE_CUSTOM
+      bool "Custom"
+
+  endchoice
+
+  config OEPL_HARDWARE_UART_TX
+    depends on OEPL_HARDWARE_PROFILE_CUSTOM
+    int "GPIO - UART TX"
+    default 3
+
+  config OEPL_HARDWARE_UART_RX
+    depends on OEPL_HARDWARE_PROFILE_CUSTOM
+    int "GPIO - UART RX"
+    default 2
+
+endmenu

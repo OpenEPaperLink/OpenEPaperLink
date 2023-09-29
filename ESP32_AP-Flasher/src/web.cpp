@@ -67,7 +67,7 @@ void wsSendSysteminfo() {
     time(&now);
     static int freeSpaceLastRun = 0;
     static size_t tagDBsize = 0;
-    static size_t freeSpace = Storage.freeSpace();
+    static uint64_t freeSpace = Storage.freeSpace();
     sys["currtime"] = now;
     sys["heap"] = ESP.getFreeHeap();
     sys["recordcount"] = tagDBsize;
@@ -78,6 +78,11 @@ void wsSendSysteminfo() {
         freeSpaceLastRun = millis();
     }
     sys["littlefsfree"] = freeSpace;
+
+#if BOARD_HAS_PSRAM
+    sys["psfree"] = ESP.getFreePsram();
+#endif
+
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
 #if !defined(CONFIG_IDF_TARGET_ESP32)
