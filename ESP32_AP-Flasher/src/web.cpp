@@ -67,7 +67,7 @@ void wsSendSysteminfo() {
     time(&now);
     static int freeSpaceLastRun = 0;
     static size_t tagDBsize = 0;
-    static size_t freeSpace = Storage.freeSpace();
+    static uint64_t freeSpace = Storage.freeSpace();
     sys["currtime"] = now;
     sys["heap"] = ESP.getFreeHeap();
     sys["recordcount"] = tagDBsize;

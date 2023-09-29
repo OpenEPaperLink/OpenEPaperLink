@@ -46,7 +46,7 @@ static void initSDCard() {
 }
 #endif
 
-size_t DynStorage::freeSpace(){
+uint64_t DynStorage::freeSpace(){
     this->begin();
 #ifdef HAS_SDCARD
     return SD.totalBytes() - SD.usedBytes();
