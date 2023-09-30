@@ -424,6 +424,13 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
         case 19:  // json template
         {
+            struct tm timedef;
+            localtime_r(&now, &timedef);
+            char timeBuffer[80];
+            strftime(timeBuffer, sizeof(timeBuffer), "%d-%m-%Y", &timedef);
+            setVarDB("ap_date", timeBuffer);
+            strftime(timeBuffer, sizeof(timeBuffer), "%H:%M:%S", &timedef);
+            setVarDB("ap_time", timeBuffer);
             const String configFilename = cfgobj["filename"].as<String>();
             if (!util::isEmptyOrNull(configFilename)) {
                 String configUrl = cfgobj["url"].as<String>();
