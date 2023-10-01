@@ -417,11 +417,6 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
         case 19:  // json template
         {
-            struct tm timedef;
-            localtime_r(&now, &timedef);
-            char timeBuffer[80];
-            strftime(timeBuffer, sizeof(timeBuffer), "%H:%M:%S", &timedef);
-            setVarDB("ap_time", timeBuffer);
             const String configFilename = cfgobj["filename"].as<String>();
             if (!util::isEmptyOrNull(configFilename)) {
                 String configUrl = cfgobj["url"].as<String>();
@@ -507,11 +502,19 @@ void replaceVariables(String &format) {
     size_t startIndex = 0;
     size_t openBraceIndex, closeBraceIndex;
 
+    time_t now;
+    time(&now);
+    struct tm timedef;
+    localtime_r(&now, &timedef);
+    char timeBuffer[80];
+    strftime(timeBuffer, sizeof(timeBuffer), "%H:%M:%S", &timedef);
+    setVarDB("ap_time", timeBuffer, false);
+
     while ((openBraceIndex = format.indexOf('{', startIndex)) != -1 &&
            (closeBraceIndex = format.indexOf('}', openBraceIndex + 1)) != -1) {
         const std::string variableName = format.substring(openBraceIndex + 1, closeBraceIndex).c_str();
         const std::string varKey = "{" + variableName + "}";
-        auto var = varDB.find(variableName);
+        const auto var = varDB.find(variableName);
         if (var != varDB.end()) {
             format.replace(varKey.c_str(), var->second.value);
         }

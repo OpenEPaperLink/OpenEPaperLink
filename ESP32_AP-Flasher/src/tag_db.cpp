@@ -264,7 +264,7 @@ uint32_t getTagCount(uint32_t& timeoutcount) {
             // not initialised, timeout if not seen last 10 minutes
             if (timeout > 600) timeoutcount++;
         } else if (now - taginfo->expectedNextCheckin > 600) {
-            //expected checkin is behind, timeout if not seen last 10 minutes
+            // expected checkin is behind, timeout if not seen last 10 minutes
             if (timeout > 600) timeoutcount++;
         }
     }
@@ -383,19 +383,19 @@ HwType getHwType(const uint8_t id) {
     }
 }
 
-bool setVarDB(const std::string& key, const String& value) {
+bool setVarDB(const std::string& key, const String& value, const bool notify) {
     auto it = varDB.find(key);
     if (it == varDB.end()) {
         varStruct newVar;
         newVar.value = value;
-        newVar.changed = true;
+        newVar.changed = notify;
         varDB[key] = newVar;
         return true;
     }
 
     if (it->second.value != value) {
         it->second.value = value;
-        it->second.changed = true;
+        it->second.changed = notify;
         return true;
     } else {
         return false;
