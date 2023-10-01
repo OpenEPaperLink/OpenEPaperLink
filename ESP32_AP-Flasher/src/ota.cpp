@@ -256,7 +256,7 @@ void C6firmwareUpdateTask(void* parameter) {
 
     if (result) {
         setAPstate(false, AP_STATE_OFFLINE);
-        
+
         wsSerial("Finishing config...");
         vTaskDelay(3000 / portTICK_PERIOD_MS);
 

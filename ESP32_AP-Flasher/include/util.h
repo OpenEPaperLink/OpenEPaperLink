@@ -4,6 +4,8 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 
+#include <chrono>
+
 #include "system.h"
 #include "web.h"
 
@@ -125,27 +127,64 @@ static bool isSleeping(int sleeptime1, int sleeptime2) {
     }
 }
 
+/// @brief Get the time_t for midnight
+/// @return time_t for midnight
+inline time_t getMidnightTime() {
+    struct tm time_info;
+    getLocalTime(&time_info);
+    time_info.tm_hour = time_info.tm_min = time_info.tm_sec = 0;
+    time_info.tm_mday++;
+    return mktime(&time_info);
+}
+
+/// @brief Timer for kind of scheduling things
 class Timer {
    public:
-    Timer(unsigned long interval) : interval_(interval), previousMillis_(0) {}
+    /// @brief Construct a timer
+    /// @param interval Interval in ms at which @ref doRun() returns true
+    /// @param delay Delay in ms until first execution to defer start
+    Timer(const unsigned long interval, const unsigned long delay = 0) : m_interval(interval), m_nextMillis(millis() + delay) {}
 
-    void setInterval(unsigned long interval) {
-        interval_ = interval;
+    /// @brief Change the interval
+    /// @param interval New interval in ms
+    void setInterval(const unsigned long interval) {
+        m_interval = interval;
     }
 
-    bool doRun() {
-        unsigned long currentMillis = millis();
-        if (currentMillis - previousMillis_ >= interval_) {
-            previousMillis_ = currentMillis;
+    /// @brief Check if interval is met
+    /// @param currentMillis Optionally provide the current time in millis
+    /// @return True if interval is met, false if not
+    bool doRun(const unsigned long currentMillis = millis()) {
+        if (currentMillis >= m_nextMillis) {
+            m_nextMillis = currentMillis + m_interval;
             return true;
         }
         return false;
     }
 
    private:
-    unsigned long interval_;
-    unsigned long previousMillis_;
+    /// @brief Timer interval in ms
+    unsigned long m_interval;
+    /// @brief Next timeer interval in ms
+    unsigned long m_nextMillis;
 };
+
+/// @brief Create a timer with the given interval using std::chrono::duration
+/// @param interval Interval
+/// @return Timer
+template <typename _Rep, typename _Period>
+constexpr inline Timer make_timer(const std::chrono::duration<_Rep, _Period> &interval) {
+    return Timer(std::chrono::duration_cast<std::chrono::milliseconds>(interval).count());
+}
+
+/// @brief Create a timer with the given interval and delay using std::chrono::duration
+/// @param interval Interval
+/// @param delay Delay until first execution to defer start
+/// @return Timer
+template <typename _Rep1, typename _Period1, typename _Rep2, typename _Period2>
+constexpr inline Timer make_timer(const std::chrono::duration<_Rep1, _Period1> &interval, const std::chrono::duration<_Rep1, _Period1> &delay) {
+    return Timer(std::chrono::duration_cast<std::chrono::milliseconds>(interval).count(), std::chrono::duration_cast<std::chrono::milliseconds>(delay).count());
+}
 
 /// @brief Create a String from format
 /// @param buffer Buffer to use for sprintf

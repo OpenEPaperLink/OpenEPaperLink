@@ -26,7 +26,9 @@ void initTime(void* parameter) {
             break;
         }
     }
-    if (config.runStatus = RUNSTATUS_INIT) config.runStatus = RUNSTATUS_RUN;
+    if (config.runStatus == RUNSTATUS_INIT) {
+        config.runStatus = RUNSTATUS_RUN;
+    }
     vTaskDelay(10 / portTICK_PERIOD_MS);
     vTaskDelete(NULL);
 }

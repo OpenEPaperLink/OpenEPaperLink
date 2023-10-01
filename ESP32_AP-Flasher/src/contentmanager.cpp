@@ -178,12 +178,6 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     }
 #endif
 
-    struct tm time_info;
-    getLocalTime(&time_info);
-    time_info.tm_hour = time_info.tm_min = time_info.tm_sec = 0;
-    time_info.tm_mday++;
-    const time_t midnight = mktime(&time_info);
-
     DynamicJsonDocument doc(500);
     deserializeJson(doc, taginfo->modeConfigJson);
     JsonObject cfgobj = doc.as<JsonObject>();
@@ -193,7 +187,6 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     taginfo->nextupdate = now + 60;
 
     imgParam imageParams;
-
     imageParams.width = hwdata.width;
     imageParams.height = hwdata.height;
     imageParams.bpp = hwdata.bpp;
@@ -280,12 +273,12 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
         case 1:  // Today
 
             drawDate(filename, taginfo, imageParams);
-            taginfo->nextupdate = midnight;
-            updateTagImage(filename, mac, (midnight - now) / 60 - 10, taginfo, imageParams);
+            taginfo->nextupdate = util::getMidnightTime();
+            updateTagImage(filename, mac, (taginfo->nextupdate - now) / 60 - 10, taginfo, imageParams);
             break;
 
         case 2:  // CountDays
-            drawCounter(mac, buttonPressed, taginfo, cfgobj, filename, imageParams, midnight, 15);
+            drawCounter(mac, buttonPressed, taginfo, cfgobj, filename, imageParams, util::getMidnightTime(), 15);
             break;
 
         case 3:  // CountHours
@@ -427,8 +420,6 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
             struct tm timedef;
             localtime_r(&now, &timedef);
             char timeBuffer[80];
-            strftime(timeBuffer, sizeof(timeBuffer), "%d-%m-%Y", &timedef);
-            setVarDB("ap_date", timeBuffer);
             strftime(timeBuffer, sizeof(timeBuffer), "%H:%M:%S", &timedef);
             setVarDB("ap_time", timeBuffer);
             const String configFilename = cfgobj["filename"].as<String>();

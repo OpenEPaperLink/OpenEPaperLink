@@ -1,13 +1,14 @@
+#include "udp.h"
+
 #include <Arduino.h>
 #include <WiFi.h>
 
 #include "AsyncUDP.h"
 #include "commstructs.h"
 #include "newproto.h"
+#include "serialap.h"
 #include "tag_db.h"
 #include "web.h"
-#include "serialap.h"
-#include "udp.h"
 
 #define UDPIP IPAddress(239, 10, 0, 1)
 #define UDPPORT 16033
@@ -41,8 +42,9 @@ void UDPcomm::init() {
 }
 
 void UDPcomm::processPacket(AsyncUDPPacket packet) {
-
-    if (config.runStatus == RUNSTATUS_STOP) return;
+    if (config.runStatus == RUNSTATUS_STOP) {
+        return;
+    }
     IPAddress senderIP = packet.remoteIP();
 
     switch (packet.data()[0]) {
@@ -127,7 +129,7 @@ void autoselect(void* pvParameters) {
     }
     if (curChannel.channel == 0) {
         curChannel.channel = 11;
-    } 
+    }
     config.channel = curChannel.channel;
     do {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
