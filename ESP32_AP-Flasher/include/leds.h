@@ -29,6 +29,7 @@ void updateBrightnessFromConfig();
 
 #ifdef HAS_RGB_LED
 extern CRGB rgbIdleColor;
+extern uint16_t rgbIdlePeriod;
 void shortBlink(CRGB cname);
 void showColorPattern(CRGB colorone, CRGB colortwo, CRGB colorthree);
 void rgbIdle();

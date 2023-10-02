@@ -53,11 +53,6 @@ void setup() {
     xTaskCreate(ledTask, "ledhandler", 2000, NULL, 2, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
-#ifdef HAS_RGB_LED
-    // show a nice pattern to indicate the AP is booting / waiting for WiFi setup
-    showColorPattern(CRGB::Aqua, CRGB::Green, CRGB::Blue);
-#endif
-
 #if defined(OPENEPAPERLINK_MINI_AP_PCB) || defined(OPENEPAPERLINK_NANO_AP_PCB)
     APEnterEarlyReset();
     // this allows us to view the booting process. After the device showing up, you have 3 seconds to open a terminal on the COM port
@@ -119,6 +114,7 @@ void setup() {
 
     initAPconfig();
 
+    xTaskCreate(initTime, "init time", 5000, NULL, 2, NULL);
     updateLanguageFromConfig();
     updateBrightnessFromConfig();
 
@@ -140,7 +136,6 @@ void setup() {
         config.runStatus = RUNSTATUS_PAUSE;
     }
 
-    xTaskCreate(initTime, "init time", 5000, NULL, 2, NULL);
     xTaskCreate(delayedStart, "delaystart", 2000, NULL, 2, NULL);
 
     wsSendSysteminfo();

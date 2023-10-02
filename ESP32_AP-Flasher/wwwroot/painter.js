@@ -104,7 +104,7 @@ function startPainter(mac, width, height) {
 		const xhr = new XMLHttpRequest();
 		xhr.open('POST', '/imgupload');
 		xhr.send(formData);
-		$('#configbox').style.display = 'none';
+		$('#configbox').close();
 	});
 
 	$("#buttonbar").appendChild(blackButton);

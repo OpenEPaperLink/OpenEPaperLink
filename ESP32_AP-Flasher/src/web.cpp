@@ -20,6 +20,7 @@
 #include "serialap.h"
 #include "settings.h"
 #include "storage.h"
+#include "system.h"
 #include "tag_db.h"
 #include "udp.h"
 #include "wifimanager.h"
@@ -101,8 +102,10 @@ void wsSendSysteminfo() {
         uint32_t tagcount = getTagCount(timeoutcount);
         char result[40];
         if (timeoutcount > 0) {
+            if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::DarkBlue;
             snprintf(result, sizeof(result), "%lu / %lu, %lu timed out", tagcount, tagDB.size(), timeoutcount);
         } else {
+            if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::Green;
             snprintf(result, sizeof(result), "%lu / %lu", tagcount, tagDB.size());
         }
         setVarDB("ap_tagcount", result);
@@ -185,9 +188,8 @@ uint8_t wsClientCount() {
 
 void init_web() {
     wsMutex = xSemaphoreCreateMutex();
-    Storage.begin();
-    WiFi.mode(WIFI_STA);
 
+    WiFi.mode(WIFI_STA);
     WiFi.setTxPower(static_cast<wifi_power_t>(config.wifiPower));
 
     wm.connectToWifi();
@@ -623,16 +625,19 @@ void init_web() {
 }
 
 void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-    if (config.runStatus != RUNSTATUS_RUN) {
-        request->send(409, "text/plain", "come back later");
-        return;
-    }
+    static bool imageUploadBusy = false;
     if (!index) {
+        if (config.runStatus != RUNSTATUS_RUN || imageUploadBusy) {
+            request->send(409, "text/plain", "Come back later");
+            return;
+        }
         if (request->hasParam("mac", true)) {
             filename = request->getParam("mac", true)->value() + ".jpg";
         } else {
             filename = "unknown.jpg";
         }
+        imageUploadBusy = true;
+        logLine("http imageUpload " + filename);
         xSemaphoreTake(fsMutex, portMAX_DELAY);
         request->_tempFile = contentFS->open("/" + filename, "w");
     }
@@ -668,6 +673,7 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
         } else {
             request->send(400, "text/plain", "parameters incomplete");
         }
+        imageUploadBusy = false;
     }
 }
 

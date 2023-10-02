@@ -222,7 +222,6 @@ function processTags(tagArray) {
 		if (!alias) alias = tagmac.replace(/^0{1,4}/, '');
 		if ($('#tag' + tagmac + ' .alias').innerHTML != alias) {
 			$('#tag' + tagmac + ' .alias').innerHTML = alias;
-			//GroupSortFilter();
 		}
 
 		let contentDefObj = getContentDefById(element.contentMode);
@@ -1023,9 +1022,17 @@ $('#activefilter').addEventListener('click', (event) => {
 });
 
 async function getTagtype(hwtype) {
-	if (tagTypes[hwtype]) {
+	if (tagTypes[hwtype] && tagTypes[hwtype].busy == false) {
 		return tagTypes[hwtype];
 	}
+
+	// nice, but no possibility to invalidate this cache yet.
+	/*
+	const storedData = JSON.parse(localStorage.getItem("tagTypes"));
+	if (storedData && storedData[hwtype]) {
+		return storedData[hwtype];
+	}
+	*/
 
 	if (getTagtypeBusy) {
 		await new Promise(resolve => {
@@ -1045,7 +1052,7 @@ async function getTagtype(hwtype) {
 					clearInterval(checkBusy);
 					resolve();
 				}
-			}, 10);
+			}, 50);
 		});
 	}
 
@@ -1054,8 +1061,8 @@ async function getTagtype(hwtype) {
 	}
 
 	try {
-		tagTypes[hwtype] = { busy: true };
 		getTagtypeBusy = true;
+		tagTypes[hwtype] = { busy: true };
 		const response = await fetch('/tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json');
 		if (!response.ok) {
 			let data = { name: 'unknown id ' + hwtype, width: 0, height: 0, bpp: 0, rotatebuffer: 0, colortable: [], busy: false };

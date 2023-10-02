@@ -15,6 +15,7 @@ int maxledbrightness = 255;
 #ifdef HAS_RGB_LED
 QueueHandle_t rgbLedQueue;
 CRGB rgbIdleColor = CRGB::Green;
+uint16_t rgbIdlePeriod = 511;
 
 struct ledInstructionRGB {
     CRGB ledColor;
@@ -122,8 +123,6 @@ void showRGB() {
     FastLED.show();
 }
 
-volatile uint16_t rgbIdlePeriod = 767;
-
 void rgbIdleStep() {
     static bool dirUp = true;
     static uint16_t step = 0;
@@ -131,7 +130,7 @@ void rgbIdleStep() {
     if (dirUp) {
         // up
         step++;
-        if (step == rgbIdlePeriod) {
+        if (step >= rgbIdlePeriod) {
             dirUp = false;
         }
     } else {
@@ -223,9 +222,6 @@ void ledTask(void* parameter) {
 
     struct ledInstructionRGB* rgb = nullptr;
     // open with a nice RGB crossfade
-    addFadeColor(CRGB::Red);
-    addFadeColor(CRGB::Green);
-    addFadeColor(CRGB::Blue);
     addFadeColor(CRGB::Red);
     addFadeColor(CRGB::Green);
     addFadeColor(CRGB::Blue);

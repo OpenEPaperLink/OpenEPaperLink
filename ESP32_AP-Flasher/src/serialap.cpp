@@ -151,6 +151,7 @@ void setAPstate(bool isOnline, uint8_t state) {
         CRGB::YellowGreen
     };
     rgbIdleColor = colorMap[state];
+    rgbIdlePeriod = (isOnline ? 767 : 255);
 #endif
 }
 
