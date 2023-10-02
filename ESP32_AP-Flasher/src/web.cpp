@@ -102,10 +102,14 @@ void wsSendSysteminfo() {
         uint32_t tagcount = getTagCount(timeoutcount);
         char result[40];
         if (timeoutcount > 0) {
+#ifdef HAS_RGB_LED
             if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::DarkBlue;
+#endif
             snprintf(result, sizeof(result), "%lu / %lu, %lu timed out", tagcount, tagDB.size(), timeoutcount);
         } else {
+#ifdef HAS_RGB_LED
             if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::Green;
+#endif
             snprintf(result, sizeof(result), "%lu / %lu", tagcount, tagDB.size());
         }
         setVarDB("ap_tagcount", result);
