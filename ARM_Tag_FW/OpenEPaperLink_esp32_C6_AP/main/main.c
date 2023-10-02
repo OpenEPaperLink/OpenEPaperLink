@@ -326,15 +326,15 @@ void     processSerial(uint8_t lastchar) {
                     }
                     goto SCPfailed;
                 SCPchannelFound:
-					pr("ACK>");
-					if (curChannel != scp->channel) {
-						radioSetChannel(scp->channel);
-						curChannel = scp->channel;
-					}
-					curPower   = scp->power;
+                    pr("ACK>");
+                    if (curChannel != scp->channel) {
+                        radioSetChannel(scp->channel);
+                        curChannel = scp->channel;
+                    }
+                    curPower   = scp->power;
                     radioSetTxPower(scp->power);
                     ESP_LOGI(TAG, "Set channel: %d power: %d", curChannel, curPower);
-				} else {
+                } else {
                 SCPfailed:
                     pr("NOK>");
                 }
@@ -412,27 +412,27 @@ void espNotifyAPInfo() {
 }
 
 void espNotifyTagReturnData(uint8_t *src, uint8_t len) {
-	struct tagReturnData *trd = (struct tagReturnData *)(radiorxbuffer + sizeof(struct MacFrameBcast) + 1); // oh how I'd love to pass this as an argument, but sdcc won't let me
-	struct espTagReturnData *etrd = (struct espTagReturnData *)radiotxbuffer;
+    struct tagReturnData *trd = (struct tagReturnData *)(radiorxbuffer + sizeof(struct MacFrameBcast) + 1); // oh how I'd love to pass this as an argument, but sdcc won't let me
+    struct espTagReturnData *etrd = (struct espTagReturnData *)radiotxbuffer;
 
-	if (memcmp((void *) & trd->dataVer, lastTagReturn, 8) == 0) {
-		return;
-	} else {
-		memcpy(lastTagReturn, &trd->dataVer, 8);
-	}
+    if (memcmp((void *) & trd->dataVer, lastTagReturn, 8) == 0) {
+        return;
+    } else {
+        memcpy(lastTagReturn, &trd->dataVer, 8);
+    }
 
-	memcpy(etrd->src, src, 8);
-	etrd->len = len;
-	memcpy(&etrd->returnData, trd, len);
-	addCRC(etrd, len + 10);
+    memcpy(etrd->src, src, 8);
+    etrd->len = len;
+    memcpy(&etrd->returnData, trd, len);
+    addCRC(etrd, len + 10);
 
-	uartTx('T');
-	uartTx('R');
-	uartTx('D');
-	uartTx('>');
-	for (uint8_t c = 0; c < len + 10; c++) {
-		uartTx(((uint8_t *)etrd)[c]);
-	}
+    uartTx('T');
+    uartTx('R');
+    uartTx('D');
+    uartTx('>');
+    for (uint8_t c = 0; c < len + 10; c++) {
+        uartTx(((uint8_t *)etrd)[c]);
+    }
 }
 
 // process data from tag
@@ -492,7 +492,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     if (blockStartTimer == 0) {
         if (requestDataDownload) {
             if (highspeedSerial == true) {
-                blockRequestAck->pleaseWaitMs = 220;
+                blockRequestAck->pleaseWaitMs = 140;
             } else {
                 blockRequestAck->pleaseWaitMs = 550;
             }
@@ -583,23 +583,23 @@ void processXferComplete(uint8_t *buffer) {
 }
 
 void processTagReturnData(uint8_t *buffer, uint8_t len) {
-	struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buffer;
-	struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
+    struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buffer;
+    struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
 
-	if (!checkCRC((buffer + sizeof(struct MacFrameBcast) + 1), len - (sizeof(struct MacFrameBcast) + 1))) {
-		return;
-	}
-	radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_TAG_RETURN_DATA_ACK;
-	radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + RAW_PKT_PADDING;
-	memcpy(frameHeader->src, mSelfMac, 8);
-	memcpy(frameHeader->dst, rxframe->src, 8);
-	radiotxbuffer[1] = 0x41; // fast way to set the appropriate bits
-	radiotxbuffer[2] = 0xCC; // normal frame
-	frameHeader->seq = seq++;
-	frameHeader->pan = rxframe->srcPan;
-	radioTx(radiotxbuffer);
+    if (!checkCRC((buffer + sizeof(struct MacFrameBcast) + 1), len - (sizeof(struct MacFrameBcast) + 1))) {
+        return;
+    }
+    radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_TAG_RETURN_DATA_ACK;
+    radiotxbuffer[0] = sizeof(struct MacFrameNormal) + 1 + RAW_PKT_PADDING;
+    memcpy(frameHeader->src, mSelfMac, 8);
+    memcpy(frameHeader->dst, rxframe->src, 8);
+    radiotxbuffer[1] = 0x41; // fast way to set the appropriate bits
+    radiotxbuffer[2] = 0xCC; // normal frame
+    frameHeader->seq = seq++;
+    frameHeader->pan = rxframe->srcPan;
+    radioTx(radiotxbuffer);
 
-	espNotifyTagReturnData(rxframe->src, len - (sizeof(struct MacFrameBcast) + 1));
+    espNotifyTagReturnData(rxframe->src, len - (sizeof(struct MacFrameBcast) + 1));
 }
 
 // send block data to the tag
@@ -628,6 +628,18 @@ void sendBlockData() {
         pr("Invalid block request received, 0 parts..\n");
         requestedData.requestedParts[0] |= 0x01;
     }
+
+    pr("Sending parts:");
+    for (uint8_t c = 0; (c < BLOCK_MAX_PARTS); c++) {
+        if (c % 10 == 0) pr(" ");
+        if (requestedData.requestedParts[c / 8] & (1 << (c % 8))) {
+            pr("X");
+        } else {
+            pr(".");
+        }
+    }
+    pr("\n");
+
     uint8_t partNo = 0;
     while (partNo < BLOCK_MAX_PARTS) {
         for (uint8_t c = 0; (c < BLOCK_MAX_PARTS) && (partNo < BLOCK_MAX_PARTS); c++) {
@@ -684,24 +696,24 @@ void sendPong(void *buf) {
 }
 
 void app_main(void) {
-	esp_event_loop_create_default();
-	
+    esp_event_loop_create_default();
+    
     init_nvs();
-	init_led();
+    init_led();
     init_second_uart();
 
     requestedData.blockId = 0xFF;
     // clear the array with pending information
     memset(pendingDataArr, 0, sizeof(pendingDataArr));
 
-	radio_init(curChannel);
+    radio_init(curChannel);
     radioSetTxPower(10);
 
     pr("RES>");
     pr("RDY>");
-	ESP_LOGI(TAG, "C6 ready!");
+    ESP_LOGI(TAG, "C6 ready!");
 
-	housekeepingTimer = getMillis();
+    housekeepingTimer = getMillis();
     while (1) {
         while ((getMillis() - housekeepingTimer) < ((1000 * HOUSEKEEPING_INTERVAL) - 100)) {
             int8_t ret = commsRxUnencrypted(radiorxbuffer);
@@ -741,11 +753,11 @@ void app_main(void) {
                             processAvailDataReq(radiorxbuffer);
                         }
                         break;
-					case PKT_TAG_RETURN_DATA:
-						processTagReturnData(radiorxbuffer, ret);
-						break;
-					default:
-						ESP_LOGI(TAG, "t=%02X" , getPacketType(radiorxbuffer));
+                    case PKT_TAG_RETURN_DATA:
+                        processTagReturnData(radiorxbuffer, ret);
+                        break;
+                    default:
+                        ESP_LOGI(TAG, "t=%02X" , getPacketType(radiorxbuffer));
                         break;
                 }
             } else if (blockStartTimer == 0) {
@@ -763,8 +775,8 @@ void app_main(void) {
             }
         }
 
-		memset(&lastTagReturn, 0, 8);
-		for (uint8_t cCount = 0; cCount < MAX_PENDING_MACS; cCount++) {
+        memset(&lastTagReturn, 0, 8);
+        for (uint8_t cCount = 0; cCount < MAX_PENDING_MACS; cCount++) {
             if (pendingDataArr[cCount].attemptsLeft == 1) {
                 if (pendingDataArr[cCount].availdatainfo.dataType != DATATYPE_NOUPDATE) {
                     espNotifyTimeOut(pendingDataArr[cCount].targetMac);
