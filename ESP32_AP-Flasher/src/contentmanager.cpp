@@ -28,6 +28,7 @@
 #endif
 #include "language.h"
 #include "settings.h"
+#include "system.h"
 #include "tag_db.h"
 #include "truetype.h"
 #include "util.h"
@@ -870,6 +871,7 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
     Storage.begin();
 
     HTTPClient http;
+    logLine("http getImgURL " + URL);
     http.begin(URL);
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
     http.addHeader("X-ESL-MAC", MAC);
@@ -975,6 +977,7 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     strftime(dateString, sizeof(dateString), "%d.%m.%Y", &timeinfo);
 
     HTTPClient http;
+    logLine("http getCalFeed " + URL);
     http.begin(URL);
     http.setTimeout(10000);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
@@ -1077,6 +1080,7 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
 
     String lat = cfgobj["#lat"];
     String lon = cfgobj["#lon"];
+    logLine("http drawBuienradar");
     http.begin("https://gps.buienradar.nl/getrr.php?lat=" + lat + "&lon=" + lon);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setTimeout(5000);
@@ -1338,6 +1342,7 @@ bool getJsonTemplateFileExtractVariables(String &filename, String jsonfile, Json
 int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC, tagRecord *&taginfo, imgParam &imageParams) {
     HTTPClient http;
     http.useHTTP10(true);
+    logLine("http getJsonTemplateUrl " + URL);
     http.begin(URL);
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
     http.addHeader("X-ESL-MAC", MAC);

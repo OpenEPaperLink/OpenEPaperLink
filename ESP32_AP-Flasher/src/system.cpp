@@ -16,6 +16,7 @@ void initTime(void* parameter) {
     sntp_set_time_sync_notification_cb(timeSyncCallback);
     sntp_set_sync_interval(300 * 1000);
     configTzTime(config.timeZone, "nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
+    logStartUp();
     struct tm timeinfo;
     while (millis() < 30000) {
         if (!getLocalTime(&timeinfo)) {
@@ -25,7 +26,6 @@ void initTime(void* parameter) {
             break;
         }
     }
-    logStartUp();
     if (config.runStatus = RUNSTATUS_INIT) config.runStatus = RUNSTATUS_RUN;
     vTaskDelay(10 / portTICK_PERIOD_MS);
     vTaskDelete(NULL);
@@ -43,6 +43,7 @@ void logLine(const String& text) {
     const char* format = (now < (time_t)1672531200) ? "           %H:%M:%S " : "%Y-%m-%d %H:%M:%S ";
     strftime(timeStr, sizeof(timeStr), format, localtime(&now));
 
+    xSemaphoreTake(fsMutex, portMAX_DELAY);
     File logFile = contentFS->open("/log.txt", "a");
     if (logFile) {
         if (logFile.size() >= 10 * 1024) {
@@ -57,6 +58,7 @@ void logLine(const String& text) {
         logFile.println(text);
         logFile.close();
     }
+    xSemaphoreGive(fsMutex);
 }
 
 void logStartUp() {

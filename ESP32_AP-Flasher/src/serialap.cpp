@@ -288,7 +288,7 @@ bool sendPing() {
     Serial.print("ping");
     int t = millis();
     if (!txStart()) return false;
-    for (uint8_t attempt = 0; attempt < 5; attempt++) {
+    for (uint8_t attempt = 0; attempt < 3; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
         AP_SERIAL_PORT.print("RDY?");
         if (waitCmdReply()) {
@@ -681,11 +681,7 @@ bool bringAPOnline() {
     // try without rebooting
     AP_SERIAL_PORT.updateBaudRate(115200);
     uint32_t bootTimeout = millis();
-    bool APrdy = false;
-    while ((!APrdy) && (millis() - bootTimeout < 3 * 1000)) {
-        APrdy = sendPing();
-        vTaskDelay(300 / portTICK_PERIOD_MS);
-    }
+    bool APrdy = sendPing();
     if (!APrdy) {
         if (apInfo.state == AP_STATE_FLASHING) return false;
         APTagReset();
@@ -761,10 +757,10 @@ void APTask(void* parameter) {
         ShowAPInfo();
 
         if (apInfo.type == SOLUM_SEG_UK) {
-            setAPstate(false, AP_STATE_COMING_ONLINE);
+            setAPstate(true, AP_STATE_COMING_ONLINE);
             segmentedShowIp();
             showAPSegmentedInfo(apInfo.mac, true);
-            setAPstate(false, AP_STATE_ONLINE);
+            setAPstate(true, AP_STATE_ONLINE);
             updateContent(apInfo.mac);
         }
 

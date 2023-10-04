@@ -239,6 +239,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 String imageUrl = "http://" + remoteIP.toString() + filename;
                 wsLog("GET " + imageUrl);
                 HTTPClient http;
+                logLine("http prepareExternalDataAvail " + imageUrl);
                 http.begin(imageUrl);
                 int httpCode = http.GET();
                 if (httpCode == 200) {
@@ -250,6 +251,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 } else if (httpCode == 404) {
                     imageUrl = "http://" + remoteIP.toString() + "/current/" + String(hexmac) + ".raw";
                     http.end();
+                    logLine("http prepareExternalDataAvail " + imageUrl);
                     http.begin(imageUrl);
                     httpCode = http.GET();
                     if (httpCode == 200) {
@@ -296,6 +298,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 String dataUrl = "http://" + remoteIP.toString() + "/getdata?mac=" + String(hexmac);
                 wsLog("GET " + dataUrl);
                 HTTPClient http;
+                logLine("http DATATYPE_CUSTOM_LUT_OTA " + dataUrl);
                 http.begin(dataUrl);
                 int httpCode = http.GET();
                 if (httpCode == 200) {

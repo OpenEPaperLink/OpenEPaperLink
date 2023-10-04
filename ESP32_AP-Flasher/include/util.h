@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 
+#include "system.h"
 #include "web.h"
 
 namespace util {
@@ -72,6 +73,7 @@ static void printLargestFreeBlock() {
 static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout, JsonDocument *filter = nullptr)  //, const followRedirects_t redirects = followRedirects_t::HTTPC_DISABLE_FOLLOW_REDIRECTS)
 {
     HTTPClient http;
+    logLine("http httpGetJson " + url);
     http.begin(url);
     http.setTimeout(timeout);
     // http.setFollowRedirects(redirects);
