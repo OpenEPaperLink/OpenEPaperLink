@@ -23,14 +23,14 @@
 #include "util.h"
 #include "web.h"
 
-util::Timer intervalContentRunner(1_s);
-util::Timer intervalSysinfo(3_s);
-util::Timer intervalVars(10_s);
-util::Timer intervalSaveDB(5_m);
-util::Timer intervalCheckDate(5_m);
+util::Timer intervalContentRunner(seconds(1));
+util::Timer intervalSysinfo(seconds(3));
+util::Timer intervalVars(seconds(10));
+util::Timer intervalSaveDB(minutes(5));
+util::Timer intervalCheckDate(minutes(5));
 
 #ifdef OPENEPAPERLINK_PCB
-util::Timer tagConnectTimer(1_s);
+util::Timer tagConnectTimer(seconds(1));
 #endif
 
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);

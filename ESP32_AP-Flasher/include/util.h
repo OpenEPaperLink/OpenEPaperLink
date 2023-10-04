@@ -7,34 +7,8 @@
 #include "system.h"
 #include "web.h"
 
+/// @brief Different utility functions
 namespace util {
-
-/// @brief Class representing a duration measured in milliseconds
-struct Duration {
-    /// @brief Milliseconds
-    unsigned long long int ms;
-
-    constexpr bool operator==(const Duration &rhs) { return ms == rhs.ms; }
-
-    constexpr Duration operator+(const Duration &rhs) const { return {ms + rhs.ms}; }
-
-    constexpr Duration operator-(const Duration &rhs) const { return {ms - rhs.ms}; }
-
-    template <typename T>
-    constexpr Duration operator*(const T &rhs) const {
-        return {ms * rhs};
-    }
-
-    template <typename T>
-    constexpr Duration operator/(const T &rhs) const {
-        return {ms / rhs};
-    }
-
-    /// @brief Dividing a Duration by a Duration results in a unitless value
-    /// @param rhs
-    /// @return
-    constexpr unsigned long long int operator/(const Duration &rhs) const { return ms / rhs.ms; }
-};
 
 /// @brief Can be used to wrap a stream and see what's going on
 class DebugStream : public Stream {
@@ -170,11 +144,6 @@ class Timer {
     /// @param delay Delay in ms until first execution to defer start
     Timer(const unsigned long interval, const unsigned long delay = 0) : m_interval(interval), m_nextMillis(millis() + delay) {}
 
-    /// @brief Construct a timer
-    /// @param interval Interval in ms at which @ref doRun() returns true
-    /// @param delay Delay in ms until first execution to defer start
-    Timer(const Duration &interval, const Duration &delay = {0}) : m_interval(interval.ms), m_nextMillis(millis() + delay.ms) {}
-
     /// @brief Change the interval
     /// @param interval New interval in ms
     void setInterval(const unsigned long interval) {
@@ -216,28 +185,9 @@ inline String formatString(char buffer[bufSize], const char *format, ...) {
 
 }  // namespace util
 
-/// @brief Milliseconds literal
-/// @param milliseconds Duration in milliseconds
-/// @return Duration in ms
-constexpr util::Duration operator"" _ms(unsigned long long int milliseconds) {
-    return {milliseconds};
-}
-
-/// @brief Seconds literal
-/// @param seconds Duration in seconds
-/// @return Duration in ms
-constexpr util::Duration operator"" _s(unsigned long long int seconds) {
-    return {seconds * 1000};
-}
-/// @brief Minutes literal
-/// @param minutes Duration in minutes
-/// @return Duration in ms
-constexpr util::Duration operator"" _m(unsigned long long int minutes) {
-    return {minutes * 60 * 1000};
-}
-/// @brief Hours literal
-/// @param hours Voltage in hours
-/// @return Duration in ms
-constexpr util::Duration operator"" _h(unsigned long long int hours) {
-    return {hours * 60 * 60 * 1000};
-}
+/// @brief Converts seconds to milliseconds
+#define seconds(s) s * 1000
+/// @brief Converts minutes to milliseconds
+#define minutes(m) seconds(m * 60)
+/// @brief Converts hours to milliseconds
+#define hours(m) minutes(m * 60)
