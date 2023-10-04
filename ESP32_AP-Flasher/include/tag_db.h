@@ -108,7 +108,14 @@ extern void clearPending(tagRecord* taginfo);
 extern void initAPconfig();
 extern void saveAPconfig();
 extern HwType getHwType(const uint8_t id);
-extern bool setVarDB(const std::string& key, const String& value);
+/// @brief Update a variable with the given key and value
+///
+/// @param key Variable key
+/// @param value Variable value
+/// @param notify Should the change be notified (true, default) or not (false)
+/// @return true If variable was created/updated
+/// @return false If not
+extern bool setVarDB(const std::string& key, const String& value, const bool notify = true);
 extern void cleanupCurrent();
 
 #pragma pack(pop)

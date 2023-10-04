@@ -7,6 +7,7 @@
 #include "system.h"
 #include "web.h"
 
+/// @brief Different utility functions
 namespace util {
 
 /// @brief Can be used to wrap a stream and see what's going on
@@ -125,26 +126,46 @@ static bool isSleeping(int sleeptime1, int sleeptime2) {
     }
 }
 
+/// @brief Get the time_t for midnight
+/// @return time_t for midnight
+inline time_t getMidnightTime() {
+    struct tm time_info;
+    getLocalTime(&time_info);
+    time_info.tm_hour = time_info.tm_min = time_info.tm_sec = 0;
+    time_info.tm_mday++;
+    return mktime(&time_info);
+}
+
+/// @brief Timer for kind of scheduling things
 class Timer {
    public:
-    Timer(unsigned long interval) : interval_(interval), previousMillis_(0) {}
+    /// @brief Construct a timer
+    /// @param interval Interval in ms at which @ref doRun() returns true
+    /// @param delay Delay in ms until first execution to defer start
+    Timer(const unsigned long interval, const unsigned long delay = 0) : m_interval(interval), m_nextMillis(millis() + delay) {}
 
-    void setInterval(unsigned long interval) {
-        interval_ = interval;
+    /// @brief Change the interval
+    /// @param interval New interval in ms
+    void setInterval(const unsigned long interval) {
+        m_interval = interval;
     }
 
-    bool doRun() {
-        unsigned long currentMillis = millis();
-        if (currentMillis - previousMillis_ >= interval_) {
-            previousMillis_ = currentMillis;
+    /// @brief Check if interval is met
+    /// @param currentMillis Optionally provide the current time in millis
+    /// @return True if interval is met, false if not
+    bool doRun(const unsigned long currentMillis = millis()) {
+        if (currentMillis >= m_nextMillis) {
+            m_nextMillis = currentMillis + m_interval;
             return true;
         }
         return false;
     }
 
    private:
-    unsigned long interval_;
-    unsigned long previousMillis_;
+    /// @brief Timer interval in ms
+    unsigned long m_interval;
+    /// @brief Next timeer interval in ms
+    unsigned long m_nextMillis;
 };
 
 /// @brief Create a String from format
@@ -163,3 +184,10 @@ inline String formatString(char buffer[bufSize], const char *format, ...) {
 }
 
 }  // namespace util
+
+/// @brief Converts seconds to milliseconds
+#define seconds(s) s * 1000
+/// @brief Converts minutes to milliseconds
+#define minutes(m) seconds(m * 60)
+/// @brief Converts hours to milliseconds
+#define hours(m) minutes(m * 60)

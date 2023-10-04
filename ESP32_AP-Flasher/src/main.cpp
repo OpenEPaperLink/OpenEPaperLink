@@ -23,10 +23,15 @@
 #include "util.h"
 #include "web.h"
 
-util::Timer intervalSysinfo(3000);
-util::Timer intervalVars(10000);
-util::Timer intervalSaveDB(300000);
-util::Timer intervalContentRunner(1000);
+util::Timer intervalContentRunner(seconds(1));
+util::Timer intervalSysinfo(seconds(3));
+util::Timer intervalVars(seconds(10));
+util::Timer intervalSaveDB(minutes(5));
+util::Timer intervalCheckDate(minutes(5));
+
+#ifdef OPENEPAPERLINK_PCB
+util::Timer tagConnectTimer(seconds(1));
+#endif
 
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 
@@ -158,6 +163,21 @@ void loop() {
     if (intervalContentRunner.doRun() && apInfo.state == AP_STATE_ONLINE) {
         contentRunner();
     }
+    if (intervalCheckDate.doRun() && config.runStatus == RUNSTATUS_RUN) {
+        static uint8_t day = 0;
+
+        time_t now;
+        time(&now);
+        struct tm timedef;
+        localtime_r(&now, &timedef);
+
+        if (day != timedef.tm_mday) {
+            day = timedef.tm_mday;
+            char timeBuffer[80];
+            strftime(timeBuffer, sizeof(timeBuffer), "%d-%m-%Y", &timedef);
+            setVarDB("ap_date", timeBuffer);
+        }
+    }
 
 #ifdef YELLOW_IPS_AP
     extern void yellow_ap_display_loop(void);
@@ -165,21 +185,17 @@ void loop() {
 #endif
 
 #ifdef OPENEPAPERLINK_PCB
-    time_t tagConnectTimer = 0;
-    if (millis() - tagConnectTimer > 1000) {
-        tagConnectTimer = millis();
-        if (extTagConnected()) {
-            flashCountDown(3);
+    if (tagConnectTimer.doRun() && extTagConnected()) {
+        flashCountDown(3);
 
-            pinMode(FLASHER_EXT_TEST, OUTPUT);
-            digitalWrite(FLASHER_EXT_TEST, LOW);
+        pinMode(FLASHER_EXT_TEST, OUTPUT);
+        digitalWrite(FLASHER_EXT_TEST, LOW);
 
-            doTagFlash();
+        doTagFlash();
 
-            vTaskDelay(10000 / portTICK_PERIOD_MS);
-            pinMode(FLASHER_EXT_TEST, INPUT);
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
-        }
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
+        pinMode(FLASHER_EXT_TEST, INPUT);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 #endif
 
