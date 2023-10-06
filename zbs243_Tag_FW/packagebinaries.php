@@ -1,12 +1,12 @@
 <?php
 
-$types[0x00] = "Tag_FW_1.54.bin";
-$types[0x01] = "Tag_FW_2.9.bin";
+$types[0x00] = "SOLUM_154_SSD1619-tag-00-0022.bin";
+$types[0x01] = "SOLUM_29_SSD1619-tag-01-0022";
 $types[0xF0] = "Tag_FW_Segmented_UK.bin";
-$types[0x02] = "Tag_FW_4.2.bin";
-$types[0x11] = "Tag_FW_2.9-uc8151.bin";
+$types[0x02] = "SOLUM_42_SSD1619-tag-02-0022.bin";
+$types[0x11] = "SOLUM_29_UC8151-tag-11-0022.bin";
 
-$binpath = "../binaries/";
+$binpath = "../binaries/Tag";
 $tocmaxsize = 512;
 
 $toc = array();
@@ -21,6 +21,7 @@ $version = hexdec($version);
 */
 $version = 0;
 
+// *** fixme: this should select only filenames containing the latest version. See python version of this script.
 exec("ls -1 $binpath | grep 'Tag_FW' | grep -v battery | grep -v Pack | grep -v M3", $binaries);
 foreach($binaries as $file){
 	$file = trim($file);
@@ -30,7 +31,7 @@ foreach($binaries as $file){
 			$type = $typeid;
 		}
 	}
-	if($type==-1)die("We don't recognize filetype <$file>, sorry...\n");
+	if($type!=-1)echo("Adding filetype <$file>\n");
 	$binary = file_get_contents($binpath.$file);
 	$length = strlen($binary);
 	$offset = strlen($output);

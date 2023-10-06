@@ -443,7 +443,7 @@ bool flasher::writeFlashFromPackOffset(fs::File *file, uint16_t length) {
 }
 
 bool flasher::writeFlashFromPack(String filename, uint8_t type) {
-    StaticJsonDocument<512> doc;
+    DynamicJsonDocument doc(1024);
     fs::File readfile = contentFS->open(filename, "r");
     DeserializationError err = deserializeJson(doc, readfile);
     if (!err) {
@@ -466,6 +466,7 @@ bool flasher::writeFlashFromPack(String filename, uint8_t type) {
         }
         Serial.print("Failed to find this tag's type in the FW pack database.\n");
     } else {
+        Serial.println(err.c_str());
         Serial.print("Failed to read json header from FW pack\n");
     }
     readfile.close();

@@ -1364,7 +1364,7 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
 void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
-    DynamicJsonDocument doc(300);
+    DynamicJsonDocument doc(500);
     if (stream.find("[")) {
         do {
             DeserializationError error = deserializeJson(doc, stream);
