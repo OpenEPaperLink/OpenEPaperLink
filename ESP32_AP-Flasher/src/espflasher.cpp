@@ -126,18 +126,22 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
     int binaryResponseCode = binaryHttp.GET();
     Serial.println(binaryResponseCode);
     if (binaryResponseCode == HTTP_CODE_OK) {
+        int contentLength = binaryHttp.getSize();
+        Serial.println(contentLength);
         xSemaphoreTake(fsMutex, portMAX_DELAY);
         File file = contentFS->open(filename, "wb");
         if (file) {
             wsSerial("downloading " + String(filename));
             WiFiClient *stream = binaryHttp.getStreamPtr();
-            uint8_t buffer[256];
+            uint8_t buffer[1024];
             size_t totalBytesRead = 0;
-            while (stream->available()) {
+            time_t timeOut = millis() + 5000;
+            // while (stream->available()) {
+            while (millis() < timeOut) {
                 size_t bytesRead = stream->readBytes(buffer, sizeof(buffer));
                 file.write(buffer, bytesRead);
                 totalBytesRead += bytesRead;
-                vTaskDelay(1 / portTICK_PERIOD_MS);
+                if (totalBytesRead == contentLength) break;
             }
             file.close();
             xSemaphoreGive(fsMutex);
@@ -145,7 +149,7 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
 
             file = contentFS->open(filename, "r");
             if (file) {
-                if (totalBytesRead == file.size() && file.size() > 0) {
+                if (totalBytesRead == contentLength || (contentLength == 0 && file.size() > 0)) {
                     file.close();
                     return true;
                 }
@@ -181,7 +185,8 @@ bool doC6flash(uint8_t doDownload) {
                 JsonArray jsonArray = jsonDoc.as<JsonArray>();
                 for (JsonObject obj : jsonArray) {
                     String filename = "/" + obj["filename"].as<String>();
-                    String binaryUrl = "https://raw.githubusercontent.com/" + config.repo + "/master/binaries/ESP32-C6" + String(filename);
+                    // String binaryUrl = "https://raw.githubusercontent.com/" + config.repo + "/master/binaries/ESP32-C6" + String(filename);
+                    String binaryUrl = "http://www.openepaperlink.eu/binaries/ESP32-C6" + String(filename);
                     for (int retry = 0; retry < 10; retry++) {
                         if (downloadAndWriteBinary(filename, binaryUrl.c_str())) {
                             break;

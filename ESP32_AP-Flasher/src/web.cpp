@@ -585,8 +585,26 @@ void init_web() {
         request->send(200, "text/plain", "Ok, saved");
 
         ws.enable(false);
-        refreshAllPending();
-        saveDB("/current/tagDB.json");
+
+        if (jsonObj["ssid"].as<String>() == "factory") {
+            preferences.begin("wifi", false);
+            preferences.putString("ssid", "");
+            preferences.putString("pw", "");
+            preferences.end();
+            contentFS->remove("/AP_FW_Pack.bin");
+            contentFS->remove("/OpenEPaperLink_esp32_C6.bin");
+            contentFS->remove("/bootloader.bin");
+            contentFS->remove("/partition-table.bin");
+            contentFS->remove("/update_actions.json");
+            contentFS->remove("/log.txt");
+            contentFS->remove("/current/tagDB.json");
+            delay(100);
+            ESP.restart();
+        } else {
+            refreshAllPending();
+            saveDB("/current/tagDB.json");
+        }
+
         ws.closeAll();
         delay(100);
         ESP.restart();
