@@ -692,7 +692,7 @@ const String getWeatherIcon(const uint8_t id, const bool isNight = false) {
                                    "\uf01b", "", "\uf01b", "", "\uf01b", "", "\uf076", "", "", "\uf01a",
                                    "\uf01a", "\uf01a", "", "", "\uf064", "\uf064", "", "", "", "",
                                    "", "", "", "", "\uf01e", "\uf01d", "", "", "\uf01e"};
-    if (isNight && id <= 3) {
+    if (isNight && id <= 2) {
         const String nightIcons[] = {"\uf02e", "\uf083", "\uf086"};
         return nightIcons[id];
     }

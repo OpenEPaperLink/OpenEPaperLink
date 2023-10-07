@@ -30,7 +30,7 @@ export async function initUpdate() {
     $('#selectRepo').style.display = 'inline-block';
     $('#repoWarning').style.display = 'none';
 
-    fetch("/sysinfo")
+    const sysinfoPromise = fetch("/sysinfo")
         .then(response => {
             if (response.status != 200) {
                 print("Error fetching sysinfo: " + response.status, "red");
@@ -44,33 +44,36 @@ export async function initUpdate() {
                 return response.json();
             }
         })
-        .then(data => {
-            if (data.env) {
-                let matchtest = '';
-                if (data.buildversion != filesystemversion && filesystemversion != "custom" && data.buildversion != "custom") matchtest = " <- not matching!"
-                print(`env:                ${data.env}`);
-                print(`build date:         ${formatEpoch(data.buildtime)}`);
-                print(`esp32 version:      ${data.buildversion}`);
-                print(`filesystem version: ${filesystemversion}` + matchtest);
-                print(`psram size:         ${data.psramsize}`);
-                print(`flash size:         ${data.flashsize}`);
-                print("--------------------------", "gray");
-                env = data.env;
-                currentVer = data.buildversion;
-                currentBuildtime = data.buildtime;
-                if (data.rollback) $("#rollbackOption").style.display = 'block';
-                if (data.env == 'ESP32_S3_16_8_YELLOW_AP') $("#c6Option").style.display = 'block';
-                $('#environment').value = env;
-            }
-        })
         .catch(error => {
             print('Error fetching sysinfo: ' + error, "red");
         });
 
-    fetch(repoUrl)
+    const repoPromise = fetch(repoUrl)
         .then(response => response.json())
-        .then(data => {
-            const releaseDetails = data.map(release => {
+
+
+    Promise.all([sysinfoPromise, repoPromise])
+        .then(([sdata, rdata]) => {
+
+            if (sdata.env) {
+                let matchtest = '';
+                if (sdata.buildversion != filesystemversion && filesystemversion != "custom" && sdata.buildversion != "custom") matchtest = " <- not matching!"
+                print(`env:                ${sdata.env}`);
+                print(`build date:         ${formatEpoch(sdata.buildtime)}`);
+                print(`esp32 version:      ${sdata.buildversion}`);
+                print(`filesystem version: ${filesystemversion}` + matchtest);
+                print(`psram size:         ${sdata.psramsize}`);
+                print(`flash size:         ${sdata.flashsize}`);
+                print("--------------------------", "gray");
+                env = sdata.env;
+                currentVer = sdata.buildversion;
+                currentBuildtime = sdata.buildtime;
+                if (sdata.rollback) $("#rollbackOption").style.display = 'block';
+                if (sdata.env == 'ESP32_S3_16_8_YELLOW_AP') $("#c6Option").style.display = 'block';
+                $('#environment').value = env;
+            }
+
+            const releaseDetails = rdata.map(release => {
                 const assets = release.assets;
                 const filesJsonAsset = assets.find(asset => asset.name === 'filesystem.json');
                 const binariesJsonAsset = assets.find(asset => asset.name === 'binaries.json');
@@ -86,7 +89,7 @@ export async function initUpdate() {
                     }
                 };
             });
-
+            
             const easyupdate = $('#easyupdate');
             if (releaseDetails.length === 0) {
                 easyupdate.innerHTML = ("No releases found.");
