@@ -192,7 +192,7 @@ uint8_t wsClientCount() {
 
 void init_web() {
     wsMutex = xSemaphoreCreateMutex();
-
+    Storage.begin();
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(static_cast<wifi_power_t>(config.wifiPower));
 
