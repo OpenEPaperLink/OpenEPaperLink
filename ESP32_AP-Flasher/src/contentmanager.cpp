@@ -1393,12 +1393,18 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr) {
     } else if (element.containsKey("box")) {
         const JsonArray &boxArray = element["box"];
         spr.fillRect(boxArray[0].as<int>(), boxArray[1].as<int>(), boxArray[2].as<int>(), boxArray[3].as<int>(), getColor(boxArray[4]));
+    } else if (element.containsKey("rbox")) {
+        const JsonArray &rboxArray = element["rbox"];
+        spr.fillRoundRect(rboxArray[0].as<int>(), rboxArray[1].as<int>(), rboxArray[2].as<int>(), rboxArray[3].as<int>(), rboxArray[4].as<int>(), getColor(rboxArray[5]));
     } else if (element.containsKey("line")) {
         const JsonArray &lineArray = element["line"];
         spr.drawLine(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), getColor(lineArray[4]));
     } else if (element.containsKey("triangle")) {
         const JsonArray &lineArray = element["triangle"];
         spr.fillTriangle(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), lineArray[4].as<int>(), lineArray[5].as<int>(), getColor(lineArray[6]));
+    } else if (element.containsKey("circle")) {
+        const JsonArray &circleArray = element["circle"];
+        spr.fillCircle(circleArray[0].as<int>(), circleArray[1].as<int>(), circleArray[2].as<int>(), getColor(circleArray[3]));
     }
 }
 
