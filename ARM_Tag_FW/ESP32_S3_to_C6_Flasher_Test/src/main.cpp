@@ -51,14 +51,14 @@ esp_loader_error_t flash_binary1(const uint8_t *bin, size_t size, size_t address
     static uint8_t payload[1024];
     const uint8_t *bin_addr = bin;
 
-    printf("Erasing flash (this may take a while)...\n");
+    Serial.printf("Erasing flash (this may take a while)...\n");
     err = esp_loader_flash_start(address, size, sizeof(payload));
     if (err != ESP_LOADER_SUCCESS)
     {
-        printf("Erasing flash failed with error %d.\n", err);
+        Serial.printf("Erasing flash failed with error %d.\n", err);
         return err;
     }
-    printf("Start programming\n");
+    Serial.printf("Start programming\n");
 
     size_t binary_size = size;
     size_t written = 0;
@@ -68,10 +68,12 @@ esp_loader_error_t flash_binary1(const uint8_t *bin, size_t size, size_t address
         size_t to_read = MIN(size, sizeof(payload));
         memcpy(payload, bin_addr, to_read);
 
+        Serial.printf("Writing to_read: %i, %02X %02X %02X %02X %02X %02X \r\n",to_read, payload[0], payload[1], payload[2], payload[3], payload[4], payload[5]);
+
         err = esp_loader_flash_write(payload, to_read);
         if (err != ESP_LOADER_SUCCESS)
         {
-            printf("\nPacket could not be written! Error %d.\n", err);
+            Serial.printf("\nPacket could not be written! Error %d.\n", err);
             return err;
         }
 
@@ -80,25 +82,25 @@ esp_loader_error_t flash_binary1(const uint8_t *bin, size_t size, size_t address
         written += to_read;
 
         int progress = (int)(((float)written / binary_size) * 100);
-        printf("\rProgress: %d %%", progress);
+        Serial.printf("\rProgress: %d %%", progress);
         fflush(stdout);
     };
 
-    printf("\nFinished programming\n");
+    Serial.printf("\nFinished programming\n");
 
 #if MD5_ENABLED
     err = esp_loader_flash_verify();
     if (err == ESP_LOADER_ERROR_UNSUPPORTED_FUNC)
     {
-        printf("ESP8266 does not support flash verify command.");
+        Serial.printf("ESP8266 does not support flash verify command.");
         return err;
     }
     else if (err != ESP_LOADER_SUCCESS)
     {
-        printf("MD5 does not match. err: %d\n", err);
+        Serial.printf("MD5 does not match. err: %d\n", err);
         return err;
     }
-    printf("Flash verified\n");
+    Serial.printf("Flash verified\n");
 #endif
 
     return ESP_LOADER_SUCCESS;
@@ -106,26 +108,31 @@ esp_loader_error_t flash_binary1(const uint8_t *bin, size_t size, size_t address
 
 void setup()
 {
-    pinMode(17, INPUT_PULLUP);
-    pinMode(18, INPUT_PULLUP);
+    pinMode(15,OUTPUT);
+    pinMode(39,OUTPUT);
+    pinMode(37,OUTPUT);
+    digitalWrite(39, LOW);
+    digitalWrite(37, LOW);
+    delay(100);
+    digitalWrite(39, HIGH);
     Serial.begin(115200);
-    delay(1000);
+    delay(10000);
     Serial.println("ESP_Flasher_hi");
 
     const loader_esp32_config_t config = {
         .baud_rate = 115200,
-        .uart_port = 2,
-        .uart_rx_pin = GPIO_NUM_19,
-        .uart_tx_pin = GPIO_NUM_20,
-        .reset_trigger_pin = GPIO_NUM_47,
-        .gpio0_trigger_pin = GPIO_NUM_21,
+        .uart_port = 1,
+        .uart_rx_pin = GPIO_NUM_18,
+        .uart_tx_pin = GPIO_NUM_16,
+        .reset_trigger_pin = GPIO_NUM_39,
+        .gpio0_trigger_pin = GPIO_NUM_37,
     };
 
     Serial.printf("serial initialization: %i \r\n", loader_port_esp32_init(&config));
 
     if (connect_to_target1(230400) == ESP_LOADER_SUCCESS)
     {
-    Serial.printf("We got the following ESP: %i\r\n", esp_loader_get_target());
+        Serial.printf("We got the following ESP: %i\r\n", esp_loader_get_target());
         Serial.println("Loading bootloader...");
         flash_binary1(data_bootloader, sizeof(data_bootloader), 0x0);
         Serial.println("Loading partition table...");
@@ -134,10 +141,20 @@ void setup()
         flash_binary1(data_application, sizeof(data_application), 0x10000);
         Serial.println("Done!");
     }
+                        loader_port_esp32_deinit();
+    //Serial1.begin(115200, SERIAL_8N1, 16, 18);
+    pinMode(39,OUTPUT);
+    pinMode(37,OUTPUT);
+    digitalWrite(39, LOW);
+    digitalWrite(37, HIGH);
+    delay(100);
+    digitalWrite(39, HIGH);
 }
 
 void loop()
 {
-    Serial.printf("MS: %u\r\n", millis());
-    delay(1000);
+    digitalWrite(15, LOW);
+    delay(100);
+    digitalWrite(15, HIGH);
+    delay(100);
 }
