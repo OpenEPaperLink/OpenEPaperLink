@@ -192,6 +192,11 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
         taginfo->pending = true;
         memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
     } else {
+        char dst_path[64];
+        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+        contentFS->remove(dst_path);
+        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+        contentFS->remove(dst_path);
         wsLog("firmware upload pending");
         clearPending(taginfo);
         taginfo->filename = filename;

@@ -351,6 +351,7 @@ select {
 	padding: 3px 4px;
 	border-radius: 0px;
 	border: solid 1px #cccccc;
+	max-width: 180px;
 }
 
 #apconfigbox,
@@ -377,6 +378,10 @@ select {
 	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
 	overflow: auto;
 	max-height: calc(100vh - 75px);
+
+	& label {
+			width: 150px;
+	}
 }
 
 #configbox p,
@@ -654,6 +659,7 @@ ul.messages li.new {
 	vertical-align: top;
 	margin-left: 12px;
 	cursor: pointer;
+	white-space: nowrap;
 }
 
 #paintbutton:hover {
