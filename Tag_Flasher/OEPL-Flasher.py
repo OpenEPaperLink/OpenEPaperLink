@@ -9,6 +9,7 @@ CMD_GET_VERSION = 1
 CMD_RESET_ESP = 2
 CMD_RESET = 11
 CMD_SET_POWER = 13
+CMD_SET_TESTP = 14
 
 CMD_ERASE_FLASH = 26
 CMD_ERASE_INFOPAGE = 27
@@ -18,7 +19,12 @@ CMD_PASS_THROUGH = 50
 CMD_SELECT_ZBS243 = 60
 CMD_SELECT_NRF82511 = 61
 
+CMD_SELECT_EEPROM_PT = 69
+
 CMD_SELECT_PORT = 70
+
+CMD_READ_EEPROM = 90
+CMD_WRITE_EEPROM = 91
 
 CMD_READ_INFOPAGE = 80
 CMD_READ_FLASH = 81
@@ -26,7 +32,6 @@ CMD_WRITE_INFOPAGE = 82
 CMD_WRITE_FLASH = 83
 CMD_AUTOFLASH = 87
 CMD_COMPLETE = 88
-
 
 def read_binary_file(file_path):
     with open(file_path, 'rb') as file:
@@ -55,7 +60,7 @@ def send_cmd(cmd, data):
 
 def wait_for_command():
     start_time = time.time()
-    ser.timeout = 5  # Set the timeout to 1 second
+    ser.timeout = 50  # Set the timeout to 1 second
     while True:
         if ser.in_waiting > 0:
             command = ser.read(2)  # Read the "AT" prefix
@@ -98,8 +103,8 @@ def validate_arguments(args):
     if not (args.internalap or args.external or args.altradio):
         print("One of -internalap, -external, or -altradio options is required.")
         return False
-    if args.command in ["read", "write"] and not (args.flash or args.infopage):
-        print("One of --flash or --infopage arguments is required for read and write commands.")
+    if args.command in ["read", "write"] and not (args.flash or args.infopage or args.eeprom):
+        print("One of --flash, --infopage or --eeprom arguments is required for read and write commands.")
         return False
     if ((args.command == "debug" or args.pt) and not (args.external)):
         print("Debugging/Passthrough is only available on the external port!")
@@ -116,13 +121,16 @@ def validate_arguments(args):
     return True
 
 
-def read_from_serial(port, filename, flash):
-    if flash:
+def read_from_serial(port, filename, args):
+    if args.flash:
         print(
             f"Reading flash data and saving to file: {filename}.")
-    else:
+    elif args.infopage:
         print(
             f"Reading info page and saving to file: {filename}.")
+    elif args.eeprom:
+        print(
+            f"Reading EEPROM and saving to file: {filename}.")
 
     print("Now downloading...\n")
     file = open(filename, "wb")
@@ -130,13 +138,16 @@ def read_from_serial(port, filename, flash):
     while True:
 
         print(f'\r{bytecount} bytes', end='', flush=True)
-        if (flash):
+
+        if (args.flash):
             send_cmd(CMD_READ_FLASH, bytearray([]))
-        else:
+        elif args.infopage:
             send_cmd(CMD_READ_INFOPAGE, bytearray([]))
+        elif args.eeprom:
+            send_cmd(CMD_READ_EEPROM, bytearray([]))
 
         cmd, answer = wait_for_command()
-        if ((cmd == CMD_READ_FLASH) or (cmd == CMD_READ_INFOPAGE)):
+        if ((cmd == CMD_READ_FLASH) or (cmd == CMD_READ_INFOPAGE) or (cmd == CMD_READ_EEPROM)):
             file.write(bytearray(answer))
             bytecount += len(answer)
         elif (cmd == CMD_COMPLETE):
@@ -147,29 +158,33 @@ def read_from_serial(port, filename, flash):
             print("Failed reading block, timeout?")
 
 
-def write_to_serial(port, filename, flash):
-
-    if flash:
+def write_to_serial(port, filename, args):
+    if (args.flash):
         print(f"\nErasing flash... ")
         send_cmd(CMD_ERASE_FLASH, bytearray([]))
-    else:
+    elif (args.infopage):
         print(f"\nErasing infopage... ")
         send_cmd(CMD_ERASE_INFOPAGE, bytearray([]))
 
-    cmd, answer = wait_for_command()
-    if ((cmd == CMD_ERASE_FLASH) or (cmd == CMD_ERASE_INFOPAGE)):
-        print("DONE!\n")
-    else:
-        print("\nFailed to erase the flash?")
-        exit(0)
-
-    # TODO: Implement logic to write data from the file to the serial port with flash option
-    if flash:
-        print(f"Writing flash data from file: {filename}\n")
-    else:
-        print(f"Writing info page data from file: {filename}\n")
+    if(args.flash or args.infopage):
+        cmd, answer = wait_for_command()
+        if ((cmd == CMD_ERASE_FLASH) or (cmd == CMD_ERASE_INFOPAGE)):
+            print("DONE!\n")
+        else:
+            print("\nFailed to erase the flash?")
+            exit(0)
 
     chunk_size = 256
+
+    if (args.flash):
+        print(f"Writing flash data from file: {filename}\n")
+    elif (args.infopage):
+        print(f"Writing info page data from file: {filename}\n")
+    elif(args.eeprom):
+        print(f"Writing eeprom from file {filename}\n")
+        chunk_size = 4096
+
+
 
     if filename.endswith('.bin'):
         file_data = read_binary_file(filename)
@@ -178,12 +193,14 @@ def write_to_serial(port, filename, flash):
 
     for i in range(0, len(file_data), chunk_size):
         chunk = file_data[i:i + chunk_size]
-        if (flash):
+        if (args.flash):
             send_cmd(CMD_WRITE_FLASH, bytearray(chunk))
-        else:
+        elif args.infopage:
             send_cmd(CMD_WRITE_INFOPAGE, bytearray(chunk))
+        elif args.eeprom:
+            send_cmd(CMD_WRITE_EEPROM, bytearray(chunk))
         cmd, answer = wait_for_command()
-        if ((cmd == CMD_WRITE_FLASH) or (cmd == CMD_WRITE_INFOPAGE)):
+        if ((cmd == CMD_WRITE_FLASH) or (cmd == CMD_WRITE_INFOPAGE) or (cmd==CMD_WRITE_EEPROM)):
             print(f'\rSent {i} bytes', end='', flush=True)
         elif (cmd == CMD_COMPLETE):
             print(
@@ -200,8 +217,8 @@ def short_passthough(period_time):
     while time.time() - start_time < period_time:
         data = ser.read()
         if data:
-            print(data.decode(), end='')
-            if chr(0x04) in data.decode():
+            print(data.decode('utf-8', errors='ignore'), end='')
+            if chr(0x04) in data.decode('utf-8', errors='ignore'):
                 break
 
 
@@ -218,6 +235,8 @@ def main():
                             help="Write to the flash")
         parser.add_argument("-i", "--infopage", action="store_true",
                             help="Write to the infopage/UICR")
+        parser.add_argument("-eep", "--eeprom", action="store_true",
+                            help="EEPROM operations")
         parser.add_argument("-n", "--nrf82511", action="store_true",
                             help="nRF82511 programming")
         parser.add_argument("-z", "--zbs243", action="store_true",
@@ -230,6 +249,7 @@ def main():
                             help="Selects the alternate radio port")
         parser.add_argument("--pt", "--passthrough", action="store_true",
                             help="Enters serial passthrough for debug output after flashing")
+        parser.add_argument("--exit", action="store_true", help="Exit eeprom loader after sending data")
 
         args = parser.parse_args()
 
@@ -242,7 +262,7 @@ def main():
 
         global ser
         ser = serial.Serial(args.port, baudrate=115200)
-        time.sleep(1)  # Flush serial data
+        time.sleep(0.1)  # Flush serial data
         while (ser.inWaiting() > 0):
             data_str = ser.read(ser.inWaiting())
 
@@ -255,44 +275,62 @@ def main():
             print(
                 "Couldn't establish a connection with the flasher, did you select the correct serial port?")
             exit(0)
-        send_cmd(CMD_SET_POWER, bytearray([1]))
-        cmd, answer = wait_for_command()
-        if (args.command != "debug"):
-            if args.internalap:
-                send_cmd(CMD_SELECT_PORT, bytearray([0]))
-            if args.external:
-                send_cmd(CMD_SELECT_PORT, bytearray([1]))
-            if args.altradio:
-                send_cmd(CMD_SELECT_PORT, bytearray([2]))
 
-            if args.nrf82511:
-                send_cmd(CMD_SELECT_NRF82511, bytearray([]))
-            if args.zbs243:
-                send_cmd(CMD_SELECT_ZBS243, bytearray([]))
+        if (args.eeprom):
+            send_cmd(CMD_SET_TESTP, bytearray([0]))
             cmd, answer = wait_for_command()
-#            send_cmd(CMD_SET_POWER, bytearray([1]))
-#            cmd, answer = wait_for_command()
-            if (answer[0] == 1):
-                print("Connection established to microcontroller")
-            else:
-                print("Failed to establish a connection to the microcontroller")
-                exit(0)
-
-            if args.command == "read":
-                read_from_serial(ser, args.filename, args.flash)
-            elif args.command == "write":
-                write_to_serial(ser, args.filename, args.flash)
-            elif args.command == "autoflash":
-                print("Starting automatic tag flash")
-                send_cmd(CMD_AUTOFLASH, bytearray([]))
-                short_passthough(30)
-            else:
-                print("Invalid command!")
-
+            send_cmd(CMD_SET_POWER, bytearray([1]))
+            cmd, answer = wait_for_command()
             send_cmd(CMD_RESET, bytearray([]))
             cmd, answer = wait_for_command()
+            send_cmd(CMD_SELECT_EEPROM_PT, bytearray([])) ## selects eeprom serial loader mode
+            cmd, answer = wait_for_command()
+
+        elif (args.flash or args.infopage):
+            if (args.command != "debug"):
+                if args.internalap:
+                    send_cmd(CMD_SELECT_PORT, bytearray([0]))
+                if args.external:
+                    send_cmd(CMD_SELECT_PORT, bytearray([1]))
+                if args.altradio:
+                    send_cmd(CMD_SELECT_PORT, bytearray([2]))
+
+                if args.nrf82511:
+                    send_cmd(CMD_SELECT_NRF82511, bytearray([]))
+                if args.zbs243:
+                    send_cmd(CMD_SELECT_ZBS243, bytearray([]))
+                cmd, answer = wait_for_command()
+
+                if (answer[0] == 1):
+                    print("Connection established to microcontroller")
+                else:
+                    print("Failed to establish a connection to the microcontroller")
+                    exit(0)
+                    
+        if args.command == "read":
+            read_from_serial(ser, args.filename, args)
+        elif args.command == "write":
+            write_to_serial(ser, args.filename, args)
+        elif args.command == "autoflash":
+            print("Starting automatic tag flash")
+            send_cmd(CMD_AUTOFLASH, bytearray([]))
+            short_passthough(30)
+        else:
+            print("Invalid command!")
+
+        if(args.eeprom):
+            send_cmd(CMD_SET_TESTP, bytearray([1]))
+            cmd, answer = wait_for_command()
+
+        if args.exit:
+            print("Exiting after writing eeprom");
+
+        send_cmd(CMD_RESET, bytearray([]))
+        cmd, answer = wait_for_command()
 
         if (args.pt or args.command == "debug"):
+            send_cmd(CMD_SET_POWER, bytearray([1]))
+            cmd, answer = wait_for_command()
             # enter passthrough mode
             send_cmd(CMD_PASS_THROUGH, bytearray([]))
             print("Now showing debug output from the tag - CTRL+C to quit")
@@ -302,13 +340,13 @@ def main():
                 try:
                     data = ser.read()
                     if data:
-                        print(data.decode('utf-8', errors='replace'), end='')
+                        print(data.decode('utf-8', errors='ignore'), end='')
                 except UnicodeDecodeError:
                     print(" ")
                 data = ser.read()
                 if data:
-                    print(data.decode(), end='')
-                    if chr(0x04) in data.decode():
+                    print(data.decode('utf-8', errors='ignore'), end='')
+                    if chr(0x04) in data.decode('utf-8', errors='ignore'):
                         break
 
     except KeyboardInterrupt:
