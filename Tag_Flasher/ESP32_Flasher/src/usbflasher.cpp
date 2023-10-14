@@ -29,7 +29,7 @@ struct flasherCommand {
     uint8_t* data = nullptr;
 };
 
-int8_t powerPins2[] = {16,17,18,21};
+int8_t powerPins2[] = {16, 17, 18, 21};
 
 bool autoFlash(flasher* f) {
     f->getFirmwareMD5();
@@ -98,7 +98,26 @@ void sendFlasherAnswer(uint8_t answer_cmd, uint8_t* ans_buff, uint32_t len) {
 
     answer_buffer[3 + 2 + 2 + len] = CRC_value >> 8;
     answer_buffer[3 + 2 + 2 + len + 1] = CRC_value;
-    USBSerial.write(answer_buffer, 3 + 2 + 2 + len + 2);
+
+    uint16_t totallen = 3 + 2 + 2 + len + 2;
+    // USBSerial.write(answer_buffer, totallen);
+
+    uint16_t offset = 0;
+    while (totallen) {
+        if (totallen > 256) {
+            USBSerial.availableForWrite();
+            USBSerial.write(answer_buffer + offset, 256);
+            delay(1);
+            offset += 256;
+            totallen -= 256;
+        } else {
+            USBSerial.availableForWrite();
+            USBSerial.write(answer_buffer + offset, totallen);
+            delay(1);
+            totallen = 0;
+        }
+    }
+
     // for(uint16_t c = 0; c< 3+2+2+len+2; c++){
 
     //}
@@ -262,7 +281,6 @@ static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t eve
             case ARDUINO_USB_CDC_RX_OVERFLOW_EVENT:
                 // Serial.printf("CDC RX Overflow of %d bytes", data->rx_overflow.dropped_bytes);
                 break;
-
             default:
                 break;
         }
@@ -274,6 +292,7 @@ typedef enum {
     CMD_RESET_ESP = 2,
     CMD_RESET = 11,
     CMD_SET_POWER = 13,
+    CMD_SET_TESTP = 14,
 
     CMD_ERASE_FLASH = 26,
     CMD_ERASE_INFOPAGE = 27,
@@ -282,6 +301,7 @@ typedef enum {
 
     CMD_SELECT_ZBS243 = 60,
     CMD_SELECT_NRF82511 = 61,
+    CMD_SELECT_EEPROM_PT = 69,
 
     CMD_SELECT_PORT = 70,
 
@@ -291,6 +311,8 @@ typedef enum {
     CMD_WRITE_FLASH = 83,
     CMD_AUTOFLASH = 87,
     CMD_COMPLETE = 88,
+    CMD_READ_EEPROM = 90,
+    CMD_WRITE_EEPROM = 91
 
 } ZBS_UART_PROTO;
 uint32_t FLASHER_VERSION = 0x00000030;
@@ -299,9 +321,117 @@ uint32_t FLASHER_VERSION = 0x00000030;
 #define CONTROLLER_NRF82511 1
 uint8_t selectedController = 0;
 uint8_t selectedFlasherPort;
-uint32_t currentFlasherOffset;
+uint32_t currentFlasherOffset = 0;
 flasher* zbsflasherp;
 nrfswd* nrfflasherp;
+
+uint8_t waitSerialReply() {
+    uint8_t cmd[4] = {0};
+    uint32_t start = millis();
+    while (millis() - start < 800) {
+        while (uint16_t len = Serial1.available()) {
+            uint8_t lastbyte = Serial1.read();
+            // Serial0.write(lastbyte);
+            for (uint8_t c = 0; c < 3; c++) {
+                cmd[c] = cmd[c + 1];
+            }
+            cmd[3] = lastbyte;
+
+            if (strncmp((const char*)cmd, "ACK>", 4) == 0) {
+                return 1;
+            }
+            if (strncmp((const char*)cmd, "NOK>", 4) == 0) {
+                return 2;
+            }
+        }
+    }
+    return 0;
+}
+
+void handleEepromRead() {
+    uint8_t temp_buff[16];
+    uint8_t* ebufferp;
+    if (currentFlasherOffset == 256) {
+        sendFlasherAnswer(CMD_COMPLETE, temp_buff, 1);
+    } else {
+        for (uint8_t attempt = 0; attempt < 3; attempt++) {
+            Serial1.print("LDE");
+            Serial1.write((uint8_t)currentFlasherOffset & 0xFF);
+            if (waitSerialReply() == 1) goto okayLDE;
+        }
+        sendFlasherAnswer(CMD_COMPLETE, temp_buff, 1);
+        return;
+    okayLDE:
+        for (uint8_t attempt = 0; attempt < 3; attempt++) {
+            Serial1.print("<D<");
+            if (waitSerialReply() == 1) goto okayData;
+        }
+        sendFlasherAnswer(CMD_COMPLETE, temp_buff, 1);
+        return;
+    okayData:
+        ebufferp = (uint8_t*)malloc(4100);
+        if (ebufferp == nullptr) return;
+        uint16_t left = 4100;
+        uint8_t* curpointer = ebufferp;
+        uint32_t start = millis();
+        while (left && (millis() - start < 500)) {
+            if (uint16_t len = Serial1.available()) {
+                if (len > left) len = left;
+                Serial1.read(curpointer, len);
+                curpointer += len;
+                left -= len;
+            }
+        }
+        uint16_t sum = *((uint16_t*)(ebufferp + 2));
+        uint16_t sum2 = 0;
+        uint16_t structlen = *((uint16_t*)ebufferp);
+
+        for (uint16_t c = 0; c < 4096; c++) {
+            sum2 += ebufferp[4 + c];
+        }
+        if (sum != sum2) {
+            Serial0.printf("CRC FAIL! 0x%04X\n", sum2);
+            goto okayLDE;
+        }
+
+        sendFlasherAnswer(CMD_READ_EEPROM, ebufferp + 4, 4096);
+        free(ebufferp);
+        currentFlasherOffset++;
+    }
+}
+
+void handleEepromWrite(uint8_t* data) {
+    uint8_t* buffer = (uint8_t*)malloc(4100);
+    uint16_t* bsize = (uint16_t*)(buffer);
+    uint16_t* checksum = (uint16_t*)(buffer + 2);
+    *bsize = 4096;
+    *checksum = 0;
+    memcpy(buffer + 4, data, 4096);
+    for (uint16_t c = 4; c < 4100; c++) {
+        *checksum += buffer[c];
+    }
+startEepromSend:
+    Serial0.print("here.\n");
+    Serial1.print(">D>");
+    if (waitSerialReply() == 1) goto okaySend;
+    sendFlasherAnswer(CMD_COMPLETE, buffer, 1);
+    free(buffer);
+    return;
+okaySend:
+    for (uint16_t c = 0; c < 4100; c++) {
+        Serial1.write(buffer[c] ^ 0xAA);
+    }
+    Serial1.print("-----");
+
+    if (waitSerialReply() != 1) goto startEepromSend;
+attemptWriteEEP:
+    Serial1.print("STE");
+    Serial1.write((uint8_t)currentFlasherOffset & 0xFF);
+    if (waitSerialReply() != 1) goto attemptWriteEEP;
+    currentFlasherOffset++;
+    sendFlasherAnswer(CMD_WRITE_EEPROM, buffer, 1);
+    free(buffer);
+}
 
 void processFlasherCommand(struct flasherCommand* cmd) {
     uint8_t* tempbuffer;
@@ -324,10 +454,13 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             ESP.restart();
             break;
         case CMD_SET_POWER:
-
             powerControl(cmd->data[0], (uint8_t*)powerPins2, 4);
-
             sendFlasherAnswer(CMD_SET_POWER, NULL, 0);
+            break;
+        case CMD_SET_TESTP:
+            pinMode(FLASHER_EXT_TEST, OUTPUT);
+            digitalWrite(FLASHER_EXT_TEST, cmd->data[0]);
+            sendFlasherAnswer(CMD_SET_TESTP, NULL, 0);
             break;
         case CMD_RESET:
             if (zbsflasherp != nullptr) {
@@ -376,7 +509,7 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             break;
         case CMD_SELECT_NRF82511:
 
-            //powerControl(true, (uint8_t*)powerPins2, 4);
+            // powerControl(true, (uint8_t*)powerPins2, 4);
             nrfflasherp = new nrfswd(FLASHER_EXT_MISO, FLASHER_EXT_CLK);
             nrfflasherp->showDebug = false;
             nrfflasherp->init();
@@ -384,6 +517,18 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             sendFlasherAnswer(CMD_SELECT_NRF82511, temp_buff, 1);
             currentFlasherOffset = 0;
             selectedController = CONTROLLER_NRF82511;
+            break;
+        case CMD_SELECT_EEPROM_PT:
+            currentFlasherOffset = 0;
+            Serial1.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
+            delay(50);
+            sendFlasherAnswer(CMD_SELECT_EEPROM_PT, NULL, 0);
+            break;
+        case CMD_READ_EEPROM:
+            handleEepromRead();
+            break;
+        case CMD_WRITE_EEPROM:
+            handleEepromWrite(cmd->data);
             break;
         case CMD_READ_FLASH:
             uint8_t* bufferp;
