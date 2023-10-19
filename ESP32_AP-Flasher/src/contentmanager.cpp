@@ -816,8 +816,9 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
     const auto &column = loc["column"];
     const int column1 = column[1].as<int>();
     const auto &day = loc["day"];
+    const unsigned long utc_offset = doc["utc_offset_seconds"];
     for (uint8_t dag = 0; dag < column[0]; dag++) {
-        const time_t weatherday = daily["time"][dag].as<time_t>();
+        const time_t weatherday = (daily["time"][dag].as<time_t>() + utc_offset);
         const struct tm *datum = localtime(&weatherday);
 
         drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * column1 + day[0].as<int>(), day[1], day[2], TC_DATUM, TFT_BLACK);
