@@ -16,10 +16,7 @@
 
 std::vector<tagRecord*> tagDB;
 std::unordered_map<std::string, varStruct> varDB;
-std::unordered_map<int, HwType> hwdata = {
-    {0, {152, 152, 0, 2}},
-    {1, {296, 128, 1, 2}},
-    {2, {400, 300, 0, 2}}};
+std::unordered_map<int, HwType> hwdata = {};
 
 Config config;
 
@@ -198,7 +195,7 @@ void loadDB(const String& filename) {
                     memcpy(taginfo->md5pending, taginfo->md5, sizeof(taginfo->md5));
                     taginfo->lastseen = (uint32_t)tag["lastseen"];
                     taginfo->nextupdate = (uint32_t)tag["nextupdate"];
-                    taginfo->expectedNextCheckin = (uint16_t)tag["nextcheckin"];
+                    taginfo->expectedNextCheckin = (uint32_t)tag["nextcheckin"];
                     if (taginfo->expectedNextCheckin < now) {
                         taginfo->expectedNextCheckin = now + 1800;
                     }

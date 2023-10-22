@@ -763,10 +763,10 @@ void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t characterSi
                 x0 = pointsOfCurve[0].x;
                 y0 = pointsOfCurve[0].y;
 
-                for (int step = 0; step <= 8; step += 1) {
-                    float t = (float)step / 8.0;
-                    x1 = (1.0 - t) * (1.0 - t) * x0 + 2.0 * t * (1.0 - t) * pointsOfCurve[1].x + t * t * pointsOfCurve[2].x;
-                    y1 = (1.0 - t) * (1.0 - t) * y0 + 2.0 * t * (1.0 - t) * pointsOfCurve[1].y + t * t * pointsOfCurve[2].y;
+                for (int step = 0; step <= 9; step += 1) {
+                    float t = (float)step / 9.0;
+                    x1 = (1.0 - t) * (1.0 - t) * pointsOfCurve[0].x + 2.0 * t * (1.0 - t) * pointsOfCurve[1].x + t * t * pointsOfCurve[2].x;
+                    y1 = (1.0 - t) * (1.0 - t) * pointsOfCurve[0].y + 2.0 * t * (1.0 - t) * pointsOfCurve[1].y + t * t * pointsOfCurve[2].y;
 
                     addLine(x0 * characterSize / headTable.unitsPerEm + _x, (ascender - y0) * characterSize / headTable.unitsPerEm + _y,
                             x1 * characterSize / headTable.unitsPerEm + _x, (ascender - y1) * characterSize / headTable.unitsPerEm + _y);

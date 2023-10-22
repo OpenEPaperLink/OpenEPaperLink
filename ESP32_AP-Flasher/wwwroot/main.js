@@ -292,7 +292,7 @@ function processTags(tagArray) {
 		div.dataset.isexternal = element.isexternal;
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
 		$('#tag' + tagmac).style.background = "#ffffff";
-		if (element.contentMode == 12) $('#tag' + tagmac).style.background = "#e4e4e0";
+		if (element.contentMode == 12 || element.nextcheckin == 3216153600) $('#tag' + tagmac).style.background = "#e4e4e0";
 		switch (parseInt(element.wakeupReason)) {
 			case WAKEUP_REASON_TIMED:
 				break;
@@ -370,7 +370,9 @@ function updatecards() {
 			}
 		}
 
-		if (item.dataset.nextcheckin > 1672531200 && parseInt(item.dataset.wakeupreason) == 0) {
+		if (item.dataset.nextcheckin == 3216153600) { 
+			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "In deep sleep";
+		} else if (item.dataset.nextcheckin > 1672531200 && parseInt(item.dataset.wakeupreason) == 0) {
 			let nextcheckin = item.dataset.nextcheckin - ((Date.now() / 1000) - servertimediff);
 			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<span>expected checkin</span>" + displayTime(Math.floor(nextcheckin));
 		} else {
@@ -798,6 +800,14 @@ function populateSelectTag(hwtype, capabilities) {
 		option = document.createElement("option");
 		option.value = "1";
 		option.text = "Always full refresh";
+		lutTag.appendChild(option);
+		option = document.createElement("option");
+		option.value = "2";
+		option.text = "Fast (no reds)";
+		lutTag.appendChild(option);
+		option = document.createElement("option");
+		option.value = "3";
+		option.text = "Fastest (ghosting!)";
 		lutTag.appendChild(option);
 	}
 

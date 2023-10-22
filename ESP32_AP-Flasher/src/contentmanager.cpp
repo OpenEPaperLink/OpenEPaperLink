@@ -204,6 +204,8 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     imageParams.shortlut = hwdata.shortlut;
 
     imageParams.lut = EPD_LUT_NO_REPEATS;
+    if (taginfo->lut == 2) imageParams.lut = EPD_LUT_FAST_NO_REDS;
+    if (taginfo->lut == 3) imageParams.lut = EPD_LUT_FAST;
     time_t last_midnight = now - now % (24 * 60 * 60) + 3 * 3600;  // somewhere in the middle of the night
     if (imageParams.shortlut == SHORTLUT_DISABLED || taginfo->lastfullupdate < last_midnight || taginfo->lut == 1) {
         imageParams.lut = EPD_LUT_DEFAULT;
@@ -246,7 +248,9 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
                 }
                 if (imageParams.hasRed) {
                     imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
-                    if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) imageParams.lut = EPD_LUT_DEFAULT;
+                    if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
+                        imageParams.lut = EPD_LUT_DEFAULT;
+                    }
                 }
 
                 struct imageDataTypeArgStruct arg = {0};
@@ -479,7 +483,9 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
     } else {
         if (imageParams.hasRed) {
             imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
-            if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) imageParams.lut = EPD_LUT_DEFAULT;
+            if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
+                imageParams.lut = EPD_LUT_DEFAULT;
+            }
         }
         prepareDataAvail(filename, imageParams.dataType, imageParams.lut, dst, nextCheckin);
     }
@@ -517,6 +523,8 @@ void replaceVariables(String &format) {
         const auto var = varDB.find(variableName);
         if (var != varDB.end()) {
             format.replace(varKey.c_str(), var->second.value);
+        } else {
+            format.replace(varKey.c_str(), "-");
         }
         startIndex = closeBraceIndex + 1;
     }
@@ -1133,9 +1141,9 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
             }
             if (value > 70) {
                 if (i < 12) {
-                    refresh = 5;
-                } else if (refresh > 5) {
-                    refresh = 15;
+                    refresh = 10;
+                } else if (refresh > 10) {
+                    refresh = 20;
                 }
             }
 

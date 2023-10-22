@@ -485,6 +485,9 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
 
     if (taginfo->pendingIdle == 0) {
         taginfo->expectedNextCheckin = now + 60;
+    } else if (taginfo->pendingIdle == 9999) {
+        taginfo->expectedNextCheckin = 3216153600;
+        taginfo->pendingIdle = 0;
     } else {
         taginfo->expectedNextCheckin = now + 60 * taginfo->pendingIdle;
         taginfo->pendingIdle = 0;

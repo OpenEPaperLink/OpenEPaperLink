@@ -324,6 +324,8 @@ void init_web() {
                     }
                     if (strcmp(cmdValue, "deepsleep") == 0) {
                         sendTagCommand(mac, CMD_DO_DEEPSLEEP, !taginfo->isExternal);
+                        taginfo->pendingIdle = 9999;
+                        wsSendTaginfo(mac, SYNC_TAGSTATUS);
                     }
                     if (strcmp(cmdValue, "ledflash") == 0) {
                         struct ledFlash flashData = {0};
