@@ -26,3 +26,4 @@ OPTIONAL from here on, either install the regulator for better power consumption
 - 1x AMS1117 3.3V LDO Voltage regulator
 - 1x 0603 Capacitor 100nf for 5V Rail
 - 1x 0805 Capacitor 1uf for the 5V Rail
+- 1x CC1101 868MHz "Green" Module, Important to use the 868MHz version
