@@ -370,7 +370,7 @@ function updatecards() {
 			}
 		}
 
-		if (item.dataset.nextcheckin == 3216153600) { 
+		if (item.dataset.nextcheckin == 3216153600) {
 			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "In deep sleep";
 		} else if (item.dataset.nextcheckin > 1672531200 && parseInt(item.dataset.wakeupreason) == 0) {
 			let nextcheckin = item.dataset.nextcheckin - ((Date.now() / 1000) - servertimediff);
@@ -564,7 +564,7 @@ $('#rebootbutton').onclick = function (event) {
 		method: "POST"
 	});
 	alert('Rebooted. Webpage will reload.');
-	location.reload()	
+	location.reload()
 }
 
 $('#configbox').addEventListener('click', (event) => {
@@ -723,6 +723,7 @@ function contentselected() {
 								const optionElement = document.createElement("option");
 								optionElement.value = item.name;
 								optionElement.text = item.name;
+								if (obj[element.key] === item.name) optionElement.selected = true;
 								input.appendChild(optionElement);
 							})
 						})
