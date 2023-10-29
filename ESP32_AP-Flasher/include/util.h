@@ -69,15 +69,13 @@ static void printLargestFreeBlock() {
 /// @param url Request URL
 /// @param json Json document to fill
 /// @param timeout Request timeout
-/// @param redirects Redirects handling
 /// @return True on success, false on error (httpCode != 200 || deserialization error)
-static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout, JsonDocument *filter = nullptr)  //, const followRedirects_t redirects = followRedirects_t::HTTPC_DISABLE_FOLLOW_REDIRECTS)
-{
+static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout, JsonDocument *filter = nullptr) {
     HTTPClient http;
     logLine("http httpGetJson " + url);
     http.begin(url);
     http.setTimeout(timeout);
-    // http.setFollowRedirects(redirects);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     const int httpCode = http.GET();
     if (httpCode != 200) {
         http.end();
