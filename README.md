@@ -61,7 +61,7 @@ After programming the ESP32, make sure to also program the filesystem. This will
 ## Hints and excuses:
 - There is no warranty whatsoever. Nothing. Not implied or otherwise suggested. This code isn't fit for anything. Please don't use this code to do nasty things.
 - Do a ```make clean``` between building for different boards. It really helps!
-- This repo builds on SDCC 4.2.0 for Linux. Different SDCC versions can behave VERY differently.
+- This repo builds on SDCC 4.2.0 for Linux. Different SDCC versions can behave VERY differently.  Source sdcc/setup.sh to setup build a local copy and use it for compiling.
 - We are happy and honored to see your pull requests! But please, no code/indent style changes :)
 
 ## Credits
