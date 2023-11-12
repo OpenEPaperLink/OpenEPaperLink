@@ -1,5 +1,3 @@
-#include "uc8179.h"
-
 #include <Arduino.h>
 #include <stdarg.h>
 #include <stdbool.h>

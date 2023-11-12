@@ -1,5 +1,3 @@
-#include "uc_variant_043.h"
-
 #include <Arduino.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -26,10 +24,7 @@
 
 void epdEnterSleep() {
     epd_cmd(EPD_CMD_POWER_OFF);
-    epdBusyWaitRising(50000);
     epdWrite(EPD_CMD_DEEP_SLEEP, 1, 0xA5);
-    delay(200);
-    delay(1);
 }
 
 void epdSetup() {

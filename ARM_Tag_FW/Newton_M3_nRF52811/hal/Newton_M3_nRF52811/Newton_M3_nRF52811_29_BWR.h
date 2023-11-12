@@ -18,8 +18,6 @@
 // hw types
 #define HW_TYPE SOLUM_M3_BWR_29
 
-#include "../include/ssd1619.h"
-
 #define SCREEN_WIDTH 168
 #define SCREEN_HEIGHT 384
 #define SCREEN_XOFFSET 8
