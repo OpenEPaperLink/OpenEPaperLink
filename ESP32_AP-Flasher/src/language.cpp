@@ -7,7 +7,7 @@
 
 int defaultLanguage = 0;
 
-String languageList[] = {"EN - English", "NL - Nederlands", "DE - Deutsch", "NO - Norwegian"};
+String languageList[] = {"EN - English", "NL - Nederlands", "DE - Deutsch", "NO - Norwegian", "CZ - Czech", "SK - Slovak", "PL - Polish", "ES - Spanish"};
 
 /*EN English language section*/
 String languageEnDaysShort[] = {"SU", "MO", "TU", "WE", "TH", "FR", "SA"};
@@ -33,9 +33,33 @@ String languageNoDays[] = {"Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", 
 String languageNoMonth[] = {"Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember"};
 /*END Norwegian language section END*/
 
-String* languageDaysShort[] = {languageEnDaysShort, languageNlDaysShort, languageDeDaysShort, languageNoDaysShort};
-String* languageDays[] = {languageEnDays, languageNlDays, languageDeDays, languageNoDays};
-String* languageMonth[] = {languageEnMonth, languageNlMonth, languageDeMonth, languageNoMonth};
+/*CZ Czech language section*/
+String languageCzDaysShort[] = {"NE", "PO", "ÚT", "ST", "ČT", "PÁ", "SO"};
+String languageCzDays[] = {"Neděle", "Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota"};
+String languageCzMonth[] = {"Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"};
+/*END Czech language section END*/
+
+/*SK Slovak language section*/
+String languageSkDaysShort[] = {"NE", "PO", "UT", "ST", "ŠT", "PI", "SO"};
+String languageSkDays[] = {"Nedeľa", "Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok", "Sobota"};
+String languageSkMonth[] = {"Január", "Február", "Marec", "Apríl", "Máj", "Jún", "Júl", "August", "September", "Oktober", "November", "December"};
+/*END Slovak language section END*/
+
+/*PL Polish language section*/
+String languagePlDaysShort[] = {"Nd", "Pon", "Wt", "Śr", "Czw", "Pt", "Sob"};
+String languagePlDays[] = {"Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"};
+String languagePlMonth[] = {"Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"};
+/*END Polish language section END*/
+
+/*ES Spanish language section*/
+String languageEsDaysShort[] = {"D", "L", "MA", "MI", "Č", "V", "S"};
+String languageEsDays[] = {"Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"};
+String languageEsMonth[] = {"Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"};
+/*END Spanish language section END*/
+
+String* languageDaysShort[] = {languageEnDaysShort, languageNlDaysShort, languageDeDaysShort, languageNoDaysShort, languageCzDaysShort, languageSkDaysShort, languagePlDaysShort, languageEsDaysShort};
+String* languageDays[] = {languageEnDays, languageNlDays, languageDeDays, languageNoDays, languageCzDays, languageSkDays, languagePlDays, languageEsDays};
+String* languageMonth[] = {languageEnMonth, languageNlMonth, languageDeMonth, languageNoMonth, languageCzMonth, languageSkMonth, languagePlMonth, languageEsMonth};
 
 int currentLanguage = defaultLanguage;
 
