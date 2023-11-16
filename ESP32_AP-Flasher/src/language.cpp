@@ -46,13 +46,13 @@ String languageSkMonth[] = {"Január", "Február", "Marec", "Apríl", "Máj", "J
 /*END Slovak language section END*/
 
 /*PL Polish language section*/
-String languagePlDaysShort[] = {"Nd", "Pon", "Wt", "Śr", "Czw", "Pt", "Sob"};
+String languagePlDaysShort[] = {"Ni", "Po", "Wt", "Śr", "Cz", "Pt", "So"};
 String languagePlDays[] = {"Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"};
 String languagePlMonth[] = {"Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"};
 /*END Polish language section END*/
 
 /*ES Spanish language section*/
-String languageEsDaysShort[] = {"D", "L", "MA", "MI", "Č", "V", "S"};
+String languageEsDaysShort[] = {"D", "L", "MA", "MI", "J", "V", "S"};
 String languageEsDays[] = {"Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"};
 String languageEsMonth[] = {"Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"};
 /*END Spanish language section END*/
