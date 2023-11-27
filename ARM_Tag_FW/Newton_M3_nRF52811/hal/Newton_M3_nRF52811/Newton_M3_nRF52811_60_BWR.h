@@ -18,8 +18,6 @@
 // hw type
 #define HW_TYPE SOLUM_M3_BWR_60
 
-#include "../include/uc8159.h"
-
 #define SCREEN_WIDTH 600    
 #define SCREEN_HEIGHT 448
 #define SCREEN_XOFFSET 0

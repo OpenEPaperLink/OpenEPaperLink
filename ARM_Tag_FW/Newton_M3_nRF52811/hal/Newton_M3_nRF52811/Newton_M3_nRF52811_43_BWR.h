@@ -19,7 +19,6 @@
 
 // hw type
 #define HW_TYPE SOLUM_M3_BWR_43
-#include "../include/uc_variant_043.h"
 
 #define SCREEN_WIDTH 152    
 #define SCREEN_HEIGHT 522

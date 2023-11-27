@@ -900,39 +900,6 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
             return true;
             break;
         case DATATYPE_CUSTOM_LUT_OTA:
-            // Handle data for the NFC IC (if we have it)
-
-            // check if we actually have the capability to do OTA Luts
-            if (!(capabilities & CAPABILITY_SUPPORTS_CUSTOM_LUTS)) {
-                // looks like we don't. mark as complete and then bail!
-                powerUp(INIT_RADIO);
-                sendXferComplete();
-                powerDown(INIT_RADIO);
-                return true;
-            }
-#ifdef EPD_SSD1619
-            printf("OTA LUT received\n");
-            if (curDataInfo.dataSize == 0 && !memcmp((const void *)&avail->dataVer, (const void *)&curDataInfo.dataVer, 8)) {
-                printf("this was the same as the last transfer, disregard\n");
-                powerUp(INIT_RADIO);
-                sendXferComplete();
-                powerDown(INIT_RADIO);
-                return true;
-            }
-            curBlock.blockId = 0;
-            memcpy(&(curBlock.ver), &(avail->dataVer), 8);
-            curBlock.type = avail->dataType;
-            memcpy(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
-            wdt10s();
-            if (getDataBlock(avail->dataSize)) {
-                curDataInfo.dataSize = 0;  // mark as transfer not pending
-                memcpy(customLUT, sizeof(struct blockData) + blockXferBuffer, dispLutSize * 10);
-                powerUp(INIT_RADIO);
-                sendXferComplete();
-                powerDown(INIT_RADIO);
-                return true;
-            }
-#endif
             return false;
             break;
     }

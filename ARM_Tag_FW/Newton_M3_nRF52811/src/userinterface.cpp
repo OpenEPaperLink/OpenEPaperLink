@@ -10,7 +10,7 @@
 
 #include "lut.h"
 #include "powermgt.h"
-#include "proto.h"
+
 #include "settings.h"
 #include "syncedproto.h"  // for APmac / Channel
 #include "hal.h"
@@ -33,21 +33,22 @@ bool noAPShown = false;
 
 void addOverlay() {
     if (currentChannel == 0) {
-        drawMask(SCREEN_WIDTH - 27, 5, 22, 22, COLOR_BLACK);
-        drawMask(SCREEN_WIDTH - 27, 5, 22, 22, COLOR_RED);
-        drawRoundedRectangle(SCREEN_WIDTH - 28, 4, 24, 24, COLOR_RED);
-        addBufferedImage(SCREEN_WIDTH - 24, 8, COLOR_BLACK, rotation::ROTATE_0, ant, DRAW_NORMAL);
-        addBufferedImage(SCREEN_WIDTH - 16, 15, COLOR_RED, rotation::ROTATE_0, cross, DRAW_NORMAL);
+        drawMask(UI_SCREEN_WIDTH - 27, 5, 22, 22, COLOR_BLACK);
+        drawMask(UI_SCREEN_WIDTH - 27, 5, 22, 22, COLOR_RED);
+        drawRoundedRectangle(UI_SCREEN_WIDTH - 28, 4, 24, 24, COLOR_RED);
+        addBufferedImage(UI_SCREEN_WIDTH - 24, 8, COLOR_BLACK, rotation::ROTATE_0, ant, DRAW_NORMAL);
+        addBufferedImage(UI_SCREEN_WIDTH - 16, 15, COLOR_RED, rotation::ROTATE_0, cross, DRAW_NORMAL);
         noAPShown = true;
     } else {
         noAPShown = false;
     }
 
+    lowBattery = true;
     if (lowBattery) {
-        drawMask(SCREEN_WIDTH - 27, SCREEN_HEIGHT - 26, 22, 22, COLOR_BLACK);
-        drawMask(SCREEN_WIDTH - 27, SCREEN_HEIGHT - 26, 22, 22, COLOR_RED);
-        drawRoundedRectangle(SCREEN_WIDTH - 28, SCREEN_HEIGHT - 27, 24, 24, COLOR_RED);
-        addBufferedImage(SCREEN_WIDTH - 24, SCREEN_HEIGHT - 19, COLOR_BLACK, rotation::ROTATE_0, battery, DRAW_NORMAL);
+        drawMask(UI_SCREEN_WIDTH - 27, UI_SCREEN_HEIGHT - 26, 22, 22, COLOR_BLACK);
+        drawMask(UI_SCREEN_WIDTH - 27, UI_SCREEN_HEIGHT - 26, 22, 22, COLOR_RED);
+        drawRoundedRectangle(UI_SCREEN_WIDTH - 28, UI_SCREEN_HEIGHT - 27, 24, 24, COLOR_RED);
+        addBufferedImage(UI_SCREEN_WIDTH - 24, UI_SCREEN_HEIGHT - 19, COLOR_BLACK, rotation::ROTATE_0, battery, DRAW_NORMAL);
 
         lowBatteryShown = true;
     } else {

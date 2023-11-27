@@ -1,6 +1,7 @@
 #include "zigbee.h"
 #include "epd_spi.h"
 #include "eeprom_spi.h"
+#include "epd_driver/epd_interface.h"
 
 #define RADIO_FIRST_CHANNEL (11)  // 2.4-GHz channels start at 11
 

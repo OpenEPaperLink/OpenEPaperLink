@@ -1,5 +1,3 @@
-#include "ssd1619.h"
-
 #include <Arduino.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -64,20 +62,7 @@
         digitalWrite(EPD_DC, HIGH); \
     } while (0)
 
-extern void dump(const uint8_t *a, const uint16_t l);  // remove me when done
-
-static uint8_t currentLut = 0;
-uint8_t dispLutSize = 0;  // we'll need to expose this in the 'capabilities' flag
-
 static bool isInited = false;
-
-#define LUT_BUFFER_SIZE 256
-static uint8_t waveformbuffer[LUT_BUFFER_SIZE];
-uint8_t customLUT[LUT_BUFFER_SIZE] = {0};
-
-struct waveform10 *waveform10 = (struct waveform10 *)waveformbuffer;  // holds the LUT/waveform
-struct waveform *waveform7 = (struct waveform *)waveformbuffer;       // holds the LUT/waveform
-struct waveform12 *waveform12 = (struct waveform12 *)waveformbuffer;  // holds the LUT/waveform
 
 static void commandReadBegin(uint8_t cmd) {
     epdSelect();
@@ -147,6 +132,16 @@ void setPosXY(uint16_t x, uint16_t y) {
     epdWrite(CMD_YSTART_POS, 2, (y)&0xff, (y) >> 8);
 }
 
+
+void selectLUT(uint8_t lut) {
+    // implement alternative LUTs here. Currently just reset the watchdog to two minutes,
+    // to ensure it doesn't reset during the much longer bootup procedure
+    lut += 1;  // make the compiler a happy camper
+    wdt120s();
+    return;
+}
+
+
 void epdEnterSleep() {
     digitalWrite(EPD_RST, LOW);
     delay(10);
@@ -174,7 +169,6 @@ void epdSetup() {
     epdWrite(CMD_ACTIVATION, 0);
     epdBusyWaitFalling(10000);
     isInited = true;
-    currentLut = EPD_LUT_DEFAULT;
 }
 static uint8_t epdGetStatus() {
     uint8_t sta;
@@ -182,188 +176,6 @@ static uint8_t epdGetStatus() {
     sta = epdReadByte();
     commandReadEnd();
     return sta;
-}
-
-void loadFixedTempOTPLUT() {
-    shortCommand1(0x18, 0x48);                   // external temp sensor
-    shortCommand2(0x1A, 0x05, 0x00);             // < temp register
-    shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1 (i2C)
-    shortCommand(CMD_ACTIVATION);
-    epdBusyWaitFalling(1000);
-}
-static void writeLut() {
-    commandBegin(CMD_WRITE_LUT);
-    if (dispLutSize == 12) {
-        for (uint8_t i = 0; i < 153; i++)
-            epdSend(waveformbuffer[i]);
-    } else {
-        for (uint8_t i = 0; i < (dispLutSize * 10); i++)
-            epdSend(waveformbuffer[i]);
-    }
-    commandEnd();
-}
-static void readLut() {
-    commandReadBegin(0x33);
-    for (uint16_t c = 0; c < LUT_BUFFER_SIZE; c++) {
-        waveformbuffer[c] = epdReadByte();
-    }
-    commandReadEnd();
-}
-static uint8_t getLutSize() {
-    uint8_t ref = 0;
-    for (uint8_t c = (LUT_BUFFER_SIZE - 4); c > 16; c--) {
-        uint8_t check = waveformbuffer[c];
-        for (uint8_t d = 1; d < 4; d++) {
-            if (waveformbuffer[c + d] != check) {
-                ref = c;
-                goto end;
-            }
-        }
-    }
-end:;
-    return ref + 1;
-}
-static void lutGroupDisable(uint8_t group) {
-    switch (dispLutSize) {
-        case 7:
-            memset(&(waveform7->group[group]), 0x00, 5);
-            break;
-        case 10:
-            memset(&(waveform10->group[group]), 0x00, 5);
-            break;
-        case 12:
-            memset(&(waveform12->group[group]), 0x00, sizeof(waveform12->group[0]));
-            break;
-    }
-}
-static void lutGroupSpeedup(uint8_t group, uint8_t speed) {
-    switch (dispLutSize) {
-        case 7:
-            for (uint8_t i = 0; i < 4; i++) {
-                waveform7->group[group].phaselength[i] = 1 + (waveform7->group[group].phaselength[i] / speed);
-            }
-            break;
-        case 10:
-            for (uint8_t i = 0; i < 4; i++) {
-                waveform10->group[group].phaselength[i] = 1 + (waveform10->group[group].phaselength[i] / speed);
-            }
-            break;
-        case 12:
-            waveform12->group[group].tp0a = 1 + (waveform12->group[group].tp0a / speed);
-            waveform12->group[group].tp0b = 1 + (waveform12->group[group].tp0b / speed);
-            waveform12->group[group].tp0c = 1 + (waveform12->group[group].tp0c / speed);
-            waveform12->group[group].tp0d = 1 + (waveform12->group[group].tp0d / speed);
-            break;
-    }
-}
-static void lutGroupRepeat(uint8_t group, uint8_t repeat) {
-    switch (dispLutSize) {
-        case 7:
-            waveform7->group[group].repeat = repeat;
-            break;
-        case 10:
-            waveform10->group[group].repeat = repeat;
-            break;
-        case 12:
-            waveform12->group[group].repeat = repeat;
-            break;
-    }
-}
-static void lutGroupRepeatReduce(uint8_t group, uint8_t factor) {
-    switch (dispLutSize) {
-        case 7:
-            waveform7->group[group].repeat = waveform7->group[group].repeat / factor;
-            break;
-        case 10:
-            waveform10->group[group].repeat = waveform10->group[group].repeat / factor;
-            break;
-        case 12:
-            waveform12->group[group].repeat = waveform12->group[group].repeat / factor;
-            break;
-    }
-}
-void selectLUT(uint8_t lut) {
-    if (currentLut == lut) {
-        // return;
-    }
-
-    // Handling if we received an OTA LUT
-    if (lut == EPD_LUT_OTA) {
-        memcpy(waveformbuffer, customLUT, dispLutSize * 10);
-        writeLut();
-        currentLut = lut;
-        return;
-    }
-
-    if (currentLut != EPD_LUT_DEFAULT) {
-        // load the 'default' LUT for the current temperature in the EPD lut register
-        shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1?
-        shortCommand(CMD_ACTIVATION);
-        epdBusyWaitFalling(1000);
-    }
-
-    currentLut = lut;
-
-    // if we're going to be using the default LUT, we're done here.
-    if (lut == EPD_LUT_DEFAULT) {
-        return;
-    }
-
-    // download the current LUT from the waveform buffer
-    readLut();
-
-    if (dispLutSize == 0) {
-        dispLutSize = getLutSize();
-        dispLutSize /= 10;
-        printf("lut size = %d\n", dispLutSize);
-        dispLutSize = 12;
-#ifdef PRINT_LUT
-        dump(waveformbuffer, LUT_BUFFER_SIZE);
-#endif
-        memcpy(customLUT, waveformbuffer, LUT_BUFFER_SIZE);
-    }
-
-    switch (lut) {
-        default:
-        case EPD_LUT_NO_REPEATS:
-            lutGroupDisable(LUTGROUP_NEGATIVE);
-            lutGroupDisable(LUTGROUP_FASTBLINK);
-            lutGroupRepeat(LUTGROUP_SLOWBLINK, 0);
-            lutGroupSpeedup(LUTGROUP_SET, 2);
-            lutGroupSpeedup(LUTGROUP_IMPROVE_SHARPNESS, 2);
-            lutGroupRepeatReduce(LUTGROUP_IMPROVE_SHARPNESS, 2);
-            lutGroupSpeedup(LUTGROUP_IMPROVE_REDS, 2);
-            lutGroupRepeatReduce(LUTGROUP_IMPROVE_REDS, 2);
-            lutGroupDisable(LUTGROUP_UNUSED);
-            break;
-        case EPD_LUT_FAST_NO_REDS:
-            lutGroupDisable(LUTGROUP_NEGATIVE);
-            lutGroupDisable(LUTGROUP_FASTBLINK);
-            lutGroupDisable(LUTGROUP_SLOWBLINK);
-            lutGroupSpeedup(LUTGROUP_SET, 2);
-            lutGroupDisable(LUTGROUP_IMPROVE_REDS);
-            lutGroupDisable(LUTGROUP_IMPROVE_SHARPNESS);
-            lutGroupDisable(LUTGROUP_UNUSED);
-            break;
-        case EPD_LUT_FAST:
-            lutGroupDisable(LUTGROUP_NEGATIVE);
-            lutGroupDisable(LUTGROUP_FASTBLINK);
-            lutGroupDisable(LUTGROUP_SLOWBLINK);
-            lutGroupRepeat(LUTGROUP_SET, 1);
-            lutGroupSpeedup(LUTGROUP_SET, 2);
-            lutGroupDisable(LUTGROUP_IMPROVE_SHARPNESS);
-            lutGroupDisable(LUTGROUP_IMPROVE_REDS);
-            lutGroupDisable(LUTGROUP_UNUSED);
-            break;
-    }
-
-    if (dispLutSize == 10) {
-        lutGroupDisable(LUTGROUP_UNUSED);
-        lutGroupDisable(LUTGROUP_UNKNOWN);
-        lutGroupDisable(LUTGROUP_UNUSED3);
-        lutGroupDisable(LUTGROUP_UNUSED4);
-    }
-    writeLut();
 }
 
 void epdWriteDisplayData() {
