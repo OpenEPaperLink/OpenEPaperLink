@@ -133,8 +133,10 @@ static void configUART(const bool setup) {
 static void configEEPROM(const bool setup) {
     if (setup == eepromActive) return;
     if (setup) {
-        P1FUNC &= ~(1 << 1);
-        P1DIR &= ~(1 << 1);
+        P1FUNC &= ~(1 << 1) | (1 << 2) | (1 << 6);
+        P1DIR &= ~(1 << 1) | (1 << 2) | (1 << 6);
+        P1_6 = 1;
+        P1_2 = 1; 
         if (!eepromInit()) {
             powerDown(INIT_RADIO);
             powerUp(INIT_EPD);

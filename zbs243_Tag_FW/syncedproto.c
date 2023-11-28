@@ -633,8 +633,8 @@ static bool getDataBlock(const uint16_t blockSize) {
 #endif
         // check if we got all the parts we needed, e.g: has the block been completed?
         bool blockComplete = true;
-        for (uint8_t c = 0; c < partsThisBlock; c++) {
-            if (curBlock.requestedParts[c / 8] & (1 << (c % 8))) blockComplete = false;
+        for (uint8_t c1 = 0; c1 < partsThisBlock; c1++) {
+            if (curBlock.requestedParts[c1 / 8] & (1 << (c1 % 8))) blockComplete = false;
         }
 
         if (blockComplete) {
