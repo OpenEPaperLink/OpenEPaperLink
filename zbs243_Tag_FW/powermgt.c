@@ -119,12 +119,13 @@ static void configSPI(const bool setup) {
 static void configUART(const bool setup) {
     if (uartActive == setup) return;
     if (setup) {
-        P0FUNC |= (1 << 6);
+        P0FUNC |= (1 << 6)|(1<<7);
         P0DIR &= ~(1 << 6);
+        P0DIR |= (1<<7);
         uartInit();
     } else {
         P0DIR |= (1 << 6);
-        P0FUNC &= ~(1 << 6);
+        P0FUNC &= ~((1 << 6)|(1<<7));
         CLKEN &= ~(0x20);
     }
     uartActive = setup;
@@ -268,7 +269,7 @@ void doSleep(const uint32_t __xdata t) {
     // set up pins for spi(0.0,0.1,0.2), UART (0.6)
     // setup 1.1(eeprom_nCS), 1.2(eink_BS1), 1.7(eink_nCS)
     // setup 2.0(eink_nRST), 2.1(eink_BUSY), 2.2(eink_D/nC)
-
+    UartTxWait();
     P0FUNC = 0;
     P1FUNC = 0;
     P2FUNC = 0;

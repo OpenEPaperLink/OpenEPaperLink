@@ -3,11 +3,12 @@
 
 #include <stdint.h>
 
-#define FW_VERSION 22             // version number (max 2.5.5 :) )
-#define FW_VERSION_SUFFIX "-RFW"  // suffix, like -RC1 or whatever.
+#define FW_VERSION 23             // version number (max 2.5.5 :) )
+#define FW_VERSION_SUFFIX "-HWI"  // suffix, like -RC1 or whatever.
 // #define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
 // #define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
-#define ENABLE_GPIO_WAKE            // uncomment to enable GPIO wake
+// #define ENABLE_EEPROM_LOADER // uncomment if you want to load eeprom images via the serial interface
+#define ENABLE_GPIO_WAKE  // uncomment to enable GPIO wake
 // #define ENABLE_RETURN_DATA  // enables the tag to send blocks of data back. Enabling this costs about 4 IRAM bytes
 
 #define SETTINGS_STRUCT_VERSION 0x01

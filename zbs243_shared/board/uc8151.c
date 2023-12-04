@@ -787,5 +787,3 @@ void epdPrintEnd() {
     shortCommand(CMD_PARTIAL_OUT);
     epdDrawDirection(true);
 }
-
-extern uint8_t __xdata blockXferBuffer[];

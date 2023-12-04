@@ -21,6 +21,8 @@
 #include "userinterface.h"
 #include "wdt.h"
 
+#include "uart.h"
+
 #include "../oepl-definitions.h"
 #include "../oepl-proto.h"
 
@@ -31,15 +33,80 @@ static const uint64_t __code __at(0x008b) mVersionRom = 0x1000011300000000ull;
 #define TAG_MODE_CHANSEARCH 0
 #define TAG_MODE_ASSOCIATED 1
 
-#define DELAY_SLIDESHOW_FAST 30
-#define DELAY_SLIDESHOW_MEDIUM 60
-#define DELAY_SLIDESHOW_SLOW 300
-#define DELAY_SLIDESHOW_GLACIAL 1800
-
 uint8_t currentTagMode = TAG_MODE_CHANSEARCH;
 
 uint8_t __xdata slideShowCurrentImg = 0;
 uint8_t __xdata slideShowRefreshCount = 1;
+
+extern uint8_t *__idata blockp;
+extern uint8_t blockbuffer[];
+
+#ifdef ENABLE_EEPROM_LOADER
+extern bool __idata serialBypassActive;
+bool __xdata serialActive = false;
+void processSerial(uint8_t lastchar) {
+    static uint8_t __xdata cmdbuffer[4];
+    // shift characters in
+    for (uint8_t c = 0; c < 3; c++) {
+        cmdbuffer[c] = cmdbuffer[c + 1];
+    }
+    cmdbuffer[3] = lastchar;
+
+    if (strncmp(cmdbuffer + 1, ">D>", 3) == 0) {
+        wdt120s();
+        blockp = blockbuffer;
+        serialBypassActive = true;
+        pr("ACK>\n");
+        while (serialBypassActive)
+            ;
+        if (validateBlockData()) {
+            pr("ACK>\n");
+        } else {
+            pr("NOK>\n");
+        }
+    }
+
+    if (strncmp(cmdbuffer + 1, "<D<", 3) == 0) {
+        wdt120s();
+        pr("ACK>");
+        for (uint16_t c = 0; c < 4100; c++) {
+            uartTx(blockbuffer[c]);
+            timerDelay(TIMER_TICKS_PER_MS / 400);  // 30 okay // 50 kinda okay // 80 ook okay?
+        }
+        pr("blaat");
+    }
+
+    if (strncmp(cmdbuffer, "STE", 3) == 0) {  // store block to offset
+        if (!eepromErase(4096UL * cmdbuffer[3], 4096 / EEPROM_ERZ_SECTOR_SZ)) {
+            pr("NOK>\n");
+            return;
+        }
+        if (eepromWrite(4096UL * cmdbuffer[3], blockbuffer + 4, 4096))
+            pr("ACK>\n");
+        else
+            pr("NOK>\n");
+    }
+    if (strncmp(cmdbuffer, "LDE", 3) == 0) {  // load block from offset
+        eepromRead(4096UL * cmdbuffer[3], blockbuffer + 4, 4096);
+        uint16_t *header = blockbuffer;
+        *header = 4096;
+        uint16_t *sum = blockbuffer + 2;
+        *sum = 0;
+        for (uint16_t c = 4; c < 4100; c++) {
+            *sum += blockbuffer[c];
+        }
+        pr("ACK>\n");
+    }
+}
+void serialTerminal() {
+    serialActive = true;
+    while (serialActive) {
+        while (uartBytesAvail()) {
+            processSerial(uartRx());
+        }
+    }
+}
+#endif
 
 void displayLoop() {
     powerUp(INIT_BASE | INIT_UART);
@@ -165,11 +232,18 @@ void detectButtonOrJig() {
             break;
         case DETECT_P1_0_JIG:
             wdt120s();
-            // show the screensaver, full LUT (minimal text to prevent image burn-in)
+#ifdef ENABLE_EEPROM_LOADER
+            // run the eeprom loader interface
+            powerUp(INIT_EPD | INIT_EEPROM);
+            serialActive = true;
+            serialTerminal();
+#else
+            // show splashscreen
             powerUp(INIT_EPD);
             afterFlashScreenSaver();
             while (1)
                 ;
+#endif
             break;
         case DETECT_P1_0_NOTHING:
             break;
@@ -403,7 +477,7 @@ void TagSlideShow() {
             // same image, so don't update the screen; this only happens when there's exactly one slideshow image
             powerDown(INIT_EEPROM);
         }
-
+        tagSettings.enableRFWake = true;
         switch (tagSettings.customMode) {
             case TAG_CUSTOM_SLIDESHOW_FAST:
                 doSleep(1000UL * SLIDESHOW_INTERVAL_FAST);
@@ -422,14 +496,36 @@ void TagSlideShow() {
     }
 }
 
+void TagShowWaitRFWake() {
+    pr("waiting for RF wake to start slideshow, now showing image\n");
+    currentChannel = 11;  // suppress the no-rf image thing
+    displayCustomImage(CUSTOM_IMAGE_SLIDESHOW);
+    // powerDown(INIT_EEPROM | INIT_EPD);
+    tagSettings.enableRFWake = 1;
+    while (1) {
+        doSleep(-1);
+        if (wakeUpReason == WAKEUP_REASON_RF || wakeUpReason == WAKEUP_REASON_BUTTON1) {
+            break;
+        }
+    }
+    tagSettings.enableRFWake = 0;
+    tagSettings.customMode = TAG_CUSTOM_SLIDESHOW_SLOW;
+    powerUp(INIT_EEPROM);
+    writeSettings();
+    powerDown(INIT_EEPROM);
+    wdtDeviceReset();
+}
+
 void executeCommand(uint8_t cmd) {
     switch (cmd) {
         case CMD_DO_REBOOT:
             wdtDeviceReset();
             break;
         case CMD_DO_RESET_SETTINGS:
+            powerUp(INIT_EEPROM);
             loadDefaultSettings();
             writeSettings();
+            powerDown(INIT_EEPROM);
             break;
         case CMD_DO_SCAN:
             currentChannel = channelSelect(4);
@@ -453,9 +549,9 @@ void executeCommand(uint8_t cmd) {
                 powerDown(INIT_EEPROM);
                 return;
             }
-            powerDown(INIT_EEPROM);
             tagSettings.customMode = TAG_CUSTOM_SLIDESHOW_FAST;
             writeSettings();
+            powerDown(INIT_EEPROM);
             wdtDeviceReset();
             break;
         case CMD_ENTER_SLIDESHOW_MEDIUM:
@@ -464,9 +560,9 @@ void executeCommand(uint8_t cmd) {
                 powerDown(INIT_EEPROM);
                 return;
             }
-            powerDown(INIT_EEPROM);
             tagSettings.customMode = TAG_CUSTOM_SLIDESHOW_MEDIUM;
             writeSettings();
+            powerDown(INIT_EEPROM);
             wdtDeviceReset();
             break;
         case CMD_ENTER_SLIDESHOW_SLOW:
@@ -475,10 +571,9 @@ void executeCommand(uint8_t cmd) {
                 powerDown(INIT_EEPROM);
                 return;
             }
-            powerDown(INIT_EEPROM);
-
             tagSettings.customMode = TAG_CUSTOM_SLIDESHOW_SLOW;
             writeSettings();
+            powerDown(INIT_EEPROM);
             wdtDeviceReset();
             break;
         case CMD_ENTER_SLIDESHOW_GLACIAL:
@@ -487,14 +582,23 @@ void executeCommand(uint8_t cmd) {
                 powerDown(INIT_EEPROM);
                 return;
             }
-            powerDown(INIT_EEPROM);
             tagSettings.customMode = TAG_CUSTOM_SLIDESHOW_GLACIAL;
             writeSettings();
+            powerDown(INIT_EEPROM);
             wdtDeviceReset();
             break;
         case CMD_ENTER_NORMAL_MODE:
             tagSettings.customMode = TAG_CUSTOM_MODE_NONE;
+            powerUp(INIT_EEPROM);
             writeSettings();
+            powerDown(INIT_EEPROM);
+            wdtDeviceReset();
+            break;
+        case CMD_ENTER_WAIT_RFWAKE:
+            tagSettings.customMode = TAG_CUSTOM_MODE_WAIT_RFWAKE;
+            powerUp(INIT_EEPROM);
+            writeSettings();
+            powerDown(INIT_EEPROM);
             wdtDeviceReset();
             break;
     }
@@ -516,13 +620,20 @@ void main() {
     pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
     pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
 
+    powerUp(INIT_EEPROM);
     // load settings from infopage
     loadSettings();
-
     // get the highest slot number, number of slots
     initializeProto();
+    powerDown(INIT_EEPROM);
+
+    // detect button or jig
+    detectButtonOrJig();
 
     switch (tagSettings.customMode) {
+        case TAG_CUSTOM_MODE_WAIT_RFWAKE:
+            TagShowWaitRFWake();
+            break;
         case TAG_CUSTOM_SLIDESHOW_FAST:
         case TAG_CUSTOM_SLIDESHOW_MEDIUM:
         case TAG_CUSTOM_SLIDESHOW_SLOW:
@@ -544,7 +655,7 @@ void main() {
         }
     } else {
         // Normal boot/startup
-
+        pr("Normal boot\n");
         // validate the mac address; this will display a warning on the screen if the mac address is invalid
         validateMacAddress();
 
@@ -555,9 +666,6 @@ void main() {
 
         // Get a voltage reading on the tag, loading down the battery with the radio
         doVoltageReading();
-
-        // detect button or jig
-        detectButtonOrJig();
 
         // show the splashscreen
         currentChannel = 11;
@@ -574,7 +682,9 @@ void main() {
         tagSettings.fastBootCapabilities = capabilities;
 
         // now that we've collected all possible capabilities, save it to settings
+        powerUp(INIT_EEPROM);
         writeSettings();
+        powerDown(INIT_EEPROM);
 
         // scan for channels
         wdt30s();

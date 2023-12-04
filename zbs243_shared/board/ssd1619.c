@@ -820,25 +820,3 @@ void epdPrintEnd() {
     }
     commandEnd();
 }
-
-extern uint8_t __xdata blockXferBuffer[];
-
-void readRam() {
-    setWindowY(296, 0);
-    setWindowX(0, 8);
-    setPosXY(0, 296);
-    shortCommand1(CMD_DATA_ENTRY_MODE, 1);  // was 3
-    shortCommand1(0x41, 0x00);
-    commandReadBegin(0x27);
-    epdReadByte();
-
-    for (uint16_t c = 0; c < 293; c++) {
-        blockXferBuffer[c] = epdReadByte() | 0x10;
-    }
-    commandReadEnd();
-    commandBegin(CMD_WRITE_FB_BW);
-    for (uint16_t c = 0; c < 296; c++) {
-        epdSend(blockXferBuffer[c]);
-    }
-    commandEnd();
-}

@@ -13,14 +13,10 @@
 #define eepromPrvDeselect()		do { __asm__("nop\nnop\nnop\n"); P1_1 = 1; __asm__("nop\nnop\nnop\n"); } while(0)
 
 //eeprom map
-#define EEPROM_SETTINGS_AREA_START		(0x01000UL)
-#define EEPROM_SETTINGS_AREA_LEN		(0x03000UL)
-#define EEPROM_UPDATA_AREA_START		(0x04000UL)
-#define EEPROM_UPDATE_AREA_LEN			(0x10000UL)
-#define EEPROM_IMG_START				(0x14000UL)
-#define EEPROM_IMG_EACH					(0x04000UL)
-//till end of eeprom really. do not put anything after - it will be erased at pairing time!!!
-#define EEPROM_PROGRESS_BYTES			(128)
+#define EEPROM_SETTINGS_AREA_START		(0x00000UL)
+#define EEPROM_SETTINGS_AREA_LEN		(0x01000UL)
+#define EEPROM_IMG_START				(0x01000UL)
+#define EEPROM_IMG_EACH					(0x03000UL)
 
 #define HAS_EEPROM 1
 #define HAS_SCREEN 1
