@@ -7,7 +7,7 @@
 
 int defaultLanguage = 0;
 
-String languageList[] = {"EN - English", "NL - Nederlands", "DE - Deutsch", "NO - Norwegian"};
+String languageList[] = {"EN - English", "NL - Nederlands", "DE - Deutsch", "NO - Norwegian", "FR - French"};
 
 /*EN English language section*/
 String languageEnDaysShort[] = {"SU", "MO", "TU", "WE", "TH", "FR", "SA"};
@@ -33,9 +33,15 @@ String languageNoDays[] = {"Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", 
 String languageNoMonth[] = {"Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember"};
 /*END Norwegian language section END*/
 
-String* languageDaysShort[] = {languageEnDaysShort, languageNlDaysShort, languageDeDaysShort, languageNoDaysShort};
-String* languageDays[] = {languageEnDays, languageNlDays, languageDeDays, languageNoDays};
-String* languageMonth[] = {languageEnMonth, languageNlMonth, languageDeMonth, languageNoMonth};
+/*FR French language section*/
+String languageFrDaysShort[] = {"DI", "LU", "MA", "ME", "JE", "VE", "SA"};
+String languageFrDays[] = {"Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"};
+String languageFrMonth[] = {"Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin", "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre"};
+/*END French language section END*/
+
+String* languageDaysShort[] = {languageEnDaysShort, languageNlDaysShort, languageDeDaysShort, languageNoDaysShort, languageFrDaysShort};
+String* languageDays[] = {languageEnDays, languageNlDays, languageDeDays, languageNoDays, languageFrDays};
+String* languageMonth[] = {languageEnMonth, languageNlMonth, languageDeMonth, languageNoMonth, languageFrMonth};
 
 int currentLanguage = defaultLanguage;
 
