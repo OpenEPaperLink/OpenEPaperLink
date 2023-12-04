@@ -23,3 +23,5 @@
 *.bin
 *.lk
 *.o
+sdcc/sdcc
+
