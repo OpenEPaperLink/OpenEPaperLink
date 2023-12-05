@@ -591,6 +591,8 @@ void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams) {
     spr.setColorDepth(8);
     spr.createSprite(w, h);
     spr.setRotation(3);
+    //imageParams.rotatebuffer = imageParams.rotatebuffer + 1;
+    //spr.setRotation(2);
     if (spr.getPointer() == nullptr) {
         wsErr("low on memory. Fallback to 1bpp");
         util::printLargestFreeBlock();
@@ -1376,37 +1378,44 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
     uint8_t rotation = 0;
     bool deserializationError = false;
     bool rotationFlag = false;
+    DeserializationError error;
+    JsonObject elementToCheck;
 
     if (stream.find("[")) {
-        DeserializationError error = deserializeJson(doc, stream); //Let's deserialize the first object to check if it's the rotate beacon, to init correctly the buffer
+
+        error = deserializeJson(doc, (Stream&)stream); //Let's deserialize the first object to check if it's the rotate beacon, to init correctly the buffer
         if (error) {
             wsErr("json error " + String(error.c_str()));
             deserializationError = true;
         } else {
-            const JsonObject element = doc.as<JsonObject>(); 
-            if(element.containsKey("rotation")){ // If the element is "rotation", wa can change the sprite initialization to apply the rotation
-                const JsonArray &textArray = element["rotation"];
+            elementToCheck = doc.as<JsonObject>(); 
+            if(elementToCheck.containsKey("rotation")){ // If the element is "rotation", wa can change the sprite initialization to apply the rotation
+                const JsonArray &textArray = elementToCheck["rotation"];
                 rotation = textArray[0].as<int>(); //We get the orientation value 
                 rotationFlag = true;
             }
         }
 
         //Here we do the sprite initialization
-        
+        //initSprite(spr, imageParams.width, imageParams.height, imageParams);
         initSprite(spr, imageParams.width, imageParams.height, imageParams); 
+        //initSprite(spr, imageParams.height, imageParams.width, imageParams); 
+        //imageParams.rotatebuffer = imageParams.rotatebuffer + 1;
+
 
 
 
         if(!deserializationError){                      //If there isn't a deserialization error, we continue
             if(!rotationFlag){                          //If the first element wasn't a rotation, we still need to draw it
-                drawElement(doc.as<JsonObject>(), spr); //We draw it
-                doc.clear();                            //We clear doc
+                drawElement(elementToCheck, spr); //We draw it
+                                           //We clear doc
             }
+            doc.clear(); 
             
             do {                                        //We proceed with the deserialization as usual.
-                DeserializationError error = deserializeJson(doc, stream);
+                 error = deserializeJson(doc, stream);
                 if (error) {
-                    wsErr("json error " + String(error.c_str()));
+                    wsErr("json errror " + String(error.c_str()));
                     break;
                 } else {
                     drawElement(doc.as<JsonObject>(), spr);
