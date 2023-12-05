@@ -1372,19 +1372,50 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
 
 void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSprite spr = TFT_eSprite(&tft);
-    initSprite(spr, imageParams.width, imageParams.height, imageParams);
     DynamicJsonDocument doc(500);
+    uint8_t rotation = 0;
+    bool deserializationError = false;
+    bool rotationFlag = false;
+
     if (stream.find("[")) {
-        do {
-            DeserializationError error = deserializeJson(doc, stream);
-            if (error) {
-                wsErr("json error " + String(error.c_str()));
-                break;
-            } else {
-                drawElement(doc.as<JsonObject>(), spr);
-                doc.clear();
+        DeserializationError error = deserializeJson(doc, stream); //Let's deserialize the first object to check if it's the rotate beacon, to init correctly the buffer
+        if (error) {
+            wsErr("json error " + String(error.c_str()));
+            deserializationError = true;
+        } else {
+            const JsonObject element = doc.as<JsonObject>(); 
+            if(element.containsKey("rotation")){ // If the element is "rotation", wa can change the sprite initialization to apply the rotation
+                const JsonArray &textArray = element["rotation"];
+                rotation = textArray[0].as<int>(); //We get the orientation value 
+                rotationFlag = true;
             }
-        } while (stream.findUntil(",", "]"));
+        }
+
+        //Here we do the sprite initialization
+        
+        initSprite(spr, imageParams.width, imageParams.height, imageParams); 
+
+
+
+        if(!deserializationError){                      //If there isn't a deserialization error, we continue
+            if(!rotationFlag){                          //If the first element wasn't a rotation, we still need to draw it
+                drawElement(doc.as<JsonObject>(), spr); //We draw it
+                doc.clear();                            //We clear doc
+            }
+            
+            do {                                        //We proceed with the deserialization as usual.
+                DeserializationError error = deserializeJson(doc, stream);
+                if (error) {
+                    wsErr("json error " + String(error.c_str()));
+                    break;
+                } else {
+                    drawElement(doc.as<JsonObject>(), spr);
+                    doc.clear();
+                }
+            } while (stream.findUntil(",", "]"));
+        }
+    }else{ 
+        initSprite(spr, imageParams.width, imageParams.height, imageParams);
     }
 
     spr2buffer(spr, filename, imageParams);
