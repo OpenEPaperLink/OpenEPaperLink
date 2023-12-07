@@ -1175,13 +1175,13 @@ void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 
     TFT_eSprite spr = TFT_eSprite(&tft);
     DynamicJsonDocument loc(2048);
-    uint8_t tagCurrentOrientation = 0;
+    uint8_t screenCurrentOrientation = 0;
     getTemplate(loc, 21, taginfo->hwType);
 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     const JsonArray jsonArray = loc.as<JsonArray>();
     for (const JsonVariant &elem : jsonArray) {
-        drawElement(elem, spr, tagCurrentOrientation, taginfo, imageParams);
+        drawElement(elem, spr, imageParams, screenCurrentOrientation);
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -1374,9 +1374,11 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
 }
 
 void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams) {
-    TFT_eSprite spr = TFT_eSprite(&tft);
-    uint8_t currentTagOrientation = 0;
+TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
+    uint8_t screenCurrentOrientation = 0;
+    //spr.setRotation(2);
+    //imageParams.rotatebuffer = imageParams.rotatebuffer + 1;
     DynamicJsonDocument doc(500);
     if (stream.find("[")) {
         do {
@@ -1385,17 +1387,17 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
                 wsErr("json error " + String(error.c_str()));
                 break;
             } else {
-                drawElement(doc.as<JsonObject>(), spr, currentTagOrientation, taginfo, imageParams);
+                drawElement(doc.as<JsonObject>(), spr, imageParams, screenCurrentOrientation);
                 doc.clear();
             }
         } while (stream.findUntil(",", "]"));
     }
-    
+
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
 }
 
-void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &spr, tagRecord *&taginfo, imgParam &imageParams){
+void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &spr, imgParam &imageParams){
     rotation = rotation % 4; //First of all, let's be sure that the rotation have a valid value (0, 1, 2 or 3)
 
     if(rotation != currentOrientation){
@@ -1403,44 +1405,52 @@ void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &sp
         //-2, 2: upside down
         //-1, 3: sideway counterclockwise
         //-3, 1: sideway clockwise
+        
         if(abs(stepToDo) == 2){
+            wsErr("rotation 180");
             TFT_eSprite sprCpy = TFT_eSprite(&tft);
             initSprite(sprCpy, spr.width(), spr.height(), imageParams);
             spr.pushRotated(&sprCpy, 180, TFT_WHITE);
             spr.fillSprite(TFT_WHITE);
             sprCpy.pushRotated(&spr, 0, TFT_WHITE);
             sprCpy.deleteSprite();
-            currentOrientation = currentOrientation + stepToDo;
         }
         if(stepToDo == -1 || stepToDo == 3){
+            wsErr("rotation 270");
             TFT_eSprite sprCpy = TFT_eSprite(&tft);
-            initSprite(sprCpy, spr.height(), spr.width(), imageParams);
-            spr.pushRotated(&sprCpy, -90, TFT_WHITE);
+            initSprite(sprCpy,  spr.height(),  spr.width(), imageParams);
+            spr.pushRotated(&sprCpy, 270, TFT_WHITE);
             spr.deleteSprite();
-            initSprite(spr, spr.height(), spr.width(), imageParams);
+            initSprite(spr, sprCpy.width(), sprCpy.height(), imageParams);
             sprCpy.pushRotated(&spr, 0, TFT_WHITE);
             sprCpy.deleteSprite();
-            currentOrientation = currentOrientation + stepToDo; 
-            imageParams.rotatebuffer = !imageParams.rotatebuffer;
-
+            if(imageParams.rotatebuffer==1){
+                imageParams.rotatebuffer = 0;
+            }else{
+                imageParams.rotatebuffer = 1;
+            }
         }
         if(stepToDo == -3 || stepToDo == 1){
+            wsErr("rotation 90");
             TFT_eSprite sprCpy = TFT_eSprite(&tft);
-            initSprite(sprCpy, spr.height(), spr.width(), imageParams);
+            initSprite(sprCpy,  spr.height(),  spr.width(), imageParams);
             spr.pushRotated(&sprCpy, 90, TFT_WHITE);
             spr.deleteSprite();
-            initSprite(spr, spr.height(), spr.width(), imageParams);
+            initSprite(spr, sprCpy.width(), sprCpy.height(), imageParams);
             sprCpy.pushRotated(&spr, 0, TFT_WHITE);
             sprCpy.deleteSprite();
-            currentOrientation = currentOrientation + stepToDo; 
-            imageParams.rotatebuffer = !imageParams.rotatebuffer;
-
+            if(imageParams.rotatebuffer==1){
+                imageParams.rotatebuffer = 0;
+            }else{
+                imageParams.rotatebuffer = 1;
+            }
         }
         currentOrientation = rotation;
-    }   
+    }
 }
 
-void drawElement(const JsonObject &element, TFT_eSprite &spr, uint8_t &currentOrientation, tagRecord *&taginfo, imgParam &imageParams) {
+
+void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imageParams, uint8_t &currentOrientation) {
     if (element.containsKey("text")) {
         const JsonArray &textArray = element["text"];
         const uint16_t align = textArray[5] | 0;
@@ -1463,10 +1473,9 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, uint8_t &currentOr
     } else if (element.containsKey("circle")) {
         const JsonArray &circleArray = element["circle"];
         spr.fillCircle(circleArray[0].as<int>(), circleArray[1].as<int>(), circleArray[2].as<int>(), getColor(circleArray[3]));
-    }else if (element.containsKey("rotate")) {
-        const int rotation = element["rotate"].as<int>();
-        wsErr("rotate " + rotation);
-        rotateBuffer(rotation, currentOrientation, spr, taginfo, imageParams);
+    } else if (element.containsKey("rotate")) {
+        uint8_t rotation = element["rotate"].as<int>();
+        rotateBuffer(rotation, currentOrientation, spr, imageParams);
     }
 }
 
