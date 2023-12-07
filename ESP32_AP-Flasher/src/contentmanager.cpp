@@ -591,8 +591,6 @@ void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams) {
     spr.setColorDepth(8);
     spr.createSprite(w, h);
     spr.setRotation(3);
-    //imageParams.rotatebuffer = imageParams.rotatebuffer + 1;
-    //spr.setRotation(2);
     if (spr.getPointer() == nullptr) {
         wsErr("low on memory. Fallback to 1bpp");
         util::printLargestFreeBlock();
@@ -1399,42 +1397,27 @@ TFT_eSprite spr = TFT_eSprite(&tft);
 
 void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &spr, imgParam &imageParams){
     rotation = rotation % 4; //First of all, let's be sure that the rotation have a valid value (0, 1, 2 or 3)
-
-    if(rotation != currentOrientation){
-        int stepToDo = currentOrientation - rotation;
+    if(rotation != currentOrientation){ //If we have a rotation to do, let's do it 
+        int stepToDo = currentOrientation - rotation; //rotation we have to do
         //-2, 2: upside down
-        //-1, 3: sideway counterclockwise
-        //-3, 1: sideway clockwise
+        //-1, 3: 270° rotation
+        //-3, 1: 90° rotation
         
-        if(abs(stepToDo) == 2){
-            wsErr("rotation 180");
-            TFT_eSprite sprCpy = TFT_eSprite(&tft);
-            initSprite(sprCpy, spr.width(), spr.height(), imageParams);
-            spr.pushRotated(&sprCpy, 180, TFT_WHITE);
-            spr.fillSprite(TFT_WHITE);
-            sprCpy.pushRotated(&spr, 0, TFT_WHITE);
-            sprCpy.deleteSprite();
-        }
-        if(stepToDo == -1 || stepToDo == 3){
-            wsErr("rotation 270");
-            TFT_eSprite sprCpy = TFT_eSprite(&tft);
-            initSprite(sprCpy,  spr.height(),  spr.width(), imageParams);
-            spr.pushRotated(&sprCpy, 270, TFT_WHITE);
-            spr.deleteSprite();
-            initSprite(spr, sprCpy.width(), sprCpy.height(), imageParams);
-            sprCpy.pushRotated(&spr, 0, TFT_WHITE);
-            sprCpy.deleteSprite();
-            if(imageParams.rotatebuffer==1){
-                imageParams.rotatebuffer = 0;
-            }else{
-                imageParams.rotatebuffer = 1;
+        if(abs(stepToDo) == 2){ //If we have to do a 180° rotation:
+            TFT_eSprite sprCpy = TFT_eSprite(&tft); //We create a new sprite that will act as a buffer
+            initSprite(sprCpy, spr.width(), spr.height(), imageParams); //initialisation of the new sprite
+            spr.pushRotated(&sprCpy, 180, TFT_WHITE); //We fill the new sprite with the old one rotated by 180°
+            spr.fillSprite(TFT_WHITE); //We fill the old one in white as anything that's white will be ignored by the pushRotated function
+            sprCpy.pushRotated(&spr, 0, TFT_WHITE); //We copy the buffer sprite to the main one
+            sprCpy.deleteSprite(); //We delete the buffer sprite to avoid memory leak
+        }else{
+            int angle = 90;
+            if(stepToDo == -1 || stepToDo == 3){
+                angle = 270;
             }
-        }
-        if(stepToDo == -3 || stepToDo == 1){
-            wsErr("rotation 90");
             TFT_eSprite sprCpy = TFT_eSprite(&tft);
             initSprite(sprCpy,  spr.height(),  spr.width(), imageParams);
-            spr.pushRotated(&sprCpy, 90, TFT_WHITE);
+            spr.pushRotated(&sprCpy, angle, TFT_WHITE);
             spr.deleteSprite();
             initSprite(spr, sprCpy.width(), sprCpy.height(), imageParams);
             sprCpy.pushRotated(&spr, 0, TFT_WHITE);
@@ -1448,7 +1431,6 @@ void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &sp
         currentOrientation = rotation;
     }
 }
-
 
 void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imageParams, uint8_t &currentOrientation) {
     if (element.containsKey("text")) {
