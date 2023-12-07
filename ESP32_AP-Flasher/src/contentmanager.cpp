@@ -1175,12 +1175,13 @@ void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 
     TFT_eSprite spr = TFT_eSprite(&tft);
     DynamicJsonDocument loc(2048);
+    uint8_t tagCurrentOrientation = 0;
     getTemplate(loc, 21, taginfo->hwType);
 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     const JsonArray jsonArray = loc.as<JsonArray>();
     for (const JsonVariant &elem : jsonArray) {
-        drawElement(elem, spr);
+        drawElement(elem, spr, tagCurrentOrientation, taginfo, imageParams);
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -1374,64 +1375,72 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
 
 void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSprite spr = TFT_eSprite(&tft);
+    uint8_t currentTagOrientation = 0;
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
     DynamicJsonDocument doc(500);
-    uint8_t rotation = 0;
-    bool deserializationError = false;
-    bool rotationFlag = false;
-    DeserializationError error;
-    JsonObject elementToCheck;
-
     if (stream.find("[")) {
-
-        error = deserializeJson(doc, (Stream&)stream); //Let's deserialize the first object to check if it's the rotate beacon, to init correctly the buffer
-        if (error) {
-            wsErr("json error " + String(error.c_str()));
-            deserializationError = true;
-        } else {
-            elementToCheck = doc.as<JsonObject>(); 
-            if(elementToCheck.containsKey("rotation")){ // If the element is "rotation", wa can change the sprite initialization to apply the rotation
-                const JsonArray &textArray = elementToCheck["rotation"];
-                rotation = textArray[0].as<int>(); //We get the orientation value 
-                rotationFlag = true;
+        do {
+            DeserializationError error = deserializeJson(doc, stream);
+            if (error) {
+                wsErr("json error " + String(error.c_str()));
+                break;
+            } else {
+                drawElement(doc.as<JsonObject>(), spr, currentTagOrientation, taginfo, imageParams);
+                doc.clear();
             }
-        }
-
-        //Here we do the sprite initialization
-        //initSprite(spr, imageParams.width, imageParams.height, imageParams);
-        initSprite(spr, imageParams.width, imageParams.height, imageParams); 
-        //initSprite(spr, imageParams.height, imageParams.width, imageParams); 
-        //imageParams.rotatebuffer = imageParams.rotatebuffer + 1;
-
-
-
-
-        if(!deserializationError){                      //If there isn't a deserialization error, we continue
-            if(!rotationFlag){                          //If the first element wasn't a rotation, we still need to draw it
-                drawElement(elementToCheck, spr); //We draw it
-                                           //We clear doc
-            }
-            doc.clear(); 
-            
-            do {                                        //We proceed with the deserialization as usual.
-                 error = deserializeJson(doc, stream);
-                if (error) {
-                    wsErr("json errror " + String(error.c_str()));
-                    break;
-                } else {
-                    drawElement(doc.as<JsonObject>(), spr);
-                    doc.clear();
-                }
-            } while (stream.findUntil(",", "]"));
-        }
-    }else{ 
-        initSprite(spr, imageParams.width, imageParams.height, imageParams);
+        } while (stream.findUntil(",", "]"));
     }
-
+    
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
 }
 
-void drawElement(const JsonObject &element, TFT_eSprite &spr) {
+void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &spr, tagRecord *&taginfo, imgParam &imageParams){
+    rotation = rotation % 4; //First of all, let's be sure that the rotation have a valid value (0, 1, 2 or 3)
+
+    if(rotation != currentOrientation){
+        int stepToDo = currentOrientation - rotation;
+        //-2, 2: upside down
+        //-1, 3: sideway counterclockwise
+        //-3, 1: sideway clockwise
+        if(abs(stepToDo) == 2){
+            TFT_eSprite sprCpy = TFT_eSprite(&tft);
+            initSprite(sprCpy, spr.width(), spr.height(), imageParams);
+            spr.pushRotated(&sprCpy, 180, TFT_WHITE);
+            spr.fillSprite(TFT_WHITE);
+            sprCpy.pushRotated(&spr, 0, TFT_WHITE);
+            sprCpy.deleteSprite();
+            currentOrientation = currentOrientation + stepToDo;
+        }
+        if(stepToDo == -1 || stepToDo == 3){
+            TFT_eSprite sprCpy = TFT_eSprite(&tft);
+            initSprite(sprCpy, spr.height(), spr.width(), imageParams);
+            spr.pushRotated(&sprCpy, -90, TFT_WHITE);
+            spr.deleteSprite();
+            initSprite(spr, spr.height(), spr.width(), imageParams);
+            sprCpy.pushRotated(&spr, 0, TFT_WHITE);
+            sprCpy.deleteSprite();
+            currentOrientation = currentOrientation + stepToDo; 
+            imageParams.rotatebuffer = !imageParams.rotatebuffer;
+
+        }
+        if(stepToDo == -3 || stepToDo == 1){
+            TFT_eSprite sprCpy = TFT_eSprite(&tft);
+            initSprite(sprCpy, spr.height(), spr.width(), imageParams);
+            spr.pushRotated(&sprCpy, 90, TFT_WHITE);
+            spr.deleteSprite();
+            initSprite(spr, spr.height(), spr.width(), imageParams);
+            sprCpy.pushRotated(&spr, 0, TFT_WHITE);
+            sprCpy.deleteSprite();
+            currentOrientation = currentOrientation + stepToDo; 
+            imageParams.rotatebuffer = !imageParams.rotatebuffer;
+
+        }
+        currentOrientation = rotation;
+    }   
+}
+
+void drawElement(const JsonObject &element, TFT_eSprite &spr, uint8_t &currentOrientation, tagRecord *&taginfo, imgParam &imageParams) {
     if (element.containsKey("text")) {
         const JsonArray &textArray = element["text"];
         const uint16_t align = textArray[5] | 0;
@@ -1454,6 +1463,10 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr) {
     } else if (element.containsKey("circle")) {
         const JsonArray &circleArray = element["circle"];
         spr.fillCircle(circleArray[0].as<int>(), circleArray[1].as<int>(), circleArray[2].as<int>(), getColor(circleArray[3]));
+    }else if (element.containsKey("rotate")) {
+        const int rotation = element["rotate"].as<int>();
+        wsErr("rotate " + rotation);
+        rotateBuffer(rotation, currentOrientation, spr, taginfo, imageParams);
     }
 }
 
