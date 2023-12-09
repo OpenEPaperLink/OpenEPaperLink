@@ -16,7 +16,6 @@ void showNoEEPROM();
 void showNoMAC();
 
 
-
 // wakeups from external stimuli
 void externalWakeHandler(uint8_t type);
 
