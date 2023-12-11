@@ -24,7 +24,7 @@
 #define AP_EMULATE_TAG 1
 
 //hw types
-#define HW_TYPE					        SOLUM_29_UC8151
+#define HW_TYPE					        SOLUM_M2_BWR_29_UC8151
 
 #include "../boardCommon.h"
 

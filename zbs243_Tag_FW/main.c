@@ -21,6 +21,8 @@
 #include "userinterface.h"
 #include "wdt.h"
 
+#include "flash.h"
+
 #include "uart.h"
 
 #include "../oepl-definitions.h"
@@ -28,7 +30,7 @@
 
 // #define DEBUG_MODE
 
-static const uint64_t __code __at(0x008b) mVersionRom = 0x1000011300000000ull;
+// static const uint64_t __code __at(0x008b) mVersionRom = 0x1000011300000000ull;
 
 #define TAG_MODE_CHANSEARCH 0
 #define TAG_MODE_ASSOCIATED 1
@@ -41,6 +43,7 @@ uint8_t __xdata slideShowRefreshCount = 1;
 extern uint8_t *__idata blockp;
 extern uint8_t blockbuffer[];
 
+uint8_t *rebootP;
 #ifdef ENABLE_EEPROM_LOADER
 extern bool __idata serialBypassActive;
 bool __xdata serialActive = false;
@@ -157,6 +160,51 @@ void displayLoop() {
     timerDelay(TIMER_TICKS_PER_SECOND * 4);
     wdtDeviceReset();
 }
+
+#ifdef WRITE_MAC_FROM_FLASH
+void writeInfoPageWithMac() {
+    uint8_t *settemp = blockbuffer + 2048;
+    flashRead(FLASH_INFOPAGE_ADDR, (void *)blockbuffer, 1024);
+    flashRead(0xFC06, (void *)(settemp + 8), 4);
+    settemp[7] = 0x00;
+    settemp[6] = 0x00;
+    settemp[5] = settemp[8];
+    settemp[4] = settemp[9];
+    settemp[3] = settemp[10];
+    settemp[2] = settemp[11];
+#if (HW_TYPE == SOLUM_29_SSD1619)
+    settemp[1] = 0x3B;
+    settemp[0] = 0x10;
+#endif
+#if (HW_TYPE == SOLUM_M2_BWR_29_UC8151)
+    settemp[1] = 0x3B;
+    settemp[0] = 0x30;
+#endif
+#if (HW_TYPE == SOLUM_154_SSD1619)
+    settemp[1] = 0x34;
+    settemp[0] = 0x10;
+#endif
+#if (HW_TYPE == SOLUM_42_SSD1619)
+    settemp[1] = 0x48;
+    settemp[0] = 0x10;
+#endif
+#if (HW_TYPE == SOLUM_M2_BW_29_LOWTEMP)
+    settemp[1] = 0x2D;
+    settemp[0] = 0x10;
+#endif
+    uint8_t cksum = 0;
+    for (uint8_t c = 0; c < 8; c++) {
+        cksum ^= settemp[c];
+        cksum ^= settemp[c] >> 4;
+    }
+    settemp[0] += cksum & 0x0F;
+
+    memcpy((void *)(blockbuffer + 0x0010), (void *)settemp, 8);
+
+    flashErase(FLASH_INFOPAGE_ADDR + 1);
+    flashWrite(FLASH_INFOPAGE_ADDR, (void *)blockbuffer, 1024, false);
+}
+#endif
 
 uint8_t channelSelect(uint8_t rounds) {  // returns 0 if no accesspoints were found
     powerUp(INIT_RADIO);
@@ -430,6 +478,7 @@ void TagChanSearch() {
     }
 }
 
+#ifndef LEAN_VERSION
 void TagSlideShow() {
     currentChannel = 11;  // suppress the no-rf image thing
     displayCustomImage(CUSTOM_IMAGE_SPLASHSCREEN);
@@ -515,6 +564,7 @@ void TagShowWaitRFWake() {
     powerDown(INIT_EEPROM);
     wdtDeviceReset();
 }
+#endif
 
 void executeCommand(uint8_t cmd) {
     switch (cmd) {
@@ -543,6 +593,7 @@ void executeCommand(uint8_t cmd) {
             eraseImageBlocks();
             powerDown(INIT_EEPROM);
             break;
+#ifndef LEAN_VERSION
         case CMD_ENTER_SLIDESHOW_FAST:
             powerUp(INIT_EEPROM);
             if (findSlotDataTypeArg(CUSTOM_IMAGE_SLIDESHOW << 3) == 0xFF) {
@@ -601,6 +652,7 @@ void executeCommand(uint8_t cmd) {
             powerDown(INIT_EEPROM);
             wdtDeviceReset();
             break;
+#endif
     }
 }
 
@@ -613,16 +665,45 @@ void main() {
     // Find the reason why we're booting; is this a WDT?
     wakeUpReason = getFirstWakeUpReason();
 
-    // get our own mac address. this is stored in Infopage at offset 0x10-onwards
+    // dump(blockbuffer, 1024);
+    //  get our own mac address. this is stored in Infopage at offset 0x10-onwards
     boardGetOwnMac(mSelfMac);
     pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
     pr("%02X%02X", mSelfMac[2], mSelfMac[3]);
     pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
     pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
 
+    // do a little sleep, this prevents a partial boot during battery insertion
+    doSleep(200UL);
     powerUp(INIT_EEPROM);
     // load settings from infopage
     loadSettings();
+    // invalidate the settings, and write them back in a later state
+    invalidateSettingsEEPROM();
+
+#ifdef WRITE_MAC_FROM_FLASH
+    if (mSelfMac[7] == 0xFF && mSelfMac[6] == 0xFF) {
+        wdt10s();
+        timerDelay(TIMER_TICKS_PER_SECOND * 2);
+        writeInfoPageWithMac();
+        for (uint16_t c = 0xE800; c != 0; c += 1024) {
+            flashErase(c);
+        }
+        boardGetOwnMac(mSelfMac);
+        powerUp(INIT_UART | INIT_EEPROM | INIT_RADIO);
+        wdt120s();
+        powerDown(INIT_EEPROM | INIT_RADIO);
+
+        wdt120s();
+        powerUp(INIT_EPD);
+        afterFlashScreenSaver();
+        powerDown(INIT_EPD | INIT_UART);
+        while (1) {
+            doSleep(-1);
+        }
+    }
+#endif
+
     // get the highest slot number, number of slots
     initializeProto();
     powerDown(INIT_EEPROM);
@@ -630,6 +711,7 @@ void main() {
     // detect button or jig
     detectButtonOrJig();
 
+#ifndef LEAN_VERSION
     switch (tagSettings.customMode) {
         case TAG_CUSTOM_MODE_WAIT_RFWAKE:
             TagShowWaitRFWake();
@@ -643,6 +725,7 @@ void main() {
         default:
             break;
     }
+#endif
 
     if (tagSettings.enableFastBoot) {
         // Fastboot
@@ -682,9 +765,6 @@ void main() {
         tagSettings.fastBootCapabilities = capabilities;
 
         // now that we've collected all possible capabilities, save it to settings
-        powerUp(INIT_EEPROM);
-        writeSettings();
-        powerDown(INIT_EEPROM);
 
         // scan for channels
         wdt30s();
@@ -697,14 +777,25 @@ void main() {
     // end of the fastboot option split
 
     wdt10s();
-    powerUp(INIT_EPD);
     if (currentChannel) {
         showAPFound();
+
+        // write the settings to the eeprom
+        powerUp(INIT_EEPROM);
+        writeSettings();
+        powerDown(INIT_EEPROM);
+
         initPowerSaving(INTERVAL_BASE);
         currentTagMode = TAG_MODE_ASSOCIATED;
         doSleep(5000UL);
     } else {
         showNoAP();
+
+        // write the settings to the eeprom
+        powerUp(INIT_EEPROM);
+        writeSettings();
+        powerDown(INIT_EEPROM);
+
         initPowerSaving(INTERVAL_AT_MAX_ATTEMPTS);
         currentTagMode = TAG_MODE_CHANSEARCH;
         doSleep(120000UL);

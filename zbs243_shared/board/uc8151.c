@@ -327,10 +327,13 @@ void epdConfigGPIO(bool setup) {
     epdGPIOActive = setup;
 }
 void epdEnterSleep() {
+    timerDelay(20 * TIMER_TICKS_PER_MS);
+    epdReset();
+    timerDelay(20 * TIMER_TICKS_PER_MS);
     shortCommand1(CMD_VCOM_INTERVAL, 0x17);
     shortCommand1(CMD_VCOM_DC_SETTING, 0x00);
     // shortCommand(CMD_POWER_OFF);
-    // epdWaitRdy();
+    //  epdWaitRdy();
     shortCommand1(CMD_DEEP_SLEEP, 0xA5);
     isInited = false;
 }
@@ -395,69 +398,19 @@ static uint8_t epdGetStatus() {
     return sta;
 }
 uint16_t epdGetBattery(void) {
-    return 0;
+    uint8_t sta;
+    commandReadBegin(0x51);
+    sta = epdReadByte();
+    commandReadEnd();
+    if (sta) return 3000;
+    return 2100;
 }
 
-static void readLut() {
-    commandReadBegin(0x33);
-    uint16_t checksum = 0;
-    uint16_t ident = 0;
-    uint16_t shortl = 0;
-    for (uint16_t c = 0; c < LUT_BUFFER_SIZE; c++) {
-        waveformbuffer[c] = epdReadByte();
-    }
-    commandReadEnd();
-}
-static uint8_t getLutSize() {
-    uint8_t ref = 0;
-    for (uint8_t c = (LUT_BUFFER_SIZE - 4); c > 16; c--) {
-        uint8_t check = waveformbuffer[c];
-        for (uint8_t d = 1; d < 4; d++) {
-            if (waveformbuffer[c + d] != check) {
-                ref = c;
-                goto end;
-            }
-        }
-    }
-end:;
-    return ref + 1;
-}
-static void lutGroupDisable(uint8_t group) {
-    if (dispLutSize == 7) {
-        memset(&(waveform7->group[group]), 0x00, 5);
-    } else {
-        memset(&(waveform10->group[group]), 0x00, 5);
-    }
-}
-static void lutGroupSpeedup(uint8_t group, uint8_t speed) {
-    if (dispLutSize == 7) {
-        for (uint8_t i = 0; i < 4; i++) {
-            waveform7->group[group].phaselength[i] = 1 + (waveform7->group[group].phaselength[i] / speed);
-        }
-    } else {
-        for (uint8_t i = 0; i < 4; i++) {
-            waveform10->group[group].phaselength[i] = 1 + (waveform10->group[group].phaselength[i] / speed);
-        }
-    }
-}
-static void lutGroupRepeat(uint8_t group, uint8_t repeat) {
-    if (dispLutSize == 7) {
-        waveform7->group[group].repeat = repeat;
-    } else {
-        waveform10->group[group].repeat = repeat;
-    }
-}
-static void lutGroupRepeatReduce(uint8_t group, uint8_t factor) {
-    if (dispLutSize == 7) {
-        waveform7->group[group].repeat = waveform7->group[group].repeat / factor;
-    } else {
-        waveform10->group[group].repeat = waveform10->group[group].repeat / factor;
-    }
-}
+
 void selectLUT(uint8_t lut) {
     // implement alternative LUTs here. Currently just reset the watchdog to two minutes,
     // to ensure it doesn't reset during the much longer bootup procedure
-    lut+=1; // make the compiler a happy camper
+    lut += 1;                    // make the compiler a happy camper
     wdtSetResetVal(0xFF8E797F);  // 120 s
     wdtOn();
     return;
@@ -478,8 +431,8 @@ void setWindowXY(uint16_t xstart, uint16_t xend, uint16_t ystart, uint16_t yend)
 
 void setColorMode(uint8_t red, uint8_t bw) {
     // this does exactly nothing, just keeps the compiler from barking
-    red=1;
-    bw=0;
+    red = 1;
+    bw = 0;
     return;
 }
 void clearScreen() {

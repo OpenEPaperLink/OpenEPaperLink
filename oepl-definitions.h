@@ -1,26 +1,30 @@
+// TAG TYPES
+
+// The 'OG' tags in OEPL (mostly M2 tags)
 #define SOLUM_154_SSD1619 0
 #define SOLUM_29_SSD1619 0x01
-#define SOLUM_29_BW_SSD1619 0x21
-#define SOLUM_29_UC8151 0x11
+#define SOLUM_M2_BWR_29_UC8151 0x11
 #define SOLUM_42_SSD1619 0x02
 #define SOLUM_SEG_UK 0xF0
 #define SOLUM_SEG_EU 0xF1
 #define SOLUM_NODISPLAY 0xFF
 #define ESP32_C6 0xC6
 
+// M2 Tags, overflow
 #define SOLUM_M2_BWR_16 0x20
-#define SOLUM_M2_BW_29L 0x21
+#define SOLUM_M2_BW_29_LOWTEMP 0x21	// low temperature version of the 2.9 M2 tag
 #define SOLUM_M2_BWR_29 0x23
 #define SOLUM_M2_BWR_42 0x24
 #define SOLUM_M2_BWR_75 0x26
 
+// M3 Tags
 #define SOLUM_M3_BWR_16 0x30
 #define SOLUM_M3_BWY_16 0x38
 #define SOLUM_M3_BWR_22 0x31
 #define SOLUM_M3_BWY_22 0x39
 #define SOLUM_M3_BWR_26 0x32
 #define SOLUM_M3_BWY_26 0x3A
-#define SOLUM_M3_BWR_29 0x33
+#define SOLUM_M3_BWR_29 0x33	// the 'standard' SSD1619 version
 #define SOLUM_M3_BWY_29 0x3B
 #define SOLUM_M3_BWR_42 0x34
 #define SOLUM_M3_BWY_42 0x3C
@@ -31,9 +35,14 @@
 #define SOLUM_M3_BWR_116 0x37
 #define SOLUM_M3_BWY_116 0x3F
 
+// M3 Tags overflow
+#define SOLUM_M3_BWR_29_UC8151 0x40	// the UC8151 version of this M3 tag
+
+// Hanshow Nebular types
 #define HS_NEBULAR_BWY_35 0x60
 #define HS_NEBULAR_BWR_35 0x61
 #define HS_NEBULAR_BW_35 0x62
+
 
 #define CAPABILITY_SUPPORTS_COMPRESSION 0x02
 #define CAPABILITY_SUPPORTS_CUSTOM_LUTS 0x04
@@ -44,12 +53,12 @@
 #define CAPABILITY_NFC_WAKE 0x80
 
 #define DATATYPE_NOUPDATE 0
-#define DATATYPE_IMG_BMP 2
+#define DATATYPE_IMG_BMP 2			// ** deprecated
 #define DATATYPE_FW_UPDATE 3
-#define DATATYPE_IMG_DIFF 0x10             // always 1BPP
+#define DATATYPE_IMG_DIFF 0x10             // always 1BPP ** deprecated
 #define DATATYPE_IMG_RAW_1BPP 0x20         // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
 #define DATATYPE_IMG_RAW_2BPP 0x21         // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2"
-#define DATATYPE_IMG_RAW_1BPP_DIRECT 0x3F  // only for 1.54", don't write to EEPROM, but straightaway to the EPD
+#define DATATYPE_IMG_RAW_1BPP_DIRECT 0x3F  // only for 1.54", don't write to EEPROM, but straightaway to the EPD ** deprecated
 #define DATATYPE_UK_SEGMENTED 0x51         // Segmented data for the UK Segmented display type (contained in availableData Reply)
 #define DATATYPE_EU_SEGMENTED 0x52         // Segmented data for the EU/DE Segmented display type (contained in availableData Reply)
 #define DATATYPE_NFC_RAW_CONTENT 0xA0      // raw memory content for the NT3H1101
@@ -80,7 +89,6 @@
 #define WAKEUP_REASON_FIRSTBOOT 0xFC
 #define WAKEUP_REASON_NETWORK_SCAN 0xFD
 #define WAKEUP_REASON_WDT_RESET 0xFE
-
 
 #define EPD_LUT_DEFAULT 0
 #define EPD_LUT_NO_REPEATS 1

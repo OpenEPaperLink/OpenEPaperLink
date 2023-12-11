@@ -27,7 +27,7 @@
 #include "wdt.h"
 
 // download-stuff
-uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
+uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];
 static struct blockRequest __xdata curBlock = {0};  // used by the block-requester, contains the next request that we'll send
 static uint8_t __xdata curDispDataVer[8] = {0};
 static struct AvailDataInfo __xdata xferDataInfo = {0};  // holds the AvailDataInfo during the transfer
@@ -578,7 +578,7 @@ static bool getDataBlock(const uint16_t blockSize) {
         memset(curBlock.requestedParts, 0xFF, BLOCK_REQ_PARTS_BYTES);
     } else {
         partsThisBlock = (sizeof(struct blockData) + blockSize) / BLOCK_PART_DATA_SIZE;
-        if (blockSize % BLOCK_PART_DATA_SIZE) partsThisBlock++;
+        if ((sizeof(struct blockData) + blockSize) % BLOCK_PART_DATA_SIZE) partsThisBlock++;
         memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
         for (uint8_t c = 0; c < partsThisBlock; c++) {
             curBlock.requestedParts[c / 8] |= (1 << (c % 8));
@@ -896,6 +896,9 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
                 drawImageFromEeprom(findImgSlot, arg.lut);
                 powerDown(INIT_EPD | INIT_EEPROM);
 
+                //powerUp(INIT_EEPROM | INIT_EPD);
+                //powerDown(INIT_EEPROM | INIT_EPD);
+
             } else {
                 // not found in cache, prepare to download
                 pr("downloading image...\n");
@@ -912,7 +915,8 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
                     powerUp(INIT_EPD | INIT_EEPROM);
                     drawImageFromEeprom(xferImgSlot, arg.lut);
                     powerDown(INIT_EPD | INIT_EEPROM);
-
+                    //powerUp(INIT_EEPROM | INIT_EPD);
+                    //powerDown(INIT_EEPROM | INIT_EPD);
                 } else {
                     return false;
                 }
@@ -967,8 +971,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             }
 
             pr("NFC URL received\n");
-            /*
-            if (curDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8)) {
+            if (xferDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & xferDataInfo.dataVer, 8)) {
                 // we've already downloaded this NFC data, disregard and send XFC
                 pr("this was the same as the last transfer, disregard\n");
                 powerUp(INIT_RADIO);
@@ -979,11 +982,11 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             curBlock.blockId = 0;
             xMemCopy8(&(curBlock.ver), &(avail->dataVer));
             curBlock.type = avail->dataType;
-            xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+            xMemCopyShort(&xferDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
             uint16_t __xdata nfcsize = avail->dataSize;
             wdt10s();
             if (getDataBlock(avail->dataSize)) {
-                curDataInfo.dataSize = 0;  // mark as transfer not pending
+                xferDataInfo.dataSize = 0;  // mark as transfer not pending
                 powerUp(INIT_I2C);
                 if (avail->dataType == DATATYPE_NFC_URL_DIRECT) {
                     // only one URL (handle NDEF records on the tag)
@@ -992,7 +995,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
                     // raw NFC data upload to the NFC IC
                     loadRawNTag(nfcsize);
                 }
-                timerDelay(13330);
+                timerDelay(39990);
                 powerDown(INIT_I2C);
                 powerUp(INIT_RADIO);
                 sendXferComplete();
@@ -1001,7 +1004,6 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             }
             return false;
             break;
-            */
         case DATATYPE_TAG_CONFIG_DATA:
             if (xferDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & xferDataInfo.dataVer, 8)) {
                 pr("this was the same as the last transfer, disregard\n");

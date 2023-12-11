@@ -1,13 +1,12 @@
 #define __packed
 #include "settings.h"
 
-//#include <flash.h>
+// #include <flash.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
 
 #include "asmUtil.h"
 #include "powermgt.h"
@@ -16,6 +15,8 @@
 #include "eeprom.h"
 #include "../oepl-definitions.h"
 #include "../oepl-proto.h"
+
+#define SETTINGS_MAGIC 0xABBA5AA5
 
 struct tagsettings __xdata tagSettings = {0};
 extern uint8_t __xdata blockbuffer[];
@@ -44,7 +45,7 @@ void loadSettingsFromBuffer(uint8_t* p) {
             break;
         default:
             pr("SETTINGS: received something we couldn't really process, version %d\n");
-        break;
+            break;
     }
     tagSettings.fastBootCapabilities = capabilities;
     writeSettings();
@@ -66,9 +67,12 @@ static void upgradeSettings() {
 }
 
 void loadSettings() {
-    eepromRead(EEPROM_SETTINGS_AREA_START, (void*)settingsTempBuffer, sizeof(struct tagsettings));
+    eepromRead(EEPROM_SETTINGS_AREA_START + 4, (void*)settingsTempBuffer, sizeof(struct tagsettings));
+    memcpy((void*)&tagSettings, (void*)settingsTempBuffer, sizeof(struct tagsettings));
+    uint32_t __xdata valid = 0;
+    eepromRead(EEPROM_SETTINGS_AREA_START, (void*)&valid, 4);
     xMemCopy((void*)tagSettings, (void*)settingsTempBuffer, sizeof(struct tagsettings));
-    if (tagSettings.settingsVer == 0xFF) {
+    if (tagSettings.settingsVer == 0xFF || valid != SETTINGS_MAGIC) {
         // settings not set. load the defaults
         loadDefaultSettings();
         pr("SETTINGS: Loaded default settings\n");
@@ -90,6 +94,13 @@ void writeSettings() {
         return;
     }
     eepromErase(EEPROM_SETTINGS_AREA_START, 1);
-    eepromWrite(EEPROM_SETTINGS_AREA_START, (void*)tagSettings, sizeof(tagSettings));
+    uint32_t __xdata valid = SETTINGS_MAGIC;
+    eepromWrite(EEPROM_SETTINGS_AREA_START, (void*)&valid, 4);
+    eepromWrite(EEPROM_SETTINGS_AREA_START + 4, (void*)&tagSettings, sizeof(tagSettings));
     pr("SETTINGS: Updated settings in EEPROM\n");
+}
+
+void invalidateSettingsEEPROM() {
+    int32_t __xdata valid = 0x0000;
+    eepromWrite(EEPROM_SETTINGS_AREA_START, (void*)&valid, 4);
 }

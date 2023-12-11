@@ -119,13 +119,13 @@ static void configSPI(const bool setup) {
 static void configUART(const bool setup) {
     if (uartActive == setup) return;
     if (setup) {
-        P0FUNC |= (1 << 6)|(1<<7);
+        P0FUNC |= (1 << 6) | (1 << 7);
         P0DIR &= ~(1 << 6);
-        P0DIR |= (1<<7);
+        P0DIR |= (1 << 7);
         uartInit();
     } else {
         P0DIR |= (1 << 6);
-        P0FUNC &= ~((1 << 6)|(1<<7));
+        P0FUNC &= ~((1 << 6) | (1 << 7));
         CLKEN &= ~(0x20);
     }
     uartActive = setup;
@@ -134,10 +134,15 @@ static void configUART(const bool setup) {
 static void configEEPROM(const bool setup) {
     if (setup == eepromActive) return;
     if (setup) {
+#ifdef EXTRA_EEPROM_LINES
         P1FUNC &= ~(1 << 1) | (1 << 2) | (1 << 6);
         P1DIR &= ~(1 << 1) | (1 << 2) | (1 << 6);
         P1_6 = 1;
-        P1_2 = 1; 
+        P1_2 = 1;
+#else
+        P1FUNC &= ~(1 << 1);
+        P1DIR &= ~(1 << 1);
+#endif
         if (!eepromInit()) {
             powerDown(INIT_RADIO);
             powerUp(INIT_EPD);
@@ -289,7 +294,7 @@ void doSleep(const uint32_t __xdata t) {
     uartActive = false;
     eepromActive = false;
 
-    capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
+    //capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
 
     if (capabilities & CAPABILITY_HAS_WAKE_BUTTON) {
         // Button setup on TEST pin 1.0 (input pullup)
@@ -339,19 +344,18 @@ void doSleep(const uint32_t __xdata t) {
     P0INTEN = 0;
 
     switch (RADIO_Wake_Reason) {
-        case RADIO_WAKE_REASON_TIMER:
+        case RADIO_WAKE_REASON_RF:
+            wakeUpReason = WAKEUP_REASON_RF;
             break;
         case RADIO_WAKE_REASON_EXT:
             if ((P1CHSTA & (1 << 0)) && (capabilities & CAPABILITY_HAS_WAKE_BUTTON)) {
                 wakeUpReason = WAKEUP_REASON_BUTTON1;
                 P1CHSTA &= ~(1 << 0);
             }
-
             if ((P0CHSTA & (1 << 7)) && (capabilities & CAPABILITY_HAS_WAKE_BUTTON)) {
                 wakeUpReason = WAKEUP_REASON_BUTTON2;
                 P0CHSTA &= ~(1 << 7);
             }
-
             if ((P1CHSTA & (1 << 3)) && (capabilities & CAPABILITY_NFC_WAKE)) {
                 wakeUpReason = WAKEUP_REASON_NFC;
                 P1CHSTA &= ~(1 << 3);
@@ -363,8 +367,9 @@ void doSleep(const uint32_t __xdata t) {
             }
 #endif
             break;
-        case RADIO_WAKE_REASON_RF:
-            wakeUpReason = WAKEUP_REASON_RF;
+        case RADIO_WAKE_REASON_TIMER:
+            // this stops the compiler from whining about a conditional flow optimization
+            wakeUpReason = wakeUpReason;
             break;
     }
 }
