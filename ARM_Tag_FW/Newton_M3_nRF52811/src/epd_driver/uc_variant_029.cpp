@@ -116,6 +116,7 @@ void draw() {
     drawNoWait();
     epdBusyWaitRising(50000);
 }
+
 void drawNoWait() {
     epdWriteDisplayData();
     epd_cmd(EPD_CMD_POWER_ON);

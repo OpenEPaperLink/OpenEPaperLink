@@ -61,7 +61,8 @@ void setupPortsInitial() {
     pinMode(NFC_POWER, INPUT_PULLDOWN);
     pinMode(NFC_IRQ, INPUT_PULLDOWN);
 
-    pinMode(EPD_POWER, DEFAULT);
+    pinMode(EPD_POWER, OUTPUT);
+    digitalWrite(EPD_POWER, LOW);
 
     pinMode(FLASH_MISO, INPUT);
     pinMode(FLASH_CLK, OUTPUT);
@@ -148,7 +149,7 @@ void powerUp(const uint8_t parts) {
         epdSetup();
     }
 
-    if (parts & INIT_EPD_VOLTREADING) {
+    if (parts & INIT_VOLTREADING) {
         getVoltage();
         if (batteryVoltage < BATTERY_VOLTAGE_MINIMUM) {
             lowBattery = true;
@@ -198,7 +199,6 @@ void powerDown(const uint8_t parts) {
         configEEPROM(false);
     }
     if (parts & INIT_EPD) {
-        epdConfigGPIO(true);
         epdEnterSleep();
         epdConfigGPIO(false);
     }
@@ -211,7 +211,7 @@ void powerDown(const uint8_t parts) {
 }
 
 void doSleep(const uint32_t t) {
-    printf("Sleeping for: %lu ms\r\n", t);
+    //printf("Sleeping for: %lu ms\r\n", t);
     sleepForMs(t);
 }
 

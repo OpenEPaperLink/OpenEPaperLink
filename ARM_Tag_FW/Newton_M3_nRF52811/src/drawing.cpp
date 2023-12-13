@@ -6,7 +6,10 @@
 #include <stdlib.h>
 
 #include "eeprom.h"
-#include "proto.h"
+
+#include "../../../oepl-proto.h"
+#include "../../../oepl-definitions.h"
+
 #include "userinterface.h"  // for addIcons
 
 #include "powermgt.h"

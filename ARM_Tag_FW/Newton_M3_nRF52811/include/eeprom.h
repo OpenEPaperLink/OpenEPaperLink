@@ -36,6 +36,7 @@ struct EepromImageHeader {
 	uint32_t size;
 	uint8_t dataType;
 	uint32_t id;
+	uint8_t argument;
 };
 
 #endif

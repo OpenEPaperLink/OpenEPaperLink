@@ -43,11 +43,10 @@ void addOverlay() {
         noAPShown = false;
     }
 
-    lowBattery = true;
     if (lowBattery) {
         drawMask(UI_SCREEN_WIDTH - 27, UI_SCREEN_HEIGHT - 26, 22, 22, COLOR_BLACK);
         drawMask(UI_SCREEN_WIDTH - 27, UI_SCREEN_HEIGHT - 26, 22, 22, COLOR_RED);
-        drawRoundedRectangle(UI_SCREEN_WIDTH - 28, UI_SCREEN_HEIGHT - 27, 24, 24, COLOR_RED);
+        drawRoundedRectangle(UI_SCREEN_WIDTH - 28, UI_SCREEN_HEIGHT - 26, 24, 24, COLOR_RED);
         addBufferedImage(UI_SCREEN_WIDTH - 24, UI_SCREEN_HEIGHT - 19, COLOR_BLACK, rotation::ROTATE_0, battery, DRAW_NORMAL);
 
         lowBatteryShown = true;
@@ -69,7 +68,7 @@ void showSplashScreen() {
     fr.setFont(&FreeSans9pt7b);
     fr.epdPrintf(10, 38, COLOR_RED, rotation::ROTATE_0, "Newton M3 2.2\"");
     // fr.setFont(&FreeSans9pt7b);
-    fr.epdPrintf(5, UI_SCREEN_HEIGHT - 40, 0, rotation::ROTATE_0, "FW: %d.%d.%d-%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+    fr.epdPrintf(5, UI_SCREEN_HEIGHT - 40, 0, rotation::ROTATE_0, "FW: %04X-%s", fwVersion, fwVersionSuffix);
     fr.epdPrintf(5, UI_SCREEN_HEIGHT - 20, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
     addQR(UI_SCREEN_WIDTH - 120, 42, 3, 3, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", HW_TYPE, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
 #endif
@@ -79,7 +78,7 @@ void showSplashScreen() {
     fr.setFont(&FreeSans9pt7b);
     fr.epdPrintf(10, 38, 1, rotation::ROTATE_0, "Newton M3 2.9\"");
     // fr.setFont(&FreeSans9pt7b);
-    fr.epdPrintf(UI_SCREEN_WIDTH - 17, 0, 0, rotation::ROTATE_270, "FW: %d.%d.%d-%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+    fr.epdPrintf(UI_SCREEN_WIDTH - 17, 0, 0, rotation::ROTATE_270, "FW: %04X-%s", fwVersion, fwVersionSuffix);
     fr.epdPrintf(5, UI_SCREEN_HEIGHT - 20, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
     addQR(UI_SCREEN_WIDTH - 120, 42, 3, 3, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", HW_TYPE, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
 #endif
@@ -89,7 +88,7 @@ void showSplashScreen() {
     fr.setFont(&FreeSansBold18pt7b);
     fr.epdPrintf(15, 60, COLOR_RED, rotation::ROTATE_0, "Newton M3 4.3\"");
     fr.setFont(&FreeSans9pt7b);
-    fr.epdPrintf(UI_SCREEN_WIDTH - 17, 0, 0, rotation::ROTATE_270, "FW: %d.%d.%d-%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+    fr.epdPrintf(UI_SCREEN_WIDTH - 17, 0, 0, rotation::ROTATE_270, "FW: %04X-%s", fwVersion, fwVersionSuffix);
     fr.epdPrintf(10, UI_SCREEN_HEIGHT - 25, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
     addQR(UI_SCREEN_WIDTH - 120, 32, 3, 3, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", HW_TYPE, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
 #endif
@@ -99,7 +98,7 @@ void showSplashScreen() {
     fr.setFont(&FreeSansBold18pt7b);
     fr.epdPrintf(15, 60, 1, rotation::ROTATE_0, "Newton M3 6.0\"");
     fr.setFont(&FreeSans9pt7b);
-    fr.epdPrintf(UI_SCREEN_WIDTH - 17, 310, 0, rotation::ROTATE_270, "FW: %d.%d.%d-%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+    fr.epdPrintf(UI_SCREEN_WIDTH - 17, 310, 0, rotation::ROTATE_270, "FW: %04X-%s", fwVersion, fwVersionSuffix);
     fr.epdPrintf(10, UI_SCREEN_HEIGHT - 25, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
     addFlashImage(293, 61, COLOR_BLACK, rotation::ROTATE_0, newton);
     addQR(40, 120, 3, 7, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", HW_TYPE, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
@@ -110,7 +109,7 @@ void showSplashScreen() {
     fr.setFont(&FreeSansBold18pt7b);
     fr.epdPrintf(15, 60, COLOR_RED, rotation::ROTATE_0, "Newton M3 7.5\"");
     fr.setFont(&FreeSans9pt7b);
-    fr.epdPrintf(UI_SCREEN_WIDTH - 17, 310, 0, rotation::ROTATE_270, "FW: %d.%d.%d-%s", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+    fr.epdPrintf(UI_SCREEN_WIDTH - 17, 310, 0, rotation::ROTATE_270, "FW: %04X-%s", fwVersion, fwVersionSuffix);
     fr.epdPrintf(10, UI_SCREEN_HEIGHT - 25, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
     addFlashImage(420, 81, COLOR_BLACK, rotation::ROTATE_0, newton);
     addQR(100, 160, 3, 7, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", HW_TYPE, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);

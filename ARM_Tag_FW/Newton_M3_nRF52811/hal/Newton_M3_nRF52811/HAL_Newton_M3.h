@@ -55,7 +55,7 @@
 #define DBG_RXD 26
 #define DBG_TEST 27
 
-#define BATTERY_VOLTAGE_MINIMUM 2450  // 2600 or below is the best we can do on the EPD
+#define EEPROM_SETTINGS_AREA_START 0
 
 void initRTC0(uint32_t ms);
 int8_t startHFCLK(void);
@@ -68,7 +68,7 @@ void resettimer();
 extern uint16_t batteryVoltage;
 extern bool lowBattery;
 extern int8_t temperature;
-extern bool disablePinInterruptSleep;
+//extern bool disablePinInterruptSleep;
 
 void setupBatteryVoltage();
 void getVoltage();

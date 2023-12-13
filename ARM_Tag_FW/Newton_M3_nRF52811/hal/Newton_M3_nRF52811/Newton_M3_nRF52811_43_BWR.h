@@ -5,7 +5,7 @@
 #include "HAL_Newton_M3.h"
 
 
-#define EEPROM_IMG_EACH (0x05000UL) // 800 * 480 * 2 / 8 = 0x17700
+#define EEPROM_IMG_EACH (0x05000UL)
 
 // Mac fixed part
 // 06F66008B7D0 (B7D)

@@ -3,8 +3,24 @@
 
 #include <stdint.h>
 
-#define FW_VERSION 16            // version number (max 2.5.5 :) )
-#define FW_VERSION_SUFFIX "BETA3"  // suffix, like -RC1 or whatever.
-// #define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
-// #define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
+#define FW_VERSION 0x0024        // version number (max 2.5.5 :) )
+#define FW_VERSION_SUFFIX "SET"  // suffix, like RC1 or whatever.
+//#define DEBUGBLOCKS              // uncomment to enable extra debug information on the block transfers
 #endif
+
+#define SETTINGS_STRUCT_VERSION 0x01
+
+#define DEFAULT_SETTING_FASTBOOT 0
+#define DEFAULT_SETTING_RFWAKE 0
+#define DEFAULT_SETTING_TAGROAMING 0
+#define DEFAULT_SETTING_SCANFORAP 1
+#define DEFAULT_SETTING_LOWBATSYMBOL 1
+#define DEFAULT_SETTING_NORFSYMBOL 1
+
+extern struct tagsettings tagSettings;
+
+void loadDefaultSettings();
+void writeSettings();
+void loadSettings();
+void loadSettingsFromBuffer(uint8_t* p);
+void invalidateSettingsEEPROM();

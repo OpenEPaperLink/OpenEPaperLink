@@ -105,21 +105,6 @@ static void shortCommand1(uint8_t cmd, uint8_t arg) {
     spi_write(arg);
     epdDeselect();
 }
-static void shortCommand2(uint8_t cmd, uint8_t arg1, uint8_t arg2) {
-    epdSelect();
-    markCommand();
-    spi_write(cmd);
-    markData();
-    spi_write(arg1);
-    spi_write(arg2);
-    epdDeselect();
-}
-static void commandBegin(uint8_t cmd) {
-    epdSelect();
-    markCommand();
-    spi_write(cmd);
-    markData();
-}
 
 void setWindowX(uint16_t start, uint16_t end) {
     epdWrite(CMD_WINDOW_X_SIZE, 2, start / 8, end / 8 - 1);
@@ -169,13 +154,6 @@ void epdSetup() {
     epdWrite(CMD_ACTIVATION, 0);
     epdBusyWaitFalling(10000);
     isInited = true;
-}
-static uint8_t epdGetStatus() {
-    uint8_t sta;
-    commandReadBegin(0x2F);
-    sta = epdReadByte();
-    commandReadEnd();
-    return sta;
 }
 
 void epdWriteDisplayData() {

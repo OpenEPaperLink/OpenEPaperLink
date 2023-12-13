@@ -2,7 +2,7 @@
 #include "eeprom.h"
 #include "comms.h"
 #include "powermgt.h"
-#include "proto.h"
+
 #include "syncedproto.h"
 #include "hal.h"
 
