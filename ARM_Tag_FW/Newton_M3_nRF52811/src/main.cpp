@@ -103,8 +103,9 @@ void TagAssociated() {
     // associated
     bool fastNextCheckin = false;
     struct AvailDataInfo *avail;
+    static bool buttonCheckOut = false;  // send another full request if the previous was a trigger reason (buttons, nfc)
     // Is there any reason why we should do a long (full) get data request (including reason, status)?
-    if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
+    if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED || buttonCheckOut) {
         // check if we should do a voltage measurement (those are pretty expensive)
         if (voltageCheckCounter == VOLTAGE_CHECK_INTERVAL) {
             powerUp(INIT_VOLTREADING);
@@ -161,8 +162,16 @@ void TagAssociated() {
         if (avail != NULL) {
             // we got some data!
             longDataReqCounter = 0;
+            if (buttonCheckOut == true) {
+                buttonCheckOut = false;
+            }
+
             // since we've had succesful contact, and communicated the wakeup reason succesfully, we can now reset to the 'normal' status
+            if ((wakeUpReason == WAKEUP_REASON_BUTTON1) | (wakeUpReason == WAKEUP_REASON_BUTTON2) | (wakeUpReason == WAKEUP_REASON_NFC) | (wakeUpReason == CUSTOM_IMAGE_RF_WAKE)) {
+                buttonCheckOut = true;
+            }
             wakeUpReason = WAKEUP_REASON_TIMED;
+            
         }
         if (tagSettings.enableTagRoaming) {
             uint8_t roamChannel = channelSelect(1);
@@ -463,7 +472,7 @@ void loop() {
     printf("%02X%02X", mSelfMac[4], mSelfMac[5]);
     printf("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
 
-    //capabilities/options
+    // capabilities/options
     capabilities |= CAPABILITY_HAS_NFC;
     capabilities |= CAPABILITY_NFC_WAKE;
 
