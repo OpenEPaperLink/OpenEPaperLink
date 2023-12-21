@@ -1,0 +1,18 @@
+{
+	"name": "EL043H3WRA 4.3\"",
+	"width": 522,
+	"height": 152,
+		"rotatebuffer": 1,
+	"bpp": 2,
+	"colors": 3,
+	"colortable": {
+		"white": [255, 255, 255],
+		"black": [0, 0, 0],
+		"red": [255, 0, 0],
+		"gray": [150, 150, 150]
+	},
+	"shortlut": 0,
+	"options": ["button"],
+    "contentids": [ 0, 1, 2, 3, 4, 8, 16, 9, 7, 19, 10, 11, 21 ],
+    "usetemplate": 1
+}
