@@ -23,6 +23,11 @@
 #include "../hal/Newton_M3_nRF52811/HAL_Newton_M3.h"
 #endif
 
+#ifdef BUILD_NEWTON_M3_97_BWR
+#include "../hal/Newton_M3_nRF52811/Newton_M3_nRF52811_97_BWR.h"
+#include "../hal/Newton_M3_nRF52811/HAL_Newton_M3.h"
+#endif
+
 #ifdef BUILD_NEWTON_M3_29_VAR1_BWR
 #include "../hal/Newton_M3_nRF52811/Newton_M3_nRF52811_29_VAR1_BWR.h"
 #include "../hal/Newton_M3_nRF52811/HAL_Newton_M3.h"

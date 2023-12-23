@@ -115,6 +115,18 @@ void showSplashScreen() {
     addQR(100, 160, 3, 7, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", HW_TYPE, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
 
 #endif
+#if (HW_TYPE == SOLUM_M3_BWR_97)
+    fontrender fr(&FreeSansBold24pt7b);
+    fr.epdPrintf(10, 10, COLOR_BLACK, rotation::ROTATE_0, "OpenEPaperLink");
+    fr.setFont(&FreeSansBold18pt7b);
+    fr.epdPrintf(15, 60, COLOR_RED, rotation::ROTATE_0, "Newton M3 9.7\"");
+    fr.setFont(&FreeSans9pt7b);
+    fr.epdPrintf(UI_SCREEN_WIDTH - 37, 310, 0, rotation::ROTATE_270, "FW: %04X-%s", fwVersion, fwVersionSuffix);
+    fr.epdPrintf(10, UI_SCREEN_HEIGHT - 25, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+    addFlashImage(220, 420, COLOR_BLACK, rotation::ROTATE_0, newton);
+    addQR(260, 160, 3, 7, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", HW_TYPE, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+
+#endif
     draw();
 }
 
@@ -200,6 +212,19 @@ void showAPFound() {
     fr.epdPrintf(10, UI_SCREEN_HEIGHT - 25, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
     addQR(UI_SCREEN_WIDTH - 66, 47, 3, 2, "https://openepaperlink.eu/tag/1/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", HW_TYPE, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
 #endif
+#if (HW_TYPE == SOLUM_M3_BWR_97)
+    fontrender fr(&FreeSansBold18pt7b);
+    fr.epdPrintf(7, 7, COLOR_BLACK, rotation::ROTATE_0, "AP Found - Waiting for data");
+    fr.setFont(&FreeSans9pt7b);
+    fr.epdPrintf(15, 55, COLOR_RED, rotation::ROTATE_0, "AP: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", APmac[7], APmac[6], APmac[5], APmac[4], APmac[3], APmac[2], APmac[1], APmac[0]);
+    fr.epdPrintf(15, 73, COLOR_RED, rotation::ROTATE_0, "RSSI: %ddBm    LQI: %d", mLastRSSI, mLastLqi);
+    fr.setFont(&FreeSansBold18pt7b);
+    fr.epdPrintf(270, 55, COLOR_RED, rotation::ROTATE_0, "Ch %d", currentChannel);
+    fr.setFont(&FreeSans9pt7b);
+    fr.epdPrintf(10, UI_SCREEN_HEIGHT - 43, 0, rotation::ROTATE_0, "Battery: %d.%dV Temp: %d'C", batteryVoltage / 1000, batteryVoltage % 1000, temperature);
+    fr.epdPrintf(10, UI_SCREEN_HEIGHT - 25, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+    addQR(UI_SCREEN_WIDTH - 66, 47, 3, 2, "https://openepaperlink.eu/tag/1/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", HW_TYPE, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+#endif
     addOverlay();
     draw();
 }
@@ -249,6 +274,17 @@ void showNoAP() {
     addFlashImage(112, 242, COLOR_RED, rotation::ROTATE_0, pandared);
 #endif
 #if (HW_TYPE == SOLUM_M3_BWR_75)
+    fontrender fr(&FreeSansBold18pt7b);
+    fr.epdPrintf(7, 7, COLOR_BLACK, rotation::ROTATE_0, "No AP Found          U_U");
+    fr.setFont(&FreeSans9pt7b);
+    addQR(UI_SCREEN_WIDTH - 66, 47, 3, 2, "https://openepaperlink.eu/tag/1/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", HW_TYPE, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+    fr.epdPrintf(10, 39, COLOR_BLACK, rotation::ROTATE_0, "Couldn't find an AP :(");
+    fr.epdPrintf(10, 58, COLOR_BLACK, rotation::ROTATE_0, "I'll try again in a little while, but you");
+    fr.epdPrintf(10, 77, COLOR_BLACK, rotation::ROTATE_0, "can force a retry now by pressing a button");
+    addFlashImage(200, 128, COLOR_BLACK, rotation::ROTATE_0, pandablack);
+    addFlashImage(312, 274, COLOR_RED, rotation::ROTATE_0, pandared);
+#endif
+#if (HW_TYPE == SOLUM_M3_BWR_97)
     fontrender fr(&FreeSansBold18pt7b);
     fr.epdPrintf(7, 7, COLOR_BLACK, rotation::ROTATE_0, "No AP Found          U_U");
     fr.setFont(&FreeSans9pt7b);
