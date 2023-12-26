@@ -1007,13 +1007,14 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
         }
         case DATATYPE_COMMAND_DATA:
             memcpy(&xferDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
-            powerUp(INIT_RADIO);
-            sendXferComplete();
-            powerDown(INIT_RADIO);
             if (avail->dataTypeArgument == 4) {
                 Serial.println("LED CMD");
                 setled(xferDataInfo.dataVer, xferDataInfo.dataSize);
-            } else {
+            }
+            powerUp(INIT_RADIO);
+            sendXferComplete();
+            powerDown(INIT_RADIO);
+            if (avail->dataTypeArgument != 4) {
                 executeCommand(xferDataInfo.dataTypeArgument);
             }
             return true;
