@@ -4,10 +4,10 @@
 #include "wdt.h"
 
 int8_t temperature = 0;
-uint32_t batteryRaw = 0;
 uint16_t batteryVoltage = 0;
+uint32_t batteryRaw = 0;
+uint32_t flashposition = 0;
 bool lowBattery = false;
-
 bool disablePinInterruptSleep = false;
 
 int8_t startHFCLK(void) {
@@ -164,9 +164,10 @@ bool interrupted = false;
 
 // uint8_t ledcfg[12] = {0b00100010,0x78,0b00100100,5,0x03,0b01000011,1,0xC2,0b1100001,10,10,0};
 // uint8_t ledcfg[12] = {0b00010010,0x7D,0,0,0x03,0xE8,0,0,0,0,0,0};
-uint8_t ledcfg[12] = {255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t ledcfg[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 void setled(uint64_t parta, u_int32_t partb) {
+    flashposition = 0;
     ledcfg[0] = parta & 0xFF;
     ledcfg[1] = (parta >> 8) & 0xFF;
     ledcfg[2] = (parta >> 16) & 0xFF;
@@ -248,55 +249,40 @@ void sleepwithinterrupts(uint32_t sleepinterval) {
 
 void ledflashlogic(uint32_t ms) {
     watchdog_enable(ms + 1000);
-    uint8_t brightness = ledcfg[0] >> 4 & 0b00001111;
+    uint8_t brightness = (ledcfg[0] >> 4 & 0b00001111) + 1;
     uint8_t mode = ledcfg[0] & 0b00001111;
     // lets not blink for short delays
-    if (ms < 2000) mode = 15;
+    if (ms < 2000) mode = 0;
     if (mode == 1) {
-        uint8_t color = ledcfg[1];
-        uint32_t ledinerv = (ledcfg[2] << 24) + (ledcfg[3] << 16) + (ledcfg[4] << 8) + ledcfg[5];
-        uint32_t sleepinterval = ledinerv;
-        loops = ms / ledinerv;
-        if (loops == 0) {
-            loops = 1;
-            sleepinterval = ms;
-        }
-        if (sleepinterval > ms) sleepinterval = ms;
-        for (uint32_t i = 0; i < loops; i++) {
-            flashled(color, brightness);
-            sleepwithinterrupts(sleepinterval);
-        }
-    } 
-    else if (mode == 0) {
         interrupted = false;
         uint8_t interloopdelayfactor = 100;
         u_int8_t loopdelayfactor = 100;
         uint8_t c1 = ledcfg[1];
-        uint8_t c2 = ledcfg[3];
-        uint8_t c3 = ledcfg[5];
+        uint8_t c2 = ledcfg[4];
+        uint8_t c3 = ledcfg[7];
         uint8_t loop1delay = (ledcfg[2] >> 4) & 0b00001111;
-        uint8_t loop2delay = (ledcfg[4] >> 4) & 0b00001111;
-        uint8_t loop3delay = (ledcfg[6] >> 4) & 0b00001111;
+        uint8_t loop2delay = (ledcfg[5] >> 4) & 0b00001111;
+        uint8_t loop3delay = (ledcfg[8] >> 4) & 0b00001111;
         uint8_t loopcnt1 = ledcfg[2] & 0b00001111;
-        uint8_t loopcnt2 = ledcfg[4] & 0b00001111;
-        uint8_t loopcnt3 = ledcfg[6] & 0b00001111;
-        uint8_t ildelay1 = 0;
-        uint8_t ildelay2 = 0;
-        uint8_t ildelay3 = 0;
-        uint8_t grouprepeats = ledcfg[7];
+        uint8_t loopcnt2 = ledcfg[5] & 0b00001111;
+        uint8_t loopcnt3 = ledcfg[8] & 0b00001111;
+        uint8_t ildelay1 = ledcfg[3];
+        uint8_t ildelay2 = ledcfg[6];
+        uint8_t ildelay3 = ledcfg[9];
+        uint8_t grouprepeats = ledcfg[10] + 1;
+        uint8_t spare = ledcfg[11];
         uint32_t fulllooptime1 = loopcnt1 * loop1delay * loopdelayfactor + ildelay1 * interloopdelayfactor;
         uint32_t fulllooptime2 = loopcnt2 * loop2delay * loopdelayfactor + ildelay2 * interloopdelayfactor;
         uint32_t fulllooptime3 = loopcnt3 * loop3delay * loopdelayfactor + ildelay3 * interloopdelayfactor;
         uint32_t looptimesum = fulllooptime1 + fulllooptime2 + fulllooptime3;
+        if(looptimesum == 0)looptimesum = 2;
         int fittingrepeats = (int)ms / looptimesum;
 
-        //catch edge case
-        if (grouprepeats == 0) sleepwithinterrupts(ms);
-
         for (int j = 0; j < fittingrepeats; j++) {
-            if(j > grouprepeats){
+            if(flashposition >= grouprepeats &&  grouprepeats != 255){
                     brightness = 0;
-                    ledcfg[0] = 0xff;
+                    ledcfg[0] = 0x00;
+                    flashposition = 0;
             }
             if (!interrupted) {
                 for (int i = 0; i < loopcnt1; i++) {
@@ -324,7 +310,9 @@ void ledflashlogic(uint32_t ms) {
                 sleepwithinterrupts(ildelay3 * interloopdelayfactor);
             }
             if (interrupted) break;
+            flashposition++;
         }
+        if(interrupted)ledcfg[0] = 0x00;
     } else
         sleepwithinterrupts(ms);
 }
