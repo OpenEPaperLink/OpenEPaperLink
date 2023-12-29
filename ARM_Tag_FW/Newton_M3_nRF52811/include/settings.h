@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define FW_VERSION 0x0025        // version number (max 2.5.5 :) )
-#define FW_VERSION_SUFFIX "LED"  // suffix, like RC1 or whatever.
+#define FW_VERSION 0x0026        // version number (max 2.5.5 :) )
+#define FW_VERSION_SUFFIX "LED2"  // suffix, like RC1 or whatever.
 //#define DEBUGBLOCKS              // uncomment to enable extra debug information on the block transfers
 #endif
 

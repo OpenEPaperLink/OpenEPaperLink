@@ -15,6 +15,7 @@
 #include "hal.h"
 #include "userinterface.h"
 #include "wdt.h"
+#include "../hal/Newton_M3_nRF52811/tagtype_db.h"
 
 uint8_t getFirstWakeUpReason();
 
@@ -171,7 +172,6 @@ void TagAssociated() {
                 buttonCheckOut = true;
             }
             wakeUpReason = WAKEUP_REASON_TIMED;
-            
         }
         if (tagSettings.enableTagRoaming) {
             uint8_t roamChannel = channelSelect(1);
@@ -462,8 +462,9 @@ void loop() {
     printf("BOOTED> %04X-%s\n", fwVersion, fwVersionSuffix);
 
     wakeUpReason = getFirstWakeUpReason();
-
+    identifyTagInfo();
     boardGetOwnMac(mSelfMac);
+
     // do something if the mac isn't valid
 
     boardGetOwnMac(mSelfMac);
@@ -473,8 +474,13 @@ void loop() {
     printf("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
 
     // capabilities/options
-    capabilities |= CAPABILITY_HAS_NFC;
     capabilities |= CAPABILITY_NFC_WAKE;
+    if (tag.buttonCount) capabilities |= CAPABILITY_HAS_WAKE_BUTTON;
+    if (tag.hasLED) capabilities |= CAPABILITY_HAS_LED;
+    if (tag.hasNFC) {
+        capabilities |= CAPABILITY_HAS_NFC;
+        capabilities |= CAPABILITY_NFC_WAKE;
+    }
 
     powerUp(INIT_EEPROM);
     loadSettings();

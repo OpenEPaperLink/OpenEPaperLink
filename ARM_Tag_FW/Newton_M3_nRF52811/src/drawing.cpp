@@ -16,22 +16,18 @@
 #include "hal.h"
 #include "qrcode.h"
 
+#include "epd_driver/epd_interface.h"
+
 #define EEPROM_XFER_BLOCKSIZE 512  // shouldn't be any less than 256 bytes probably
 #define DRAWITEM_LIST_SIZE 24
 
 static drawItem *drawItems[DRAWITEM_LIST_SIZE] = {0};
 
-#ifdef EPD_DRAW_DIRECTION_RIGHT
-static bool drawDirection = true;
-#else
-static bool drawDirection = false;
-#endif
-
 void addBufferedImage(uint16_t x, uint16_t y, bool color, enum rotation ro, const uint8_t *image, bool mask) {
     drawItem *di = new drawItem;
 
     di->setRotation(ro);
-    if (di->direction ^ drawDirection) {
+    if (di->direction ^ epd->drawDirectionRight) {
         int16_t temp = x;
         x = y;
         y = temp;
@@ -89,7 +85,7 @@ void addFlashImage(uint16_t x, uint16_t y, bool color, enum rotation ro, const u
 
     di->setRotation(ro);
 
-    if (di->direction ^ drawDirection) {
+    if (di->direction ^ epd->drawDirectionRight) {
         int16_t temp = x;
         x = y;
         y = temp;
@@ -170,7 +166,7 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
             di->xpos = 0;
             di->ypos = 0;
             di->color = 0;
-            di->addItem((uint8_t *)addr, SCREEN_WIDTH, SCREEN_HEIGHT);
+            di->addItem((uint8_t *)addr, epd->effectiveXRes, epd->effectiveYRes);
             di->type = drawItem::drawType::DRAW_EEPROM_1BPP;
             di->direction = false;
             di->cleanUp = false;
@@ -182,7 +178,7 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
             di->xpos = 0;
             di->ypos = 0;
             di->color = 0;
-            di->addItem((uint8_t *)addr, SCREEN_WIDTH, SCREEN_HEIGHT);
+            di->addItem((uint8_t *)addr, epd->effectiveXRes, epd->effectiveYRes);
             di->type = drawItem::drawType::DRAW_EEPROM_2BPP;
             di->direction = false;
             di->cleanUp = false;
@@ -367,16 +363,14 @@ void drawItem::getXLine(uint8_t *line, uint16_t y, uint8_t c) {
             break;
         case DRAW_EEPROM_1BPP:
             if (c != color) return;
-#ifdef EPD_DRAW_DIRECTION_RIGHT
-            y = SCREEN_HEIGHT - 1 - y;
-#endif
-            eepromRead((uint32_t)buffer + sizeof(struct EepromImageHeader) + (y * (SCREEN_WIDTH / 8)), line, (SCREEN_WIDTH / 8));
+            if (epd->drawDirectionRight)
+                y = epd->effectiveYRes - 1 - y;
+            eepromRead((uint32_t)buffer + sizeof(struct EepromImageHeader) + (y * (epd->effectiveXRes / 8)), line, (epd->effectiveXRes / 8));
             break;
         case DRAW_EEPROM_2BPP:
-#ifdef EPD_DRAW_DIRECTION_RIGHT
-            y = SCREEN_HEIGHT - 1 - y;
-#endif
-            eepromRead((uint32_t)buffer + sizeof(struct EepromImageHeader) + ((y + (c * SCREEN_HEIGHT)) * (SCREEN_WIDTH / 8)), line, (SCREEN_WIDTH / 8));
+            if (epd->drawDirectionRight)
+                y = epd->effectiveYRes - 1 - y;
+            eepromRead((uint32_t)buffer + sizeof(struct EepromImageHeader) + ((y + (c * epd->effectiveYRes)) * (epd->effectiveXRes / 8)), line, (epd->effectiveXRes / 8));
             break;
     }
 }
@@ -460,27 +454,18 @@ drawItem::~drawItem() {
 }
 
 drawItem::drawItem() {
-#ifdef EPD_DRAW_DIRECTION_RIGHT
-    direction = true;
-#endif
-#ifdef EPD_MIRROR_H
-    mirrorH = true;
-#endif
-#ifdef EPD_MIRROR_V
-    mirrorV = true;
-#endif
+    if (epd->drawDirectionRight) {
+        direction = true;
+        mirrorH = true;
+    }
 }
 
 void drawItem::setRotation(enum rotation ro) {
-#ifdef EPD_DRAW_DIRECTION_RIGHT
-    direction = true;
-#endif
-#ifdef EPD_MIRROR_H
-    mirrorH = true;
-#endif
-#ifdef EPD_MIRROR_V
-    mirrorV = true;
-#endif
+    if (epd->drawDirectionRight) {
+        direction = true;
+        mirrorH = true;
+    }
+
     switch (ro) {
         case ROTATE_0:
             break;
@@ -591,7 +576,7 @@ void fontrender::epdPrintf(uint16_t x, uint16_t y, bool color, enum rotation ro,
     di->setRotation(ro);
 
     // prepare a drawItem, exchange x/y if necessary.
-    if (di->direction ^ drawDirection) {
+    if (di->direction ^ epd->drawDirectionRight) {
         int16_t temp = x;
         x = y;
         y = temp;

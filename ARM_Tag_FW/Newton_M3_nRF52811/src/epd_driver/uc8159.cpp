@@ -11,6 +11,8 @@
 #include "wdt.h"
 #include "drawing.h"
 
+#include "uc8159.h"
+
 #define CMD_PANEL_SETTING 0x00
 #define CMD_POWER_SETTING 0x01
 #define CMD_POWER_OFF 0x02
@@ -72,7 +74,7 @@
 
 void dump(const uint8_t *a, const uint16_t l);
 
-static void epdEepromRead(uint16_t addr, uint8_t *data, uint16_t len) {
+void uc8159::epdEepromRead(uint16_t addr, uint8_t *data, uint16_t len) {
     // return;
     epdWrite(CMD_SPI_FLASH_CONTROL, 1, 0x01);
     delay(1);
@@ -86,7 +88,7 @@ static void epdEepromRead(uint16_t addr, uint8_t *data, uint16_t len) {
     delay(1);
     epdWrite(CMD_SPI_FLASH_CONTROL, 1, 0x00);
 }
-uint8_t getTempBracket() {
+uint8_t uc8159::getTempBracket() {
     uint8_t temptable[10];
     epdEepromRead(25002, temptable, 10);
     epdWrite(CMD_TEMPERATURE_DOREADING, 0);
@@ -106,7 +108,7 @@ uint8_t getTempBracket() {
     epdHardSPI(true);
     return bracket;
 }
-static void loadFrameRatePLL(uint8_t bracket) {
+void uc8159::loadFrameRatePLL(uint8_t bracket) {
     uint8_t pllvalue;
     uint8_t plltable[10];
     epdEepromRead(0x6410, plltable, 10);
@@ -114,7 +116,7 @@ static void loadFrameRatePLL(uint8_t bracket) {
     if (!pllvalue) pllvalue = 0x3C;  // check if there's a valid pll value; if not; load preset
     epdWrite(CMD_PLL_CONTROL, 1, pllvalue);
 }
-static void loadTempVCOMDC(uint8_t bracket) {
+void uc8159::loadTempVCOMDC(uint8_t bracket) {
     uint8_t vcomvalue;
     uint8_t vcomtable[10];
     epdEepromRead(25049, vcomtable, 10);
@@ -130,11 +132,11 @@ static void loadTempVCOMDC(uint8_t bracket) {
     epdWrite(CMD_VCOM_DC_SETTING, 1, vcomvalue);
 }
 
-void epdEnterSleep() {
+void uc8159::epdEnterSleep() {
     epdWrite(CMD_POWER_OFF, 0);
     epdBusyWaitRising(250);
 }
-void epdSetup() {
+void uc8159::epdSetup() {
     epdReset();
     digitalWrite(EPD_BS, LOW);
 
@@ -160,7 +162,7 @@ void epdSetup() {
     epdBusyWaitRising(250);
 }
 
-static void interleaveColorToBuffer(uint8_t *dst, uint8_t b, uint8_t r) {
+void uc8159::interleaveColorToBuffer(uint8_t *dst, uint8_t b, uint8_t r) {
     b ^= 0xFF;
     uint8_t b_out = 0;
     for (int8_t shift = 3; shift >= 0; shift--) {
@@ -186,7 +188,7 @@ static void interleaveColorToBuffer(uint8_t *dst, uint8_t b, uint8_t r) {
     }
 }
 
-void selectLUT(uint8_t lut) {
+void uc8159::selectLUT(uint8_t lut) {
     // implement alternative LUTs here. Currently just reset the watchdog to two minutes,
     // to ensure it doesn't reset during the much longer bootup procedure
     lut += 1;  // make the compiler a happy camper
@@ -194,17 +196,17 @@ void selectLUT(uint8_t lut) {
     return;
 }
 
-static void epdWriteDisplayData() {
-    uint8_t screenrow_bw[SCREEN_WIDTH / 8];
-    uint8_t screenrow_r[SCREEN_WIDTH / 8];
-    uint8_t screenrowInterleaved[SCREEN_WIDTH / 8 * 4];
+void uc8159::epdWriteDisplayData() {
+    uint8_t screenrow_bw[epd->effectiveXRes / 8];
+    uint8_t screenrow_r[epd->effectiveXRes / 8];
+    uint8_t screenrowInterleaved[epd->effectiveXRes / 8 * 4];
 
     epd_cmd(CMD_DISPLAY_START_TRANSMISSION_DTM1);
     markData();
     epdSelect();
-    for (uint16_t curY = 0; curY < SCREEN_HEIGHT; curY++) {
-        memset(screenrow_bw, 0, SCREEN_WIDTH / 8);
-        memset(screenrow_r, 0, SCREEN_WIDTH / 8);
+    for (uint16_t curY = 0; curY < epd->effectiveYRes; curY++) {
+        memset(screenrow_bw, 0, epd->effectiveXRes / 8);
+        memset(screenrow_r, 0, epd->effectiveXRes / 8);
         drawItem::renderDrawLine(screenrow_bw, curY, 0);
         drawItem::renderDrawLine(screenrow_r, curY, 1);
         if (curY != 0) {
@@ -212,10 +214,10 @@ static void epdWriteDisplayData() {
             epdDeselect();
             epdSelect();
         }
-        for (uint16_t curX = 0; curX < (SCREEN_WIDTH / 8); curX++) {
+        for (uint16_t curX = 0; curX < (epd->effectiveXRes / 8); curX++) {
             interleaveColorToBuffer(screenrowInterleaved + (curX * 4), screenrow_bw[curX], screenrow_r[curX]);
         }
-        epdSPIAsyncWrite(screenrowInterleaved, SCREEN_WIDTH / 8 * 4);
+        epdSPIAsyncWrite(screenrowInterleaved, epd->effectiveXRes / 8 * 4);
     }
     epdSPIWait();
 
@@ -225,19 +227,16 @@ static void epdWriteDisplayData() {
     drawItem::flushDrawItems();
 }
 
-void draw() {
+void uc8159::draw() {
     delay(1);
     drawNoWait();
     epdBusyWaitRising(25000);
 }
-void drawNoWait() {
+void uc8159::drawNoWait() {
     epdWriteDisplayData();
     // epdWrite(CMD_LOAD_FLASH_LUT, 1, 0x03);
     epdWrite(CMD_DISPLAY_REFRESH, 0);
 }
-void drawWithSleep() {
-    draw();
-}
-void epdWaitRdy() {
+void uc8159::epdWaitRdy() {
     epdBusyWaitRising(25000);
 }

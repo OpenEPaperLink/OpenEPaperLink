@@ -1,7 +1,6 @@
 #include "zigbee.h"
 #include "epd_spi.h"
 #include "eeprom_spi.h"
-#include "epd_driver/epd_interface.h"
 
 #define RADIO_FIRST_CHANNEL (11)  // 2.4-GHz channels start at 11
 
@@ -74,3 +73,42 @@ void setupBatteryVoltage();
 void getVoltage();
 void setupTemperature();
 void getTemperature();
+
+
+class epdInterface {
+   public:
+    virtual void epdSetup() = 0;
+    virtual void epdEnterSleep() = 0;
+    virtual void draw() = 0;
+    virtual void drawNoWait() = 0;
+    virtual void epdWaitRdy() = 0;
+    virtual void selectLUT(uint8_t lut) = 0;
+    uint8_t controllerType = 0;
+    uint16_t Xres;
+    uint16_t Yres;
+    uint16_t effectiveXRes;
+    uint16_t effectiveYRes;
+    uint16_t XOffset = 0;
+    uint16_t YOffset = 0;
+    bool drawDirectionRight = false;
+    bool epdMirrorV = false;
+    bool epdMirrorH = false;
+//    bool mirrorV = false;
+//    bool mirrorH = false;
+   protected:
+    virtual void epdWriteDisplayData() = 0;
+};
+
+extern epdInterface* epd;
+
+struct tagSpecs {
+    uint8_t buttonCount = 0;
+    bool hasNFC = false;
+    bool hasLED = false;
+    uint16_t macSuffix = 0x0000;
+    uint8_t OEPLtype = 0;
+    uint8_t solumType = 0;
+    uint32_t imageSize = 0;
+};
+
+extern tagSpecs tag;

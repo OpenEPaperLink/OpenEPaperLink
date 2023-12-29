@@ -11,6 +11,7 @@
 #include "hal.h"
 #include "userinterface.h"
 #include "wdt.h"
+#include "epd_driver/epd_interface.h"
 
 uint16_t dataReqAttemptArr[POWER_SAVING_SMOOTHING] = {0};  // Holds the amount of attempts required per data_req/check-in
 uint8_t dataReqAttemptArrayIndex = 0;

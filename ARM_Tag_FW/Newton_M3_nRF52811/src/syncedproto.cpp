@@ -192,7 +192,7 @@ static void sendAvailDataReq() {
     txframe->dstAddr = 0xFFFF;
     txframe->srcPan = PROTO_PAN_ID;
     // TODO: send some (more) meaningful data
-    availreq->hwType = HW_TYPE;
+    availreq->hwType = tag.OEPLtype;
     availreq->wakeupReason = wakeUpReason;
     availreq->lastPacketRSSI = mLastRSSI;
     availreq->lastPacketLQI = mLastLqi;
@@ -442,12 +442,12 @@ static bool validateEepromMD5(uint64_t ver, uint32_t eepromstart, uint32_t flen)
     return isValid;
 }
 static uint32_t getAddressForSlot(const uint8_t s) {
-    return (EEPROM_IMG_EACH * s);
+    return (tag.imageSize * s);
 }
 static void getNumSlots() {
     uint32_t eeSize = eepromGetSize();
 
-    uint16_t nSlots = (eeSize - EEPROM_SETTINGS_SIZE) / (EEPROM_IMG_EACH >> 8) >> 8;
+    uint16_t nSlots = (eeSize - EEPROM_SETTINGS_SIZE) / (tag.imageSize  >> 8) >> 8;
     if (!nSlots) {
         printf("eeprom is too small\n");
         while (1)
@@ -512,7 +512,7 @@ static void eraseUpdateBlock() {
     eepromErase(FW_LOC, (FW_METADATA_LOC + EEPROM_ERZ_SECTOR_SZ) / EEPROM_ERZ_SECTOR_SZ);
 }
 static void eraseImageBlock(const uint8_t c) {
-    eepromErase(getAddressForSlot(c), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
+    eepromErase(getAddressForSlot(c), tag.imageSize  / EEPROM_ERZ_SECTOR_SZ);
 }
 static void saveUpdateBlockData(uint8_t blockId) {
     if (!eepromWrite(FW_LOC + (blockId * BLOCK_DATA_SIZE), blockbuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
@@ -526,7 +526,7 @@ static void saveUpdateMetadata(uint32_t size) {
     eepromWrite(FW_METADATA_LOC, &metadata, sizeof(struct fwmetadata));
 }
 static void saveImgBlockData(const uint8_t imgSlot, const uint8_t blockId) {
-    uint32_t length = EEPROM_IMG_EACH - (sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE));
+    uint32_t length = tag.imageSize  - (sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE));
     if (length > 4096)
         length = 4096;
 
@@ -752,7 +752,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
 
         uint8_t attempt = 5;
         while (attempt--) {
-            if (eepromErase(getAddressForSlot(xferImgSlot), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ)) goto eraseSuccess;
+            if (eepromErase(getAddressForSlot(xferImgSlot), tag.imageSize  / EEPROM_ERZ_SECTOR_SZ)) goto eraseSuccess;
         }
     eepromFail:
         powerDown(INIT_RADIO);
@@ -835,7 +835,7 @@ bool processImageDataAvail(struct AvailDataInfo *avail) {
             default: {
                 uint8_t slot = findSlotDataTypeArg(avail->dataTypeArgument);
                 if (slot != 0xFF) {
-                    eepromErase(getAddressForSlot(slot), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
+                    eepromErase(getAddressForSlot(slot), tag.imageSize  / EEPROM_ERZ_SECTOR_SZ);
                 }
             } break;
             // regular image preload, there can be multiple of this type in the EEPROM

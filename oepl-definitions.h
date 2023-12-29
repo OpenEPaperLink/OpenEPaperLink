@@ -1,5 +1,5 @@
-// TAG TYPES
 
+// OEPL TAG TYPES
 // The 'OG' tags in OEPL (mostly M2 tags)
 #define SOLUM_154_SSD1619 0
 #define SOLUM_29_SSD1619 0x01
@@ -7,15 +7,22 @@
 #define SOLUM_42_SSD1619 0x02
 #define SOLUM_SEG_UK 0xF0
 #define SOLUM_SEG_EU 0xF1
+#define RESERVED_TESTING 0xFE
 #define SOLUM_NODISPLAY 0xFF
 #define ESP32_C6 0xC6
 
-// M2 Tags, overflow
+
+
+
+// overflow
 #define SOLUM_M2_BWR_16 0x20
 #define SOLUM_M2_BW_29_LOWTEMP 0x21	// low temperature version of the 2.9 M2 tag
 #define SOLUM_M2_BWR_29 0x23
 #define SOLUM_M2_BWR_42 0x24
 #define SOLUM_M2_BWR_75 0x26
+
+#define SOLUM_M3_BWR_97 0x2E
+#define SOLUM_M3_BWR_43 0x2F
 
 // M3 Tags
 #define SOLUM_M3_BWR_16 0x30
@@ -36,14 +43,26 @@
 #define SOLUM_M3_BWY_116 0x3F
 
 // M3 Tags overflow
-#define SOLUM_M3_BWR_29_UC8151 0x40	// the UC8151 version of this M3 tag
+#define SOLUM_M3_BWR_29_UC8151 0x40	// DEPRECATED! the UC8151 version of this M3 tag
 
 // Hanshow Nebular types
 #define HS_NEBULAR_BWY_35 0x60
 #define HS_NEBULAR_BWR_35 0x61
 #define HS_NEBULAR_BW_35 0x62
 
+// Solum types - customer data byte 16 in M3 (nRF) UICR
+#define STYPE_SIZE_016 0x40
+#define STYPE_SIZE_022 0x41
+#define STYPE_SIZE_029 0x42
+#define STYPE_SIZE_042 0x46
+#define STYPE_SIZE_043 0x47
+#define STYPE_SIZE_060 0x48
+#define STYPE_SIZE_075 0x4C
+#define STYPE_SIZE_097 0x64
 
+
+// Capability flags
+#define CAPABILITY_HAS_LED 0x01
 #define CAPABILITY_SUPPORTS_COMPRESSION 0x02
 #define CAPABILITY_SUPPORTS_CUSTOM_LUTS 0x04
 #define CAPABILITY_ALT_LUT_SIZE 0x08

@@ -57,6 +57,11 @@ class drawItem {
     static void renderDrawLine(uint8_t *line, uint16_t number, uint8_t c);
     static void flushDrawItems();
 
+    // these are also used for rotated screens
+    static void reverseBytes(uint8_t *src, uint8_t src_len);
+    static uint8_t bitReverse(uint8_t byte);
+
+
     enum drawType {
         DRAW_FONT,
         DRAW_BUFFERED_1BPP,
@@ -84,8 +89,7 @@ class drawItem {
 
    protected:
     void copyWithByteShift(uint8_t *dst, uint8_t *src, uint8_t src_len, uint8_t offset);
-    void reverseBytes(uint8_t *src, uint8_t src_len);
-    uint8_t bitReverse(uint8_t byte);
+
 
     void getDrawLine(uint8_t *line, uint16_t number, uint8_t c);
     void getXLine(uint8_t *line, uint16_t yPos, uint8_t color);

@@ -1,7 +1,8 @@
 #include <Arduino.h>
 
-#include "hal.h"
 #include "wdt.h"
+#include "HAL_Newton_M3.h"
+#include "epd_driver/epd_interface.h"
 
 int8_t temperature = 0;
 uint16_t batteryVoltage = 0;
@@ -9,6 +10,9 @@ uint32_t batteryRaw = 0;
 uint32_t flashposition = 0;
 bool lowBattery = false;
 bool disablePinInterruptSleep = false;
+
+epdInterface* epd = nullptr;
+tagSpecs tag;
 
 int8_t startHFCLK(void) {
     if (!isHFCLKstable()) {
@@ -134,8 +138,8 @@ void getTemperature() {
 }
 
 void boardGetOwnMac(uint8_t *mac) {
-    mac[0] = MAC_ID_1;
-    mac[1] = MAC_ID_0;
+    mac[0] = tag.macSuffix & 0xFF;
+    mac[1] = tag.macSuffix >> 8;
     mac[2] = (NRF_UICR->CUSTOMER[0]) & 0xFF;
     mac[3] = (NRF_UICR->CUSTOMER[0] >> 8) & 0xFF;
     mac[4] = (NRF_UICR->CUSTOMER[0] >> 16) & 0xFF;
@@ -275,14 +279,14 @@ void ledflashlogic(uint32_t ms) {
         uint32_t fulllooptime2 = loopcnt2 * loop2delay * loopdelayfactor + ildelay2 * interloopdelayfactor;
         uint32_t fulllooptime3 = loopcnt3 * loop3delay * loopdelayfactor + ildelay3 * interloopdelayfactor;
         uint32_t looptimesum = fulllooptime1 + fulllooptime2 + fulllooptime3;
-        if(looptimesum == 0)looptimesum = 2;
+        if (looptimesum == 0) looptimesum = 2;
         int fittingrepeats = (int)ms / looptimesum;
 
         for (int j = 0; j < fittingrepeats; j++) {
-            if(flashposition >= grouprepeats &&  grouprepeats != 255){
-                    brightness = 0;
-                    ledcfg[0] = 0x00;
-                    flashposition = 0;
+            if (flashposition >= grouprepeats && grouprepeats != 255) {
+                brightness = 0;
+                ledcfg[0] = 0x00;
+                flashposition = 0;
             }
             if (!interrupted) {
                 for (int i = 0; i < loopcnt1; i++) {
@@ -312,7 +316,7 @@ void ledflashlogic(uint32_t ms) {
             if (interrupted) break;
             flashposition++;
         }
-        if(interrupted)ledcfg[0] = 0x00;
+        if (interrupted) ledcfg[0] = 0x00;
     } else
         sleepwithinterrupts(ms);
 }
