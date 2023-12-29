@@ -7,8 +7,6 @@
 
 int defaultLanguage = 0;
 
-String languageList[] = {"EN - English", "NL - Nederlands", "DE - Deutsch", "NO - Norwegian", "FR - French", "CZ - Czech", "SK - Slovak", "PL - Polish", "ES - Spanish"};
-
 /*EN English language section*/
 String languageEnDaysShort[] = {"SU", "MO", "TU", "WE", "TH", "FR", "SA"};
 String languageEnDays[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
@@ -71,7 +69,7 @@ int currentLanguage = defaultLanguage;
 
 void updateLanguageFromConfig() {
     int tempLang = config.language;
-    if (tempLang < 0 || tempLang >= sizeof(languageList)) {
+    if (tempLang < 0 || tempLang > 8) {
         Serial.println("Language not supported");
         return;
     }

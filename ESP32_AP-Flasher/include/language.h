@@ -4,8 +4,6 @@
 
 extern int defaultLanguage;
 
-extern String languageList[];
-
 /*EN English language section*/
 extern String languageEnDaysShort[];
 extern String languageEnDays[];
