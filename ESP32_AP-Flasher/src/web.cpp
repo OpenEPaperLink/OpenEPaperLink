@@ -471,6 +471,9 @@ void init_web() {
         if (request->hasParam("preview", true)) {
             config.preview = static_cast<uint8_t>(request->getParam("preview", true)->value().toInt());
         }
+        if (request->hasParam("lock", true)) {
+            config.lock = static_cast<uint8_t>(request->getParam("lock", true)->value().toInt());
+        }
         if (request->hasParam("sleeptime1", true)) {
             config.sleepTime1 = static_cast<uint8_t>(request->getParam("sleeptime1", true)->value().toInt());
             config.sleepTime2 = static_cast<uint8_t>(request->getParam("sleeptime2", true)->value().toInt());

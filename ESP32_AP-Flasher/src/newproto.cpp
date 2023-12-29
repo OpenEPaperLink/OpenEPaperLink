@@ -56,6 +56,7 @@ void prepareCancelPending(const uint8_t dst[8]) {
 
     tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
+        if (config.lock) return;
         wsErr("Tag not found, this shouldn't happen.");
         return;
     }
@@ -80,6 +81,7 @@ void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin) {
 void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8_t* dst) {
     tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
+        if (config.lock) return;
         wsErr("Tag not found, this shouldn't happen.");
         return;
     }
@@ -129,6 +131,7 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
 
     tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
+        if (config.lock) return true;
         wsErr("Tag not found, this shouldn't happen.");
         return true;
     }
@@ -345,6 +348,7 @@ void processBlockRequest(struct espBlockRequest* br) {
 
     tagRecord* taginfo = tagRecord::findByMAC(br->src);
     if (taginfo == nullptr) {
+        if (config.lock) return;
         prepareCancelPending(br->src);
         Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
         return;
@@ -458,6 +462,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
 
     tagRecord* taginfo = tagRecord::findByMAC(eadr->src);
     if (taginfo == nullptr) {
+        if (config.lock) return;
         taginfo = new tagRecord;
         memcpy(taginfo->mac, eadr->src, sizeof(taginfo->mac));
         taginfo->pending = false;
@@ -657,6 +662,7 @@ void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP) {
     tagRecord* taginfo = tagRecord::findByMAC(taginfoitem->mac);
 
     if (taginfo == nullptr) {
+        if (config.lock) return;
         taginfo = new tagRecord;
         memcpy(taginfo->mac, taginfoitem->mac, sizeof(taginfo->mac));
         taginfo->pending = false;
