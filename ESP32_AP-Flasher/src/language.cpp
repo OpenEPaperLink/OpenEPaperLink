@@ -7,7 +7,7 @@
 
 int defaultLanguage = 0;
 
-String languageList[] = {"EN - English", "NL - Nederlands", "DE - Deutsch", "NO - Norwegian", "CZ - Czech", "SK - Slovak", "PL - Polish", "ES - Spanish"};
+String languageList[] = {"EN - English", "NL - Nederlands", "DE - Deutsch", "NO - Norwegian", "FR - French", "CZ - Czech", "SK - Slovak", "PL - Polish", "ES - Spanish"};
 
 /*EN English language section*/
 String languageEnDaysShort[] = {"SU", "MO", "TU", "WE", "TH", "FR", "SA"};
@@ -57,9 +57,15 @@ String languageEsDays[] = {"Domingo", "Lunes", "Martes", "Miércoles", "Jueves",
 String languageEsMonth[] = {"Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"};
 /*END Spanish language section END*/
 
-String* languageDaysShort[] = {languageEnDaysShort, languageNlDaysShort, languageDeDaysShort, languageNoDaysShort, languageCzDaysShort, languageSkDaysShort, languagePlDaysShort, languageEsDaysShort};
-String* languageDays[] = {languageEnDays, languageNlDays, languageDeDays, languageNoDays, languageCzDays, languageSkDays, languagePlDays, languageEsDays};
-String* languageMonth[] = {languageEnMonth, languageNlMonth, languageDeMonth, languageNoMonth, languageCzMonth, languageSkMonth, languagePlMonth, languageEsMonth};
+/*FR French language section*/
+String languageFrDaysShort[] = {"DI", "LU", "MA", "ME", "JE", "VE", "SA"};
+String languageFrDays[] = {"Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"};
+String languageFrMonth[] = {"Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin", "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre"};
+/*END French language section END*/
+
+String* languageDaysShort[] = {languageEnDaysShort, languageNlDaysShort, languageDeDaysShort, languageNoDaysShort, languageFrDaysShort, languageCzDaysShort, languageSkDaysShort, languagePlDaysShort, languageEsDaysShort};
+String* languageDays[] = {languageEnDays, languageNlDays, languageDeDays, languageNoDays, languageFrDays, languageCzDays, languageSkDays, languagePlDays, languageEsDays};
+String* languageMonth[] = {languageEnMonth, languageNlMonth, languageDeMonth, languageNoMonth, languageFrMonth, languageCzMonth, languageSkMonth, languagePlMonth, languageEsMonth};
 
 int currentLanguage = defaultLanguage;
 

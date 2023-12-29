@@ -24,7 +24,7 @@
 #define DETECT_P1_0_BUTTON 1
 #define DETECT_P1_0_JIG 2
 
-#define INIT_EPD_VOLTREADING 0x80
+#define INIT_VOLTREADING 0x80
 #define INIT_RADIO 0x40
 #define INIT_I2C 0x20
 #define INIT_UART 0x10
@@ -47,6 +47,8 @@
 #define LONG_DATAREQ_INTERVAL 300   // How often (in seconds, approximately) the tag should do a long datareq (including temperature)
 #define VOLTAGE_CHECK_INTERVAL 288  // How often the tag should do a battery voltage check (multiplied by LONG_DATAREQ_INTERVAL)
 
+#define BATTERY_VOLTAGE_MINIMUM 2450  // 2600 or below is the best we can do on the EPD
+
 // power saving when no AP's were found (scanning every X)
 #define VOLTAGEREADING_DURING_SCAN_INTERVAL 2  // how often we should read voltages; this is done every scan attempt in interval bracket 3
 #define INTERVAL_1_TIME 3600UL                 // Try every hour
@@ -54,6 +56,13 @@
 #define INTERVAL_2_TIME 7200UL                 // Try every 2 hours
 #define INTERVAL_2_ATTEMPTS 12                 // for 12 attempts (an additional day)
 #define INTERVAL_3_TIME 86400UL                // Finally, try every day
+
+// slideshow power settings
+#define SLIDESHOW_FORCE_FULL_REFRESH_EVERY 16  // force a full refresh every X screen draws
+#define SLIDESHOW_INTERVAL_FAST 15             // interval for 'fast'
+#define SLIDESHOW_INTERVAL_MEDIUM 60  
+#define SLIDESHOW_INTERVAL_SLOW 300  
+#define SLIDESHOW_INTERVAL_GLACIAL 1800
 
 extern uint8_t checkButtonOrJig();
 

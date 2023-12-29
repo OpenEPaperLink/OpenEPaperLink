@@ -3,17 +3,11 @@
 
 #include <string.h>
 
-#include "proto.h"
+#include "../../../oepl-proto.h"
+#include "../../../oepl-definitions.h"
+
 #include "hal.h"
 
-#define ADDR_MODE_NONE (0)
-#define ADDR_MODE_SHORT (2)
-#define ADDR_MODE_LONG (3)
-
-#define FRAME_TYPE_BEACON (0)
-#define FRAME_TYPE_DATA (1)
-#define FRAME_TYPE_ACK (2)
-#define FRAME_TYPE_MAC_CMD (3)
 
 extern uint8_t mSelfMac[8];
 uint8_t mLastLqi = 0;

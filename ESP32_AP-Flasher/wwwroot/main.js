@@ -590,6 +590,7 @@ document.addEventListener("loadTab", function (event) {
 					$("#apclatency").value = data.maxsleep;
 					$("#apcpreventsleep").value = data.stopsleep;
 					$("#apcpreview").value = data.preview;
+					$("#apclock").value = data.lock;
 					$("#apcwifipower").value = data.wifipower;
 					$("#apctimezone").value = data.timezone;
 					$("#apcnight1").value = data.sleeptime1;
@@ -614,6 +615,7 @@ $('#apcfgsave').onclick = function () {
 	formData.append('maxsleep', $('#apclatency').value);
 	formData.append('stopsleep', $('#apcpreventsleep').value);
 	formData.append('preview', $('#apcpreview').value);
+	formData.append('lock', $('#apclock').value);
 	formData.append('wifipower', $('#apcwifipower').value);
 	formData.append('timezone', $('#apctimezone').value);
 	formData.append('sleeptime1', $('#apcnight1').value);
@@ -858,7 +860,7 @@ function processQueue() {
 		return;
 	}
 	const { id, imageSrc } = imageQueue.shift();
-	const hwtype = $('#tag' + id).dataset.hwtype;
+	const hwtype = $('#tag' + id).dataset?.hwtype;
 	if (tagTypes[hwtype]?.busy) {
 		imageQueue.push({ id, imageSrc });
 		setTimeout(processQueue, 100);
@@ -1076,7 +1078,7 @@ async function getTagtype(hwtype) {
 		tagTypes[hwtype] = { busy: true };
 		const response = await fetch('/tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json');
 		if (!response.ok) {
-			let data = { name: 'unknown id ' + hwtype, width: 0, height: 0, bpp: 0, rotatebuffer: 0, colortable: [], busy: false };
+			let data = { name: 'unknown id ' + hwtype.toString(16), width: 0, height: 0, bpp: 0, rotatebuffer: 0, colortable: [], busy: false };
 			tagTypes[hwtype] = data;
 			getTagtypeBusy = false;
 			return data;
@@ -1231,22 +1233,25 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 	if (clickedGridItem) {
 		let mac = clickedGridItem.dataset.mac;
 		const hwtype = clickedGridItem.dataset.hwtype;
-		let contextMenuOptions = [
-			{ id: 'refresh', label: 'Force refresh' },
-			{ id: 'clear', label: 'Clear pending status' }
-		];
-		if (clickedGridItem.dataset.isexternal == "false") {
+		let contextMenuOptions = [];
+		if (tagTypes[hwtype]?.width > 0) {
 			contextMenuOptions.push(
-				{ id: 'scan', label: 'Scan channels' },
-				{ id: 'reboot', label: 'Reboot tag' },
+				{ id: 'refresh', label: 'Force refresh' },
+				{ id: 'clear', label: 'Clear pending status' }
 			);
-		};
-		if (tagTypes[hwtype].options?.includes("led")) {
-			contextMenuOptions.push(
-				{ id: 'ledflash', label: 'Flash the LED' },
-				{ id: 'ledflash_long', label: 'Flash the LED (long)' },
-				{ id: 'ledflash_stop', label: 'Stop flashing' }
-			);
+			if (clickedGridItem.dataset.isexternal == "false") {
+				contextMenuOptions.push(
+					{ id: 'scan', label: 'Scan channels' },
+					{ id: 'reboot', label: 'Reboot tag' },
+				);
+			};
+			if (tagTypes[hwtype]?.options?.includes("led")) {
+				contextMenuOptions.push(
+					{ id: 'ledflash', label: 'Flash the LED' },
+					{ id: 'ledflash_long', label: 'Flash the LED (long)' },
+					{ id: 'ledflash_stop', label: 'Stop flashing' }
+				);
+			}
 		}
 		contextMenuOptions.push(
 			{ id: 'del', label: 'Delete tag from list' }

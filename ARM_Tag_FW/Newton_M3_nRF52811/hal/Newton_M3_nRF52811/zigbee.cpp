@@ -13,7 +13,6 @@ uint8_t seq_nr = 0;
 uint8_t get_seq_nr() {
     return seq_nr++;
 }
-static uint8_t mCommsBuf[133];
 
 #define MAX_RX_PKTS 8
 

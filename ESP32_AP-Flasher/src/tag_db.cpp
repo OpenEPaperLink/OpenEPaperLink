@@ -130,9 +130,17 @@ void saveDB(const String& filename) {
 
     Storage.begin();
     xSemaphoreTake(fsMutex, portMAX_DELAY);
+
+    fs::File existingFile = contentFS->open(filename, "r");
+    if (existingFile) {
+        existingFile.close();
+        String backupFilename = filename + ".bak";
+        contentFS->rename(filename.c_str(), backupFilename.c_str());
+    }
+
     fs::File file = contentFS->open(filename, "w");
     if (!file) {
-        Serial.println("saveDB: Failed to open file");
+        Serial.println("saveDB: Failed to open file for writing");
         xSemaphoreGive(fsMutex);
         return;
     }
@@ -307,6 +315,7 @@ void initAPconfig() {
     config.maxsleep = APconfig["maxsleep"] | 10;
     config.stopsleep = APconfig["stopsleep"] | 1;
     config.preview = APconfig["preview"] | 1;
+    config.lock = APconfig["lock"] | 0;
     config.sleepTime1 = APconfig["sleeptime1"] | 0;
     config.sleepTime2 = APconfig["sleeptime2"] | 0;
     // default wifi power 8.5 dbM
@@ -333,6 +342,7 @@ void saveAPconfig() {
     APconfig["maxsleep"] = config.maxsleep;
     APconfig["stopsleep"] = config.stopsleep;
     APconfig["preview"] = config.preview;
+    APconfig["lock"] = config.lock;
     APconfig["wifipower"] = config.wifiPower;
     APconfig["timezone"] = config.timeZone;
     APconfig["sleeptime1"] = config.sleepTime1;

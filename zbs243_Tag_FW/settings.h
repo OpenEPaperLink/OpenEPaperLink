@@ -3,12 +3,15 @@
 
 #include <stdint.h>
 
-#define FW_VERSION 22             // version number (max 2.5.5 :) )
-#define FW_VERSION_SUFFIX "-RFW"  // suffix, like -RC1 or whatever.
-// #define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
-// #define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
-#define ENABLE_GPIO_WAKE            // uncomment to enable GPIO wake
-// #define ENABLE_RETURN_DATA  // enables the tag to send blocks of data back. Enabling this costs about 4 IRAM bytes
+#define FW_VERSION 0x0024         // version number
+#define FW_VERSION_SUFFIX "-SET"  // suffix, like -RC1 or whatever.
+// #define DEBUGBLOCKS            // uncomment to enable extra debug information on the block transfers
+// #define PRINT_LUT              // uncomment if you want the tag to print the LUT for the current temperature bracket
+// #define ENABLE_EEPROM_LOADER   // uncomment if you want to load eeprom images via the serial interface
+#define ENABLE_GPIO_WAKE  // uncomment to enable GPIO wake
+// #define ENABLE_RETURN_DATA   // enables the tag to send blocks of data back. Enabling this costs about 4 IRAM bytes
+// #define LEAN_VERSION          // makes a smaller version, leaving extra flash space for other things
+// #define WRITE_MAC_FROM_FLASH  // takes mac address from flash if none is set in the infopage
 
 #define SETTINGS_STRUCT_VERSION 0x01
 
@@ -42,4 +45,5 @@ void loadDefaultSettings();
 void writeSettings();
 void loadSettings();
 void loadSettingsFromBuffer(uint8_t* p);
+void invalidateSettingsEEPROM();
 #endif

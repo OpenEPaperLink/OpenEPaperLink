@@ -283,7 +283,7 @@ void C6firmwareUpdateTask(void* parameter) {
 }
 
 void handleUpdateC6(AsyncWebServerRequest* request) {
-#ifdef YELLOW_IPS_AP
+#if defined YELLOW_IPS_AP || defined C6_OTA_FLASHING
     uint8_t doDownload = 1;
     if (request->hasParam("download", true)) {
         doDownload = atoi(request->getParam("download", true)->value().c_str());

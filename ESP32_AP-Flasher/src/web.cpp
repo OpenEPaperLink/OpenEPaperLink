@@ -374,9 +374,9 @@ void init_web() {
 
     server.on("/led_flash", HTTP_GET, [](AsyncWebServerRequest *request) {
         //  color picker: https://roger-random.github.io/RGB332_color_wheel_three.js/
-        //  http GET to /led_flash?mac=000000000000&pattern=3/0x1C,4,5/0xE0,3,1/0x4F,5,10/5
-        //  http://192.168.178.198/led_flash?mac=00007E1F250CB29C&pattern=1/0x1C,1,15/0xE0,1,15/0x4F,1,15/1
-        //  (flashDuration/color1,flashCount1,delay1/color2,flashCount2,delay2/color3,flashCount3,delay3/repeats)
+        //  http GET to /led_flash?mac=000000000000&pattern=1,3/0x1C,4,5/0xE0,3,1/0x4F,5,10/5/0,0,0/0
+        //  http://192.168.178.198/led_flash?mac=00007E1F250CB29C&pattern=1,1/0x1C,1,15/0xE0,1,15/0x4F,1,15/1/0,0,0/0
+        //  (mode,flashDuration/color1,flashCount1,flashSpeed1/color2,flashCount2,flashSpeed2/color3,flashCount3,flashSpeed3/repeats/delay1,delay2,delay3/spare)
         if (request->hasParam("mac")) {
             String dst = request->getParam("mac")->value();
             uint8_t mac[8];
@@ -387,30 +387,33 @@ void init_web() {
                         String pattern = request->getParam("pattern")->value();
                         struct ledFlash flashData;
 
-                        int values[13];
+                        int values[18];
                         int numValues = sscanf(
                             pattern.c_str(),
-                            "%i/%i,%i,%i/%i,%i,%i/%i,%i,%i/%i",
-                            &values[1], &values[2], &values[3], &values[4], &values[5],
-                            &values[6], &values[7], &values[8], &values[9], &values[10], &values[11]);
+                            "%i,%i/%i,%i,%i/%i,%i,%i/%i,%i,%i/%i/%i,%i,%i/%i",
+                            &values[16], &values[1], &values[2], &values[3], &values[4], &values[5],&values[6], &values[7], &values[8], &values[9], &values[10], &values[11], &values[12], &values[13], &values[14], &values[15]);
 
-                        if (numValues != 11) {
+                        if (numValues != 16) {
                             request->send(400, "text/plain", "Error: wrong number of inputs in pattern");
                             return;
                         } else {
-                            flashData.mode = 0;
+                            flashData.mode = values[16] & 0x0F;
                             flashData.flashDuration = values[1] & 0x0F;
                             flashData.color1 = values[2];
                             flashData.flashCount1 = values[3] & 0x0F;
-                            flashData.delay1 = values[4] & 0x0F;
+                            flashData.flashSpeed1 = values[4] & 0x0F;
                             flashData.color2 = values[5];
                             flashData.flashCount2 = values[6] & 0x0F;
-                            flashData.delay2 = values[7] & 0x0F;
+                            flashData.flashSpeed2 = values[7] & 0x0F;
                             flashData.color3 = values[8];
                             flashData.flashCount3 = values[9] & 0x0F;
-                            flashData.delay3 = values[10] & 0x0F;
+                            flashData.flashSpeed3 = values[10] & 0x0F;
                             flashData.repeats = values[11];
-                            flashData.spare = 0;
+                            flashData.delay1 = values[12];
+                            flashData.delay2 = values[13];
+                            flashData.delay3 = values[14];
+                            flashData.spare = values[15];
+
 
                             const uint8_t *payload = reinterpret_cast<const uint8_t *>(&flashData);
                             sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
@@ -467,6 +470,9 @@ void init_web() {
         }
         if (request->hasParam("preview", true)) {
             config.preview = static_cast<uint8_t>(request->getParam("preview", true)->value().toInt());
+        }
+        if (request->hasParam("lock", true)) {
+            config.lock = static_cast<uint8_t>(request->getParam("lock", true)->value().toInt());
         }
         if (request->hasParam("sleeptime1", true)) {
             config.sleepTime1 = static_cast<uint8_t>(request->getParam("sleeptime1", true)->value().toInt());

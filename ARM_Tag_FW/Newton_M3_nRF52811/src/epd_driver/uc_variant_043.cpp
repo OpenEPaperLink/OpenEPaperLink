@@ -11,6 +11,9 @@
 #include "wdt.h"
 #include "drawing.h"
 
+#include "epd_interface.h"
+#include "uc_variant_043.h"
+
 #define EPD_CMD_POWER_OFF 0x02
 #define EPD_CMD_POWER_ON 0x04
 #define EPD_CMD_BOOSTER_SOFT_START 0x06
@@ -22,12 +25,16 @@
 #define EPD_CMD_RESOLUTION_SETTING 0x61
 #define EPD_CMD_UNKNOWN 0xF8
 
-void epdEnterSleep() {
+void epdvar43::epdEnterSleep() {
+    epdReset();
+    delay(100);
     epd_cmd(EPD_CMD_POWER_OFF);
+    delay(100);
     epdWrite(EPD_CMD_DEEP_SLEEP, 1, 0xA5);
+    delay(100);
 }
 
-void epdSetup() {
+void epdvar43::epdSetup() {
     epdReset();
     epdWrite(EPD_CMD_UNKNOWN, 2, 0x60, 0x05);
     epdWrite(EPD_CMD_UNKNOWN, 2, 0xA1, 0x00);
@@ -43,20 +50,20 @@ void epdSetup() {
     epdWrite(EPD_CMD_VCOM_INTERVAL, 1, 0x87);  // 47
 }
 
-void epdWriteDisplayData() {
+void epdvar43::epdWriteDisplayData() {
     // send a dummy byte. Don't ask me why, it's what she likes. She'll sometimes display garbage on the b/w framebuffer if she doesn't get the dummy byte.
     epd_data(0x00);
 
     // this display expects two entire framebuffers worth of data to be written, one for b/w and one for red
-    uint8_t* buf[2] = {0, 0}; // this will hold pointers to odd/even data lines
+    uint8_t* buf[2] = {0, 0};  // this will hold pointers to odd/even data lines
     for (uint8_t c = 0; c < 2; c++) {
         if (c == 0) epd_cmd(EPD_CMD_DISPLAY_START_TRANSMISSION_DTM1);
         if (c == 1) epd_cmd(EPD_CMD_DISPLAY_START_TRANSMISSION_DTM2);
         markData();
         epdSelect();
-        for (uint16_t curY = 0; curY < SCREEN_HEIGHT; curY += 2) {
+        for (uint16_t curY = 0; curY < this->effectiveYRes; curY += 2) {
             // Get 'even' screen line
-            buf[0] = (uint8_t*)calloc(SCREEN_WIDTH / 8, 1);
+            buf[0] = (uint8_t*)calloc(this->effectiveXRes / 8, 1);
             drawItem::renderDrawLine(buf[0], curY, c);
 
             // on the first pass, the second (buf[1]) buffer is unused, so we don't have to wait for it to flush to the display / free it
@@ -67,10 +74,10 @@ void epdWriteDisplayData() {
             }
 
             // start transfer of even data line to the screen
-            epdSPIAsyncWrite(buf[0], (SCREEN_WIDTH / 8));
+            epdSPIAsyncWrite(buf[0], (this->effectiveXRes / 8));
 
             // Get 'odd' screen display line
-            buf[1] = (uint8_t*)calloc(SCREEN_WIDTH / 8, 1);
+            buf[1] = (uint8_t*)calloc(this->effectiveXRes  / 8, 1);
             drawItem::renderDrawLine(buf[1], curY + 1, c);
 
             // wait until the 'even' data has finished writing
@@ -78,7 +85,7 @@ void epdWriteDisplayData() {
             free(buf[0]);
 
             // start transfer of the 'odd' data line
-            epdSPIAsyncWrite(buf[1], (SCREEN_WIDTH / 8));
+            epdSPIAsyncWrite(buf[1], (this->effectiveXRes / 8));
         }
         // check if this was the first pass. If it was, we'll need to wait until the last display line finished writing
         if (c == 0) {
@@ -94,10 +101,10 @@ void epdWriteDisplayData() {
     // wait until the last line of display has finished writing and clean our stuff up
     epdSPIWait();
     epdDeselect();
-    if(buf[1])free(buf[1]);
+    if (buf[1]) free(buf[1]);
 }
 
-void selectLUT(uint8_t lut) {
+void epdvar43::selectLUT(uint8_t lut) {
     // implement alternative LUTs here. Currently just reset the watchdog to two minutes,
     // to ensure it doesn't reset during the much longer bootup procedure
     lut += 1;  // make the compiler a happy camper
@@ -105,17 +112,19 @@ void selectLUT(uint8_t lut) {
     return;
 }
 
-void draw() {
-    drawNoWait();
+void epdvar43::draw() {
+    this->drawNoWait();
     epdBusyWaitRising(50000);
+    delay(100);
 }
-void drawNoWait() {
-    epdWriteDisplayData();
+void epdvar43::drawNoWait() {
+    this->epdWriteDisplayData();
     epd_cmd(EPD_CMD_POWER_ON);
     epdBusyWaitRising(200);
     epd_cmd(EPD_CMD_DISPLAY_REFRESH);
 }
 
-void epdWaitRdy() {
+void epdvar43::epdWaitRdy() {
     epdBusyWaitRising(50000);
+    delay(100);
 }

@@ -12,6 +12,7 @@ together with this PCB and an ESP32-C6 it makes a very potent Access Point for t
 <img width="600" alt="PCB_Yellow_AP" src="PCB_Yellow_AP.jpg">
 
 
+
 Gerber of the PCB can be found in this folder
 
 Parts for the PCB:
@@ -27,3 +28,19 @@ OPTIONAL from here on, either install the regulator for better power consumption
 - 1x 0603 Capacitor 100nf for 5V Rail
 - 1x 0805 Capacitor 1uf for the 5V Rail
 - 1x CC1101 868MHz "Green" Module, Important to use the 868MHz version
+
+## 3D Printable case
+
+<img width="600" alt="case_complete" src="case_complete.jpg">
+
+<img width="600" alt="case_parts" src="case_parts.jpg">
+
+
+A 3D Printed case can be found in the "3D_Case" Folder
+Print the 3 parts without support 0.2mm layer height and 20% infill.
+
+1 x main <- Main body, make sure you got a good first layer adhesion 
+
+1 x bottom <- this one is a press fit and may need some cutting 
+
+2 x button <- best is to print one by one, depends on your printer, but can also be left out

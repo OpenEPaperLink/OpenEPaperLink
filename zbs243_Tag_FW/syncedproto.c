@@ -27,7 +27,7 @@
 #include "wdt.h"
 
 // download-stuff
-uint8_t __xdata blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
+uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];
 static struct blockRequest __xdata curBlock = {0};  // used by the block-requester, contains the next request that we'll send
 static uint8_t __xdata curDispDataVer[8] = {0};
 static struct AvailDataInfo __xdata xferDataInfo = {0};  // holds the AvailDataInfo during the transfer
@@ -39,6 +39,8 @@ uint8_t __xdata curImgSlot = 0xFF;          // currently shown image
 static uint32_t __xdata curHighSlotId = 0;  // current highest ID, will be incremented before getting written to a new slot
 static uint8_t __xdata nextImgSlot = 0;     // next slot in sequence for writing
 static uint8_t __xdata imgSlots = 0;
+static uint32_t __xdata eeSize = 0;
+#define OTA_UPDATE_SIZE 0x10000
 
 // stuff we need to keep track of related to the network/AP
 uint8_t __xdata APmac[8] = {0};
@@ -103,7 +105,7 @@ void dump(const uint8_t *__xdata a, const uint16_t __xdata l) {
     }
     pr("\n");
 }
-static bool checkCRC(const void *p, const uint8_t len) {
+bool checkCRC(const void *p, const uint8_t len) {
     uint8_t total = 0;
     for (uint8_t c = 1; c < len; c++) {
         total += ((uint8_t *)p)[c];
@@ -307,14 +309,14 @@ static bool processBlockPart(const struct blockPart *bp) {
         // pr("got a packet for block %02X\n", bp->blockId);
         return false;
     }
-    if (start >= (sizeof(blockXferBuffer) - 1)) return false;
+    if (start >= (sizeof(blockbuffer) - 1)) return false;
     if (bp->blockPart > BLOCK_MAX_PARTS) return false;
-    if ((start + size) > sizeof(blockXferBuffer)) {
-        size = sizeof(blockXferBuffer) - start;
+    if ((start + size) > sizeof(blockbuffer)) {
+        size = sizeof(blockbuffer) - start;
     }
     if (checkCRC(bp, sizeof(struct blockPart) + BLOCK_PART_DATA_SIZE)) {
         //  copy block data to buffer
-        xMemCopy((void *)(blockXferBuffer + start), (const void *)bp->data, size);
+        xMemCopy((void *)(blockbuffer + start), (const void *)bp->data, size);
         // we don't need this block anymore, set bit to 0 so we don't request it again
         curBlock.requestedParts[bp->blockPart / 8] &= ~(1 << (bp->blockPart % 8));
         return true;
@@ -445,8 +447,8 @@ static void sendXferComplete() {
     pr("XFC NACK!\n");
     return;
 }
-static bool validateBlockData() {
-    struct blockData *bd = (struct blockData *)blockXferBuffer;
+bool validateBlockData() {
+    struct blockData *bd = (struct blockData *)blockbuffer;
     // pr("expected len = %04X, checksum=%04X\n", bd->size, bd->checksum);
     uint16_t t = 0;
     for (uint16_t c = 0; c < bd->size; c++) {
@@ -460,7 +462,7 @@ static uint32_t getAddressForSlot(const uint8_t s) {
     return EEPROM_IMG_START + (EEPROM_IMG_EACH * s);
 }
 static void getNumSlots() {
-    uint32_t eeSize = eepromGetSize();
+    eeSize = eepromGetSize();
     uint16_t nSlots = mathPrvDiv32x16(eeSize - EEPROM_IMG_START, EEPROM_IMG_EACH >> 8) >> 8;
     if (eeSize < EEPROM_IMG_START || !nSlots) {
         pr("eeprom is too small\n");
@@ -471,11 +473,13 @@ static void getNumSlots() {
         imgSlots = 254;
     } else
         imgSlots = nSlots;
+
+    pr("PROTO: %d image slots total\n", imgSlots);
 }
 static uint8_t findSlotVer(const uint8_t *ver) {
     // return 0xFF;  // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
     for (uint8_t c = 0; c < imgSlots; c++) {
-        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
+        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockbuffer;
         eepromRead(getAddressForSlot(c), eih, sizeof(struct EepromImageHeader));
         if (xMemEqual4(&eih->validMarker, &markerValid)) {
             if (xMemEqual(&eih->version, (void *)ver, 8)) {
@@ -490,7 +494,7 @@ static uint8_t findSlotVer(const uint8_t *ver) {
 uint8_t __xdata findSlotDataTypeArg(uint8_t arg) __reentrant {
     arg &= (0xF8);  // unmatch with the 'preload' bit and LUT bits
     for (uint8_t c = 0; c < imgSlots; c++) {
-        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
+        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockbuffer;
         eepromRead(getAddressForSlot(c), eih, sizeof(struct EepromImageHeader));
         if (xMemEqual4(&eih->validMarker, &markerValid)) {
             if ((eih->argument & 0xF8) == arg) {
@@ -501,12 +505,12 @@ uint8_t __xdata findSlotDataTypeArg(uint8_t arg) __reentrant {
     return 0xFF;
 }
 uint8_t getEepromImageDataArgument(const uint8_t slot) {
-    struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
+    struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockbuffer;
     eepromRead(getAddressForSlot(slot), eih, sizeof(struct EepromImageHeader));
     return eih->argument;
 }
 uint8_t __xdata findNextSlideshowImage(uint8_t start) __reentrant {
-    struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
+    struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockbuffer;
     uint8_t c = start;
     while (1) {
         c++;
@@ -522,20 +526,20 @@ uint8_t __xdata findNextSlideshowImage(uint8_t start) __reentrant {
 }
 
 static void eraseUpdateBlock() {
-    eepromErase(EEPROM_UPDATA_AREA_START, EEPROM_UPDATE_AREA_LEN / EEPROM_ERZ_SECTOR_SZ);
+    eepromErase(eeSize - OTA_UPDATE_SIZE, OTA_UPDATE_SIZE / EEPROM_ERZ_SECTOR_SZ);
 }
 static void eraseImageBlock(const uint8_t c) {
     eepromErase(getAddressForSlot(c), EEPROM_IMG_EACH / EEPROM_ERZ_SECTOR_SZ);
 }
 static void saveUpdateBlockData(uint8_t blockId) {
-    if (!eepromWrite(EEPROM_UPDATA_AREA_START + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
+    if (!eepromWrite(eeSize - OTA_UPDATE_SIZE + (blockId * BLOCK_DATA_SIZE), blockbuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
         pr("EEPROM write failed\n");
 }
 static void saveImgBlockData(const uint8_t imgSlot, const uint8_t blockId) {
     uint16_t length = EEPROM_IMG_EACH - (sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE));
     if (length > 4096) length = 4096;
 
-    if (!eepromWrite(getAddressForSlot(imgSlot) + sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE), blockXferBuffer + sizeof(struct blockData), length))
+    if (!eepromWrite(getAddressForSlot(imgSlot) + sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE), blockbuffer + sizeof(struct blockData), length))
         pr("EEPROM write failed\n");
 }
 void eraseImageBlocks() {
@@ -549,7 +553,7 @@ void drawImageFromEeprom(const uint8_t imgSlot, uint8_t lut) {
 static uint32_t getHighSlotId() {
     uint32_t temp = 0;
     for (uint8_t __xdata c = 0; c < imgSlots; c++) {
-        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
+        struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockbuffer;
         eepromRead(getAddressForSlot(c), eih, sizeof(struct EepromImageHeader));
         if (xMemEqual4(&eih->validMarker, &markerValid)) {
             if (temp < eih->id) {
@@ -574,7 +578,7 @@ static bool getDataBlock(const uint16_t blockSize) {
         memset(curBlock.requestedParts, 0xFF, BLOCK_REQ_PARTS_BYTES);
     } else {
         partsThisBlock = (sizeof(struct blockData) + blockSize) / BLOCK_PART_DATA_SIZE;
-        if (blockSize % BLOCK_PART_DATA_SIZE) partsThisBlock++;
+        if ((sizeof(struct blockData) + blockSize) % BLOCK_PART_DATA_SIZE) partsThisBlock++;
         memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
         for (uint8_t c = 0; c < partsThisBlock; c++) {
             curBlock.requestedParts[c / 8] |= (1 << (c % 8));
@@ -633,8 +637,8 @@ static bool getDataBlock(const uint16_t blockSize) {
 #endif
         // check if we got all the parts we needed, e.g: has the block been completed?
         bool blockComplete = true;
-        for (uint8_t c = 0; c < partsThisBlock; c++) {
-            if (curBlock.requestedParts[c / 8] & (1 << (c % 8))) blockComplete = false;
+        for (uint8_t c1 = 0; c1 < partsThisBlock; c1++) {
+            if (curBlock.requestedParts[c1 / 8] & (1 << (c1 % 8))) blockComplete = false;
         }
 
         if (blockComplete) {
@@ -713,8 +717,15 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
     } else {
         // new transfer
         powerUp(INIT_EEPROM);
+
         // go to the next image slot
         uint8_t startingSlot = nextImgSlot;
+
+        // if we encounter a special image type, start looking from slot 0, to prevent the image being overwritten when we do an OTA update
+        if (avail->dataTypeArgument & 0xFC != 0x00) {
+            startingSlot = 0;
+        }
+
         while (1) {
             nextImgSlot++;
             if (nextImgSlot >= imgSlots) nextImgSlot = 0;
@@ -723,7 +734,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
                 pr("No slots available. Too many images in the slideshow?\n");
                 return true;
             }
-            struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
+            struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockbuffer;
             eepromRead(getAddressForSlot(nextImgSlot), eih, sizeof(struct EepromImageHeader));
             // check if the marker is indeed valid
             if (xMemEqual4(&eih->validMarker, &markerValid)) {
@@ -787,8 +798,8 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
     }
     // no more data, download complete
 
-    // borrow the blockXferBuffer temporarily
-    struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockXferBuffer;
+    // borrow the blockbuffer temporarily
+    struct EepromImageHeader __xdata *eih = (struct EepromImageHeader __xdata *)blockbuffer;
     xMemCopy8(&eih->version, &xferDataInfo.dataVer);
     eih->validMarker = EEPROM_IMG_VALID;
     eih->id = ++curHighSlotId;
@@ -885,6 +896,9 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
                 drawImageFromEeprom(findImgSlot, arg.lut);
                 powerDown(INIT_EPD | INIT_EEPROM);
 
+                //powerUp(INIT_EEPROM | INIT_EPD);
+                //powerDown(INIT_EEPROM | INIT_EPD);
+
             } else {
                 // not found in cache, prepare to download
                 pr("downloading image...\n");
@@ -901,7 +915,8 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
                     powerUp(INIT_EPD | INIT_EEPROM);
                     drawImageFromEeprom(xferImgSlot, arg.lut);
                     powerDown(INIT_EPD | INIT_EEPROM);
-
+                    //powerUp(INIT_EEPROM | INIT_EPD);
+                    //powerDown(INIT_EEPROM | INIT_EPD);
                 } else {
                     return false;
                 }
@@ -936,7 +951,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
 
                 powerUp(INIT_EEPROM);
                 wdt60s();
-                eepromReadStart(EEPROM_UPDATA_AREA_START);
+                eepromReadStart(eeSize - OTA_UPDATE_SIZE);
                 selfUpdate();
             } else {
                 return false;
@@ -956,8 +971,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             }
 
             pr("NFC URL received\n");
-            /*
-            if (curDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & curDataInfo.dataVer, 8)) {
+            if (xferDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & xferDataInfo.dataVer, 8)) {
                 // we've already downloaded this NFC data, disregard and send XFC
                 pr("this was the same as the last transfer, disregard\n");
                 powerUp(INIT_RADIO);
@@ -968,11 +982,11 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             curBlock.blockId = 0;
             xMemCopy8(&(curBlock.ver), &(avail->dataVer));
             curBlock.type = avail->dataType;
-            xMemCopyShort(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+            xMemCopyShort(&xferDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
             uint16_t __xdata nfcsize = avail->dataSize;
             wdt10s();
             if (getDataBlock(avail->dataSize)) {
-                curDataInfo.dataSize = 0;  // mark as transfer not pending
+                xferDataInfo.dataSize = 0;  // mark as transfer not pending
                 powerUp(INIT_I2C);
                 if (avail->dataType == DATATYPE_NFC_URL_DIRECT) {
                     // only one URL (handle NDEF records on the tag)
@@ -981,7 +995,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
                     // raw NFC data upload to the NFC IC
                     loadRawNTag(nfcsize);
                 }
-                timerDelay(13330);
+                timerDelay(39990);
                 powerDown(INIT_I2C);
                 powerUp(INIT_RADIO);
                 sendXferComplete();
@@ -990,7 +1004,6 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             }
             return false;
             break;
-            */
         case DATATYPE_TAG_CONFIG_DATA:
             if (xferDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & xferDataInfo.dataVer, 8)) {
                 pr("this was the same as the last transfer, disregard\n");
@@ -1006,7 +1019,9 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             wdt10s();
             if (getDataBlock(avail->dataSize)) {
                 xferDataInfo.dataSize = 0;  // mark as transfer not pending
-                loadSettingsFromBuffer(sizeof(struct blockData) + blockXferBuffer);
+                powerUp(INIT_EEPROM);
+                loadSettingsFromBuffer(sizeof(struct blockData) + blockbuffer);
+                powerDown(INIT_EEPROM);
                 powerUp(INIT_RADIO);
                 sendXferComplete();
                 powerDown(INIT_RADIO);
@@ -1049,7 +1064,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             wdt10s();
             if (getDataBlock(avail->dataSize)) {
                 xferDataInfo.dataSize = 0;  // mark as transfer not pending
-                memcpy(customLUT, sizeof(struct blockData) + blockXferBuffer, 6 + (dispLutSize * 10));
+                memcpy(customLUT, sizeof(struct blockData) + blockbuffer, 6 + (dispLutSize * 10));
                 powerUp(INIT_RADIO);
                 sendXferComplete();
                 powerDown(INIT_RADIO);
@@ -1063,8 +1078,6 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
 }
 
 void initializeProto() {
-    powerUp(INIT_EEPROM);
     getNumSlots();
     curHighSlotId = getHighSlotId();
-    powerDown(INIT_EEPROM);
 }

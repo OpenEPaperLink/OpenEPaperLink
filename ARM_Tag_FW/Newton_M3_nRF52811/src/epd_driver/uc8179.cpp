@@ -10,6 +10,8 @@
 #include "hal.h"
 #include "wdt.h"
 
+#include "uc8179.h"
+
 #define CMD_PANEL_SETTING 0x00
 #define CMD_POWER_SETTING 0x01
 #define CMD_POWER_OFF 0x02
@@ -46,9 +48,7 @@
 #define CMD_POWER_SAVING 0xE3
 #define CMD_FORCE_TEMPERATURE 0xE5
 
-static bool isInited = false;
-
-void epdEnterSleep() {
+void uc8179::epdEnterSleep() {
     epdWrite(CMD_VCOM_INTERVAL, 1, 0x17);
     delay(10);
     epdWrite(CMD_VCOM_DC_SETTING, 1, 0x00);
@@ -57,17 +57,16 @@ void epdEnterSleep() {
     delay(10);
     epdWrite(CMD_DEEP_SLEEP, 1, 0xA5);
     delay(10);
-    isInited = false;
 }
 
-void epdSetup() {
+void uc8179::epdSetup() {
     epdReset();
     epdWrite(CMD_PANEL_SETTING, 1, 0x0F);
     epdWrite(CMD_VCOM_INTERVAL, 2, 0x30, 0x07);
-    epdWrite(CMD_RESOLUTION_SETING, 4, SCREEN_WIDTH >> 8, SCREEN_WIDTH & 0xFF, SCREEN_HEIGHT >> 8, SCREEN_HEIGHT & 0xFF);
+    epdWrite(CMD_RESOLUTION_SETING, 4, epd->effectiveXRes >> 8, epd->effectiveXRes & 0xFF, epd->effectiveYRes >> 8, epd->effectiveYRes & 0xFF);
 }
 
-void selectLUT(uint8_t lut) {
+void uc8179::selectLUT(uint8_t lut) {
     // implement alternative LUTs here. Currently just reset the watchdog to two minutes,
     // to ensure it doesn't reset during the much longer bootup procedure
     lut += 1;  // make the compiler a happy camper
@@ -75,7 +74,7 @@ void selectLUT(uint8_t lut) {
     return;
 }
 
-void epdWriteDisplayData() {
+void uc8179::epdWriteDisplayData() {
     uint32_t start = millis();
     // this display expects two entire framebuffers worth of data to be written, one for b/w and one for red
     uint8_t *buf[2] = {0, 0};  // this will hold pointers to odd/even data lines
@@ -84,9 +83,9 @@ void epdWriteDisplayData() {
         if (c == 1) epd_cmd(CMD_DISPLAY_START_TRANSMISSION_DTM2);
         markData();
         epdSelect();
-        for (uint16_t curY = 0; curY < SCREEN_HEIGHT; curY += 2) {
+        for (uint16_t curY = 0; curY < epd->effectiveYRes; curY += 2) {
             // Get 'even' screen line
-            buf[0] = (uint8_t *)calloc(SCREEN_WIDTH / 8, 1);
+            buf[0] = (uint8_t *)calloc(epd->effectiveXRes / 8, 1);
             drawItem::renderDrawLine(buf[0], curY, c);
 
             // on the first pass, the second (buf[1]) buffer is unused, so we don't have to wait for it to flush to the display / free it
@@ -97,10 +96,10 @@ void epdWriteDisplayData() {
             }
 
             // start transfer of even data line to the screen
-            epdSPIAsyncWrite(buf[0], (SCREEN_WIDTH / 8));
+            epdSPIAsyncWrite(buf[0], (epd->effectiveXRes / 8));
 
             // Get 'odd' screen display line
-            buf[1] = (uint8_t *)calloc(SCREEN_WIDTH / 8, 1);
+            buf[1] = (uint8_t *)calloc(epd->effectiveXRes / 8, 1);
             drawItem::renderDrawLine(buf[1], curY + 1, c);
 
             // wait until the 'even' data has finished writing
@@ -108,7 +107,7 @@ void epdWriteDisplayData() {
             free(buf[0]);
 
             // start transfer of the 'odd' data line
-            epdSPIAsyncWrite(buf[1], (SCREEN_WIDTH / 8));
+            epdSPIAsyncWrite(buf[1], (epd->effectiveXRes / 8));
         }
         // check if this was the first pass. If it was, we'll need to wait until the last display line finished writing
         if (c == 0) {
@@ -128,16 +127,16 @@ void epdWriteDisplayData() {
     printf("draw took %lu ms\n", millis() - start);
 }
 
-void draw() {
+void uc8179::draw() {
     drawNoWait();
     epdWaitRdy();
 }
-void drawNoWait() {
+void uc8179::drawNoWait() {
     epdWriteDisplayData();
     epdWrite(CMD_POWER_ON, 0);
     epdWaitRdy();
     epdWrite(CMD_DISPLAY_REFRESH, 0);
 }
-void epdWaitRdy() {
+void uc8179::epdWaitRdy() {
     epdBusyWaitRising(120000);
 }

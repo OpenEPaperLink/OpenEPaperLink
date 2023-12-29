@@ -184,7 +184,25 @@ jobs:
           cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
           cp ESP32_S3_16_8_YELLOW_AP/firmware.bin espbinaries/ESP32_S3_16_8_YELLOW_AP.bin
           cp ESP32_S3_16_8_YELLOW_AP/merged-firmware.bin espbinaries/ESP32_S3_16_8_YELLOW_AP_full.bin
-          
+
+      - name: Build firmware for OpenEPaperLink_PoE_AP
+        run: |
+          cd ESP32_AP-Flasher
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          pio run --environment OpenEPaperLink_PoE_AP
+          pio run --target buildfs --environment OpenEPaperLink_PoE_AP
+          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/boot_app0.bin
+          cp .pio/build/OpenEPaperLink_PoE_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/firmware.bin
+          cp .pio/build/OpenEPaperLink_PoE_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/bootloader.bin
+          cp .pio/build/OpenEPaperLink_PoE_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/partitions.bin
+          cp .pio/build/OpenEPaperLink_PoE_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/littlefs.bin
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP
+          esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode qio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xD000 boot_app0.bin 0x10000 firmware.bin 0x410000 littlefs.bin
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+          cp OpenEPaperLink_PoE_AP/firmware.bin espbinaries/OpenEPaperLink_PoE_AP.bin
+          cp OpenEPaperLink_PoE_AP/merged-firmware.bin espbinaries/OpenEPaperLink_PoE_AP_full.bin
+
       - name: generate release json file
         run: |
           mkdir jsonfiles
