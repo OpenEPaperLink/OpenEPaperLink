@@ -8,30 +8,67 @@
 
 <body>
 	<h3>demo upload form</h3>
-	<p>You can use this as an example how to push images to a tag by an external server/script.</p>
+	<p>You can use this as an example how to push images to a tag by an external server/script. Look at the html source of this page for parameters.</p>
 	<p>
-		<form method="POST" enctype="multipart/form-data" action="/imgupload">
+	<form method="POST" enctype="multipart/form-data" action="/imgupload">
 
-			<p>
+		<p>
 			<label for="mac">Enter a 6 or 8 byte MAC address:</label><br>
 			<input type="text" id="mac" name="mac">
-			</p>
+		</p>
 
-			<p>
-			<label for="dither">Floyd Steinberg dithering (0=off, 1=on)</label><br>
-			<input type="text" id="dither" name="dither">
-			</p>
-
-			<p>
-			<label for="image">Select an image to upload. Must have the correct resolution for the tag (rotating is allowed):</label><br>
+		<p>
+			<label for="image">Select an image to upload. Must have the correct resolution for the tag (rotating is
+				allowed):</label><br>
 			<input type="file" id="image" name="file">
-			</p>
+		</p>
 
-			<p>
+		<p>
+			<label for="dither">optional: Floyd Steinberg dithering (0=off, 1=on). Default: on</label><br>
+			<input type="text" id="dither" name="dither">
+		</p>
+
+		<!--
+		<p>
+			Only use the options below in special cases:
+		</p>
+		<p>
+			<label for="previewtype">optional: Preload type to send to tag, for later recall, or special use</label><br>
+			<input type="text" id="previewtype" name="previewtype">
+		</p>
+
+		<p>
+			<label for="previewlut">optional: Triggered preload images will display with this LUT</label><br>
+			<input type="text" id="previewlut" name="previewlut">
+		</p>
+		-->
+
+		<p>
 			<input type="submit" value="Upload">
-			</p>
+		</p>
 
-		</form>
+<!--
+		previewtype: 
+		"0": Normal,
+		"1": UI: Splash Screen,
+		"2": UI: Lost connection,
+		"3": UI: AP Found,
+		"4": UI: No AP Found,
+		"5": UI: Long Term Sleep,
+		"15": Slideshow image,
+		"16": Wake: Button 1,
+		"17": Wake: Button 2,
+		"29": Wake: GPIO,
+		"30": Wake: NFC
+
+		previewlut:
+		"0": Default,
+		"1": No Repeats,
+		"2": Fast No Reds,
+		"3": Fast
+-->
+
+	</form>
 	</p>
 </body>
 

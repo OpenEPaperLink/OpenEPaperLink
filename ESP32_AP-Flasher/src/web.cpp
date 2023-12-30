@@ -354,12 +354,15 @@ void init_web() {
                         flashData.color1 = 0x3C;  // green
                         flashData.color2 = 0xE4;  // red
                         flashData.color3 = 0x03;  // blue
-                        flashData.flashCount1 = 1;
-                        flashData.flashCount2 = 1;
-                        flashData.flashCount3 = 1;
+                        flashData.flashCount1 = 3;
+                        flashData.flashCount2 = 3;
+                        flashData.flashCount3 = 3;
                         flashData.delay1 = 10;
                         flashData.delay2 = 10;
                         flashData.delay3 = 10;
+                        flashData.flashSpeed1 = 1;
+                        flashData.flashSpeed2 = 5;
+                        flashData.flashSpeed3 = 10;
                         flashData.repeats = 2;
                         const uint8_t *payload = reinterpret_cast<const uint8_t *>(&flashData);
                         sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
@@ -367,12 +370,12 @@ void init_web() {
                     if (strcmp(cmdValue, "ledflash_long") == 0) {
                         struct ledFlash flashData = {0};
                         flashData.mode = 1;
-                        flashData.flashDuration = 15;
+                        flashData.flashDuration = 1;
                         flashData.color1 = 0xE4;  // red
-                        flashData.flashCount1 = 5;
-                        flashData.delay1 = 5;
-                        flashData.delay3 = 15;
-                        flashData.repeats = 10;
+                        flashData.flashCount1 = 3;
+                        flashData.flashSpeed1 = 3;
+                        flashData.delay1 = 50;
+                        flashData.repeats = 60;
                         const uint8_t *payload = reinterpret_cast<const uint8_t *>(&flashData);
                         sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
                     }
@@ -711,7 +714,17 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
                     if (request->hasParam("ttl", true)) {
                         ttl = request->getParam("ttl", true)->value().toInt();
                     }
-                    taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"" + String(ttl) + "\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\"}";
+                    uint8_t preload = 0;
+                    uint8_t preloadlut = 0;
+                    uint8_t preloadtype = 0;
+                    if (request->hasParam("preloadtype", true)) {
+                        preload = 1;
+                        preloadtype = request->getParam("preloadtype", true)->value().toInt();
+                        if (request->hasParam("preloadlut", true)) {
+                            preloadlut = request->getParam("preloadlut", true)->value().toInt();
+                        }
+                    }
+                    taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"" + String(ttl) + "\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\", \"preload\":\"" + String(preload) + "\", \"preload_lut\":\"" + String(preloadlut) + "\", \"preload_type\":\"" + String(preloadtype) + "\"}";
                     taginfo->contentMode = 0;
                     taginfo->nextupdate = 0;
                     wsSendTaginfo(mac, SYNC_USERCFG);

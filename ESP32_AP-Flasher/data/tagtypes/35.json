@@ -1,0 +1,16 @@
+{
+	"name": "EL060H3WRA 6.0\"",
+	"width": 600,
+	"height": 448,
+	"rotatebuffer": 0,
+	"bpp": 2,
+	"colors": 3,
+	"colortable": {
+		"white": [255, 255, 255],
+		"black": [0, 0, 0],
+		"red": [255, 0, 0],
+		"gray": [150, 150, 150]
+	},
+	"contentids": [ 0, 1, 2, 3, 4, 8, 16, 9, 7, 19, 10, 11, 21 ],
+	"usetemplate": 1
+}
