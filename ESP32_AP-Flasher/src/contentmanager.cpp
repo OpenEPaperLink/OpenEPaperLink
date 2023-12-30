@@ -312,10 +312,19 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
             filename = cfgobj["filename"].as<String>();
             if (!util::isEmptyOrNull(filename) && !cfgobj["#fetched"].as<bool>()) {
-                if (prepareDataAvail(filename, DATATYPE_FW_UPDATE, 0, mac, cfgobj["timetolive"].as<int>())) {
-                    cfgobj["#fetched"] = true;
-                } else {
-                    wsErr("Error accessing " + filename);
+
+                File file = contentFS->open(filename, "r");
+                if (file) {
+                    if (file.find("<html")) {
+                        file.close();
+                        wsErr("User error flashing tag firmware: this is a html-file!");
+                        cfgobj["#fetched"] = true;
+                    } else {
+                        file.close();
+                        if (prepareDataAvail(filename, DATATYPE_FW_UPDATE, 0, mac, cfgobj["timetolive"].as<int>())) {
+                            cfgobj["#fetched"] = true;
+                        }
+                    }
                 }
                 cfgobj["filename"] = "";
                 taginfo->nextupdate = 3216153600;
@@ -975,7 +984,7 @@ char *epoch_to_display(time_t utc) {
 bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
 #ifdef CONTENT_CAL
     // google apps scripts method to retrieve calendar
-    // see /data/calendar.txt for description
+    // see https://github.com/jjwbruijn/OpenEPaperLink/wiki/Google-Apps-Scripts for description
 
     wsLog("get calendar");
 
@@ -987,13 +996,13 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     strftime(dateString, sizeof(dateString), "%d.%m.%Y", &timeinfo);
 
     HTTPClient http;
-    logLine("http getCalFeed " + URL);
+    // logLine("http getCalFeed " + URL);
     http.begin(URL);
     http.setTimeout(10000);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     int httpCode = http.GET();
     if (httpCode != 200) {
-        wsErr("http error " + String(httpCode));
+        wsErr("getCalFeed http error " + String(httpCode));
         return false;
     }
 
@@ -1090,7 +1099,7 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
 
     String lat = cfgobj["#lat"];
     String lon = cfgobj["#lon"];
-    logLine("http drawBuienradar");
+    // logLine("http drawBuienradar");
     http.begin("https://gps.buienradar.nl/getrr.php?lat=" + lat + "&lon=" + lon);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setTimeout(5000);

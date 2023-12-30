@@ -27,7 +27,6 @@ util::Timer intervalContentRunner(seconds(1));
 util::Timer intervalSysinfo(seconds(3));
 util::Timer intervalVars(seconds(10));
 util::Timer intervalSaveDB(minutes(5));
-util::Timer intervalCheckDate(minutes(5));
 
 #ifdef OPENEPAPERLINK_PCB
 util::Timer tagConnectTimer(seconds(1));
@@ -129,7 +128,10 @@ void setup() {
     rgbIdle();
 #endif
     TagData::loadParsers("/parsers.json");
-    loadDB("/current/tagDB.json");
+    if (!loadDB("/current/tagDB.json")) {
+        Serial.println("unable to load tagDB, reverting to backup");
+        loadDB("/current/tagDB.json.bak");
+    }
     cleanupCurrent();
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -162,21 +164,6 @@ void loop() {
     }
     if (intervalContentRunner.doRun() && apInfo.state == AP_STATE_ONLINE) {
         contentRunner();
-    }
-    if (intervalCheckDate.doRun() && config.runStatus == RUNSTATUS_RUN) {
-        static uint8_t day = 0;
-
-        time_t now;
-        time(&now);
-        struct tm timedef;
-        localtime_r(&now, &timedef);
-
-        if (day != timedef.tm_mday) {
-            day = timedef.tm_mday;
-            char timeBuffer[80];
-            strftime(timeBuffer, sizeof(timeBuffer), "%d-%m-%Y", &timedef);
-            setVarDB("ap_date", timeBuffer);
-        }
     }
 
 #ifdef YELLOW_IPS_AP

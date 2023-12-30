@@ -164,15 +164,15 @@ void saveDB(const String& filename) {
     Serial.println("DB saved " + String(millis() - t) + "ms");
 }
 
-void loadDB(const String& filename) {
-    Serial.println("reading DB from file");
+bool loadDB(const String& filename) {
+    Serial.println("reading DB from " + String(filename));
     const long t = millis();
 
     Storage.begin();
     fs::File readfile = contentFS->open(filename, "r");
     if (!readfile) {
         Serial.println("loadDB: Failed to open file");
-        return;
+        return false;
     }
 
     time_t now;
@@ -230,13 +230,19 @@ void loadDB(const String& filename) {
                 Serial.print(F("deserializeJson() failed: "));
                 Serial.println(err.c_str());
                 parsing = false;
+                readfile.close();
+                return false;
             }
             parsing = parsing && readfile.find(",");
         }
+    } else {
+        readfile.close();
+        return false;
     }
 
     readfile.close();
     Serial.println("loadDB took " + String(millis() - t) + "ms");
+    return true;
 }
 
 void destroyDB() {

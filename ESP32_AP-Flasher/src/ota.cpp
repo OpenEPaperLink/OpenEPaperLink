@@ -213,7 +213,6 @@ void updateFirmware(const char* url, const char* expectedMd5, const size_t size)
     }
 
     httpClient.end();
-    // loadDB("/current/tagDB.json");
     config.runStatus = RUNSTATUS_RUN;
 }
 

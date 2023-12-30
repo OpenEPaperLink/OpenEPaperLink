@@ -99,7 +99,7 @@ extern String tagDBtoJson(const uint8_t mac[8] = nullptr, uint8_t startPos = 0);
 extern bool deleteRecord(const uint8_t mac[8]);
 extern void fillNode(JsonObject& tag, const tagRecord* taginfo);
 extern void saveDB(const String& filename);
-extern void loadDB(const String& filename);
+extern bool loadDB(const String& filename);
 extern void destroyDB();
 extern uint32_t getTagCount();
 extern uint32_t getTagCount(uint32_t& timeoutcount);

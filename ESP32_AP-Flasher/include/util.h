@@ -72,14 +72,14 @@ static void printLargestFreeBlock() {
 /// @return True on success, false on error (httpCode != 200 || deserialization error)
 static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout, JsonDocument *filter = nullptr) {
     HTTPClient http;
-    logLine("http httpGetJson " + url);
+    // logLine("http httpGetJson " + url);
     http.begin(url);
     http.setTimeout(timeout);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     const int httpCode = http.GET();
     if (httpCode != 200) {
         http.end();
-        wsErr(String("[httpGetJson] http code") + httpCode);
+        wsErr(String("[httpGetJson] http ") + url + " code " + httpCode);
         return false;
     }
 

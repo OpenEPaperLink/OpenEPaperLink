@@ -69,10 +69,12 @@ void wsSendSysteminfo() {
     static int freeSpaceLastRun = 0;
     static size_t tagDBsize = 0;
     static uint64_t freeSpace = Storage.freeSpace();
+
     sys["currtime"] = now;
     sys["heap"] = ESP.getFreeHeap();
     sys["recordcount"] = tagDBsize;
     sys["dbsize"] = dbSize();
+
     if (millis() - freeSpaceLastRun > 30000 || freeSpaceLastRun == 0) {
         freeSpace = Storage.freeSpace();
         tagDBsize = tagDB.size();
@@ -86,15 +88,33 @@ void wsSendSysteminfo() {
 
     sys["apstate"] = apInfo.state;
     sys["runstate"] = config.runStatus;
-#if !defined(CONFIG_IDF_TARGET_ESP32)
-    // sys["temp"] = temperatureRead();
-#endif
     sys["rssi"] = WiFi.RSSI();
     sys["wifistatus"] = WiFi.status();
     sys["wifissid"] = WiFi.SSID();
 
+    static uint8_t day = 0;
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+
+    if (day != timeinfo.tm_mday) {
+        day = timeinfo.tm_mday;
+        char timeBuffer[80];
+        strftime(timeBuffer, sizeof(timeBuffer), "%d-%m-%Y", &timeinfo);
+        setVarDB("ap_date", timeBuffer);
+    }
     setVarDB("ap_ip", WiFi.localIP().toString());
     setVarDB("ap_ch", String(apInfo.channel));
+
+    // reboot once at night
+    if (timeinfo.tm_hour == 4 && timeinfo.tm_min == 0 && millis() > 2 * 3600 * 1000) {
+        logLine("Nightly reboot");
+        ws.enable(false);
+        refreshAllPending();
+        saveDB("/current/tagDB.json");
+        ws.closeAll();
+        delay(100);
+        ESP.restart();
+    }
 
     static uint32_t tagcounttimer = 0;
     if (millis() - tagcounttimer > 60000 || tagcounttimer == 0) {
