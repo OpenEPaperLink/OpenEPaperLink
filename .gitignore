@@ -25,3 +25,4 @@
 *.o
 sdcc/sdcc
 
+ESP32_AP-Flasher/.vscode/extensions.json

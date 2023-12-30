@@ -21,14 +21,11 @@
 				<div class="tab-container">
 					<div class="tablinks material-symbols-outlined" data-target="hometab" title="Dashboard">home</div>
 					<div class="tablinks material-symbols-outlined" data-target="tagtab" title="Tags">sell</div>
-					<div class="tablinks material-symbols-outlined" data-target="aptab" title="Access Points">cell_tower
-					</div>
+					<div class="tablinks material-symbols-outlined" data-target="aptab" title="Access Points">cell_tower</div>
 					<!--<div class="tablinks material-symbols-outlined" data-target="templatetab" title="Templates">browse
 					</div>-->
-					<div class="tablinks material-symbols-outlined" data-target="configtab" title="Settings">settings
-					</div>
-					<div class="tablinks material-symbols-outlined" data-target="logtab" title="Logging">text_snippet
-					</div>
+					<div class="tablinks material-symbols-outlined" data-target="configtab" title="Settings">settings</div>
+					<div class="tablinks material-symbols-outlined" data-target="logtab" title="Logging">text_snippet</div>
 				</div>
 				<!-- /tabs -->
 				<div><span id="runstate"></div>
@@ -116,68 +113,55 @@
 			<div id="tagtab" class="tabcontent">
 				<div class="tagheader">
 					<h3>Currently active tags</h3>
-					<div id="activefilter"></div><button class="material-symbols-outlined"
-							id="toggleFilters">filter_alt</button>
+					<div id="activefilter"></div><button class="material-symbols-outlined" id="toggleFilters">filter_alt</button>
 				</div>
 				<div id="filterOptions">
 					<div>
 						<div>group by</div>
 						<div>
-							<input type="radio" name="group" value="" id="rnone" checked><label
-									for="rnone">None</label>
+							<input type="radio" name="group" value="" id="rnone" checked><label for="rnone">None</label>
 						</div>
 						<div>
-							<input type="radio" name="group" value="model" id="rtagtype"><label for="rtagtype">Tag
-								model</label>
+							<input type="radio" name="group" value="model" id="rtagtype"><label for="rtagtype">Tag model</label>
 						</div>
 						<div>
-							<input type="radio" name="group" value="contentmode" id="rcontent"><label
-									for="rcontent">Content</label>
+							<input type="radio" name="group" value="contentmode" id="rcontent"><label for="rcontent">Content</label>
 						</div>
 						<div>
-							<input type="radio" name="group" value="data-channel" id="rchannel"><label
-									for="rchannel">Channel</label>
+							<input type="radio" name="group" value="data-channel" id="rchannel"><label for="rchannel">Channel</label>
 						</div>
 					</div>
 					<div>
 						<div>sort by</div>
 						<div>
-							<input type="radio" name="sort" value="alias" id="ralias" checked><label
-									for="ralias">Alias</label>
+							<input type="radio" name="sort" value="alias" id="ralias" checked><label for="ralias">Alias</label>
 						</div>
 						<div>
 							<input type="radio" name="sort" value="mac" id="rmac"><label for="rmac">Mac</label>
 						</div>
 						<div>
-							<input type="radio" name="sort" value="data-lastseen" id="rlastseen"><label
-									for="rlastseen">Last seen</label>
+							<input type="radio" name="sort" value="data-lastseen" id="rlastseen"><label for="rlastseen">Last seen</label>
 						</div>
 						<div>
-							<input type="radio" name="sort" value="data-nextupdate" id="rnext"><label
-									for="rnext">Next update</label>
+							<input type="radio" name="sort" value="data-nextupdate" id="rnext"><label for="rnext">Next update</label>
 						</div>
 					</div>
 					<div>
 						<div>filter</div>
 						<div>
-							<input type="checkbox" name="filter" value="local" id="rlocal"><label
-									for="rlocal">local</label>
+							<input type="checkbox" name="filter" value="local" id="rlocal"><label for="rlocal">local</label>
 						</div>
 						<div>
-							<input type="checkbox" name="filter" value="remote" id="rremote"><label
-									for="rremote">remote</label>
+							<input type="checkbox" name="filter" value="remote" id="rremote"><label for="rremote">remote</label>
 						</div>
 						<div>
-							<input type="checkbox" name="filter" value="inactive" id="rinactive"><label
-									for="rinactive">timed out</label>
+							<input type="checkbox" name="filter" value="inactive" id="rinactive"><label for="rinactive">timed out</label>
 						</div>
 						<div>
-							<input type="checkbox" name="filter" value="pending" id="rpending"><label
-									for="rpending">pending</label>
+							<input type="checkbox" name="filter" value="pending" id="rpending"><label for="rpending">pending</label>
 						</div>
 						<div>
-							<input type="checkbox" name="filter" value="lowbatt" id="rlowbatt"><label
-									for="rlowbatt">low battery</label>
+							<input type="checkbox" name="filter" value="lowbatt" id="rlowbatt"><label for="rlowbatt">low battery</label>
 						</div>
 					</div>
 				</div>
@@ -193,8 +177,7 @@
 						<div class="nextcheckin"></div>
 						<div class="nextupdate"></div>
 						<div class="corner">
-							<div class="pendingicon" title="A new message is waiting for the tag to pick up">
-								&circlearrowright;</div>
+							<div class="pendingicon" title="A new message is waiting for the tag to pick up">&circlearrowright;</div>
 							<div class="warningicon" title="This tag has not been seen for a long time">&#9888;
 							</div>
 						</div>
@@ -206,8 +189,7 @@
 				<div class="tabheader">
 					<div><img id="clearlog" src="data:image/gif;base64,R0lGODlhEAAQAPMAANXV1e3t7d/f39HR0dvb2/Hx8dTU1OLi4urq6mZmZpmZmf///wAAAAAAAAAAAAAAACH5BAEAAAwALAAAAAAQABAAAARBkMlJq71Yrp3ZXkr4WWCYnOZSgQVyEMYwJCq1nHhe20qgCAoA7QLyAYU7njE4JPV+zOSkCEUSFbmTVPPpbjvgTAQAOw==
 				"></div>
-					<div><input type="checkbox" id="showdebug" value="1"><label for="showdebug">Show all websocket
-							traffic</label></div>
+					<div><input type="checkbox" id="showdebug" value="1"><label for="showdebug">Show all websocket traffic</label></div>
 				</div>
 				<ul id="messages" class="messages">
 				</ul>
@@ -287,8 +269,12 @@
 						<option value="0" selected>EN English</option>
 						<option value="1">NL Nederlands</option>
 						<option value="2">DE Deutsch</option>
-						<option value="4">FR French</option>
-						<option value="3">NO Norwegian</option>
+						<option value="4">FR Français</option>
+						<option value="3">NO Norsk</option>
+						<option value="5">CZ Čeština</option>
+						<option value="6">SK Slovenčina</option>
+						<option value="7">PL Polski</option>
+						<option value="8">ES Español</option>
 					</select>
 				</p>
 				<p title="Depending on the content, a tag can sleep for
@@ -313,7 +299,8 @@
 					</select>
 				</p>
 				<p
-					title="Stops updates at night, and put the tags to sleep. During the configured night time, this overrides the maximum sleep time.">
+				   title="Stops updates at night, and put the tags to sleep. 
+			During the configured night time, this overrides the maximum sleep time.">
 					<label for="apcnight1">No updates between</label>
 					<select id="apcnight1"></select>
 					<span style="align-self:center;">and</span>
@@ -325,6 +312,17 @@
 					<select id="apcpreview">
 						<option value="1" selected>yes</option>
 						<option value="0">no</option>
+					</select>
+				</p>
+				<p
+				   title="* Work in progress * When locking the tag inventory, the AP will only
+			show tags that are already in the database.	For now, the AP will still keep answering
+			new tags, because that needs to be fixed in the radio firmware. 
+			This will probably change in the future.">
+					<label for="apclock">Lock tag inventory</label>
+					<select id="apclock">
+						<option value="1">yes</option>
+						<option value="0" selected>no</option>
 					</select>
 				</p>
 				<p title="Wifi transmit power">
@@ -394,8 +392,7 @@
 				</p>
 				<h3>Manage</h3>
 				<p>
-					<button type="button" id="rebootbutton">Reboot AP</button> Saves the tagDB and instantly reboots the Access
-					Point
+					<button type="button" id="rebootbutton">Reboot AP</button> Saves the tagDB and instantly reboots the Access Point
 				</p>
 				<p>
 					<a href="/backup_db" id="downloadDBbutton">Download tagDB</a>
@@ -404,15 +401,12 @@
 					<button type="button" id="updatebutton" class="tablinks" data-target="updatetab" title="Update">Update</button> Manage firmware of the ESP32
 				</p>
 				<p>
-					<a href="/setup" target="setup" class="wifibutton">WiFi config</a> Opens a new window with WiFi
-					config options
+					<a href="/setup" target="setup" class="wifibutton">WiFi config</a> Opens a new window with WiFi	config options
 				</p>
 				<p>
 					<br>
-					<a href="https://github.com/jjwbruijn/OpenEPaperLink" target="_new">Github
-						OpenEPaperLink</a><br>
-					<a href="https://github.com/jjwbruijn/OpenEPaperLink/wiki" target="_new">OpenEPaperLink
-						Wiki</a><br>
+					<a href="https://github.com/jjwbruijn/OpenEPaperLink" target="_new">Github OpenEPaperLink</a><br>
+					<a href="https://github.com/jjwbruijn/OpenEPaperLink/wiki" target="_new">OpenEPaperLink Wiki</a><br>
 				</p>
 			</div>
 
@@ -436,13 +430,16 @@
 						<h4>Other actions</h4>
 						<div>
 							<p>
-								<div id="rollbackOption" style="display:none"><button type="button" id="rollbackBtn">Rollback to previous
-									firmware</button></div>
+								<div id="rollbackOption" style="display:none">
+									<button type="button" id="rollbackBtn">Rollback to previous firmware</button>
+								</div>
 							</p>
 							<p>
 								<span id="c6Option">
-								<div id="updateC6Option"><button type="button" id="updateC6Btn">Update ESP32-C6</button> <input type="checkbox"
-											value="1" checked id="c6download"> download latest version</div>
+									<div id="updateC6Option">
+										<button type="button" id="updateC6Btn">Update ESP32-C6</button>
+										<input type="checkbox" value="1" checked id="c6download">download latest version
+									</div>
 								</span>
 							</p>
 						</div>

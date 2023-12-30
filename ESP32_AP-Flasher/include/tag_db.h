@@ -69,6 +69,7 @@ struct Config {
     uint8_t stopsleep;
     uint8_t runStatus;
     uint8_t preview;
+    uint8_t lock;
     uint8_t wifiPower;
     char timeZone[52];
     uint8_t sleepTime1;
