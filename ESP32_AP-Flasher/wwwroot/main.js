@@ -232,6 +232,7 @@ function processTags(tagArray) {
 				const localTagmac = tagmac;
 				const data = await getTagtype(element.hwType);
 				$('#tag' + localTagmac + ' .model').innerHTML = data.name;
+				$('#tag' + localTagmac + ' .resolution').innerHTML = data.width + "x" + data.height;
 			})();
 			let statusline = "";
 			if (element.RSSI != 100) {
@@ -253,6 +254,7 @@ function processTags(tagArray) {
 		} else {
 			$('#tag' + tagmac + ' .model').innerHTML = "waiting for hardware type";
 			$('#tag' + tagmac + ' .received').style.opacity = "0";
+			$('#tag' + tagmac + ' .resolution').innerHTML = "";
 		}
 
 		if (!apConfig.preview || element.contentMode == 20) {

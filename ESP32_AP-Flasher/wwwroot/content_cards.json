@@ -182,7 +182,7 @@
   {
     "id": 4,
     "name": "Current weather",
-    "desc": "Current weather. Weather data by Open-Meteo.com",
+    "desc": "Current weather. Weather data by Open-Meteo.com. Parameters Lat, Lon and Time Zone are filled automatically from the entered location. In case of an ambiguous location, you can alter those manually.",
     "hwtype": [
       0,
       1,
@@ -203,18 +203,6 @@
         "type": "text"
       },
       {
-        "key": "#lat",
-        "name": "Lat",
-        "desc": "Latitude (set automatic when generating image)",
-        "type": "ro"
-      },
-      {
-        "key": "#lon",
-        "name": "Lon",
-        "desc": "Longitude (set automatic when generating image)",
-        "type": "ro"
-      },
-      {
         "key": "units",
         "name": "Units",
         "desc": "Celcius or Fahrenheit?",
@@ -223,13 +211,31 @@
           "0": "-Celcius / Beaufort / millimeters",
           "1": "Fahrenheit / mph / millimeters"
         }
+      },
+      {
+        "key": "#lat",
+        "name": "Lat",
+        "desc": "Latitude (set automatic when generating image)",
+        "type": "text"
+      },
+      {
+        "key": "#lon",
+        "name": "Lon",
+        "desc": "Longitude (set automatic when generating image)",
+        "type": "text"
+      },
+      {
+        "key": "#tz",
+        "name": "Time zone",
+        "desc": "Time zone (set automatic when generating image)",
+        "type": "text"
       }
     ]
   },
   {
     "id": 8,
     "name": "Weather forecast",
-    "desc": "Weather forecast for the next five days. Weather data by Open-Meteo.com",
+    "desc": "Weather forecast for the next five days. Weather data by Open-Meteo.com. Parameters Lat, Lon and Time Zone are filled automatically from the entered location. In case of an ambiguous location, you can alter those manually.",
     "hwtype": [
       1,
       2,
@@ -248,18 +254,6 @@
         "type": "text"
       },
       {
-        "key": "#lat",
-        "name": "Lat",
-        "desc": "Latitude (set automatic when generating image)",
-        "type": "ro"
-      },
-      {
-        "key": "#lon",
-        "name": "Lon",
-        "desc": "Longitude (set automatic when generating image)",
-        "type": "ro"
-      },
-      {
         "key": "units",
         "name": "Units",
         "desc": "Celcius or Fahrenheit?",
@@ -268,6 +262,24 @@
           "0": "-Celcius / Beaufort / millimeters",
           "1": "Fahrenheit / mph / millimeters"
         }
+      },
+      {
+        "key": "#lat",
+        "name": "Lat",
+        "desc": "Latitude (set automatic when generating image)",
+        "type": "text"
+      },
+      {
+        "key": "#lon",
+        "name": "Lon",
+        "desc": "Longitude (set automatic when generating image)",
+        "type": "text"
+      },
+      {
+        "key": "#tz",
+        "name": "Time zone",
+        "desc": "Time zone (set automatic when generating image)",
+        "type": "text"
       }
     ]
   },

@@ -510,8 +510,8 @@ select {
 	width: 225px;
 	position: relative;
 	min-height: 170px;
-	margin: 5px;
-	padding: 5px;
+	margin: 3px;
+	padding: 4px 5px 5px 8px;
 	background-color: #ffffff;
 	border: 1px solid #cccccc;
 	transition: box-shadow 0.3s ease;
@@ -537,7 +537,7 @@ select {
 	background-color: #6d6e6e;
 	color: white;
 	padding: 5px;
-	margin: 0px 5px;
+	margin: 0px 3px;
 }
 
 .currimg {
@@ -552,7 +552,12 @@ select {
 
 .mac {
 	font-size: 0.9em;
-	cursor: pointer;
+	line-height: 1.25;
+}
+
+.model {
+	font-size: 0.9em;
+	line-height: 1.25;
 }
 
 .alias {
@@ -561,12 +566,19 @@ select {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	padding-bottom: 4px;
+}
+
+.resolution {
+	font-size: 0.9em;
+	line-height: 1.25;
 }
 
 .received {
 	display: flex;
-	font-size: .85em;
+	font-size: .9em;
 	padding-bottom: 5px;
+	line-height: 1.25;
 }
 
 .received div {
