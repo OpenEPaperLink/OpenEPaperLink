@@ -24,7 +24,7 @@
 #include "newproto.h"
 #include "storage.h"
 #ifdef CONTENT_QR
-#include "qrcode.h"
+#include "QRCodeGenerator.h"
 #endif
 #include "language.h"
 #include "settings.h"
@@ -1062,9 +1062,10 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
 
     const char *text = qrcontent.c_str();
     QRCode qrcode;
-    uint8_t qrcodeData[qrcode_getBufferSize(2)];
+    uint8_t version = findFittingVersion_text(ECC_MEDIUM, text);
+    uint8_t qrcodeData[qrcode_getBufferSize(version)];
     // https://github.com/ricmoo/QRCode
-    qrcode_initText(&qrcode, qrcodeData, 2, ECC_MEDIUM, text);
+    qrcode_initText(&qrcode, qrcodeData, version, ECC_MEDIUM, text);
 
     StaticJsonDocument<512> loc;
     getTemplate(loc, 10, taginfo->hwType);
