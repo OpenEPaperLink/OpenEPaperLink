@@ -233,6 +233,9 @@ function processTags(tagArray) {
 				const data = await getTagtype(element.hwType);
 				$('#tag' + localTagmac + ' .model').innerHTML = data.name;
 				$('#tag' + localTagmac + ' .resolution').innerHTML = data.width + "x" + data.height;
+				if (element.ver != 0 && element.ver != 1) {
+					$('#tag' + localTagmac + ' .resolution').innerHTML += ` fw:${element.ver} 0x${element.ver.toString(16)}`;
+				}
 			})();
 			let statusline = "";
 			if (element.RSSI != 100) {
@@ -243,11 +246,6 @@ function processTags(tagArray) {
 			}
 			if (element.batteryMv != 0 && element.batteryMv != 1337) {
 				statusline += ", " + (element.batteryMv == 2600 ? "&#x2265;" : "") + (element.batteryMv / 1000) + "V";
-			}
-			if (element.ver != 0 && element.ver != 1) {
-				$('#tag' + tagmac + ' .received').title = `fw: ${element.ver}`;
-			} else {
-				$('#tag' + tagmac + ' .received').title = "";
 			}
 			$('#tag' + tagmac + ' .received').innerHTML = statusline;
 			$('#tag' + tagmac + ' .received').style.opacity = "1";
