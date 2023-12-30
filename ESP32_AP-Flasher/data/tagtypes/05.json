@@ -13,7 +13,7 @@
 	},
 	"shortlut": 1,
 	"options": [],
-	"contentids": [ 0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 15, 16, 19, 20],
+	"contentids": [ 0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20],
 	"template": {
 		"1": {
 			"weekday": [ 200, 25, "fonts/calibrib60" ],
