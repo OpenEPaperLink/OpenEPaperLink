@@ -13,7 +13,7 @@
 	},
 	"shortlut": 0,
 	"options": ["button", "led"],
-	"contentids": [ 0, 1, 2, 3, 4, 8, 16, 9, 7, 19, 10, 11, 21 ],
+	"contentids": [ 0, 1, 2, 3, 4, 5, 8, 16, 9, 7, 19, 10, 11, 21 ],
 	"template": {
 		"1": {
 			"weekday": [148, 10, "fonts/calibrib60"],
