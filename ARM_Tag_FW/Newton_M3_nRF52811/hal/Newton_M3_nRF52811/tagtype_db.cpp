@@ -18,41 +18,41 @@ uint8_t getUICRByte(uint8_t offset) {
 void identifyTagInfo() {
     // get some info about the tag from the UICR. Found the information when comparing the 'customer' area for various tags. The following information is known;
     // this has been deducted from comparing many of the UICR data from various tags
-/*
-00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F
+    /*
+    00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F
 
-93 47 2E 06 16 01 15 04 00 11 01 58 02 C0 01 04 00 03 81 9D 00 00 48 FF FF FF FF FF FF FF FF FF     6.0 UC8159
-62 65 F6 06 16 07 04 04 00 0E 01 0A 02 98 00 38 00 07 01 9C 00 00 47 03 68 00 00 00 00 00 00 00		4.3 UCvar43 (no buttons)
-E0 5F F6 06 16 07 04 04 00 0E 01 0A 02 98 00 38 00 07 01 9C 00 00 47 03 68 00 00 00 00 00 00 00		4.3 UCvar43 (no buttons)
-B1 42 68 06 16 03 0E 04 00 0E 01 0A 02 98 00 38 00 07 01 9C 00 00 47 FF FF FF FF FF FF FF FF FF	 	4.3 UCvar43-dif batch (no buttons)
-78 56 34 12 17 01 1E 04 00 1A 01 0A 02 98 00 38 00 07 81 9D 00 00 47 03 0A 00 00 00 00 00 00 00     4.3 with buttons
-49 B6 77 7E 16 06 0F 04 00 0F 01 28 01 A0 00 39 00 07 81 9D 00 00 41 03 14 00 00 00 00 00 00 00	 	2.2 SSD1619
-DF 00 C6 05 15 0A 14 04 00 15 01 68 01 B8 00 38 00 07 01 9C 00 00 43 FF FF FF FF FF FF FF FF FF		2.6 Lite (no buttons)
-E5 16 52 06 16 02 18 04 00 12 01 C8 00 C8 00 04 00 07 01 9C 00 00 40 FF FF FF FF FF FF FF FF FF		1.6 Lite SSD1619 (no buttons)
-67 CC 22 7E 15 0B 15 04 00 15 01 80 01 A8 00 39 00 07 81 9D 00 00 42 FF FF FF FF FF FF FF FF FF		2.9 SSD1619
-0B 81 08 04 14 09 0F 04 00 0D 01 80 01 A8 00 38 00 07 81 9D 00 00 42 FF FF FF FF FF FF FF FF FF		2.9 UC8151
-26 36 42 7E 16 03 14 04 00 15 01 80 01 A8 00 38 00 07 01 9C 00 00 42 FF FF FF FF FF FF FF FF FF		2.9 Lite (SSD) (no buttons)
-F1 D5 B2 05 15 0A 04 04 00 12 01 90 01 2C 01 04 00 07 01 9C 00 00 46 FF FF FF FF FF FF FF FF FF		4.2 SSD
-CA FE BA DE 15 0B 12 04 00 10 01 E0 01 20 03 39 00 03 81 9D 00 00 4C FF FF FF FF FF FF FF FF FF		7.4 UC8179
-F3 22 BC 05 15 0A 0D 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 SSD
-AD BA FE CA 15 0A 1B 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 type 2
+    93 47 2E 06 16 01 15 04 00 11 01 58 02 C0 01 04 00 03 81 9D 00 00 48 FF FF FF FF FF FF FF FF FF     6.0 UC8159
+    62 65 F6 06 16 07 04 04 00 0E 01 0A 02 98 00 38 00 07 01 9C 00 00 47 03 68 00 00 00 00 00 00 00		4.3 UCvar43 (no buttons)
+    E0 5F F6 06 16 07 04 04 00 0E 01 0A 02 98 00 38 00 07 01 9C 00 00 47 03 68 00 00 00 00 00 00 00		4.3 UCvar43 (no buttons)
+    B1 42 68 06 16 03 0E 04 00 0E 01 0A 02 98 00 38 00 07 01 9C 00 00 47 FF FF FF FF FF FF FF FF FF	 	4.3 UCvar43-dif batch (no buttons)
+    78 56 34 12 17 01 1E 04 00 1A 01 0A 02 98 00 38 00 07 81 9D 00 00 47 03 0A 00 00 00 00 00 00 00     4.3 with buttons
+    49 B6 77 7E 16 06 0F 04 00 0F 01 28 01 A0 00 39 00 07 81 9D 00 00 41 03 14 00 00 00 00 00 00 00	 	2.2 SSD1619
+    DF 00 C6 05 15 0A 14 04 00 15 01 68 01 B8 00 38 00 07 01 9C 00 00 43 FF FF FF FF FF FF FF FF FF		2.6 Lite (no buttons)
+    E5 16 52 06 16 02 18 04 00 12 01 C8 00 C8 00 04 00 07 01 9C 00 00 40 FF FF FF FF FF FF FF FF FF		1.6 Lite SSD1619 (no buttons)
+    67 CC 22 7E 15 0B 15 04 00 15 01 80 01 A8 00 39 00 07 81 9D 00 00 42 FF FF FF FF FF FF FF FF FF		2.9 SSD1619
+    0B 81 08 04 14 09 0F 04 00 0D 01 80 01 A8 00 38 00 07 81 9D 00 00 42 FF FF FF FF FF FF FF FF FF		2.9 UC8151
+    26 36 42 7E 16 03 14 04 00 15 01 80 01 A8 00 38 00 07 01 9C 00 00 42 FF FF FF FF FF FF FF FF FF		2.9 Lite (SSD) (no buttons)
+    F1 D5 B2 05 15 0A 04 04 00 12 01 90 01 2C 01 04 00 07 01 9C 00 00 46 FF FF FF FF FF FF FF FF FF		4.2 SSD
+    CA FE BA DE 15 0B 12 04 00 10 01 E0 01 20 03 39 00 03 81 9D 00 00 4C FF FF FF FF FF FF FF FF FF		7.4 UC8179
+    F3 22 BC 05 15 0A 0D 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 SSD
+    AD BA FE CA 15 0A 1B 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 type 2
 
-	MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
+            MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
 
-0x09 - controller?
-	0x0D - UC8151?
-	0x0E - UVvar43
-	0x1A - UVvar43 (probably)
-	0x0F - SSD (var2.2)
-	0x10 - UC8179
-	0x11 - UC8159
-	0x12 - SSD (var1.6)
-	0x15 - SSD (2.9 lite)
-	0x19 - SSD (9.7)
-	
-0x12 -  0x01 | (0x80 if it has a button)
-0x13 -  0x80 | (0x10 if it has a LED) | (0x0C ?? ) | (0x01 if it has a button)
-*/
+    0x09 - controller?
+            0x0D - UC8151?
+            0x0E - UVvar43
+            0x1A - UVvar43 (probably)
+            0x0F - SSD (var2.2)
+            0x10 - UC8179
+            0x11 - UC8159
+            0x12 - SSD (var1.6)
+            0x15 - SSD (2.9 lite)
+            0x19 - SSD (9.7)
+
+    0x12 -  0x01 | (0x80 if it has a button)
+    0x13 -  0x80 | (0x10 if it has a LED) | (0x0C ?? ) | (0x01 if it has a button)
+    */
     uint16_t tmp = getUICRByte(0x0B);
     tmp |= getUICRByte(0x0C) << 8;
     uint16_t epdXRes = tmp;
@@ -76,13 +76,13 @@ AD BA FE CA 15 0A 1B 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF
             epd = new epdvar29;
             break;
         case 0x0E:
-        case 0x1A: // 4.3 variant with buttons? probably var43
+        case 0x1A:  // 4.3 variant with buttons? probably var43
             epd = new epdvar43;
             break;
-        case 0x10:
+        case 0x11:
             epd = new uc8159;
             break;
-        case 0x11:
+        case 0x10:
             epd = new uc8179;
             break;
     }
@@ -152,6 +152,10 @@ AD BA FE CA 15 0A 1B 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF
         case STYPE_SIZE_075:
             tag.macSuffix = 0xBC90;
             tag.OEPLtype = SOLUM_M3_BWR_75;
+            epd->Xres = epdYRes;
+            epd->Yres = epdXRes;
+            epd->effectiveXRes = epdYRes;
+            epd->effectiveYRes = epdXRes;
             break;
         case STYPE_SIZE_097:
             tag.macSuffix = 0xE4D0;
