@@ -13,6 +13,6 @@
 	},
 	"shortlut": 0,
 	"options": ["button"],
-    "contentids": [ 0, 1, 2, 3, 4, 5, 8, 16, 9, 7, 19, 10, 11, 21 ],
+    "contentids": [ 0, 1, 2, 3, 4, 5, 8, 16, 9, 7, 19, 10, 11],
     "usetemplate": 1
 }
