@@ -3,17 +3,7 @@
     "id": 0,
     "name": "Static image",
     "desc": "Shows a static image, from file system, painter or external source. Make sure to resize the image to the correct resolution.",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      49,
-      51,
-      17,
-      15,
-      54
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "filename",
@@ -84,34 +74,14 @@
     "id": 1,
     "name": "Current date",
     "desc": "Shows the current date",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      17,
-      49,
-      51,
-      240,
-      15
-    ],
+    "hwtype": [],
     "param": []
   },
   {
     "id": 2,
     "name": "Count days",
     "desc": "Counts days, starting with the value below. If the count value gets higher than the threshold, the number is displayed in red, otherwise it's black",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      17,
-      49,
-      51,
-      240,
-      21
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "counter",
@@ -124,16 +94,7 @@
         "name": "Threshold",
         "desc": "Value is displayed in red if higher than the threshold",
         "type": "int",
-        "hwtype": [
-          0,
-          1,
-          2,
-          49,
-          51,
-          17,
-          15,
-          54
-        ]
+        "hwtype": []
       }
     ]
   },
@@ -141,18 +102,7 @@
     "id": 3,
     "name": "Count hours",
     "desc": "Counts hours, starting with the value below. If the count value gets higher than the threshold, the number is displayed in red, otherwise it's black",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      17,
-      49,
-      51,
-      240,
-      15,
-      54
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "counter",
@@ -165,17 +115,7 @@
         "name": "Threshold",
         "desc": "Value is displayed in red if higher than the threshold",
         "type": "int",
-        "hwtype": [
-          0,
-          1,
-          2,
-          5,
-          49,
-          51,
-          17,
-          15,
-          54
-        ]
+        "hwtype": []
       }
     ]
   },
@@ -183,18 +123,7 @@
     "id": 4,
     "name": "Current weather",
     "desc": "Current weather. Weather data by Open-Meteo.com. Parameters Lat, Lon and Time Zone are filled automatically from the entered location. In case of an ambiguous location, you can alter those manually.",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      17,
-      49,
-      51,
-      240,
-      15,
-      54
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "location",
@@ -229,6 +158,40 @@
         "name": "Time zone",
         "desc": "Time zone (set automatic when generating image)",
         "type": "text"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Firmware update",
+    "desc": "To update tag firmware. Make sure you send the right .bin file! You can brick your tag if you send a wrong file.",
+    "hwtype": [],
+    "param": [
+      {
+        "key": "filename",
+        "name": "Filename",
+        "desc": "Local file on littlefs partition",
+        "type": "binfile"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "name": "Image URL",
+    "desc": "Gets an external image and displays it",
+    "hwtype": [],
+    "param": [
+      {
+        "key": "url",
+        "name": "URL",
+        "desc": "Full URL of the image. Image should be in jpeg format (non-progressive), and with exactly the right resolution for the screen (eg 128x296 or 152x152). Will be auto-rotated. Colors will be dithered",
+        "type": "text"
+      },
+      {
+        "key": "interval",
+        "name": "Interval",
+        "desc": "How often (in minutes) the image is being fetched. Minimum is 3 minutes.",
+        "type": "int"
       }
     ]
   },
@@ -236,16 +199,7 @@
     "id": 8,
     "name": "Weather forecast",
     "desc": "Weather forecast for the next five days. Weather data by Open-Meteo.com. Parameters Lat, Lon and Time Zone are filled automatically from the entered location. In case of an ambiguous location, you can alter those manually.",
-    "hwtype": [
-      1,
-      2,
-      5,
-      49,
-      51,
-      17,
-      15,
-      54
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "location",
@@ -284,51 +238,10 @@
     ]
   },
   {
-    "id": 16,
-    "name": "Buienradar",
-    "desc": "Dutch rain predictions for the next two hours. Only works for locations in the Netherlands and Belgium.",
-    "hwtype": [
-      1,
-      49,
-      51,
-      17,
-      21
-    ],
-    "param": [
-      {
-        "key": "location",
-        "name": "Location",
-        "desc": "Name of the city. This is used to lookup the lat/long data, and to display as the title",
-        "type": "text"
-      },
-      {
-        "key": "#lat",
-        "name": "Lat",
-        "desc": "Latitude (set automatic when generating image)",
-        "type": "ro"
-      },
-      {
-        "key": "#lon",
-        "name": "Lon",
-        "desc": "Longitude (set automatic when generating image)",
-        "type": "ro"
-      }
-    ]
-  },
-  {
     "id": 9,
     "name": "RSS feed",
     "desc": "Gets an RSS feed, and display the first few lines of it",
-    "hwtype": [
-      1,
-      2,
-      5,
-      49,
-      51,
-      17,
-      15,
-      54
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "title",
@@ -351,86 +264,10 @@
     ]
   },
   {
-    "id": 7,
-    "name": "Image URL",
-    "desc": "Gets an external image and displays it",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      49,
-      51,
-      17,
-      15,
-      54
-    ],
-    "param": [
-      {
-        "key": "url",
-        "name": "URL",
-        "desc": "Full URL of the image. Image should be in jpeg format (non-progressive), and with exactly the right resolution for the screen (eg 128x296 or 152x152). Will be auto-rotated. Colors will be dithered",
-        "type": "text"
-      },
-      {
-        "key": "interval",
-        "name": "Interval",
-        "desc": "How often (in minutes) the image is being fetched. Minimum is 3 minutes.",
-        "type": "int"
-      }
-    ]
-  },
-  {
-    "id": 19,
-    "name": "Json template",
-    "desc": "Gets an external json template and displays it",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      49,
-      51,
-      17,
-      15,
-      54
-    ],
-    "param": [
-      {
-        "key": "url",
-        "name": "URL",
-        "desc": "Full URL of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
-        "type": "text"
-      },
-      {
-        "key": "filename",
-        "name": "Filename",
-        "desc": "Filename of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
-        "type": "jsonfile"
-      },
-      {
-        "key": "interval",
-        "name": "Interval",
-        "desc": "In case of an url, wow often (in minutes) the template is being fetched. Minimum is 3 minutes.",
-        "type": "int"
-      }
-    ]
-  },
-  {
     "id": 10,
     "name": "QR code",
     "desc": "Displayes a full screen QR code",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      17,
-      49,
-      51,
-      15,
-      54
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "title",
@@ -450,16 +287,7 @@
     "id": 11,
     "name": "Google calendar",
     "desc": "Displays the current and upcoming appointments (next 24 hours) from a Google calendar. To let this work, you need a small Google Apps Script to interface with your calendar. See documentation on github how to do that",
-    "hwtype": [
-      1,
-      2,
-      5,
-      49,
-      51,
-      17,
-      15,
-      54
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "title",
@@ -478,31 +306,6 @@
         "name": "Interval",
         "desc": "How often (in minutes) the calendar is being refreshed",
         "type": "int"
-      }
-    ]
-  },
-  {
-    "id": 5,
-    "name": "Firmware update",
-    "desc": "To update tag firmware. Make sure you send the right .bin file! You can brick your tag if you send a wrong file.",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      17,
-      49,
-      51,
-      240,
-      15,
-      54
-    ],
-    "param": [
-      {
-        "key": "filename",
-        "name": "Filename",
-        "desc": "Local file on littlefs partition",
-        "type": "binfile"
       }
     ]
   },
@@ -576,21 +379,36 @@
     ]
   },
   {
+    "id": 16,
+    "name": "Buienradar",
+    "desc": "Dutch rain predictions for the next two hours. Only works for locations in the Netherlands and Belgium.",
+    "hwtype": [],
+    "param": [
+      {
+        "key": "location",
+        "name": "Location",
+        "desc": "Name of the city. This is used to lookup the lat/long data, and to display as the title",
+        "type": "text"
+      },
+      {
+        "key": "#lat",
+        "name": "Lat",
+        "desc": "Latitude (set automatic when generating image)",
+        "type": "ro"
+      },
+      {
+        "key": "#lon",
+        "name": "Lon",
+        "desc": "Longitude (set automatic when generating image)",
+        "type": "ro"
+      }
+    ]
+  },
+  {
     "id": 17,
     "name": "Send Command",
     "desc": "Send a command to a tag to execute; only to be used for tests during development",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      17,
-      49,
-      51,
-      240,
-      15,
-      54
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "cmd",
@@ -604,18 +422,7 @@
     "id": 18,
     "name": "Set Tag Config",
     "desc": "Sets tag options. The options you see below are the default options. This may or may not match current tag settings",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      17,
-      49,
-      51,
-      240,
-      15,
-      54
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "fastboot",
@@ -708,20 +515,36 @@
     ]
   },
   {
+    "id": 19,
+    "name": "Json template",
+    "desc": "Gets an external json template and displays it",
+    "hwtype": [],
+    "param": [
+      {
+        "key": "url",
+        "name": "URL",
+        "desc": "Full URL of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
+        "type": "text"
+      },
+      {
+        "key": "filename",
+        "name": "Filename",
+        "desc": "Filename of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
+        "type": "jsonfile"
+      },
+      {
+        "key": "interval",
+        "name": "Interval",
+        "desc": "In case of an url, wow often (in minutes) the template is being fetched. Minimum is 3 minutes.",
+        "type": "int"
+      }
+    ]
+  },
+  {
     "id": 20,
     "name": "Display a copy",
     "desc": "Mirror the contents of a source tag to this destination tag, regardless of the content. The two tags should be of the same type. Ideally, the destination tag is local to the AP.",
-    "hwtype": [
-      0,
-      1,
-      2,
-      5,
-      49,
-      51,
-      17,
-      15,
-      54
-    ],
+    "hwtype": [],
     "param": [
       {
         "key": "mac",
@@ -735,11 +558,6 @@
     "id": 21,
     "name": "Access point info",
     "desc": "Displays information about the currently connected access point",
-    "hwtype": [
-      0,
-      1,
-      15,
-      54
-    ]
+    "hwtype": []
   }
 ]
