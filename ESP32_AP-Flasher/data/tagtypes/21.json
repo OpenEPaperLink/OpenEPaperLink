@@ -11,64 +11,6 @@
 	},
 	"shortlut": 0,
 	"options": ["button", "customlut"],
-	"contentids": [ 0, 1, 2, 3, 4, 8, 16, 9, 7, 19, 10, 11, 21 ],
+	"contentids": [ 0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 15, 16, 17, 18, 19, 20, 21 ],
 	"usetemplate": 1,
-	"template": {
-		"1": {
-			"weekday": [148, 10, "fonts/calibrib60"],
-			"date": [148, 73, "fonts/calibrib50"]
-		},
-		"16": {
-			"location": [ 5, 5, "fonts/bahnschrift30" ],
-			"title": [ 247, 11, "glasstown_nbp_tf" ],
-			"cols": [ 1, 125, 12, "glasstown_nbp_tf" ],
-			"bars": [ 5, 111, 10 ]
-		},
-		"2": {
-			"fonts": ["fonts/calibrib150", "fonts/calibrib150", "fonts/calibrib120", "fonts/calibrib100"],
-			"xy": [148, 74]
-		},
-		"4": {
-			"location": [5, 5, "fonts/bahnschrift30"],
-			"wind": [280, 5, "fonts/bahnschrift30"],
-			"temp": [5, 65, "fonts/bahnschrift70"],
-			"icon": [285, 20, 70, 2],
-			"dir": [235, -12, 40],
-			"umbrella": [190, -50, 25]
-		},
-		"8": {
-			"location": [5, 12, "t0_14b_tf"],
-			"column": [5, 59],
-			"day": [30, 18, "fonts/twcondensed20", 41, 108],
-			"icon": [30, 55, 30],
-			"wind": [18, 26],
-			"line": [20, 128]
-		},
-		"9": {
-			"title": [5, 3, "fonts/bahnschrift20"],
-			"items": 8,
-			"line": [5, 34, 13],
-			"font": "glasstown_nbp_tf"
-		},
-		"10": {
-			"title": [10, 5, "fonts/bahnschrift20"],
-			"pos": [149, 25]
-		},
-		"11": {
-			"title": [5, 2, "fonts/bahnschrift20"],
-			"date": [290, 2],
-			"items": 7,
-			"red": [0, 21, 296, 14],
-			"line": [5, 32, 15, "t0_14b_tf", 50]
-		},
-		"21": [
-			{ "text": [ 5, 5, "OpenEpaperLink AP", "bahnschrift20", 1, 0, 0 ] },
-			{ "text": [ 5, 50, "IP address:", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 120, 50, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 5, 70, "Channel:", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 120, 70, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 5, 90, "Tag count:", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 120, 90, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
-		]
-	}
 }
