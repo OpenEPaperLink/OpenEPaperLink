@@ -134,8 +134,12 @@ void saveDB(const String& filename) {
     fs::File existingFile = contentFS->open(filename, "r");
     if (existingFile) {
         existingFile.close();
+        vTaskDelay(pdMS_TO_TICKS(100));
         String backupFilename = filename + ".bak";
-        contentFS->rename(filename.c_str(), backupFilename.c_str());
+        if (!contentFS->rename(filename.c_str(), backupFilename.c_str())) {
+            logLine("error renaming tagDB to .bak");
+            wsErr("error renaming tagDB to .bak");
+        }
     }
 
     fs::File file = contentFS->open(filename, "w");
@@ -317,7 +321,7 @@ void initAPconfig() {
     if (APconfig["alias"]) strlcpy(config.alias, APconfig["alias"], sizeof(config.alias));
     config.led = APconfig["led"] | 255;
     config.tft = APconfig["tft"] | 255;
-    config.language = APconfig["language"] | getDefaultLanguage();
+    config.language = APconfig["language"] | 0;
     config.maxsleep = APconfig["maxsleep"] | 10;
     config.stopsleep = APconfig["stopsleep"] | 1;
     config.preview = APconfig["preview"] | 1;

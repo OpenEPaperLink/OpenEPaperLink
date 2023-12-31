@@ -624,7 +624,7 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     const int year_number = timeinfo.tm_year + 1900;
 
     if (taginfo->hwType == SOLUM_SEG_UK) {
-        sprintf(imageParams.segments, "%2d%2d%-2.2s%04d", timeinfo.tm_mday, month_number + 1, languageDays[getCurrentLanguage()][timeinfo.tm_wday], year_number);
+        sprintf(imageParams.segments, "%2d%2d%-2.2s%04d", timeinfo.tm_mday, month_number + 1, languageDays[timeinfo.tm_wday], year_number);
         imageParams.symbols = 0x04;
         return;
     }
@@ -638,14 +638,14 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     const auto &date = loc["date"];
     const auto &weekday = loc["weekday"];
     if (date) {
-        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, TFT_RED);
-        drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[getCurrentLanguage()][timeinfo.tm_mon], date[0], date[1], date[2], TC_DATUM);
+        drawString(spr, languageDays[timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, TFT_RED, weekday[3]);
+        drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[timeinfo.tm_mon], date[0], date[1], date[2], TC_DATUM, TFT_BLACK, date[3]);
     } else {
         const auto &month = loc["month"];
         const auto &day = loc["day"];
-        drawString(spr, languageDays[getCurrentLanguage()][timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, TFT_BLACK);
-        drawString(spr, String(languageMonth[getCurrentLanguage()][timeinfo.tm_mon]), month[0], month[1], month[2], TC_DATUM);
-        drawString(spr, String(timeinfo.tm_mday), day[0], day[1], day[2], TC_DATUM, TFT_RED);
+        drawString(spr, languageDays[timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, TFT_BLACK, weekday[3]);
+        drawString(spr, String(languageMonth[timeinfo.tm_mon]), month[0], month[1], month[2], TC_DATUM, TFT_BLACK, month[3]);
+        drawString(spr, String(timeinfo.tm_mday), day[0], day[1], day[2], TC_DATUM, TFT_RED, day[3]);
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -838,7 +838,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
         const time_t weatherday = (daily["time"][dag].as<time_t>() + utc_offset);
         const struct tm *datum = localtime(&weatherday);
 
-        drawString(spr, String(languageDaysShort[getCurrentLanguage()][datum->tm_wday]), dag * column1 + day[0].as<int>(), day[1], day[2], TC_DATUM, TFT_BLACK);
+        drawString(spr, String(languageDaysShort[datum->tm_wday]), dag * column1 + day[0].as<int>(), day[1], day[2], TC_DATUM, TFT_BLACK);
 
         uint8_t weathercode = daily["weathercode"][dag].as<int>();
         if (weathercode > 40) weathercode -= 40;
