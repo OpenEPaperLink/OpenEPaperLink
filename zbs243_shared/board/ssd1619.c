@@ -17,6 +17,8 @@
 #include "timer.h"
 #include "wdt.h"
 
+#include <stdlib.h>
+
 #define CMD_DRV_OUTPUT_CTRL 0x01
 #define CMD_SOFT_START_CTRL 0x0C
 #define CMD_ENTER_SLEEP 0x10
@@ -72,8 +74,6 @@
         P2_2 = 1;  \
     } while (0)
 
-extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when done
-
 static uint8_t __xdata epdCharSize = 1;   // character size, 1 or 2 (doubled)
 static bool __xdata directionY = true;    // print direction, X or Y (true)
 static uint8_t __xdata rbuffer[32];       // used to rotate bits around
@@ -87,11 +87,11 @@ static bool __xdata isInited = false;
 bool __xdata epdGPIOActive = false;
 
 #define LUT_BUFFER_SIZE 128
-static uint8_t waveformbuffer[LUT_BUFFER_SIZE];
 uint8_t __xdata customLUT[LUT_BUFFER_SIZE] = {0};
 
-struct waveform10* __xdata waveform10 = (struct waveform10*)waveformbuffer;  // holds the LUT/waveform
-struct waveform* __xdata waveform7 = (struct waveform*)waveformbuffer;       // holds the LUT/waveform
+static uint8_t* waveformbuffer;
+static struct waveform10* __xdata waveform10;
+static struct waveform* __xdata waveform7;
 
 #pragma callee_saves epdBusySleep
 #pragma callee_saves epdBusyWait
@@ -309,13 +309,6 @@ uint16_t epdGetBattery(void) {
     return voltage;
 }
 
-void loadFixedTempOTPLUT() {
-    shortCommand1(0x18, 0x48);                   // external temp sensor
-    shortCommand2(0x1A, 0x05, 0x00);             // < temp register
-    shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1 (i2C)
-    shortCommand(CMD_ACTIVATION);
-    epdBusyWait(TIMER_TICKS_PER_SECOND);
-}
 static void writeLut() {
     commandBegin(CMD_WRITE_LUT);
     for (uint8_t i = 0; i < (dispLutSize * 10); i++)
@@ -397,6 +390,10 @@ void selectLUT(uint8_t lut) {
         return;
     }
 
+    waveformbuffer = malloc(150);
+    waveform10 = (struct waveform10*)waveformbuffer;  // holds the LUT/waveform
+    waveform7 = (struct waveform*)waveformbuffer;     // holds the LUT/waveform
+
     // download the current LUT from the waveform buffer
     readLut();
 
@@ -444,7 +441,7 @@ void selectLUT(uint8_t lut) {
             break;
     }
 
-        // Handling if we received an OTA LUT
+    // Handling if we received an OTA LUT
     if (lut == EPD_LUT_OTA) {
         memcpy(waveformbuffer, customLUT, dispLutSize * 10);
         writeLut();
@@ -457,6 +454,7 @@ void selectLUT(uint8_t lut) {
         shortCommand1(CMD_DUMMY_PERIOD, customLUT[74]);
         shortCommand1(CMD_GATE_LINE_WIDTH, customLUT[75]);
         currentLut = lut;
+        free(waveformbuffer);
         return;
     }
 
@@ -467,6 +465,7 @@ void selectLUT(uint8_t lut) {
         lutGroupDisable(LUTGROUP_UNUSED4);
     }
     writeLut();
+    free(waveformbuffer);
 }
 
 void setWindowX(uint16_t start, uint16_t end) {
@@ -474,7 +473,7 @@ void setWindowX(uint16_t start, uint16_t end) {
 }
 void setWindowY(uint16_t start, uint16_t end) {
     commandBegin(CMD_WINDOW_Y_SIZE);
-    epdSend((start)&0xff);
+    epdSend((start) & 0xff);
     epdSend((start) >> 8);
     epdSend((end - 1) & 0xff);
     epdSend((end - 1) >> 8);
@@ -483,7 +482,7 @@ void setWindowY(uint16_t start, uint16_t end) {
 void setPosXY(uint16_t x, uint16_t y) {
     shortCommand1(CMD_XSTART_POS, (uint8_t)(x / 8));
     commandBegin(CMD_YSTART_POS);
-    epdSend((y)&0xff);
+    epdSend((y) & 0xff);
     epdSend((y) >> 8);
     commandEnd();
 }

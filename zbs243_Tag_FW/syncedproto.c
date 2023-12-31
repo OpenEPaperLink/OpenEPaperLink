@@ -25,9 +25,10 @@
 #include "timer.h"
 #include "userinterface.h"
 #include "wdt.h"
+#include "uart.h"
 
 // download-stuff
-uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE];
+uint8_t __xdata blockbuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
 static struct blockRequest __xdata curBlock = {0};  // used by the block-requester, contains the next request that we'll send
 static uint8_t __xdata curDispDataVer[8] = {0};
 static struct AvailDataInfo __xdata xferDataInfo = {0};  // holds the AvailDataInfo during the transfer
@@ -98,6 +99,7 @@ void dump(const uint8_t *__xdata a, const uint16_t __xdata l) {
             pr("\n0x%04X | ", c);
         }
         pr("%02X ", a[c]);
+        UartTxWait();
     }
     pr("\n--------");
     for (uint8_t c = 0; c < ROWS; c++) {
@@ -314,6 +316,10 @@ static bool processBlockPart(const struct blockPart *bp) {
     if ((start + size) > sizeof(blockbuffer)) {
         size = sizeof(blockbuffer) - start;
     }
+
+    // check if we already processed this blockpart
+    if (!(curBlock.requestedParts[bp->blockPart / 8] & (1 << (bp->blockPart % 8)))) return false;
+
     if (checkCRC(bp, sizeof(struct blockPart) + BLOCK_PART_DATA_SIZE)) {
         //  copy block data to buffer
         xMemCopy((void *)(blockbuffer + start), (const void *)bp->data, size);
@@ -620,7 +626,7 @@ static bool getDataBlock(const uint16_t blockSize) {
         } else {
             // immediately start with the reception of the block data
         }
-        blockRxLoop(270);  // BLOCK RX LOOP - receive a block, until the timeout has passed
+        blockRxLoop(290);  // BLOCK RX LOOP - receive a block, until the timeout has passed
         powerDown(INIT_RADIO);
 
 #ifdef DEBUGBLOCKS
@@ -784,10 +790,12 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
         if (getDataBlock(dataRequestSize)) {
             // succesfully downloaded datablock, save to eeprom
             powerUp(INIT_EEPROM);
+            timerDelay(TIMER_TICKS_PER_MS * 100);
 #ifdef DEBUGBLOCKS
             pr("Saving block %d to slot %d\n", curBlock.blockId, xferImgSlot);
 #endif
             saveImgBlockData(xferImgSlot, curBlock.blockId);
+            timerDelay(TIMER_TICKS_PER_MS * 100);
             powerDown(INIT_EEPROM);
             curBlock.blockId++;
             xferDataInfo.dataSize -= dataRequestSize;
@@ -895,10 +903,6 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
                 powerUp(INIT_EPD | INIT_EEPROM);
                 drawImageFromEeprom(findImgSlot, arg.lut);
                 powerDown(INIT_EPD | INIT_EEPROM);
-
-                //powerUp(INIT_EEPROM | INIT_EPD);
-                //powerDown(INIT_EEPROM | INIT_EPD);
-
             } else {
                 // not found in cache, prepare to download
                 pr("downloading image...\n");
@@ -915,8 +919,6 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
                     powerUp(INIT_EPD | INIT_EEPROM);
                     drawImageFromEeprom(xferImgSlot, arg.lut);
                     powerDown(INIT_EPD | INIT_EEPROM);
-                    //powerUp(INIT_EEPROM | INIT_EPD);
-                    //powerDown(INIT_EEPROM | INIT_EPD);
                 } else {
                     return false;
                 }

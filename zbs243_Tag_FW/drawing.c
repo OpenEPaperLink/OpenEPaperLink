@@ -12,30 +12,18 @@
 #include "screen.h"
 #include "timer.h"
 #include "userinterface.h"  // for addIcons
+#include <stdlib.h>
 
-extern uint8_t blockbuffer[];
+uint8_t __xdata* drawBuffer;
 
-#if (SCREEN_WIDTH == 152)
-void drawImageFromBuffer(uint8_t* buffer, const uint8_t lut) {
-    pr("Doing raw 1bpp\n");
-    epdSetup();
-    if (lut) selectLUT(lut);
-    beginFullscreenImage();
-    clearScreen();
-    beginWriteFramebuffer(EPD_COLOR_BLACK);
-    epdSelect();
-    for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
-        epdSend(buffer[c]);
-    }
-    epdDeselect();
-    endWriteFramebuffer();
-    addOverlay();
-    drawWithSleep();
-}
-#endif
 void drawImageAtAddress(uint32_t addr, uint8_t lut) {
-    struct EepromImageHeader* __xdata eih = (struct EepromImageHeader*)blockbuffer;
-    eepromRead(addr, blockbuffer, sizeof(struct EepromImageHeader));
+    drawBuffer = malloc(512);
+    if (!drawBuffer) {
+        pr("malloc during draw failed..\n");
+        return;
+    }
+    struct EepromImageHeader* __xdata eih = (struct EepromImageHeader*)drawBuffer;
+    eepromRead(addr, drawBuffer, sizeof(struct EepromImageHeader));
     switch (eih->dataType) {
         case DATATYPE_IMG_RAW_1BPP:
             pr("Doing raw 1bpp\n");
@@ -46,12 +34,12 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
             beginWriteFramebuffer(EPD_COLOR_BLACK);
             epdSelect();
             for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
-                if (c % 256 == 0) {
+                if (c % 512 == 0) {
                     epdDeselect();
-                    eepromRead(addr + sizeof(struct EepromImageHeader) + c, blockbuffer, 256);
+                    eepromRead(addr + sizeof(struct EepromImageHeader) + c, drawBuffer, 512);
                     epdSelect();
                 }
-                epdSend(blockbuffer[c % 256]);
+                epdSend(drawBuffer[c % 512]);
             }
             epdDeselect();
             endWriteFramebuffer();
@@ -64,12 +52,12 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
             beginWriteFramebuffer(EPD_COLOR_BLACK);
             epdSelect();
             for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
-                if (c % 256 == 0) {
+                if (c % 512 == 0) {
                     epdDeselect();
-                    eepromRead(addr + sizeof(struct EepromImageHeader) + c, blockbuffer, 256);
+                    eepromRead(addr + sizeof(struct EepromImageHeader) + c, drawBuffer, 512);
                     epdSelect();
                 }
-                epdSend(blockbuffer[c % 256]);
+                epdSend(drawBuffer[c % 512]);
             }
             epdDeselect();
             endWriteFramebuffer();
@@ -77,20 +65,22 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
             beginWriteFramebuffer(EPD_COLOR_RED);
             epdSelect();
             for (uint16_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++) {
-                if (c % 256 == 0) {
+                if (c % 512 == 0) {
                     epdDeselect();
-                    eepromRead(addr + sizeof(struct EepromImageHeader) + (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)) + c, blockbuffer, 256);
+                    eepromRead(addr + sizeof(struct EepromImageHeader) + (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)) + c, drawBuffer, 512);
                     epdSelect();
                 }
-                epdSend(blockbuffer[c % 256]);
+                epdSend(drawBuffer[c % 512]);
             }
             epdDeselect();
             endWriteFramebuffer();
             break;
         default:  // prevent drawing from an unknown file image type
             pr("Image with type 0x%02X was requested, but we don't know what to do with that currently...\n", eih->dataType);
+            free(drawBuffer);
             return;
     }
+    free(drawBuffer);
     addOverlay();
     drawWithSleep();
 }

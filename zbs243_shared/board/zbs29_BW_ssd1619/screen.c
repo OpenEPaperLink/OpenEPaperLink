@@ -233,6 +233,7 @@ void epdEnterSleep() {
     timerDelay(10);
     P2_0 = 1;
     timerDelay(50);
+    epdReset();
     shortCommand(CMD_SOFT_RESET2);
     epdBusyWait(TIMER_TICKS_PER_MS * 15);
     shortCommand1(CMD_ENTER_SLEEP, 0x03);

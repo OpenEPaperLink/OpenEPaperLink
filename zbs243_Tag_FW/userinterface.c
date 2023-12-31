@@ -24,11 +24,6 @@
 #include "syncedproto.h"  // for APmac / Channel
 #include "timer.h"
 
-// extern uint8_t __xdata mSelfMac[8];
-// extern uint8_t __xdata currentChannel;
-// extern uint8_t __xdata APmac[];
-// extern uint16_t __xdata batteryVoltage;
-
 const uint16_t __code fwVersion = FW_VERSION;
 const char __code fwVersionSuffix[] = FW_VERSION_SUFFIX;
 
@@ -156,8 +151,11 @@ void afterFlashScreenSaver() {
     epdPrintBegin(112, 293, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     epdpr("openepaperlink.de");
     epdPrintEnd();
-
+#if (HW_TYPE == SOLUM_M2_BW_29_LOWTEMP)
+    epdPrintBegin(110, 155, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+#else
     epdPrintBegin(110, 155, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+#endif
     epdpr("%02X:%02X", mSelfMac[7], mSelfMac[6]);
     epdpr(":%02X:%02X", mSelfMac[5], mSelfMac[4]);
     epdpr(":%02X:%02X", mSelfMac[3], mSelfMac[2]);
@@ -204,7 +202,11 @@ void afterFlashScreenSaver() {
 void showSplashScreen() {
     if (displayCustomImage(CUSTOM_IMAGE_SPLASHSCREEN)) return;
     powerUp(INIT_EPD);
+
+    #if (HW_TYPE != SOLUM_M2_BW_29_LOWTEMP)
     selectLUT(EPD_LUT_NO_REPEATS);
+#endif
+
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
 
@@ -335,7 +337,10 @@ void showAPFound() {
 
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+        #if (HW_TYPE != SOLUM_M2_BW_29_LOWTEMP)
     selectLUT(1);
+#endif
+
 #if (SCREEN_WIDTH == 128)
     epdPrintBegin(0, 285, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
     epdpr("Waiting for data...");
@@ -446,8 +451,10 @@ void showAPFound() {
 void showNoAP() {
     if (displayCustomImage(CUSTOM_IMAGE_NOAPFOUND)) return;
     powerUp(INIT_EPD | INIT_EEPROM);
-
+        #if (HW_TYPE != SOLUM_M2_BW_29_LOWTEMP)
     selectLUT(EPD_LUT_NO_REPEATS);
+#endif
+
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
     clearScreen();
 #if (SCREEN_WIDTH == 128)  // 2,9"
@@ -604,8 +611,7 @@ bool displayCustomImage(uint8_t imagetype) {
     powerUp(INIT_EEPROM);
     uint8_t slot = findSlotDataTypeArg(imagetype << 3);
     if (slot != 0xFF) {
-        // found a slot for gpio button 1
-
+        // found a slot for a custom image type
         uint8_t lut = getEepromImageDataArgument(slot);
         lut &= 0x03;
         powerUp(INIT_EPD);

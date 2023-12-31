@@ -41,7 +41,7 @@ uint8_t __xdata slideShowCurrentImg = 0;
 uint8_t __xdata slideShowRefreshCount = 1;
 
 extern uint8_t *__idata blockp;
-extern uint8_t blockbuffer[];
+extern uint8_t __xdata blockbuffer[];
 
 uint8_t *rebootP;
 #ifdef ENABLE_EEPROM_LOADER
@@ -673,13 +673,23 @@ void main() {
     pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
     pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
 
+    for (uint16_t c = 0; c < 4096; c++) {
+        blockbuffer[c] = (c % 256) & 0xFF;
+    }
+
     // do a little sleep, this prevents a partial boot during battery insertion
-    doSleep(200UL);
-    powerUp(INIT_EEPROM);
+    doSleep(2000UL);
+    powerUp(INIT_EEPROM | INIT_UART);
+
+    uint8_t __idata dati;
+    pr("blockbuffer @%d, idata@%d\n",&blockbuffer[0], &dati);
+    dump(blockbuffer, 4096);
+
     // load settings from infopage
     loadSettings();
     // invalidate the settings, and write them back in a later state
     invalidateSettingsEEPROM();
+
 
 #ifdef WRITE_MAC_FROM_FLASH
     if (mSelfMac[7] == 0xFF && mSelfMac[6] == 0xFF) {

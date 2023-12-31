@@ -8,9 +8,7 @@
 #include "cpu.h"
 #include "wdt.h"
 #include "i2c.h"
-
-//extern uint8_t __xdata* tempBuffer;
-uint8_t __xdata tempBuffer[320];
+#include <stdlib.h>
 
 void powerPortsDownForSleep(void)
 {
@@ -139,10 +137,14 @@ static uint32_t prvUpdateApplierGet(void) __naked
 
 void selfUpdate(void)
 {
+
+	uint8_t __xdata *tempBuffer;
+	tempBuffer = malloc(320);
 	uint32_t updaterInfo = prvUpdateApplierGet();
 	uint8_t __code *src = (uint8_t __code*)updaterInfo;
 	uint8_t i, len = updaterInfo >> 16;
 	uint8_t __xdata *dst = tempBuffer;
+	if(!tempBuffer)wdtDeviceReset();
 	
 	for (i = len; i ; i--)
 		*dst++ = *src++;
