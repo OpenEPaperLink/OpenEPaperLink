@@ -137,6 +137,8 @@ boolean eepromInit(void) {
     uint8_t i, nParamHdrs;
 
     eepromPrvWakeFromPowerdown();
+    delay(1);
+    eepromPrvWakeFromPowerdown();
 
     // process SFDP
 

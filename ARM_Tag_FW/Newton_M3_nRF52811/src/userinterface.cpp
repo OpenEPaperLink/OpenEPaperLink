@@ -62,9 +62,8 @@ void showSplashScreen() {
             fr.setFont(&FreeSans9pt7b);
             fr.epdPrintf(2, 2, COLOR_BLACK, rotation::ROTATE_0, "OpenEPaperLink");
             fr.epdPrintf(10, 38, COLOR_RED, rotation::ROTATE_0, "Newton M3 2.2\"");
-            // fr.setFont(&FreeSans9pt7b);
-            // fr.epdPrintf(5, epd->Yres - 40, 0, rotation::ROTATE_0, "FW: %04X-%s", fwVersion, fwVersionSuffix);
-            // fr.epdPrintf(5, epd->Yres - 20, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+            fr.epdPrintf(5, epd->Yres - 40, 0, rotation::ROTATE_0, "FW: %04X-%s", fwVersion, fwVersionSuffix);
+            fr.epdPrintf(2, epd->Yres - 20, 0, rotation::ROTATE_0, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
             break;
         case STYPE_SIZE_022:
             fr.setFont(&FreeSansBold18pt7b);
@@ -165,7 +164,14 @@ void showAPFound() {
     switch (tag.solumType) {
         case STYPE_SIZE_016:
             fr.setFont(&FreeSans9pt7b);
-            fr.epdPrintf(7, 7, COLOR_BLACK, rotation::ROTATE_0, "AP Found");
+            fr.epdPrintf(7, 6, COLOR_BLACK, rotation::ROTATE_0, "AP Found");
+            fr.epdPrintf(0, 24, COLOR_RED, rotation::ROTATE_0, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", APmac[7], APmac[6], APmac[5], APmac[4], APmac[3], APmac[2], APmac[1], APmac[0]);
+            fr.epdPrintf(5, 42, COLOR_RED, rotation::ROTATE_0, "RSSI: %ddBm    LQI: %d", mLastRSSI, mLastLqi);
+            fr.epdPrintf(5, 60, COLOR_RED, rotation::ROTATE_0, "Ch %d", currentChannel);
+            fr.setFont(&FreeSans9pt7b);
+            fr.epdPrintf(5, epd->Yres - 43, 0, rotation::ROTATE_0, "Battery: %d.%dV Temp: %d'C", batteryVoltage / 1000, batteryVoltage % 1000, temperature);
+            fr.epdPrintf(0, epd->Yres - 25, 0, rotation::ROTATE_0, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+
             break;
         case STYPE_SIZE_022:
             fr.setFont(&FreeSansBold18pt7b);
@@ -202,20 +208,20 @@ void showAPFound() {
             fr.epdPrintf(10, epd->Yres - 43, 0, rotation::ROTATE_0, "Battery: %d.%dV Temp: %d'C", batteryVoltage / 1000, batteryVoltage % 1000, temperature);
             fr.epdPrintf(10, epd->Yres - 25, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
             addQR(epd->Xres - 66, 47, 3, 2, "https://openepaperlink.eu/tag/1/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", tag.OEPLtype, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
-            break; 
-         case STYPE_SIZE_043:
-             fr.setFont(&FreeSansBold18pt7b);
-             fr.epdPrintf(7, 7, COLOR_BLACK, rotation::ROTATE_0, "AP Found - Waiting for data");
-             fr.setFont(&FreeSans9pt7b);
-             fr.epdPrintf(15, 55, COLOR_RED, rotation::ROTATE_0, "AP: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", APmac[7], APmac[6], APmac[5], APmac[4], APmac[3], APmac[2], APmac[1], APmac[0]);
-             fr.epdPrintf(15, 73, COLOR_RED, rotation::ROTATE_0, "RSSI: %ddBm    LQI: %d", mLastRSSI, mLastLqi);
-             fr.setFont(&FreeSansBold18pt7b);
-             fr.epdPrintf(270, 55, COLOR_RED, rotation::ROTATE_0, "Ch %d", currentChannel);
-             fr.setFont(&FreeSans9pt7b);
-             fr.epdPrintf(10, epd->Yres - 43, 0, rotation::ROTATE_0, "Battery: %d.%dV Temp: %d'C", batteryVoltage / 1000, batteryVoltage % 1000, temperature);
-             fr.epdPrintf(10, epd->Yres - 25, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
-             addQR(epd->Xres - 66, 47, 3, 2, "https://openepaperlink.eu/tag/1/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", tag.OEPLtype, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
-             break;
+            break;
+        case STYPE_SIZE_043:
+            fr.setFont(&FreeSansBold18pt7b);
+            fr.epdPrintf(7, 7, COLOR_BLACK, rotation::ROTATE_0, "AP Found - Waiting for data");
+            fr.setFont(&FreeSans9pt7b);
+            fr.epdPrintf(15, 55, COLOR_RED, rotation::ROTATE_0, "AP: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", APmac[7], APmac[6], APmac[5], APmac[4], APmac[3], APmac[2], APmac[1], APmac[0]);
+            fr.epdPrintf(15, 73, COLOR_RED, rotation::ROTATE_0, "RSSI: %ddBm    LQI: %d", mLastRSSI, mLastLqi);
+            fr.setFont(&FreeSansBold18pt7b);
+            fr.epdPrintf(270, 55, COLOR_RED, rotation::ROTATE_0, "Ch %d", currentChannel);
+            fr.setFont(&FreeSans9pt7b);
+            fr.epdPrintf(10, epd->Yres - 43, 0, rotation::ROTATE_0, "Battery: %d.%dV Temp: %d'C", batteryVoltage / 1000, batteryVoltage % 1000, temperature);
+            fr.epdPrintf(10, epd->Yres - 25, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+            addQR(epd->Xres - 66, 47, 3, 2, "https://openepaperlink.eu/tag/1/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", tag.OEPLtype, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+            break;
         case STYPE_SIZE_060:
             fr.setFont(&FreeSansBold18pt7b);
             fr.epdPrintf(7, 7, COLOR_BLACK, rotation::ROTATE_0, "AP Found - Waiting for data");
@@ -265,7 +271,8 @@ void showNoAP() {
     switch (tag.solumType) {
         case STYPE_SIZE_016:
             fr.setFont(&FreeSans9pt7b);
-            fr.epdPrintf(7, 7, COLOR_BLACK, rotation::ROTATE_0, "AP Found");
+            fr.epdPrintf(7, 7, COLOR_BLACK, rotation::ROTATE_0, "NO AP Found");
+            fr.epdPrintf(2, 25, COLOR_BLACK, rotation::ROTATE_0, "Couldn't find an AP :(");
             break;
         case STYPE_SIZE_022:
             fr.setFont(&FreeSansBold18pt7b);
@@ -356,6 +363,8 @@ void showLongTermSleep() {
 }
 void showNoEEPROM() {
     selectLUT(EPD_LUT_NO_REPEATS);
+    fontrender fr(&FreeSans9pt7b);
+    fr.epdPrintf(2, 2, COLOR_BLACK, rotation::ROTATE_0, "EEPROM FAILED!");
     draw();
 }
 
