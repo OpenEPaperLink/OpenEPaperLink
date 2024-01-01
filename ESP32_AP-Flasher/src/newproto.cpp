@@ -462,7 +462,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
 
     tagRecord* taginfo = tagRecord::findByMAC(eadr->src);
     if (taginfo == nullptr) {
-        if (config.lock) return;
+        if (config.lock == 1 || (config.lock == 2 && eadr->adr.wakeupReason != WAKEUP_REASON_FIRSTBOOT)) return;
         taginfo = new tagRecord;
         memcpy(taginfo->mac, eadr->src, sizeof(taginfo->mac));
         taginfo->pending = false;
