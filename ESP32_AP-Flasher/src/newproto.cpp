@@ -517,10 +517,13 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
                 logLine(buffer);
             }
         }
+        
+        /*
         if (local && taginfo->batteryMv != eadr->adr.batteryMv) {
             sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X battery went from %.2fV to %.2fV", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0], static_cast<float>(taginfo->batteryMv) / 1000.0, static_cast<float>(eadr->adr.batteryMv) / 1000.0);
             logLine(buffer);
         }
+        */
 
         taginfo->LQI = eadr->adr.lastPacketLQI;
         taginfo->hwType = eadr->adr.hwType;

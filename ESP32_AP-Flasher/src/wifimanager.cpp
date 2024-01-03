@@ -29,6 +29,10 @@ WifiManager::WifiManager() {
     wifiStatus = NOINIT;
 
     WiFi.onEvent(WiFiEvent);
+    WiFiEventId_t eventID = WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
+        Serial.print("WiFi lost connection. Reason: ");
+        Serial.println(info.wifi_sta_disconnected.reason);
+    }, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 }
 
 void WifiManager::terminalLog(String text) {
@@ -60,6 +64,37 @@ void WifiManager::poll() {
             waitForConnection();
         } else {
             _nextReconnectCheck = millis() + _reconnectIntervalCheck;
+        }
+    }
+
+    if (digitalRead(0) == LOW) {
+        Serial.println("GPIO0 LOW");
+        long starttime = millis();
+        while (digitalRead(0) == LOW && millis() - starttime < 5000) {
+        }
+        if (digitalRead(0) == LOW) {
+            Serial.println("Resetting WIFI settings");
+            Preferences preferences;
+            preferences.begin("wifi", false);
+            preferences.putString("ssid", "");
+            preferences.putString("pw", "");
+            preferences.putString("ip", "");
+            preferences.putString("mask", "");
+            preferences.putString("gw", "");
+            preferences.putString("dns", "");
+            preferences.end();
+
+            wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+            esp_wifi_init(&cfg);
+            delay(2000);
+
+            if (esp_wifi_restore() != ESP_OK) {
+                Serial.println("WiFi is not initialized by esp_wifi_init ");
+            } else {
+                Serial.println("WiFi Configurations Cleared!");
+            }
+            delay(100);
+            ESP.restart();
         }
     }
 
@@ -103,8 +138,10 @@ bool WifiManager::connectToWifi(String ssid, String pass, bool savewhensuccessfu
     _savewhensuccessfull = savewhensuccessfull;
 
     _APstarted = false;
-    WiFi.disconnect(false, true);
+    WiFi.disconnect(true, true);
+    delay(100);
     WiFi.mode(WIFI_MODE_NULL);
+    delay(100);
     char hostname[32] = "OpenEpaperLink-";
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
@@ -172,7 +209,8 @@ void WifiManager::startManagementServer() {
     if (!_APstarted) {
         terminalLog("Starting configuration AP, ssid: OpenEPaperLink");
         logLine("Starting configuration AP, ssid OpenEPaperLink");
-        WiFi.disconnect(false, true);
+        WiFi.disconnect(true, true);
+        delay(100);
         WiFi.mode(WIFI_AP);
         WiFi.softAP("OpenEPaperLink", "", 1, false);
         WiFi.softAPsetHostname("OpenEPaperLink");
