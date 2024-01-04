@@ -469,44 +469,43 @@ $('#cfgmore').onclick = function () {
 	$('#advancedoptions').style.height = $('#advancedoptions').style.height == '0px' ? $('#advancedoptions').scrollHeight + 'px' : '0px';
 };
 
-$('#cfgsave').onclick = function () {
-	let contentMode = $('#cfgcontent').value;
-	let contentDef = getContentDefById(contentMode);
-	let extraoptions = contentDef?.param ?? null;
-	let obj = {};
+$('#cfgsave').onclick = function() {
+    let contentMode = $('#cfgcontent').value;
+    let contentDef = getContentDefById(contentMode);
+    let extraoptions = contentDef?.param ?? null;
+    let obj = {};
 
-	let formData = new FormData();
-	formData.append("mac", $('#cfgmac').dataset.mac);
-	formData.append("alias", $('#cfgalias').value);
+    let formData = new FormData();
+    formData.append("mac", $('#cfgmac').dataset.mac);
+    formData.append("alias", $('#cfgalias').value);
 
-	if (contentMode) {
-		extraoptions?.forEach(element => {
-			if ($('#opt' + element.key)) {
-				obj[element.key] = $('#opt' + element.key).value;
-			}
-		});
+    if (contentMode) {
+        extraoptions?.forEach(element => {
+            if ($('#opt' + element.key)) {
+                obj[element.key] = $('#opt' + element.key).value;
+            }
+        });
+        formData.append("contentmode", contentMode);
+        formData.append("modecfgjson", JSON.stringify(obj));
+    } else {
+        formData.append("contentmode", "0");
+        formData.append("modecfgjson", String());
+    }
 
-		formData.append("contentmode", contentMode);
-		formData.append("modecfgjson", JSON.stringify(obj));
-	} else {
-		formData.append("contentmode", "0");
-		formData.append("modecfgjson", String());
-	}
+    formData.append("rotate", $('#cfgrotate').value);
+    formData.append("lut", $('#cfglut').value);
+    formData.append("invert", $('#cfginvert').value);
 
-	formData.append("rotate", $('#cfgrotate').value);
-	formData.append("lut", $('#cfglut').value);
-	formData.append("invert", $('#cfginvert').value);
+    fetch("/save_cfg", {
+            method: "POST",
+            body: formData
+        })
+        .then(response => response.text())
+        .then(data => showMessage(data))
+        .catch(error => showMessage('Error: ' + error));
 
-	fetch("/save_cfg", {
-		method: "POST",
-		body: formData
-	})
-		.then(response => response.text())
-		.then(data => showMessage(data))
-		.catch(error => showMessage('Error: ' + error));
-
-	$('#advancedoptions').style.height = '0px';
-	$('#configbox').close();
+    $('#advancedoptions').style.height = '0px';
+    $('#configbox').close();
 }
 
 function sendCmd(mac, cmd) {
@@ -554,6 +553,80 @@ $('#cfgdeepsleep').onclick = function () {
 
 $('#cfgreset').onclick = function () {
 	sendCmd($('#cfgmac').dataset.mac, "reset");
+}
+
+$('#cfgautoupdate').onclick = async function() {
+
+    let obj = {};
+    let formData = new FormData();
+    formData.append("mac", $('#cfgmac').dataset.mac);
+    formData.append("alias", $('#cfgalias').value);
+
+    var repo = apConfig.repo || 'jjwbruijn/OpenEPaperLink';
+    var infourl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/info.json";
+    var info = "";
+    await fetch(infourl, {
+            method: 'GET'
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(json) {
+            info = json;
+        });
+    var mac = $('#cfgmac').dataset.mac;
+    var tagtype = ("0" + (Number($('#tag' + mac).dataset.hwtype).toString(16))).slice(-2).toUpperCase();
+    var name = info[0].types[tagtype];
+    var version = info[0].version[tagtype];
+    var md5 = info[0].md5[tagtype];
+    var fullFilename = name + "_" + version + ".bin";
+    var filepath = "/" + fullFilename;
+    var binurl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/" + filepath;
+    var url = "/check_file?path=" + encodeURIComponent(filepath);
+    var response = await fetch(url);
+    if (response.ok) {
+        var data = await response.json();
+        if (data.filesize == 0 || data.md5 != md5) {
+            try {
+                var response = await fetch(binurl);
+                var fileContent = await response.blob();
+                var formData2 = new FormData();
+                formData2.append('path', filepath);
+                formData2.append('file', fileContent, fullFilename);
+                var uploadResponse = await fetch('/littlefs_put', {
+                    method: 'POST',
+                    body: formData2
+                });
+                if (!uploadResponse.ok) {
+                    showMessage('Error: auto update failed to upload');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error);
+            }
+        }
+    } else showMessage('Error: auto update failed');
+    var response = await fetch(url);
+    if (response.ok) {
+        var data = await response.json();
+        if (data.filesize == 0 || data.md5 != md5) {
+            showMessage('Error: auto update failed to download');
+        }
+        //sucess
+        else obj["filename"] = filepath;
+    }
+    else showMessage('Error: auto update failed');
+    formData.append("contentmode", 5);
+    formData.append("modecfgjson", JSON.stringify(obj));
+    formData.append("rotate", $('#cfgrotate').value);
+    formData.append("lut", $('#cfglut').value);
+    formData.append("invert", $('#cfginvert').value);
+    fetch("/save_cfg", {
+            method: "POST",
+            body: formData
+        })
+        .then(response => response.text())
+        .then(data => showMessage(data))
+        .catch(error => showMessage('Error: ' + error));
 }
 
 $('#rebootbutton').onclick = function (event) {
