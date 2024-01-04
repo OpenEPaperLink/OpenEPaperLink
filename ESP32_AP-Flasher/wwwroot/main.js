@@ -113,7 +113,8 @@ function loadTags(pos) {
 }
 
 function connect() {
-	socket = new WebSocket("ws://" + location.host + "/ws");
+	protocol = location.protocol == "https:" ? "wss://" : "ws://";
+	socket = new WebSocket(protocol + location.host + "/ws");
 
 	socket.addEventListener("open", (event) => {
 		showMessage("websocket connected");
