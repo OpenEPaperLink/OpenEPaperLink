@@ -138,7 +138,7 @@ jobs:
 
       - name: move files for big APs
         run: |
-          cp -a binaries/ESP32-C6/. ESP32_AP-Flasher/ESP32_AP-Flasher/data/
+          cp -a binaries/ESP32-C6/. ESP32_AP-Flasher/data/
           
       - name: Build firmware for OpenEPaperLink_AP_and_Flasher
         run: |
