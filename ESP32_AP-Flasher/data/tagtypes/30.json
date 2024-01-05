@@ -1,7 +1,7 @@
 {
-	"name": "M3 7.5\"",
-	"width": 800,
-	"height": 480,
+	"name": "M3 1.6\"",
+	"width": 200,
+	"height": 200,
 	"rotatebuffer": 0,
 	"bpp": 2,
 	"colors": 3,
@@ -12,7 +12,7 @@
 		"gray": [150, 150, 150]
 	},
 	"shortlut": 0,
-	"options": ["button", "led"],
-	"contentids": [ 0, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20],
-	"usetemplate": 1
+	"options": ["button"],
+ "contentids": [ 0, 1, 2, 3, 4, 8, 7, 19, 10, 11, 21 ],
+ "usetemplate": 0
 }

@@ -1,5 +1,5 @@
 {
-	"name": "ST‐GR420B3N2 4.2\"",
+	"name": "M2 4.2\"",
 	"width": 400,
 	"height": 300,
 	"rotatebuffer": 0,
@@ -13,21 +13,17 @@
 	},
 	"shortlut": 1,
 	"options": ["button"],
-	"contentids": [ 0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20, 21],
+	"contentids": [ 0, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20],
 	"template": {
 		"1": {
-			"weekday": [ 200, 25, "fonts/calibrib60" ],
-			"month": [ 200, 225, "fonts/calibrib60" ],
-			"day": [ 200, 95, "fonts/calibrib150" ]
-		},
-		"2": {
-			"fonts": [ "fonts/calibrib150", "fonts/calibrib150", "fonts/calibrib150", "fonts/calibrib120" ],
-			"xy": [ 200, 148 ]
+			"weekday": [ 200, 0, "Signika-SB.ttf", 70 ],
+			"month": [ 200, 210, "Signika-SB.ttf", 70 ],
+			"day": [ 200, 45, "Signika-SB.ttf", 170 ]
 		},
 		"4": {
 			"location": [ 20, 20, "fonts/calibrib30" ],
-			"wind": [ 90, 83, "fonts/calibrib60" ],
-			"temp": [ 20, 170, "fonts/calibrib150" ],
+			"wind": [ 90, 83, "fonts/calibrib50" ],
+			"temp": [ 20, 170, "fonts/calibrib100" ],
 			"icon": [ 385, 0, 100, 2 ],
 			"dir": [ 40, 50, 80 ],
 			"umbrella": [ 325, 155, 78 ]
@@ -42,14 +38,14 @@
 			"line": [ 50, 300 ]
 		},
 		"9": {
-			"title": [ 10, 10, "fonts/calibrib30" ],
-			"items": 12,
-			"line": [ 10, 60, 20 ],
-			"font": "7x14_tf"
+			"title": [ 6, 0, "Signika-SB.ttf", 25 ],
+			"items": 4,
+			"line": [ 9, 40, "calibrib16.vlw" ],
+			"desc": [ 2, 8, "REFSAN12.vlw", 1.2 ]
 		},
 		"10": {
-			"title": [ 10, 10, "fonts/bahnschrift20" ],
-			"pos": [ 200, 30 ]
+			"title": [ 200, 10, "fonts/bahnschrift20" ],
+			"pos": [ 200, 35 ]
 		},
 		"11": {
 			"title": [ 10, 10, "fonts/bahnschrift30" ],

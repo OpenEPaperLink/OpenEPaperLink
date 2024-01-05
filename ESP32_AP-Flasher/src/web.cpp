@@ -108,6 +108,8 @@ void wsSendSysteminfo() {
     // reboot once at night
     if (timeinfo.tm_hour == 4 && timeinfo.tm_min == 0 && millis() > 2 * 3600 * 1000) {
         logLine("Nightly reboot");
+        wsErr("REBOOTING");
+        delay(100);
         ws.enable(false);
         refreshAllPending();
         saveDB("/current/tagDB.json");
@@ -224,7 +226,9 @@ void init_web() {
 
     server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
         request->send(200, "text/plain", "OK Reboot");
+        logLine("Reboot request by user");
         wsErr("REBOOTING");
+        delay(100);
         ws.enable(false);
         refreshAllPending();
         saveDB("/current/tagDB.json");
@@ -304,7 +308,7 @@ void init_web() {
                     // memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
                     // memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
                     wsSendTaginfo(mac, SYNC_USERCFG);
-                    saveDB("/current/tagDB.json");
+                    // saveDB("/current/tagDB.json");
                     request->send(200, "text/plain", "Ok, saved");
                 } else {
                     request->send(200, "text/plain", "Error while saving: mac not found");

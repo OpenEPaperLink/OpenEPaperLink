@@ -843,8 +843,7 @@ function populateSelectTag(hwtype, capabilities) {
 	let option;
 	cardconfig.forEach(item => {
 		const capcheck = item.capabilities ?? 0;
-		const hwtypeArray = item.hwtype ?? [];
-		if ((hwtypeArray.includes(hwtype) || tagTypes[hwtype].contentids.includes(item.id)) && (capabilities & capcheck || capcheck == 0)) {
+		if (tagTypes[hwtype].contentids.includes(item.id) && (capabilities & capcheck || capcheck == 0)) {
 			option = document.createElement("option");
 			option.value = item.id;
 			option.text = item.name;

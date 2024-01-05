@@ -194,7 +194,6 @@ void updateFirmware(const char* url, const char* expectedMd5, const size_t size)
                     wsSerial("Reboot system now");
                     wsSerial("[reboot]");
                     vTaskDelay(1000 / portTICK_PERIOD_MS);
-                    // ESP.restart();
                 } else {
                     wsSerial("Error updating firmware:");
                     wsSerial(Update.errorString());
@@ -225,7 +224,6 @@ void handleRollback(AsyncWebServerRequest* request) {
             wsSerial("Reboot system now");
             wsSerial("[reboot]");
             vTaskDelay(1000 / portTICK_PERIOD_MS);
-            // ESP.restart();
         } else {
             wsSerial("Rollback failed");
             request->send(400, "Rollback failed");
