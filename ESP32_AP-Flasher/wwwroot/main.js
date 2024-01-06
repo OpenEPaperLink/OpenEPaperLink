@@ -570,6 +570,10 @@ $('#cfgautoupdate').onclick = async function() {
     var mac = $('#cfgmac').dataset.mac;
     var tagtype = ("0" + (Number($('#tag' + mac).dataset.hwtype).toString(16))).slice(-2).toUpperCase();
     var name = info[0][tagtype]["type"];
+    if(name == ""){
+      alert("Tag id not known");
+      return false;
+    }
     var version = info[0][tagtype]["version"];
     var md5 = info[0][tagtype]["md5"];
     var fullFilename = name + "_" + version + ".bin";
