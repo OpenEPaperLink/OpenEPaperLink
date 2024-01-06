@@ -18,7 +18,6 @@
 
 #include <map>
 
-#include "U8g2_for_TFT_eSPI.h"
 #include "commstructs.h"
 #include "makeimage.h"
 #include "newproto.h"
@@ -540,9 +539,10 @@ void replaceVariables(String &format) {
 
 void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align, uint16_t color, uint16_t size, uint16_t bgcolor) {
     // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,TFT_RED);
+
+    // backwards compitibility
     replaceVariables(content);
     if (font.startsWith("fonts/calibrib")) {
-        // backwards compitibility
         String numericValueStr = font.substring(14);
         int calibriSize = numericValueStr.toInt();    
         if (calibriSize > 30) {
@@ -550,23 +550,20 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
             size = calibriSize;
         }
     }
+    if (font == "glasstown_nbp_tf") {
+        font = "BellCent10.vlw";
+        posy -= 8;
+    }
+    if (font == "7x14_tf") {
+        font = "REFSAN12.vlw";
+        posy -= 10;
+    }
+    if (font == "t0_14b_tf") {
+        font = "calibrib16.vlw";
+        posy -= 11;
+    }
+
     switch (processFontPath(font)) {
-        case 1: {
-            // u8g2 font
-            U8g2_for_TFT_eSPI u8f;
-            u8f.begin(spr);
-            setU8G2Font(font, u8f);
-            u8f.setForegroundColor(color);
-            u8f.setBackgroundColor(bgcolor);
-            if (align == TC_DATUM) {
-                posx -= u8f.getUTF8Width(content.c_str()) / 2;
-            }
-            if (align == TR_DATUM) {
-                posx -= u8f.getUTF8Width(content.c_str());
-            }
-            u8f.setCursor(posx, posy);
-            u8f.print(content);
-        } break;
         case 2: {
             // truetype
             time_t t = millis();
@@ -607,10 +604,6 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
 void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy, int16_t boxwidth, int16_t boxheight, String font, uint16_t color, uint16_t bgcolor, float lineheight) {
     replaceVariables(content);
     switch (processFontPath(font)) {
-        case 1: {
-            // u8g2 font
-            Serial.println("u8g2 font not implemented for drawStringBox");
-        } break;
         case 2: {
             // truetype
             Serial.println("truetype font not implemented for drawStringBox");
@@ -1026,8 +1019,6 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     const int rssDescSize = 1000;
 
     TFT_eSprite spr = TFT_eSprite(&tft);
-    U8g2_for_TFT_eSPI u8f;
-    u8f.begin(spr);
 
     StaticJsonDocument<512> loc;
     getTemplate(loc, 9, taginfo->hwType);
@@ -1134,8 +1125,6 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     http.end();
 
     TFT_eSprite spr = TFT_eSprite(&tft);
-    U8g2_for_TFT_eSPI u8f;
-    u8f.begin(spr);
 
     if (loc["rotate"] == 1) {
         int temp = imageParams.height;
@@ -1155,8 +1144,6 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
             drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, TFT_BLACK);
             drawString(spr, dateString, loc["date"][0], loc["date"][1], loc["title"][2], TR_DATUM, TFT_BLACK);
 
-            u8f.setFontMode(0);
-            u8f.setFontDirection(0);
             int n = doc.size();
             if (n > loc["items"]) n = loc["items"];
             for (int i = 0; i < n; i++) {
@@ -1431,8 +1418,6 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
 
     if (httpCode == 200) {
         TFT_eSprite spr = TFT_eSprite(&tft);
-        U8g2_for_TFT_eSPI u8f;
-        u8f.begin(spr);
 
         StaticJsonDocument<512> loc;
         getTemplate(loc, 16, taginfo->hwType);
@@ -1967,15 +1952,5 @@ void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
         Serial.println(error.c_str());
     } else {
         Serial.println("Failed to open " + String(filename));
-    }
-}
-
-void setU8G2Font(const String &title, U8g2_for_TFT_eSPI &u8f) {
-    if (title == "glasstown_nbp_tf") {
-        u8f.setFont(u8g2_font_glasstown_nbp_tf);
-    } else if (title == "7x14_tf") {
-        u8f.setFont(u8g2_font_7x14_tf);
-    } else if (title == "t0_14b_tf") {
-        u8f.setFont(u8g2_font_t0_14b_tf);  // not used
     }
 }

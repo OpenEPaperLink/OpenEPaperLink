@@ -2,7 +2,6 @@
 #include <LittleFS.h>
 #include <TFT_eSPI.h>
 
-#include "U8g2_for_TFT_eSPI.h"
 #include "makeimage.h"
 #include "tag_db.h"
 
@@ -48,4 +47,3 @@ void prepareNFCReq(const uint8_t *dst, const char *url);
 void prepareLUTreq(const uint8_t *dst, const String &input);
 void prepareConfigFile(const uint8_t *dst, const JsonObject &config);
 void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype);
-void setU8G2Font(const String &title, U8g2_for_TFT_eSPI &u8f);
