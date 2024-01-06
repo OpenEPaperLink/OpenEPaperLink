@@ -557,7 +557,7 @@ $('#cfgreset').onclick = function () {
 }
 
 $('#cfgautoupdate').onclick = async function() {
-    if(confirm("Every OTA update comes with a risk of bricking the tag, if it is bricked, it only can be recoverd with a tag flasher. Please only update if you need the new features. Press Cancel if you do not want to update, press OK if you want to update)){
+    if(confirm("Every OTA update comes with a risk of bricking the tag, if it is bricked, it only can be recoverd with a tag flasher. Please only update if you need the new features. Press Cancel if you do not want to update, press OK if you want to update")){
     let obj = {};
     let formData = new FormData();
     formData.append("mac", $('#cfgmac').dataset.mac);
