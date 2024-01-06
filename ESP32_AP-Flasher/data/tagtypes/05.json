@@ -1,5 +1,5 @@
 {
-	"name": "ST‐GR750BN 7.4\"",
+	"name": "M2 7.4\"",
 	"width": 640,
 	"height": 384,
 	"rotatebuffer": 0,
@@ -13,21 +13,17 @@
 	},
 	"shortlut": 1,
 	"options": [],
-	"contentids": [ 0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20],
+	"contentids": [ 0, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20],
 	"template": {
 		"1": {
-			"weekday": [ 200, 25, "fonts/calibrib60" ],
-			"month": [ 200, 225, "fonts/calibrib60" ],
-			"day": [ 200, 95, "fonts/calibrib150" ]
-		},
-		"2": {
-			"fonts": [ "fonts/calibrib150", "fonts/calibrib150", "fonts/calibrib150", "fonts/calibrib120" ],
-			"xy": [ 200, 148 ]
+			"weekday": [ 320, -5, "Signika-SB.ttf", 100 ],
+			"month": [ 320, 265, "Signika-SB.ttf", 100 ],
+			"day": [ 320, 60, "Signika-SB.ttf", 220 ]
 		},
 		"4": {
 			"location": [ 20, 20, "fonts/calibrib30" ],
-			"wind": [ 90, 83, "fonts/calibrib60" ],
-			"temp": [ 20, 170, "fonts/calibrib150" ],
+			"wind": [ 90, 83, "fonts/calibrib30" ],
+			"temp": [ 20, 170, "fonts/calibrib30" ],
 			"icon": [ 385, 0, 100, 2 ],
 			"dir": [ 40, 50, 80 ],
 			"umbrella": [ 325, 155, 78 ]
@@ -42,14 +38,14 @@
 			"line": [ 50, 300 ]
 		},
 		"9": {
-			"title": [ 10, 10, "fonts/calibrib30" ],
-			"items": 12,
-			"line": [ 10, 60, 20 ],
-			"font": "7x14_tf"
+			"title": [ 6, 0, "Signika-SB.ttf", 32 ],
+			"items": 5,
+			"line": [ 9, 40, "calibrib16.vlw" ],
+			"desc": [ 2, 8, "REFSAN12.vlw", 1.2 ]
 		},
 		"10": {
-			"title": [ 10, 10, "fonts/bahnschrift20" ],
-			"pos": [ 200, 30 ]
+			"title": [ 320, 10, "fonts/bahnschrift20" ],
+			"pos": [ 320, 40 ]
 		},
 		"11": {
 			"title": [ 10, 10, "fonts/bahnschrift30" ],

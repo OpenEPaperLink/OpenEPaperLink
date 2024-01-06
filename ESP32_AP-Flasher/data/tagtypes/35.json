@@ -1,16 +1,33 @@
 {
-	"name": "EL060H3WRA 6.0\"",
+	"name": "M3 6.0\"",
 	"width": 600,
 	"height": 448,
 	"rotatebuffer": 0,
 	"bpp": 2,
 	"colors": 3,
 	"colortable": {
-		"white": [255, 255, 255],
-		"black": [0, 0, 0],
-		"red": [255, 0, 0],
-		"gray": [150, 150, 150]
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ],
+		"gray": [ 150, 150, 150 ]
 	},
-	"contentids": [ 0, 1, 2, 3, 4, 8, 16, 9, 7, 19, 10, 11, 21 ],
-	"usetemplate": 1
+	"contentids": [ 0, 1, 4, 5, 8, 9, 7, 19, 10, 11 ],
+	"usetemplate": 1,
+	"template": {
+		"1": {
+			"weekday": [ 300, 0, "Signika-SB.ttf", 110 ],
+			"month": [ 300, 310, "Signika-SB.ttf", 110 ],
+			"day": [ 300, 75, "Signika-SB.ttf", 250 ]
+		},
+		"10": {
+			"title": [ 300, 10, "fonts/bahnschrift30" ],
+			"pos": [ 300, 50 ]
+		},
+		"9": {
+			"title": [ 6, 0, "Signika-SB.ttf", 32 ],
+			"items": 6,
+			"line": [ 9, 40, "calibrib16.vlw" ],
+			"desc": [ 2, 8, "REFSAN12.vlw", 1.2 ]
+		}
+	}
 }

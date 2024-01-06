@@ -312,7 +312,6 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
             filename = cfgobj["filename"].as<String>();
             if (!util::isEmptyOrNull(filename) && !cfgobj["#fetched"].as<bool>()) {
-
                 File file = contentFS->open(filename, "r");
                 if (file) {
                     if (file.find("<html")) {
@@ -542,6 +541,15 @@ void replaceVariables(String &format) {
 void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align, uint16_t color, uint16_t size, uint16_t bgcolor) {
     // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,TFT_RED);
     replaceVariables(content);
+    if (font.startsWith("fonts/calibrib")) {
+        // backwards compitibility
+        String numericValueStr = font.substring(14);
+        int calibriSize = numericValueStr.toInt();    
+        if (calibriSize > 30) {
+            font = "Signika-SB.ttf";
+            size = calibriSize;
+        }
+    }
     switch (processFontPath(font)) {
         case 1: {
             // u8g2 font
@@ -583,14 +591,66 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
             truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
             truetype.textDraw(posx, posy, content);
             truetype.end();
-            // Serial.println("text: '" + content + "' " + String(millis() - t) + "ms");
         } break;
         case 3: {
             // vlw bitmap font
             spr.setTextDatum(align);
             if (font != "") spr.loadFont(font.substring(1), *contentFS);
             spr.setTextColor(color, bgcolor);
+            spr.setTextWrap(true, false);
             spr.drawString(content, posx, posy);
+            if (font != "") spr.unloadFont();
+        }
+    }
+}
+
+void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy, int16_t boxwidth, int16_t boxheight, String font, uint16_t color, uint16_t bgcolor, float lineheight) {
+    replaceVariables(content);
+    switch (processFontPath(font)) {
+        case 1: {
+            // u8g2 font
+            Serial.println("u8g2 font not implemented for drawStringBox");
+        } break;
+        case 2: {
+            // truetype
+            Serial.println("truetype font not implemented for drawStringBox");
+        } break;
+        case 3: {
+            // vlw bitmap font
+            // spr.drawRect(posx, posy, boxwidth, boxheight, TFT_BLACK);
+            spr.setTextDatum(TL_DATUM);
+            if (font != "") spr.loadFont(font.substring(1), *contentFS);
+            spr.setTextWrap(false, false);
+            spr.setTextColor(color, bgcolor);
+
+            int length = content.length();
+            int startPos = 0;
+            int startPosY = posy;
+
+            while (startPos < length && posy + spr.gFont.yAdvance <= startPosY + boxheight) {
+                int endPos = startPos;
+                bool hasspace = false;
+
+                while (endPos < length && spr.textWidth(content.substring(startPos, endPos + 1).c_str()) <= boxwidth && content.charAt(endPos) != '\n') {
+                    // Serial.println("try: " + String(startPos) + "-" + String(endPos) + " " + content.substring(startPos, endPos + 1));
+                    if (content.charAt(endPos) == ' ' || content.charAt(endPos) == '-') hasspace = true;
+                    endPos++;
+                }
+                while (endPos < length && endPos > startPos && hasspace == true && content.charAt(endPos - 1) != ' ' && content.charAt(endPos - 1) != '-' && content.charAt(endPos) != '\n') {
+                    endPos--;
+                    // Serial.println("backtrack: " + String(startPos) + "-" + String(endPos) + " " + content.substring(startPos, endPos));
+                }
+                // Serial.println("result: " + String(startPos) + "-" + String(endPos) + " " + content.substring(startPos, endPos));
+                // delay(1000);
+                spr.drawString(content.substring(startPos, endPos), posx, posy);
+                posy += spr.gFont.yAdvance * lineheight;
+
+                if (content.charAt(endPos) == '\n') endPos++;
+                startPos = endPos;
+                while (startPos < length && content.charAt(startPos) == ' ') {
+                    startPos++;
+                }
+            }
             if (font != "") spr.unloadFont();
         }
     }
@@ -680,19 +740,18 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     getTemplate(loc, 2, taginfo->hwType);
 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
-    spr.setTextDatum(MC_DATUM);
+    uint16_t color = TFT_BLACK;
     if (countTemp > thresholdred) {
-        spr.setTextColor(TFT_RED, TFT_WHITE);
-    } else {
-        spr.setTextColor(TFT_BLACK, TFT_WHITE);
+        color = TFT_RED;
     }
     String font = loc["fonts"][0].as<String>();
-    if (count > 99) font = loc["fonts"][1].as<String>();
-    if (count > 999) font = loc["fonts"][2].as<String>();
-    if (count > 9999) font = loc["fonts"][3].as<String>();
-    spr.loadFont(font, *contentFS);
-    spr.drawString(String(count), loc["xy"][0].as<uint16_t>(), loc["xy"][1].as<uint16_t>());
-    spr.unloadFont();
+    uint8_t size = loc["fonts"][1].as<uint16_t>();
+    if (count > 9) size = loc["fonts"][2].as<uint16_t>();
+    if (count > 99) size = loc["fonts"][3].as<uint16_t>();
+    if (count > 999) size = loc["fonts"][4].as<uint16_t>();
+    if (count > 9999) size = loc["fonts"][5].as<uint16_t>();
+    if (count > 99999) size = loc["fonts"][6].as<uint16_t>();
+    drawString(spr, String(count), loc["xy"][0].as<uint16_t>(), loc["xy"][1].as<uint16_t>() - size / 1.8, font, TC_DATUM, color, size);
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
@@ -920,6 +979,39 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
 rssClass reader;
 #endif
 
+void replaceHTMLentities(String &text) {
+    text.replace("&gt;", ">");
+    text.replace("&lt;", "<");
+    text.replace("&quot;", "\"");
+    text.replace("&apos;", "'");
+    text.replace("&amp;", "&");
+}
+
+void removeHTML(String &text) {
+    int len = text.length();
+    bool insideTag = false;
+    int j = 0;
+    for (int i = 0; i < len; ++i) {
+        char c = text[i];
+        if (c == '<') {
+            insideTag = true;
+        } else if (c == '>') {
+            insideTag = false;
+        } else if (!insideTag) {
+            text[j++] = c;
+        }
+    }
+    text.remove(j);
+}
+
+void stampTime(TFT_eSprite &spr) {
+    time_t now;
+    time(&now);
+    char timeStr[24];
+    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d  %H:%M:%S ", localtime(&now));
+    drawString(spr, timeStr, spr.width() - 1, 12, "glasstown_nbp_tf", TR_DATUM, TFT_BLACK);
+}
+
 bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
 #ifdef CONTENT_RSS
     // https://github.com/garretlab/shoddyxml2
@@ -928,8 +1020,8 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     // https://www.nu.nl/rss/Algemeen
 
     const char *url = URL.c_str();
-    constexpr const char *tag = "title";
-    constexpr const int rssArticleSize = 128;
+    const int rssTitleSize = 255;
+    const int rssDescSize = 1000;
 
     TFT_eSprite spr = TFT_eSprite(&tft);
     U8g2_for_TFT_eSPI u8f;
@@ -938,21 +1030,42 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     StaticJsonDocument<512> loc;
     getTemplate(loc, 9, taginfo->hwType);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
+    stampTime(spr);
 
     if (util::isEmptyOrNull(title)) title = "RSS feed";
-    drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, TFT_BLACK);
+    drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, TFT_BLACK, loc["title"][3]);
+    int16_t posx = loc["line"][0];
+    int16_t posy = loc["line"][1];
+    int n = reader.getArticles(url, rssTitleSize, rssDescSize, loc["items"]);
 
-    setU8G2Font(loc["font"], u8f);
-    u8f.setFontMode(0);
-    u8f.setFontDirection(0);
-    u8f.setForegroundColor(TFT_BLACK);
-    u8f.setBackgroundColor(TFT_WHITE);
-
-    int n = reader.getArticles(url, tag, rssArticleSize, loc["items"]);
+    float lineheight = loc["desc"][3].as<float>();
     for (int i = 0; i < n; i++) {
-        u8f.setCursor(loc["line"][0], loc["line"][1].as<int>() + i * loc["line"][2].as<int>());
-        u8f.print(reader.itemData[i]);
+        // if (reader.titleData[i] != NULL && *reader.titleData[i] != NULL) {
+        if (reader.titleData[i] != NULL) {
+            String title = String(reader.titleData[i]);
+            replaceHTMLentities(title);
+            removeHTML(title);
+
+            if (!util::isEmptyOrNull(title)) {
+                drawTextBox(spr, title, posx, posy, imageParams.width - 2 * posx, 100, loc["line"][2], TFT_BLACK);
+            }
+        }
+        // if (reader.descData[i] != NULL && *reader.descData[i] != NULL) {
+        if (reader.descData[i] != NULL && loc["desc"][2] != "") {
+            String desc = String(reader.descData[i]);
+            replaceHTMLentities(desc);
+            removeHTML(desc);
+
+            if (!util::isEmptyOrNull(desc)) {
+                posy += loc["desc"][0].as<int>();
+                drawTextBox(spr, desc, posx, posy, imageParams.width - 2 * posx, 100, loc["desc"][2], TFT_BLACK, TFT_WHITE, lineheight);
+                posy += loc["desc"][1].as<int>();
+            }
+        } else {
+            posy += loc["desc"][1].as<int>();
+        }
     }
+    reader.clearItemData();
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
@@ -1070,12 +1183,12 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
     StaticJsonDocument<512> loc;
     getTemplate(loc, 10, taginfo->hwType);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
-    drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2]);
+    drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TC_DATUM, TFT_BLACK, loc["title"][3]);
 
     const int size = qrcode.size;
     const int dotsize = int((imageParams.height - loc["pos"][1].as<int>()) / size);
     const int xpos = loc["pos"][0].as<int>() - dotsize * size / 2;
-    const int ypos = loc["pos"][1];
+    const int ypos = loc["pos"][1].as<int>() + (imageParams.height - loc["pos"][1].as<int>() - dotsize * size) / 2;
 
     for (int y = 0; y < size; y++) {
         for (int x = 0; x < size; x++) {
@@ -1121,15 +1234,6 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
 
         drawString(spr, cfgobj["location"], loc["location"][0], loc["location"][1], loc["location"][2]);
 
-        for (int i = 0; i < 295; i += 4) {
-            int yCoordinates[] = {110, 91, 82, 72, 62, 56, 52};
-            for (int y : yCoordinates) {
-                spr.drawPixel(i, y, TFT_BLACK);
-            }
-        }
-
-        drawString(spr, "Buienradar", loc["title"][0], loc["title"][1], loc["title"][2]);
-
         const auto &bars = loc["bars"];
         const auto &cols = loc["cols"];
         const int cols0 = cols[0].as<int>();
@@ -1139,6 +1243,18 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
         const int bars0 = bars[0].as<int>();
         const int bars1 = bars[1].as<int>();
         const int bars2 = bars[2].as<int>();
+
+        float factor = (float)bars1 / 111;
+        Serial.println(factor);
+        for (int i = 0; i < imageParams.width; i += 4) {
+            int yCoordinates[] = {1, 20, 29, 39, 49, 55, 59};
+            for (int y : yCoordinates) {
+                spr.drawPixel(i, bars1 - (y * factor), TFT_BLACK);
+            }
+        }
+
+        drawString(spr, "Buienradar", loc["title"][0], loc["title"][1], loc["title"][2]);
+
         for (int i = 0; i < 24; i++) {
             const int startPos = i * 11;
             uint8_t value = response.substring(startPos, startPos + 3).toInt();
@@ -1156,8 +1272,9 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
                     refresh = 20;
                 }
             }
+            value = value - 70;
 
-            spr.fillRect(i * cols2 + bars0, bars1 - (value - 70), bars2, (value - 70), (value > 130 ? TFT_RED : TFT_BLACK));
+            spr.fillRect(i * cols2 + bars0, bars1 - (value * factor), bars2, value * factor, (value > 50 ? TFT_RED : TFT_BLACK));
 
             if (minutes % 15 == 0) {
                 drawString(spr, timestring, i * cols2 + cols0, cols1, cols3);
@@ -1382,11 +1499,11 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
 }
 
 void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgParam &imageParams) {
-TFT_eSprite spr = TFT_eSprite(&tft);
+    TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     uint8_t screenCurrentOrientation = 0;
-    //spr.setRotation(2);
-    //imageParams.rotatebuffer = imageParams.rotatebuffer + 1;
+    // spr.setRotation(2);
+    // imageParams.rotatebuffer = imageParams.rotatebuffer + 1;
     DynamicJsonDocument doc(500);
     if (stream.find("[")) {
         do {
@@ -1405,36 +1522,36 @@ TFT_eSprite spr = TFT_eSprite(&tft);
     spr.deleteSprite();
 }
 
-void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &spr, imgParam &imageParams){
-    rotation = rotation % 4; //First of all, let's be sure that the rotation have a valid value (0, 1, 2 or 3)
-    if(rotation != currentOrientation){ //If we have a rotation to do, let's do it 
-        int stepToDo = currentOrientation - rotation; //rotation we have to do
+void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &spr, imgParam &imageParams) {
+    rotation = rotation % 4;                           // First of all, let's be sure that the rotation have a valid value (0, 1, 2 or 3)
+    if (rotation != currentOrientation) {              // If we have a rotation to do, let's do it
+        int stepToDo = currentOrientation - rotation;  // rotation we have to do
         //-2, 2: upside down
         //-1, 3: 270° rotation
         //-3, 1: 90° rotation
-        
-        if(abs(stepToDo) == 2){ //If we have to do a 180° rotation:
-            TFT_eSprite sprCpy = TFT_eSprite(&tft); //We create a new sprite that will act as a buffer
-            initSprite(sprCpy, spr.width(), spr.height(), imageParams); //initialisation of the new sprite
-            spr.pushRotated(&sprCpy, 180, TFT_WHITE); //We fill the new sprite with the old one rotated by 180°
-            spr.fillSprite(TFT_WHITE); //We fill the old one in white as anything that's white will be ignored by the pushRotated function
-            sprCpy.pushRotated(&spr, 0, TFT_WHITE); //We copy the buffer sprite to the main one
-            sprCpy.deleteSprite(); //We delete the buffer sprite to avoid memory leak
-        }else{
+
+        if (abs(stepToDo) == 2) {                                        // If we have to do a 180° rotation:
+            TFT_eSprite sprCpy = TFT_eSprite(&tft);                      // We create a new sprite that will act as a buffer
+            initSprite(sprCpy, spr.width(), spr.height(), imageParams);  // initialisation of the new sprite
+            spr.pushRotated(&sprCpy, 180, TFT_WHITE);                    // We fill the new sprite with the old one rotated by 180°
+            spr.fillSprite(TFT_WHITE);                                   // We fill the old one in white as anything that's white will be ignored by the pushRotated function
+            sprCpy.pushRotated(&spr, 0, TFT_WHITE);                      // We copy the buffer sprite to the main one
+            sprCpy.deleteSprite();                                       // We delete the buffer sprite to avoid memory leak
+        } else {
             int angle = 90;
-            if(stepToDo == -1 || stepToDo == 3){
+            if (stepToDo == -1 || stepToDo == 3) {
                 angle = 270;
             }
             TFT_eSprite sprCpy = TFT_eSprite(&tft);
-            initSprite(sprCpy,  spr.height(),  spr.width(), imageParams);
+            initSprite(sprCpy, spr.height(), spr.width(), imageParams);
             spr.pushRotated(&sprCpy, angle, TFT_WHITE);
             spr.deleteSprite();
             initSprite(spr, sprCpy.width(), sprCpy.height(), imageParams);
             sprCpy.pushRotated(&spr, 0, TFT_WHITE);
             sprCpy.deleteSprite();
-            if(imageParams.rotatebuffer==1){
+            if (imageParams.rotatebuffer == 1) {
                 imageParams.rotatebuffer = 0;
-            }else{
+            } else {
                 imageParams.rotatebuffer = 1;
             }
         }
@@ -1450,6 +1567,14 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
         const String bgcolorstr = textArray[7].as<String>();
         const uint16_t bgcolor = (bgcolorstr.length() > 0) ? getColor(bgcolorstr) : TFT_WHITE;
         drawString(spr, textArray[2], textArray[0].as<int>(), textArray[1].as<int>(), textArray[3], align, getColor(textArray[4]), size, bgcolor);
+    } else if (element.containsKey("textbox")) {
+        const JsonArray &textArray = element["textbox"];
+        float lineheight = textArray[7].as<float>();
+        if (lineheight == 0) lineheight = 1;
+        int16_t posx = textArray[0] | 0;
+        int16_t posy = textArray[1] | 0;
+        String text = textArray[4];
+        drawTextBox(spr, text, posx, posy, textArray[2], textArray[3], textArray[5], getColor(textArray[6]), TFT_WHITE, lineheight);
     } else if (element.containsKey("box")) {
         const JsonArray &boxArray = element["box"];
         spr.fillRect(boxArray[0].as<int>(), boxArray[1].as<int>(), boxArray[2].as<int>(), boxArray[3].as<int>(), getColor(boxArray[4]));
@@ -1641,6 +1766,6 @@ void setU8G2Font(const String &title, U8g2_for_TFT_eSPI &u8f) {
     } else if (title == "7x14_tf") {
         u8f.setFont(u8g2_font_7x14_tf);
     } else if (title == "t0_14b_tf") {
-        u8f.setFont(u8g2_font_t0_14b_tf);
+        u8f.setFont(u8g2_font_t0_14b_tf);  // not used
     }
 }

@@ -3,7 +3,6 @@
     "id": 0,
     "name": "Static image",
     "desc": "Shows a static image, from file system, painter or external source. Make sure to resize the image to the correct resolution.",
-    "hwtype": [],
     "param": [
       {
         "key": "filename",
@@ -74,14 +73,12 @@
     "id": 1,
     "name": "Current date",
     "desc": "Shows the current date",
-    "hwtype": [],
     "param": []
   },
   {
     "id": 2,
     "name": "Count days",
     "desc": "Counts days, starting with the value below. If the count value gets higher than the threshold, the number is displayed in red, otherwise it's black",
-    "hwtype": [],
     "param": [
       {
         "key": "counter",
@@ -93,8 +90,7 @@
         "key": "thresholdred",
         "name": "Threshold",
         "desc": "Value is displayed in red if higher than the threshold",
-        "type": "int",
-        "hwtype": []
+        "type": "int"
       }
     ]
   },
@@ -102,7 +98,6 @@
     "id": 3,
     "name": "Count hours",
     "desc": "Counts hours, starting with the value below. If the count value gets higher than the threshold, the number is displayed in red, otherwise it's black",
-    "hwtype": [],
     "param": [
       {
         "key": "counter",
@@ -114,8 +109,7 @@
         "key": "thresholdred",
         "name": "Threshold",
         "desc": "Value is displayed in red if higher than the threshold",
-        "type": "int",
-        "hwtype": []
+        "type": "int"
       }
     ]
   },
@@ -123,7 +117,6 @@
     "id": 4,
     "name": "Current weather",
     "desc": "Current weather. Weather data by Open-Meteo.com. Parameters Lat, Lon and Time Zone are filled automatically from the entered location. In case of an ambiguous location, you can alter those manually.",
-    "hwtype": [],
     "param": [
       {
         "key": "location",
@@ -145,19 +138,19 @@
         "key": "#lat",
         "name": "Lat",
         "desc": "Latitude (set automatic when generating image)",
-        "type": "text"
+        "type": "ro"
       },
       {
         "key": "#lon",
         "name": "Lon",
         "desc": "Longitude (set automatic when generating image)",
-        "type": "text"
+        "type": "ro"
       },
       {
         "key": "#tz",
         "name": "Time zone",
         "desc": "Time zone (set automatic when generating image)",
-        "type": "text"
+        "type": "ro"
       }
     ]
   },
@@ -165,7 +158,6 @@
     "id": 8,
     "name": "Weather forecast",
     "desc": "Weather forecast for the next five days. Weather data by Open-Meteo.com. Parameters Lat, Lon and Time Zone are filled automatically from the entered location. In case of an ambiguous location, you can alter those manually.",
-    "hwtype": [],
     "param": [
       {
         "key": "location",
@@ -187,19 +179,19 @@
         "key": "#lat",
         "name": "Lat",
         "desc": "Latitude (set automatic when generating image)",
-        "type": "text"
+        "type": "ro"
       },
       {
         "key": "#lon",
         "name": "Lon",
         "desc": "Longitude (set automatic when generating image)",
-        "type": "text"
+        "type": "ro"
       },
       {
         "key": "#tz",
         "name": "Time zone",
         "desc": "Time zone (set automatic when generating image)",
-        "type": "text"
+        "type": "ro"
       }
     ]
   },
@@ -207,7 +199,6 @@
     "id": 16,
     "name": "Buienradar",
     "desc": "Dutch rain predictions for the next two hours. Only works for locations in the Netherlands and Belgium.",
-    "hwtype": [],
     "param": [
       {
         "key": "location",
@@ -233,7 +224,6 @@
     "id": 9,
     "name": "RSS feed",
     "desc": "Gets an RSS feed, and display the first few lines of it",
-    "hwtype": [],
     "param": [
       {
         "key": "title",
@@ -259,7 +249,6 @@
     "id": 7,
     "name": "Image URL",
     "desc": "Gets an external image and displays it",
-    "hwtype": [],
     "param": [
       {
         "key": "url",
@@ -279,7 +268,6 @@
     "id": 19,
     "name": "Json template",
     "desc": "Gets an external json template and displays it",
-    "hwtype": [],
     "param": [
       {
         "key": "url",
@@ -305,7 +293,6 @@
     "id": 10,
     "name": "QR code",
     "desc": "Displayes a full screen QR code",
-    "hwtype": [],
     "param": [
       {
         "key": "title",
@@ -325,7 +312,6 @@
     "id": 11,
     "name": "Google calendar",
     "desc": "Displays the current and upcoming appointments (next 24 hours) from a Google calendar. To let this work, you need a small Google Apps Script to interface with your calendar. See documentation on github how to do that",
-    "hwtype": [],
     "param": [
       {
         "key": "title",
@@ -351,7 +337,6 @@
     "id": 5,
     "name": "Firmware update",
     "desc": "To update tag firmware. Make sure you send the right .bin file! You can brick your tag if you send a wrong file.",
-    "hwtype": [],
     "param": [
       {
         "key": "filename",
@@ -364,14 +349,12 @@
   {
     "id": 12,
     "name": "Remote content",
-    "desc": "Content is generated by a different Access Point",
-    "hwtype": []
+    "desc": "Content is generated by a different Access Point"
   },
   {
     "id": 13,
     "name": "Set segments",
     "desc": "Used for debugging. Work in progress",
-    "hwtype": [],
     "param": [
       {
         "key": "line1",
@@ -397,7 +380,6 @@
     "id": 14,
     "name": "Set NFC URL",
     "desc": "Send the URL to the NFC chip. The URL is transmitted to a NFC reader (like your phone) if you hold it next to the tag",
-    "hwtype": [],
     "capabilities": 64,
     "param": [
       {
@@ -412,7 +394,6 @@
     "id": 15,
     "name": "Send custom LUT",
     "desc": "EXPERIMENTAL. Don't use. YOU RISK DAMAGING YOUR SCREEN.",
-    "hwtype": [],
     "capabilities": 4,
     "param": [
       {
@@ -427,7 +408,6 @@
     "id": 17,
     "name": "Send Command",
     "desc": "Send a command to a tag to execute; only to be used for tests during development",
-    "hwtype": [],
     "param": [
       {
         "key": "cmd",
@@ -441,7 +421,6 @@
     "id": 18,
     "name": "Set Tag Config",
     "desc": "Sets tag options. The options you see below are the default options. This may or may not match current tag settings",
-    "hwtype": [],
     "param": [
       {
         "key": "fastboot",
@@ -537,7 +516,6 @@
     "id": 20,
     "name": "Display a copy",
     "desc": "Mirror the contents of a source tag to this destination tag, regardless of the content. The two tags should be of the same type. Ideally, the destination tag is local to the AP.",
-    "hwtype": [],
     "param": [
       {
         "key": "mac",
@@ -550,7 +528,6 @@
   {
     "id": 21,
     "name": "Access point info",
-    "desc": "Displays information about the currently connected access point",
-    "hwtype": []
+    "desc": "Displays information about the currently connected access point"
   }
 ]
