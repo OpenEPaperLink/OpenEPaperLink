@@ -557,32 +557,28 @@ $('#cfgreset').onclick = function () {
 }
 
 $('#cfgautoupdate').onclick = async function() {
-
+    if(confirm("Every OTA update comes with a risk of bricking the tag, if it is bricked, it only can be recoverd with a tag flasher. Please only update if you need the new features. Press Cancel if you do not want to update, press OK if you want to update")){
     let obj = {};
     let formData = new FormData();
     formData.append("mac", $('#cfgmac').dataset.mac);
     formData.append("alias", $('#cfgalias').value);
 
     var repo = apConfig.repo || 'jjwbruijn/OpenEPaperLink';
-    var infourl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/info.json";
+    var infourl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/tagotaversions.json";
     var info = "";
-    await fetch(infourl, {
-            method: 'GET'
-        })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(json) {
-            info = json;
-        });
+    await fetch(infourl, { method: 'GET' }).then(await function(response) { return response.json(); }).then(await function(json) { info = json; });
     var mac = $('#cfgmac').dataset.mac;
     var tagtype = ("0" + (Number($('#tag' + mac).dataset.hwtype).toString(16))).slice(-2).toUpperCase();
-    var name = info[0].types[tagtype];
-    var version = info[0].version[tagtype];
-    var md5 = info[0].md5[tagtype];
+    var name = info[0][tagtype]["type"];
+    if(name == ""){
+      alert("Tag id not known");
+      return false;
+    }
+    var version = info[0][tagtype]["version"];
+    var md5 = info[0][tagtype]["md5"];
     var fullFilename = name + "_" + version + ".bin";
     var filepath = "/" + fullFilename;
-    var binurl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/" + filepath;
+    var binurl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/" + fullFilename;
     var url = "/check_file?path=" + encodeURIComponent(filepath);
     var response = await fetch(url);
     if (response.ok) {
@@ -628,6 +624,7 @@ $('#cfgautoupdate').onclick = async function() {
         .then(response => response.text())
         .then(data => showMessage(data))
         .catch(error => showMessage('Error: ' + error));
+    }
 }
 
 $('#rebootbutton').onclick = function (event) {

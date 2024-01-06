@@ -21,11 +21,6 @@ jobs:
         with:
           python-version: '3.9'
           
-#      - name: Zip web files
-#        run: | 
-#            cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_AP-Flasher
-#            python gzip_wwwfiles.py
-        
 #      - name: Commit zipped files 
 #        run: |
 #          git config --global user.name 'Bot'
@@ -38,19 +33,6 @@ jobs:
 
       - name: Install intelhex
         run: pip install --upgrade intelhex
- 
-#      - name: Build NRF firmware
-#        run: |
-#          cd ARM_Tag_FW/Newton_M3_nRF52811
-#          pio run --environment Newton_M3_22_BWR
-#          pio run --environment Newton_M3_29_BWR
-#          pio run --environment Newton_M3_75_BWR
-#          cp Newton_M3_22_BWR-ota.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_22_BWR-ota.bin
-#          cp Newton_M3_22_BWR-full-flash.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_22_BWR-full-flash.bin
-#          cp Newton_M3_29_BWR-ota.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_29_BWR-ota.bin
-#          cp Newton_M3_29_BWR-full-flash.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_29_BWR-full-flash.bin
-#          cp Newton_M3_75_BWR-ota.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_75_BWR-ota.bin
-#          cp Newton_M3_75_BWR-full-flash.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/binaries/Newton_M3_75_BWR-full-flash.bin
 
       - name: Install esptool
         run: pip install esptool
@@ -58,6 +40,11 @@ jobs:
       - name: create folders
         run: |
           mkdir espbinaries
+
+      - name: Zip web files
+        run: | 
+            cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_AP-Flasher
+            python gzip_wwwfiles.py
           
       - name: Build firmware for Simple_AP
         run: |
@@ -149,6 +136,15 @@ jobs:
           cp OpenEPaperLink_Nano_AP/firmware.bin espbinaries/OpenEPaperLink_Nano_AP.bin
           cp OpenEPaperLink_Nano_AP/merged-firmware.bin espbinaries/OpenEPaperLink_Nano_AP_full.bin
           
+      - name: generate release json file
+        run: |
+          mkdir jsonfiles
+          python genfilelist.py ${{ github.ref_name }} $GITHUB_REPOSITORY $GITHUB_SHA
+
+      - name: move files for big APs
+        run: |
+          cp -a binaries/ESP32-C6/. ESP32_AP-Flasher/data/
+          
       - name: Build firmware for OpenEPaperLink_AP_and_Flasher
         run: |
           cd ESP32_AP-Flasher
@@ -185,6 +181,24 @@ jobs:
           cp ESP32_S3_16_8_YELLOW_AP/firmware.bin espbinaries/ESP32_S3_16_8_YELLOW_AP.bin
           cp ESP32_S3_16_8_YELLOW_AP/merged-firmware.bin espbinaries/ESP32_S3_16_8_YELLOW_AP_full.bin
 
+      - name: Build firmware for ESP32_S3_C6_NANO_AP
+        run: |
+          cd ESP32_AP-Flasher
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          pio run --environment ESP32_S3_C6_NANO_AP
+          pio run --target buildfs --environment ESP32_S3_C6_NANO_AP
+          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/boot_app0.bin
+          cp .pio/build/ESP32_S3_C6_NANO_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/firmware.bin
+          cp .pio/build/ESP32_S3_C6_NANO_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/bootloader.bin
+          cp .pio/build/ESP32_S3_C6_NANO_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/partitions.bin
+          cp .pio/build/ESP32_S3_C6_NANO_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/littlefs.bin
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP
+          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+          cp ESP32_S3_C6_NANO_AP/firmware.bin espbinaries/ESP32_S3_C6_NANO_AP.bin
+          cp ESP32_S3_C6_NANO_AP/merged-firmware.bin espbinaries/ESP32_S3_C6_NANO_AP_full.bin
+          
       - name: Build firmware for OpenEPaperLink_PoE_AP
         run: |
           cd ESP32_AP-Flasher
@@ -203,11 +217,6 @@ jobs:
           cp OpenEPaperLink_PoE_AP/firmware.bin espbinaries/OpenEPaperLink_PoE_AP.bin
           cp OpenEPaperLink_PoE_AP/merged-firmware.bin espbinaries/OpenEPaperLink_PoE_AP_full.bin
 
-      - name: generate release json file
-        run: |
-          mkdir jsonfiles
-          python genfilelist.py ${{ github.ref_name }} $GITHUB_REPOSITORY $GITHUB_SHA
-          
       - name: Add file lists to release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -216,16 +225,7 @@ jobs:
           tag: ${{ github.ref }}
           file_glob: true
           overwrite: true
-        
-#      - name: Add tag bins to release
-#        uses: svenstaro/upload-release-action@v2
-#        with:
-#          repo_token: ${{ secrets.GITHUB_TOKEN }}
-#          file: binaries/*
-#          tag: ${{ github.ref }}
-#          file_glob: true
-#          overwrite: true
-          
+      
 # this is down here intentionally to be able to modify the binary folder before adding it to the Tag_Flasher later (ota binaries can be removed)
 
       - name: Build firmware for Tag_Flasher
@@ -254,27 +254,3 @@ jobs:
           tag: ${{ github.ref }}
           file_glob: true
           overwrite: true
-          
-#      - name: Add www folder to release
-#        uses: svenstaro/upload-release-action@v2
-#        with:
-#          repo_token: ${{ secrets.GITHUB_TOKEN }}
-#          file: ESP32_AP-Flasher/data/www/*
-#          tag: ${{ github.ref }}
-#          file_glob: true
-          
-#      - name: Add fonts folder to release
-#        uses: svenstaro/upload-release-action@v2
-#        with:
-#          repo_token: ${{ secrets.GITHUB_TOKEN }}
-#          file: ESP32_AP-Flasher/data/fonts/*
-#          tag: ${{ github.ref }}
-#          file_glob: true
-          
-#      - name: Add data folder to release
-#        uses: svenstaro/upload-release-action@v2
-#        with:
-#          repo_token: ${{ secrets.GITHUB_TOKEN }}
-#          file: ESP32_AP-Flasher/data/*
-#          tag: ${{ github.ref }}
-#          file_glob: true
