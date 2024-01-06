@@ -48,11 +48,10 @@
 			"pos": [ 200, 35 ]
 		},
 		"11": {
-			"title": [ 10, 10, "fonts/bahnschrift30" ],
-			"date": [ 390, 10 ],
-			"items": 12,
-			"red": [ 0, 48, 400, 17 ],
-			"line": [ 10, 61, 18, "7x14_tf", 60 ]
+			"rotate": 0,
+			"mode": 1,
+			"days": 4,
+			"gridparam": [ 5, 17, 20, "calibrib16.vlw", "BellCent10.vlw", 14 ]
 		}
 	}
 }

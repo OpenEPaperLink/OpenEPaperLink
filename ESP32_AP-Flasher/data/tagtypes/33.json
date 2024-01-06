@@ -39,6 +39,15 @@
 		"10": {
 			"title": [ 192, 5, "fonts/bahnschrift20" ],
 			"pos": [ 192, 30 ]
-		}
+		},
+		"11": {
+			"mode": 0,
+			"days": 1,
+			"title": [ 5, 2, "fonts/bahnschrift20" ],
+			"date": [ 378, 2 ],
+			"items": 10,
+			"red": [ 0, 21, 384, 16 ],
+			"line": [ 5, 23, 18, "calibrib16.vlw", 55 ]
+		}		
 	}
 }

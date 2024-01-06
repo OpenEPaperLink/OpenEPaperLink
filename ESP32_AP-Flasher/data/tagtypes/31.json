@@ -56,11 +56,13 @@
 			"pos": [149, 30]
 		},
 		"11": {
-			"title": [5, 2, "fonts/bahnschrift20"],
-			"date": [290, 2],
-			"items": 7,
-			"red": [0, 21, 296, 14],
-			"line": [5, 32, 15, "t0_14b_tf", 50]
+			"mode": 0,
+			"days": 1,
+			"title": [ 5, 2, "fonts/bahnschrift20" ],
+			"date": [ 290, 2 ],
+			"items": 10,
+			"red": [ 0, 21, 296, 14 ],
+			"line": [ 5, 32, 15, "t0_14b_tf", 50 ]
 		}
 	}
 }

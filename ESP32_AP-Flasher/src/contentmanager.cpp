@@ -370,7 +370,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
 
         case 11:  // Calendar:
 
-            if (getCalFeed(filename, cfgobj["apps_script_url"], cfgobj["title"], taginfo, imageParams)) {
+            if (getCalFeed(filename, cfgobj, taginfo, imageParams)) {
                 const int interval = cfgobj["interval"].as<int>();
                 taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
                 updateTagImage(filename, mac, interval, taginfo, imageParams);
@@ -1019,6 +1019,8 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     // http://feeds.feedburner.com/tweakers/nieuws
     // https://www.nu.nl/rss/Algemeen
 
+    wsLog("get rss feed");
+
     const char *url = URL.c_str();
     const int rssTitleSize = 255;
     const int rssDescSize = 1000;
@@ -1094,19 +1096,24 @@ char *epoch_to_display(time_t utc) {
     return display;
 }
 
-bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
+bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
 #ifdef CONTENT_CAL
     // google apps scripts method to retrieve calendar
     // see https://github.com/jjwbruijn/OpenEPaperLink/wiki/Google-Apps-Scripts for description
 
     wsLog("get calendar");
 
+    StaticJsonDocument<512> loc;
+    getTemplate(loc, 11, taginfo->hwType);
+
+    String URL = cfgobj["apps_script_url"].as<String>() + "?days=" + loc["days"].as<String>();
+
     time_t now;
     time(&now);
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
     char dateString[40];
-    strftime(dateString, sizeof(dateString), "%d.%m.%Y", &timeinfo);
+    strftime(dateString, sizeof(dateString), "%d-%m-%Y", &timeinfo);
 
     HTTPClient http;
     // logLine("http getCalFeed " + URL);
@@ -1130,36 +1137,239 @@ bool getCalFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     U8g2_for_TFT_eSPI u8f;
     u8f.begin(spr);
 
-    StaticJsonDocument<512> loc;
-    getTemplate(loc, 11, taginfo->hwType);
-    initSprite(spr, imageParams.width, imageParams.height, imageParams);
+    if (loc["rotate"] == 1) {
+        int temp = imageParams.height;
+        imageParams.height = imageParams.width;
+        imageParams.width = temp;
+        imageParams.rotatebuffer = 1 - imageParams.rotatebuffer;
+        initSprite(spr, imageParams.width, imageParams.height, imageParams);
+    } else {
+        initSprite(spr, imageParams.width, imageParams.height, imageParams);
+    }
 
-    if (util::isEmptyOrNull(title)) title = "Calendar";
-    drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, TFT_BLACK);
-    drawString(spr, dateString, loc["date"][0], loc["date"][1], loc["title"][2], TR_DATUM, TFT_BLACK);
+    switch (loc["mode"].as<int>()) {
+        case 0: {
+            // appointment list
+            String title = cfgobj["title"];
+            if (util::isEmptyOrNull(title)) title = "Calendar";
+            drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, TFT_BLACK);
+            drawString(spr, dateString, loc["date"][0], loc["date"][1], loc["title"][2], TR_DATUM, TFT_BLACK);
 
-    u8f.setFontMode(0);
-    u8f.setFontDirection(0);
-    int n = doc.size();
-    if (n > loc["items"]) n = loc["items"];
-    for (int i = 0; i < n; i++) {
-        const JsonObject &obj = doc[i];
-        const String eventtitle = obj["title"];
-        const time_t starttime = obj["start"];
-        const time_t endtime = obj["end"];
-        setU8G2Font(loc["line"][3], u8f);
-        if (starttime <= now && endtime > now) {
-            u8f.setForegroundColor(TFT_WHITE);
-            u8f.setBackgroundColor(TFT_RED);
-            spr.fillRect(loc["red"][0], loc["red"][1].as<int>() + i * loc["line"][2].as<int>(), loc["red"][2], loc["red"][3], TFT_RED);
-        } else {
-            u8f.setForegroundColor(TFT_BLACK);
-            u8f.setBackgroundColor(TFT_WHITE);
+            u8f.setFontMode(0);
+            u8f.setFontDirection(0);
+            int n = doc.size();
+            if (n > loc["items"]) n = loc["items"];
+            for (int i = 0; i < n; i++) {
+                const JsonObject &obj = doc[i];
+                const String eventtitle = obj["title"];
+                const time_t starttime = obj["start"];
+                const time_t endtime = obj["end"];
+
+                if (starttime <= now && endtime > now) {
+                    spr.fillRect(loc["red"][0], loc["red"][1].as<int>() + i * loc["line"][2].as<int>(), loc["red"][2], loc["red"][3], TFT_RED);
+                    drawString(spr, epoch_to_display(obj["start"]), loc["line"][0], loc["line"][1].as<int>() + i * loc["line"][2].as<int>(), loc["line"][3], TL_DATUM, TFT_WHITE, 0, TFT_RED);
+                    drawString(spr, eventtitle, loc["line"][4], loc["line"][1].as<int>() + i * loc["line"][2].as<int>(), loc["line"][3], TL_DATUM, TFT_WHITE, 0, TFT_RED);
+                } else {
+                    drawString(spr, epoch_to_display(obj["start"]), loc["line"][0], loc["line"][1].as<int>() + i * loc["line"][2].as<int>(), loc["line"][3], TL_DATUM, TFT_BLACK, 0, TFT_WHITE);
+                    drawString(spr, eventtitle, loc["line"][4], loc["line"][1].as<int>() + i * loc["line"][2].as<int>(), loc["line"][3], TL_DATUM, TFT_BLACK, 0, TFT_WHITE);
+                }
+            }
+            break;
         }
-        u8f.setCursor(loc["line"][0], loc["line"][1].as<int>() + i * loc["line"][2].as<int>());
-        if (starttime > 0) u8f.print(epoch_to_display(obj["start"]));
-        u8f.setCursor(loc["line"][4], loc["line"][1].as<int>() + i * loc["line"][2].as<int>());
-        u8f.print(eventtitle);
+        case 1: {
+            // week view
+            
+            // gridparam:
+            // 0: 10; offset top
+            // 1: 20; offset cal block
+            // 2: 30; offset left
+            // 3: calibrib16.vlw; headers font
+            // 4: BellCent10.vlw; appointments font
+            // 5: 14; line height
+
+            timeinfo.tm_hour = 0;
+            timeinfo.tm_min = 0;
+            timeinfo.tm_sec = 0;
+            time_t midnightEpoch = mktime(&timeinfo);
+
+            int calWidth = imageParams.width - 1;
+            int calHeight = imageParams.height;
+            int calDays = loc["days"];
+
+            int colLeft = loc["gridparam"][2].as<int>();
+            int colWidth = (calWidth - colLeft) / calDays;
+
+            int calTop = loc["gridparam"][0].as<int>();
+            int calBottom = calHeight;
+            int calYOffset = loc["gridparam"][1].as<int>();
+            int lineHeight = loc["gridparam"][5].as<int>();
+
+            // drawString(spr, String(timeinfo.tm_mday), calWidth / 2, -calHeight/5, "Signika-SB.ttf", TC_DATUM, TFT_RED, calHeight * 1.2);
+
+            for (int i = 0; i < calDays; i++) {
+                struct tm dayTimeinfo = *localtime(&midnightEpoch);
+                dayTimeinfo.tm_mday += i;
+                time_t dayEpoch = mktime(&dayTimeinfo);
+                struct tm *dayInfo = localtime(&dayEpoch);
+
+                int colStart = colLeft + i * colWidth;
+                spr.drawLine(colStart,calTop,colStart,calBottom,TFT_BLACK);
+                drawString(spr, String(languageDaysShort[dayInfo->tm_wday]) + " " + String(dayInfo->tm_mday), colStart + colWidth / 2, calTop, loc["gridparam"][3], TC_DATUM, TFT_BLACK);
+
+                int grid = 3;
+                if (dayInfo->tm_wday == 0 || dayInfo->tm_wday == 6) {
+                    for (int y = calTop + calYOffset; y < calHeight; y += 1) {
+                        for (int x = colStart + (y % 2); x < colStart + colWidth; x += 2) {
+                            spr.drawPixel(x, y, TFT_BLACK);
+                        }
+                    }
+                } else {
+                    for (int y = calTop + calYOffset; y < calHeight; y += 2) {
+                        for (int x = colStart; x < colStart + colWidth; x += 2) {
+                            spr.drawPixel(x, y, TFT_BLACK);
+                        }
+                    }
+                }
+            }
+
+            int colStart = colLeft + calDays * colWidth;
+            spr.drawLine(colStart, calTop, colStart, calBottom, TFT_BLACK);
+            spr.drawLine(0, calTop + calYOffset, calWidth, calTop + calYOffset, TFT_BLACK);
+
+            int minHour = 9;
+            int maxHour = 17;
+
+            int n = doc.size();
+            int maxBlock = 0;
+            int *block = new int[n];
+
+            for (int i = 0; i < n; i++) {
+                const JsonObject &obj = doc[i];
+                String eventtitle = obj["title"];
+                const time_t startdatetime = obj["start"];
+                const time_t enddatetime = obj["end"];
+                const bool isallday = obj["isallday"];
+
+                if (!isallday) {
+                    localtime_r(&startdatetime, &timeinfo);
+                    if (timeinfo.tm_hour < minHour) minHour = timeinfo.tm_hour;
+
+                    localtime_r(&enddatetime, &timeinfo);
+                    if (timeinfo.tm_hour> maxHour) maxHour = timeinfo.tm_hour;
+                    if (timeinfo.tm_min > 1 && timeinfo.tm_hour + 1 > maxHour) maxHour = timeinfo.tm_hour + 1;
+                } else {
+                    int fulldaystart = constrain((startdatetime - midnightEpoch) / (24 * 3600), 0, calDays);
+                    int fulldayend = constrain((enddatetime - midnightEpoch) / (24 * 3600), 0, calDays);
+                    if (fulldaystart < calDays) {
+                        int line = 1;
+                        bool overlap = false;
+                        do {
+                            overlap = false;
+                            for (int j = 0; j < i; j++) {
+                                const JsonObject &obj2 = doc[j];
+                                const bool isallday2 = obj2["isallday"];
+                                const time_t startdatetime2 = obj2["start"];
+                                const time_t enddatetime2 = obj2["end"];
+                                if (startdatetime < enddatetime2 && enddatetime > startdatetime2 &&
+                                    line == block[j] && isallday2) {
+                                    Serial.printf("overlap %d met %d, %d-%d met %d-%d, block[j]=%d",i,j,startdatetime, enddatetime,startdatetime2,enddatetime2,block[j]);
+                                    overlap == true;
+                                    line++;
+                                }
+                            }
+                        } while (overlap == true);
+
+                        int16_t eventX = colLeft + fulldaystart * colWidth + 3;
+                        int16_t eventY = calTop + calYOffset + (line - 1) * lineHeight + 3;
+                        spr.drawRect(eventX - 2, eventY - 3, colWidth * (fulldayend - fulldaystart) - 1, lineHeight + 1, TFT_BLACK);
+                        spr.fillRect(eventX - 1, eventY - 2, colWidth * (fulldayend - fulldaystart) - 3, lineHeight - 1, TFT_WHITE);
+                        drawTextBox(spr, eventtitle, eventX, eventY, colWidth * (fulldayend - fulldaystart) - 3, 15, loc["gridparam"][4], TFT_BLACK);
+
+                        block[i] = line;
+                        if (line > maxBlock) maxBlock = line;
+                    }
+                }
+
+                const int starttime = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+
+                int hours = timeinfo.tm_hour;
+                int minutes = timeinfo.tm_min;
+            }
+            calYOffset += maxBlock * lineHeight;
+
+            spr.drawLine(0, calTop + calYOffset, calWidth, calTop + calYOffset, TFT_BLACK);
+            int hourHeight = (calHeight - calYOffset - calTop) / (maxHour - minHour);
+            for (int i = 0; i < (maxHour - minHour); i++) {
+                spr.drawLine(0, calTop + calYOffset + i * hourHeight, colLeft + 10, calTop + calYOffset + i * hourHeight, TFT_BLACK);
+                for (int j = 1; j <= calDays; j++) {
+                    spr.drawLine(colLeft + j * colWidth - 5, calTop + calYOffset + i * hourHeight, colLeft + j * colWidth + 5, calTop + calYOffset + i * hourHeight, TFT_BLACK);
+                }
+                drawString(spr, String(minHour + i), colLeft - 2, calTop + calYOffset + i * hourHeight + 2, loc["gridparam"][3], TR_DATUM, TFT_BLACK);
+            }
+            spr.drawLine(0, calTop + calYOffset + (maxHour - minHour) * hourHeight, calWidth, calTop + calYOffset + (maxHour - minHour) * hourHeight, TFT_BLACK);
+
+            for (int i = 0; i < n; i++) {
+                const JsonObject &obj = doc[i];
+                String eventtitle = obj["title"];
+                const time_t startdatetime = obj["start"];
+                const time_t enddatetime = obj["end"];
+                const bool isallday = obj["isallday"];
+
+                if (!isallday) {
+                    int fulldaystart = constrain((startdatetime - midnightEpoch) / (24 * 3600), 0, calDays);
+                    int fulldayend = constrain((enddatetime - midnightEpoch) / (24 * 3600), 0, calDays);
+
+                    for (int day = fulldaystart; day <= fulldayend; day++) {
+                        localtime_r(&startdatetime, &timeinfo);
+                        int starttime = timeinfo.tm_hour * 60 + timeinfo.tm_min - minHour * 60;
+                        int duration = (enddatetime - startdatetime) / 60;
+                        if (day > fulldaystart) {
+                            starttime = 0;
+                            localtime_r(&enddatetime, &timeinfo);
+                            duration = timeinfo.tm_hour * 60 + timeinfo.tm_min - minHour * 60;
+                        }
+                        char formattedTime[6];
+                        strftime(formattedTime, sizeof(formattedTime), "%H:%M", &timeinfo);
+                        String formattedTimeString = String(formattedTime);
+
+                        int indent = 1;
+                        bool overlap = false;
+                        do {
+                            overlap = false;
+                            for (int j = 0; j < i; j++) {
+                                const JsonObject &obj2 = doc[j];
+                                const bool isallday2 = obj2["isallday"];
+                                const time_t startdatetime2 = obj2["start"];
+                                const time_t enddatetime2 = obj2["end"];
+                                if (startdatetime < enddatetime2 && enddatetime > startdatetime2 &&
+                                    indent == block[j] && isallday2 == false) {
+                                    Serial.println("overlap met " + String(j) + " (indent " + String(indent) + ")");
+                                    Serial.printf("overlap %d met %d, %d-%d met %d-%d, block[j]=%d", i, j, startdatetime, enddatetime, startdatetime2, enddatetime2, block[j]);
+                                    overlap == true;
+                                    indent++;
+                                }
+                            }
+                        } while (overlap == true);
+
+                        block[i] = indent;
+                        int16_t eventX = colLeft + day * colWidth + (indent - 1) * 5;
+                        int16_t eventY = calTop + calYOffset + (starttime * hourHeight / 60);
+                        spr.drawRect(eventX + 1, eventY, colWidth - 1, (duration * hourHeight / 60) + 1, TFT_BLACK);
+                        spr.fillRect(eventX + 2, eventY + 1, colWidth - 3, (duration * hourHeight / 60) - 1, TFT_WHITE);
+                        eventX += 2;
+                        eventY += 2;
+                        if (day == fulldaystart) {
+                            eventtitle = formattedTimeString + " " + String(eventtitle);
+                        } else {
+                            eventtitle = obj["title"].as<String>();
+                        }
+                        drawTextBox(spr, eventtitle, eventX, eventY, colWidth - 1, (duration * hourHeight / 60) - 1, loc["gridparam"][4], TFT_BLACK, TFT_WHITE, 1);
+                    }
+                }
+            }
+
+            delete[] block;
+        }
     }
 
     spr2buffer(spr, filename, imageParams);

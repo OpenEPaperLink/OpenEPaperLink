@@ -30,6 +30,12 @@
 		"10": {
 			"title": [ 480, 0, "Signika-SB.ttf", 50 ],
 			"pos": [ 480, 70 ]
+		},
+		"11": {
+			"rotate": 0,
+			"mode": 1,
+			"days": 7,
+			"gridparam": [ 7, 19, 30, "calibrib16.vlw", "REFSAN12.vlw", 16 ]
 		}
 	}	
 }

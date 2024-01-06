@@ -30,6 +30,12 @@
 			"items": 1,
 			"line": [ 9, 40, "calibrib16.vlw" ],
 			"desc": [ 2, 8, "REFSAN12.vlw", 1.2 ]
+		},
+		"11": {
+			"rotate": 1,
+			"mode": 1,
+			"days": 1,
+			"gridparam": [ 5, 17, 20, "calibrib16.vlw", "BellCent10.vlw", 14 ]
 		}
 	}
 }

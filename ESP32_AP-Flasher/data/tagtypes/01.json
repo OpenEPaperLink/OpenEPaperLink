@@ -56,6 +56,8 @@
 			"pos": [149, 27]
 		},
 		"11": {
+			"mode": 0,
+			"days": 1,
 			"title": [5, 2, "fonts/bahnschrift20"],
 			"date": [290, 2],
 			"items": 7,
