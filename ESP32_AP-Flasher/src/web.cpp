@@ -652,6 +652,11 @@ void init_web() {
         saveDB("/current/tagDB.json");
         request->send(*contentFS, "/current/tagDB.json", String(), true);
     });
+    server.on(
+        "/restore_db", HTTP_POST, [](AsyncWebServerRequest *request) {
+            request->send(200);
+        },
+        dotagDBUpload);
 
     server.on("/sysinfo", HTTP_GET, handleSysinfoRequest);
     server.on("/check_file", HTTP_GET, handleCheckFile);
@@ -781,4 +786,22 @@ void doJsonUpload(AsyncWebServerRequest *request) {
         return;
     }
     request->send(400, "text/plain", "Missing parameters");
+}
+
+void dotagDBUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+    if (!index) {
+        logLine("restore tagDB");
+        xSemaphoreTake(fsMutex, portMAX_DELAY);
+        request->_tempFile = contentFS->open("/current/tagDBrestored.json", "w");
+    }
+    if (len) {
+        request->_tempFile.write(data, len);
+    }
+    if (final) {
+        request->_tempFile.close();
+        xSemaphoreGive(fsMutex);
+        destroyDB();
+        loadDB("/current/tagDBrestored.json");
+        request->send(200, "text/plain", "Ok, restored.");
+    }
 }

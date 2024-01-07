@@ -297,6 +297,7 @@ label {
 #rebootbutton,
 #updatebutton,
 #downloadDBbutton,
+#uploadButton,
 .wifibutton {
 	padding: 4px 5px;
 	background-color: #ccc;
@@ -312,6 +313,10 @@ label {
 	&:hover {
 		background-color: #aaa;
 	}
+}
+
+#uploadButton {
+	margin-left:5px;
 }
 
 .columns div {
@@ -345,6 +350,12 @@ button {
 input[type=button]:hover,
 button:hover {
 	background-color: #aaaaaa;
+}
+
+input[type=file] {
+	padding: 0px;
+	margin-left: 20px;
+	width: 200px;
 }
 
 select {

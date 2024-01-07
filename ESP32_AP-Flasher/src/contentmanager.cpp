@@ -1697,8 +1697,6 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
     TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     uint8_t screenCurrentOrientation = 0;
-    // spr.setRotation(2);
-    // imageParams.rotatebuffer = imageParams.rotatebuffer + 1;
     DynamicJsonDocument doc(500);
     if (stream.find("[")) {
         do {
@@ -1720,10 +1718,10 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
 void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &spr, imgParam &imageParams) {
     rotation = rotation % 4;                           // First of all, let's be sure that the rotation have a valid value (0, 1, 2 or 3)
     if (rotation != currentOrientation) {              // If we have a rotation to do, let's do it
-        int stepToDo = currentOrientation - rotation;  // rotation we have to do
-        //-2, 2: upside down
-        //-1, 3: 270° rotation
-        //-3, 1: 90° rotation
+        int stepToDo = (currentOrientation - rotation + 4) % 4;
+        // 2: upside down
+        // 3: 270° rotation
+        // 1: 90° rotation
 
         if (abs(stepToDo) == 2) {                                        // If we have to do a 180° rotation:
             TFT_eSprite sprCpy = TFT_eSprite(&tft);                      // We create a new sprite that will act as a buffer
@@ -1733,22 +1731,15 @@ void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &sp
             sprCpy.pushRotated(&spr, 0, TFT_WHITE);                      // We copy the buffer sprite to the main one
             sprCpy.deleteSprite();                                       // We delete the buffer sprite to avoid memory leak
         } else {
-            int angle = 90;
-            if (stepToDo == -1 || stepToDo == 3) {
-                angle = 270;
-            }
+            int angle = (stepToDo == 3) ? 270 : 90;
             TFT_eSprite sprCpy = TFT_eSprite(&tft);
             initSprite(sprCpy, spr.height(), spr.width(), imageParams);
             spr.pushRotated(&sprCpy, angle, TFT_WHITE);
             spr.deleteSprite();
             initSprite(spr, sprCpy.width(), sprCpy.height(), imageParams);
-            sprCpy.pushRotated(&spr, 0, TFT_WHITE);
+            sprCpy.pushToSprite(&spr, 0, 0);
             sprCpy.deleteSprite();
-            if (imageParams.rotatebuffer == 1) {
-                imageParams.rotatebuffer = 0;
-            } else {
-                imageParams.rotatebuffer = 1;
-            }
+            imageParams.rotatebuffer = 1 - imageParams.rotatebuffer;
         }
         currentOrientation = rotation;
     }

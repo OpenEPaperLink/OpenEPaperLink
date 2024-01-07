@@ -705,6 +705,36 @@ $('#apcfgsave').onclick = function () {
 		.catch(error => showMessage('Error: ' + error));
 }
 
+$('#uploadButton').onclick = function () {
+	const file = $('#fileInput')?.files[0];
+	if (file) {
+		const formData = new FormData();
+		formData.append('file', file);
+		fetch('/restore_db', {
+			method: 'POST',
+			body: formData
+		})
+			.then(response => {
+				if (!response.ok) {
+					throw new Error(`HTTP error! Status: ${response.status}`);
+				}
+				return response.text();
+			})
+			.then(data => {
+				console.log('File uploaded successfully: ', data);
+				alert('TagDB restored. Webpage will reload.');
+				location.reload();
+			})
+			.catch(error => {
+				console.error('Error uploading file:', error);
+				alert('Error uploading file: '+ error);
+			});
+	} else {
+		console.error('No file selected.');
+		alert('No file selected');
+	}
+}
+
 async function loadOTA() {
 	otamodule = await import('./ota.js?v=' + Date.now());
 	otamodule.initUpdate();
