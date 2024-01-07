@@ -1,0 +1,123 @@
+#!/bin/bash
+#
+# cyglsa-config, Copyright 2006, 2010 Red Hat Inc.
+#
+#     This program is free software; you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation; either version 2 of the License, or
+#     (at your option) any later version.
+#
+#     A copy of the GNU General Public License can be found at
+#     http://www.gnu.org/
+#
+# This file is part of the Cygwin LSA authentication package.
+
+request()
+{
+  if [ "${auto_answer}" = "yes" ]
+  then
+    echo "$1 (yes/no) yes"
+    return 0
+  elif [ "${auto_answer}" = "no" ]
+  then
+    echo "$1 (yes/no) no"
+    return 1
+  fi
+
+  answer=""
+  while [ "X${answer}" != "Xyes" -a "X${answer}" != "Xno" ]
+  do
+    echo -n "$1 (yes/no) "
+    read -e answer
+  done
+  if [ "X${answer}" = "Xyes" ]
+  then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Check if running under at least Windows 2000
+_nt_too_old=`uname | awk -F- '{print ( $2 < 5.0 ) ? 1 : 0;}'`
+if [ ${_nt_too_old} -eq 1 ]
+then
+  echo "Cygwin LSA authentication not supported on Windows NT4 or older.  Exiting."
+  exit 1
+fi
+
+# Directory in which cyglsa DLL is installed as DOS path.
+bindir=`cygpath -w /`\\bin
+
+# Check if we're running on 64 bit Windows.  If so, we need the 64 bit
+# cyglsa DLL.
+dll=cyglsa.dll
+test -d `cygpath -p ${SYSTEMROOT}`/SysWOW64 && dll=cyglsa64.dll
+
+# Check if the DLL is actually installed.  If not, bail out.
+if [ ! -f /bin/${dll} ]
+then
+  echo "Required Cygwin authentication DLL /bin/${dll} doesn't exist.  Exiting."
+  exit 1
+fi
+
+echo
+echo "Warning: Registering the Cygwin LSA authentication package requires"
+echo "administrator privileges!  You also have to reboot the machine to"
+echo "activate the change."
+echo
+request "Are you sure you want to continue?" || exit 0
+
+# The registry value which keeps the authentication packages.
+value='/HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/Control/Lsa/Authentication Packages'
+
+[ -f /bin/cyglsa -a ! -d /bin/cyglsa ] && rm -rf /bin/cyglsa
+if [ ! -d /bin/cyglsa ]
+then
+  if ! mkdir -m 755 /bin/cyglsa
+  then
+    echo "Creating the /bin/cyglsa directory failed.  Exiting."
+    exit 1
+  fi
+fi
+if ! cp -b "/bin/${dll}" "/bin/cyglsa/${dll}"
+then
+    echo "Copying the new LSA authentication package /bin/${dll} to"
+    echo "/bin/cyglsa/${dll} failed.  Exiting."
+    exit 1
+fi
+
+# Get old content, remove every trace of "cyglsa" from it and write the
+# content back to the registry with the new, correct path to the cyglsa DLL.
+old=`regtool get "${value}"`
+new=`for i in ${old}
+do
+  echo $i | GREP_OPTIONS="" grep -v cyglsa
+done`
+if ! regtool set "${value}" ${new} "${bindir}\\cyglsa\\${dll}"
+then
+  echo "Setting the new registry value failed.  Exiting."
+  exit 1
+fi
+
+echo
+echo "Cygwin LSA authentication package registered."
+echo
+echo "Activating Cygwin's LSA authentication package requires to reboot."
+if [ -x /bin/shutdown ]
+then
+  if request "Do you want to do this immediately?"
+  then
+    echo
+    echo "Other users might still be working on this machine."
+    echo
+    if request "Are you sure?"
+    then
+      echo
+      echo "Ok, will reboot in 30 seconds."
+      echo
+      echo "If you change your mind, call 'shutdown -a' within 30 seconds"
+      shutdown -r 30
+    fi
+  fi
+fi

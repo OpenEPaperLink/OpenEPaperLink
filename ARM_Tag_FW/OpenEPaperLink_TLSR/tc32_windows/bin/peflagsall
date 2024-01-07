@@ -1,0 +1,354 @@
+#!/bin/ash
+
+#
+# Copyright (c) 2009,2011 Charles Wilson
+# Based on rebaseall by Jason Tishler
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# See the COPYING file for full license information.
+
+# Define constants
+tp1=${0%/*}
+tp2=${tp1:-.}
+PATH=$(cd $tp2 && pwd):/usr/bin:/bin
+
+ProgramName=${0##*/}
+ProgramOptions='p:d:t:s:T:knvh'
+DefaultExtraArgs=
+DefaultTSAware=1
+DefaultDynBase=0
+DefaultKeep=
+DefaultDoNothing=
+DefaultVerbose=
+DefaultFileList=
+DefaultSuffixes='exe|dll|so|oct'
+
+# Define functions
+usage_string="usage: $ProgramName [-p extra_args] [-d bool] [-t bool] [-s suffix] [-T FileList | -] [-vnh]"
+short_usage ()
+{
+    echo "$usage_string" 1>&2
+    exit 1
+}
+
+long_help ()
+{
+    echo "$usage_string"
+    echo "When invoked with no arguments, $ProgramName modifies every cygwin $DefaultSuffixes"
+    echo "on the system: .exe files have their tsaware flag set, while .dll, .so and .oct"
+    echo "files have their dynamicbase flag removed. However, if any of [-d|-t|-s] are"
+    echo "specified then ONLY the actions so specified will occur."
+    echo "   -p extra_args   pass extra_args to peflags.exe"  
+    echo "   -d bool         set the dynamicbase flag to 'bool' on all specified files"
+    echo "   -t bool         set the tsaware flag to 'bool' on all specified files"
+    echo "   -s suffix       search for all files with the specified suffix(es)"
+    echo "                     default: 'exe|dll|so|oct'"
+    echo "   -T FileList     in addition to files located via the normal search and"
+    echo "                   suffix list, also operate on files listed in FileList"
+    echo "                   May be '-' which indicates stdin"
+    echo "   -n              do not modify any files, but display the peflags commands"
+    echo "   -k              keep all temporary files"
+    echo "   -v              verbose mode"
+    echo "   -h              show this help"
+    echo "bool may be '0', '1', 'true', 'false', 'yes', or 'no'"
+    echo "Note: peflagsall will NOT set the dynamicbase flag on executables, nor will"
+    echo "      it set the tsaware flag on dlls. If you must do this, use peflags itself"
+    exit 0
+}
+
+check_args_for_help()
+{
+    # we do this early, so that we can print help before
+    # the process-check.
+    for a in "$@"
+    do
+        case "$a" in
+        "--help"|"-help"|"-h") long_help ;;
+        esac
+    done
+}
+
+to_bool_result=
+to_bool()
+{
+    case "$1" in
+    [Tt][Rr][Uu][Ee]     ) to_bool_result=1;;
+    [Ff][Aa][Ll][Ss][Ee] ) to_bool_result=0;;
+    [Yy][Ee][Ss]         ) to_bool_result=1;;
+    [Nn][Oo]             ) to_bool_result=0;;
+    [Yy]                 ) to_bool_result=1;;
+    [Nn]                 ) to_bool_result=0;;
+    1|0                  ) to_bool_result=$1;;
+    *) echo "Bad bool argument '$1'" 1>&2
+       short_usage
+       exit 1
+    esac
+}
+
+cleanup()
+{
+    if test -z "$Keep"
+    then
+    	rm -f "$TmpFile" "$ExeFile" "$DllFile"
+    else
+        echo "Saving temp files '$TmpDir/peflags_*' (may not exist)" 1>&2
+    fi
+    exit $ExitCode
+}
+
+verbose_only()
+{
+    if test -n "$Verbose"
+    then
+        echo "$@" 1>&2
+    fi
+}
+
+# Set traps
+trap cleanup 1 2 15
+
+# Set defaults
+ExtraArgs=$DefaultExtraArgs
+TSAware=$DefaultTSAware
+DynBase=$DefaultDynBase
+Keep=$DefaultKeep
+DoNothing=$DefaultDoNothing
+Verbose=$DefaultVerbose
+FileList=$DefaultFileList
+Suffixes=$DefaultSuffixes
+
+# Argument accumulators
+ArgSuffixes=
+ArgTSAware=
+ArgDynBase=
+
+# First see if caller requested help
+check_args_for_help "$@"
+
+# Determine platform
+Platform=`uname -s`
+case $Platform in
+ *MINGW*  | *mingw*  ) Platform=mingw  ;;
+ *CYGWIN* | *cygwin* ) Platform=cygwin ;;
+ *MSYS*   | *msys*   ) Platform=msys   ;;
+ * )
+    echo "Unsupported platform: $Platform" 1>&2
+    exit 1
+    ;;
+esac
+
+# Verify only ash or dash processes are running
+ProcessResult=0
+case $Platform in
+  mingw|msys )
+    /bin/ps -s | /bin/gawk '\
+      # Count number of running ash or dash. \
+      /\/bin\/(d)?ash(\.exe)?$/{ ash_cnt++; } \
+      # Count number of ps and gawk. \
+      /\/bin\/ps(\.exe)?$/{ cnt++; } \
+      /\/bin\/gawk(\.exe)?$/{ cnt++; } \
+      END{ \
+        # Uncomment for testing: \
+        # printf "TOTAL: %d CNT: %d ASH_CNT: %d\n", NR, cnt, ash_cnt; \
+        # Only one of ps and gawk each may run. \
+        if (cnt > 2) \
+          exit 0; \
+        # The total number of allowed processes is one less than the \
+        # number of input lines.  The extra line is the ps header output. \
+        if (NR - cnt - ash_cnt > 1) \
+          exit 0; \
+        # All is well. \
+        exit 1; \
+      }'
+    ProcessResult=$?
+    ;;
+  cygwin )
+    grep -E -q -i -v '/d?ash(.exe)?$' /proc/[0-9]*/exename
+    ProcessResult=$?
+    ;;
+esac
+if [ $ProcessResult -eq 0 -a -z "$RebaseDebug" ]
+then
+    echo "$ProgramName: only ash or dash processes are allowed during this process."
+    echo "    Exit all Cygwin processes and stop all Cygwin services."
+    echo "    Execute ash (or dash) from Start/Run... or a cmd or command window."
+    echo "    Execute '/bin/peflagsall' from ash (or dash)."
+    exit 2
+fi
+
+# Parse command line arguments
+while getopts $ProgramOptions Option "$@"
+do
+    case $Option in
+    p)  ExtraArgs="$OPTARG";;
+    d)  to_bool "$OPTARG"; ArgDynBase=$to_bool_result;;
+    t)  to_bool "$OPTARG"; ArgTSAware=$to_bool_result;;
+    s)
+	if test -z "$ArgSuffixes"
+        then
+		ArgSuffixes="$OPTARG"
+	else
+		ArgSuffixes="$ArgSuffixes|$OPTARG"
+	fi
+	;;
+    n)  DoNothing=:;;
+    k)  Keep=1;;
+    T)  FileList="$OPTARG";;
+    v)  Verbose=-v;;
+    h)  long_help;;
+    \?) short_usage;;
+    esac
+done
+
+# Evaluate command line arguments
+if test -n "$ArgSuffixes" || test -n "$ArgDynBase" || test -n "$ArgTSAware"
+then
+    echo "Using custom arguments; all default behavior suppressed" 1>&2
+    Suffixes="$ArgSuffixes"
+    DynBase="$ArgDynBase"
+    TSAware="$ArgTSAware"
+fi
+if test -z "$Suffixes"
+then
+    echo "Error: must specify suffixes (-s) when default behavior is suppressed" 1>&2
+    short_usage
+fi
+
+
+# Set temp directory
+TmpDir="${TMP:-${TEMP:-/tmp}}"
+
+# Validate temp directory
+if [ ! -d "$TmpDir" ]
+then
+    echo "$ProgramName: '$TmpDir' is not a directory" 1>&2
+    exit 2
+fi
+if [ ! -w "$TmpDir" ]
+then
+    echo "$ProgramName: '$TmpDir' is not writable" 1>&2
+    exit 2
+fi
+
+# Validate user supplied file list, if necessary
+if [ -n "$FileList" -a ! -r "$FileList" -a "$FileList" != - ]
+then
+    echo "$ProgramName: '$FileList' is not readable" 1>&2
+    exit 2
+fi
+
+# Set temp files
+TmpFile="$TmpDir/peflags.lst"
+ExeFile="$TmpDir/peflags_exe.lst"
+DllFile="$TmpDir/peflags_dll.lst"
+
+# Create file list
+case $Platform in
+  cygwin)
+    find /etc/setup -name '*.lst.gz' | xargs gzip -d -c |
+      grep -E "\.($Suffixes)\$" |
+      sed -e '/cygwin1\.dll$/d' -e '/cyglsa.*\.dll$/d' \
+          -e '/sys-root\/mingw/d' -e 's/^/\//' \
+          -e '/d?ash\.exe$/d' -e '/peflags\.exe$/d' >"${TmpFile}"
+    ;;
+  msys)
+    for f in /bin /lib
+    do
+      find $f -type f |
+        grep -E "\.($Suffixes)\$" |
+        sed -e '/msys-1\.0.*\.dll$/d' -e '/cygwin1\.dll$/d' \
+            -e '/cyglsa.*\.dll$/d' -e '/d?ash\.exe$/d' \
+            -e '/peflags\.exe$/d' >>"$TmpFile"
+    done
+    ;;
+  mingw) ;; # no automatic files; only command line
+esac
+
+# Append user supplied file list, if any
+if [ -n "$FileList" ]
+then
+    cat "$FileList" >>"$TmpFile"
+fi
+
+# Split file list into two groups: exe's, and everything else
+# (presumably, DLLs by any name).
+sed -n -e '/\.[Ee][Xx][Ee]$/p' < "$TmpFile" > "$ExeFile"
+sed    -e '/\.[Ee][Xx][Ee]$/d' < "$TmpFile" > "$DllFile"
+NumExes=`cat "$ExeFile" | sed -n '$='`
+NumDlls=`cat "$DllFile" | sed -n '$='`
+
+# Prepare to do exes
+DoExes=
+TSAwareCmd="--tsaware=$TSAware"
+if test -n "$NumExes" && test "$NumExes" -gt 0
+then
+    if test -n "$TSAware" || test -n "$ExtraArgs"
+    then
+       DoExes=1
+       if test -z "$TSAware"
+       then
+           TSAwareCmd=
+       fi
+    else
+       verbose_only "Not processing $NumExes executables; neither -t nor -p specified"
+    fi
+else
+    verbose_only "No executable files to process"
+fi
+
+# Prepare to do dlls
+DoDlls=
+DynBaseCmd="--dynamicbase=$DynBase"
+if test -n "$NumDlls" && test "$NumDlls" -gt 0
+then
+    if test -n "$DynBase" || test -n "$ExtraArgs"
+    then
+       DoDlls=1
+       if test -z "$DynBase"
+       then
+           DynBaseCmd=
+       fi
+    else
+       verbose_only "Not processing $NumDlls dlls; neither -d nor -p specified"
+    fi
+else
+    verbose_only "No dlls to process"
+fi
+
+if test -n "$DoExes"
+then
+    if test -n "$DoNothing" || test -n "$Verbose"
+    then
+        echo "peflags $Verbose $ExtraArgs $TSAwareCmd -T $ExeFile" 1>&2
+    fi
+    $DoNothing peflags $Verbose $ExtraArgs $TSAwareCmd -T "$ExeFile"
+fi
+ExitCode=$?
+
+if test "$ExitCode" -eq 0
+    then
+    if test -n "$DoDlls" ; then
+        if test -n "$DoNothing" || test -n "$Verbose"
+        then
+            echo "peflags $Verbose $ExtraArgs $DynBaseCmd -T $DllFile" 1>&2
+        fi
+        $DoNothing peflags $Verbose $ExtraArgs $DynBaseCmd -T "$DllFile"
+    fi
+    ExitCode=$?
+fi
+
+# Clean up
+cleanup
+

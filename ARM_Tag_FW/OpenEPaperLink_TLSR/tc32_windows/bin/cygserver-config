@@ -1,0 +1,209 @@
+#!/bin/bash
+#
+# cygserver-config, Copyright 2003 Red Hat Inc.
+#
+# This file is part of the Cygwin DLL.
+
+# Directory where the config files are stored
+SYSCONFDIR=/etc
+LOCALSTATEDIR=/var
+
+progname=$0
+auto_answer=""
+service_name=cygserver
+
+request()
+{
+  if [ "${auto_answer}" = "yes" ]
+  then
+    echo "$1 (yes/no) yes"
+    return 0
+  elif [ "${auto_answer}" = "no" ]
+  then
+    echo "$1 (yes/no) no"
+    return 1
+  fi
+
+  answer=""
+  while [ "X${answer}" != "Xyes" -a "X${answer}" != "Xno" ]
+  do
+    echo -n "$1 (yes/no) "
+    read -e answer
+  done
+  if [ "X${answer}" = "Xyes" ]
+  then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Check options
+
+while :
+do
+  case $# in
+  0)
+    break
+    ;;
+  esac
+
+  option=$1
+  shift
+
+  case "${option}" in
+  -d | --debug )
+    set -x
+    ;;
+
+  -y | --yes )
+    auto_answer=yes
+    ;;
+
+  -n | --no )
+    auto_answer=no
+    ;;
+
+  -N | --name )
+    service_name=$1
+    shift
+    ;;
+
+  *)
+    echo "usage: ${progname} [OPTION]..."
+    echo
+    echo "This script creates an Cygserver service configuration."
+    echo
+    echo "Options:"
+    echo "  --debug  -d            Enable shell's debug output."
+    echo "  --yes    -y            Answer all questions with \"yes\" automatically."
+    echo "  --no     -n            Answer all questions with \"no\" automatically."
+    echo "  --name   -N <name>     cygserver windows service name."
+    echo
+    exit 1
+    ;;
+
+  esac
+done
+
+# Check if running on NT
+_sys="`uname`"
+_nt=`expr "${_sys}" : "CYGWIN_NT"`
+
+# Check for running cygserver processes first.
+if ps -ef | grep -v grep | grep -q ${service_name}
+then
+  echo
+  echo "There is a cygserver (${service_name}) already running. Nothing to do, apparently."
+  echo
+  exit 1
+fi
+
+# Check for ${SYSCONFDIR} directory
+if [ -e "${SYSCONFDIR}" -a ! -d "${SYSCONFDIR}" ]
+then
+  echo
+  echo "${SYSCONFDIR} is existant but not a directory."
+  echo "Cannot create global configuration file."
+  echo
+  exit 1
+fi
+
+# Create it if necessary
+if [ ! -e "${SYSCONFDIR}" ]
+then
+  mkdir "${SYSCONFDIR}"
+  if [ ! -e "${SYSCONFDIR}" ]
+  then
+    echo
+    echo "Creating ${SYSCONFDIR} directory failed"
+    echo
+    exit 1
+  fi
+fi
+
+# Create /var/log if not already existing
+if [ -f ${LOCALSTATEDIR}/log ]
+then
+  echo "Creating ${LOCALSTATEDIR}/log failed!"
+else
+  if [ ! -d ${LOCALSTATEDIR}/log ]
+  then
+    mkdir -p ${LOCALSTATEDIR}/log
+  fi
+fi
+
+# Check if cygserver.conf exists. If yes, ask for overwriting
+if [ -f "${SYSCONFDIR}/cygserver.conf" ]
+then
+  if request "Overwrite existing ${SYSCONFDIR}/cygserver.conf file?"
+  then
+    rm -f "${SYSCONFDIR}/cygserver.conf"
+    if [ -f "${SYSCONFDIR}/cygserver.conf" ]
+    then
+      echo
+      echo "Can't overwrite. ${SYSCONFDIR}/cygserver.conf is write protected."
+      echo
+      exit 1
+    fi
+  fi
+fi
+
+# Create default cygserver.conf from skeleton files in /etc/defaults/etc
+if [ ! -f "${SYSCONFDIR}/cygserver.conf" ]
+then
+  echo "Generating ${SYSCONFDIR}/cygserver.conf file"
+  cp "${SYSCONFDIR}/defaults/etc/cygserver.conf" "${SYSCONFDIR}/cygserver.conf"
+  if [ ! -f "${SYSCONFDIR}/cygserver.conf" ]
+  then
+    echo
+    echo "Couldn't create ${SYSCONFDIR}/cygserver.conf."
+    echo "Perhaps there's no default file in ${SYSCONFDIR}/defaults/etc?"
+    echo "Reinstalling Cygwin might help."
+    echo
+    exit 1
+  fi
+  chmod 664 "${SYSCONFDIR}/cygserver.conf"
+  chown 18.544 "${SYSCONFDIR}/cygserver.conf"
+fi
+
+# On NT ask if cygserver should be installed as service
+if [ ${_nt} -gt 0 ]
+then
+  # But only if it is not already installed
+  if ! cygrunsrv -Q ${service_name} > /dev/null 2>&1
+  then
+    echo
+    echo
+    echo "Warning: The following function requires administrator privileges!"
+    echo
+    echo "Do you want to install cygserver as service?"
+    if request "(Say \"no\" if it's already installed as service)"
+    then
+      if ! cygrunsrv -I ${service_name} -d "CYGWIN cygserver" -p /usr/sbin/cygserver
+      then
+        echo
+	echo "Installation of cygserver as service failed.  Please check the"
+	echo "error messages you got.  They might give a clue why it failed."
+	echo
+	echo "A good start is either you don't have administrator privileges"
+	echo "or a missing cygrunsrv binary.  Please check for both."
+	echo
+	exit 1
+      fi
+      echo
+      echo "The service has been installed under LocalSystem account."
+      echo "To start it, call \`net start ${service_name}' or \`cygrunsrv -S ${service_name}'."
+    fi
+    touch "${LOCALSTATEDIR}/log/cygserver.log"
+    chown 18.544 "${LOCALSTATEDIR}/log/cygserver.log"
+  fi
+fi
+
+echo
+echo "Further configuration options are available by editing the configuration"
+echo "file ${SYSCONFDIR}/cygserver.conf.  Please read the inline information in that"
+echo "file carefully. The best option for the start is to just leave it alone."
+echo
+echo "Basic Cygserver configuration finished. Have fun!"
+echo

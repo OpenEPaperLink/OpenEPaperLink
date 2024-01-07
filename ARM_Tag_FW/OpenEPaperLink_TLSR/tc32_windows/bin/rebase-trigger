@@ -1,0 +1,74 @@
+#!/bin/dash
+export PATH=/bin
+b=/var/cache/rebase
+if [ ! -d ${b} ] ; then
+    echo "Directory ${b} does not exist, trying to re-create."
+    mkdir -p ${b}
+fi
+
+usage () {
+  echo "
+rebase-trigger [-h | --help | [ full[rebase] | peflags ]]
+
+Commands:
+------------------------------------
+
+full
+fullrebase
+	Perform a full rebase the next time autorebase is run.
+
+peflags
+        Set some flags on executables necessary to run on a Terminal
+	Server.  This is only needed for 32bit executables that have
+	been created with old toolchains.
+"
+}
+trigger_fullrebase () {
+  local f g
+  f="${b}/fullrebase"
+  g="${f}.done"
+  if [ -e "$g" ] ; then
+    mv "$g" "$f"
+  else
+    cat > "$f" <<EOF
+# _autorebase will do a rebuild of the rebase database if this file
+# exists and then rename it to fullrebase.done
+EOF
+  fi
+  echo "Note: _autorebase will do a full rebase the next time setup is run."
+}
+
+trigger_peflags () {
+  local f g
+  f="${b}/peflags"
+  g="${f}.disabled"
+  if [ -e "$g" ] ; then
+    mv "$g" "$f"
+  else
+    cat > "$f" <<EOF
+# _autorebase will run peflags after rebasing and then rename the file
+# to rebase_peflags.disabled
+EOF
+  fi
+  echo "Note: _autorebase will set peflags the next time setup is run."
+}
+
+if [ "$#" = "0" ] ; then
+  set -- "--help"
+fi
+while [ $# -gt 0 ] ; do 
+  case "$1" in
+    full|fullrebase )
+      trigger_fullrebase
+      ;;
+    peflags )
+      trigger_peflags
+      ;;
+    -h|--help|* )
+      usage
+      exit 127
+      ;;
+  esac
+  shift
+done
+exit 0

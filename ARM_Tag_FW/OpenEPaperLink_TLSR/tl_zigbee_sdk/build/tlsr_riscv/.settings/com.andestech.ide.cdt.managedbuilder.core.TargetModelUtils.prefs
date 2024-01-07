@@ -1,0 +1,11 @@
+autoBuildEnable=false
+connectType=ICE
+connectTypeOptionData=2
+eclipse.preferences.version=1
+iceman.misc.args=
+iceman.misc.args.map={2\=}
+name=ADP-AE350-D25F-EAGLE-0106
+sid.misc.args=
+target.project.build.selection=false
+target.project.clean.selection=false
+targetURI=rse\://LOCALHOST/~target/ADP-AE350-D25F-EAGLE-0106

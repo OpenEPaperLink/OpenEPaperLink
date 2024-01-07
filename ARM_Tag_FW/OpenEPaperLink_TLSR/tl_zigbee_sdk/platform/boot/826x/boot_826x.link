@@ -1,0 +1,104 @@
+/********************************************************************************************************
+ * @file    boot_826x.link
+ *
+ * @brief   This is the link file for B86
+ *
+ * @author  Driver & Zigbee Group
+ * @date    2021
+ *
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ *          All rights reserved.
+ *
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
+ *
+ *              http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
+ *
+ *******************************************************************************************************/
+
+/* to tell the linker the program begin from __start label in cstartup.s, thus do not treat it as a unused symbol */
+ENTRY(__start)
+
+SECTIONS
+{
+	. = 0x0;
+    .vectors :
+    {
+    *(.vectors)
+    *(.vectors.*)	/* MUST as follows, when compile with -ffunction-sections -fdata-sections, session name may changed */
+    }
+    
+    . = (. * (1 - __BOOT_LOADER_IMAGE)) + (__FW_RAMCODE_SIZE_MAX * __BOOT_LOADER_IMAGE);
+    .ram_code :
+    {
+    *(.ram_code)
+    *(.ram_code.*)
+    }
+    
+    . = (((. + 15) / 16)*16);       /* must 16 byte align if use "AT" for ".text" */
+    PROVIDE(_rstored_ = . );
+    
+   	PROVIDE(_ramcode_size_ = . );
+	PROVIDE(_ramcode_size_div_16_ = (. + 15 ) / 16);
+	PROVIDE(_ramcode_size_div_256_ = (. + 255) / 256);
+	PROVIDE(_ramcode_size_div_16_align_256_ = ( (. + 255) / 256) * 16);
+	
+    . = (_rstored_ + __FW_OFFSET);
+    .text :
+    	AT(_rstored_)
+        {
+        *(.text)
+        *(.text.*)
+        }
+    .rodata :
+        {
+        *(.rodata)
+        *(.rodata.*)
+        }
+
+   	. = (((. + 3) / 4)*4);
+        PROVIDE(_dstored_ = .);                     /*location in flash*/
+        PROVIDE(_dstored_bin_ = . - __FW_OFFSET);   /*location in bin*/
+        PROVIDE(_code_size_ = . - __FW_OFFSET);
+
+	. = 0x808900 + _ramcode_size_div_256_ * 0x100;	/* 0x100 alighned, must greater than or equal to:0x808000 + ram_code_size +  irq_vector(0x100) + IC_tag(0x100) + IC_cache(0x800) == 0x808a00 + ram_code_size */
+        .data :
+          AT ( _dstored_bin_ )
+         {
+    	. = (((. + 3) / 4)*4);
+         PROVIDE(_start_data_ = . );
+         *(.data);
+         *(.data.*);
+    	. = (((. + 3) / 4)*4);
+         PROVIDE(_end_data_ = . );
+         }
+
+        .bss :
+        {
+	. = (((. + 3) / 4)*4);
+		PROVIDE(_start_bss_ = .);
+        *(.sbss)
+        *(.sbss.*)
+        *(.bss)
+        *(.bss.*)
+        }
+    	PROVIDE(_end_bss_ = .);
+    	
+    .sdk_version :
+	 AT ( _dstored_bin_ + _end_data_ - _start_data_ )
+	{
+		KEEP(*(.sdk_version));
+	    KEEP(*(.sdk_version.*));
+	}
+    	
+    	PROVIDE(_bin_size_ = _code_size_ + _end_data_ - _start_data_ + SIZEOF(.sdk_version));
+    	PROVIDE(_ictag_start_ = 0x808000 + (_ramcode_size_div_256_) * 0x100);
+    	PROVIDE(_ictag_end_ = 0x808000 + (_ramcode_size_div_256_ + 1) * 0x100);
+}
