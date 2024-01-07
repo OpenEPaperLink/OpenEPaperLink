@@ -675,6 +675,22 @@ ul.messages li.new {
 	color: white;
 }
 
+#georesults {
+	position: absolute;
+	background: white;
+	cursor: pointer;
+	width: 240px;
+	max-height: 115px;
+	overflow-y: scroll;
+	padding: 0px 2px 0px 2px;
+	& div {
+		display:flex;
+	}
+	& div:hover {
+		background-color: #e0e0e0;
+	}
+}
+
 #paintbutton {
 	padding: 1px 3px;
 	border: 1px solid black;

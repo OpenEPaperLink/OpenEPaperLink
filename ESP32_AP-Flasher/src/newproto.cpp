@@ -513,6 +513,8 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
                     reason = "Network scan";
                 else if (eadr->adr.wakeupReason == WAKEUP_REASON_WDT_RESET)
                     reason = "Watchdog reset";
+                else if (eadr->adr.wakeupReason == WAKEUP_REASON_FAILED_OTA_FW)
+                    reason = "Firmware update rejected";
                 sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X %s", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0], reason);
                 logLine(buffer);
             }

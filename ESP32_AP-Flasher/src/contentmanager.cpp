@@ -216,7 +216,11 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     }
 
     switch (taginfo->contentMode) {
-        case 0:  // Image
+        case 0:  // Not configured
+        case 22:  // Static image
+        case 23:  // Static image (advanced)
+        case 24:  // External image
+        case 25:  // Home Assistant
         {
             String configFilename = cfgobj["filename"].as<String>();
             if (!util::isEmptyOrNull(configFilename)) {

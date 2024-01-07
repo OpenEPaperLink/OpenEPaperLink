@@ -6,6 +6,7 @@ const WAKEUP_REASON_GPIO = 2;
 const WAKEUP_REASON_NFC = 3;
 const WAKEUP_REASON_BUTTON1 = 4;
 const WAKEUP_REASON_BUTTON2 = 5;
+const WAKEUP_REASON_FAILED_OTA_FW = 0xE0;
 const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
 const WAKEUP_REASON_WDT_RESET = 0xFE;
@@ -326,6 +327,10 @@ function processTags(tagArray) {
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Watchdog reset!"
 				$('#tag' + tagmac).style.background = "#d0a0a0";
 				break;
+			case WAKEUP_REASON_FAILED_OTA_FW:
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Firmware update rejected!"
+				$('#tag' + tagmac).style.background = "#f0a0a0";
+				break;
 		}
 		$('#tag' + tagmac + ' .pendingicon').style.display = (element.pending ? 'inline-block' : 'none');
 		div.classList.add("tagflash");
@@ -482,8 +487,8 @@ $('#cfgsave').onclick = function() {
 
     if (contentMode) {
         extraoptions?.forEach(element => {
-            if ($('#opt' + element.key)) {
-                obj[element.key] = $('#opt' + element.key).value;
+			if (document.getElementById('opt' + element.key)) {
+                obj[element.key] = document.getElementById('opt' + element.key).value;
             }
         });
         formData.append("contentmode", contentMode);
@@ -614,9 +619,6 @@ $('#cfgautoupdate').onclick = async function() {
     else showMessage('Error: auto update failed');
     formData.append("contentmode", 5);
     formData.append("modecfgjson", JSON.stringify(obj));
-    formData.append("rotate", $('#cfgrotate').value);
-    formData.append("lut", $('#cfglut').value);
-    formData.append("invert", $('#cfginvert').value);
     fetch("/save_cfg", {
             method: "POST",
             body: formData
@@ -786,7 +788,7 @@ function contentselected() {
 		if (contentDef) {
 			$('#customoptions').innerHTML = "<p>" + contentDef?.desc + "</p>"
 		}
-		$('#paintbutton').style.display = (contentMode == 0 ? 'inline-block' : 'none');
+		$('#paintbutton').style.display = (contentMode == 22 || contentMode == 23 ? 'inline-block' : 'none');
 		let extraoptions = contentDef?.param ?? null;
 		extraoptions?.forEach(element => {
 			let label = document.createElement("label");
@@ -849,6 +851,11 @@ function contentselected() {
 						input.appendChild(optionElement);
 					}
 					break;
+				case 'geoselect':
+					input.type = "text";
+					input.classList.add("geoselect");
+					input.setAttribute("autocomplete", "off");
+					break;
 			}
 			input.id = 'opt' + element.key;
 			input.title = element.desc;
@@ -856,6 +863,12 @@ function contentselected() {
 			let p = document.createElement("p");
 			p.appendChild(label);
 			p.appendChild(input);
+			if (element.type == 'geoselect') {
+				input.addEventListener('input', debounce(searchLocations, 300));
+				const resultsContainer = document.createElement('div');
+				resultsContainer.id = 'georesults';
+				p.appendChild(resultsContainer);
+			}
 			$('#customoptions').appendChild(p);
 		});
 	}
@@ -1468,4 +1481,63 @@ function setFilterAndShow(filter) {
 	$('input[name="filter"][value="lowbatt"]').checked = (filter == 'lowbatt');
 	GroupSortFilter();
 	$(`[data-target='tagtab']`).click();
+}
+
+// geocoding typeahead
+
+async function searchLocations() {
+	const query = $(".geoselect").value.trim();
+	document.getElementById('opt#lat').value = '';
+	document.getElementById('opt#lon').value = '';
+	if (document.getElementById('opt#tz')) document.getElementById('opt#tz').value = '';		
+
+	if (query.length === 0) {
+		$('#georesults').innerHTML = '';
+		return;
+	}
+
+	try {
+		const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${query}&count=10&language=en&format=json`);
+		const data = await response.json();
+		displayResults(data.results);
+	} catch (error) {
+		console.error('Error fetching data:', error);
+	}
+}
+
+function displayResults(results) {
+	$('#georesults').innerHTML = '';
+	$('#georesults').style.top = $(".geoselect").offsetTop + $(".geoselect").offsetHeight + "px";
+	$('#georesults').style.left = $(".geoselect").offsetLeft + 'px';
+	// $('#georesults').style.width = $(".geoselect").offsetWidth + 'px';
+	if (results) {
+		results.forEach(result => {
+			const option = document.createElement('div');
+			option.textContent = result.name + ', ' + result.admin1 + ', ' + result.country ;
+			option.addEventListener('click', () => selectLocation(result));
+			$('#georesults').appendChild(option);
+		});
+	}
+}
+
+function selectLocation(location) {
+	$(".geoselect").value = location.name;
+	document.getElementById('opt#lat').value = location.latitude;
+	document.getElementById('opt#lon').value = location.longitude;
+	if (document.getElementById('opt#tz')) document.getElementById('opt#tz').value = location.timezone;
+	$('#georesults').innerHTML = '';
+	console.log('Selected location:', location);
+}
+
+function debounce(func, delay) {
+	let timeoutId;
+	return function () {
+		const context = this;
+		const args = arguments;
+
+		clearTimeout(timeoutId);
+		timeoutId = setTimeout(() => {
+			func.apply(context, args);
+		}, delay);
+	};
 }

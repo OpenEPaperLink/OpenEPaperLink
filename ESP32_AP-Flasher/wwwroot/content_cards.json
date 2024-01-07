@@ -1,20 +1,20 @@
 [
   {
     "id": 0,
+    "name": "",
+    "desc": "Not configured",
+    "param": []
+  },
+  {
+    "id": 22,
     "name": "Static image",
-    "desc": "Shows a static image, from file system, painter or external source. Make sure to resize the image to the correct resolution.",
+    "desc": "Shows a static image, from file system or painter. Make sure to resize the image to the correct resolution.",
     "param": [
       {
         "key": "filename",
         "name": "Filename",
         "desc": "Local filename on the littlefs drive",
         "type": "jpgfile"
-      },
-      {
-        "key": "timetolive",
-        "name": "TimeToLive",
-        "desc": "Amount (minutes) that this image will stay valid. The tag might not respond meanwhile",
-        "type": "int"
       },
       {
         "key": "dither",
@@ -25,49 +25,20 @@
           "0": "off",
           "1": "on"
         }
-      },
-      {
-        "key": "preload",
-        "name": "Display or Preload",
-        "desc": "Display now or preload for later use",
-        "type": "select",
-        "options": {
-          "0": "Display",
-          "1": "Preload"
-        }
-      },
-      {
-        "key": "preload_lut",
-        "name": "Preload LUT",
-        "desc": "Triggered preload images will display with this LUT",
-        "type": "select",
-        "options": {
-          "0": "Default",
-          "1": "No Repeats",
-          "2": "Fast No Reds",
-          "3": "Fast"
-        }
-      },
-      {
-        "key": "preload_type",
-        "name": "Preload Image type",
-        "desc": "Preload type to send to tag, for later recall, or special use",
-        "type": "select",
-        "options": {
-          "0": "Normal",
-          "1": "UI: Splash Screen",
-          "2": "UI: Lost connection",
-          "3": "UI: AP Found",
-          "4": "UI: No AP Found",
-          "5": "UI: Long Term Sleep",
-          "15": "Slideshow image",
-          "16": "Wake: Button 1",
-          "17": "Wake: Button 2",
-          "29": "Wake: GPIO",
-          "30": "Wake: NFC"
-        }
       }
     ]
+  },
+  {
+    "id": 24,
+    "name": "External image",
+    "desc": "Image from external source",
+    "param": [ ]
+  },
+  {
+    "id": 25,
+    "name": "Home Assistant",
+    "desc": "Image from Home Assistant",
+    "param": [ ]
   },
   {
     "id": 1,
@@ -116,13 +87,13 @@
   {
     "id": 4,
     "name": "Current weather",
-    "desc": "Current weather. Weather data by Open-Meteo.com. Parameters Lat, Lon and Time Zone are filled automatically from the entered location. In case of an ambiguous location, you can alter those manually.",
+    "desc": "Current weather. Weather data by Open-Meteo.com. Parameters Lat, Lon and Time Zone are filled automatically from the entered location. In case of an ambiguous location, choose from the drop down list.",
     "param": [
       {
         "key": "location",
         "name": "Location",
         "desc": "Name of the city. This is used to lookup the lat/long data, and to display as the title",
-        "type": "text"
+        "type": "geoselect"
       },
       {
         "key": "units",
@@ -163,7 +134,7 @@
         "key": "location",
         "name": "Location",
         "desc": "Name of the city. This is used to lookup the lat/long data, and to display as the title",
-        "type": "text"
+        "type": "geoselect"
       },
       {
         "key": "units",
@@ -204,7 +175,7 @@
         "key": "location",
         "name": "Location",
         "desc": "Name of the city. This is used to lookup the lat/long data, and to display as the title",
-        "type": "text"
+        "type": "geoselect"
       },
       {
         "key": "#lat",
@@ -522,6 +493,76 @@
         "name": "Mac-address",
         "desc": "Mac-address of the tag you want to use as content source. The source tag should either be associated with this access point, or this access point should be the content source.",
         "type": "text"
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "name": "Image preload",
+    "desc": "Preloads an image to be shown at different situations. Make sure to resize the image to the correct resolution.",
+    "param": [
+      {
+        "key": "filename",
+        "name": "Filename",
+        "desc": "Local filename on the littlefs drive",
+        "type": "jpgfile"
+      },
+      {
+        "key": "timetolive",
+        "name": "TimeToLive",
+        "desc": "Amount (minutes) that this image will stay valid. The tag might not respond meanwhile",
+        "type": "int"
+      },
+      {
+        "key": "dither",
+        "name": "Dithering",
+        "desc": "Turn halftone dithering on or off. Turn it on when displaying photos. For texts, you better leave if off",
+        "type": "select",
+        "options": {
+          "0": "off",
+          "1": "on"
+        }
+      },
+      {
+        "key": "preload",
+        "name": "Display or Preload",
+        "desc": "Display now or preload for later use",
+        "type": "select",
+        "options": {
+          "0": "Display",
+          "1": "Preload"
+        }
+      },
+      {
+        "key": "preload_lut",
+        "name": "Preload LUT",
+        "desc": "Triggered preload images will display with this LUT",
+        "type": "select",
+        "options": {
+          "0": "Default",
+          "1": "No Repeats",
+          "2": "Fast No Reds",
+          "3": "Fast"
+        }
+      },
+      {
+        "key": "preload_type",
+        "name": "Preload Image type",
+        "desc": "Preload type to send to tag, for later recall, or special use",
+        "type": "select",
+        "options": {
+          "0": "Normal",
+          "1": "UI: Splash Screen",
+          "2": "UI: Lost connection",
+          "3": "UI: AP Found",
+          "4": "UI: No AP Found",
+          "5": "UI: Long Term Sleep",
+          "15": "Slideshow image",
+          "16": "Wake: Button 1",
+          "17": "Wake: Button 2",
+          "29": "Wake: GPIO",
+          "30": "Wake: NFC"
+        }
       }
     ]
   },

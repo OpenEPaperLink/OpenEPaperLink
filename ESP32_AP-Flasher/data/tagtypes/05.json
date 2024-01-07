@@ -13,7 +13,7 @@
 	},
 	"shortlut": 1,
 	"options": [],
-	"contentids": [ 0, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20],
+	"contentids": [ 22, 23, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20],
 	"template": {
 		"1": {
 			"weekday": [ 320, -5, "Signika-SB.ttf", 100 ],

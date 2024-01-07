@@ -734,7 +734,11 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
                         }
                     }
                     taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"" + String(ttl) + "\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\", \"preload\":\"" + String(preload) + "\", \"preload_lut\":\"" + String(preloadlut) + "\", \"preload_type\":\"" + String(preloadtype) + "\"}";
-                    taginfo->contentMode = 0;
+                    if (request->hasParam("contentmode", true)) {
+                        taginfo->contentMode = request->getParam("contentmode", true)->value().toInt();
+                    } else {
+                        taginfo->contentMode = 24;
+                    }
                     taginfo->nextupdate = 0;
                     wsSendTaginfo(mac, SYNC_USERCFG);
                     request->send(200, "text/plain", "Ok, saved");

@@ -100,6 +100,7 @@ function startPainter(mac, width, height) {
 		const formData = new FormData();
 		formData.append('mac', mac);
 		formData.append('dither', '0');
+		formData.append('contentmode', '22');
 		formData.append('file', binaryImage, 'image.jpg');
 		const xhr = new XMLHttpRequest();
 		xhr.open('POST', '/imgupload');
