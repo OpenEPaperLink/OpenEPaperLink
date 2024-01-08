@@ -10,6 +10,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "led.h"
+#include "subGhz.h"
 #include "proto.h"
 #include "sdkconfig.h"
 // if you get an error about soc/lp_uart_reg.h not being found,
@@ -21,6 +22,8 @@
 #include <stdarg.h>
 #include <string.h>
 #include <Arduino.h>
+
+bool has_sub_ghz = false;
 
 uint8_t mSelfMac[8];
 volatile uint8_t isInTransmit = 0;
@@ -83,34 +86,70 @@ void radio_init(uint8_t ch) {
                 mSelfMac[0], mSelfMac[1], mSelfMac[2], mSelfMac[3],
                 mSelfMac[4], mSelfMac[5], mSelfMac[6], mSelfMac[7],
                 esp_ieee802154_get_short_address());
+
+
+  // Lets here take care of the SubGhz Init
+  if (!init_subGhz())
+    Serial.printf("Sub-GHz radio init failed\r\n");
+  else if (!tiRadioSetChannel(ch))
+    Serial.printf("SubGHz radio channel fail\r\n");
+  else
+    has_sub_ghz = true;
+
+  Serial.printf("SubGhz %s\r\n", has_sub_ghz ? "Active" : "Not Found");
+  if (has_sub_ghz) {
+    tiRadioRxFilterCfg(mSelfMac, SHORT_MAC_UNUSED, PROTO_PAN_ID, true);
+    tiRadioTxConfigure(mSelfMac, SHORT_MAC_UNUSED, PROTO_PAN_ID);
+    tiRadioRxEnable(true, false);
+  }
 }
 
 // uint32_t lastZbTx = 0;
-bool radioTx(uint8_t *packet) {
-  static uint8_t txPKT[130];
+bool radioTx(uint8_t *packet, bool subGhz) {
   led_flash(1);
-  while (isInTransmit) {
+  if (has_sub_ghz && subGhz) {
+    tiRadioTxLL(packet);
+  } else {
+    static uint8_t txPKT[130];
+    while (isInTransmit) {
+    }
+    // while (millis() - lastZbTx < 6) {
+    // }
+    // lastZbTx = millis();
+    memcpy(txPKT, packet, packet[0]);
+    isInTransmit = 1;
+    esp_ieee802154_transmit(txPKT, false);
+    return true;
   }
-  // while (millis() - lastZbTx < 6) {
-  // }
-  // lastZbTx = millis();
-  memcpy(txPKT, packet, packet[0]);
-  isInTransmit = 1;
-  esp_ieee802154_transmit(txPKT, false);
-  return true;
 }
 
 void radioSetChannel(uint8_t ch) {
   radio_init(ch);
+  if (has_sub_ghz)
+    tiRadioSetChannel(ch);
 }
 
 void radioSetTxPower(uint8_t power) {}
 
-int8_t commsRxUnencrypted(uint8_t *data) {
-  static uint8_t inner_rxPKT_out[130];
+int8_t commsRxUnencrypted(uint8_t *data, bool *subGhzRx) {
+  int8_t rssi_sub_rx = 0;
+  uint8_t lqi_sub_rx = 0;
+
+  static uint8_t inner_rxPKT_out[135];
   if (xQueueReceive(packet_buffer, (void *)&inner_rxPKT_out, pdMS_TO_TICKS(100)) == pdTRUE) {
     memcpy(data, &inner_rxPKT_out[1], inner_rxPKT_out[0] + 1);
+    *subGhzRx = false; // This is Normal data
     return inner_rxPKT_out[0] - 2;
+  }
+  if (has_sub_ghz) {
+    int32_t ret_sub_rx_len = tiRadioRxDequeuePkt(inner_rxPKT_out, sizeof(inner_rxPKT_out), &rssi_sub_rx, &lqi_sub_rx);
+    if (ret_sub_rx_len > 0)
+    {
+      //Serial.printf("Got Sub Ghz Len %i data: %i %u\r\n", ret_sub_rx, rssi_sub_rx, lqi_sub_rx);
+      memcpy(data, inner_rxPKT_out, ret_sub_rx_len);
+      *subGhzRx = true; // This is SubGHz data
+      return ret_sub_rx_len;
+    }
   }
   return 0;
 }

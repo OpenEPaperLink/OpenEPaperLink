@@ -3,6 +3,7 @@
 #include "led.h"
 #include "proto.h"
 #include "radio.h"
+#include "subGhz.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_err.h"
@@ -39,8 +40,8 @@ uint16_t version = 0x0019;
 
 #define RAW_PKT_PADDING 2
 
-uint8_t radiotxbuffer[128];
-uint8_t radiorxbuffer[128];
+uint8_t radiotxbuffer[135];
+uint8_t radiorxbuffer[135];
 
 static uint32_t housekeepingTimer;
 
@@ -69,8 +70,8 @@ uint8_t curNoUpdate = 0;
 
 bool highspeedSerial = false;
 
-void sendXferCompleteAck(uint8_t *dst);
-void sendCancelXfer(uint8_t *dst);
+void sendXferCompleteAck(uint8_t *dst, bool isSubGHz);
+void sendCancelXfer(uint8_t *dst, bool isSubGHz);
 void espNotifyAPInfo();
 
 // tools
@@ -115,7 +116,7 @@ uint8_t getBlockDataLength() {
 // pendingdata slot stuff
 int8_t findSlotForMac(const uint8_t *mac) {
   for (uint8_t c = 0; c < MAX_PENDING_MACS; c++) {
-    if (memcmp(mac, ((uint8_t *)&(pendingDataArr[c].targetMac)), 8) == 0) {
+    if (memcmp(mac, ((uint8_t *) & (pendingDataArr[c].targetMac)), 8) == 0) {
       if (pendingDataArr[c].attemptsLeft != 0) {
         return c;
       }
@@ -133,7 +134,7 @@ int8_t findFreeSlot() {
 }
 int8_t findSlotForVer(const uint8_t *ver) {
   for (uint8_t c = 0; c < MAX_PENDING_MACS; c++) {
-    if (memcmp(ver, ((uint8_t *)&(pendingDataArr[c].availdatainfo.dataVer)), 8) == 0) {
+    if (memcmp(ver, ((uint8_t *) & (pendingDataArr[c].availdatainfo.dataVer)), 8) == 0) {
       if (pendingDataArr[c].attemptsLeft != 0) return c;
     }
   }
@@ -431,7 +432,7 @@ void espNotifyTagReturnData(uint8_t *src, uint8_t len) {
 }
 
 // process data from tag
-void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
+void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload, bool isSubGHz) {
   struct MacFrameNormal *rxHeader = (struct MacFrameNormal *)buffer;
   struct blockRequest *blockReq = (struct blockRequest *)(buffer + sizeof(struct MacFrameNormal) + 1);
   if (!checkCRC(blockReq, sizeof(struct blockRequest))) return;
@@ -448,7 +449,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     } else {
       // we're talking to another mac, let this mac know we can't accomodate another request right now
       pr("BUSY!\n");
-      sendCancelXfer(rxHeader->src);
+      sendCancelXfer(rxHeader->src, isSubGHz);
       return;
     }
   }
@@ -456,7 +457,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
   // check if we have data for this mac
   if (findSlotForMac(rxHeader->src) == -1) {
     // no data for this mac, politely tell it to fuck off
-    sendCancelXfer(rxHeader->src);
+    sendCancelXfer(rxHeader->src, isSubGHz);
     return;
   }
 
@@ -512,7 +513,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
 
   addCRC((void *)blockRequestAck, sizeof(struct blockRequestAck));
 
-  radioTx(radiotxbuffer);
+  radioTx(radiotxbuffer, isSubGHz);
 
   // save the target for the blockdata
   memcpy(dstMac, rxHeader->src, 8);
@@ -525,7 +526,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
   }
 }
 
-void processAvailDataReq(uint8_t *buffer) {
+void processAvailDataReq(uint8_t *buffer, bool isSubGHz) {
   struct MacFrameBcast *rxHeader = (struct MacFrameBcast *)buffer;
   struct AvailDataReq *availDataReq = (struct AvailDataReq *)(buffer + sizeof(struct MacFrameBcast) + 1);
 
@@ -562,13 +563,13 @@ void processAvailDataReq(uint8_t *buffer) {
   txHeader->fcs.srcAddrType = 3;
   txHeader->seq = seq++;
   addCRC(availDataInfo, sizeof(struct AvailDataInfo));
-  radioTx(radiotxbuffer);
+  radioTx(radiotxbuffer, isSubGHz);
   memset(lastAckMac, 0, 8);  // reset lastAckMac, so we can record if we've received exactly one ack packet
   espNotifyAvailDataReq(availDataReq, rxHeader->src);
 }
-void processXferComplete(uint8_t *buffer) {
+void processXferComplete(uint8_t *buffer, bool isSubGHz) {
   struct MacFrameNormal *rxHeader = (struct MacFrameNormal *)buffer;
-  sendXferCompleteAck(rxHeader->src);
+  sendXferCompleteAck(rxHeader->src, isSubGHz);
   if (memcmp(lastAckMac, rxHeader->src, 8) != 0) {
     memcpy((void *)lastAckMac, (void *)rxHeader->src, 8);
     espNotifyXferComplete(rxHeader->src);
@@ -577,7 +578,7 @@ void processXferComplete(uint8_t *buffer) {
   }
 }
 
-void processTagReturnData(uint8_t *buffer, uint8_t len) {
+void processTagReturnData(uint8_t *buffer, uint8_t len, bool isSubGHz) {
   struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buffer;
   struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
 
@@ -592,13 +593,13 @@ void processTagReturnData(uint8_t *buffer, uint8_t len) {
   radiotxbuffer[2] = 0xCC;  // normal frame
   frameHeader->seq = seq++;
   frameHeader->pan = rxframe->srcPan;
-  radioTx(radiotxbuffer);
+  radioTx(radiotxbuffer, isSubGHz);
 
   espNotifyTagReturnData(rxframe->src, len - (sizeof(struct MacFrameBcast) + 1));
 }
 
 // send block data to the tag
-void sendPart(uint8_t partNo) {
+void sendPart(uint8_t partNo, bool isSubGHz) {
   struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
   struct blockPart *blockPart = (struct blockPart *)(radiotxbuffer + sizeof(struct MacFrameNormal) + 2);
   memset(radiotxbuffer + 1, 0, sizeof(struct blockPart) + sizeof(struct MacFrameNormal));
@@ -616,9 +617,9 @@ void sendPart(uint8_t partNo) {
   frameHeader->fcs.srcAddrType = 3;
   frameHeader->seq = seq++;
   frameHeader->pan = dstPan;
-  radioTx(radiotxbuffer);
+  radioTx(radiotxbuffer, isSubGHz);
 }
-void sendBlockData() {
+void sendBlockData(bool isSubGHz) {
   if (getBlockDataLength() == 0) {
     pr("Invalid block request received, 0 parts..\n");
     requestedData.requestedParts[0] |= 0x01;
@@ -639,13 +640,13 @@ void sendBlockData() {
   while (partNo < BLOCK_MAX_PARTS) {
     for (uint8_t c = 0; (c < BLOCK_MAX_PARTS) && (partNo < BLOCK_MAX_PARTS); c++) {
       if (requestedData.requestedParts[c / 8] & (1 << (c % 8))) {
-        sendPart(c);
+        sendPart(c, isSubGHz);
         partNo++;
       }
     }
   }
 }
-void sendXferCompleteAck(uint8_t *dst) {
+void sendXferCompleteAck(uint8_t *dst, bool isSubGHz) {
   struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
   memset(radiotxbuffer + 1, 0, sizeof(struct blockPart) + sizeof(struct MacFrameNormal));
   radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_XFER_COMPLETE_ACK;
@@ -658,9 +659,9 @@ void sendXferCompleteAck(uint8_t *dst) {
   frameHeader->fcs.srcAddrType = 3;
   frameHeader->seq = seq++;
   frameHeader->pan = dstPan;
-  radioTx(radiotxbuffer);
+  radioTx(radiotxbuffer, isSubGHz);
 }
-void sendCancelXfer(uint8_t *dst) {
+void sendCancelXfer(uint8_t *dst, bool isSubGHz) {
   struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
   memset(radiotxbuffer + 1, 0, sizeof(struct blockPart) + sizeof(struct MacFrameNormal));
   radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_CANCEL_XFER;
@@ -673,9 +674,9 @@ void sendCancelXfer(uint8_t *dst) {
   frameHeader->fcs.srcAddrType = 3;
   frameHeader->seq = seq++;
   frameHeader->pan = dstPan;
-  radioTx(radiotxbuffer);
+  radioTx(radiotxbuffer, isSubGHz);
 }
-void sendPong(void *buf) {
+void sendPong(void *buf, bool isSubGHz) {
   struct MacFrameBcast *rxframe = (struct MacFrameBcast *)buf;
   struct MacFrameNormal *frameHeader = (struct MacFrameNormal *)(radiotxbuffer + 1);
   radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_PONG;
@@ -687,9 +688,10 @@ void sendPong(void *buf) {
   radiotxbuffer[2] = 0xCC;  // normal frame
   frameHeader->seq = seq++;
   frameHeader->pan = rxframe->srcPan;
-  radioTx(radiotxbuffer);
+  radioTx(radiotxbuffer, isSubGHz);
 }
 
+extern uint8_t mSelfMac[8];
 void setup() {
   Serial.begin(115200);
 
@@ -710,10 +712,20 @@ void setup() {
   housekeepingTimer = millis();
 }
 
+bool isSubGhzRx = false;
 void loop() {
   while ((millis() - housekeepingTimer) < ((1000 * HOUSEKEEPING_INTERVAL) - 100)) {
-    int8_t ret = commsRxUnencrypted(radiorxbuffer);
+    int8_t ret = commsRxUnencrypted(radiorxbuffer, &isSubGhzRx);
     if (ret > 1) {
+      if (0)
+      {
+        Serial.printf("RXed packet len %u :", ret);
+        for (int t = 0; t < ret; t++) {
+          Serial.printf(" %02x", radiorxbuffer[t]);
+        }
+        Serial.printf("\n");
+      }
+
       led_flash(0);
       // received a packet, lets see what it is
       switch (getPacketType(radiorxbuffer)) {
@@ -722,23 +734,23 @@ void loop() {
             // old version of the AvailDataReq struct, set all the new fields to zero, so it will pass the CRC
             memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast) + sizeof(struct oldAvailDataReq), 0,
                    sizeof(struct AvailDataReq) - sizeof(struct oldAvailDataReq) + 2);
-            processAvailDataReq(radiorxbuffer);
+            processAvailDataReq(radiorxbuffer, isSubGhzRx);
           } else if (ret == 40) {
             // new version of the AvailDataReq struct
-            processAvailDataReq(radiorxbuffer);
+            processAvailDataReq(radiorxbuffer, isSubGhzRx);
           }
           break;
         case PKT_BLOCK_REQUEST:
-          processBlockRequest(radiorxbuffer, 1);
+          processBlockRequest(radiorxbuffer, 1, isSubGhzRx);
           break;
         case PKT_BLOCK_PARTIAL_REQUEST:
-          processBlockRequest(radiorxbuffer, 0);
+          processBlockRequest(radiorxbuffer, 0, isSubGhzRx);
           break;
         case PKT_XFER_COMPLETE:
-          processXferComplete(radiorxbuffer);
+          processXferComplete(radiorxbuffer, isSubGhzRx);
           break;
         case PKT_PING:
-          sendPong(radiorxbuffer);
+          sendPong(radiorxbuffer, isSubGhzRx);
           break;
         case PKT_AVAIL_DATA_SHORTREQ:
           // a short AvailDataReq is basically a very short (1 byte payload) packet that requires little preparation on the tx side, for optimal
@@ -746,11 +758,11 @@ void loop() {
           // sent
           if (ret == 18) {
             memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast), 0, sizeof(struct AvailDataReq) + 2);
-            processAvailDataReq(radiorxbuffer);
+            processAvailDataReq(radiorxbuffer, isSubGhzRx);
           }
           break;
         case PKT_TAG_RETURN_DATA:
-          processTagReturnData(radiorxbuffer, ret);
+          processTagReturnData(radiorxbuffer, ret, isSubGhzRx);
           break;
         default:
           Serial.printf("t=%02X\r\n", getPacketType(radiorxbuffer));
@@ -765,7 +777,7 @@ void loop() {
 
     if (blockStartTimer) {
       if (millis() > blockStartTimer) {
-        sendBlockData();
+        sendBlockData(isSubGhzRx);
         blockStartTimer = 0;
       }
     }
