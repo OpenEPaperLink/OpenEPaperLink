@@ -75,9 +75,9 @@ uint32_t colorDistance(Color &c1, Color &c2, Error &e1) {
     e1.r = constrain(e1.r, -255, 255);
     e1.g = constrain(e1.g, -255, 255);
     e1.b = constrain(e1.b, -255, 255);
-    int32_t r_diff = gamma8[c1.r] + e1.r - gamma8[c2.r];
-    int32_t g_diff = gamma8[c1.g] + e1.g - gamma8[c2.g];
-    int32_t b_diff = gamma8[c1.b] + e1.b - gamma8[c2.b];
+    int32_t r_diff = c1.r + e1.r - c2.r;
+    int32_t g_diff = c1.g + e1.g - c2.g;
+    int32_t b_diff = c1.b + e1.b - c2.b;
     return 3 * r_diff * r_diff + 6 * g_diff * g_diff + b_diff * b_diff;
 }
 

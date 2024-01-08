@@ -538,6 +538,12 @@ select {
 	animation: tagflash 1s;
 }
 
+.tagxfer {
+	transition: box-shadow background-color 0.05s ease-in-out;
+	box-shadow: #e2f103 0px 0px 10px 5px;
+	background-color: #e2f103 !important;
+}
+
 .tagpending {
 	animation: pending 1.5s ease infinite;
 }

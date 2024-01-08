@@ -138,22 +138,22 @@ function connect() {
 		}
 		if (msg.sys) {
 			let str = "";
-      str += `free heap: ${convertSize(msg.sys.heap)} &#x2507; `;
-      if (msg.sys.psfree) {
-        str += `free PSRAM: ${convertSize(msg.sys.psfree)}  &#x2507; `;
-      }
-      str += `db size: ${convertSize(msg.sys.dbsize)} &#x2507; `;
-      str += `db record count: ${msg.sys.recordcount} &#x2507; `;
+			str += `free heap: ${convertSize(msg.sys.heap)} &#x2507; `;
+			if (msg.sys.psfree) {
+				str += `free PSRAM: ${convertSize(msg.sys.psfree)}  &#x2507; `;
+			}
+			str += `db size: ${convertSize(msg.sys.dbsize)} &#x2507; `;
+			str += `db record count: ${msg.sys.recordcount} &#x2507; `;
 
-      if (msg.sys.littlefsfree < 31000) {
-        str += `filesystem <span class="blink-red" title="Generating content is paused">FULL! ${convertSize(
-          msg.sys.littlefsfree
-        )} </span>`;
-      } else {
-        str += `filesystem free: ${convertSize(msg.sys.littlefsfree)}`;
-      }
+			if (msg.sys.littlefsfree < 31000) {
+				str += `filesystem <span class="blink-red" title="Generating content is paused">FULL! ${convertSize(
+					msg.sys.littlefsfree
+				)} </span>`;
+			} else {
+				str += `filesystem free: ${convertSize(msg.sys.littlefsfree)}`;
+			}
 
-      $("#sysinfo").innerHTML = str;
+			$("#sysinfo").innerHTML = str;
 
 			if (msg.sys.apstate) {
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
@@ -236,6 +236,7 @@ function processTags(tagArray) {
 				$('#tag' + localTagmac + ' .model').innerHTML = data.name;
 				$('#tag' + localTagmac + ' .resolution').innerHTML = data.width + "x" + data.height;
 				if (element.ver != 0 && element.ver != 1) {
+					div.dataset.ver = element.ver;
 					$('#tag' + localTagmac + ' .resolution').innerHTML += ` fw:${element.ver} 0x${element.ver.toString(16)}`;
 				}
 			})();
@@ -261,11 +262,15 @@ function processTags(tagArray) {
 			$('#tag' + tagmac + ' .tagimg').style.display = 'none'
 		} else if (div.dataset.hash != element.hash && div.dataset.hwtype > -1) {
 			let cachetag = element.hash;
-			if (element.hash == '00000000000000000000000000000000') cachetag = Math.random();
-			if (element.isexternal && element.contentMode == 12) {
-				loadImage(tagmac, 'http://' + tagDB[tagmac].apip + '/current/' + tagmac + '.raw?' + cachetag);
+			if (element.hash != '00000000000000000000000000000000') {
+				//cachetag = Math.random();
+				if (element.isexternal && element.contentMode == 12) {
+					loadImage(tagmac, 'http://' + tagDB[tagmac].apip + '/current/' + tagmac + '.raw?' + cachetag);
+				} else {
+					loadImage(tagmac, '/current/' + tagmac + '.raw?' + cachetag);
+				}
 			} else {
-				loadImage(tagmac, '/current/' + tagmac + '.raw?' + cachetag);
+				$('#tag' + tagmac + ' .tagimg').style.display = 'none'
 			}
 			div.dataset.hash = element.hash;
 		}
@@ -475,43 +480,43 @@ $('#cfgmore').onclick = function () {
 	$('#advancedoptions').style.height = $('#advancedoptions').style.height == '0px' ? $('#advancedoptions').scrollHeight + 'px' : '0px';
 };
 
-$('#cfgsave').onclick = function() {
-    let contentMode = $('#cfgcontent').value;
-    let contentDef = getContentDefById(contentMode);
-    let extraoptions = contentDef?.param ?? null;
-    let obj = {};
+$('#cfgsave').onclick = function () {
+	let contentMode = $('#cfgcontent').value;
+	let contentDef = getContentDefById(contentMode);
+	let extraoptions = contentDef?.param ?? null;
+	let obj = {};
 
-    let formData = new FormData();
-    formData.append("mac", $('#cfgmac').dataset.mac);
-    formData.append("alias", $('#cfgalias').value);
+	let formData = new FormData();
+	formData.append("mac", $('#cfgmac').dataset.mac);
+	formData.append("alias", $('#cfgalias').value);
 
-    if (contentMode) {
-        extraoptions?.forEach(element => {
+	if (contentMode) {
+		extraoptions?.forEach(element => {
 			if (document.getElementById('opt' + element.key)) {
-                obj[element.key] = document.getElementById('opt' + element.key).value;
-            }
-        });
-        formData.append("contentmode", contentMode);
-        formData.append("modecfgjson", JSON.stringify(obj));
-    } else {
-        formData.append("contentmode", "0");
-        formData.append("modecfgjson", String());
-    }
+				obj[element.key] = document.getElementById('opt' + element.key).value;
+			}
+		});
+		formData.append("contentmode", contentMode);
+		formData.append("modecfgjson", JSON.stringify(obj));
+	} else {
+		formData.append("contentmode", "0");
+		formData.append("modecfgjson", String());
+	}
 
-    formData.append("rotate", $('#cfgrotate').value);
-    formData.append("lut", $('#cfglut').value);
-    formData.append("invert", $('#cfginvert').value);
+	formData.append("rotate", $('#cfgrotate').value);
+	formData.append("lut", $('#cfglut').value);
+	formData.append("invert", $('#cfginvert').value);
 
-    fetch("/save_cfg", {
-            method: "POST",
-            body: formData
-        })
-        .then(response => response.text())
-        .then(data => showMessage(data))
-        .catch(error => showMessage('Error: ' + error));
+	fetch("/save_cfg", {
+		method: "POST",
+		body: formData
+	})
+		.then(response => response.text())
+		.then(data => showMessage(data))
+		.catch(error => showMessage('Error: ' + error));
 
-    $('#advancedoptions').style.height = '0px';
-    $('#configbox').close();
+	$('#advancedoptions').style.height = '0px';
+	$('#configbox').close();
 }
 
 function sendCmd(mac, cmd) {
@@ -561,72 +566,75 @@ $('#cfgreset').onclick = function () {
 	sendCmd($('#cfgmac').dataset.mac, "reset");
 }
 
-$('#cfgautoupdate').onclick = async function() {
-    if(confirm("Every OTA update comes with a risk of bricking the tag, if it is bricked, it only can be recoverd with a tag flasher. Please only update if you need the new features. Press Cancel if you do not want to update, press OK if you want to update")){
-    let obj = {};
-    let formData = new FormData();
-    formData.append("mac", $('#cfgmac').dataset.mac);
-    formData.append("alias", $('#cfgalias').value);
+$('#cfgautoupdate').onclick = async function () {
+	let obj = {};
+	let formData = new FormData();
+	var mac = $('#cfgmac').dataset.mac;
+	formData.append("mac", mac);
+	formData.append("alias", $('#cfgalias').value);
 
-    var repo = apConfig.repo || 'jjwbruijn/OpenEPaperLink';
-    var infourl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/tagotaversions.json";
-    var info = "";
-    await fetch(infourl, { method: 'GET' }).then(await function(response) { return response.json(); }).then(await function(json) { info = json; });
-    var mac = $('#cfgmac').dataset.mac;
-    var tagtype = ("0" + (Number($('#tag' + mac).dataset.hwtype).toString(16))).slice(-2).toUpperCase();
-    var name = info[0][tagtype]["type"];
-    if(name == ""){
-      alert("Tag id not known");
-      return false;
-    }
-    var version = info[0][tagtype]["version"];
-    var md5 = info[0][tagtype]["md5"];
-    var fullFilename = name + "_" + version + ".bin";
-    var filepath = "/" + fullFilename;
-    var binurl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/" + fullFilename;
-    var url = "/check_file?path=" + encodeURIComponent(filepath);
-    var response = await fetch(url);
-    if (response.ok) {
-        var data = await response.json();
-        if (data.filesize == 0 || data.md5 != md5) {
-            try {
-                var response = await fetch(binurl);
-                var fileContent = await response.blob();
-                var formData2 = new FormData();
-                formData2.append('path', filepath);
-                formData2.append('file', fileContent, fullFilename);
-                var uploadResponse = await fetch('/littlefs_put', {
-                    method: 'POST',
-                    body: formData2
-                });
-                if (!uploadResponse.ok) {
-                    showMessage('Error: auto update failed to upload');
-                }
-            } catch (error) {
-                showMessage('Error: ' + error);
-            }
-        }
-    } else showMessage('Error: auto update failed');
-    var response = await fetch(url);
-    if (response.ok) {
-        var data = await response.json();
-        if (data.filesize == 0 || data.md5 != md5) {
-            showMessage('Error: auto update failed to download');
-        }
-        //sucess
-        else obj["filename"] = filepath;
-    }
-    else showMessage('Error: auto update failed');
-    formData.append("contentmode", 5);
-    formData.append("modecfgjson", JSON.stringify(obj));
-    fetch("/save_cfg", {
-            method: "POST",
-            body: formData
-        })
-        .then(response => response.text())
-        .then(data => showMessage(data))
-        .catch(error => showMessage('Error: ' + error));
-    }
+	var repo = apConfig.repo || 'jjwbruijn/OpenEPaperLink';
+	var infourl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/tagotaversions.json";
+	var info = "";
+	await fetch(infourl, { method: 'GET' }).then(await function (response) { return response.json(); }).then(await function (json) { info = json; });
+	var tagtype = ("0" + (Number($('#tag' + mac).dataset.hwtype).toString(16))).slice(-2).toUpperCase();
+	var name = info[0][tagtype]["type"];
+	if (name == "") {
+		alert("Tag id not known");
+		return false;
+	}
+	var version = info[0][tagtype]["version"];
+	var currentversion = $('#tag' + mac).dataset.ver | 0;
+	if (confirm(`Current version: ${currentversion} 0x${currentversion.toString(16)}\nPending version: ${parseInt(version, 16)} 0x${parseInt(version, 16).toString(16)}\n\nNOTE: Every OTA update comes with a risk of bricking the tag, if it is bricked, it only can be recoverd with a tag flasher. Please only update if you need the new features.\n\nPress Cancel if you want to get out of here, or press OK if you want to proceed with the update.`)) {
+	
+		var md5 = info[0][tagtype]["md5"];
+		var fullFilename = name + "_" + version + ".bin";
+		var filepath = "/" + fullFilename;
+		var binurl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/" + fullFilename;
+		var url = "/check_file?path=" + encodeURIComponent(filepath);
+		var response = await fetch(url);
+		if (response.ok) {
+			var data = await response.json();
+			if (data.filesize == 0 || data.md5 != md5) {
+				try {
+					var response = await fetch(binurl);
+					var fileContent = await response.blob();
+					var formData2 = new FormData();
+					formData2.append('path', filepath);
+					formData2.append('file', fileContent, fullFilename);
+					var uploadResponse = await fetch('/littlefs_put', {
+						method: 'POST',
+						body: formData2
+					});
+					if (!uploadResponse.ok) {
+						showMessage('Error: auto update failed to upload');
+					}
+				} catch (error) {
+					showMessage('Error: ' + error);
+				}
+			}
+		} else showMessage('Error: auto update failed');
+		var response = await fetch(url);
+		if (response.ok) {
+			var data = await response.json();
+			if (data.filesize == 0 || data.md5 != md5) {
+				showMessage('Error: auto update failed to download');
+			}
+			//sucess
+			else obj["filename"] = filepath;
+		}
+		else showMessage('Error: auto update failed');
+		formData.append("contentmode", 5);
+		formData.append("modecfgjson", JSON.stringify(obj));
+		fetch("/save_cfg", {
+			method: "POST",
+			body: formData
+		})
+			.then(response => response.text())
+			.then(data => showMessage(data))
+			.catch(error => showMessage('Error: ' + error));
+	}
+	$('#configbox').close();
 }
 
 $('#rebootbutton').onclick = function (event) {
@@ -729,7 +737,7 @@ $('#uploadButton').onclick = function () {
 			})
 			.catch(error => {
 				console.error('Error uploading file:', error);
-				alert('Error uploading file: '+ error);
+				alert('Error uploading file: ' + error);
 			});
 	} else {
 		console.error('No file selected.');
@@ -946,6 +954,17 @@ function showMessage(message, iserr) {
 		messages.insertAdjacentHTML("afterbegin", '<li class="new error">' + htmlEncode(time + ' ' + message) + '</li>');
 	} else {
 		messages.insertAdjacentHTML("afterbegin", '<li class="new">' + htmlEncode(time + ' ' + message) + '</li>');
+
+		const hexRegex = /^[0-9A-Fa-f]+/;
+		if (hexRegex.test(message.substring(0, 16))) {
+			let div = $('#tag' + message.substring(0, 16));
+			if (div) {
+				div.classList.add("tagxfer");
+				(function (tagmac) {
+					setTimeout(function () { $('#tag' + tagmac).classList.remove("tagxfer"); }, 200);
+				})(message.substring(0, 16));	
+			}
+		}
 	}
 }
 
@@ -1052,6 +1071,12 @@ function GroupSortFilter() {
 	const gridItems = Array.from(sortableGrid.querySelectorAll('.tagcard:not(#tagtemplate)'));
 
 	let grouping = document.querySelector('input[name="group"]:checked')?.value;
+	if (grouping == undefined) {
+		grouping = localStorage.getItem("grouping") + "";
+		document.querySelector('input[name="group"][value="' + grouping + '"]').checked = true
+	} else {
+		localStorage.setItem("grouping", grouping);
+	}
 	let sorting = document.querySelector('input[name="sort"]:checked')?.value ?? 'alias';
 
 	gridItems.sort((a, b) => {
@@ -1489,7 +1514,7 @@ async function searchLocations() {
 	const query = $(".geoselect").value.trim();
 	document.getElementById('opt#lat').value = '';
 	document.getElementById('opt#lon').value = '';
-	if (document.getElementById('opt#tz')) document.getElementById('opt#tz').value = '';		
+	if (document.getElementById('opt#tz')) document.getElementById('opt#tz').value = '';
 
 	if (query.length === 0) {
 		$('#georesults').innerHTML = '';
@@ -1513,7 +1538,7 @@ function displayResults(results) {
 	if (results) {
 		results.forEach(result => {
 			const option = document.createElement('div');
-			option.textContent = result.name + ', ' + result.admin1 + ', ' + result.country ;
+			option.textContent = result.name + ', ' + result.admin1 + ', ' + result.country;
 			option.addEventListener('click', () => selectLocation(result));
 			$('#georesults').appendChild(option);
 		});

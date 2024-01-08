@@ -377,7 +377,7 @@ void processBlockRequest(struct espBlockRequest* br) {
     if (len > BLOCK_DATA_SIZE) len = BLOCK_DATA_SIZE;
     uint16_t checksum = sendBlock(taginfo->data + (br->blockId * BLOCK_DATA_SIZE), len);
     char buffer[150];
-    sprintf(buffer, "< Block Request received for file %s block %d, len %d checksum %u\0", taginfo->filename.c_str(), br->blockId, len, checksum);
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X block request %s block %d, len %d checksum %u\0", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0], taginfo->filename.c_str(), br->blockId, len, checksum);
     wsLog((String)buffer);
     Serial.printf("<RQB file %s block %d, len %d checksum %u\n\0", taginfo->filename.c_str(), br->blockId, len, checksum);
 }
@@ -387,7 +387,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         return;
     }
     char buffer[64];
-    sprintf(buffer, "< %02X%02X%02X%02X%02X%02X%02X%02X reports xfer complete\n\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X reports xfer complete\n\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     wsLog((String)buffer);
 
     if (local) {
