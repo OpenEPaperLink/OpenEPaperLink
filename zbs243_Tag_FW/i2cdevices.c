@@ -24,7 +24,9 @@
 
 extern void dump(uint8_t* __xdata a, uint16_t __xdata l);  // remove me when done
 
-__xdata uint8_t i2cbuffer[18];
+#ifndef LEAN_VERSION
+
+uint8_t __xdata i2cbuffer[18];
 extern uint8_t __xdata blockbuffer[];
 
 bool supportsNFCWake() {
@@ -106,16 +108,22 @@ void i2cBusScan() {
     struct I2cTransaction __xdata iictest;
     iictest.numBytes = 0;
     iictest.bytes = NULL;
+#ifdef DEBUGNFC
     pr("Starting I2C scan...\n");
+#endif
     for (uint8_t address = 0x00; address <= 0x7F; address++) {
         iictest.deviceAddr = address << 1;
         uint8_t res = i2cTransact(&iictest, 1);
         if (res == 0) {
+#ifdef DEBUGNFC
             pr(" - Found i2c device at %02X\n", address);
+#endif
         }
         timerDelay(13330);
     }
+#ifdef DEBUGNFC
     pr("I2C scan complete\n");
+#endif
 }
 
 bool i2cCheckDevice(uint8_t address) {
@@ -124,8 +132,12 @@ bool i2cCheckDevice(uint8_t address) {
     iictest.deviceAddr = address << 1;
     uint8_t res = i2cTransact(&iictest, 1);
     if (res == 0) {
+#ifdef DEBUGNFC
         pr("I2C: Device found at 0x%02X\n", address);
+#endif
         return true;
     }
     return false;
 }
+
+#endif

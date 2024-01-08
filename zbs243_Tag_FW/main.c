@@ -30,7 +30,7 @@
 
 // #define DEBUG_MODE
 
-// static const uint64_t __code __at(0x008b) mVersionRom = 0x1000011300000000ull;
+static const uint64_t __code __at(0x008b) firmwaremagic = (0xdeadd0d0beefcafeull) + HW_TYPE;
 
 #define TAG_MODE_CHANSEARCH 0
 #define TAG_MODE_ASSOCIATED 1
@@ -43,74 +43,11 @@ uint8_t __xdata slideShowRefreshCount = 1;
 extern uint8_t *__idata blockp;
 extern uint8_t __xdata blockbuffer[];
 
+static bool __xdata secondLongCheckIn = false;  // send another full request if the previous was a special reason
+
 uint8_t *rebootP;
-#ifdef ENABLE_EEPROM_LOADER
-extern bool __idata serialBypassActive;
-bool __xdata serialActive = false;
-void processSerial(uint8_t lastchar) {
-    static uint8_t __xdata cmdbuffer[4];
-    // shift characters in
-    for (uint8_t c = 0; c < 3; c++) {
-        cmdbuffer[c] = cmdbuffer[c + 1];
-    }
-    cmdbuffer[3] = lastchar;
 
-    if (strncmp(cmdbuffer + 1, ">D>", 3) == 0) {
-        wdt120s();
-        blockp = blockbuffer;
-        serialBypassActive = true;
-        pr("ACK>\n");
-        while (serialBypassActive)
-            ;
-        if (validateBlockData()) {
-            pr("ACK>\n");
-        } else {
-            pr("NOK>\n");
-        }
-    }
-
-    if (strncmp(cmdbuffer + 1, "<D<", 3) == 0) {
-        wdt120s();
-        pr("ACK>");
-        for (uint16_t c = 0; c < 4100; c++) {
-            uartTx(blockbuffer[c]);
-            timerDelay(TIMER_TICKS_PER_MS / 400);  // 30 okay // 50 kinda okay // 80 ook okay?
-        }
-        pr("blaat");
-    }
-
-    if (strncmp(cmdbuffer, "STE", 3) == 0) {  // store block to offset
-        if (!eepromErase(4096UL * cmdbuffer[3], 4096 / EEPROM_ERZ_SECTOR_SZ)) {
-            pr("NOK>\n");
-            return;
-        }
-        if (eepromWrite(4096UL * cmdbuffer[3], blockbuffer + 4, 4096))
-            pr("ACK>\n");
-        else
-            pr("NOK>\n");
-    }
-    if (strncmp(cmdbuffer, "LDE", 3) == 0) {  // load block from offset
-        eepromRead(4096UL * cmdbuffer[3], blockbuffer + 4, 4096);
-        uint16_t *header = blockbuffer;
-        *header = 4096;
-        uint16_t *sum = blockbuffer + 2;
-        *sum = 0;
-        for (uint16_t c = 4; c < 4100; c++) {
-            *sum += blockbuffer[c];
-        }
-        pr("ACK>\n");
-    }
-}
-void serialTerminal() {
-    serialActive = true;
-    while (serialActive) {
-        while (uartBytesAvail()) {
-            processSerial(uartRx());
-        }
-    }
-}
-#endif
-
+#ifdef DEBUGGUI
 void displayLoop() {
     powerUp(INIT_BASE | INIT_UART);
 
@@ -124,6 +61,12 @@ void displayLoop() {
     showApplyUpdate();
     timerDelay(TIMER_TICKS_PER_SECOND * 4);
 
+    wdt30s();
+
+    pr("Failed update screen\n");
+    powerUp(INIT_EPD);
+    showFailedUpdate();
+    timerDelay(TIMER_TICKS_PER_SECOND * 4);
     wdt30s();
 
     pr("AP Found\n");
@@ -154,12 +97,14 @@ void displayLoop() {
 
     wdt30s();
 
-    pr("NO EEPROM\n");
+    pr("NO MAC\n");
     powerUp(INIT_EPD);
     showNoMAC();
     timerDelay(TIMER_TICKS_PER_SECOND * 4);
     wdtDeviceReset();
 }
+
+#endif
 
 #ifdef WRITE_MAC_FROM_FLASH
 void writeInfoPageWithMac() {
@@ -215,7 +160,9 @@ uint8_t channelSelect(uint8_t rounds) {  // returns 0 if no accesspoints were fo
         for (uint8_t c = 0; c < sizeof(channelList); c++) {
             if (detectAP(channelList[c])) {
                 if (mLastLqi > result[c]) result[c] = mLastLqi;
+#ifdef DEBUGMAIN
                 if (rounds > 2) pr("Channel: %d - LQI: %d RSSI %d\n", channelList[c], mLastLqi, mLastRSSI);
+#endif
             }
         }
     }
@@ -238,8 +185,10 @@ void validateMacAddress() {
     for (uint8_t __xdata c = 0; c < 8; c++) {
         if (mSelfMac[c] != 0xFF) goto macIsValid;
     }
-    // invalid mac address. Display warning screen and sleep forever
+// invalid mac address. Display warning screen and sleep forever
+#ifdef DEBUGMAIN
     pr("Mac can't be all FF's.\n");
+#endif
     powerUp(INIT_EPD);
     showNoMAC();
     powerDown(INIT_EPD | INIT_UART | INIT_EEPROM);
@@ -250,11 +199,15 @@ macIsValid:
 }
 uint8_t getFirstWakeUpReason() {
     if (RESET & 0x01) {
+#ifdef DEBUGMAIN
         pr("WDT reset!\n");
+#endif
         return WAKEUP_REASON_WDT_RESET;
     }
     return WAKEUP_REASON_FIRSTBOOT;
 }
+
+#ifndef LEAN_VERSION
 void checkI2C() {
     powerUp(INIT_I2C);
     //  i2cBusScan();
@@ -263,15 +216,20 @@ void checkI2C() {
         // found something!
         capabilities |= CAPABILITY_HAS_NFC;
         if (supportsNFCWake()) {
+#ifdef DEBUGNFC
             pr("NFC: NFC Wake Supported\n");
+#endif
             capabilities |= CAPABILITY_NFC_WAKE;
         }
     } else {
+#ifdef DEBUGNFC
         pr("I2C: No devices found");
+#endif
         // didn't find a NFC chip on the expected ID
         powerDown(INIT_I2C);
     }
 }
+#endif
 
 void detectButtonOrJig() {
     switch (checkButtonOrJig()) {
@@ -280,18 +238,11 @@ void detectButtonOrJig() {
             break;
         case DETECT_P1_0_JIG:
             wdt120s();
-#ifdef ENABLE_EEPROM_LOADER
-            // run the eeprom loader interface
-            powerUp(INIT_EPD | INIT_EEPROM);
-            serialActive = true;
-            serialTerminal();
-#else
             // show splashscreen
             powerUp(INIT_EPD);
             afterFlashScreenSaver();
             while (1)
                 ;
-#endif
             break;
         case DETECT_P1_0_NOTHING:
             break;
@@ -302,10 +253,9 @@ void detectButtonOrJig() {
 
 void TagAssociated() {
     // associated
-    bool fastNextCheckin = false;
     struct AvailDataInfo *__xdata avail;
     // Is there any reason why we should do a long (full) get data request (including reason, status)?
-    if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
+    if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED || secondLongCheckIn) {
         // check if we should do a voltage measurement (those are pretty expensive)
         if (voltageCheckCounter == VOLTAGE_CHECK_INTERVAL) {
             doVoltageReading();
@@ -353,16 +303,26 @@ void TagAssociated() {
                 externalWakeHandler(CUSTOM_IMAGE_RF_WAKE);
                 fastNextCheckin = true;
                 break;
+#ifndef LEAN_VERSION
             case WAKEUP_REASON_NFC:
                 externalWakeHandler(CUSTOM_IMAGE_NFC_WAKE);
                 fastNextCheckin = true;
                 break;
+#endif
         }
 
         if (avail != NULL) {
             // we got some data!
             longDataReqCounter = 0;
+
+            if (secondLongCheckIn == true) {
+                secondLongCheckIn = false;
+            }
+
             // since we've had succesful contact, and communicated the wakeup reason succesfully, we can now reset to the 'normal' status
+            if (wakeUpReason != WAKEUP_REASON_TIMED) {
+                secondLongCheckIn = true;
+            }
             wakeUpReason = WAKEUP_REASON_TIMED;
         }
         if (tagSettings.enableTagRoaming) {
@@ -431,6 +391,7 @@ void TagAssociated() {
             doSleep(getNextSleep() * 1000UL);
         }
     }
+    powerUp(INIT_UART);
 }
 
 void TagChanSearch() {
@@ -541,12 +502,16 @@ void TagSlideShow() {
                 doSleep(1000UL * SLIDESHOW_INTERVAL_GLACIAL);
                 break;
         }
+#ifdef DEBUGMAIN
         pr("wake...\n");
+#endif
     }
 }
 
 void TagShowWaitRFWake() {
+#ifdef DEBUGMAIN
     pr("waiting for RF wake to start slideshow, now showing image\n");
+#endif
     currentChannel = 11;  // suppress the no-rf image thing
     displayCustomImage(CUSTOM_IMAGE_SLIDESHOW);
     // powerDown(INIT_EEPROM | INIT_EPD);
@@ -657,10 +622,13 @@ void executeCommand(uint8_t cmd) {
 }
 
 void main() {
-    // displayLoop();  // remove me
     setupPortsInitial();
     powerUp(INIT_BASE | INIT_UART);
     pr("BOOTED>  %d.%d.%d%s\n", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+
+#ifdef DEBUGGUI
+    displayLoop();  // remove me
+#endif
 
     // Find the reason why we're booting; is this a WDT?
     wakeUpReason = getFirstWakeUpReason();
@@ -668,28 +636,21 @@ void main() {
     // dump(blockbuffer, 1024);
     //  get our own mac address. this is stored in Infopage at offset 0x10-onwards
     boardGetOwnMac(mSelfMac);
+
+#ifdef DEBUGMAIN
     pr("MAC>%02X%02X", mSelfMac[0], mSelfMac[1]);
     pr("%02X%02X", mSelfMac[2], mSelfMac[3]);
     pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
     pr("%02X%02X\n", mSelfMac[6], mSelfMac[7]);
-
-    for (uint16_t c = 0; c < 4096; c++) {
-        blockbuffer[c] = (c % 256) & 0xFF;
-    }
-
+#endif
     // do a little sleep, this prevents a partial boot during battery insertion
-    doSleep(2000UL);
+    doSleep(400UL);
     powerUp(INIT_EEPROM | INIT_UART);
-
-    uint8_t __idata dati;
-    pr("blockbuffer @%d, idata@%d\n",&blockbuffer[0], &dati);
-    dump(blockbuffer, 4096);
 
     // load settings from infopage
     loadSettings();
     // invalidate the settings, and write them back in a later state
     invalidateSettingsEEPROM();
-
 
 #ifdef WRITE_MAC_FROM_FLASH
     if (mSelfMac[7] == 0xFF && mSelfMac[6] == 0xFF) {
@@ -738,8 +699,10 @@ void main() {
 #endif
 
     if (tagSettings.enableFastBoot) {
-        // Fastboot
+// Fastboot
+#ifdef DEBUGMAIN
         pr("Doing fast boot\n");
+#endif
         capabilities = tagSettings.fastBootCapabilities;
         if (tagSettings.fixedChannel) {
             currentChannel = tagSettings.fixedChannel;
@@ -748,15 +711,18 @@ void main() {
         }
     } else {
         // Normal boot/startup
+#ifdef DEBUGMAIN
         pr("Normal boot\n");
+#endif
         // validate the mac address; this will display a warning on the screen if the mac address is invalid
         validateMacAddress();
 
+#ifndef LEAN_VERSION
 #if (NFC_TYPE == 1)
         // initialize I2C
         checkI2C();
 #endif
-
+#endif
         // Get a voltage reading on the tag, loading down the battery with the radio
         doVoltageReading();
 

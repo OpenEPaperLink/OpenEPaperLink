@@ -2,17 +2,17 @@
   {
    "00" : {
    "type": "SOL_M2_154_SSD",
-   "version": "25",
+   "version": "26",
    "md5": "57e02f80c9f2581be0a140979b1124e1"
    },
    "01" : {
    "type": "SOL_M2_29_SSD",
-   "version": "25",
+   "version": "26",
    "md5": "bed1a20ca6af04e29e5aabce480c1e9d"
    },
    "02" : {
    "type": "SOL_M2_42_SSD",
-   "version": "25",
+   "version": "26",
    "md5": "80e36c7d4d08beaca8ad2f00f42923d0"
    },
    "05" : {
