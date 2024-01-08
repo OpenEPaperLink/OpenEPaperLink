@@ -39,12 +39,6 @@ jobs:
           cd ESP32_AP-Flasher
           pio run --environment OpenEPaperLink_Mini_AP
           pio run --target buildfs --environment OpenEPaperLink_Mini_AP
-        
-#      - name: Build OpenEPaperLink_Nano_AP
-#        run: |
-#          cd ESP32_AP-Flasher
-#          pio run --environment OpenEPaperLink_Nano_AP
-#          pio run --target buildfs --environment OpenEPaperLink_Nano_AP
           
       - name: Build OpenEPaperLink_AP_and_Flasher
         run: |
@@ -52,38 +46,8 @@ jobs:
           pio run --environment OpenEPaperLink_AP_and_Flasher
           pio run --target buildfs --environment OpenEPaperLink_AP_and_Flasher
           
-#      - name: Build Wemos_d1_mini32_AP
-#        run: |
-#          cd ESP32_AP-Flasher
-#          pio run --environment Wemos_d1_mini32_AP
-#          pio run --target buildfs --environment Wemos_d1_mini32_AP
-          
-#      - name: Build M5Stack_Core_ONE_AP
-#        run: |
-#          cd ESP32_AP-Flasher
-#          pio run --environment M5Stack_Core_ONE_AP
-#          pio run --target buildfs --environment M5Stack_Core_ONE_AP
-          
       - name: Build ESP32_S3_16_8_YELLOW_AP]
         run: |
           cd ESP32_AP-Flasher
           pio run --environment ESP32_S3_16_8_YELLOW_AP
           pio run --target buildfs --environment ESP32_S3_16_8_YELLOW_AP
-          
-#      - name: Build Sonoff_zb_bridge_P_AP
-#        run: |
-#          cd ESP32_AP-Flasher
-#          pio run --environment Sonoff_zb_bridge_P_AP
-#          pio run --target buildfs --environment Sonoff_zb_bridge_P_AP
-          
-#      - name: Build OpenEPaperLink_CC1352P
-#        run: |
-#          cd ESP32_AP-Flasher
-#          pio run --environment OpenEPaperLink_CC1352P
-#          pio run --target buildfs --environment OpenEPaperLink_CC1352P
-          
-#      - name: OutdoorAP
-#        run: |
-#          cd ESP32_AP-Flasher
-#          pio run --environment OutdoorAP
-#          pio run --target buildfs --environment OutdoorAP
