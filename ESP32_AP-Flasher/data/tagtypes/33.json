@@ -22,7 +22,7 @@
 		},
 		"2": {
 			"fonts": [ "Signika-SB.ttf", 150, 150, 110, 80, 60, 50 ],
-			"xy": [ 76, 72 ]
+			"xy": [ 192, 72 ]
 		},
 		"16": {
 			"location": [ 5, 5, "fonts/bahnschrift30" ],

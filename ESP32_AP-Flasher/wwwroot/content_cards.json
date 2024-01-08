@@ -236,31 +236,6 @@
     ]
   },
   {
-    "id": 19,
-    "name": "Json template",
-    "desc": "Gets an external json template and displays it",
-    "param": [
-      {
-        "key": "url",
-        "name": "URL",
-        "desc": "Full URL of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
-        "type": "text"
-      },
-      {
-        "key": "filename",
-        "name": "Filename",
-        "desc": "Filename of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
-        "type": "jsonfile"
-      },
-      {
-        "key": "interval",
-        "name": "Interval",
-        "desc": "In case of an url, wow often (in minutes) the template is being fetched. Minimum is 3 minutes.",
-        "type": "int"
-      }
-    ]
-  },
-  {
     "id": 10,
     "name": "QR code",
     "desc": "Displayes a full screen QR code",
@@ -305,15 +280,115 @@
     ]
   },
   {
-    "id": 5,
-    "name": "Firmware update",
-    "desc": "To update tag firmware. Make sure you send the right .bin file! You can brick your tag if you send a wrong file.",
+    "id": 19,
+    "name": "Json template",
+    "desc": "Gets an external json template and displays it",
+    "param": [
+      {
+        "key": "url",
+        "name": "URL",
+        "desc": "Full URL of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
+        "type": "text"
+      },
+      {
+        "key": "filename",
+        "name": "Filename",
+        "desc": "Filename of the json template. See OpenEpaperLink wiki for the right json format. Specify a url OR a filename",
+        "type": "jsonfile"
+      },
+      {
+        "key": "interval",
+        "name": "Interval",
+        "desc": "In case of an url, wow often (in minutes) the template is being fetched. Minimum is 3 minutes.",
+        "type": "int"
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "name": "Display a copy",
+    "desc": "Mirror the contents of a source tag to this destination tag, regardless of the content. The two tags should be of the same type. Ideally, the destination tag is local to the AP.",
+    "param": [
+      {
+        "key": "mac",
+        "name": "Mac-address",
+        "desc": "Mac-address of the tag you want to use as content source. The source tag should either be associated with this access point, or this access point should be the content source.",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "name": "Access point info",
+    "desc": "Displays information about the currently connected access point"
+  },
+  {
+    "id": 23,
+    "name": "Image preload",
+    "desc": "Preloads an image to be shown at different situations. Make sure to resize the image to the correct resolution.",
     "param": [
       {
         "key": "filename",
         "name": "Filename",
-        "desc": "Local file on littlefs partition",
-        "type": "binfile"
+        "desc": "Local filename on the littlefs drive",
+        "type": "jpgfile"
+      },
+      {
+        "key": "timetolive",
+        "name": "TimeToLive",
+        "desc": "Amount (minutes) that this image will stay valid. The tag might not respond meanwhile",
+        "type": "int"
+      },
+      {
+        "key": "dither",
+        "name": "Dithering",
+        "desc": "Turn halftone dithering on or off. Turn it on when displaying photos. For texts, you better leave if off",
+        "type": "select",
+        "options": {
+          "0": "off",
+          "1": "on"
+        }
+      },
+      {
+        "key": "preload",
+        "name": "Display or Preload",
+        "desc": "Display now or preload for later use",
+        "type": "select",
+        "options": {
+          "0": "Display",
+          "1": "Preload"
+        }
+      },
+      {
+        "key": "preload_lut",
+        "name": "Preload LUT",
+        "desc": "Triggered preload images will display with this LUT",
+        "type": "select",
+        "options": {
+          "0": "Default",
+          "1": "No Repeats",
+          "2": "Fast No Reds",
+          "3": "Fast"
+        }
+      },
+      {
+        "key": "preload_type",
+        "name": "Preload Image type",
+        "desc": "Preload type to send to tag, for later recall, or special use",
+        "type": "select",
+        "options": {
+          "0": "Normal",
+          "1": "UI: Splash Screen",
+          "2": "UI: Lost connection",
+          "3": "UI: AP Found",
+          "4": "UI: No AP Found",
+          "5": "UI: Long Term Sleep",
+          "15": "Slideshow image",
+          "16": "Wake: Button 1",
+          "17": "Wake: Button 2",
+          "29": "Wake: GPIO",
+          "30": "Wake: NFC"
+        }
       }
     ]
   },
@@ -484,91 +559,16 @@
     ]
   },
   {
-    "id": 20,
-    "name": "Display a copy",
-    "desc": "Mirror the contents of a source tag to this destination tag, regardless of the content. The two tags should be of the same type. Ideally, the destination tag is local to the AP.",
-    "param": [
-      {
-        "key": "mac",
-        "name": "Mac-address",
-        "desc": "Mac-address of the tag you want to use as content source. The source tag should either be associated with this access point, or this access point should be the content source.",
-        "type": "text"
-      }
-    ]
-  },
-  {
-    "id": 23,
-    "name": "Image preload",
-    "desc": "Preloads an image to be shown at different situations. Make sure to resize the image to the correct resolution.",
+    "id": 5,
+    "name": "Firmware update",
+    "desc": "To update tag firmware. This is for developers only! Instead, please use the 'auto update' button (click the little triangle below) to auto download and flash the latest firmware. If you proceed in here anyway: make sure you send the right .bin file. You can brick your tag if you send a wrong file (in that case, you can only revive it using a tag flasher). There is NO protection against a wrongly uploaded file.",
     "param": [
       {
         "key": "filename",
         "name": "Filename",
-        "desc": "Local filename on the littlefs drive",
-        "type": "jpgfile"
-      },
-      {
-        "key": "timetolive",
-        "name": "TimeToLive",
-        "desc": "Amount (minutes) that this image will stay valid. The tag might not respond meanwhile",
-        "type": "int"
-      },
-      {
-        "key": "dither",
-        "name": "Dithering",
-        "desc": "Turn halftone dithering on or off. Turn it on when displaying photos. For texts, you better leave if off",
-        "type": "select",
-        "options": {
-          "0": "off",
-          "1": "on"
-        }
-      },
-      {
-        "key": "preload",
-        "name": "Display or Preload",
-        "desc": "Display now or preload for later use",
-        "type": "select",
-        "options": {
-          "0": "Display",
-          "1": "Preload"
-        }
-      },
-      {
-        "key": "preload_lut",
-        "name": "Preload LUT",
-        "desc": "Triggered preload images will display with this LUT",
-        "type": "select",
-        "options": {
-          "0": "Default",
-          "1": "No Repeats",
-          "2": "Fast No Reds",
-          "3": "Fast"
-        }
-      },
-      {
-        "key": "preload_type",
-        "name": "Preload Image type",
-        "desc": "Preload type to send to tag, for later recall, or special use",
-        "type": "select",
-        "options": {
-          "0": "Normal",
-          "1": "UI: Splash Screen",
-          "2": "UI: Lost connection",
-          "3": "UI: AP Found",
-          "4": "UI: No AP Found",
-          "5": "UI: Long Term Sleep",
-          "15": "Slideshow image",
-          "16": "Wake: Button 1",
-          "17": "Wake: Button 2",
-          "29": "Wake: GPIO",
-          "30": "Wake: NFC"
-        }
+        "desc": "Local file on littlefs partition",
+        "type": "binfile"
       }
     ]
-  },
-  {
-    "id": 21,
-    "name": "Access point info",
-    "desc": "Displays information about the currently connected access point"
   }
 ]
