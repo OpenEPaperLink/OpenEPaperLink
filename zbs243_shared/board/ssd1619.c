@@ -198,9 +198,9 @@ static void epdReset() {
     timerDelay(TIMER_TICKS_PER_SECOND / 1000);
 
     shortCommand(CMD_SOFT_RESET);  // software reset
-    timerDelay(TIMER_TICKS_PER_SECOND / 1000);
+    timerDelay(TIMER_TICKS_PER_SECOND / 500);
     shortCommand(CMD_SOFT_RESET2);
-    timerDelay(TIMER_TICKS_PER_SECOND / 1000);
+    timerDelay(TIMER_TICKS_PER_SECOND / 500);
 }
 void epdConfigGPIO(bool setup) {
     // data / _command: 2.2
@@ -233,7 +233,7 @@ void epdEnterSleep() {
     P2_0 = 1;
     timerDelay(50);
     shortCommand(CMD_SOFT_RESET2);
-    epdBusyWait(TIMER_TICKS_PER_MS * 15);
+    epdBusyWait(TIMER_TICKS_PER_MS * 150);
     shortCommand1(CMD_ENTER_SLEEP, 0x03);
     isInited = false;
 }
@@ -291,11 +291,11 @@ uint16_t epdGetBattery(void) {
 
     shortCommand1(CMD_DISP_UPDATE_CTRL2, SCREEN_CMD_CLOCK_ON | SCREEN_CMD_ANALOG_ON);
     shortCommand(CMD_ACTIVATION);
-    epdBusyWait(TIMER_TICKS_PER_MS * 100);
+    epdBusyWait(TIMER_TICKS_PER_MS * 150);
 
     for (val = 3; val < 8; val++) {
         shortCommand1(CMD_SETUP_VOLT_DETECT, val);
-        epdBusyWait(TIMER_TICKS_PER_MS * 100);
+        epdBusyWait(TIMER_TICKS_PER_MS * 150);
         if (epdGetStatus() & 0x10) {  // set if voltage is less than threshold ( == 1.9 + val / 10)
             voltage = 1850 + mathPrvMul8x8(val, 100);
             break;
@@ -400,7 +400,9 @@ void selectLUT(uint8_t lut) {
     if (dispLutSize == 0) {
         dispLutSize = getLutSize();
         dispLutSize /= 10;
+        #ifdef DEBUGEPD
         pr("lut size = %d\n", dispLutSize);
+        #endif
 #ifdef PRINT_LUT
         dump(waveformbuffer, LUT_BUFFER_SIZE);
 #endif
@@ -721,6 +723,8 @@ static void pushYFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
     }
 }
 void writeCharEPD(uint8_t c) {
+    c-=0x20;
+
     // Writes a single character to the framebuffer
     bool empty = true;
     for (uint8_t i = 0; i < 20; i++) {

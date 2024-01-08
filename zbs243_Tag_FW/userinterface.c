@@ -76,6 +76,19 @@ void addOverlay() {
     } else {
         lowBatteryShown = false;
     }
+
+#ifdef ISDEBUGBUILD
+#if (SCREEN_WIDTH == 152)
+    epdPrintBegin(139, 151, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+#elif (SCREEN_WIDTH == 400)
+    epdPrintBegin(87, 0, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+#elif (SCREEN_WIDTH == 128)
+    epdPrintBegin(87, 0, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+#endif
+    epdpr("DEBUG");
+    epdPrintEnd();
+#endif
+
 }
 
 void afterFlashScreenSaver() {
@@ -203,7 +216,7 @@ void showSplashScreen() {
     if (displayCustomImage(CUSTOM_IMAGE_SPLASHSCREEN)) return;
     powerUp(INIT_EPD);
 
-    #if (HW_TYPE != SOLUM_M2_BW_29_LOWTEMP)
+#if (HW_TYPE != SOLUM_M2_BW_29_LOWTEMP)
     selectLUT(EPD_LUT_NO_REPEATS);
 #endif
 
@@ -235,13 +248,26 @@ void showSplashScreen() {
     epdpr("zbs154 %04X%s", fwVersion, fwVersionSuffix);
     epdPrintEnd();
 
+#ifdef ISDEBUGBUILD
+    epdPrintBegin(5, 78, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_RED);
+    epdpr("DEBUG");
+    epdPrintEnd();
+#endif
+
+
 #endif
 
 #if (SCREEN_WIDTH == 128)  // 2.9"
 
     epdPrintBegin(0, 295, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
-    epdpr("Starting");
+    epdpr("OpenEPaperLink");
     epdPrintEnd();
+
+#ifdef ISDEBUGBUILD
+    epdPrintBegin(35, 280, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+    epdpr("DEBUG");
+    epdPrintEnd();
+#endif
 
     epdPrintBegin(64, 295, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
     addCapabilities();
@@ -268,11 +294,6 @@ void showSplashScreen() {
     loadRawBitmap(oepli, 0, 12, EPD_COLOR_BLACK);
     loadRawBitmap(cloud, 0, 0, EPD_COLOR_RED);
 #endif
-    // lutTest();
-    //  drawLineVertical(EPD_COLOR_RED, 64, 10, 286);
-    //  drawLineVertical(EPD_COLOR_BLACK, 65, 10, 286);
-
-    // timerDelay(TIMER_TICKS_PER_SECOND * 4);
 #endif
 #if (SCREEN_WIDTH == 400)  // 4.2"
     epdPrintBegin(3, 3, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
@@ -331,13 +352,33 @@ void showApplyUpdate() {
     drawNoWait();
 }
 
+void showFailedUpdate() {
+    setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
+    selectLUT(1);
+    clearScreen();
+    setColorMode(EPD_MODE_IGNORE, EPD_MODE_NORMAL);
+#if (SCREEN_WIDTH == 152)
+    epdPrintBegin(18, 60, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
+#endif
+#if (SCREEN_WIDTH == 128)
+    epdPrintBegin(48, 270, EPD_DIRECTION_Y, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+#endif
+
+#if (SCREEN_WIDTH == 400)
+    epdPrintBegin(68, 134, EPD_DIRECTION_X, EPD_SIZE_DOUBLE, EPD_COLOR_BLACK);
+#endif
+    epdpr("Invalid OTA FW!");
+    epdPrintEnd();
+    drawWithSleep();
+}
+
 void showAPFound() {
     if (displayCustomImage(CUSTOM_IMAGE_APFOUND)) return;
     powerUp(INIT_EPD | INIT_EEPROM);
 
     clearScreen();
     setColorMode(EPD_MODE_NORMAL, EPD_MODE_INVERT);
-        #if (HW_TYPE != SOLUM_M2_BW_29_LOWTEMP)
+#if (HW_TYPE != SOLUM_M2_BW_29_LOWTEMP)
     selectLUT(1);
 #endif
 
@@ -451,7 +492,7 @@ void showAPFound() {
 void showNoAP() {
     if (displayCustomImage(CUSTOM_IMAGE_NOAPFOUND)) return;
     powerUp(INIT_EPD | INIT_EEPROM);
-        #if (HW_TYPE != SOLUM_M2_BW_29_LOWTEMP)
+#if (HW_TYPE != SOLUM_M2_BW_29_LOWTEMP)
     selectLUT(EPD_LUT_NO_REPEATS);
 #endif
 
