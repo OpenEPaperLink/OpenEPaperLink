@@ -8,7 +8,10 @@ bool displayCustomImage(uint8_t imagetype);
 
 void afterFlashScreenSaver();
 void showSplashScreen();
+
 void showApplyUpdate();
+void showFailedUpdate();
+
 void showAPFound();
 void showNoAP();
 void showLongTermSleep();

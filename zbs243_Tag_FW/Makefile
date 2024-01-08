@@ -7,6 +7,8 @@ SOURCES		+= comms.c
 SOURCES		+= syncedproto.c userinterface.c
 SOURCES		+= powermgt.c barcode.c i2cdevices.c settings.c
 
+
+
 all:	#make sure it is the first target
 
 include board/$(BUILD)/make.mk
@@ -19,6 +21,8 @@ FLAGS += -Icpu/$(CPU)
 SOURCES += cpu/$(CPU)/cpu.c
 SOURCES += board/$(BUILD)/board.c
 SOURCES += board/$(BUILD)/screen.c
+
+SOURCES += md5.c
 
 
 EEPROMDRV ?= eeprom.c

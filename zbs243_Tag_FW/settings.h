@@ -3,15 +3,28 @@
 
 #include <stdint.h>
 
-#define FW_VERSION 0x0025         // version number
-#define FW_VERSION_SUFFIX "-FIX3" // suffix, like -RC1 or whatever.
-// #define DEBUGBLOCKS            // uncomment to enable extra debug information on the block transfers
-// #define PRINT_LUT              // uncomment if you want the tag to print the LUT for the current temperature bracket
-// #define ENABLE_EEPROM_LOADER   // uncomment if you want to load eeprom images via the serial interface
-// #define ENABLE_GPIO_WAKE       // uncomment to enable GPIO wake
-// #define ENABLE_RETURN_DATA     // enables the tag to send blocks of data back. Enabling this costs about 4 IRAM bytes
-// #define LEAN_VERSION           // makes a smaller version, leaving extra flash space for other things
-// #define WRITE_MAC_FROM_FLASH   // takes mac address from flash if none is set in the infopage
+#define FW_VERSION 0x0026         // version number
+#define FW_VERSION_SUFFIX "-MD5"  // suffix, like -RC1 or whatever.
+// #define DEBUGBLOCKS              // uncomment to enable extra debug information on the block transfers
+// #define DEBUGPROTO               // debug protocol
+// #define DEBUGOTA                 // debug OTA FW updates
+// #define DEBUGDRAWING             // debug the drawing part
+// #define DEBUGEPD                 // debug the EPD driver
+// #define DEBUGMAIN                // parts in the main loop
+// #define DEBUGNFC                 // debug NFC functions
+// #define DEBUGGUI                 // debug GUI drawing (enabled)
+// #define DEBUGSETTINGS            // debug settings module (preferences/eeprom)
+
+#define VALIDATE_IMAGE_MD5       // The firmware can validate the image MD5 before displaying it. This costs about 8mAS (milliamp-second) for a 1.54, 16
+// #define PRINT_LUT                // uncomment if you want the tag to print the LUT for the current temperature bracket
+// #define ENABLE_GPIO_WAKE         // uncomment to enable GPIO wake
+// #define ENABLE_RETURN_DATA       // enables the tag to send blocks of data back. Enabling this costs about 4 IRAM bytes
+// #define LEAN_VERSION             // makes a smaller version, leaving extra flash space for other things
+// #define WRITE_MAC_FROM_FLASH     // takes mac address from flash if none is set in the infopage
+
+#if defined(DEBUGSETTINGS) || defined(DEBUGMSG) || defined(DEBUGBLOCKS) || defined(DEBUGPROTO) || defined(DEBUGOTA) || defined(DEBUGNFC) || defined(DEBUGEPD) || defined(DEBUGMAIN)
+#define ISDEBUGBUILD
+#endif
 
 #define SETTINGS_STRUCT_VERSION 0x01
 

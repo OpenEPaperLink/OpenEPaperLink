@@ -38,13 +38,17 @@ void loadDefaultSettings() {
 }
 
 void loadSettingsFromBuffer(uint8_t* p) {
+#ifdef DEBUGSETTINGS
     pr("SETTINGS: received settings from AP\n");
+#endif
     switch (*p) {
         case SETTINGS_STRUCT_VERSION:  // the current tag struct
             memcpy((void*)tagSettings, (void*)p, sizeof(struct tagsettings));
             break;
         default:
+#ifdef DEBUGSETTINGS
             pr("SETTINGS: received something we couldn't really process, version %d\n");
+#endif
             break;
     }
     tagSettings.fastBootCapabilities = capabilities;
@@ -75,29 +79,39 @@ void loadSettings() {
     if (tagSettings.settingsVer == 0xFF || valid != SETTINGS_MAGIC) {
         // settings not set. load the defaults
         loadDefaultSettings();
+#ifdef DEBUGSETTINGS
         pr("SETTINGS: Loaded default settings\n");
+#endif
     } else {
         if (tagSettings.settingsVer < SETTINGS_STRUCT_VERSION) {
             // upgrade
             upgradeSettings();
+#ifdef DEBUGSETTINGS
             pr("SETTINGS: Upgraded from previous version\n");
+#endif
         } else {
             // settings are valid
+#ifdef DEBUGSETTINGS
             pr("SETTINGS: Loaded from EEPROM\n");
+#endif
         }
     }
 }
 
 void writeSettings() {
     if (compareSettings()) {
+#ifdef DEBUGSETTINGS
         pr("SETTINGS: Settings matched current settings\n");
+#endif
         return;
     }
     eepromErase(EEPROM_SETTINGS_AREA_START, 1);
     uint32_t __xdata valid = SETTINGS_MAGIC;
     eepromWrite(EEPROM_SETTINGS_AREA_START, (void*)&valid, 4);
     eepromWrite(EEPROM_SETTINGS_AREA_START + 4, (void*)&tagSettings, sizeof(tagSettings));
+#ifdef DEBUGSETTINGS
     pr("SETTINGS: Updated settings in EEPROM\n");
+#endif
 }
 
 void invalidateSettingsEEPROM() {
