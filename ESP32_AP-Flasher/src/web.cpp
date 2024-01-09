@@ -91,6 +91,7 @@ void wsSendSysteminfo() {
     sys["rssi"] = WiFi.RSSI();
     sys["wifistatus"] = WiFi.status();
     sys["wifissid"] = WiFi.SSID();
+    sys["uptime"] = esp_timer_get_time() / 1000000;
 
     static uint8_t day = 0;
     struct tm timeinfo;

@@ -24,7 +24,7 @@
 #include "web.h"
 
 util::Timer intervalContentRunner(seconds(1));
-util::Timer intervalSysinfo(seconds(3));
+util::Timer intervalSysinfo(seconds(5));
 util::Timer intervalVars(seconds(10));
 util::Timer intervalSaveDB(minutes(5));
 

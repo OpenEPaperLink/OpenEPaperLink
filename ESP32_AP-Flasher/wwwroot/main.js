@@ -40,6 +40,7 @@ let otamodule;
 let socket;
 let finishedInitialLoading = false;
 let getTagtypeBusy = false;
+let webVersion = "0";
 
 const loadConfig = new Event("loadConfig");
 window.addEventListener("loadConfig", function () {
@@ -56,6 +57,7 @@ window.addEventListener("loadConfig", function () {
 });
 
 window.addEventListener("load", function () {
+	initVersionInfo();
 	initTabs();
 	fetch('/content_cards.json')
 		.then(response => response.json())
@@ -76,6 +78,20 @@ window.addEventListener("load", function () {
 	populateTimes($('#apcnight1'));
 	populateTimes($('#apcnight2'));
 });
+
+function initVersionInfo() {
+	fetch('/version.txt')
+		.then(response => {
+			return response.text();
+		})
+		.then(data => {
+			webVersion = data;
+			console.log(webVersion);
+		})
+		.catch(error => {
+			console.error('Fetch error:', error);
+		});
+}
 
 /* tabs */
 let activeTab = '';
@@ -111,6 +127,30 @@ function loadTags(pos) {
 			finishedInitialLoading = true;
 		})
 	//.catch(error => showMessage('loadTags error: ' + error));
+}
+
+function formatUptime(seconds) {
+	const days = Math.floor(seconds / (24 * 60 * 60));
+	const hours = Math.floor((seconds % (24 * 60 * 60)) / (60 * 60));
+	const minutes = Math.floor((seconds % (60 * 60)) / 60);
+	const remainingSeconds = seconds % 60;
+
+	const components = [
+		{ value: days, label: 'd' },
+		{ value: hours, label: 'h' },
+		{ value: minutes, label: 'm' },
+		{ value: remainingSeconds, label: 's' }
+	];
+
+	let formattedUptime = '';
+
+	components.forEach(({ value, label }) => {
+		if (value > 0 || formattedUptime !== '') {
+			formattedUptime += `${value}${label} `;
+		}
+	});
+
+	return formattedUptime.trim();
 }
 
 function connect() {
@@ -152,6 +192,7 @@ function connect() {
 			} else {
 				str += `filesystem free: ${convertSize(msg.sys.littlefsfree)}`;
 			}
+			str += ` &#x2507; uptime: ${formatUptime(msg.sys.uptime)}`;
 
 			$("#sysinfo").innerHTML = str;
 
@@ -1214,7 +1255,7 @@ async function getTagtype(hwtype) {
 	try {
 		getTagtypeBusy = true;
 		tagTypes[hwtype] = { busy: true };
-		const response = await fetch('/tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json');
+		const response = await fetch('/tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json?' + webVersion);
 		if (!response.ok) {
 			let data = { name: 'unknown id ' + hwtype.toString(16), width: 0, height: 0, bpp: 0, rotatebuffer: 0, colortable: [], busy: false };
 			tagTypes[hwtype] = data;
