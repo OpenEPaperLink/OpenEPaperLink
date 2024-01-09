@@ -1072,8 +1072,8 @@ function GroupSortFilter() {
 
 	let grouping = document.querySelector('input[name="group"]:checked')?.value;
 	if (grouping == undefined) {
-		grouping = localStorage.getItem("grouping") + "";
-		document.querySelector('input[name="group"][value="' + grouping + '"]').checked = true
+		grouping = localStorage.getItem("grouping");
+		if (grouping) document.querySelector('input[name="group"][value="' + grouping + '"]').checked = true
 	} else {
 		localStorage.setItem("grouping", grouping);
 	}

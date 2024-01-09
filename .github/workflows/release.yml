@@ -41,10 +41,10 @@ jobs:
         run: |
           mkdir espbinaries
 
-      - name: Zip web files
-        run: | 
-            cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_AP-Flasher
-            python gzip_wwwfiles.py
+#      - name: Zip web files
+#        run: | 
+#            cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_AP-Flasher
+#            python gzip_wwwfiles.py
           
       - name: Build firmware for Simple_AP
         run: |
