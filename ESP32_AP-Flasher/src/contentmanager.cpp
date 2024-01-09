@@ -1034,7 +1034,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
     StaticJsonDocument<512> loc;
     getTemplate(loc, 9, taginfo->hwType);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
-    stampTime(spr);
+    // stampTime(spr);
 
     if (util::isEmptyOrNull(title)) title = "RSS feed";
     drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TL_DATUM, TFT_BLACK, loc["title"][3]);
