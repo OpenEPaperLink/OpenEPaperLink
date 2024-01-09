@@ -3,17 +3,17 @@
    "00" : {
    "type": "SOL_M2_154_SSD",
    "version": "26",
-   "md5": "57e02f80c9f2581be0a140979b1124e1"
+   "md5": "b6948f6eb87fbb6f21f1254adbaa07ac"
    },
    "01" : {
    "type": "SOL_M2_29_SSD",
    "version": "26",
-   "md5": "bed1a20ca6af04e29e5aabce480c1e9d"
+   "md5": "7309496eb0f3da3b450fd7fc121a4982"
    },
    "02" : {
    "type": "SOL_M2_42_SSD",
    "version": "26",
-   "md5": "80e36c7d4d08beaca8ad2f00f42923d0"
+   "md5": "add97e450fa020ee994defe15f0c77ae"
    },
    "05" : {
    "type": "SOL_M2_75_ota",
