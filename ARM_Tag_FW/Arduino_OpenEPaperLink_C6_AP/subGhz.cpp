@@ -5,6 +5,7 @@
 
 #include "subGhz.h"
 #include "driver/gpio.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -17,8 +18,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+static const char *TAG = "subGHz";
+
 #define SUB_GHZ_CH_OFST 11
-#define SUB_GHZ_NUM_CHANNELS 25
+#define SUB_GHZ_NUM_CHANNELS 27
 
 /*
 	//we configure GDO_2 is for TX.has_fifo_space
@@ -118,10 +121,10 @@
 
 static volatile uint8_t mRxBufs[MAX_RX_PKTS][RADIO_MAX_PACKET_LEN + 1 /* length */ + 2 /* RSSI, LQI/STA */];
 static volatile uint8_t mRxNextWrite, mRxNextRead, mRxNumFree, mRxNumGot;
-static uint8_t mRxFilterLongMac[8], mTxLongMac[8];
-static uint32_t mRxFilterShortMac, mTxShortMac;
+static uint8_t mRxFilterLongMac[8];
+static uint32_t mRxFilterShortMac;
 static bool mRxEnabled, mAutoAck, mPromisc;
-static uint16_t mRxFilterPan, mTxPan;
+static uint16_t mRxFilterPan;
 static volatile int16_t mLastAck;
 
 struct MacHeaderGenericAddr {
@@ -143,13 +146,6 @@ struct MacHeaderLongAddr {
   uint8_t longDstAddr[8];
 } __attribute__((packed));
 
-
-
-void tiRadioTxConfigure(const uint8_t *myLongMac, uint32_t myShortMac, uint16_t pan) {
-  memcpy(mTxLongMac, myLongMac, sizeof(mTxLongMac));
-  mTxShortMac = myShortMac;
-  mTxPan = pan;
-}
 
 void tiRadioRxFilterCfg(const uint8_t *myMac, uint32_t myShortMac, uint16_t myPan, bool promisc) {
   mPromisc = promisc;
@@ -319,7 +315,7 @@ static void tiRadioPrvPacketRx(void) {
 
     if (!now && !--nWaitCycles) {
       tiRadioPrvDeselect();
-      //Serial.printf(" !!! RX timeout !!! \r\n");
+      ESP_LOGI(TAG, " !!! RX timeout !!! ");
       goto fail;
     }
 
@@ -412,7 +408,7 @@ out:
       state = tiRadioPrvGetState();
 
       if (!--maxWait) {
-        //Serial.printf("too long wait for rx state. state is %d\n", state);
+        //ESP_LOGI(TAG, "too long wait for rx state. state is %d", state);
         break;
       }
 
@@ -490,15 +486,15 @@ static void tiRadioPrvIfInit(void) {
   mRxNumFree = MAX_RX_PKTS;
 }
 
-static void tiRadioPrvIrqInit(void) {
-  attachInterrupt(sub_GD0, data_input_interrupt, RISING);
-}
-
 bool tiRadioSetChannel(uint_fast8_t channel) {
   channel -= SUB_GHZ_CH_OFST;
-  if (channel >= SUB_GHZ_NUM_CHANNELS)
+  if (channel >= SUB_GHZ_NUM_CHANNELS) {
+    ESP_LOGI(TAG, "CH not set: %i", channel);
     return false;
+  }
+  ESP_LOGI(TAG, "CH: %i", channel);
 
+  delayMicroseconds(1000);
   return tiRadioPrvRegWrite(REG_CHANNR, channel * 3);
 }
 
@@ -507,13 +503,8 @@ bool tiRadioTxLL(const void *pkt) {
   uint32_t len = 1 + *data, now;
   bool ret = false;
 
-  if (0) {
-    Serial.printf("TX packet len %u :", len);
-    for (int t = 0; t < len; t++) {
-      Serial.printf(" %02x", data[1 + t]);
-    }
-    Serial.printf("\n");
-  }
+  ESP_LOGD(TAG, "TX packet len %u", len);
+  ESP_LOGD(TAG, "First bytes: %02X %02X %02X %02X %02X", data[1], data[2], data[3], data[4], data[5]);
 
   if (tiRadioPrvStrobe(CMD_SIDLE) < 0)
     goto out;
@@ -558,6 +549,8 @@ out:
   return ret;
 }
 
+
+bool interrupt_attached = false;
 bool init_subGhz(void) {
   uint8_t regsCfg[] = {
     /* 0x00 */ 0x02,    0x2e,    0x01,    0x07,    0xd3,    0x91,    0x7f,    0x04,
@@ -570,40 +563,51 @@ bool init_subGhz(void) {
 
   uint8_t paTab[] = { 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0 };
 
+  if (interrupt_attached)
+    detachInterrupt(sub_GD0);
+
   tiRadioPrvIfInit();
 
   if (tiRadioPrvRegRead(REG_PARTNUM) != 0x00) {
-    Serial.printf("partnum is wrong\n");
+    ESP_LOGE(TAG, "partnum is wrong");
     return false;
   }
 
+  delayMicroseconds(300);
+
   if (tiRadioPrvStrobe(CMD_SRES) < 0) {
-    Serial.printf("res reply\n");
+    ESP_LOGE(TAG, "res reply");
     return false;
   }
 
   delayMicroseconds(300);
 
   if (tiRadioPrvStrobe(CMD_SIDLE) != 0x0f) {
-    Serial.printf("idle reply\n");
+    ESP_LOGE(TAG, "idle reply");
     return false;
   }
+
+  delayMicroseconds(300);
 
   if (!tiRadioPrvRegWriteLong(0, regsCfg, sizeof(regsCfg))) {
-    Serial.printf("config issue\n");
+    ESP_LOGE(TAG, "config issue");
     return false;
   }
+
+  delayMicroseconds(300);
 
   if (!tiRadioPrvRegWriteLong(REG_PATABLE, paTab, sizeof(paTab))) {
-    Serial.printf("PAtable issue\n");
+    ESP_LOGE(TAG, "PAtable issue");
     return false;
   }
 
-  tiRadioPrvIrqInit();
+  attachInterrupt(sub_GD0, data_input_interrupt, RISING);
+  interrupt_attached = true;
 
-  Serial.printf("Sub-GHz radio inited\n");
+  ESP_LOGI(TAG, "Sub-GHz radio inited");
 
   tiRadioRxEnable(true, false);
-  Serial.printf("Sub-GHz rx is on\n");
+  delayMicroseconds(1000);
+  ESP_LOGI(TAG, "Sub-GHz rx is on");
   return true;
 }

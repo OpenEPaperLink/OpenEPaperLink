@@ -1,6 +1,7 @@
 #include "radio.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
+#include "esp_log.h"
 #include "esp_err.h"
 #include "esp_event.h"
 #include "esp_ieee802154.h"
@@ -23,6 +24,8 @@
 #include <string.h>
 #include <Arduino.h>
 
+static const char *TAG = "RADIO";
+
 bool has_sub_ghz = false;
 
 uint8_t mSelfMac[8];
@@ -30,7 +33,7 @@ volatile uint8_t isInTransmit = 0;
 QueueHandle_t packet_buffer = NULL;
 
 void esp_ieee802154_receive_done(uint8_t *frame, esp_ieee802154_frame_info_t *frame_info) {
-  Serial.printf("RADIO info RX %d\r\n", frame[0]);
+  ESP_LOGI(TAG, "RX %d", frame[0]);
   BaseType_t xHigherPriorityTaskWoken;
   static uint8_t inner_rxPKT[130];
   memcpy(inner_rxPKT, &frame[0], frame[0] + 1);
@@ -40,12 +43,12 @@ void esp_ieee802154_receive_done(uint8_t *frame, esp_ieee802154_frame_info_t *fr
 
 void esp_ieee802154_transmit_failed(const uint8_t *frame, esp_ieee802154_tx_error_t error) {
   isInTransmit = 0;
-  Serial.printf("RADIO err TX Err: %d\r\n", error);
+  ESP_LOGE(TAG, "TX Err: %d", error);
 }
 
 void esp_ieee802154_transmit_done(const uint8_t *frame, const uint8_t *ack, esp_ieee802154_frame_info_t *ack_frame_info) {
   isInTransmit = 0;
-  Serial.printf("RADIO info TX %d\r\n", frame[0]);
+  ESP_LOGI(TAG, "TX %d", frame[0]);
 }
 
 void radio_init(uint8_t ch) {
@@ -81,26 +84,30 @@ void radio_init(uint8_t ch) {
   delay(100);
   led_flash(0);
 
-  Serial.printf("RADIO Receiver ready, panId=0x%04x, channel=%d, long=%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x, short=%04x\r\n",
-                esp_ieee802154_get_panid(), esp_ieee802154_get_channel(),
-                mSelfMac[0], mSelfMac[1], mSelfMac[2], mSelfMac[3],
-                mSelfMac[4], mSelfMac[5], mSelfMac[6], mSelfMac[7],
-                esp_ieee802154_get_short_address());
+  ESP_LOGI(TAG, "Receiver ready, panId=0x%04x, channel=%d, long=%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x, short=%04x",
+           esp_ieee802154_get_panid(), esp_ieee802154_get_channel(),
+           mSelfMac[0], mSelfMac[1], mSelfMac[2], mSelfMac[3],
+           mSelfMac[4], mSelfMac[5], mSelfMac[6], mSelfMac[7],
+           esp_ieee802154_get_short_address());
 
 
-  // Lets here take care of the SubGhz Init
-  if (!init_subGhz())
-    Serial.printf("Sub-GHz radio init failed\r\n");
-  else if (!tiRadioSetChannel(ch))
-    Serial.printf("SubGHz radio channel fail\r\n");
-  else
-    has_sub_ghz = true;
+  if (has_sub_ghz) {// If radio is already working why activate it again^^
+    if (!tiRadioSetChannel(ch))
+      ESP_LOGI(TAG, "SubGHz radio channel fail");
+  } else {
+    // Lets here take care of the SubGhz Init
+    if (!init_subGhz())
+      ESP_LOGI(TAG, "Sub-GHz radio init failed");
+    else if (!tiRadioSetChannel(ch))
+      ESP_LOGI(TAG, "SubGHz radio channel fail");
+    else
+      has_sub_ghz = true;
 
-  Serial.printf("SubGhz %s\r\n", has_sub_ghz ? "Active" : "Not Found");
-  if (has_sub_ghz) {
-    tiRadioRxFilterCfg(mSelfMac, SHORT_MAC_UNUSED, PROTO_PAN_ID, true);
-    tiRadioTxConfigure(mSelfMac, SHORT_MAC_UNUSED, PROTO_PAN_ID);
-    tiRadioRxEnable(true, false);
+    ESP_LOGI(TAG, "SubGhz %s", has_sub_ghz ? "Active" : "Not Found");
+    if (has_sub_ghz) {
+      tiRadioRxFilterCfg(mSelfMac, SHORT_MAC_UNUSED, PROTO_PAN_ID, false);
+      tiRadioRxEnable(true, false);
+    }
   }
 }
 
@@ -125,8 +132,6 @@ bool radioTx(uint8_t *packet, bool subGhz) {
 
 void radioSetChannel(uint8_t ch) {
   radio_init(ch);
-  if (has_sub_ghz)
-    tiRadioSetChannel(ch);
 }
 
 void radioSetTxPower(uint8_t power) {}
@@ -145,7 +150,7 @@ int8_t commsRxUnencrypted(uint8_t *data, bool *subGhzRx) {
     int32_t ret_sub_rx_len = tiRadioRxDequeuePkt(inner_rxPKT_out, sizeof(inner_rxPKT_out), &rssi_sub_rx, &lqi_sub_rx);
     if (ret_sub_rx_len > 0)
     {
-      //Serial.printf("Got Sub Ghz Len %i data: %i %u\r\n", ret_sub_rx, rssi_sub_rx, lqi_sub_rx);
+      ESP_LOGD(TAG, "Got Sub Ghz Len %i data: %i %u", ret_sub_rx_len, rssi_sub_rx, lqi_sub_rx);
       memcpy(data, inner_rxPKT_out, ret_sub_rx_len);
       *subGhzRx = true; // This is SubGHz data
       return ret_sub_rx_len;

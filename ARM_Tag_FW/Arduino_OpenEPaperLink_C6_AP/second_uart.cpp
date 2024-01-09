@@ -5,6 +5,7 @@
 #include <Arduino.h>
 #include "driver/gpio.h"
 #include "driver/uart.h"
+#include "esp_log.h"
 #include "esp_err.h"
 #include "esp_event.h"
 #include "esp_ieee802154.h"
@@ -20,6 +21,8 @@
 #include "soc/uart_struct.h"
 #include "soc/lp_uart_reg.h"
 #include "second_uart.h"
+
+static const char *TAG = "SECOND_UART";
 
 #if defined(CONFIG_OEPL_HARDWARE_PROFILE_POE_AP)
 #define CONFIG_OEPL_HARDWARE_UART_TX 5
@@ -100,7 +103,7 @@ static void uart_event_task(void *pvParameters) {
           }
           break;
         default:
-          Serial.printf("Second UART uart event type: %d\r\n", event.type);
+          // ESP_LOGI(TAG, "uart event type: %d", event.type);
           break;
       }
     }

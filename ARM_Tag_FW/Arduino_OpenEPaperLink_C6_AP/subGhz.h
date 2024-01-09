@@ -7,7 +7,6 @@
 #include <Arduino.h>
 #include <stdbool.h>
 
-void tiRadioTxConfigure(const uint8_t *myLongMac, uint32_t myShortMac, uint16_t pan);
 void tiRadioRxFilterCfg(const uint8_t *myMac, uint32_t myShortMac, uint16_t myPan, bool promisc);
 static bool tiRadioPrvSelect(void);
 static void tiRadioPrvDeselect(void);

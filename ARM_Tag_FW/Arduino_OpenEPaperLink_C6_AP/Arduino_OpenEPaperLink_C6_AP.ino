@@ -6,6 +6,7 @@
 #include "subGhz.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
+#include "esp_log.h"
 #include "esp_err.h"
 #include "esp_event.h"
 #include "esp_ieee802154.h"
@@ -25,6 +26,8 @@
 #include <stdint.h>
 #include <string.h>
 
+static const char *TAG = "MAIN";
+
 const uint8_t channelList[6] = { 11, 15, 20, 25, 26, 27 };
 
 #define DATATYPE_NOUPDATE 0
@@ -36,7 +39,7 @@ const uint8_t channelList[6] = { 11, 15, 20, 25, 26, 27 };
 struct pendingData pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t version = 0x0019;
+uint16_t version = 0x001A;
 
 #define RAW_PKT_PADDING 2
 
@@ -195,7 +198,7 @@ void processSerial(uint8_t lastchar) {
   static uint32_t blockStartTime = 0;
   if ((RXState != ZBS_RX_WAIT_HEADER) && ((millis() - lastSerial) > 1000)) {
     RXState = ZBS_RX_WAIT_HEADER;
-    Serial.printf("UART Timeout\r\n");
+    ESP_LOGI(TAG, "UART Timeout");
   }
   lastSerial = millis();
   switch (RXState) {
@@ -209,27 +212,27 @@ void processSerial(uint8_t lastchar) {
       if (isSame(cmdbuffer + 1, ">D>", 3)) {
         pr("ACK>");
         blockStartTime = millis();
-        Serial.printf("Starting BlkData, %lu ms after request\r\n", blockStartTime - nextBlockAttempt);
+        ESP_LOGI(TAG, "Starting BlkData, %lu ms after request", blockStartTime - nextBlockAttempt );
         blockPosition = 0;
         RXState = ZBS_RX_WAIT_BLOCKDATA;
       }
 
       if (isSame(cmdbuffer, "SDA>", 4)) {
-        Serial.printf("SDA In\r\n");
+        ESP_LOGI(TAG, "SDA In");
         RXState = ZBS_RX_WAIT_SDA;
         bytesRemain = sizeof(struct pendingData);
         serialbufferp = serialbuffer;
         break;
       }
       if (isSame(cmdbuffer, "CXD>", 4)) {
-        Serial.printf("CXD In\r\n");
+        ESP_LOGI(TAG, "CXD In");
         RXState = ZBS_RX_WAIT_CANCEL;
         bytesRemain = sizeof(struct pendingData);
         serialbufferp = serialbuffer;
         break;
       }
       if (isSame(cmdbuffer, "SCP>", 4)) {
-        Serial.printf("SCP In\r\n");
+        ESP_LOGI(TAG, "SCP In");
         RXState = ZBS_RX_WAIT_SCP;
         bytesRemain = sizeof(struct espSetChannelPower);
         serialbufferp = serialbuffer;
@@ -237,25 +240,25 @@ void processSerial(uint8_t lastchar) {
       }
       if (isSame(cmdbuffer, "NFO?", 4)) {
         pr("ACK>");
-        Serial.printf("NFO? In\r\n");
+        ESP_LOGI(TAG, "NFO? In");
         espNotifyAPInfo();
         RXState = ZBS_RX_WAIT_HEADER;
       }
       if (isSame(cmdbuffer, "RDY?", 4)) {
         pr("ACK>");
-        Serial.printf("RDY? In\r\n");
+        ESP_LOGI(TAG, "RDY? In");
         RXState = ZBS_RX_WAIT_HEADER;
       }
       if (isSame(cmdbuffer, "RSET", 4)) {
         pr("ACK>");
-        Serial.printf("RSET In\r\n");
+        ESP_LOGI(TAG, "RSET In");
         delay(100);
         // TODO RESET US HERE
         RXState = ZBS_RX_WAIT_HEADER;
       }
       if (isSame(cmdbuffer, "HSPD", 4)) {
         pr("ACK>");
-        Serial.printf("HSPD In, switching to 2000000\r\n");
+        ESP_LOGI(TAG, "HSPD In, switching to 2000000");
         delay(100);
         uart_switch_speed(2000000);
         delay(100);
@@ -267,7 +270,7 @@ void processSerial(uint8_t lastchar) {
     case ZBS_RX_WAIT_BLOCKDATA:
       blockbuffer[blockPosition++] = 0xAA ^ lastchar;
       if (blockPosition >= 4100) {
-        Serial.printf("Blockdata fully received in %lu ms, %lu ms after the request\r\n", millis() - blockStartTime, millis() - nextBlockAttempt);
+        ESP_LOGI(TAG, "Blockdata fully received in %lu ms, %lu ms after the request", millis() - blockStartTime, millis() - nextBlockAttempt);
         RXState = ZBS_RX_WAIT_HEADER;
       }
       break;
@@ -329,7 +332,7 @@ SCPchannelFound:
           }
           curPower = scp->power;
           radioSetTxPower(scp->power);
-          Serial.printf("Set channel: %d power: %d\r\n", curChannel, curPower);
+          ESP_LOGI(TAG, "Set channel: %d power: %d", curChannel, curPower);
         } else {
 SCPfailed:
           pr("NOK>");
@@ -693,8 +696,7 @@ void sendPong(void *buf, bool isSubGHz) {
 
 extern uint8_t mSelfMac[8];
 void setup() {
-  Serial.begin(115200);
-
+//Serial.begin(115200);
   init_led();
   init_second_uart();
 
@@ -707,7 +709,7 @@ void setup() {
 
   pr("RES>");
   pr("RDY>");
-  Serial.printf("C6 ready!\r\n");
+  ESP_LOGI(TAG, "C6 ready!");
 
   housekeepingTimer = millis();
 }
@@ -724,6 +726,11 @@ void loop() {
           Serial.printf(" %02x", radiorxbuffer[t]);
         }
         Serial.printf("\n");
+      }
+
+      if (isSubGhzRx) {
+        ESP_LOGD(TAG, "RXed packet %s len %u", isSubGhzRx ? "subGhz" : "2.4Ghz", ret);
+        ESP_LOGD(TAG, "First bytes: %02X %02X %02X %02X %02X", radiorxbuffer[0], radiorxbuffer[1], radiorxbuffer[2], radiorxbuffer[3], radiorxbuffer[4]);
       }
 
       led_flash(0);
@@ -765,7 +772,7 @@ void loop() {
           processTagReturnData(radiorxbuffer, ret, isSubGhzRx);
           break;
         default:
-          Serial.printf("t=%02X\r\n", getPacketType(radiorxbuffer));
+          ESP_LOGI(TAG, "t=%02X" , getPacketType(radiorxbuffer));
           break;
       }
     } else if (blockStartTimer == 0) {
