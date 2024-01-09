@@ -99,15 +99,10 @@ jobs:
           cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
           cp OpenEPaperLink_Nano_AP/firmware.bin espbinaries/OpenEPaperLink_Nano_AP.bin
           cp OpenEPaperLink_Nano_AP/merged-firmware.bin espbinaries/OpenEPaperLink_Nano_AP_full.bin
-          
-      - name: generate release json file
-        run: |
-          mkdir jsonfiles
-          python genfilelist.py ${{ github.ref_name }} $GITHUB_REPOSITORY $GITHUB_SHA
 
-      - name: move files for big APs
-        run: |
-          cp -a binaries/ESP32-C6/. ESP32_AP-Flasher/data/
+#      - name: move files for big APs
+#        run: |
+#          cp -a binaries/ESP32-C6/. ESP32_AP-Flasher/data/
           
       - name: Build firmware for OpenEPaperLink_AP_and_Flasher
         run: |
@@ -180,6 +175,11 @@ jobs:
           cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
           cp OpenEPaperLink_PoE_AP/firmware.bin espbinaries/OpenEPaperLink_PoE_AP.bin
           cp OpenEPaperLink_PoE_AP/merged-firmware.bin espbinaries/OpenEPaperLink_PoE_AP_full.bin
+
+      - name: generate release json file
+        run: |
+          mkdir jsonfiles
+          python genfilelist.py ${{ github.ref_name }} $GITHUB_REPOSITORY $GITHUB_SHA
 
       - name: Add file lists to release
         uses: svenstaro/upload-release-action@v2
