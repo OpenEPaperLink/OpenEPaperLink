@@ -16,7 +16,7 @@ struct contentTypes {
 
 void contentRunner();
 void checkVars();
-void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo);
+void drawNew(const uint8_t mac[8], tagRecord *&taginfo);
 bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, tagRecord *&taginfo, imgParam &imageParams);
 void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align = 0, uint16_t color = TFT_BLACK, uint16_t size = 30, uint16_t bgcolor = TFT_WHITE);
 void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy, int16_t boxwidth, int16_t boxheight, String font, uint16_t color = TFT_BLACK, uint16_t bgcolor = TFT_WHITE, float lineheight = 1);
@@ -31,6 +31,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams);
 uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
 void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
+void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
 bool getJsonTemplateFile(String &filename, String jsonfile, tagRecord *&taginfo, imgParam &imageParams);
 extern bool getJsonTemplateFileExtractVariables(String &filename, String jsonfile, JsonDocument &variables, tagRecord *&taginfo, imgParam &imageParams);
 int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC, tagRecord *&taginfo, imgParam &imageParams);

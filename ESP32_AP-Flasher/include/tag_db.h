@@ -7,13 +7,6 @@
 #pragma pack(push, 1)
 #pragma once
 
-#define WAKEUP_REASON_TIMED 0
-#define WAKEUP_REASON_BOOTUP 1
-#define WAKEUP_REASON_GPIO 2
-#define WAKEUP_REASON_NFC 3
-#define WAKEUP_REASON_BUTTON1 4
-#define WAKEUP_REASON_BUTTON2 5
-
 #define RUNSTATUS_STOP 0
 #define RUNSTATUS_PAUSE 1
 #define RUNSTATUS_RUN 2

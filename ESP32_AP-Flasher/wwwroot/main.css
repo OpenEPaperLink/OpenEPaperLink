@@ -12,11 +12,6 @@
 	-webkit-font-smoothing: antialiased;
 }
 
-html,
-body {
-	height: 100%;
-}
-
 body {
 	font-size: 12px;
 	font-family: Helvetica, Arial, Verdana, sans-serif;

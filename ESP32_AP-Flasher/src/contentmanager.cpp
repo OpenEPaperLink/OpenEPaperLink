@@ -42,9 +42,13 @@ void contentRunner() {
     time(&now);
 
     for (tagRecord *taginfo : tagDB) {
-        if (taginfo->RSSI && (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_GPIO || taginfo->wakeupReason == WAKEUP_REASON_NFC) && config.runStatus == RUNSTATUS_RUN && Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
-            drawNew(taginfo->mac, (taginfo->wakeupReason == WAKEUP_REASON_GPIO), taginfo);
-            taginfo->wakeupReason = 0;
+        if (taginfo->RSSI &&
+            (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_NFC) &&
+            config.runStatus == RUNSTATUS_RUN &&
+            Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
+
+            drawNew(taginfo->mac, taginfo);
+            // taginfo->wakeupReason = 0;
         }
 
         if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pending == false) {
@@ -114,16 +118,16 @@ void checkVars() {
 
 /// @brief Draw a counter
 /// @param mac Destination mac
-/// @param buttonPressed Was the button pressed (true) or not (false)
 /// @param taginfo Tag information
 /// @param cfgobj Tag config as json object
 /// @param filename Filename
 /// @param imageParams Image parameters
 /// @param nextupdate Next counter update
 /// @param nextCheckin Next tag checkin
-void drawCounter(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo, JsonObject &cfgobj, String &filename, imgParam &imageParams, const uint32_t nextupdate, const uint16_t nextCheckin) {
+void drawCounter(const uint8_t mac[8], tagRecord *&taginfo, JsonObject &cfgobj, String &filename, imgParam &imageParams, const uint32_t nextupdate, const uint16_t nextCheckin) {
     int32_t counter = cfgobj["counter"].as<int32_t>();
-    if (buttonPressed) {
+    bool buttonPressed = false;
+    if (buttonPressed) {  // fixme: button pressed
         counter = 0;
     }
     drawNumber(filename, counter, (int32_t)cfgobj["thresholdred"], taginfo, imageParams);
@@ -132,7 +136,7 @@ void drawCounter(const uint8_t mac[8], const bool buttonPressed, tagRecord *&tag
     cfgobj["counter"] = counter + 1;
 }
 
-void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo) {
+void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     time_t now;
     time(&now);
 
@@ -216,7 +220,7 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
     }
 
     switch (taginfo->contentMode) {
-        case 0:  // Not configured
+        case 0:   // Not configured
         case 22:  // Static image
         case 23:  // Static image (advanced)
         case 24:  // External image
@@ -285,11 +289,11 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
             break;
 
         case 2:  // CountDays
-            drawCounter(mac, buttonPressed, taginfo, cfgobj, filename, imageParams, util::getMidnightTime(), 15);
+            drawCounter(mac, taginfo, cfgobj, filename, imageParams, util::getMidnightTime(), 15);
             break;
 
         case 3:  // CountHours
-            drawCounter(mac, buttonPressed, taginfo, cfgobj, filename, imageParams, now + 3600, 5);
+            drawCounter(mac, taginfo, cfgobj, filename, imageParams, now + 3600, 5);
             break;
 
         case 4:  // Weather
@@ -483,6 +487,12 @@ void drawNew(const uint8_t mac[8], const bool buttonPressed, tagRecord *&taginfo
             updateTagImage(filename, mac, 0, taginfo, imageParams);
             taginfo->nextupdate = 3216153600;
             break;
+
+        case 26:  // timestamp
+            drawTimestamp(filename, cfgobj, taginfo, imageParams);
+            updateTagImage(filename, mac, 0, taginfo, imageParams);
+            taginfo->nextupdate = 3216153600;
+            break;
     }
 
     taginfo->modeConfigJson = doc.as<String>();
@@ -548,7 +558,7 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
     replaceVariables(content);
     if (font.startsWith("fonts/calibrib")) {
         String numericValueStr = font.substring(14);
-        int calibriSize = numericValueStr.toInt();    
+        int calibriSize = numericValueStr.toInt();
         if (calibriSize > 30) {
             font = "Signika-SB.ttf";
             size = calibriSize;
@@ -916,19 +926,16 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
             wind = beaufort;
         }
 
-        spr.loadFont(day[2], *contentFS);
-
         if (loc["rain"]) {
             const int8_t rain = round(daily["precipitation_sum"][dag].as<double>());
             if (rain > 0) {
-                drawString(spr, String(rain) + "mm", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], "", TC_DATUM, (rain > 10 ? TFT_RED : TFT_BLACK));
+                drawString(spr, String(rain) + "mm", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], day[2], TC_DATUM, (rain > 10 ? TFT_RED : TFT_BLACK));
             }
         }
 
-        drawString(spr, String(tmin) + " ", dag * column1 + day[0].as<int>(), day[4], "", TR_DATUM, (tmin < 0 ? TFT_RED : TFT_BLACK));
-        drawString(spr, String(" ") + String(tmax), dag * column1 + day[0].as<int>(), day[4], "", TL_DATUM, (tmax < 0 ? TFT_RED : TFT_BLACK));
-        drawString(spr, String(wind), dag * column1 + column1 - 10, day[3], "", TR_DATUM, (beaufort > 5 ? TFT_RED : TFT_BLACK));
-        spr.unloadFont();
+        drawString(spr, String(tmin) + " ", dag * column1 + day[0].as<int>(), day[4], day[2], TR_DATUM, (tmin < 0 ? TFT_RED : TFT_BLACK));
+        drawString(spr, String(" ") + String(tmax), dag * column1 + day[0].as<int>(), day[4], day[2], TL_DATUM, (tmax < 0 ? TFT_RED : TFT_BLACK));
+        drawString(spr, String(wind), dag * column1 + column1 - 10, day[3], day[2], TR_DATUM, (beaufort > 5 ? TFT_RED : TFT_BLACK));
         if (dag > 0) {
             for (int i = loc["line"][0]; i < loc["line"][1]; i += 3) {
                 spr.drawPixel(dag * column1, i, TFT_BLACK);
@@ -1169,7 +1176,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
         }
         case 1: {
             // week view
-            
+
             // gridparam:
             // 0: 10; offset top
             // 1: 20; offset cal block
@@ -1204,7 +1211,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                 struct tm *dayInfo = localtime(&dayEpoch);
 
                 int colStart = colLeft + i * colWidth;
-                spr.drawLine(colStart,calTop,colStart,calBottom,TFT_BLACK);
+                spr.drawLine(colStart, calTop, colStart, calBottom, TFT_BLACK);
                 drawString(spr, String(languageDaysShort[dayInfo->tm_wday]) + " " + String(dayInfo->tm_mday), colStart + colWidth / 2, calTop, loc["gridparam"][3], TC_DATUM, TFT_BLACK);
 
                 int grid = 3;
@@ -1246,7 +1253,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                     if (timeinfo.tm_hour < minHour) minHour = timeinfo.tm_hour;
 
                     localtime_r(&enddatetime, &timeinfo);
-                    if (timeinfo.tm_hour> maxHour) maxHour = timeinfo.tm_hour;
+                    if (timeinfo.tm_hour > maxHour) maxHour = timeinfo.tm_hour;
                     if (timeinfo.tm_min > 1 && timeinfo.tm_hour + 1 > maxHour) maxHour = timeinfo.tm_hour + 1;
                 } else {
                     int fulldaystart = constrain((startdatetime - midnightEpoch) / (24 * 3600), 0, calDays);
@@ -1263,7 +1270,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                                 const time_t enddatetime2 = obj2["end"];
                                 if (startdatetime < enddatetime2 && enddatetime > startdatetime2 &&
                                     line == block[j] && isallday2) {
-                                    Serial.printf("overlap %d met %d, %d-%d met %d-%d, block[j]=%d",i,j,startdatetime, enddatetime,startdatetime2,enddatetime2,block[j]);
+                                    Serial.printf("overlap %d met %d, %d-%d met %d-%d, block[j]=%d", i, j, startdatetime, enddatetime, startdatetime2, enddatetime2, block[j]);
                                     overlap == true;
                                     line++;
                                 }
@@ -1512,6 +1519,10 @@ void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     spr.deleteSprite();
 }
 
+void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
+    // todo
+}
+
 bool getJsonTemplateFile(String &filename, String jsonfile, tagRecord *&taginfo, imgParam &imageParams) {
     if (jsonfile.c_str()[0] != '/') {
         jsonfile = "/" + jsonfile;
@@ -1720,8 +1731,8 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
 }
 
 void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &spr, imgParam &imageParams) {
-    rotation = rotation % 4;                           // First of all, let's be sure that the rotation have a valid value (0, 1, 2 or 3)
-    if (rotation != currentOrientation) {              // If we have a rotation to do, let's do it
+    rotation = rotation % 4;               // First of all, let's be sure that the rotation have a valid value (0, 1, 2 or 3)
+    if (rotation != currentOrientation) {  // If we have a rotation to do, let's do it
         int stepToDo = (currentOrientation - rotation + 4) % 4;
         // 2: upside down
         // 3: 270° rotation

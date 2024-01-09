@@ -500,7 +500,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     taginfo->lastseen = now;
 
     if (eadr->adr.lastPacketRSSI != 0) {
-        if (eadr->adr.wakeupReason >= 0xF0) {
+        if (eadr->adr.wakeupReason >= 0xE0) {
             if (!taginfo->pending) taginfo->nextupdate = 0;
             memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
             memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));

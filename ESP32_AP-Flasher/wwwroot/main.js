@@ -513,7 +513,7 @@ $('#cfgsave').onclick = function () {
 	})
 		.then(response => response.text())
 		.then(data => showMessage(data))
-		.catch(error => showMessage('Error: ' + error));
+		.catch(error => showMessage('Error: ' + error, true));
 
 	$('#advancedoptions').style.height = '0px';
 	$('#configbox').close();
@@ -533,7 +533,7 @@ function sendCmd(mac, cmd) {
 			if (cmd == "del") div.remove();
 			showMessage(data);
 		})
-		.catch(error => showMessage('Error: ' + error));
+		.catch(error => showMessage('Error: ' + error, true));
 	$('#advancedoptions').style.height = '0px';
 	$('#configbox').close();
 }
@@ -607,23 +607,23 @@ $('#cfgautoupdate').onclick = async function () {
 						body: formData2
 					});
 					if (!uploadResponse.ok) {
-						showMessage('Error: auto update failed to upload');
+						showMessage('Error: auto update failed to upload', true);
 					}
 				} catch (error) {
-					showMessage('Error: ' + error);
+					showMessage('Error: ' + error, true);
 				}
 			}
-		} else showMessage('Error: auto update failed');
+		} else showMessage('Error: auto update failed', true);
 		var response = await fetch(url);
 		if (response.ok) {
 			var data = await response.json();
 			if (data.filesize == 0 || data.md5 != md5) {
-				showMessage('Error: auto update failed to download');
+				showMessage('Error: auto update failed to download. File is empty or md5 check fails', true);
 			}
 			//sucess
 			else obj["filename"] = filepath;
 		}
-		else showMessage('Error: auto update failed');
+		else showMessage('Error: auto update failed', true);
 		formData.append("contentmode", 5);
 		formData.append("modecfgjson", JSON.stringify(obj));
 		fetch("/save_cfg", {
@@ -632,7 +632,7 @@ $('#cfgautoupdate').onclick = async function () {
 		})
 			.then(response => response.text())
 			.then(data => showMessage(data))
-			.catch(error => showMessage('Error: ' + error));
+			.catch(error => showMessage('Error: ' + error, true));
 	}
 	$('#configbox').close();
 }
@@ -712,7 +712,7 @@ $('#apcfgsave').onclick = function () {
 			window.dispatchEvent(loadConfig);
 			$('#apcfgmsg').innerHTML = 'OK, Saved';
 		})
-		.catch(error => showMessage('Error: ' + error));
+		.catch(error => showMessage('Error: ' + error, true));
 }
 
 $('#uploadButton').onclick = function () {
@@ -955,7 +955,7 @@ function showMessage(message, iserr) {
 	} else {
 		messages.insertAdjacentHTML("afterbegin", '<li class="new">' + htmlEncode(time + ' ' + message) + '</li>');
 
-		const hexRegex = /^[0-9A-Fa-f]+/;
+		const hexRegex = /^[0-9A-Fa-f]{16}.*/;
 		if (hexRegex.test(message.substring(0, 16))) {
 			let div = $('#tag' + message.substring(0, 16));
 			if (div) {
