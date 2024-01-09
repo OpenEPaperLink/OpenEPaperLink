@@ -64,42 +64,6 @@ jobs:
           cp Simple_AP/firmware.bin espbinaries/Simple_AP.bin
           cp Simple_AP/merged-firmware.bin espbinaries/Simple_AP_full.bin
           
-      - name: Build firmware for Wemos_d1_mini32_AP
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment Wemos_d1_mini32_AP
-          pio run --target buildfs --environment Wemos_d1_mini32_AP
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/Wemos_d1_mini32_AP
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/Wemos_d1_mini32_AP/boot_app0.bin
-          cp .pio/build/Wemos_d1_mini32_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/Wemos_d1_mini32_AP/firmware.bin
-          cp .pio/build/Wemos_d1_mini32_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/Wemos_d1_mini32_AP/bootloader.bin
-          cp .pio/build/Wemos_d1_mini32_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/Wemos_d1_mini32_AP/partitions.bin
-          cp .pio/build/Wemos_d1_mini32_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/Wemos_d1_mini32_AP/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/Wemos_d1_mini32_AP
-          esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 40m --flash_size 4MB 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x290000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp Wemos_d1_mini32_AP/firmware.bin espbinaries/Wemos_d1_mini32_AP.bin
-          cp Wemos_d1_mini32_AP/merged-firmware.bin espbinaries/Wemos_d1_mini32_AP_full.bin
-          
-      - name: Build firmware for M5Stack_Core_ONE_AP
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment M5Stack_Core_ONE_AP
-          pio run --target buildfs --environment M5Stack_Core_ONE_AP
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/M5Stack_Core_ONE_AP
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/M5Stack_Core_ONE_AP/boot_app0.bin
-          cp .pio/build/M5Stack_Core_ONE_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/M5Stack_Core_ONE_AP/firmware.bin
-          cp .pio/build/M5Stack_Core_ONE_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/M5Stack_Core_ONE_AP/bootloader.bin
-          cp .pio/build/M5Stack_Core_ONE_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/M5Stack_Core_ONE_AP/partitions.bin
-          cp .pio/build/M5Stack_Core_ONE_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/M5Stack_Core_ONE_AP/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/M5Stack_Core_ONE_AP
-          esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 40m --flash_size 4MB 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x2B0000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp M5Stack_Core_ONE_AP/firmware.bin espbinaries/M5Stack_Core_ONE_AP.bin
-          cp M5Stack_Core_ONE_AP/merged-firmware.bin espbinaries/M5Stack_Core_ONE_AP_full.bin
-          
       - name: Build firmware for OpenEPaperLink_Mini_AP
         run: |
           cd ESP32_AP-Flasher
