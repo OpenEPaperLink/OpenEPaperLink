@@ -332,9 +332,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                         }
                     }
                 }
-                cfgobj["filename"] = "";
                 taginfo->nextupdate = 3216153600;
-                taginfo->contentMode = 0;
             } else {
                 taginfo->nextupdate = now + 300;
             }
@@ -421,18 +419,18 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
         }
 
         case 17:  // tag command
+        {
             sendTagCommand(mac, cfgobj["cmd"].as<int>(), (taginfo->isExternal == false));
-            cfgobj["filename"] = "";
             taginfo->nextupdate = 3216153600;
-            taginfo->contentMode = 0;
             break;
+        }
 
         case 18:  // tag config
+        {
             prepareConfigFile(mac, cfgobj);
-            cfgobj["filename"] = "";
             taginfo->nextupdate = 3216153600;
-            taginfo->contentMode = 0;
             break;
+        }
 
         case 19:  // json template
         {
@@ -1115,7 +1113,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
     char dateString[40];
-    strftime(dateString, sizeof(dateString), "%d-%m-%Y", &timeinfo);
+    strftime(dateString, sizeof(dateString), languageDateFormat.c_str(), &timeinfo);
 
     HTTPClient http;
     // logLine("http getCalFeed " + URL);

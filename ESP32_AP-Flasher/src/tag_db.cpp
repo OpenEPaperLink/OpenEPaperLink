@@ -22,17 +22,17 @@ Config config;
 
 tagRecord* tagRecord::findByMAC(const uint8_t mac[8]) {
     for (tagRecord* tag : tagDB) {
-        if (memcmp(tag->mac, mac, 8) == 0) {
+        if (memcmp(tag->mac, mac, 8) == 0 && tag->version == 0) {
             return tag;
         }
     }
     return nullptr;
 }
 
-bool deleteRecord(const uint8_t mac[8]) {
+bool deleteRecord(const uint8_t mac[8], bool allVersions) {
     for (uint32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = tagDB.at(c);
-        if (memcmp(tag->mac, mac, 8) == 0) {
+        if (memcmp(tag->mac, mac, 8) == 0 && (allVersions || tag->version == 0)) {
             if (tag->data != nullptr) {
                 free(tag->data);
             }
@@ -74,7 +74,7 @@ String tagDBtoJson(const uint8_t mac[8], uint8_t startPos) {
         const tagRecord* taginfo = tagDB.at(c);
 
         const bool select = !mac || memcmp(taginfo->mac, mac, 8) == 0;
-        if (select) {
+        if (select && taginfo->version == 0) {
             JsonObject tag = tags.createNestedObject();
             fillNode(tag, taginfo);
             if (mac) {
@@ -154,12 +154,14 @@ void saveDB(const String& filename) {
         const tagRecord* taginfo = tagDB.at(c);
         doc.clear();
 
-        JsonObject tag = doc.createNestedObject();
-        fillNode(tag, taginfo);
-        if (c > 0) {
-            file.write(',');
+        if (taginfo->version == 0) {
+            JsonObject tag = doc.createNestedObject();
+            fillNode(tag, taginfo);
+            if (c > 0) {
+                file.write(',');
+            }
+            serializeJsonPretty(doc, file);
         }
-        serializeJsonPretty(doc, file);
     }
     file.write(']');
 
@@ -448,4 +450,19 @@ void cleanupCurrent() {
         file = dir.openNextFile();
     }
     dir.close();
+}
+
+void pushTagInfo(tagRecord* taginfo) {
+    tagRecord* taginfo2 = new tagRecord(*taginfo);
+    taginfo2->version = 1;
+    tagDB.push_back(taginfo2);
+}
+
+void popTagInfo(const uint8_t mac[8]) {
+    for (tagRecord* tag : tagDB) {
+        if (memcmp(tag->mac, mac, 8) == 0 && tag->version == 1) {
+            deleteRecord(mac, false);
+            tag->version = 0;
+        }
+    }
 }

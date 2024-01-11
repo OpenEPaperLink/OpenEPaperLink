@@ -423,6 +423,11 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
                 contentFS->remove(dst_path);
             }
         }
+        if (taginfo->contentMode == 5 || taginfo->contentMode == 17 || taginfo->contentMode == 18) {
+            popTagInfo(xfc->src);
+            taginfo = tagRecord::findByMAC(xfc->src);
+            taginfo->nextupdate = now;
+        }
     }
     wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferComplete(xfc);
@@ -573,7 +578,7 @@ void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local)
 void refreshAllPending() {
     for (int16_t c = 0; c < tagDB.size(); c++) {
         tagRecord* taginfo = tagDB.at(c);
-        if (taginfo->pending) {
+        if (taginfo->pending && taginfo->version == 0) {
             clearPending(taginfo);
             taginfo->nextupdate = 0;
             memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
@@ -714,7 +719,7 @@ void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP) {
 bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
         tagRecord* taginfo2 = tagDB.at(c);
-        if (taginfo2->contentMode == 20) {
+        if (taginfo2->contentMode == 20 && taginfo2->version == 0) {
             DynamicJsonDocument doc(500);
             deserializeJson(doc, taginfo2->modeConfigJson);
             JsonObject cfgobj = doc.as<JsonObject>();

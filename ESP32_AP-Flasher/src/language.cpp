@@ -11,6 +11,7 @@
 String languageDaysShort[7];
 String languageDays[7];
 String languageMonth[12];
+String languageDateFormat;
 
 int currentLanguage = 0;
 
@@ -46,5 +47,6 @@ void updateLanguageFromConfig() {
     for (int i = 0; i < 12; ++i) {
         languageMonth[i] = languageObject["months"][i].as<String>();
     }
+    languageDateFormat = languageObject["date_format"].as<String>();
 }
 

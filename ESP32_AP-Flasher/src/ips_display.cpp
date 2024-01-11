@@ -50,7 +50,7 @@ void TFTLog(String text) {
 int32_t findId(uint8_t mac[8]) {
     for (uint32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = tagDB.at(c);
-        if (memcmp(tag->mac, mac, 8) == 0) {
+        if (memcmp(tag->mac, mac, 8) == 0 && tag->version == 0) {
             return c;
         }
     }

@@ -92,6 +92,7 @@ static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout,
     http.end();
     if (error) {
         Serial.printf("[httpGetJson] JSON: %s\n", error.c_str());
+        wsErr("[httpGetJson] JSON: " + String(error.c_str()));
         return false;
     }
     return true;

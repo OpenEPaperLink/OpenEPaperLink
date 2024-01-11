@@ -100,7 +100,7 @@ void wsSendSysteminfo() {
     if (day != timeinfo.tm_mday) {
         day = timeinfo.tm_mday;
         char timeBuffer[80];
-        strftime(timeBuffer, sizeof(timeBuffer), "%d-%m-%Y", &timeinfo);
+        strftime(timeBuffer, sizeof(timeBuffer), languageDateFormat.c_str(), &timeinfo);
         setVarDB("ap_date", timeBuffer);
     }
     setVarDB("ap_ip", WiFi.localIP().toString());
@@ -293,9 +293,14 @@ void init_web() {
             if (hex2mac(dst, mac)) {
                 tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
+                    uint16_t newContentMode = atoi(request->getParam("contentmode", true)->value().c_str());
+                    if (newContentMode != taginfo->contentMode && (newContentMode == 5 || newContentMode == 17 || newContentMode == 18)) {
+                        // temporary content, restore after sending
+                        pushTagInfo(taginfo);
+                    }
                     taginfo->alias = request->getParam("alias", true)->value();
                     taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
-                    taginfo->contentMode = atoi(request->getParam("contentmode", true)->value().c_str());
+                    taginfo->contentMode = newContentMode;
                     taginfo->nextupdate = 0;
                     if (request->hasParam("rotate", true)) {
                         taginfo->rotate = atoi(request->getParam("rotate", true)->value().c_str());
