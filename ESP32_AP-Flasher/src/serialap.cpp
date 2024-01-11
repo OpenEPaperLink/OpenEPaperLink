@@ -98,6 +98,8 @@ bool waitCmdReply() {
                 break;
             case CMD_REPLY_ACK:
                 lastAPActivity = millis();
+                if(apInfo.isOnline == false)
+                    setAPstate(true, AP_STATE_ONLINE);
                 return true;
                 break;
             case CMD_REPLY_NOK:
@@ -460,6 +462,8 @@ void rxSerialTask(void* parameter) {
                         packetp = (uint8_t*)calloc(sizeof(struct espBlockRequest) + 8, 1);
                         memset(cmdbuffer, 0x00, 4);
                         lastAPActivity = millis();
+                        if(apInfo.isOnline == false)
+                            setAPstate(true, AP_STATE_ONLINE);
                     }
                     if (strncmp(cmdbuffer, "ADR>", 4) == 0) {
                         RXState = ZBS_RX_WAIT_DATA_REQ;
@@ -468,6 +472,8 @@ void rxSerialTask(void* parameter) {
                         packetp = (uint8_t*)calloc(sizeof(struct espAvailDataReq) + 8, 1);
                         memset(cmdbuffer, 0x00, 4);
                         lastAPActivity = millis();
+                        if(apInfo.isOnline == false)
+                            setAPstate(true, AP_STATE_ONLINE);
                     }
                     if (strncmp(cmdbuffer, "XFC>", 4) == 0) {
                         RXState = ZBS_RX_WAIT_XFERCOMPLETE;
@@ -490,6 +496,8 @@ void rxSerialTask(void* parameter) {
                         packetp = (uint8_t*)calloc(sizeof(struct espTagReturnData) + 8, 1);
                         memset(cmdbuffer, 0x00, 4);
                         lastAPActivity = millis();
+                        if(apInfo.isOnline == false)
+                            setAPstate(true, AP_STATE_ONLINE);
                     }
                     break;
                 case ZBS_RX_BLOCK_REQUEST:
@@ -887,11 +895,13 @@ void APTask(void* parameter) {
 
     uint8_t attempts = 0;
     while (1) {
-        if ((apInfo.isOnline) && (millis() - lastAPActivity > AP_ACTIVITY_MAX_INTERVAL)) {
+        if (millis() - lastAPActivity > AP_ACTIVITY_MAX_INTERVAL) {
             bool reply = sendPing();
             if (!reply) {
                 attempts++;
             } else {
+                if(apInfo.isOnline == false)
+                    setAPstate(true, AP_STATE_ONLINE);
                 attempts = 0;
             }
             if (attempts > 5) {
@@ -902,6 +912,7 @@ void APTask(void* parameter) {
 #ifdef HAS_RGB_LED
                     showColorPattern(CRGB::Yellow, CRGB::Yellow, CRGB::Red);
 #endif
+                    lastAPActivity = millis();// we set this to retrigger a recovery in AP_ACTIVITY_MAX_INTERVAL seconds
                 } else {
                     setAPstate(true, AP_STATE_ONLINE);
                     attempts = 0;
