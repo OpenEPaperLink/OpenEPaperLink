@@ -131,8 +131,9 @@ void setup() {
     if (!loadDB("/current/tagDB.json")) {
         Serial.println("unable to load tagDB, reverting to backup");
         loadDB("/current/tagDB.json.bak");
+    } else {
+        cleanupCurrent();
     }
-    cleanupCurrent();
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 

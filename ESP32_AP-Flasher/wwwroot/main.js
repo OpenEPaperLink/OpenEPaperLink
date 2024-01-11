@@ -558,6 +558,7 @@ $('#cfgsave').onclick = function () {
 
 	$('#advancedoptions').style.height = '0px';
 	$('#configbox').close();
+	backupTagDB();
 }
 
 function sendCmd(mac, cmd) {
@@ -627,7 +628,7 @@ $('#cfgautoupdate').onclick = async function () {
 	var version = info[0][tagtype]["version"];
 	var currentversion = $('#tag' + mac).dataset.ver | 0;
 	if (confirm(`Current version: ${currentversion} 0x${currentversion.toString(16)}\nPending version: ${parseInt(version, 16)} 0x${parseInt(version, 16).toString(16)}\n\nNOTE: Every OTA update comes with a risk of bricking the tag, if it is bricked, it only can be recoverd with a tag flasher. Please only update if you need the new features.\n\nPress Cancel if you want to get out of here, or press OK if you want to proceed with the update.`)) {
-	
+
 		var md5 = info[0][tagtype]["md5"];
 		var fullFilename = name + "_" + version + ".bin";
 		var filepath = "/" + fullFilename;
@@ -783,6 +784,46 @@ $('#uploadButton').onclick = function () {
 	} else {
 		console.error('No file selected.');
 		alert('No file selected');
+	}
+}
+
+$('#restoreFromLocal').onclick = function () {
+	var tagDBrestore = localStorage.getItem('tagDB');
+	if (tagDBrestore) {
+		tagDBobj = JSON.parse(tagDBrestore);
+		var tagResult = [];
+
+		for (var key in tagDBobj) {
+			if (tagDBobj.hasOwnProperty(key)) {
+				tagResult.push([tagDBobj[key]]);
+			}
+		}
+
+		const blob = new Blob([JSON.stringify(tagResult, null, '\t')], { type: 'application/json' });
+		const formData = new FormData();
+		formData.append('file', blob, 'tagResult.json');
+
+		fetch('/restore_db', {
+			method: 'POST',
+			body: formData
+		})
+			.then(response => {
+				if (!response.ok) {
+					throw new Error(`HTTP error! Status: ${response.status}`);
+				}
+				return response.text();
+			})
+			.then(data => {
+				console.log('File uploaded successfully: ', data);
+				alert('TagDB restored. Webpage will reload.');
+				location.reload();
+			})
+			.catch(error => {
+				console.error('Error uploading file:', error);
+				alert('Error uploading file: ' + error);
+			});
+	} else {
+		console.log('No data found in localStorage');
 	}
 }
 
@@ -1003,7 +1044,7 @@ function showMessage(message, iserr) {
 				div.classList.add("tagxfer");
 				(function (tagmac) {
 					setTimeout(function () { $('#tag' + tagmac).classList.remove("tagxfer"); }, 200);
-				})(message.substring(0, 16));	
+				})(message.substring(0, 16));
 			}
 		}
 	}
@@ -1042,16 +1083,21 @@ function processQueue() {
 
 	const canvas = $('#tag' + id + ' .tagimg');
 	canvas.style.display = 'block';
+	// console.log('fetch ' + imageSrc);
 
 	fetch(imageSrc, { cache: "force-cache" })
 		.then(response => response.arrayBuffer())
 		.then(buffer => {
+			// console.log('mac ' + id +' draw ' + imageSrc + ' hwtype ' + hwtype);
 			[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
 			if (tagTypes[hwtype].rotatebuffer) [canvas.width, canvas.height] = [canvas.height, canvas.width];
 			const ctx = canvas.getContext('2d');
 			const imageData = ctx.createImageData(canvas.width, canvas.height);
 			const data = new Uint8ClampedArray(buffer);
-			if (data.length == 0) canvas.style.display = 'none';
+			if (data.length == 0) {
+				console.log(imageSrc + ' empty');
+				canvas.style.display = 'none';
+			}
 
 			if (tagTypes[hwtype].bpp == 16) {
 				const is16Bit = data.length == tagTypes[hwtype].width * tagTypes[hwtype].height * 2;
@@ -1606,4 +1652,8 @@ function debounce(func, delay) {
 			func.apply(context, args);
 		}, delay);
 	};
+}
+
+function backupTagDB() {
+	localStorage.setItem("tagDB", JSON.stringify(tagDB));
 }
