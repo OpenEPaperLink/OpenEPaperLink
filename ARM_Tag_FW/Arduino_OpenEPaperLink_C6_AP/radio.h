@@ -5,6 +5,7 @@
 extern uint8_t mSelfMac[8];
 
 void radio_init(uint8_t ch);
+void radio_housekeeping();
 bool radioTx(uint8_t *packet, bool subGhz);
 void radioSetChannel(uint8_t ch);
 void radioSetTxPower(uint8_t power);

@@ -315,7 +315,7 @@ static void tiRadioPrvPacketRx(void) {
 
     if (!now && !--nWaitCycles) {
       tiRadioPrvDeselect();
-      ESP_LOGI(TAG, " !!! RX timeout !!! ");
+      ESP_LOGE(TAG, " !!! RX timeout !!! ");
       goto fail;
     }
 
@@ -408,7 +408,7 @@ out:
       state = tiRadioPrvGetState();
 
       if (!--maxWait) {
-        //ESP_LOGI(TAG, "too long wait for rx state. state is %d", state);
+        //ESP_LOGE(TAG, "too long wait for rx state. state is %d", state);
         break;
       }
 

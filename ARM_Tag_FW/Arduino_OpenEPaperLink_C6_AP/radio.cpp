@@ -130,6 +130,16 @@ bool radioTx(uint8_t *packet, bool subGhz) {
   }
 }
 
+void radio_housekeeping()
+{
+  if (has_sub_ghz) {
+    tiRadioRxEnable(false, false);
+    delayMicroseconds(500);
+    tiRadioRxEnable(true, false);
+    delayMicroseconds(500);
+  }
+}
+
 void radioSetChannel(uint8_t ch) {
   radio_init(ch);
 }

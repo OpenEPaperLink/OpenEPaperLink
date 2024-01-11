@@ -790,6 +790,7 @@ void loop() {
     }
   }
 
+  radio_housekeeping();
   memset(&lastTagReturn, 0, 8);
   for (uint8_t cCount = 0; cCount < MAX_PENDING_MACS; cCount++) {
     if (pendingDataArr[cCount].attemptsLeft == 1) {
