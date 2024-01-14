@@ -1,65 +1,65 @@
 {
   "0": {
     "language": "en",
-    "daysShort": ["SU", "MO", "TU", "WE", "TH", "FR", "SA"],
-    "days": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-    "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-    "date_format": "%d-%m-%Y"
+    "daysShort": [ "SU", "MO", "TU", "WE", "TH", "FR", "SA" ],
+    "days": [ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ],
+    "months": [ "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" ],
+    "date_format": [ "%m/%d/%Y", "%m/%d" ]
   },
   "1": {
     "language": "nl",
-    "daysShort": ["ZO", "MA", "DI", "WO", "DO", "VR", "ZA"],
-    "days": ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"],
-    "months": ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"],
-    "date_format": "%d-%m-%Y"
+    "daysShort": [ "ZO", "MA", "DI", "WO", "DO", "VR", "ZA" ],
+    "days": [ "zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag" ],
+    "months": [ "januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december" ],
+    "date_format": [ "%d-%m-%Y", "%d-%m" ]
   },
   "2": {
     "language": "de",
-    "daysShort": ["SO", "MO", "DI", "MI", "DO", "FR", "SA"],
-    "days": ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"],
-    "months": ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
-    "date_format": "%d.%m.%Y"
+    "daysShort": [ "SO", "MO", "DI", "MI", "DO", "FR", "SA" ],
+    "days": [ "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag" ],
+    "months": [ "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember" ],
+    "date_format": [ "%d.%m.%Y", "%d.%m" ]
   },
   "3": {
     "language": "no",
-    "daysShort": ["SØ", "MA", "TI", "ON", "TO", "FR", "LØ"],
-    "days": ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"],
-    "months": ["Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember"],
-    "date_format": "%d-%m-%Y"
+    "daysShort": [ "SØ", "MA", "TI", "ON", "TO", "FR", "LØ" ],
+    "days": [ "Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag" ],
+    "months": [ "Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember" ],
+    "date_format": [ "%d-%m-%Y", "%d-%m" ]
   },
   "5": {
     "language": "cz",
-    "daysShort": ["NE", "PO", "ÚT", "ST", "ČT", "PÁ", "SO"],
-    "days": ["Neděle", "Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota"],
-    "months": ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"],
-    "date_format": "%d-%m-%Y"
+    "daysShort": [ "NE", "PO", "ÚT", "ST", "ČT", "PÁ", "SO" ],
+    "days": [ "Neděle", "Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota" ],
+    "months": [ "Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec" ],
+    "date_format": [ "%d-%m-%Y", "%d-%m" ]
   },
   "6": {
     "language": "sk",
-    "daysShort": ["NE", "PO", "UT", "ST", "ŠT", "PI", "SO"],
-    "days": ["Nedeľa", "Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok", "Sobota"],
-    "months": ["Január", "Február", "Marec", "Apríl", "Máj", "Jún", "Júl", "August", "September", "Oktober", "November", "December"],
-    "date_format": "%d-%m-%Y"
+    "daysShort": [ "NE", "PO", "UT", "ST", "ŠT", "PI", "SO" ],
+    "days": [ "Nedeľa", "Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok", "Sobota" ],
+    "months": [ "Január", "Február", "Marec", "Apríl", "Máj", "Jún", "Júl", "August", "September", "Oktober", "November", "December" ],
+    "date_format": [ "%d-%m-%Y", "%d-%m" ]
   },
   "7": {
     "language": "pl",
-    "daysShort": ["Ni", "Po", "Wt", "Śr", "Cz", "Pt", "So"],
-    "days": ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"],
-    "months": ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"],
-    "date_format": "%d-%m-%Y"
+    "daysShort": [ "Ni", "Po", "Wt", "Śr", "Cz", "Pt", "So" ],
+    "days": [ "Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota" ],
+    "months": [ "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień" ],
+    "date_format": [ "%d-%m-%Y", "%d-%m" ]
   },
   "8": {
     "language": "es",
-    "daysShort": ["D", "L", "MA", "MI", "J", "V", "S"],
-    "days": ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
-    "months": ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
-    "date_format": "%d-%m-%Y"
+    "daysShort": [ "D", "L", "MA", "MI", "J", "V", "S" ],
+    "days": [ "Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado" ],
+    "months": [ "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre" ],
+    "date_format": [ "%d-%m-%Y", "%d-%m" ]
   },
   "4": {
     "language": "fr",
-    "daysShort": ["DI", "LU", "MA", "ME", "JE", "VE", "SA"],
-    "days": ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"],
-    "months": ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre"],
-    "date_format": "%d-%m-%Y"        
+    "daysShort": [ "DI", "LU", "MA", "ME", "JE", "VE", "SA" ],
+    "days": [ "Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi" ],
+    "months": [ "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre" ],
+    "date_format": [ "%d-%m-%Y", "%d-%m" ]
   }
 }

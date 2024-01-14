@@ -100,14 +100,21 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
     if (imageParams.invert == 1) {
         std::swap(palette[0], palette[1]);
     }
-    if (imageParams.grayLut) {
-        Color newColor = {160, 160, 160};
-        palette.push_back(newColor);
+    Color color;
+    if (imageParams.dither == 2) {
+        color = {128, 128, 128};
+        palette.push_back(color);
+        color = {211, 211, 211};
+        palette.push_back(color);
+        color = {255, 192, 203};
+        palette.push_back(color);
+    } else if (imageParams.grayLut) {
+        color = {160, 160, 160};
+        palette.push_back(color);
         Serial.println("rendering with gray");
     }
     int num_colors = palette.size();
     if (imageParams.bufferbpp == 1) num_colors = 2;
-    Color color;
     Error *error_bufferold = new Error[bufw + 4];
     Error *error_buffernew = new Error[bufw + 4];
 
@@ -156,12 +163,22 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                         buffer[byteIndex] |= (1 << bitIndex);
                     break;
                 case 3:
-                    buffer[byteIndex] |= (1 << bitIndex);
-                    imageParams.hasRed = true;
+                    if (imageParams.grayLut) {
+                        buffer[byteIndex] |= (1 << bitIndex);
+                        imageParams.hasRed = true;
+                    } else {
+                        if (!is_red && (x + y) % 2) buffer[byteIndex] |= (1 << bitIndex);
+                    }
+                    break;
+                case 4:
+                    if (!is_red && (x % 2 == 0) && (y % 2 == 0)) buffer[byteIndex] |= (1 << bitIndex);
+                    break;
+                case 5:
+                    if (is_red && (x + y) % 2) buffer[byteIndex] |= (1 << bitIndex);
                     break;
             }
 
-            if (imageParams.dither) {
+            if (imageParams.dither == 1) {
                 Error error = {
                     color.r + error_bufferold[x].r - palette[best_color_index].r,
                     color.g + error_bufferold[x].g - palette[best_color_index].g,

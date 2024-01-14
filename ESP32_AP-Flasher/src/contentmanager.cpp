@@ -197,7 +197,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
 
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
-    imageParams.dither = false;
+    imageParams.dither = 0;
     if (taginfo->hasCustomLUT && taginfo->lut != 1) imageParams.grayLut = true;
 
     imageParams.invert = taginfo->invert;
@@ -232,7 +232,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                     configFilename = "/" + configFilename;
                 }
                 if (contentFS->exists(configFilename)) {
-                    imageParams.dither = cfgobj["dither"] && cfgobj["dither"] == "1";
+                    imageParams.dither = cfgobj["dither"];
 
                     imageParams.preload = cfgobj["preload"] && cfgobj["preload"] == "1";
                     imageParams.preloadlut = cfgobj["preload_lut"];
@@ -637,16 +637,12 @@ void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy
                 bool hasspace = false;
 
                 while (endPos < length && spr.textWidth(content.substring(startPos, endPos + 1).c_str()) <= boxwidth && content.charAt(endPos) != '\n') {
-                    // Serial.println("try: " + String(startPos) + "-" + String(endPos) + " " + content.substring(startPos, endPos + 1));
                     if (content.charAt(endPos) == ' ' || content.charAt(endPos) == '-') hasspace = true;
                     endPos++;
                 }
                 while (endPos < length && endPos > startPos && hasspace == true && content.charAt(endPos - 1) != ' ' && content.charAt(endPos - 1) != '-' && content.charAt(endPos) != '\n') {
                     endPos--;
-                    // Serial.println("backtrack: " + String(startPos) + "-" + String(endPos) + " " + content.substring(startPos, endPos));
                 }
-                // Serial.println("result: " + String(startPos) + "-" + String(endPos) + " " + content.substring(startPos, endPos));
-                // delay(1000);
                 spr.drawString(content.substring(startPos, endPos), posx, posy);
                 posy += spr.gFont.yAdvance * lineheight;
 
@@ -1089,7 +1085,7 @@ char *epoch_to_display(time_t utc) {
         (local_tm.tm_year == now_tm.tm_year && local_tm.tm_mon == now_tm.tm_mon && local_tm.tm_mday < now_tm.tm_mday) ||
         (local_tm.tm_hour == 0 && local_tm.tm_min == 0) ||
         difftime(utc, now) >= 86400) {
-        strftime(display, sizeof(display), "%d-%m", &local_tm);
+        strftime(display, sizeof(display), languageDateFormat[1].c_str(), &local_tm);
     } else {
         strftime(display, sizeof(display), "%H:%M", &local_tm);
     }
@@ -1113,7 +1109,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
     char dateString[40];
-    strftime(dateString, sizeof(dateString), languageDateFormat.c_str(), &timeinfo);
+    strftime(dateString, sizeof(dateString), languageDateFormat[0].c_str(), &timeinfo);
 
     HTTPClient http;
     // logLine("http getCalFeed " + URL);
@@ -1200,6 +1196,8 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
             int calYOffset = loc["gridparam"][1].as<int>();
             int lineHeight = loc["gridparam"][5].as<int>();
 
+            imageParams.dither = 2;
+
             // drawString(spr, String(timeinfo.tm_mday), calWidth / 2, -calHeight/5, "Signika-SB.ttf", TC_DATUM, TFT_RED, calHeight * 1.2);
 
             for (int i = 0; i < calDays; i++) {
@@ -1212,19 +1210,10 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                 spr.drawLine(colStart, calTop, colStart, calBottom, TFT_BLACK);
                 drawString(spr, String(languageDaysShort[dayInfo->tm_wday]) + " " + String(dayInfo->tm_mday), colStart + colWidth / 2, calTop, loc["gridparam"][3], TC_DATUM, TFT_BLACK);
 
-                int grid = 3;
                 if (dayInfo->tm_wday == 0 || dayInfo->tm_wday == 6) {
-                    for (int y = calTop + calYOffset; y < calHeight; y += 1) {
-                        for (int x = colStart + (y % 2); x < colStart + colWidth; x += 2) {
-                            spr.drawPixel(x, y, TFT_BLACK);
-                        }
-                    }
+                    spr.fillRect(colStart + 1, calTop + calYOffset, colWidth - 1, calHeight - 1, TFT_DARKGREY);
                 } else {
-                    for (int y = calTop + calYOffset; y < calHeight; y += 2) {
-                        for (int x = colStart; x < colStart + colWidth; x += 2) {
-                            spr.drawPixel(x, y, TFT_BLACK);
-                        }
-                    }
+                    spr.fillRect(colStart + 1, calTop + calYOffset, colWidth - 1, calHeight - 1, TFT_LIGHTGREY);
                 }
             }
 
@@ -1268,7 +1257,6 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                                 const time_t enddatetime2 = obj2["end"];
                                 if (startdatetime < enddatetime2 && enddatetime > startdatetime2 &&
                                     line == block[j] && isallday2) {
-                                    Serial.printf("overlap %d met %d, %d-%d met %d-%d, block[j]=%d", i, j, startdatetime, enddatetime, startdatetime2, enddatetime2, block[j]);
                                     overlap == true;
                                     line++;
                                 }
@@ -1339,8 +1327,6 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                                 const time_t enddatetime2 = obj2["end"];
                                 if (startdatetime < enddatetime2 && enddatetime > startdatetime2 &&
                                     indent == block[j] && isallday2 == false) {
-                                    Serial.println("overlap met " + String(j) + " (indent " + String(indent) + ")");
-                                    Serial.printf("overlap %d met %d, %d-%d met %d-%d, block[j]=%d", i, j, startdatetime, enddatetime, startdatetime2, enddatetime2, block[j]);
                                     overlap == true;
                                     indent++;
                                 }
@@ -1449,7 +1435,6 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
         const int bars2 = bars[2].as<int>();
 
         float factor = (float)bars1 / 111;
-        Serial.println(factor);
         for (int i = 0; i < imageParams.width; i += 4) {
             int yCoordinates[] = {1, 20, 29, 39, 49, 55, 59};
             for (int y : yCoordinates) {
@@ -1710,6 +1695,7 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
     TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     uint8_t screenCurrentOrientation = 0;
+    imageParams.dither = 2;
     DynamicJsonDocument doc(500);
     if (stream.find("[")) {
         do {
@@ -1799,6 +1785,10 @@ uint16_t getColor(const String &color) {
     if (color == "0" || color == "white") return TFT_WHITE;
     if (color == "1" || color == "" || color == "black") return TFT_BLACK;
     if (color == "2" || color == "red") return TFT_RED;
+    if (color == "3" || color == "yellow") return TFT_YELLOW;
+    if (color == "4" || color == "lightgray") return TFT_LIGHTGREY;
+    if (color == "5" || color == "darkgray") return TFT_DARKGREY;
+    if (color == "6" || color == "pink") return TFT_PINK;
     uint16_t r, g, b;
     if (color.length() == 7 && color[0] == '#' &&
         sscanf(color.c_str(), "#%2hx%2hx%2hx", &r, &g, &b) == 3) {

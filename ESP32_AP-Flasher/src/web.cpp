@@ -100,7 +100,7 @@ void wsSendSysteminfo() {
     if (day != timeinfo.tm_mday) {
         day = timeinfo.tm_mday;
         char timeBuffer[80];
-        strftime(timeBuffer, sizeof(timeBuffer), languageDateFormat.c_str(), &timeinfo);
+        strftime(timeBuffer, sizeof(timeBuffer), languageDateFormat[0].c_str(), &timeinfo);
         setVarDB("ap_date", timeBuffer);
     }
     setVarDB("ap_ip", WiFi.localIP().toString());
@@ -721,9 +721,9 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
             if (hex2mac(dst, mac)) {
                 tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
-                    bool dither = true;
+                    uint8_t dither = 1;
                     if (request->hasParam("dither", true)) {
-                        if (request->getParam("dither", true)->value() == "0") dither = false;
+                        dither = request->getParam("dither", true)->value().toInt();
                     }
                     uint32_t ttl = 0;
                     if (request->hasParam("ttl", true)) {

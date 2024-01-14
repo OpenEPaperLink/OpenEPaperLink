@@ -12,7 +12,7 @@ extern TFT_eSPI tft;
 struct imgParam {
     bool hasRed;
     uint8_t dataType;
-    bool dither;
+    uint8_t dither;
     bool grayLut = false;
     uint8_t bufferbpp = 8;
     uint8_t rotate = 0;

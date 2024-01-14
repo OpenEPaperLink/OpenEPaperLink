@@ -118,11 +118,11 @@ void setup() {
 
     initAPconfig();
 
-    xTaskCreate(initTime, "init time", 5000, NULL, 2, NULL);
     updateLanguageFromConfig();
     updateBrightnessFromConfig();
 
     init_web();
+    xTaskCreate(initTime, "init time", 5000, NULL, 2, NULL);
 
 #ifdef HAS_RGB_LED
     rgbIdle();

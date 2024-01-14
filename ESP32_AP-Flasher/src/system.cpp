@@ -7,15 +7,18 @@
 
 #include "storage.h"
 #include "tag_db.h"
+#include "wifimanager.h"
 
 void timeSyncCallback(struct timeval* tv) {
     Serial.println("time succesfully synced");
 }
 
 void initTime(void* parameter) {
-    sntp_set_time_sync_notification_cb(timeSyncCallback);
-    sntp_set_sync_interval(300 * 1000);
-    configTzTime(config.timeZone, "nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
+    if (WiFi.status() == WL_CONNECTED) {
+        sntp_set_time_sync_notification_cb(timeSyncCallback);
+        sntp_set_sync_interval(300 * 1000);
+        configTzTime(config.timeZone, "nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
+    }
     logStartUp();
     struct tm timeinfo;
     while (millis() < 30000) {
