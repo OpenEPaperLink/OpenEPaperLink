@@ -895,7 +895,7 @@ void APTask(void* parameter) {
 
     uint8_t attempts = 0;
     while (1) {
-        if (millis() - lastAPActivity > AP_ACTIVITY_MAX_INTERVAL) {
+        if (((apInfo.state == AP_STATE_ONLINE)||(apInfo.state == AP_STATE_FAILED)) && (millis() - lastAPActivity > AP_ACTIVITY_MAX_INTERVAL)) {
             bool reply = sendPing();
             if (!reply) {
                 attempts++;
