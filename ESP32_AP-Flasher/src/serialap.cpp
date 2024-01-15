@@ -821,7 +821,8 @@ void APTask(void* parameter) {
 #ifdef HAS_RGB_LED
             showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
 #endif
-            setAPstate(false, AP_STATE_FAILED);
+            if(apInfo.state != AP_STATE_FLASHING)// In case we are flashing already we do not want to end in a failed AP
+                setAPstate(false, AP_STATE_FAILED);
         } else {
             // AP unavailable, maybe time to flash?
             setAPstate(false, AP_STATE_OFFLINE);
