@@ -407,53 +407,27 @@ void init_web() {
 
     server.on("/led_flash", HTTP_GET, [](AsyncWebServerRequest *request) {
         //  color picker: https://roger-random.github.io/RGB332_color_wheel_three.js/
-        //  http GET to /led_flash?mac=000000000000&pattern=1,3/0x1C,4,5/0xE0,3,1/0x4F,5,10/5/0,0,0/0
-        //  http://192.168.178.198/led_flash?mac=00007E1F250CB29C&pattern=1,1/0x1C,1,15/0xE0,1,15/0x4F,1,15/1/0,0,0/0
-        //  (mode,flashDuration/color1,flashCount1,flashSpeed1/color2,flashCount2,flashSpeed2/color3,flashCount3,flashSpeed3/repeats/delay1,delay2,delay3/spare)
+        //  http GET to /led_flash?mac=000000000000&pattern=000000000000000000000000
+        //  see https://github.com/jjwbruijn/OpenEPaperLink/wiki/Led-control
         if (request->hasParam("mac")) {
             String dst = request->getParam("mac")->value();
             uint8_t mac[8];
             if (hex2mac(dst, mac)) {
                 tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
+                    uint8_t payload[12] = {0};
                     if (request->hasParam("pattern")) {
-                        String pattern = request->getParam("pattern")->value();
-                        struct ledFlash flashData;
-
-                        int values[18];
-                        int numValues = sscanf(
-                            pattern.c_str(),
-                            "%i,%i/%i,%i,%i/%i,%i,%i/%i,%i,%i/%i/%i,%i,%i/%i",
-                            &values[16], &values[1], &values[2], &values[3], &values[4], &values[5],&values[6], &values[7], &values[8], &values[9], &values[10], &values[11], &values[12], &values[13], &values[14], &values[15]);
-
-                        if (numValues != 16) {
-                            request->send(400, "text/plain", "Error: wrong number of inputs in pattern");
-                            return;
-                        } else {
-                            flashData.mode = values[16] & 0x0F;
-                            flashData.flashDuration = values[1] & 0x0F;
-                            flashData.color1 = values[2];
-                            flashData.flashCount1 = values[3] & 0x0F;
-                            flashData.flashSpeed1 = values[4] & 0x0F;
-                            flashData.color2 = values[5];
-                            flashData.flashCount2 = values[6] & 0x0F;
-                            flashData.flashSpeed2 = values[7] & 0x0F;
-                            flashData.color3 = values[8];
-                            flashData.flashCount3 = values[9] & 0x0F;
-                            flashData.flashSpeed3 = values[10] & 0x0F;
-                            flashData.repeats = values[11];
-                            flashData.delay1 = values[12];
-                            flashData.delay2 = values[13];
-                            flashData.delay3 = values[14];
-                            flashData.spare = values[15];
-
-
-                            const uint8_t *payload = reinterpret_cast<const uint8_t *>(&flashData);
-                            sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
-                            request->send(200, "text/plain", "ok, request transmitted");
+                        if (sscanf(request->getParam("pattern")->value().c_str(), "%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx",
+                                   &payload[0], &payload[1], &payload[2], &payload[3],
+                                   &payload[4], &payload[5], &payload[6], &payload[7],
+                                   &payload[8], &payload[9], &payload[10], &payload[11]) != 12) {
+                            request->send(400, "text/plain", "Error: expects 12 hex bytes in pattern");
                             return;
                         }
                     }
+                    sendTagCommand(mac, CMD_DO_LEDFLASH, !taginfo->isExternal, payload);
+                    request->send(200, "text/plain", "ok, request transmitted");
+                    return;
                 }
             }
         }
