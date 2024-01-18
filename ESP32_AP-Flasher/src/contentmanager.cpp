@@ -240,10 +240,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
 
                     jpg2buffer(configFilename, filename, imageParams);
                 } else {
-                    filename = "/current/" + String(hexmac) + ".pending";
-                    if (!contentFS->exists(filename)) {
-                        filename = "/current/" + String(hexmac) + ".raw";
-                    }
+                    filename = "/current/" + String(hexmac) + ".raw";
                     if (contentFS->exists(filename)) {
                         prepareDataAvail(filename, imageParams.dataType, imageParams.lut, mac, cfgobj["timetolive"].as<int>(), true);
                         wsLog("Resending image " + filename);

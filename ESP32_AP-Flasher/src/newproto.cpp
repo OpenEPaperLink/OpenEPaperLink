@@ -6,9 +6,11 @@
 #include <MD5Builder.h>
 #include <time.h>
 
+#include <algorithm>
 #include <cstring>
+#include <mutex>
+#include <vector>
 
-#include "commstructs.h"
 #include "serialap.h"
 #include "settings.h"
 #include "storage.h"
@@ -21,7 +23,8 @@
 
 extern uint16_t sendBlock(const void* data, const uint16_t len);
 extern UDPcomm udpsync;
-std::vector<PendingQueue> pendingQueue;
+std::vector<PendingItem> pendingQueue;
+std::mutex queueMutex;
 
 void addCRC(void* p, uint8_t len) {
     uint8_t total = 0;
@@ -64,7 +67,7 @@ void prepareCancelPending(const uint8_t dst[8]) {
         return;
     }
     clearPending(taginfo);
-
+    // fixme: check queue
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
@@ -180,14 +183,14 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
 
     if (dataType != DATATYPE_FW_UPDATE) {
         char dst_path[64];
-        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X_%lu.pending\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], millis());
         if (contentFS->exists(dst_path)) {
             contentFS->remove(dst_path);
         }
         if (resend == false) {
             contentFS->rename(filename, dst_path);
             filename = String(dst_path);
-            wsLog("new image: " + String(dst_path));
+            wsLog("new image: " + filename);
         }
 
         time_t now;
@@ -200,11 +203,6 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
         taginfo->pendingCount = 1;
         memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
     } else {
-        char dst_path[64];
-        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        contentFS->remove(dst_path);
-        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        contentFS->remove(dst_path);
         wsLog("firmware upload pending");
         clearPending(taginfo);
         taginfo->filename = filename;
@@ -248,7 +246,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
 
                 char hexmac[17];
                 mac2hex(pending->targetMac, hexmac);
-                String filename = "/current/" + String(hexmac) + ".pending";
+                String filename = "/current/" + String(hexmac) + "_" + String(millis()) + ".pending";
                 String imageUrl = "http://" + remoteIP.toString() + filename;
                 wsLog("GET " + imageUrl);
                 HTTPClient http;
@@ -351,40 +349,41 @@ void processBlockRequest(struct espBlockRequest* br) {
         return;
     }
 
-    tagRecord* taginfo = tagRecord::findByMAC(br->src);
-    if (taginfo == nullptr) {
-        if (config.lock) return;
+    PendingItem queueItem = getQueueItem(br->src);
+    if (queueItem.pendingdata.availdatainfo.dataVer != br->ver) {
+        // fixme: check Ver in queue
         prepareCancelPending(br->src);
         Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
         return;
     }
 
-    if (taginfo->data == nullptr) {
+    if (queueItem.data == nullptr) {
         // not cached. open file, cache the data
-        fs::File file = contentFS->open(taginfo->filename);
+        fs::File file = contentFS->open(queueItem.filename);
         if (!file) {
             Serial.print("No current file. Canceling request\n");
+            // fixme
             prepareCancelPending(br->src);
             return;
         }
-        taginfo->data = getDataForFile(file);
+        queueItem.data = getDataForFile(file);
         file.close();
     }
 
     // check if we're not exceeding max blocks (to prevent sendBlock from exceeding its boundary)
-    uint8_t totalblocks = (taginfo->len / BLOCK_DATA_SIZE);
-    if (taginfo->len % BLOCK_DATA_SIZE) totalblocks++;
+    uint8_t totalblocks = (queueItem.len / BLOCK_DATA_SIZE);
+    if (queueItem.len % BLOCK_DATA_SIZE) totalblocks++;
     if (br->blockId >= totalblocks) {
         br->blockId = totalblocks - 1;
     }
 
-    uint32_t len = taginfo->len - (BLOCK_DATA_SIZE * br->blockId);
+    uint32_t len = queueItem.len - (BLOCK_DATA_SIZE * br->blockId);
     if (len > BLOCK_DATA_SIZE) len = BLOCK_DATA_SIZE;
-    uint16_t checksum = sendBlock(taginfo->data + (br->blockId * BLOCK_DATA_SIZE), len);
+    uint16_t checksum = sendBlock(queueItem.data + (br->blockId * BLOCK_DATA_SIZE), len);
     char buffer[150];
-    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X block request %s block %d, len %d checksum %u\0", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0], taginfo->filename.c_str(), br->blockId, len, checksum);
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X block request %s block %d, len %d checksum %u\0", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0], queueItem.filename, br->blockId, len, checksum);
     wsLog((String)buffer);
-    Serial.printf("<RQB file %s block %d, len %d checksum %u\n\0", taginfo->filename.c_str(), br->blockId, len, checksum);
+    Serial.printf("<RQB file %s block %d, len %d checksum %u\n\0", queueItem.filename, br->blockId, len, checksum);
 }
 
 void processXferComplete(struct espXferComplete* xfc, bool local) {
@@ -401,23 +400,27 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         Serial.printf("<REMOTE XFC %02X%02X%02X%02X%02X%02X%02X%02X\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     }
 
-    char src_path[64];
-    char dst_path[64];
-    sprintf(src_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
-    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
-    if (contentFS->exists(dst_path) && contentFS->exists(src_path)) {
-        contentFS->remove(dst_path);
-    }
-    if (contentFS->exists(src_path)) {
-        if (config.preview) {
-            contentFS->rename(src_path, dst_path);
-        } else {
-            contentFS->remove(src_path);
-        }
-    }
-
     time_t now;
     time(&now);
+
+    char dst_path[64];
+    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
+
+    PendingItem queueItem = getQueueItem(xfc->src);
+    if (queueItem.filename != nullptr) {
+        if (contentFS->exists(dst_path) && contentFS->exists(queueItem.filename)) {
+            contentFS->remove(dst_path);
+        }
+        if (contentFS->exists(queueItem.filename)) {
+            if (config.preview && (queueItem.pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || queueItem.pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP)) {
+                contentFS->rename(queueItem.filename, String(dst_path));
+            } else {
+                contentFS->remove(queueItem.filename);
+            }
+        }
+    }
+    dequeueItem(xfc->src);
+
     tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
@@ -434,8 +437,12 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
             taginfo->nextupdate = now;
         }
     }
+
     wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferComplete(xfc);
+    
+    // more in the queue?
+    checkQueue(xfc->src);
 }
 
 void processXferTimeout(struct espXferComplete* xfc, bool local) {
@@ -462,6 +469,8 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
     }
     wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferTimeout(xfc);
+
+    checkQueue(xfc->src);
 }
 
 void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP) {
@@ -755,7 +764,7 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
                     queueDataAvail(&pending2);
                 } else {
                     char dst_path[64];
-                    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.pending\0", taginfo2->mac[7], taginfo2->mac[6], taginfo2->mac[5], taginfo2->mac[4], taginfo2->mac[3], taginfo2->mac[2], taginfo2->mac[1], taginfo2->mac[0]);
+                    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X_%lu.pending", taginfo2->mac[7], taginfo2->mac[6], taginfo2->mac[5], taginfo2->mac[4], taginfo2->mac[3], taginfo2->mac[2], taginfo2->mac[1], taginfo2->mac[0], millis());
                     xSemaphoreTake(fsMutex, portMAX_DELAY);
                     File file = contentFS->open(dst_path, "w");
                     if (file) {
@@ -775,9 +784,58 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
     return false;
 }
 
+void enqueueItem(struct PendingItem& item) {
+    std::lock_guard<std::mutex> lock(queueMutex);
+    pendingQueue.push_back(item);
+}
+
+void dequeueItem(const uint8_t* targetMac) {
+    std::lock_guard<std::mutex> lock(queueMutex);
+    auto it = std::find_if(pendingQueue.begin(), pendingQueue.end(),
+                           [targetMac](const PendingItem& item) {
+                               return memcmp(item.pendingdata.targetMac, targetMac, sizeof(item.pendingdata.targetMac)) == 0;
+                           });
+    if (it != pendingQueue.end()) {
+        if (it->data != nullptr) {
+            free(it->data);
+        }
+        pendingQueue.erase(it);
+    }
+}
+
+uint16_t countQueueItem(const uint8_t* targetMac) {
+    std::unique_lock<std::mutex> lock(queueMutex);
+    int count = std::count_if(pendingQueue.begin(), pendingQueue.end(),
+                              [targetMac](const PendingItem& item) {
+                                  return memcmp(item.pendingdata.targetMac, targetMac, sizeof(item.pendingdata.targetMac)) == 0;
+                              });
+    return count;
+}
+
+PendingItem getQueueItem(const uint8_t* targetMac) {
+    auto it = std::find_if(pendingQueue.begin(), pendingQueue.end(),
+                           [targetMac](const PendingItem& item) {
+                               return memcmp(item.pendingdata.targetMac, targetMac, sizeof(item.pendingdata.targetMac)) == 0;
+                           });
+    if (it != pendingQueue.end()) {
+        return *it;
+    } else {
+        return PendingItem{};
+    }
+}
+
+void checkQueue(const uint8_t* targetMac) {
+    uint16_t queueCount;
+    queueCount = countQueueItem(targetMac);
+    if (queueCount > 0) {
+        Serial.printf("more from queue: total %d elements\n", pendingQueue.size());
+        PendingItem queueItem = getQueueItem(targetMac);
+        if (queueCount > 1) queueItem.pendingdata.availdatainfo.nextCheckIn = 0;
+        sendDataAvail(&queueItem.pendingdata);
+    }
+}
 bool queueDataAvail(struct pendingData* pending) {
-    // sendDataAvail(pending);
-    PendingQueue newPending;
+    PendingItem newPending;
     newPending.pendingdata.availdatainfo = pending->availdatainfo;
     newPending.pendingdata.attemptsLeft = pending->attemptsLeft;
     std::copy(pending->targetMac, pending->targetMac + sizeof(pending->targetMac), newPending.pendingdata.targetMac);
@@ -789,8 +847,24 @@ bool queueDataAvail(struct pendingData* pending) {
     }
 
     std::strcpy(newPending.filename, taginfo->filename.c_str());
-    newPending.data = taginfo->data;
+    if (taginfo->data != nullptr) {
+        // move data pointer
+        newPending.data = taginfo->data;
+        taginfo->data = nullptr;
+    } else {
+        newPending.data = nullptr;
+    }
     newPending.len = taginfo->len;
-    pendingQueue.push_back(newPending);
-    Serial.printf("queue item added, total %d elements\n", pendingQueue.size());
+
+    if (countQueueItem(pending->targetMac) == 0) {
+        enqueueItem(newPending);
+        // first in line, send to tag
+        Serial.printf("queue item added, first in line, total %d elements\n", pendingQueue.size());
+        sendDataAvail(pending);
+    } else {
+        enqueueItem(newPending);
+        Serial.printf("queue item added, total %d elements\n", pendingQueue.size());
+    }
+
+    return true;
 }

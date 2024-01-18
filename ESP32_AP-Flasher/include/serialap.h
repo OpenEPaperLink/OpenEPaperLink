@@ -27,7 +27,6 @@ extern struct APInfoS apInfo;
 void APTask(void* parameter);
 
 bool sendCancelPending(struct pendingData* pending);
-bool queueDataAvail(struct pendingData* pending);
 bool sendDataAvail(struct pendingData* pending);
 bool sendPing();
 void APEnterEarlyReset();

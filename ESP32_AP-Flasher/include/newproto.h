@@ -1,5 +1,14 @@
 #include <Arduino.h>
 
+#include "commstructs.h"
+
+struct PendingItem {
+    struct pendingData pendingdata;
+    char filename[50];
+    uint8_t* data;
+    uint32_t len;
+};
+
 extern void addCRC(void* p, uint8_t len);
 extern bool checkCRC(void* p, uint8_t len);
 
@@ -24,11 +33,9 @@ void refreshAllPending();
 void updateContent(const uint8_t* dst);
 void setAPchannel();
 
-struct PendingQueue {
-    struct pendingData pendingdata;
-    char filename[50];
-    uint8_t* data;
-    uint32_t len;
-} __packed;
-
-
+void enqueueItem(const PendingItem& item);
+void dequeueItem(const uint8_t* targetMac);
+uint16_t countQueueItem(const uint8_t* targetMac);
+extern PendingItem getQueueItem(const uint8_t* targetMac);
+void checkQueue(const uint8_t* targetMac);
+bool queueDataAvail(struct pendingData* pending);

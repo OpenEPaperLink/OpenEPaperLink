@@ -1,4 +1,7 @@
-#include <Arduino.h>
+#ifndef NEWPROTO_H
+#define NEWPROTO_H 
+
+#include<Arduino.h>
 #pragma pack(push, 1)
 
 #include "../../oepl-definitions.h"
@@ -45,3 +48,5 @@ struct TagInfo {
 
 
 #pragma pack(pop)
+
+#endif // NEWPROTO_H
