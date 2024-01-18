@@ -103,7 +103,7 @@ void fillNode(JsonObject& tag, const tagRecord* taginfo) {
     tag["lastseen"] = taginfo->lastseen;
     tag["nextupdate"] = taginfo->nextupdate;
     tag["nextcheckin"] = taginfo->expectedNextCheckin;
-    tag["pending"] = taginfo->pending;
+    tag["pending"] = taginfo->pendingCount;
     tag["alias"] = taginfo->alias;
     tag["contentMode"] = taginfo->contentMode;
     tag["LQI"] = taginfo->LQI;
@@ -213,7 +213,7 @@ bool loadDB(const String& filename) {
                     if (taginfo->expectedNextCheckin < now) {
                         taginfo->expectedNextCheckin = now + 1800;
                     }
-                    taginfo->pending = false;
+                    taginfo->pendingCount = 0;
                     taginfo->alias = tag["alias"].as<String>();
                     taginfo->contentMode = tag["contentMode"];
                     taginfo->LQI = tag["LQI"];
@@ -303,7 +303,7 @@ void clearPending(tagRecord* taginfo) {
         }
         taginfo->data = nullptr;
     }
-    taginfo->pending = false;
+    taginfo->pendingCount = 0;
 }
 
 void initAPconfig() {

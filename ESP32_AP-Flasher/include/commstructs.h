@@ -34,7 +34,7 @@ struct TagInfo {
     char alias[32];
     uint32_t lastseen;
     uint32_t nextupdate;
-    bool pending;
+    uint16_t pendingCount;
     uint32_t expectedNextCheckin;
     uint8_t hwType;
     uint8_t wakeupReason;

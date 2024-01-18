@@ -51,7 +51,7 @@ void contentRunner() {
             // taginfo->wakeupReason = 0;
         }
 
-        if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pending == false) {
+        if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pendingCount == 0) {
             int16_t minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
             if (minutesUntilNextUpdate > config.maxsleep) {
                 minutesUntilNextUpdate = config.maxsleep;

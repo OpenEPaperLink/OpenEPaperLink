@@ -23,3 +23,12 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending);
 void refreshAllPending();
 void updateContent(const uint8_t* dst);
 void setAPchannel();
+
+struct PendingQueue {
+    struct pendingData pendingdata;
+    char filename[50];
+    uint8_t* data;
+    uint32_t len;
+} __packed;
+
+
