@@ -107,12 +107,12 @@ bool WifiManager::connectToWifi() {
     _ssid = preferences.getString("ssid", WiFi_SSID());
     _pass = preferences.getString("pw", WiFi_psk());
     if (_ssid == "") {
-        terminalLog("No connection information saved");
+        terminalLog("No connection info saved");
         logLine("No connection information saved");
         startManagementServer();
         return false;
     }
-    terminalLog("Stored ssid: " + String(_ssid));
+    terminalLog("ssid: " + String(_ssid));
 
     String ip = preferences.getString("ip", "");
     String mask = preferences.getString("mask", "");
@@ -207,7 +207,7 @@ bool WifiManager::waitForConnection() {
 
 void WifiManager::startManagementServer() {
     if (!_APstarted) {
-        terminalLog("Starting configuration AP, ssid: OpenEPaperLink");
+        terminalLog("Starting config AP, ssid: OpenEPaperLink");
         logLine("Starting configuration AP, ssid OpenEPaperLink");
         WiFi.disconnect(true, true);
         delay(100);

@@ -22,8 +22,10 @@ bool tftLogscreen = true;
 void TFTLog(String text) {
     if (tftLogscreen == false) {
         tft2.fillScreen(TFT_BLACK);
-        tft2.setCursor(0, 5, 2);
+        tft2.setCursor(0, 0, (tft2.width() == 160 ? 1 : 2));
         tftLogscreen = true;
+    } else {
+        if (tft2.width() == 160) tft2.setCursor(0, tft2.getCursorY(), 1);
     }
     if (text.isEmpty()) return;
     tft2.setTextColor(TFT_SILVER);
@@ -34,12 +36,18 @@ void TFTLog(String text) {
         int httpIndex = text.indexOf("http");
         tft2.print(text.substring(0, httpIndex));
         tft2.setTextColor(TFT_YELLOW);
-        text = text.substring(httpIndex);
+        if (tft2.width() == 160) {
+            tft2.setCursor(0, tft2.getCursorY() + 8, 2);
+            text = text.substring(httpIndex + 7);
+        } else {
+            text = text.substring(httpIndex);
+        }
     } else if (text.indexOf(":") != -1) {
         int colonIndex = text.indexOf(":");
         tft2.setTextColor(TFT_SILVER);
         tft2.print(text.substring(0, colonIndex + 1));
         tft2.setTextColor(TFT_WHITE);
+        if (tft2.width() == 160) tft2.setCursor(0, tft2.getCursorY() + 8, 2);
         text = text.substring(colonIndex + 1);
     } else if (text.endsWith("!")) {
         tft2.setTextColor(TFT_GREEN);
@@ -64,7 +72,7 @@ void sendAvail(uint8_t wakeupReason) {
     memcpy(&eadr.src, mac, 6);
     eadr.adr.lastPacketRSSI = WiFi.RSSI();
     eadr.adr.currentChannel = config.channel;
-    eadr.adr.hwType = 0xE0;
+    eadr.adr.hwType = (tft2.width() == 160 ? 0xE1 : 0xE0);
     eadr.adr.wakeupReason = wakeupReason;
     eadr.adr.capabilities = 0;
     eadr.adr.tagSoftwareVersion = 0;
@@ -78,22 +86,22 @@ void yellow_ap_display_init(void) {
     pinMode(YELLOW_SENSE, INPUT_PULLDOWN);
     vTaskDelay(100 / portTICK_PERIOD_MS);
     if (digitalRead(YELLOW_SENSE) == HIGH) YellowSense = 1;
-
     pinMode(TFT_BACKLIGHT, OUTPUT);
-    digitalWrite(TFT_BACKLIGHT, HIGH);
-
-    ledcSetup(6, 5000, 8);
-    ledcAttachPin(TFT_BACKLIGHT, 6);
-    ledcWrite(6, config.tft);
+    digitalWrite(TFT_BACKLIGHT, LOW);
 
     tft2.init();
     tft2.setRotation(YellowSense == 1 ? 1 : 3);
-
     tft2.fillScreen(TFT_BLACK);
-    tft2.setCursor(10, 5, 2);
+    tft2.setCursor(12, 0, (tft2.width() == 160 ? 1 : 2));
     tft2.setTextColor(TFT_WHITE);
-    tft2.println("*** Initialising... ***");
     tftLogscreen = true;
+
+    ledcSetup(6, 5000, 8);
+    ledcAttachPin(TFT_BACKLIGHT, 6);
+    if (tft2.width() == 160) {
+        GPIO.func_out_sel_cfg[TFT_BACKLIGHT].inv_sel = 1;
+    }
+    ledcWrite(6, config.tft);
 }
 
 void yellow_ap_display_loop(void) {
@@ -122,7 +130,7 @@ void yellow_ap_display_loop(void) {
             }
 
             TFT_eSprite spr = TFT_eSprite(&tft2);
-            if (tag->len == tft2.width() * tft2.height() * 2) spr.setColorDepth(16);
+            spr.setColorDepth(16);
             if (tag->len == tft2.width() * tft2.height()) spr.setColorDepth(8);
             spr.createSprite(tft2.width(), tft2.height());
             void* spriteData = spr.getPointer();
