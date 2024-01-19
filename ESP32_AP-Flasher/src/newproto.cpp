@@ -67,7 +67,8 @@ void prepareCancelPending(const uint8_t dst[8]) {
         return;
     }
     clearPending(taginfo);
-    // fixme: check queue
+    dequeueItem(dst);
+    taginfo->pendingCount = countQueueItem(dst);
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
@@ -98,20 +99,29 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8
         wsErr("no memory allocation for data");
         return;
     }
+
+    uint8_t md5bytes[16];
+    {
+        MD5Builder md5;
+        md5.begin();
+        md5.add(data, len);
+        md5.calculate();
+        md5.getBytes(md5bytes);
+    }
+
     memcpy(taginfo->data, data, len);
-    taginfo->pendingCount = 1;
+    taginfo->pendingCount++;
     taginfo->len = len;
     taginfo->pendingIdle = 0;
     taginfo->filename = String();
     taginfo->dataType = dataType;
-    memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
 
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     pending.availdatainfo.dataSize = len;
     pending.availdatainfo.dataType = dataType;
     pending.availdatainfo.nextCheckIn = 0;
-    pending.availdatainfo.dataVer = millis();
+    pending.availdatainfo.dataVer = *((uint64_t*)md5bytes);
     pending.attemptsLeft = 10;
 
     if (taginfo->isExternal) {
@@ -170,17 +180,6 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
     file.close();
     uint16_t attempts = 60 * 24;
 
-    /*
-    if (memcmp(md5bytes, taginfo->md5pending, 16) == 0) {
-        wsLog("new image is the same as current or already pending image. not updating tag.");
-        wsSendTaginfo(dst, SYNC_TAGSTATUS);
-        if (contentFS->exists(filename) && resend == false) {
-            contentFS->remove(filename);
-        }
-        return true;
-    }
-    */
-
     if (dataType != DATATYPE_FW_UPDATE) {
         char dst_path[64];
         sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X_%lu.pending\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], millis());
@@ -197,19 +196,14 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
         time(&now);
         taginfo->pendingIdle = nextCheckin * 60 + 60;
         clearPending(taginfo);
-        taginfo->filename = filename;
-        taginfo->len = filesize;
-        taginfo->dataType = dataType;
-        taginfo->pendingCount = 1;
-        memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
     } else {
         wsLog("firmware upload pending");
         clearPending(taginfo);
-        taginfo->filename = filename;
-        taginfo->len = filesize;
-        taginfo->dataType = dataType;
-        taginfo->pendingCount = 1;
     }
+    taginfo->filename = filename;
+    taginfo->len = filesize;
+    taginfo->dataType = dataType;
+    taginfo->pendingCount++;
 
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
@@ -297,8 +291,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 taginfo->filename = filename;
                 taginfo->len = filesize;
                 taginfo->dataType = pending->availdatainfo.dataType;
-                taginfo->pendingCount = 1;
-                memcpy(taginfo->md5pending, md5bytes, sizeof(md5bytes));
+                taginfo->pendingCount++;
                 break;
             }
             case DATATYPE_NFC_RAW_CONTENT:
@@ -320,7 +313,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                         WiFiClient* stream = http.getStreamPtr();
                         stream->readBytes(taginfo->data, len);
                         taginfo->dataType = pending->availdatainfo.dataType;
-                        taginfo->pendingCount = 1;
+                        taginfo->pendingCount++;
                         taginfo->len = len;
                     }
                 }
@@ -406,6 +399,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     char dst_path[64];
     sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
 
+    uint8_t md5bytes[16];
     PendingItem queueItem = getQueueItem(xfc->src);
     if (queueItem.filename != nullptr) {
         if (contentFS->exists(dst_path) && contentFS->exists(queueItem.filename)) {
@@ -418,13 +412,15 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
                 contentFS->remove(queueItem.filename);
             }
         }
+        memcpy(md5bytes, &queueItem.pendingdata.availdatainfo.dataVer, sizeof(uint64_t));
     }
     dequeueItem(xfc->src);
 
     tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
-        memcpy(taginfo->md5, taginfo->md5pending, sizeof(taginfo->md5pending));
         clearPending(taginfo);
+        memcpy(taginfo->md5, md5bytes, sizeof(md5bytes));
+        taginfo->pendingCount = countQueueItem(xfc->src);
         taginfo->wakeupReason = 0;
         if (taginfo->contentMode == 12 && local == false) {
             if (contentFS->exists(dst_path)) {
@@ -464,8 +460,8 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
     tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         taginfo->pendingIdle = 60;
-        memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
         clearPending(taginfo);
+        // fixme: check/remove queue
     }
     wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferTimeout(xfc);
@@ -521,8 +517,6 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     if (eadr->adr.lastPacketRSSI != 0) {
         if (eadr->adr.wakeupReason >= 0xE0) {
             if (taginfo->pendingCount == 0) taginfo->nextupdate = 0;
-            memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-            memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
 
             if (local) {
                 const char* reason = "";
@@ -553,8 +547,6 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     if (local) {
         sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
         Serial.print(buffer);
-    } else {
-        // sprintf(buffer, "<REMOTE ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
     }
 
     if (local) {
@@ -588,8 +580,6 @@ void refreshAllPending() {
         if (taginfo->pendingCount > 0 && taginfo->version == 0) {
             clearPending(taginfo);
             taginfo->nextupdate = 0;
-            memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-            memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
             wsSendTaginfo(taginfo->mac, SYNC_TAGSTATUS);
         }
     }
@@ -600,8 +590,6 @@ void updateContent(const uint8_t* dst) {
     if (taginfo != nullptr) {
         clearPending(taginfo);
         taginfo->nextupdate = 0;
-        memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-        memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
         wsSendTaginfo(taginfo->mac, SYNC_TAGSTATUS);
     }
 }
@@ -667,6 +655,13 @@ bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* 
     }
     pending.attemptsLeft = 120;
     Serial.printf(">Tag CMD %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
+    if (taginfo != nullptr) {
+        taginfo->pendingCount++;
+        wsSendTaginfo(taginfo->mac, SYNC_TAGSTATUS);
+    }
+
     if (local) {
         return queueDataAvail(&pending);
     } else {
@@ -747,14 +742,13 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
                 taginfo2->len = taginfo->len;
                 taginfo2->data = taginfo->data;  // copy buffer pointer
                 taginfo2->dataType = taginfo->dataType;
-                taginfo2->pendingCount = 1;
+                taginfo2->pendingCount++;
                 taginfo2->nextupdate = 3216153600;
-                memcpy(taginfo2->md5pending, taginfo->md5pending, sizeof(taginfo->md5pending));
 
                 struct pendingData pending2 = {0};
                 memcpy(pending2.targetMac, taginfo2->mac, 8);
                 pending2.availdatainfo.dataType = taginfo2->dataType;
-                pending2.availdatainfo.dataVer = *((uint64_t*)taginfo2->md5pending);
+                pending2.availdatainfo.dataVer = pending->availdatainfo.dataVer;
                 pending2.availdatainfo.dataSize = taginfo2->len;
                 pending2.availdatainfo.dataTypeArgument = pending->availdatainfo.dataTypeArgument;
                 pending2.availdatainfo.nextCheckIn = pending->availdatainfo.nextCheckIn;

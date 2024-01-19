@@ -379,6 +379,7 @@ function processTags(tagArray) {
 				break;
 		}
 		$('#tag' + tagmac + ' .pendingicon').style.display = (element.pending ? 'inline-block' : 'none');
+		$('#tag' + tagmac + ' .pendingicon').innerHTML = element.pending;
 		div.classList.add("tagflash");
 		(function (tagmac) {
 			setTimeout(function () { $('#tag' + tagmac).classList.remove("tagflash"); }, 1400);

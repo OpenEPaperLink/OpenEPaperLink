@@ -311,8 +311,6 @@ void init_web() {
                     if (request->hasParam("invert", true)) {
                         taginfo->invert = atoi(request->getParam("invert", true)->value().c_str());
                     }
-                    // memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-                    // memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
                     wsSendTaginfo(mac, SYNC_USERCFG);
                     // saveDB("/current/tagDB.json");
                     request->send(200, "text/plain", "Ok, saved");
@@ -337,7 +335,7 @@ void init_web() {
                     }
                     if (strcmp(cmdValue, "clear") == 0) {
                         clearPending(taginfo);
-                        memcpy(taginfo->md5pending, taginfo->md5, sizeof(taginfo->md5pending));
+                        // fixme: clear pending queue
                         wsSendTaginfo(mac, SYNC_TAGSTATUS);
                     }
                     if (strcmp(cmdValue, "refresh") == 0) {

@@ -206,7 +206,6 @@ bool loadDB(const String& filename) {
                             taginfo->md5[i] = strtoul(md5.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
                         }
                     }
-                    memcpy(taginfo->md5pending, taginfo->md5, sizeof(taginfo->md5));
                     taginfo->lastseen = (uint32_t)tag["lastseen"];
                     taginfo->nextupdate = (uint32_t)tag["nextupdate"];
                     taginfo->expectedNextCheckin = (uint32_t)tag["nextcheckin"];
@@ -303,7 +302,6 @@ void clearPending(tagRecord* taginfo) {
         }
         taginfo->data = nullptr;
     }
-    taginfo->pendingCount = 0;
 }
 
 void initAPconfig() {
