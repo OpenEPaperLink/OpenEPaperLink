@@ -2,6 +2,9 @@
 
 ## NanoC6_AP by [ATC1441](https://github.com/atc1441)
 
+# ATTENTION: This NanoC6 AP is not longer supported and legacy, please use the new S3_C6_NanoAP as a replacement 
+https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Hardware/S3_C6_NanoAP%20by%20ATC1441
+
 The NanoC6_AP is made with the WEMOS S2-Min With an ESP32-S2 ( https://de.aliexpress.com/item/1005004981201254.html )
 together with this PCB and an ESP32-C6 it makes a potent but small Access Point for the OpenEPaperLink with an impressive range.
 
