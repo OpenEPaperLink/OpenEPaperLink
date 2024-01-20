@@ -6,7 +6,6 @@
 
 #include "LittleFS.h"
 #include "storage.h"
-// #include <FS.h>
 
 #include "leds.h"
 #include "settings.h"
@@ -59,7 +58,6 @@ int8_t pinsAP[] = {FLASHER_AP_CLK, FLASHER_AP_MISO, FLASHER_AP_MOSI, FLASHER_AP_
 int8_t powerPinsExt[] = FLASHER_EXT_POWER;
 int8_t powerPinsAlt[] = FLASHER_ALT_POWER;
 uint8_t pinsExt[] = {FLASHER_EXT_CLK, FLASHER_EXT_MISO, FLASHER_EXT_MOSI, FLASHER_EXT_RESET, FLASHER_EXT_RXD, FLASHER_EXT_SS, FLASHER_EXT_TEST, FLASHER_EXT_TXD};
-
 #endif
 
 flasher::flasher() {
@@ -501,6 +499,7 @@ bool flasher::writeBlock(uint16_t offset, uint8_t *data, uint16_t len, bool info
     return true;
 }
 
+#ifndef C6_OTA_FLASHING
 uint16_t getAPUpdateVersion(uint8_t type) {
     StaticJsonDocument<512> doc;
     fs::File readfile = contentFS->open("/AP_FW_Pack.bin", "r");
@@ -625,6 +624,7 @@ bool doAPUpdate(uint8_t type) {
     delete f;
     return res;
 }
+#endif
 
 void flashCountDown(uint8_t c) {
     Serial.printf("\r%d  ", c);

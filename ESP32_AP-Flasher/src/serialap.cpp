@@ -405,7 +405,9 @@ void rxSerialTask(void* parameter) {
             lastchar = AP_SERIAL_PORT.read();
             switch (RXState) {
                 case ZBS_RX_WAIT_HEADER:
+
                     Serial.write(lastchar);
+
                     //  shift characters in
                     for (uint8_t c = 0; c < 3; c++) {
                         cmdbuffer[c] = cmdbuffer[c + 1];
@@ -617,7 +619,9 @@ void rxSerialTask2(void* parameter) {
         while (Serial2.available()) {
             lastchar = Serial2.read();
             charCount++;
-            Serial.write(lastchar);
+
+            // debug
+            // Serial.write(lastchar);
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
 
@@ -747,6 +751,7 @@ void APTask(void* parameter) {
 
     bringAPOnline();
 
+#ifndef C6_OTA_FLASHING
     if (checkForcedAPFlash() && FLASHER_AP_MOSI != -1) {
         if (apInfo.type == SOLUM_SEG_UK && apInfo.isOnline) {
             notifySegmentedFlash();
@@ -759,6 +764,7 @@ void APTask(void* parameter) {
         checkWaitPowerCycle();
         bringAPOnline();
     }
+#endif
 
     if (apInfo.isOnline) {
         // AP works!
@@ -774,6 +780,7 @@ void APTask(void* parameter) {
 
 
         uint16_t fsversion;
+#ifndef C6_OTA_FLASHING
         if (FLASHER_AP_MOSI != -1) {
             fsversion = getAPUpdateVersion(apInfo.type);
             if ((fsversion) && (apInfo.version != fsversion)) {
@@ -809,6 +816,8 @@ void APTask(void* parameter) {
                 }
             }
         }
+#endif
+
         refreshAllPending();
     } else {
 #ifndef FLASH_TIMEOUT
@@ -824,6 +833,7 @@ void APTask(void* parameter) {
             if(apInfo.state != AP_STATE_FLASHING)// In case we are flashing already we do not want to end in a failed AP
                 setAPstate(false, AP_STATE_FAILED);
         } else {
+#ifndef C6_OTA_FLASHING
             // AP unavailable, maybe time to flash?
             setAPstate(false, AP_STATE_OFFLINE);
 
@@ -890,6 +900,7 @@ void APTask(void* parameter) {
                 flashCountDown(30);
                 ESP.restart();
             }
+#endif
 #endif
         }
     }
