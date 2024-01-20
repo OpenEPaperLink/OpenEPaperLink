@@ -805,10 +805,14 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
     if (weathercode > 40) weathercode -= 40;
 
     const uint8_t beaufort = windSpeedToBeaufort(windspeed);
+    String temperatureunit = " °";
+    String windunit = "";
     if (cfgobj["units"] != "1") {
         windval = beaufort;
+        windunit = " bft";
     } else {
         windval = int(windspeed);
+        windunit = " mph";
     }
 
     doc.clear();
@@ -839,12 +843,12 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
     const auto &location = doc["location"];
     drawString(spr, cfgobj["location"], location[0], location[1], location[2]);
     const auto &wind = doc["wind"];
-    drawString(spr, String(windval), wind[0], wind[1], wind[2], TR_DATUM, (beaufort > 4 ? TFT_RED : TFT_BLACK));
+    drawString(spr, String(windval) + windunit, wind[0], wind[1], wind[2], TR_DATUM, (beaufort > 4 ? TFT_RED : TFT_BLACK));
 
     char tmpOutput[5];
     dtostrf(temperature, 2, 1, tmpOutput);
     const auto &temp = doc["temp"];
-    drawString(spr, String(tmpOutput), temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? TFT_RED : TFT_BLACK));
+    drawString(spr, String(tmpOutput) + temperatureunit, temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? TFT_RED : TFT_BLACK));
 
     const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99)
                               ? TFT_RED
