@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 #define FLASHER_AP_PORT 0
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 #define FLASHER_EXT_PORT 1
 #define FLASHER_ALTRADIO_PORT 2
 #endif

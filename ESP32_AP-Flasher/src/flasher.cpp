@@ -5,14 +5,13 @@
 #include <MD5Builder.h>
 
 #include "LittleFS.h"
-#include "storage.h"
-
 #include "leds.h"
 #include "settings.h"
+#include "storage.h"
 #include "time.h"
 #include "zbs_interface.h"
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 #include "webflasher.h"
 #define Seriallog logger
 extern Logger logger;
@@ -22,13 +21,13 @@ extern Logger logger;
 
 #define FINGERPRINT_FLASH_SIZE 10240
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 bool extTagConnected() {
     // checks if the TEST (P1.0) pin on the ZBS243 will come up high. If it doesn't, there's probably a tag connected.
     pinMode(FLASHER_EXT_TEST, INPUT_PULLDOWN);
-    vTaskDelay(5 / portTICK_PERIOD_MS);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
     pinMode(FLASHER_EXT_TEST, INPUT_PULLUP);
-    vTaskDelay(5 / portTICK_PERIOD_MS);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
     return !digitalRead(FLASHER_EXT_TEST);
 }
 #endif
@@ -62,7 +61,7 @@ void dump(uint8_t *a, uint16_t l) {
 int8_t powerPinsAP[] = FLASHER_AP_POWER;
 int8_t pinsAP[] = {FLASHER_AP_CLK, FLASHER_AP_MISO, FLASHER_AP_MOSI, FLASHER_AP_RESET, FLASHER_AP_RXD, FLASHER_AP_SS, FLASHER_AP_TEST, FLASHER_AP_TXD};
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 int8_t powerPinsExt[] = FLASHER_EXT_POWER;
 int8_t powerPinsAlt[] = FLASHER_ALT_POWER;
 uint8_t pinsExt[] = {FLASHER_EXT_CLK, FLASHER_EXT_MISO, FLASHER_EXT_MOSI, FLASHER_EXT_RESET, FLASHER_EXT_RXD, FLASHER_EXT_SS, FLASHER_EXT_TEST, FLASHER_EXT_TXD};
@@ -70,11 +69,11 @@ uint8_t pinsExt[] = {FLASHER_EXT_CLK, FLASHER_EXT_MISO, FLASHER_EXT_MOSI, FLASHE
 
 flasher::flasher() {
     zbs = new ZBS_interface;
-    Storage.end();
+    // Storage.end();
 }
 flasher::~flasher() {
     delete zbs;
-    Storage.begin();
+    // Storage.begin();
 }
 
 static uint8_t validatePowerPinCount(int8_t *powerPin, uint8_t pinCount) {
@@ -96,7 +95,7 @@ bool flasher::connectTag(uint8_t port) {
             power_pins = validatePowerPinCount(powerPinsAP, sizeof(powerPinsAP));
             result = zbs->begin(FLASHER_AP_SS, FLASHER_AP_CLK, FLASHER_AP_MOSI, FLASHER_AP_MISO, FLASHER_AP_RESET, (uint8_t *)powerPinsAP, power_pins, FLASHER_AP_SPEED);
             break;
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
         case 1:
             power_pins = validatePowerPinCount(powerPinsExt, sizeof(powerPinsExt));
             result = zbs->begin(FLASHER_EXT_SS, FLASHER_EXT_CLK, FLASHER_EXT_MOSI, FLASHER_EXT_MISO, FLASHER_EXT_RESET, (uint8_t *)powerPinsExt, power_pins, FLASHER_AP_SPEED);
@@ -107,18 +106,17 @@ bool flasher::connectTag(uint8_t port) {
             break;
 #endif
         default:
-            Seriallog.printf("Tried to connect to port %d, but this port isn't available. Some dev borked it up, probably Jelmer.\n", port);
             return false;
     }
-    if (!result) Seriallog.printf("I tried connecting to port %d, but I couldn't establish a link to the tag. That's all I know.\n", port);
+    if (!result) Serial.printf("I tried connecting to port %d, but I couldn't establish a link to the tag. That's all I know.\n", port);
     return result;
 }
 
-void flasher::getFirmwareMD5() {
+bool flasher::getFirmwareMD5() {
     uint8_t *buffer = (uint8_t *)malloc(FINGERPRINT_FLASH_SIZE);
     if (buffer == nullptr) {
         Seriallog.print("couldn't malloc bytes for firmware MD5\n");
-        return;
+        return false;
     }
 
     zbs->select_flash(0);
@@ -139,6 +137,7 @@ void flasher::getFirmwareMD5() {
     }
     Seriallog.printf("MD5=%s\n", md5char);
     free(buffer);
+    return true;
 }
 
 bool flasher::getInfoBlockMac() {
@@ -146,13 +145,11 @@ bool flasher::getInfoBlockMac() {
     for (uint16_t c = 7; c < 8; c--) {
         mac[7 - c] = zbs->read_flash(c + 0x10);
     }
-    Seriallog.printf("Infopage mac=");
     uint16_t macsum = 0;
     for (uint8_t c = 0; c < 8; c++) {
         macsum += mac[c];
-        Seriallog.printf("%02X", mac[c]);
     }
-    Seriallog.printf("\n");
+    Seriallog.printf("Infopage mac=%02X%02X%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], mac[6], mac[7]);
     if (macsum == 0) return false;
     if (macsum > 0x5F9) return false;
     return true;
@@ -201,9 +198,9 @@ bool flasher::findTagByMD5() {
                 }
             }
         }
-        Seriallog.print("Failed to find this tag's current firmware MD5 in the json database. If this tag is already OpenEpaperLink, this is to be expected.\n");
+        Serial.print("Failed to find this tag's current firmware MD5 in the json database. If this tag is already OpenEpaperLink, this is to be expected.\n");
     } else {
-        Seriallog.print("Failed to read json file\n");
+        Seriallog.print("Failed to read json file /tag_md5_db.json\n");
     }
     readfile.close();
     return false;
@@ -339,7 +336,7 @@ bool flasher::writeFlash(uint8_t *flashbuffer, uint16_t size) {
     flashWriteSuccess:
         if (c % 256 == 0) {
 #ifdef HAS_RGB_LED
-            shortBlink(CRGB::Yellow);
+            shortBlink(CRGB::White);
 #else
             quickBlink(2);
 #endif
@@ -431,11 +428,12 @@ bool flasher::writeFlashFromPackOffset(fs::File *file, uint16_t length) {
             length = 0;
         }
 #ifdef HAS_RGB_LED
-        shortBlink(CRGB::Yellow);
+        shortBlink(CRGB::White);
 #else
         quickBlink(2);
 #endif
-        Seriallog.printf("\rFlashing, %d bytes left     ", length);
+        Seriallog.printf("\r[Flashing %d bytes]    ", length);
+
         bool res = writeBlock256(offset, buf);
         offset += 256;
         if (!res) {
@@ -634,8 +632,6 @@ bool doAPUpdate(uint8_t type) {
 }
 #endif
 
-#ifdef OPENEPAPERLINK_PCB
-
 void flashCountDown(uint8_t c) {
     Seriallog.printf("\r%d  ", c);
     for (c -= 1; c < 254; c--) {
@@ -643,6 +639,8 @@ void flashCountDown(uint8_t c) {
         Seriallog.printf("\r%d  ", c);
     }
 }
+
+#ifdef HAS_EXT_FLASHER
 
 void pinTest() {
     uint8_t *pintest;

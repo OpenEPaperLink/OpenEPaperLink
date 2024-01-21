@@ -29,7 +29,7 @@ struct flasherCommand {
 };
 
 int8_t powerPins[] = FLASHER_AP_POWER;
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 int8_t powerPins2[] = FLASHER_EXT_POWER;
 int8_t powerPins3[] = FLASHER_ALT_POWER;
 #endif

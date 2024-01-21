@@ -1,5 +1,7 @@
 #include "tagdata.h"
 
+#ifndef SAVE_SPACE
+
 #include "tag_db.h"
 #include "util.h"
 
@@ -143,3 +145,5 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
         Serial.printf("Set %s to %s\n", varName.c_str(), value.c_str());
     }
 }
+
+#endif

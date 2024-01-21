@@ -13,7 +13,7 @@ public:
     void setSpeed(uint32_t speed);
     void set_power(uint8_t state);
     void enable_debug();
-    void reset();
+    void reset(bool leavepower = true);
     void send_byte(uint8_t data);
     uint8_t read_byte();
     void write_byte(uint8_t cmd, uint8_t addr, uint8_t data);

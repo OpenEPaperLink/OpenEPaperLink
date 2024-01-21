@@ -120,7 +120,7 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8
 bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgument, const uint8_t* dst, uint16_t nextCheckin, bool resend) {
     if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
     if (wsClientCount() && config.stopsleep == 1) nextCheckin = 0;
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     if (filename == "direct") {
         char dst_path[64];
         sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
@@ -572,7 +572,10 @@ void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local)
     sprintf(buffer, "TRD Data: len=%d, type=%d, ver=0x%08X\n", payloadLength, trd->returnData.dataType, trd->returnData.dataVer);
     wsLog((String)buffer);
 
+#ifndef SAVE_SPACE
     TagData::parse(trd->src, trd->returnData.dataType, trd->returnData.data, payloadLength);
+#endif
+
 }
 
 void refreshAllPending() {

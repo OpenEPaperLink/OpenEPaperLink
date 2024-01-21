@@ -58,7 +58,6 @@ void addFadeColor(CRGB cname) {
 }
 
 void shortBlink(CRGB cname) {
-#ifndef YELLOW_IPS_AP
     struct ledInstructionRGB* rgb = new struct ledInstructionRGB;
     rgb->ledColor = CRGB::Black;
     rgb->fadeTime = 0;
@@ -75,7 +74,6 @@ void shortBlink(CRGB cname) {
     rgb->fadeTime = 0;
     rgb->length = 3;
     addToRGBQueue(rgb, false);
-#endif
 }
 
 void flushRGBQueue() {
@@ -150,7 +148,7 @@ void rgbIdleStep() {
 
 void setBrightness(int brightness) {
     maxledbrightness = brightness;
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     ledcWrite(6, config.tft);
 #endif
 #ifdef HAS_RGB_LED
@@ -195,7 +193,7 @@ void showMono(uint8_t brightness) {
 void quickBlink(uint8_t repeat) {
     for (int i = 0; i < repeat; i++) {
         struct ledInstruction* mono = new struct ledInstruction;
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
         mono->value = 255;
 #else
         mono->value = maxledbrightness;
@@ -241,7 +239,7 @@ void ledTask(void* parameter) {
     struct ledInstruction* monoled = nullptr;
 
     addFadeMono(0);
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     addFadeMono(255);
 #else
     addFadeMono(maxledbrightness);

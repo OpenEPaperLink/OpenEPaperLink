@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#ifdef HAS_EXT_FLASHER
+
 #include "web.h"
 
 #define WEBFLASH_ENABLE_AUTOFLASH 1
@@ -23,3 +25,5 @@ class Logger : public Print {
 
 void webflasher_loop();
 void handleWSdata(uint8_t* data, size_t len, AsyncWebSocketClient* client);
+
+#endif

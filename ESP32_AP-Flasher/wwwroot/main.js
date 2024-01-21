@@ -209,7 +209,7 @@ function connect() {
 		}
 		if (msg.console) {
 			if (activeTab == 'flashtab' && flashmodule && typeof (flashmodule.print) === "function") {
-				let color = "#c0c0c0";
+				let color = (msg.color ? msg.color : "#c0c0c0");
 				if (msg.console.startsWith("Fail") || msg.console.startsWith("Err")) {
 					color = "red";
 				}

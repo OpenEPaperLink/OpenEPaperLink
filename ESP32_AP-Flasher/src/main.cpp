@@ -13,7 +13,7 @@
 #include "tagdata.h"
 #include "wifimanager.h"
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 #include "webflasher.h"
 #endif
 
@@ -47,7 +47,7 @@ void delayedStart(void* parameter) {
 void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     extern void yellow_ap_display_init(void);
     yellow_ap_display_init();
 #endif
@@ -124,7 +124,11 @@ void setup() {
 #ifdef HAS_RGB_LED
     rgbIdle();
 #endif
+
+#ifndef SAVE_SPACE
     TagData::loadParsers("/parsers.json");
+#endif
+
     if (!loadDB("/current/tagDB.json")) {
         Serial.println("unable to load tagDB, reverting to backup");
         loadDB("/current/tagDB.json.bak");
@@ -164,12 +168,12 @@ void loop() {
         contentRunner();
     }
 
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     extern void yellow_ap_display_loop(void);
     yellow_ap_display_loop();
 #endif
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
     webflasher_loop();
 #endif
 

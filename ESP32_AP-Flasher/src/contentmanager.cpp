@@ -175,7 +175,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     char hexmac[17];
     mac2hex(mac, hexmac);
     String filename = "/" + String(hexmac) + ".raw";
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     if (isAp) {
         filename = "direct";
     }

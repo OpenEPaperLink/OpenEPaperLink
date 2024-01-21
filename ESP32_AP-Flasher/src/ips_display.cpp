@@ -7,7 +7,7 @@
 #include "storage.h"
 #include "tag_db.h"
 
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
 
 #include "ips_display.h"
 

@@ -41,12 +41,12 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["psramsize"] = ESP.getPsramSize();
     doc["flashsize"] = ESP.getFlashChipSize();
     doc["rollback"] = Update.canRollBack();
-#if defined YELLOW_IPS_AP || defined C6_OTA_FLASHING
+#if defined C6_OTA_FLASHING
     doc["hasC6"] = 1;
 #else
     doc["hasC6"] = 0;
 #endif
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
     doc["hasFlasher"] = 1;
 #else
     doc["hasFlasher"] = 0;
@@ -289,7 +289,7 @@ void C6firmwareUpdateTask(void* parameter) {
 }
 
 void handleUpdateC6(AsyncWebServerRequest* request) {
-#if defined YELLOW_IPS_AP || defined C6_OTA_FLASHING
+#if defined C6_OTA_FLASHING
     uint8_t doDownload = 1;
     if (request->hasParam("download", true)) {
         doDownload = atoi(request->getParam("download", true)->value().c_str());

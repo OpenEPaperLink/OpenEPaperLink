@@ -121,7 +121,7 @@ int8_t APpowerPins[] = FLASHER_AP_POWER;
 #define AP_RESET_PIN FLASHER_AP_RESET
 #define AP_POWER_PIN FLASHER_AP_POWER
 #endif
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 #if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
 int8_t APpowerPins[] = FLASHER_EXT_POWER;
 #define AP_RESET_PIN FLASHER_EXT_RESET
@@ -356,21 +356,21 @@ void rxCmdProcessor(void* parameter) {
                 case RX_CMD_RQB:
                     processBlockRequest((struct espBlockRequest*)rxcmd->data);
 #ifdef HAS_RGB_LED
-                    shortBlink(CRGB::Blue);
+                    // shortBlink(CRGB::Blue);
 #endif
                     quickBlink(3);
                     break;
                 case RX_CMD_ADR:
                     processDataReq((struct espAvailDataReq*)rxcmd->data, true);
 #ifdef HAS_RGB_LED
-                    shortBlink(CRGB::Aqua);
+                    // shortBlink(CRGB::Aqua);
 #endif
                     quickBlink(1);
                     break;
                 case RX_CMD_XFC:
                     processXferComplete((struct espXferComplete*)rxcmd->data, true);
 #ifdef HAS_RGB_LED
-                    shortBlink(CRGB::Purple);
+                    // shortBlink(CRGB::Purple);
 #endif
                     break;
                 case RX_CMD_XTO:
@@ -740,7 +740,7 @@ void APTask(void* parameter) {
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 #endif
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 #if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
 #endif

@@ -9,7 +9,7 @@
 #include "storage.h"
 #include "util.h"
 
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
 #include "ips_display.h"
 #endif
 
@@ -233,7 +233,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     long t = millis();
     Storage.begin();
 
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     extern uint8_t YellowSense;
     if (fileout == "direct") {
         if (tftOverride == false) {

@@ -37,7 +37,7 @@ WifiManager::WifiManager() {
 
 void WifiManager::terminalLog(String text) {
     Serial.println(text);
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     TFTLog(text);
 #endif
 }

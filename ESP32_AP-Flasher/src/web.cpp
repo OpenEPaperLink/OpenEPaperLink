@@ -25,7 +25,7 @@
 #include "udp.h"
 #include "wifimanager.h"
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 #include "webflasher.h"
 #endif
 
@@ -132,7 +132,7 @@ void wsSendSysteminfo() {
 #ifdef HAS_RGB_LED
             if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::DarkBlue;
 #endif
-            snprintf(result, sizeof(result), "%lu / %lu, %lu timed out", tagcount, tagDB.size(), timeoutcount);
+            snprintf(result, sizeof(result), "%lu/%lu, %lu timeout", tagcount, tagDB.size(), timeoutcount);
         } else {
 #ifdef HAS_RGB_LED
             if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::Green;
@@ -205,8 +205,13 @@ void wsSendAPitem(struct APlist *apitem) {
 }
 
 void wsSerial(const String &text) {
+    wsSerial(text, String(""));
+}
+
+void wsSerial(const String &text, const String &color) {
     StaticJsonDocument<250> doc;
     doc["console"] = text;
+    if (!color.isEmpty()) doc["color"] = color;
     Serial.println(text);
     if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -658,7 +663,7 @@ void init_web() {
         },
         handleLittleFSUpload);
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 
     // Flasher related calls
     ws.onEvent([](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
