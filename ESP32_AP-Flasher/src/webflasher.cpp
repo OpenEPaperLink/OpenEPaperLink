@@ -350,10 +350,10 @@ void webflasher_loop() {
             tft2.setCursor(5, 30, 2);
             tft2.setTextColor(TFT_WHITE);
             tft2.print("Ready to connect a tag");
+            if (webFlashMode == FLASHMODE_AUTO_BACKGROUND) tftOverride = false;
 #endif
             wsSerial("Ready to connect a tag", "white");
             autoFlashStep = AUTOFLASH_STEP_IDLE;
-            if (webFlashMode == FLASHMODE_AUTO_BACKGROUND) tftOverride = false;
             vTaskDelay(2000 / portTICK_PERIOD_MS);
             break;
         }
@@ -397,8 +397,10 @@ void handleWSdata(uint8_t* data, size_t len, AsyncWebSocketClient* client) {
                 break;
             case WEBFLASH_BLUR:
                 if (webFlashMode == FLASHMODE_AUTO_FOCUS) webFlashMode = FLASHMODE_AUTO_BACKGROUND;
+#ifdef HAS_TFT
                 tftOverride = false;
                 sendAvail(0xFC);
+#endif
                 break;
         }
     }
