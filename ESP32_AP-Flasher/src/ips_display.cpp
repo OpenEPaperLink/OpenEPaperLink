@@ -18,6 +18,7 @@ TFT_eSPI tft2 = TFT_eSPI();
 int32_t tftid = -1;
 uint8_t YellowSense = 0;
 bool tftLogscreen = true;
+bool tftOverride = false;
 
 void TFTLog(String text) {
     if (tftLogscreen == false) {
@@ -120,7 +121,7 @@ void yellow_ap_display_loop(void) {
     }
     if (millis() - last_update >= 1000) {
         tagRecord* tag = tagDB.at(tftid);
-        if (tag->pending) {
+        if (tag->pending && tftOverride == false) {
             String filename = tag->filename;
             fs::File file = contentFS->open(filename);
             if (!file) {

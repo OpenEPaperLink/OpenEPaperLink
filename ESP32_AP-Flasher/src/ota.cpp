@@ -42,11 +42,15 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["flashsize"] = ESP.getFlashChipSize();
     doc["rollback"] = Update.canRollBack();
 #if defined YELLOW_IPS_AP || defined C6_OTA_FLASHING
-    doc["C6"] = 1;
+    doc["hasC6"] = 1;
 #else
-    doc["C6"] = 0;
+    doc["hasC6"] = 0;
 #endif
-
+#ifdef OPENEPAPERLINK_PCB
+    doc["hasFlasher"] = 1;
+#else
+    doc["hasFlasher"] = 0;
+#endif
     const size_t bufferSize = measureJson(doc) + 1;
     AsyncResponseStream* response = request->beginResponseStream("application/json", bufferSize);
     serializeJson(doc, *response);

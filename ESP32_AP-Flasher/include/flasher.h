@@ -11,6 +11,7 @@ void flashCountDown(uint8_t c);
 #ifdef OPENEPAPERLINK_PCB
 bool extTagConnected();
 bool doTagFlash();
+void pinTest();
 #endif
 
 class flasher {

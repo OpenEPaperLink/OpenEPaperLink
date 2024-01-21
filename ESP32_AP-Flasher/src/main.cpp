@@ -13,6 +13,10 @@
 #include "tagdata.h"
 #include "wifimanager.h"
 
+#ifdef OPENEPAPERLINK_PCB
+#include "webflasher.h"
+#endif
+
 #ifdef HAS_USB
 #include "usbflasher.h"
 #endif
@@ -28,13 +32,7 @@ util::Timer intervalSysinfo(seconds(5));
 util::Timer intervalVars(seconds(10));
 util::Timer intervalSaveDB(minutes(5));
 
-#ifdef OPENEPAPERLINK_PCB
-util::Timer tagConnectTimer(seconds(1));
-#endif
-
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
-
-void pinTest();
 
 void delayedStart(void* parameter) {
     vTaskDelay(30000 / portTICK_PERIOD_MS);
@@ -69,7 +67,6 @@ void setup() {
 #endif
 #endif
 
-    // pinTest();
 #ifdef BOARD_HAS_PSRAM
     if (!psramInit()) {
         Serial.printf("This build of the AP expects PSRAM, but we couldn't find/init any. Something is terribly wrong here! System halted.");
@@ -173,18 +170,7 @@ void loop() {
 #endif
 
 #ifdef OPENEPAPERLINK_PCB
-    if (tagConnectTimer.doRun() && extTagConnected()) {
-        flashCountDown(3);
-
-        pinMode(FLASHER_EXT_TEST, OUTPUT);
-        digitalWrite(FLASHER_EXT_TEST, LOW);
-
-        doTagFlash();
-
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
-        pinMode(FLASHER_EXT_TEST, INPUT);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
+    webflasher_loop();
 #endif
 
     vTaskDelay(100 / portTICK_PERIOD_MS);

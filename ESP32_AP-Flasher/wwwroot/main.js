@@ -36,7 +36,7 @@ let isProcessing = false;
 let servertimediff = 0;
 let paintLoaded = false, paintShow = false;
 let cardconfig;
-let otamodule;
+let otamodule, flashmodule;
 let socket;
 let finishedInitialLoading = false;
 let getTagtypeBusy = false;
@@ -86,7 +86,6 @@ function initVersionInfo() {
 		})
 		.then(data => {
 			webVersion = data;
-			console.log(webVersion);
 		})
 		.catch(error => {
 			console.error('Fetch error:', error);
@@ -94,7 +93,8 @@ function initVersionInfo() {
 }
 
 /* tabs */
-let activeTab = '';
+let activeTab = '', previousTab = '';
+
 function initTabs() {
 	const tabLinks = document.querySelectorAll(".tablinks");
 	const tabContents = document.querySelectorAll(".tabcontent");
@@ -208,7 +208,13 @@ function connect() {
 			populateAPCard(msg.apitem);
 		}
 		if (msg.console) {
-			if (otamodule && typeof (otamodule.print) === "function") {
+			if (activeTab == 'flashtab' && flashmodule && typeof (flashmodule.print) === "function") {
+				let color = "#c0c0c0";
+				if (msg.console.startsWith("Fail") || msg.console.startsWith("Err")) {
+					color = "red";
+				}
+				flashmodule.print(msg.console, color);
+			} else if (otamodule && typeof (otamodule.print) === "function") {
 				let color = "#c0c0c0";
 				if (msg.console.startsWith("Fail") || msg.console.startsWith("Err")) {
 					color = "red";
@@ -725,7 +731,15 @@ document.addEventListener("loadTab", function (event) {
 			$('#updateconsole').innerHTML = '';
 			loadOTA();
 			break;
+		case 'flashtab':
+			$('#flashconsole').innerHTML = '';
+			loadFlash();
+			break;
 	}
+	if (previousTab == 'flashtab' && activeTab != 'flashtab' && flashmodule && typeof (flashmodule.wsCmd) === "function") {
+		flashmodule.wsCmd(flashmodule.WEBFLASH_BLUR);
+	}
+	previousTab = activeTab;
 });
 
 $('#apcfgsave').onclick = function () {
@@ -773,16 +787,13 @@ $('#uploadButton').onclick = function () {
 				return response.text();
 			})
 			.then(data => {
-				console.log('File uploaded successfully: ', data);
 				alert('TagDB restored. Webpage will reload.');
 				location.reload();
 			})
 			.catch(error => {
-				console.error('Error uploading file:', error);
 				alert('Error uploading file: ' + error);
 			});
 	} else {
-		console.error('No file selected.');
 		alert('No file selected');
 	}
 }
@@ -814,22 +825,25 @@ $('#restoreFromLocal').onclick = function () {
 				return response.text();
 			})
 			.then(data => {
-				console.log('File uploaded successfully: ', data);
 				alert('TagDB restored. Webpage will reload.');
 				location.reload();
 			})
 			.catch(error => {
-				console.error('Error uploading file:', error);
 				alert('Error uploading file: ' + error);
 			});
 	} else {
-		console.log('No data found in localStorage');
+		alert('No data found in localStorage');
 	}
 }
 
 async function loadOTA() {
 	otamodule = await import('./ota.js?v=' + Date.now());
 	otamodule.initUpdate();
+}
+
+async function loadFlash() {
+	flashmodule = await import('./flash.js?v=' + Date.now());
+	flashmodule.init();
 }
 
 $('#paintbutton').onclick = function () {
@@ -1083,19 +1097,16 @@ function processQueue() {
 
 	const canvas = $('#tag' + id + ' .tagimg');
 	canvas.style.display = 'block';
-	// console.log('fetch ' + imageSrc);
 
 	fetch(imageSrc, { cache: "force-cache" })
 		.then(response => response.arrayBuffer())
 		.then(buffer => {
-			// console.log('mac ' + id +' draw ' + imageSrc + ' hwtype ' + hwtype);
 			[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
 			if (tagTypes[hwtype].rotatebuffer) [canvas.width, canvas.height] = [canvas.height, canvas.width];
 			const ctx = canvas.getContext('2d');
 			const imageData = ctx.createImageData(canvas.width, canvas.height);
 			const data = new Uint8ClampedArray(buffer);
 			if (data.length == 0) {
-				console.log(imageSrc + ' empty');
 				canvas.style.display = 'none';
 			}
 
@@ -1638,7 +1649,6 @@ function selectLocation(location) {
 	document.getElementById('opt#lon').value = location.longitude;
 	if (document.getElementById('opt#tz')) document.getElementById('opt#tz').value = location.timezone;
 	$('#georesults').innerHTML = '';
-	console.log('Selected location:', location);
 }
 
 function debounce(func, delay) {

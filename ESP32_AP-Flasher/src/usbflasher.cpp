@@ -561,9 +561,12 @@ void tagDebugPassthrough() {
 
 void usbFlasherTask(void* parameter) {
     flasherCmdQueue = xQueueCreate(10, sizeof(struct flasherCommand*));
-#if ARDUINO_USB_MODEflash
-#warning Wrong USB mode is in use, check settings in platformio.ini
+#ifndef ARDUINO_USB_MODE
+#error This ESP32 SoC has no Native USB interface
+#elif ARDUINO_USB_MODE == 1
+#warning This sketch should be used when USB is in OTG mode. Wrong USB mode is in use, check settings in platformio.ini
 #endif
+
     USB.onEvent(usbEventCallback);
     USBSerial.onEvent(usbEventCallback);
     USBSerial.setTimeout(1000);

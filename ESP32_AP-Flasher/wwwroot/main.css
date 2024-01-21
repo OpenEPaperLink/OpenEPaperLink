@@ -198,7 +198,8 @@ label {
 
 #aptab,
 #configtab,
-#updatetab {
+#updatetab,
+#flashtab {
 	padding: 10px;
 
 	& p {
@@ -206,7 +207,7 @@ label {
 	}
 }
 
-#updatetab {
+#updatetab, #flashtab {
 	&>div {
 		display: flex;
 		gap: 2em;

@@ -25,6 +25,10 @@
 #include "udp.h"
 #include "wifimanager.h"
 
+#ifdef OPENEPAPERLINK_PCB
+#include "webflasher.h"
+#endif
+
 extern uint8_t data_to_send[];
 
 AsyncWebServer server(80);
@@ -638,6 +642,8 @@ void init_web() {
         },
         dotagDBUpload);
 
+    // OTA related calls
+
     server.on("/sysinfo", HTTP_GET, handleSysinfoRequest);
     server.on("/check_file", HTTP_GET, handleCheckFile);
     server.on("/rollback", HTTP_POST, handleRollback);
@@ -651,6 +657,15 @@ void init_web() {
             request->send(200);
         },
         handleLittleFSUpload);
+
+#ifdef OPENEPAPERLINK_PCB
+
+    // Flasher related calls
+    ws.onEvent([](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+        if (type == WS_EVT_DATA) handleWSdata(data, len, client);
+    });
+
+#endif
 
     server.onNotFound([](AsyncWebServerRequest *request) {
         if (request->url() == "/" || request->url() == "index.htm") {
