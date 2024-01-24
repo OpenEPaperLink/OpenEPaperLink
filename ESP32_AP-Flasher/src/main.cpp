@@ -144,7 +144,7 @@ void setup() {
         config.runStatus = RUNSTATUS_PAUSE;
     }
 
-    xTaskCreate(delayedStart, "delaystart", 2000, NULL, 2, NULL);
+    xTaskCreate(delayedStart, "delaystart", 5000, NULL, 2, NULL);
 
     wsSendSysteminfo();
     util::printHeap();

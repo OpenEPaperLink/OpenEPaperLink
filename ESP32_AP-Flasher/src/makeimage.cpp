@@ -171,10 +171,11 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                     }
                     break;
                 case 4:
-                    if (!is_red && (x % 2 == 0) && (y % 2 == 0)) buffer[byteIndex] |= (1 << bitIndex);
+                    if (!is_red && ((x + y / 2) % 2 == 0) && (y % 2 == 0)) buffer[byteIndex] |= (1 << bitIndex);
                     break;
                 case 5:
                     if (is_red && (x + y) % 2) buffer[byteIndex] |= (1 << bitIndex);
+                    imageParams.hasRed = true;
                     break;
             }
 

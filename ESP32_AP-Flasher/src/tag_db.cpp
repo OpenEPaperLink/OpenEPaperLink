@@ -448,6 +448,17 @@ void cleanupCurrent() {
         file = dir.openNextFile();
     }
     dir.close();
+
+    dir = contentFS->open("/temp");
+    file = dir.openNextFile();
+    while (file) {
+        String filename = file.name();
+        filename = file.path();
+        file.close();
+        contentFS->remove(filename);
+        file = dir.openNextFile();
+    }
+    dir.close();
 }
 
 void pushTagInfo(tagRecord* taginfo) {
