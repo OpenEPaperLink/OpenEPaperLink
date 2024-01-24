@@ -83,7 +83,6 @@ void sendAvail(uint8_t wakeupReason) {
 }
 
 void yellow_ap_display_init(void) {
-
     pinMode(YELLOW_SENSE, INPUT_PULLDOWN);
     vTaskDelay(100 / portTICK_PERIOD_MS);
     if (digitalRead(YELLOW_SENSE) == HIGH) YellowSense = 1;
@@ -121,7 +120,7 @@ void yellow_ap_display_loop(void) {
     }
     if (millis() - last_update >= 1000) {
         tagRecord* tag = tagDB.at(tftid);
-        if (tag->pending && tftOverride == false) {
+        if (tag->pendingCount > 0 && tftOverride == false) {
             String filename = tag->filename;
             fs::File file = contentFS->open(filename);
             if (!file) {

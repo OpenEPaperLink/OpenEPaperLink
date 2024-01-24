@@ -1,3 +1,5 @@
+#ifndef SAVE_SPACE
+
 #include "tagdata.h"
 
 #ifndef SAVE_SPACE
@@ -10,7 +12,6 @@ std::unordered_map<size_t, TagData::Parser> TagData::parsers = {};
 void TagData::loadParsers(const String& filename) {
     const long start = millis();
 
-    Storage.begin();
     fs::File file = contentFS->open(filename, "r");
     if (!file) {
         return;

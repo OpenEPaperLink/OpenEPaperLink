@@ -1,4 +1,7 @@
-#include <Arduino.h>
+#ifndef NEWPROTO_H
+#define NEWPROTO_H 
+
+#include<Arduino.h>
 #pragma pack(push, 1)
 
 #include "../../oepl-definitions.h"
@@ -25,7 +28,7 @@ struct APlist {
 #define SYNC_USERCFG 1
 #define SYNC_TAGSTATUS 2
 #define SYNC_DELETE 3
-#define SYNC_VERSION 0xAA00
+#define SYNC_VERSION 0xAA01
 
 struct TagInfo {
     uint16_t structVersion = SYNC_VERSION;
@@ -34,14 +37,16 @@ struct TagInfo {
     char alias[32];
     uint32_t lastseen;
     uint32_t nextupdate;
-    bool pending;
+    uint16_t pendingCount;
     uint32_t expectedNextCheckin;
     uint8_t hwType;
     uint8_t wakeupReason;
     uint8_t capabilities;
     uint16_t pendingIdle;
     uint8_t contentMode;
+    uint8_t reserved[8];
 } __packed;
 
-
 #pragma pack(pop)
+
+#endif // NEWPROTO_H

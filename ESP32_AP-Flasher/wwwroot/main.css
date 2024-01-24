@@ -627,12 +627,13 @@ select {
 .pendingicon {
 	width: 20px;
 	height: 20px;
-	background-color: rgb(7, 174, 230);
+	background-color: rgb(1, 154, 201);
 	font-size: 1.2em;
 	text-align: center;
 	font-weight: bold;
 	display: none;
 	vertical-align: top;
+	color: white;
 }
 
 .warningicon {

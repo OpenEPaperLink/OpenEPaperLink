@@ -1,5 +1,14 @@
 #include <Arduino.h>
 
+#include "commstructs.h"
+
+struct PendingItem {
+    struct pendingData pendingdata;
+    char filename[50];
+    uint8_t* data;
+    uint32_t len;
+};
+
 extern void addCRC(void* p, uint8_t len);
 extern bool checkCRC(void* p, uint8_t len);
 
@@ -23,3 +32,12 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending);
 void refreshAllPending();
 void updateContent(const uint8_t* dst);
 void setAPchannel();
+
+void enqueueItem(const PendingItem& item);
+bool dequeueItem(const uint8_t* targetMac);
+bool dequeueItem(const uint8_t* targetMac, const uint64_t dataVer);
+uint16_t countQueueItem(const uint8_t* targetMac);
+extern PendingItem* getQueueItem(const uint8_t* targetMac);
+extern PendingItem* getQueueItem(const uint8_t* targetMac, const uint64_t dataVer);
+void checkQueue(const uint8_t* targetMac);
+bool queueDataAvail(struct pendingData* pending);

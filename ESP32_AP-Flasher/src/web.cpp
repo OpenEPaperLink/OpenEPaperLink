@@ -173,7 +173,7 @@ void wsSendTaginfo(const uint8_t *mac, uint8_t syncMode) {
                 if (syncMode == SYNC_TAGSTATUS) {
                     taginfoitem.lastseen = taginfo->lastseen;
                     taginfoitem.nextupdate = taginfo->nextupdate;
-                    taginfoitem.pending = taginfo->pending;
+                    taginfoitem.pendingCount = taginfo->pendingCount;
                     taginfoitem.expectedNextCheckin = taginfo->expectedNextCheckin;
                     taginfoitem.hwType = taginfo->hwType;
                     taginfoitem.wakeupReason = taginfo->wakeupReason;
@@ -224,7 +224,6 @@ uint8_t wsClientCount() {
 
 void init_web() {
     wsMutex = xSemaphoreCreateMutex();
-    Storage.begin();
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(static_cast<wifi_power_t>(config.wifiPower));
 
@@ -249,7 +248,6 @@ void init_web() {
 
     server.serveStatic("/current", *contentFS, "/current/").setCacheControl("max-age=604800");
     server.serveStatic("/tagtypes", *contentFS, "/tagtypes/").setCacheControl("max-age=600");
-    server.serveStatic("/", *contentFS, "/www/").setDefaultFile("index.html");
 
     server.on(
         "/imgupload", HTTP_POST, [](AsyncWebServerRequest *request) {
@@ -285,7 +283,7 @@ void init_web() {
             if (hex2mac(dst, mac)) {
                 const tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
-                    if (taginfo->pending == true) {
+                    if (taginfo->pendingCount > 0) {
                         request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
                         return;
                     }
@@ -320,8 +318,6 @@ void init_web() {
                     if (request->hasParam("invert", true)) {
                         taginfo->invert = atoi(request->getParam("invert", true)->value().c_str());
                     }
-                    // memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-                    // memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
                     wsSendTaginfo(mac, SYNC_USERCFG);
                     // saveDB("/current/tagDB.json");
                     request->send(200, "text/plain", "Ok, saved");
@@ -346,7 +342,8 @@ void init_web() {
                     }
                     if (strcmp(cmdValue, "clear") == 0) {
                         clearPending(taginfo);
-                        memcpy(taginfo->md5pending, taginfo->md5, sizeof(taginfo->md5pending));
+                        while (dequeueItem(mac)) { };
+                        taginfo->pendingCount = countQueueItem(mac);
                         wsSendTaginfo(mac, SYNC_TAGSTATUS);
                     }
                     if (strcmp(cmdValue, "refresh") == 0) {
@@ -680,6 +677,8 @@ void init_web() {
         request->send(404);
     });
 
+    server.serveStatic("/", *contentFS, "/www/").setDefaultFile("index.html");
+
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "content-type");
 
@@ -687,69 +686,78 @@ void init_web() {
 }
 
 void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-    static bool imageUploadBusy = false;
+    Serial.println("upload part " + String(index));
+    String uploadfilename;
     if (!index) {
-        if (config.runStatus != RUNSTATUS_RUN || imageUploadBusy) {
+        if (config.runStatus != RUNSTATUS_RUN) {
             request->send(409, "text/plain", "Come back later");
             return;
         }
         if (request->hasParam("mac", true)) {
-            filename = request->getParam("mac", true)->value() + ".jpg";
-        } else {
-            filename = "unknown.jpg";
-        }
-        imageUploadBusy = true;
-        logLine("http imageUpload " + filename);
-        xSemaphoreTake(fsMutex, portMAX_DELAY);
-        request->_tempFile = contentFS->open("/" + filename, "w");
-    }
-    if (len) {
-        request->_tempFile.write(data, len);
-    }
-    if (final) {
-        request->_tempFile.close();
-        xSemaphoreGive(fsMutex);
-        if (request->hasParam("mac", true)) {
-            String dst = request->getParam("mac", true)->value();
-            uint8_t mac[8];
-            if (hex2mac(dst, mac)) {
-                tagRecord *taginfo = tagRecord::findByMAC(mac);
-                if (taginfo != nullptr) {
-                    uint8_t dither = 1;
-                    if (request->hasParam("dither", true)) {
-                        dither = request->getParam("dither", true)->value().toInt();
-                    }
-                    uint32_t ttl = 0;
-                    if (request->hasParam("ttl", true)) {
-                        ttl = request->getParam("ttl", true)->value().toInt();
-                    }
-                    uint8_t preload = 0;
-                    uint8_t preloadlut = 0;
-                    uint8_t preloadtype = 0;
-                    if (request->hasParam("preloadtype", true)) {
-                        preload = 1;
-                        preloadtype = request->getParam("preloadtype", true)->value().toInt();
-                        if (request->hasParam("preloadlut", true)) {
-                            preloadlut = request->getParam("preloadlut", true)->value().toInt();
-                        }
-                    }
-                    taginfo->modeConfigJson = "{\"filename\":\"" + dst + ".jpg\",\"timetolive\":\"" + String(ttl) + "\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\", \"preload\":\"" + String(preload) + "\", \"preload_lut\":\"" + String(preloadlut) + "\", \"preload_type\":\"" + String(preloadtype) + "\"}";
-                    if (request->hasParam("contentmode", true)) {
-                        taginfo->contentMode = request->getParam("contentmode", true)->value().toInt();
-                    } else {
-                        taginfo->contentMode = 24;
-                    }
-                    taginfo->nextupdate = 0;
-                    wsSendTaginfo(mac, SYNC_USERCFG);
-                    request->send(200, "text/plain", "Ok, saved");
-                } else {
-                    request->send(400, "text/plain", "mac not found");
-                }
-            }
+            uploadfilename = request->getParam("mac", true)->value() + "_" + String(millis()) + ".jpg";
         } else {
             request->send(400, "text/plain", "parameters incomplete");
+            return;
         }
-        imageUploadBusy = false;
+        logLine("http imageUpload " + uploadfilename);
+        request->_tempObject = (void *)new String(uploadfilename);
+    }
+    String *savedFilename = static_cast<String *>(request->_tempObject);
+    if (savedFilename != nullptr) {
+        uploadfilename = *savedFilename;
+        if (len) {
+            xSemaphoreTake(fsMutex, portMAX_DELAY);
+            File file = contentFS->open("/temp/" + uploadfilename, "a");
+            if (file) {
+                file.seek(index);
+                file.write(data, len);
+                file.close();
+            } else {
+                logLine("Failed to open file for appending: " + uploadfilename);
+            }
+            xSemaphoreGive(fsMutex);
+        }
+        if (final) {
+            Serial.println("upload final");
+            if (request->hasParam("mac", true)) {
+                String dst = request->getParam("mac", true)->value();
+                uint8_t mac[8];
+                if (hex2mac(dst, mac)) {
+                    tagRecord *taginfo = tagRecord::findByMAC(mac);
+                    if (taginfo != nullptr) {
+                        uint8_t dither = 1;
+                        if (request->hasParam("dither", true)) {
+                            dither = request->getParam("dither", true)->value().toInt();
+                        }
+                        uint32_t ttl = 0;
+                        if (request->hasParam("ttl", true)) {
+                            ttl = request->getParam("ttl", true)->value().toInt();
+                        }
+                        uint8_t preload = 0;
+                        uint8_t preloadlut = 0;
+                        uint8_t preloadtype = 0;
+                        if (request->hasParam("preloadtype", true)) {
+                            preload = 1;
+                            preloadtype = request->getParam("preloadtype", true)->value().toInt();
+                            if (request->hasParam("preloadlut", true)) {
+                                preloadlut = request->getParam("preloadlut", true)->value().toInt();
+                            }
+                        }
+                        taginfo->modeConfigJson = "{\"filename\":\"/temp/" + uploadfilename + "\",\"timetolive\":\"" + String(ttl) + "\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\", \"preload\":\"" + String(preload) + "\", \"preload_lut\":\"" + String(preloadlut) + "\", \"preload_type\":\"" + String(preloadtype) + "\"}";
+                        if (request->hasParam("contentmode", true)) {
+                            taginfo->contentMode = request->getParam("contentmode", true)->value().toInt();
+                        } else {
+                            taginfo->contentMode = 24;
+                        }
+                        taginfo->nextupdate = 0;
+                        wsSendTaginfo(mac, SYNC_USERCFG);
+                        request->send(200, "text/plain", "Ok, saved");
+                    } else {
+                        request->send(400, "text/plain", "mac not found");
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -176,7 +176,6 @@ void DynStorage::end() {
 }
 
 void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
-    Storage.begin();
     Serial.printf(" \n  ");
 
     Serial.printf("Listing directory: %s\n", dirname);
