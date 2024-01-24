@@ -1,3 +1,5 @@
+#ifndef SAVE_SPACE
+
 #include "tagdata.h"
 
 #include "tag_db.h"
@@ -8,7 +10,6 @@ std::unordered_map<size_t, TagData::Parser> TagData::parsers = {};
 void TagData::loadParsers(const String& filename) {
     const long start = millis();
 
-    Storage.begin();
     fs::File file = contentFS->open(filename, "r");
     if (!file) {
         return;
@@ -143,3 +144,5 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
         Serial.printf("Set %s to %s\n", varName.c_str(), value.c_str());
     }
 }
+
+#endif

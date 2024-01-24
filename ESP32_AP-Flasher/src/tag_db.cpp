@@ -128,7 +128,6 @@ void saveDB(const String& filename) {
 
     const long t = millis();
 
-    Storage.begin();
     xSemaphoreTake(fsMutex, portMAX_DELAY);
 
     fs::File existingFile = contentFS->open(filename, "r");
@@ -174,7 +173,6 @@ bool loadDB(const String& filename) {
     Serial.println("reading DB from " + String(filename));
     const long t = millis();
 
-    Storage.begin();
     fs::File readfile = contentFS->open(filename, "r");
     if (!readfile) {
         Serial.println("loadDB: Failed to open file");
@@ -305,7 +303,6 @@ void clearPending(tagRecord* taginfo) {
 }
 
 void initAPconfig() {
-    Storage.begin();
     DynamicJsonDocument APconfig(500);
     File configFile = contentFS->open("/current/apconfig.json", "r");
     if (configFile) {

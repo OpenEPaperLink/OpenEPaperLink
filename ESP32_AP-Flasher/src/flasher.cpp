@@ -64,11 +64,11 @@ uint8_t pinsExt[] = {FLASHER_EXT_CLK, FLASHER_EXT_MISO, FLASHER_EXT_MOSI, FLASHE
 
 flasher::flasher() {
     zbs = new ZBS_interface;
-    Storage.end();
+    // Storage.end();
 }
 flasher::~flasher() {
     delete zbs;
-    Storage.begin();
+    // Storage.begin();
 }
 
 static uint8_t validatePowerPinCount(int8_t *powerPin, uint8_t pinCount) {

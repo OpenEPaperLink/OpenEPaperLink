@@ -40,7 +40,6 @@ let otamodule;
 let socket;
 let finishedInitialLoading = false;
 let getTagtypeBusy = false;
-let webVersion = "0";
 
 const loadConfig = new Event("loadConfig");
 window.addEventListener("loadConfig", function () {
@@ -57,14 +56,18 @@ window.addEventListener("loadConfig", function () {
 });
 
 window.addEventListener("load", function () {
-	initVersionInfo();
+	window.dispatchEvent(loadConfig);
 	initTabs();
 	fetch('/content_cards.json')
 		.then(response => response.json())
 		.then(data => {
 			cardconfig = data;
-			loadTags(0);
-			connect();
+			loadTags(0)
+				.then(() => {
+					finishedInitialLoading = true;
+					connect();
+				})
+				.catch(error => showMessage('loadTags error: ' + error));
 			setInterval(updatecards, 1000);
 		})
 		.catch(error => {
@@ -72,26 +75,17 @@ window.addEventListener("load", function () {
 			alert("I can't load /www/content_cards.json.\r\nHave you upload it to the data partition?");
 		});
 
-	window.dispatchEvent(loadConfig);
-
 	dropUpload();
 	populateTimes($('#apcnight1'));
 	populateTimes($('#apcnight2'));
-});
 
-function initVersionInfo() {
-	fetch('/version.txt')
-		.then(response => {
-			return response.text();
-		})
-		.then(data => {
-			webVersion = data;
-			console.log(webVersion);
-		})
-		.catch(error => {
-			console.error('Fetch error:', error);
-		});
-}
+	document.addEventListener('DOMContentLoaded', function () {
+		var faviconLink = document.createElement('link');
+		faviconLink.rel = 'icon';
+		faviconLink.href = 'favicon.ico';
+		document.head.appendChild(faviconLink);
+	});	
+});
 
 /* tabs */
 let activeTab = '';
@@ -119,14 +113,14 @@ function initTabs() {
 };
 
 function loadTags(pos) {
-	fetch("/get_db?pos=" + pos)
+	return fetch("/get_db?pos=" + pos)
 		.then(response => response.json())
 		.then(data => {
 			processTags(data.tags);
-			if (data.continu && data.continu > pos) loadTags(data.continu);
-			finishedInitialLoading = true;
-		})
-	//.catch(error => showMessage('loadTags error: ' + error));
+			if (data.continu && data.continu > pos) {
+				return loadTags(data.continu);
+			}
+		});
 }
 
 function formatUptime(seconds) {
@@ -280,7 +274,24 @@ function processTags(tagArray) {
 					div.dataset.ver = element.ver;
 					$('#tag' + localTagmac + ' .resolution').innerHTML += ` fw:${element.ver} 0x${element.ver.toString(16)}`;
 				}
+
+				if (!apConfig.preview || element.contentMode == 20) {
+					$('#tag' + tagmac + ' .tagimg').style.display = 'none'
+				} else if (div.dataset.hash != element.hash && div.dataset.hwtype > -1) {
+					let cachetag = element.hash;
+					if (element.hash != '00000000000000000000000000000000') {
+						if (element.isexternal && element.contentMode == 12) {
+							loadImage(tagmac, 'http://' + tagDB[tagmac].apip + '/current/' + tagmac + '.raw?' + cachetag);
+						} else {
+							loadImage(tagmac, '/current/' + tagmac + '.raw?' + cachetag);
+						}
+					} else {
+						$('#tag' + tagmac + ' .tagimg').style.display = 'none'
+					}
+					div.dataset.hash = element.hash;
+				}
 			})();
+
 			let statusline = "";
 			if (element.RSSI != 100) {
 				if (element.ch > 0) statusline += `CH ${element.ch}, `;
@@ -293,27 +304,11 @@ function processTags(tagArray) {
 			}
 			$('#tag' + tagmac + ' .received').innerHTML = statusline;
 			$('#tag' + tagmac + ' .received').style.opacity = "1";
+
 		} else {
 			$('#tag' + tagmac + ' .model').innerHTML = "waiting for hardware type";
 			$('#tag' + tagmac + ' .received').style.opacity = "0";
 			$('#tag' + tagmac + ' .resolution').innerHTML = "";
-		}
-
-		if (!apConfig.preview || element.contentMode == 20) {
-			$('#tag' + tagmac + ' .tagimg').style.display = 'none'
-		} else if (div.dataset.hash != element.hash && div.dataset.hwtype > -1) {
-			let cachetag = element.hash;
-			if (element.hash != '00000000000000000000000000000000') {
-				//cachetag = Math.random();
-				if (element.isexternal && element.contentMode == 12) {
-					loadImage(tagmac, 'http://' + tagDB[tagmac].apip + '/current/' + tagmac + '.raw?' + cachetag);
-				} else {
-					loadImage(tagmac, '/current/' + tagmac + '.raw?' + cachetag);
-				}
-			} else {
-				$('#tag' + tagmac + ' .tagimg').style.display = 'none'
-			}
-			div.dataset.hash = element.hash;
 		}
 
 		if (element.nextupdate > 1672531200 && element.nextupdate != 3216153600) {
@@ -439,9 +434,9 @@ function updatecards() {
 	$('#dashboardTimeout').innerHTML = timeoutcount;
 }
 
-$('#clearlog').onclick = function () {
+$('#clearlog').addEventListener("click", (event) => {
 	$('#messages').innerHTML = '';
-}
+});
 
 document.querySelectorAll('.closebtn').forEach(button => {
 	button.addEventListener('click', (event) => {
@@ -1302,7 +1297,7 @@ async function getTagtype(hwtype) {
 	try {
 		getTagtypeBusy = true;
 		tagTypes[hwtype] = { busy: true };
-		const response = await fetch('/tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json?' + webVersion);
+		const response = await fetch('/tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json');
 		if (!response.ok) {
 			let data = { name: 'unknown id ' + hwtype.toString(16), width: 0, height: 0, bpp: 0, rotatebuffer: 0, colortable: [], busy: false };
 			tagTypes[hwtype] = data;
@@ -1540,7 +1535,6 @@ function populateAPCard(msg) {
 		}
 	});
 
-	// $('#ap' + apid + ' .apversion').innerHTML = msg.version;
 	if (activeTab == 'aptab') {
 		populateAPInfo(apip);
 	}

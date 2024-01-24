@@ -215,7 +215,6 @@ uint8_t wsClientCount() {
 
 void init_web() {
     wsMutex = xSemaphoreCreateMutex();
-    Storage.begin();
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(static_cast<wifi_power_t>(config.wifiPower));
 
@@ -240,7 +239,6 @@ void init_web() {
 
     server.serveStatic("/current", *contentFS, "/current/").setCacheControl("max-age=604800");
     server.serveStatic("/tagtypes", *contentFS, "/tagtypes/").setCacheControl("max-age=600");
-    server.serveStatic("/", *contentFS, "/www/").setDefaultFile("index.html");
 
     server.on(
         "/imgupload", HTTP_POST, [](AsyncWebServerRequest *request) {
@@ -335,7 +333,8 @@ void init_web() {
                     }
                     if (strcmp(cmdValue, "clear") == 0) {
                         clearPending(taginfo);
-                        // fixme: clear pending queue
+                        while (dequeueItem(mac)) { };
+                        taginfo->pendingCount = countQueueItem(mac);
                         wsSendTaginfo(mac, SYNC_TAGSTATUS);
                     }
                     if (strcmp(cmdValue, "refresh") == 0) {
@@ -657,6 +656,8 @@ void init_web() {
         }
         request->send(404);
     });
+
+    server.serveStatic("/", *contentFS, "/www/").setDefaultFile("index.html");
 
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "content-type");

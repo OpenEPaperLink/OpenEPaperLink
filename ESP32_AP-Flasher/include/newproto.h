@@ -34,8 +34,10 @@ void updateContent(const uint8_t* dst);
 void setAPchannel();
 
 void enqueueItem(const PendingItem& item);
-void dequeueItem(const uint8_t* targetMac);
+bool dequeueItem(const uint8_t* targetMac);
+bool dequeueItem(const uint8_t* targetMac, const uint64_t dataVer);
 uint16_t countQueueItem(const uint8_t* targetMac);
-extern PendingItem getQueueItem(const uint8_t* targetMac);
+extern PendingItem* getQueueItem(const uint8_t* targetMac);
+extern PendingItem* getQueueItem(const uint8_t* targetMac, const uint64_t dataVer);
 void checkQueue(const uint8_t* targetMac);
 bool queueDataAvail(struct pendingData* pending);
