@@ -240,8 +240,8 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 char hexmac[17];
                 mac2hex(pending->targetMac, hexmac);
                 String filename = "/current/" + String(hexmac) + "_" + String(millis()) + ".pending";
-                String imageUrl = "http://" + remoteIP.toString() + filename;
-                wsLog("GET " + imageUrl);
+                String imageUrl = "http://" + remoteIP.toString() + "/getdata?mac=" + String(hexmac);
+                wsLog("prepareExternalDataAvail GET " + imageUrl);
                 HTTPClient http;
                 logLine("http prepareExternalDataAvail " + imageUrl);
                 http.begin(imageUrl);
@@ -323,8 +323,6 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 return;
             }
         }
-        // taginfo->contentMode = 12;
-        // taginfo->nextupdate = 3216153600;
         checkMirror(taginfo, pending);
         queueDataAvail(pending);
 
@@ -431,11 +429,11 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         }
     }
 
-    wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
-    if (local) udpsync.netProcessXferComplete(xfc);
-
     // more in the queue?
     checkQueue(xfc->src);
+
+    wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
+    if (local) udpsync.netProcessXferComplete(xfc);
 }
 
 void processXferTimeout(struct espXferComplete* xfc, bool local) {
@@ -461,10 +459,11 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
         while (dequeueItem(xfc->src)) {
         };
     }
-    wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
-    if (local) udpsync.netProcessXferTimeout(xfc);
 
     checkQueue(xfc->src);
+
+    wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
+    if (local) udpsync.netProcessXferTimeout(xfc);
 }
 
 void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP) {

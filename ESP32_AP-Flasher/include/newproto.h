@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <FS.h>
 
 #include "commstructs.h"
 
@@ -41,3 +42,4 @@ extern PendingItem* getQueueItem(const uint8_t* targetMac);
 extern PendingItem* getQueueItem(const uint8_t* targetMac, const uint64_t dataVer);
 void checkQueue(const uint8_t* targetMac);
 bool queueDataAvail(struct pendingData* pending);
+uint8_t* getDataForFile(fs::File& file);

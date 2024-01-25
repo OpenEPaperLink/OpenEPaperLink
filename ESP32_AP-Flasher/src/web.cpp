@@ -272,12 +272,19 @@ void init_web() {
             String dst = request->getParam("mac")->value();
             uint8_t mac[8];
             if (hex2mac(dst, mac)) {
-                const tagRecord *taginfo = tagRecord::findByMAC(mac);
+                tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
-                    if (taginfo->pendingCount > 0) {
-                        request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
-                        return;
+                    if (taginfo->data == nullptr) {
+                        fs::File file = contentFS->open(taginfo->filename);
+                        if (!file) {
+                            request->send(404, "text/plain", "File not found");
+                            return;
+                        }
+                        taginfo->data = getDataForFile(file);
+                        file.close();
                     }
+                    request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
+                    return;
                 }
             }
         }
@@ -333,7 +340,8 @@ void init_web() {
                     }
                     if (strcmp(cmdValue, "clear") == 0) {
                         clearPending(taginfo);
-                        while (dequeueItem(mac)) { };
+                        while (dequeueItem(mac)) {
+                        };
                         taginfo->pendingCount = countQueueItem(mac);
                         wsSendTaginfo(mac, SYNC_TAGSTATUS);
                     }
