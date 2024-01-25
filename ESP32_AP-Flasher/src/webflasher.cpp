@@ -105,7 +105,7 @@ bool report(bool result) {
         tft2.print("v");
         tft2.setCursor(6, 30, 2);
         tft2.print("v");
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        vTaskDelay(200 / portTICK_PERIOD_MS);
 #endif
     } else {
         errors++;
@@ -117,7 +117,7 @@ bool report(bool result) {
         tft2.print("x");
         tft2.setCursor(6, 30, 2);
         tft2.print("x");
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
 #endif
     }
     return result;
