@@ -1,5 +1,3 @@
-#ifndef SAVE_SPACE
-
 #include "tagdata.h"
 
 #ifndef SAVE_SPACE
