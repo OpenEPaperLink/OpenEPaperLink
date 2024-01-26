@@ -25,7 +25,7 @@ struct fwmetadata {
 
 #define EEPROM_SETTINGS_SIZE 4096
 
-#define BLOCKSIZE_MS 320 // was 270
+#define BLOCKSIZE_MS 225  // was 270
 
 // download-stuff
 uint8_t blockbuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
@@ -199,6 +199,7 @@ static void sendAvailDataReq() {
     availreq->temperature = temperature;
     availreq->batteryMv = batteryVoltage;
     availreq->capabilities = capabilities;
+    availreq->currentChannel = currentChannel;
     availreq->tagSoftwareVersion = FW_VERSION;
     addCRC(availreq, sizeof(struct AvailDataReq));
     commsTxNoCpy(outBuffer);
@@ -282,17 +283,31 @@ static bool blockRxLoop(const uint32_t timeout) {
     bool success = false;
     radioRxEnable(true);
     t = millis() + ((timeout + 20));
+
+    bool blockComplete = false;
+
     while (millis() < t) {
         int8_t ret = commsRxUnencrypted(inBuffer);
         if (ret > 1) {
-            if (getPacketType(inBuffer) == PKT_BLOCK_PART) {
+            if ((getPacketType(inBuffer) == PKT_BLOCK_PART) && pktIsUnicast(inBuffer)) {
                 struct blockPart *bp = (struct blockPart *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
                 success = processBlockPart(bp);
             }
+            blockComplete = true;
+            for (uint8_t c = 0; c < BLOCK_MAX_PARTS; c++) {
+                if (curBlock.requestedParts[c / 8] & (1 << (c % 8)))
+                    blockComplete = false;
+            }
+            if (blockComplete) {
+                radioRxEnable(false);
+                radioRxFlush();
+            }
         }
     }
-    radioRxEnable(false);
-    radioRxFlush();
+    if (blockComplete == false) {
+        radioRxEnable(false);
+        radioRxFlush();
+    }
     return success;
 }
 static struct blockRequestAck *continueToRX() {
@@ -404,7 +419,7 @@ static bool validateBlockData() {
     struct blockData *bd = (struct blockData *)blockbuffer;
     // printf("expected len = %04X, checksum=%04X\n", bd->size, bd->checksum);
     if (bd->size > BLOCK_XFER_BUFFER_SIZE - sizeof(blockData)) {
-        printf("Impossible data size, we abort here\n");
+        printf("Impossible data size; size = %d\n");
         return false;
     }
     uint16_t t = 0;
@@ -447,7 +462,7 @@ static uint32_t getAddressForSlot(const uint8_t s) {
 static void getNumSlots() {
     uint32_t eeSize = eepromGetSize();
 
-    uint16_t nSlots = (eeSize - EEPROM_SETTINGS_SIZE) / (tag.imageSize  >> 8) >> 8;
+    uint16_t nSlots = (eeSize - EEPROM_SETTINGS_SIZE) / (tag.imageSize >> 8) >> 8;
     if (!nSlots) {
         printf("eeprom is too small\n");
         while (1)
@@ -460,7 +475,9 @@ static void getNumSlots() {
     printf("EEPROM reported size = %lu, %d slots\n", eeSize, imgSlots);
 }
 static uint8_t findSlotVer(uint64_t ver) {
-    // return 0xFF;  // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
+#ifdef DEBUGBLOCKS
+    return 0xFF;  // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
+#endif
     uint32_t markerValid = EEPROM_IMG_VALID;
     for (uint8_t c = 0; c < imgSlots; c++) {
         struct EepromImageHeader *eih = (struct EepromImageHeader *)blockbuffer;
@@ -512,7 +529,7 @@ static void eraseUpdateBlock() {
     eepromErase(FW_LOC, (FW_METADATA_LOC + EEPROM_ERZ_SECTOR_SZ) / EEPROM_ERZ_SECTOR_SZ);
 }
 static void eraseImageBlock(const uint8_t c) {
-    eepromErase(getAddressForSlot(c), tag.imageSize  / EEPROM_ERZ_SECTOR_SZ);
+    eepromErase(getAddressForSlot(c), tag.imageSize / EEPROM_ERZ_SECTOR_SZ);
 }
 static void saveUpdateBlockData(uint8_t blockId) {
     if (!eepromWrite(FW_LOC + (blockId * BLOCK_DATA_SIZE), blockbuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
@@ -526,7 +543,7 @@ static void saveUpdateMetadata(uint32_t size) {
     eepromWrite(FW_METADATA_LOC, &metadata, sizeof(struct fwmetadata));
 }
 static void saveImgBlockData(const uint8_t imgSlot, const uint8_t blockId) {
-    uint32_t length = tag.imageSize  - (sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE));
+    uint32_t length = tag.imageSize - (sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE));
     if (length > 4096)
         length = 4096;
 
@@ -597,22 +614,15 @@ static bool getDataBlock(const uint16_t blockSize) {
 #endif
         powerUp(INIT_RADIO);
         struct blockRequestAck *ack = performBlockRequest();
-
         if (ack == NULL) {
             printf("Cancelled request\n");
             return false;
         }
-        if (ack->pleaseWaitMs) {  // SLEEP - until the AP is ready with the data
-            if (ack->pleaseWaitMs < 35) {
-                delay(ack->pleaseWaitMs);
-            } else {
-                doSleep(ack->pleaseWaitMs - 10);
-                powerUp(INIT_UART | INIT_RADIO);
-                radioRxEnable(true);
-            }
-        } else {
-            // immediately start with the reception of the block data
-        }
+
+        doSleep(ack->pleaseWaitMs + 50);
+        powerUp(INIT_UART | INIT_RADIO);
+        radioRxEnable(true);
+
         blockRxLoop(BLOCKSIZE_MS);  // BLOCK RX LOOP - receive a block, until the timeout has passed
         powerDown(INIT_RADIO);
 
@@ -635,6 +645,7 @@ static bool getDataBlock(const uint16_t blockSize) {
             if (curBlock.requestedParts[c / 8] & (1 << (c % 8)))
                 blockComplete = false;
         }
+        doSleep(30);
 
         if (blockComplete) {
 #ifndef DEBUGBLOCKS
@@ -662,6 +673,7 @@ static bool getDataBlock(const uint16_t blockSize) {
     printf("failed getting block\n");
     return false;
 }
+
 uint16_t dataRequestSize = 0;
 uint32_t curXferSize = 0;
 
@@ -752,7 +764,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
 
         uint8_t attempt = 5;
         while (attempt--) {
-            if (eepromErase(getAddressForSlot(xferImgSlot), tag.imageSize  / EEPROM_ERZ_SECTOR_SZ)) goto eraseSuccess;
+            if (eepromErase(getAddressForSlot(xferImgSlot), tag.imageSize / EEPROM_ERZ_SECTOR_SZ)) goto eraseSuccess;
         }
     eepromFail:
         powerDown(INIT_RADIO);
@@ -835,7 +847,7 @@ bool processImageDataAvail(struct AvailDataInfo *avail) {
             default: {
                 uint8_t slot = findSlotDataTypeArg(avail->dataTypeArgument);
                 if (slot != 0xFF) {
-                    eepromErase(getAddressForSlot(slot), tag.imageSize  / EEPROM_ERZ_SECTOR_SZ);
+                    eepromErase(getAddressForSlot(slot), tag.imageSize / EEPROM_ERZ_SECTOR_SZ);
                 }
             } break;
             // regular image preload, there can be multiple of this type in the EEPROM

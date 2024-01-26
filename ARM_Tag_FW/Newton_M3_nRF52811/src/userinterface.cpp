@@ -42,11 +42,17 @@ void addOverlay() {
         drawMask(epd->Xres - 27, epd->Yres - 26, 22, 22, COLOR_RED);
         drawRoundedRectangle(epd->Xres - 28, epd->Yres - 26, 24, 24, COLOR_RED);
         addBufferedImage(epd->Xres - 24, epd->Yres - 19, COLOR_BLACK, rotation::ROTATE_0, battery, DRAW_NORMAL);
-
         lowBatteryShown = true;
     } else {
         lowBatteryShown = false;
     }
+#ifdef DEBUGBLOCKS
+    fontrender fr(&FreeSansBold18pt7b);
+    drawMask(15, epd->Yres - 53, 129, 33, COLOR_BLACK);
+    drawMask(15, epd->Yres - 53, 129, 33, COLOR_RED);
+    drawRoundedRectangle(15, epd->Yres - 53, 129, 33, COLOR_RED);
+    fr.epdPrintf(17, epd->Yres - 50, COLOR_RED, rotation::ROTATE_0, "DEBUG");
+#endif
 }
 
 void afterFlashScreenSaver() {
@@ -139,6 +145,13 @@ void showSplashScreen() {
             addQR(260, 160, 3, 7, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", tag.OEPLtype, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
             break;
     }
+#ifdef DEBUGBLOCKS
+    drawMask(15, epd->Yres - 53, 129, 33, COLOR_BLACK);
+    drawMask(15, epd->Yres - 53, 129, 33, COLOR_RED);
+    drawRoundedRectangle(15, epd->Yres - 53, 129, 33, COLOR_RED);
+    fr.setFont(&FreeSansBold18pt7b);
+    fr.epdPrintf(17, epd->Yres - 50, COLOR_RED, rotation::ROTATE_0, "DEBUG");
+#endif
     draw();
 }
 

@@ -204,7 +204,7 @@ void drawRoundedRectangle(uint16_t xpos, uint16_t ypos, uint16_t width, uint16_t
 
     framebuffer += 4;
 
-    uint16_t w = width - 2;
+    uint16_t w = width - 1;
     uint16_t x = 1;
     while (w--) {
         framebuffer[(x / 8)] |= (uint8_t)(1 << (7 - ((uint8_t)x % 8)));
@@ -217,7 +217,7 @@ void drawRoundedRectangle(uint16_t xpos, uint16_t ypos, uint16_t width, uint16_t
         else
             framebuffer[(widthBytes * curY) + widthBytes - 1] = 0x01;
     }
-    w = width - 2;
+    w = width - 1;
     x = 1;
     while (w--) {
         framebuffer[(x / 8) + ((height - 1) * widthBytes)] |= (uint8_t)(1 << (7 - ((uint8_t)x % 8)));
