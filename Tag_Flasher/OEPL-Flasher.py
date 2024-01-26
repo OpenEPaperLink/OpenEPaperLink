@@ -295,6 +295,9 @@ def main():
                 if args.altradio:
                     send_cmd(CMD_SELECT_PORT, bytearray([2]))
 
+                send_cmd(CMD_SET_POWER, bytearray([1]))
+                cmd, answer = wait_for_command()
+
                 if args.nrf82511:
                     send_cmd(CMD_SELECT_NRF82511, bytearray([]))
                 if args.zbs243:
