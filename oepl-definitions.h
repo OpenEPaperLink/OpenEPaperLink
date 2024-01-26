@@ -78,9 +78,10 @@
 #define DATATYPE_IMG_DIFF 0x10             // always 1BPP ** deprecated
 #define DATATYPE_IMG_RAW_1BPP 0x20         // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
 #define DATATYPE_IMG_RAW_2BPP 0x21         // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2"
-#define DATATYPE_IMG_ZLIB_1BPP 0x30
-#define DATATYPE_IMG_ZLIB_2BPP 0x31        // zlib, header uint32_t uncompressed size, 2 byte zlib header
-#define DATATYPE_IMG_RAW_1BPP_DIRECT 0x3F  // only for 1.54", don't write to EEPROM, but straightaway to the EPD ** deprecated
+#define DATATYPE_IMG_ZLIB 0x30             // compressed format. 
+                                                    // [uint32_t uncompressed size][2 byte zlib header][zlib compressed image]
+                                                    // image format: [uint8_t header length][uint16_t width][uint16_t height][uint8_t bpp (lower 4)][img data]
+
 #define DATATYPE_UK_SEGMENTED 0x51         // Segmented data for the UK Segmented display type (contained in availableData Reply)
 #define DATATYPE_EU_SEGMENTED 0x52         // Segmented data for the EU/DE Segmented display type (contained in availableData Reply)
 #define DATATYPE_NFC_RAW_CONTENT 0xA0      // raw memory content for the NT3H1101
