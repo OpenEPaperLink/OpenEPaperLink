@@ -1145,7 +1145,7 @@ function processQueue() {
 }
 
 function processZlib(data) {
-		const subBuffer = data  //.subarray(4);
+		const subBuffer = data.subarray(4);
 		const inflatedBuffer = pako.inflate(subBuffer);
 		const headerSize = inflatedBuffer[0];
 		return inflatedBuffer.subarray(headerSize);

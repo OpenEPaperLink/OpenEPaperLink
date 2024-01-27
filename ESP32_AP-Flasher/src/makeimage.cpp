@@ -254,10 +254,8 @@ size_t compressAndWrite(Miniz::tdefl_compressor *comp, const void *inbuf, size_t
     size_t outbytes_compressed = outsize;
 
     uint32_t t = millis();
-    Serial.printf("zlib: begin compressing %d bytes\n", inbytes_compressed);
     tdefl_compress(comp, inbuf, &inbytes_compressed, zlibbuf, &outbytes_compressed, flush);
     Serial.printf("zlib: compressed %d into %d bytes in %d ms\n", inbytes_compressed, outbytes_compressed, millis()-t);
-    if (inbytes_compressed < inbytes) Serial.println("no ready yet!");
 
     f_out.write((const uint8_t *)zlibbuf, outbytes_compressed);
     return outbytes_compressed;
@@ -270,7 +268,7 @@ void rewriteHeader(File &f_out) {
     uint16_t header = cmf << 8 | (flevel << 6);
     header += 31 - (header % 31);
     flg = header & 0xFF;
-    f_out.seek(0);
+    f_out.seek(4);
     f_out.write(cmf);
     f_out.write(flg);
 }
@@ -318,9 +316,9 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
 
                 uint8_t headerbuf[6];
                 size_t totalbytes = prepareHeader(headerbuf, bufw, bufh, imageParams, buffer_size);
-                char *zlibbuf = (char *)malloc(totalbytes * 1.5);
+                char *zlibbuf = (char *)malloc(totalbytes * 1.3);
 
-                // f_out.write(reinterpret_cast<uint8_t *>(&totalbytes), sizeof(uint32_t));
+                f_out.write(reinterpret_cast<uint8_t *>(&totalbytes), sizeof(uint32_t));
 
                 if (comp == NULL || zlibbuf == NULL || totalbytes == 0 || !initializeCompressor(comp, Miniz::TDEFL_WRITE_ZLIB_HEADER | 1500)) {
                     Serial.println("Failed to initialize compressor or allocate memory for zlib");
@@ -337,7 +335,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                     compressAndWrite(comp, buffer, buffer_size, zlibbuf, buffer_size, buffer_size, f_out, Miniz::TDEFL_FINISH);
                 }
 
-                // rewriteHeader(f_out);
+                rewriteHeader(f_out);
 
                 free(zlibbuf);
                 free(comp);
