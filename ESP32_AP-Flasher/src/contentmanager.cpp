@@ -203,7 +203,9 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     imageParams.invert = taginfo->invert;
     imageParams.symbols = 0;
     imageParams.rotate = taginfo->rotate;
-
+    if (hwdata.zlib != 0 && taginfo->tagSoftwareVersion >= hwdata.zlib) {
+        imageParams.zlib = 1;
+    }
     imageParams.shortlut = hwdata.shortlut;
 
     imageParams.lut = EPD_LUT_NO_REPEATS;
@@ -506,6 +508,7 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
                 imageParams.lut = EPD_LUT_DEFAULT;
             }
         }
+        if (imageParams.zlib) imageParams.dataType = DATATYPE_IMG_ZLIB;
         prepareDataAvail(filename, imageParams.dataType, imageParams.lut, dst, nextCheckin);
     }
     return true;

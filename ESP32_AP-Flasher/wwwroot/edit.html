@@ -428,11 +428,16 @@
 						fetch(path)
 							.then(response => response.arrayBuffer())
 							.then(buffer => {
+
+								data = new Uint8ClampedArray(buffer);
+								if (tagTypes[hwtype].zlib > 0 && targetDiv.dataset.ver >= tagTypes[hwtype].zlib) {
+									data = window.opener.processZlib(data);
+								}
+
 								[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
 								if (tagTypes[hwtype].rotatebuffer) [canvas.width, canvas.height] = [canvas.height, canvas.width];
 								const ctx = canvas.getContext('2d');
 								const imageData = ctx.createImageData(canvas.width, canvas.height);
-								const data = new Uint8ClampedArray(buffer);
 								if (data.length == 0) canvas.style.display = 'none';
 
 								if (tagTypes[hwtype].bpp == 16) {
