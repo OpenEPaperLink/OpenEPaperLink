@@ -237,8 +237,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
         switch (pending->availdatainfo.dataType) {
             case DATATYPE_IMG_DIFF:
             case DATATYPE_IMG_RAW_1BPP:
-            case DATATYPE_IMG_RAW_2BPP:
-            case DATATYPE_IMG_RAW_1BPP_DIRECT: {
+            case DATATYPE_IMG_RAW_2BPP: {
                 Storage.begin();
 
                 char hexmac[17];
