@@ -63,6 +63,15 @@
       "note":"2.9 v033 FW - 2nd version"
     },
     {
+      "name":"2.9 White - 3rd",
+      "mac_offset":64518,
+      "mac_format":1,
+      "mac_suffix":"3B10",
+      "MD5":"DA5B33EFBEEB9496B4489B60523EB00C",
+      "type":1,
+      "note":"2.9 v032 FW"
+    },
+    {
       "name":"2.9 White + NFC UC8151",
       "mac_offset":64518,
       "mac_format":1,
@@ -71,7 +80,7 @@
       "type":17,
       "note":"2.9 White + NFC UC8151 V032 FW"
     },
-      {
+    {
       "name":"2.9 White + NFC UC8151",
       "mac_offset":64518,
       "mac_format":1,
@@ -80,7 +89,7 @@
       "type":17,
       "note":"2.9 White + NFC UC8151 V033 FW"
     },
-          {
+    {
       "name":"2.9 White + NFC UC8151",
       "mac_offset":64518,
       "mac_format":1,
