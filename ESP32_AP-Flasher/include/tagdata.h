@@ -3,6 +3,8 @@
 /// @brief Custom tag data parser and helpers
 #pragma once
 
+#ifndef SAVE_SPACE
+
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
@@ -138,3 +140,5 @@ inline T bytesTo(const uint8_t *data, int length) {
     return T(data, data + length);
 }
 }  // namespace TagData
+
+#endif

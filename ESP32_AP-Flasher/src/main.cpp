@@ -127,7 +127,11 @@ void setup() {
 #ifdef HAS_RGB_LED
     rgbIdle();
 #endif
+
+#ifndef SAVE_SPACE
     TagData::loadParsers("/parsers.json");
+#endif
+
     if (!loadDB("/current/tagDB.json")) {
         Serial.println("unable to load tagDB, reverting to backup");
         loadDB("/current/tagDB.json.bak");

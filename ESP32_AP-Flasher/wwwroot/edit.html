@@ -410,7 +410,7 @@
 				if (ext == "raw" || ext == "pending") {
 					let storedTagTypes = localStorage.getItem("tagTypes");
 					let tagTypes = JSON.parse(storedTagTypes);
-					let mac = name.substring(name.lastIndexOf('/') + 1);
+					let mac = name.substring(name.lastIndexOf('/') + 1, name.lastIndexOf('/') + 17);
 					let targetDiv = null;
 					if (window.opener && !window.opener.closed) {
 						targetDiv = window.opener.document.querySelector(`div[data-mac="${mac}"]`);

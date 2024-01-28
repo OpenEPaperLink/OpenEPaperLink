@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "core_cm3.h"
-#include "main.h"
+#include "../main.h"
 #include "mz100_rtc.h"
 #include "mz100_wdt.h"
 #include "mz100_pmu.h"

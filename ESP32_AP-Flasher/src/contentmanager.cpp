@@ -51,7 +51,7 @@ void contentRunner() {
             // taginfo->wakeupReason = 0;
         }
 
-        if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pending == false) {
+        if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pendingCount == 0) {
             int16_t minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
             if (minutesUntilNextUpdate > config.maxsleep) {
                 minutesUntilNextUpdate = config.maxsleep;
@@ -956,8 +956,6 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
 int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams, String MAC) {
     // https://images.klari.net/kat-bw29.jpg
 
-    Storage.begin();
-
     HTTPClient http;
     logLine("http getImgURL " + URL);
     http.begin(URL);
@@ -1375,7 +1373,6 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams) {
 #ifdef CONTENT_QR
     TFT_eSprite spr = TFT_eSprite(&tft);
-    Storage.begin();
 
     const char *text = qrcontent.c_str();
     QRCode qrcode;

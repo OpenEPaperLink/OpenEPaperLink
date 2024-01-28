@@ -169,7 +169,7 @@ void wsSendTaginfo(const uint8_t *mac, uint8_t syncMode) {
                 if (syncMode == SYNC_TAGSTATUS) {
                     taginfoitem.lastseen = taginfo->lastseen;
                     taginfoitem.nextupdate = taginfo->nextupdate;
-                    taginfoitem.pending = taginfo->pending;
+                    taginfoitem.pendingCount = taginfo->pendingCount;
                     taginfoitem.expectedNextCheckin = taginfo->expectedNextCheckin;
                     taginfoitem.hwType = taginfo->hwType;
                     taginfoitem.wakeupReason = taginfo->wakeupReason;
@@ -215,7 +215,6 @@ uint8_t wsClientCount() {
 
 void init_web() {
     wsMutex = xSemaphoreCreateMutex();
-    Storage.begin();
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(static_cast<wifi_power_t>(config.wifiPower));
 
@@ -240,7 +239,6 @@ void init_web() {
 
     server.serveStatic("/current", *contentFS, "/current/").setCacheControl("max-age=604800");
     server.serveStatic("/tagtypes", *contentFS, "/tagtypes/").setCacheControl("max-age=600");
-    server.serveStatic("/", *contentFS, "/www/").setDefaultFile("index.html");
 
     server.on(
         "/imgupload", HTTP_POST, [](AsyncWebServerRequest *request) {
@@ -274,12 +272,19 @@ void init_web() {
             String dst = request->getParam("mac")->value();
             uint8_t mac[8];
             if (hex2mac(dst, mac)) {
-                const tagRecord *taginfo = tagRecord::findByMAC(mac);
+                tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
-                    if (taginfo->pending == true) {
-                        request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
-                        return;
+                    if (taginfo->data == nullptr) {
+                        fs::File file = contentFS->open(taginfo->filename);
+                        if (!file) {
+                            request->send(404, "text/plain", "File not found");
+                            return;
+                        }
+                        taginfo->data = getDataForFile(file);
+                        file.close();
                     }
+                    request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
+                    return;
                 }
             }
         }
@@ -311,8 +316,6 @@ void init_web() {
                     if (request->hasParam("invert", true)) {
                         taginfo->invert = atoi(request->getParam("invert", true)->value().c_str());
                     }
-                    // memset(taginfo->md5, 0, 16 * sizeof(uint8_t));
-                    // memset(taginfo->md5pending, 0, 16 * sizeof(uint8_t));
                     wsSendTaginfo(mac, SYNC_USERCFG);
                     // saveDB("/current/tagDB.json");
                     request->send(200, "text/plain", "Ok, saved");
@@ -337,7 +340,9 @@ void init_web() {
                     }
                     if (strcmp(cmdValue, "clear") == 0) {
                         clearPending(taginfo);
-                        memcpy(taginfo->md5pending, taginfo->md5, sizeof(taginfo->md5pending));
+                        while (dequeueItem(mac)) {
+                        };
+                        taginfo->pendingCount = countQueueItem(mac);
                         wsSendTaginfo(mac, SYNC_TAGSTATUS);
                     }
                     if (strcmp(cmdValue, "refresh") == 0) {
@@ -659,6 +664,8 @@ void init_web() {
         }
         request->send(404);
     });
+
+    server.serveStatic("/", *contentFS, "/www/").setDefaultFile("index.html");
 
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "content-type");

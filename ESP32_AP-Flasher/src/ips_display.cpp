@@ -112,7 +112,7 @@ void yellow_ap_display_loop(void) {
     }
     if (millis() - last_update >= 1000) {
         tagRecord* tag = tagDB.at(tftid);
-        if (tag->pending) {
+        if (tag->pendingCount > 0) {
             String filename = tag->filename;
             fs::File file = contentFS->open(filename);
             if (!file) {

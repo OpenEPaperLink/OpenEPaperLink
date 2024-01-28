@@ -160,7 +160,7 @@ void qspiEraseRange(uint32_t addr, uint32_t len) {
 }
 
 bool eepromWrite(uint32_t addr, const void *srcP, uint16_t len) {
-    FLASH_Write(false, addr, (void*)srcP, len);
+    FLASH_Write(0, addr, (void*)srcP, len);
     return true;
 }
 

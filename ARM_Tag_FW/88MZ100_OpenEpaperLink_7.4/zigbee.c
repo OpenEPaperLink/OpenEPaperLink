@@ -1,8 +1,8 @@
 //#include <stdio.h>
 #include <stdint.h>
-#include "util.h"
+#include "mz100/util.h"
 #include "zigbee.h"
-#include "printf.h"
+#include "mz100/printf.h"
 
 volatile uint8_t calibration_irq_ocoured = 0;
 volatile uint8_t zigbee_tx_done = 0;
