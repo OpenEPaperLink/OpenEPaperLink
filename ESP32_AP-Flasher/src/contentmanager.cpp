@@ -205,6 +205,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     imageParams.rotate = taginfo->rotate;
     if (hwdata.zlib != 0 && taginfo->tagSoftwareVersion >= hwdata.zlib) {
         imageParams.zlib = 1;
+    } else {
+        imageParams.zlib = 0;
     }
     imageParams.shortlut = hwdata.shortlut;
 
