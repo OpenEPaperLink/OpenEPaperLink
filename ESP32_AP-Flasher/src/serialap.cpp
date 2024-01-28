@@ -1,7 +1,7 @@
-#include "serialap.h"
-
 #include <Arduino.h>
 #include <HardwareSerial.h>
+
+#include "serialap.h"
 
 #include "commstructs.h"
 #include "contentmanager.h"
@@ -15,7 +15,6 @@
 #include "zbs_interface.h"
 
 QueueHandle_t rxCmdQueue;
-
 SemaphoreHandle_t txActive;
 
 // If a command is sent, it will wait for a reply here
@@ -28,7 +27,7 @@ volatile uint8_t cmdReplyValue = CMD_REPLY_WAIT;
 #define AP_SERIAL_PORT Serial1
 volatile bool rxSerialStopTask2 = false;
 
-    uint8_t channelList[6];
+uint8_t channelList[6];
 struct espSetChannelPower curChannel = {0, 11, 10};
 
 #define RX_CMD_RQB 0x01
@@ -42,8 +41,6 @@ struct espSetChannelPower curChannel = {0, 11, 10};
 #define AP_ACTIVITY_MAX_INTERVAL 30 * 1000
 volatile uint32_t lastAPActivity = 0;
 struct APInfoS apInfo;
-
-extern uint8_t* getDataForFile(File& file);
 
 struct rxCmd {
     uint8_t* data;
@@ -98,7 +95,7 @@ bool waitCmdReply() {
                 break;
             case CMD_REPLY_ACK:
                 lastAPActivity = millis();
-                if(apInfo.isOnline == false)
+                if (apInfo.isOnline == false)
                     setAPstate(true, AP_STATE_ONLINE);
                 return true;
                 break;
@@ -150,8 +147,7 @@ void setAPstate(bool isOnline, uint8_t state) {
         CRGB::Yellow,
         CRGB::Aqua,
         CRGB::Red,
-        CRGB::YellowGreen
-    };
+        CRGB::YellowGreen};
     rgbIdleColor = colorMap[state];
     rgbIdlePeriod = (isOnline ? 767 : 255);
 #endif
@@ -222,6 +218,7 @@ blksend:
     txEnd();
     return bd->checksum;
 }
+
 bool sendDataAvail(struct pendingData* pending) {
     if (!apInfo.isOnline) return false;
     if (!txStart()) return false;
@@ -462,7 +459,7 @@ void rxSerialTask(void* parameter) {
                         packetp = (uint8_t*)calloc(sizeof(struct espBlockRequest) + 8, 1);
                         memset(cmdbuffer, 0x00, 4);
                         lastAPActivity = millis();
-                        if(apInfo.isOnline == false)
+                        if (apInfo.isOnline == false)
                             setAPstate(true, AP_STATE_ONLINE);
                     }
                     if (strncmp(cmdbuffer, "ADR>", 4) == 0) {
@@ -472,7 +469,7 @@ void rxSerialTask(void* parameter) {
                         packetp = (uint8_t*)calloc(sizeof(struct espAvailDataReq) + 8, 1);
                         memset(cmdbuffer, 0x00, 4);
                         lastAPActivity = millis();
-                        if(apInfo.isOnline == false)
+                        if (apInfo.isOnline == false)
                             setAPstate(true, AP_STATE_ONLINE);
                     }
                     if (strncmp(cmdbuffer, "XFC>", 4) == 0) {
@@ -496,7 +493,7 @@ void rxSerialTask(void* parameter) {
                         packetp = (uint8_t*)calloc(sizeof(struct espTagReturnData) + 8, 1);
                         memset(cmdbuffer, 0x00, 4);
                         lastAPActivity = millis();
-                        if(apInfo.isOnline == false)
+                        if (apInfo.isOnline == false)
                             setAPstate(true, AP_STATE_ONLINE);
                     }
                     break;
@@ -535,7 +532,7 @@ void rxSerialTask(void* parameter) {
                 case ZBS_RX_WAIT_TAG_RETURN_DATA: {
                     packetp[pktindex] = lastchar;
                     pktindex++;
-                    if ((pktindex > 10) && (pktindex >= (packetp[9]+10))) {
+                    if ((pktindex > 10) && (pktindex >= (packetp[9] + 10))) {
                         addRXQueue(packetp, pktindex, RX_CMD_TRD);
                         RXState = ZBS_RX_WAIT_HEADER;
                     }
@@ -582,7 +579,7 @@ void rxSerialTask(void* parameter) {
                     charindex++;
                     if (charindex == 2) {
                         RXState = ZBS_RX_WAIT_HEADER;
-                        apInfo.pending = (uint8_t)strtoul(cmdbuffer, NULL, 16);
+                        apInfo.pendingBuffer = (uint8_t)strtoul(cmdbuffer, NULL, 16);
                     }
                     break;
                 case ZBS_RX_WAIT_NOP:
@@ -772,7 +769,6 @@ void APTask(void* parameter) {
             updateContent(apInfo.mac);
         }
 
-
         uint16_t fsversion;
         if (FLASHER_AP_MOSI != -1) {
             fsversion = getAPUpdateVersion(apInfo.type);
@@ -901,7 +897,7 @@ void APTask(void* parameter) {
             if (!reply) {
                 attempts++;
             } else {
-                if(apInfo.isOnline == false)
+                if (apInfo.isOnline == false)
                     setAPstate(true, AP_STATE_ONLINE);
                 attempts = 0;
             }
@@ -913,7 +909,7 @@ void APTask(void* parameter) {
 #ifdef HAS_RGB_LED
                     showColorPattern(CRGB::Yellow, CRGB::Yellow, CRGB::Red);
 #endif
-                    lastAPActivity = millis();// we set this to retrigger a recovery in AP_ACTIVITY_MAX_INTERVAL seconds
+                    lastAPActivity = millis();  // we set this to retrigger a recovery in AP_ACTIVITY_MAX_INTERVAL seconds
                 } else {
                     setAPstate(true, AP_STATE_ONLINE);
                     attempts = 0;

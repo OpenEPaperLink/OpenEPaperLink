@@ -18,7 +18,6 @@ bool spr_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) 
 }
 
 void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
-    Storage.begin();
     TJpgDec.setSwapBytes(true);
     TJpgDec.setJpgScale(1);
     TJpgDec.setCallback(spr_output);
@@ -227,7 +226,6 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     long t = millis();
-    Storage.begin();
 
 #ifdef YELLOW_IPS_AP
     extern uint8_t YellowSense;

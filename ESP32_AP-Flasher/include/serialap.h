@@ -18,7 +18,7 @@ struct APInfoS {
     uint8_t channel;
     uint8_t mac[8];
     uint8_t power;
-    uint8_t pending;
+    uint8_t pendingBuffer;
     uint8_t nop;
 };
 

@@ -103,7 +103,7 @@ void fillNode(JsonObject& tag, const tagRecord* taginfo) {
     tag["lastseen"] = taginfo->lastseen;
     tag["nextupdate"] = taginfo->nextupdate;
     tag["nextcheckin"] = taginfo->expectedNextCheckin;
-    tag["pending"] = taginfo->pending;
+    tag["pending"] = taginfo->pendingCount;
     tag["alias"] = taginfo->alias;
     tag["contentMode"] = taginfo->contentMode;
     tag["LQI"] = taginfo->LQI;
@@ -128,7 +128,6 @@ void saveDB(const String& filename) {
 
     const long t = millis();
 
-    Storage.begin();
     xSemaphoreTake(fsMutex, portMAX_DELAY);
 
     fs::File existingFile = contentFS->open(filename, "r");
@@ -174,7 +173,6 @@ bool loadDB(const String& filename) {
     Serial.println("reading DB from " + String(filename));
     const long t = millis();
 
-    Storage.begin();
     fs::File readfile = contentFS->open(filename, "r");
     if (!readfile) {
         Serial.println("loadDB: Failed to open file");
@@ -206,14 +204,13 @@ bool loadDB(const String& filename) {
                             taginfo->md5[i] = strtoul(md5.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
                         }
                     }
-                    memcpy(taginfo->md5pending, taginfo->md5, sizeof(taginfo->md5));
                     taginfo->lastseen = (uint32_t)tag["lastseen"];
                     taginfo->nextupdate = (uint32_t)tag["nextupdate"];
                     taginfo->expectedNextCheckin = (uint32_t)tag["nextcheckin"];
                     if (taginfo->expectedNextCheckin < now) {
                         taginfo->expectedNextCheckin = now + 1800;
                     }
-                    taginfo->pending = false;
+                    taginfo->pendingCount = 0;
                     taginfo->alias = tag["alias"].as<String>();
                     taginfo->contentMode = tag["contentMode"];
                     taginfo->LQI = tag["LQI"];
@@ -303,11 +300,9 @@ void clearPending(tagRecord* taginfo) {
         }
         taginfo->data = nullptr;
     }
-    taginfo->pending = false;
 }
 
 void initAPconfig() {
-    Storage.begin();
     DynamicJsonDocument APconfig(500);
     File configFile = contentFS->open("/current/apconfig.json", "r");
     if (configFile) {
