@@ -20,7 +20,10 @@
 #define SOLUM_M2_BWR_27 0x22
 #define SOLUM_M2_BWR_29 0x23
 #define SOLUM_M2_BWR_42 0x24
+#define SOLUM_M2_BW_16  0x25
 #define SOLUM_M2_BWR_75 0x26
+
+
 
 #define SOLUM_M3_BWR_97 0x2E
 #define SOLUM_M3_BWR_43 0x2F

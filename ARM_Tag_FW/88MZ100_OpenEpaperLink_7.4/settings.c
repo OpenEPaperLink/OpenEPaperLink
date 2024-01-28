@@ -1,9 +1,9 @@
 #include "settings.h"
 #include "proto.h"
 #include <string.h>
-#include "eeprom.h"
-#include "util.h"
-#include "mz100_flash.h"
+#include "mz100/eeprom.h"
+#include "mz100/util.h"
+#include "mz100/mz100_flash.h"
 #include "powermgt.h"
 
 

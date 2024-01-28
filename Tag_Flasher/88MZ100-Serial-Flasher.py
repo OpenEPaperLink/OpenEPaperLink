@@ -18,11 +18,24 @@ def bytes_to_int(bytes):
 def to_byte(input,number=4):
     return input.to_bytes(number, byteorder = 'little')
         
+def find_offset(byte_array, substring):
+    try:
+        offset = byte_array.index(substring)
+        return offset
+    except ValueError:
+        return -1 
+        
 def create_full_fw(filename,out_filename):
     print("Opening file " + filename)
     in_file = open(filename, "rb")
     data = bytearray(in_file.read())
     filesize = len(data)
+    fwlen = find_offset(data, b'---OEPL_FS!')
+    if(fwlen!=-1):
+        print("Found OEPL FS at offset "+str(fwlen))
+    else:
+        print("OEPL FS not found, this is probably an older FW version")
+        fwlen = filesize
     in_file.close()
     print("file size: "+str(filesize))
     entry_point = bytes_to_int(data[4:8])
@@ -31,7 +44,7 @@ def create_full_fw(filename,out_filename):
     #adding firmware header here    
     header =  to_byte(0x00000000)
     header += to_byte(0xFFFFFFFF)
-    header += to_byte(filesize)
+    header += to_byte(fwlen)
     header += to_byte(0xFFEEFFFF)
     header += to_byte(0xFFFFFFFF)
     header += to_byte(0x100000)
@@ -163,6 +176,12 @@ def flash_file_flash(filename):
     in_file = open(filename, "rb")
     data = bytearray(in_file.read())
     filesize = len(data)
+    fwlen = find_offset(data, b'---OEPL_FS!')
+    if(fwlen!=-1):
+        print("Found OEPL FS at offset "+str(fwlen))
+    else:
+        print("OEPL FS not found, this is probably an older FW version")
+        fwlen = filesize
     in_file.close()
     print("file size: "+str(filesize))
     entry_point = bytes_to_int(data[4:8])
@@ -172,7 +191,7 @@ def flash_file_flash(filename):
     
     header =  to_byte(0x00000000)
     header += to_byte(0xFFFFFFFF)
-    header += to_byte(filesize)
+    header += to_byte(fwlen)
     header += to_byte(0xFFEEFFFF)
     header += to_byte(0xFFFFFFFF)
     header += to_byte(0x100000)

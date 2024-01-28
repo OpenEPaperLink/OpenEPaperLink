@@ -230,7 +230,9 @@ static void epdBusyWait(uint32_t timeout) {
         if (P2_1)
             return;
     }
+    #ifdef DEBUGEPD
     pr("screen timeout %lu ticks :(\n", timerGet() - start);
+    #endif
     while (1)
         ;
 }
@@ -640,6 +642,7 @@ static void pushYFontBytesToEPD(uint8_t byte1, uint8_t byte2) {
     }
 }
 void writeCharEPD(uint8_t c) {
+    c-=0x20;
     // Writes a single character to the framebuffer
     bool empty = true;
     for (uint8_t i = 0; i < 20; i++) {

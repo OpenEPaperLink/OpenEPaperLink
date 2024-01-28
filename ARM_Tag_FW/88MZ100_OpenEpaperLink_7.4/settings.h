@@ -3,10 +3,17 @@
 
 #include <stdint.h>
 
-#define FW_VERSION 20            // version number (max 2.5.5 :) )
+#define FW_VERSION 0x0027            // version number (max 2.5.5 :) )
 #define FW_VERSION_SUFFIX "-75"  // suffix, like -RC1 or whatever.
 // #define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
 // #define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
+
+
+#define DEBUG_EPD
+#define DEBUG_FS
+#define DEBUG_BUILD
+#define DEBUG_COMPRESSION
+
 
 #define SETTINGS_STRUCT_VERSION 0x01
 

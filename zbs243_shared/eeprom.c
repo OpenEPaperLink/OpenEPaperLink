@@ -5,6 +5,7 @@
 #include "board.h"
 #include "cpu.h"
 #include <stdlib.h>
+#include "settings.h"
 
 static uint32_t __xdata mEepromSize;
 static uint8_t __xdata mOpcodeErz4K = 0, mOpcodeErz32K = 0, mOpcodeErz64K = 0;
@@ -46,8 +47,9 @@ static bool eepromPrvBusyWait(void) {
 
     eepromPrvSelect();
     eepromByte(0x05);
-    while ((val = eepromByte(0x00)) & 1)
+    while ((val = eepromByte(0x00)) & 1) {
         ;
+    }
     eepromPrvDeselect();
 
     return true;
@@ -103,8 +105,9 @@ __bit eepromInit(void) {
 
     eepromPrvSfdpRead(0, buf, 8);
     if (buf[0] != 0x53 || buf[1] != 0x46 || buf[2] != 0x44 || buf[3] != 0x50 || buf[7] != 0xff) {
+        #ifdef DEBUGEEPROM
         pr("SFDP: header not found\n");
-
+        #endif
         __bit valid = false;
 
         // try manual ID for chips we know of
@@ -113,29 +116,44 @@ __bit eepromInit(void) {
         eepromByte(0x00);
         eepromByte(0x00);
         eepromByte(0x00);
-        if (eepromByte(0) == 0xc2) {  // old macronix chips
-            valid = true;
-            mOpcodeErz4K = 0x20;
-            switch (eepromByte(0)) {
-                case 0x05:  // MX25V512
-                    mEepromSize = 0x00010000ul;
-                    break;
+        switch (eepromByte(0)) {
+            case 0xc2:  // old macronix chips
+                valid = true;
+                mOpcodeErz4K = 0x20;
+                switch (eepromByte(0)) {
+                    case 0x05:  // MX25V512
+                        mEepromSize = 0x00010000ul;
+                        break;
 
-                case 0x12:  // MX25V4005
-                    mEepromSize = 0x00080000ul;
-                    break;
+                    case 0x12:  // MX25V4005
+                        mEepromSize = 0x00080000ul;
+                        break;
 
-                default:
-                    valid = false;
-                    break;
-            }
+                    default:
+                        valid = false;
+                        break;
+                }
+                break;
+            case 0xEF:  // winbond
+                valid = true;
+                mOpcodeErz4K = 0x20;
+                switch (eepromByte(0)) {
+                    case 0x13: // W25Q80DV without SFDP
+                        mEepromSize = 0x00080000ul;
+                        break;
+                    default:
+                        valid = false;
+                }
+                break;
         }
         eepromPrvDeselect();
         free(tempBufferE);
         return valid;
     }
     if (buf[5] != 0x01) {
+        #ifdef DEBUGEEPROM
         pr("SFDP: version wrong: %u.%d\n", buf[5], buf[4]);
+        #endif
         return false;
     }
     nParamHdrs = buf[6];
@@ -150,29 +168,39 @@ __bit eepromInit(void) {
 
             eepromPrvSfdpRead(*(uint16_t __xdata *)(buf + 4), tempBufferE, 9 * 4);
             if ((tempBufferE[0] & 3) != 1) {
+                #ifdef DEBUGEEPROM
                 pr("SFDP: no 4K ERZ\n");
+                #endif
                 break;
             }
             if (!(tempBufferE[0] & 0x04)) {
+                #ifdef DEBUGEEPROM
                 pr("SFDP: no large write buf\n");
+                #endif
                 break;
             }
             if ((tempBufferE[2] & 0x06)) {
+                #ifdef DEBUGEEPROM
                 pr("SFDP: addr.len != 3\n");
+                #endif
                 break;
             }
 
             if (!tempBufferE[1] || tempBufferE[1] == 0xff) {
+                #ifdef DEBUGEEPROM
                 pr("SFDP: 4K ERZ opcode invalid\n");
+                #endif
                 break;
             }
             mOpcodeErz4K = tempBufferE[1];
 
             if (tempBufferE[7] & 0x80) {
+                #ifdef DEBUGEEPROM
                 pr("SFDP: device too big\n");
+                #endif
                 break;
             } else {
-                uint8_t t;
+                uint8_t __xdata t;
 
                 if (t = tempBufferE[7])
                     mEepromSize = 0x00200000UL;
@@ -181,7 +209,9 @@ __bit eepromInit(void) {
                 else if (t = tempBufferE[5])
                     mEepromSize = 0x00000020UL;
                 else {
+                    #ifdef DEBUGEEPROM
                     pr("SFDP: device so small?!\n");
+                    #endif
                     break;
                 }
 
@@ -201,7 +231,9 @@ __bit eepromInit(void) {
                 switch (tempBufferE[j]) {
                     case 0x0c:
                         if (mOpcodeErz4K != instr) {
+                            #ifdef DEBUGEEPROM
                             pr("4K ERZ opcode disagreement\n");
+                            #endif
                             return false;
                         }
                         break;
@@ -231,8 +263,9 @@ __bit eepromInit(void) {
             return true;
         }
     }
-
+    #ifdef DEBUGEEPROM
     pr("SFDP: no JEDEC table of expected version found\n");
+    #endif
     return false;
 }
 

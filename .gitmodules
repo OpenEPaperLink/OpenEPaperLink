@@ -1,0 +1,3 @@
+[submodule "ARM_Tag_FW/common/uzlib"]
+	path = ARM_Tag_FW/common/uzlib
+	url = https://github.com/pfalcon/uzlib.git

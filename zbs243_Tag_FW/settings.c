@@ -116,5 +116,8 @@ void writeSettings() {
 
 void invalidateSettingsEEPROM() {
     int32_t __xdata valid = 0x0000;
+    #ifdef DEBUGSETTINGS
+    pr("SETTINGS: Invalidated settings in EEPROM\n");
+    #endif
     eepromWrite(EEPROM_SETTINGS_AREA_START, (void*)&valid, 4);
 }
