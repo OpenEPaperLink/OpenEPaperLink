@@ -235,33 +235,33 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 if (!configFilename.startsWith("/")) {
                     configFilename = "/" + configFilename;
                 }
-                if (contentFS->exists(configFilename)) {
-                    imageParams.dither = cfgobj["dither"];
 
-                    imageParams.preload = cfgobj["preload"] && cfgobj["preload"] == "1";
-                    imageParams.preloadlut = cfgobj["preload_lut"];
-                    imageParams.preloadtype = cfgobj["preload_type"];
-
-                    jpg2buffer(configFilename, filename, imageParams);
-                } else {
-                    filename = "/current/" + String(hexmac) + ".pending";
-                    if (!contentFS->exists(filename)) {
-                        filename = "/current/" + String(hexmac) + ".raw";
-                    }
-                    if (contentFS->exists(filename)) {
-                        prepareDataAvail(filename, imageParams.dataType, imageParams.lut, mac, cfgobj["timetolive"].as<int>(), true);
-                        wsLog("Resending image " + filename);
-                    } else {
-                        wsErr("File " + configFilename + " not found");
-                    }
+                if (!contentFS->exists(configFilename)) {
                     taginfo->nextupdate = 3216153600;
+                    wsErr("Not found: " + configFilename);
                     break;
                 }
-                if (imageParams.hasRed) {
+
+                imageParams.dither = cfgobj["dither"];
+
+                imageParams.preload = cfgobj["preload"] && cfgobj["preload"] == "1";
+                imageParams.preloadlut = cfgobj["preload_lut"];
+                imageParams.preloadtype = cfgobj["preload_type"];
+
+                jpg2buffer(configFilename, filename, imageParams);
+
+                if (imageParams.hasRed && imageParams.lut == EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
+                    imageParams.lut = EPD_LUT_DEFAULT;
+                }
+
+                if (imageParams.zlib) {
+                    imageParams.dataType = DATATYPE_IMG_ZLIB;
+                    Serial.println("datatype: DATATYPE_IMG_ZLIB");
+                } else if (imageParams.hasRed) {
                     imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
-                    if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
-                        imageParams.lut = EPD_LUT_DEFAULT;
-                    }
+                    Serial.println("datatype: DATATYPE_IMG_RAW_2BPP");
+                } else {
+                    Serial.println("datatype: DATATYPE_IMG_RAW_1BPP");
                 }
 
                 struct imageDataTypeArgStruct arg = {0};
@@ -504,13 +504,20 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
     if (taginfo->hwType == SOLUM_SEG_UK) {
         sendAPSegmentedData(dst, (String)imageParams.segments, imageParams.symbols, (imageParams.invert == 1), (taginfo->isExternal == false));
     } else {
-        if (imageParams.hasRed) {
-            imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
-            if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
-                imageParams.lut = EPD_LUT_DEFAULT;
-            }
+
+        if (imageParams.hasRed && imageParams.lut == EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
+            imageParams.lut = EPD_LUT_DEFAULT;
         }
-        if (imageParams.zlib) imageParams.dataType = DATATYPE_IMG_ZLIB;
+
+        if (imageParams.zlib) {
+            imageParams.dataType = DATATYPE_IMG_ZLIB;
+            Serial.println("datatype: DATATYPE_IMG_ZLIB");
+        } else if (imageParams.hasRed) {
+            imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
+            Serial.println("datatype: DATATYPE_IMG_RAW_2BPP");
+        } else {
+            Serial.println("datatype: DATATYPE_IMG_RAW_1BPP");
+        }
         prepareDataAvail(filename, imageParams.dataType, imageParams.lut, dst, nextCheckin);
     }
     return true;
