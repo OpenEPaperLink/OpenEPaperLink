@@ -34,8 +34,6 @@ util::Timer tagConnectTimer(seconds(1));
 
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 
-void pinTest();
-
 void delayedStart(void* parameter) {
     vTaskDelay(30000 / portTICK_PERIOD_MS);
     if (config.runStatus != RUNSTATUS_RUN) {
@@ -69,7 +67,6 @@ void setup() {
 #endif
 #endif
 
-    // pinTest();
 #ifdef BOARD_HAS_PSRAM
     if (!psramInit()) {
         Serial.printf("This build of the AP expects PSRAM, but we couldn't find/init any. Something is terribly wrong here! System halted.");

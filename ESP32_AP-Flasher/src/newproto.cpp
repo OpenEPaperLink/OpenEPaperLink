@@ -32,7 +32,6 @@ void addCRC(void* p, uint8_t len) {
         total += ((uint8_t*)p)[c];
     }
     ((uint8_t*)p)[0] = total;
-    // pr("%d",total);
 }
 bool checkCRC(void* p, uint8_t len) {
     uint8_t total = 0;
@@ -234,6 +233,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
     if (taginfo->isExternal == false) {
         switch (pending->availdatainfo.dataType) {
             case DATATYPE_IMG_DIFF:
+            case DATATYPE_IMG_ZLIB:
             case DATATYPE_IMG_RAW_1BPP:
             case DATATYPE_IMG_RAW_2BPP: {
                 char hexmac[17];
@@ -400,7 +400,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
             contentFS->remove(dst_path);
         }
         if (contentFS->exists(queueItem->filename)) {
-            if (config.preview && (queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP)) {
+            if (config.preview && (queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_ZLIB)) {
                 contentFS->rename(queueItem->filename, String(dst_path));
             } else {
                 contentFS->remove(queueItem->filename);

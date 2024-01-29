@@ -6,6 +6,7 @@
 #include <web.h>
 
 #include "leds.h"
+#include "miniz-oepl.h"
 #include "storage.h"
 #include "util.h"
 
@@ -224,6 +225,54 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
     return;
 }
 
+size_t prepareHeader(uint8_t headerbuf[], uint16_t bufw, uint16_t bufh, imgParam imageParams, size_t buffer_size) {
+    size_t totalbytes;
+    uint8_t headersize = 6;
+
+    headerbuf[0] = headersize;
+    memcpy(headerbuf + (imageParams.rotatebuffer == 1 ? 3 : 1), &bufw, sizeof(uint16_t));
+    memcpy(headerbuf + (imageParams.rotatebuffer == 1 ? 1 : 3), &bufh, sizeof(uint16_t));
+
+    if (imageParams.hasRed && imageParams.bpp > 1) {
+        totalbytes = buffer_size * 2 + headersize;
+        headerbuf[5] = 2;
+    } else {
+        totalbytes = buffer_size + headersize;
+        headerbuf[5] = 1;
+    }
+
+    return totalbytes;
+}
+
+bool initializeCompressor(Miniz::tdefl_compressor *comp, int flags) {
+    return Miniz::tdefl_init(comp, NULL, NULL, flags) == Miniz::TDEFL_STATUS_OKAY;
+}
+
+size_t compressAndWrite(Miniz::tdefl_compressor *comp, const void *inbuf, size_t inbytes, void *zlibbuf, size_t outsize, size_t totalbytes, File &f_out, Miniz::tdefl_flush flush) {
+    size_t inbytes_compressed = inbytes;
+    size_t outbytes_compressed = outsize;
+
+    uint32_t t = millis();
+    tdefl_compress(comp, inbuf, &inbytes_compressed, zlibbuf, &outbytes_compressed, flush);
+    Serial.printf("zlib: compressed %d into %d bytes in %d ms\n", inbytes_compressed, outbytes_compressed, millis()-t);
+
+    f_out.write((const uint8_t *)zlibbuf, outbytes_compressed);
+    return outbytes_compressed;
+}
+
+void rewriteHeader(File &f_out) {
+    // https://www.rfc-editor.org/rfc/rfc1950
+    const uint8_t cmf = 0x48;
+    uint8_t flg, flevel = 3;
+    uint16_t header = cmf << 8 | (flevel << 6);
+    header += 31 - (header % 31);
+    flg = header & 0xFF;
+    f_out.seek(4);
+    f_out.write(cmf);
+    f_out.write(flg);
+}
+
+
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     long t = millis();
 
@@ -248,6 +297,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
             uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
 #else
             uint8_t *buffer = (uint8_t *)malloc(buffer_size);
+            imageParams.zlib = 0;
 #endif
             if (!buffer) {
                 Serial.println("Failed to allocate buffer");
@@ -257,12 +307,44 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                 return;
             }
             spr2color(spr, imageParams, buffer, buffer_size, false);
-            f_out.write(buffer, buffer_size);
 
-            if (imageParams.hasRed && imageParams.bpp > 1) {
-                spr2color(spr, imageParams, buffer, buffer_size, true);
+            if (imageParams.zlib) {
+                Miniz::tdefl_compressor *comp;
+                comp = (Miniz::tdefl_compressor *)malloc(sizeof(Miniz::tdefl_compressor));
+
+                uint8_t headerbuf[6];
+                size_t totalbytes = prepareHeader(headerbuf, bufw, bufh, imageParams, buffer_size);
+                char *zlibbuf = (char *)malloc(totalbytes * 1.3);
+
+                f_out.write(reinterpret_cast<uint8_t *>(&totalbytes), sizeof(uint32_t));
+
+                if (comp == NULL || zlibbuf == NULL || totalbytes == 0 || !initializeCompressor(comp, Miniz::TDEFL_WRITE_ZLIB_HEADER | 1500)) {
+                    Serial.println("Failed to initialize compressor or allocate memory for zlib");
+                    if (zlibbuf != NULL) free(zlibbuf);
+                    if (comp != NULL) free(comp);
+                    break;
+                }
+
+                size_t bufferstart = compressAndWrite(comp, headerbuf, sizeof(headerbuf), zlibbuf, buffer_size, totalbytes, f_out, Miniz::TDEFL_NO_FLUSH);
+                compressAndWrite(comp, buffer, buffer_size, zlibbuf + bufferstart, buffer_size, buffer_size, f_out, (headerbuf[5] == 2 ? Miniz::TDEFL_SYNC_FLUSH : Miniz::TDEFL_FINISH));
+
+                if (headerbuf[5] == 2) {
+                    spr2color(spr, imageParams, buffer, buffer_size, true);
+                    compressAndWrite(comp, buffer, buffer_size, zlibbuf, buffer_size, buffer_size, f_out, Miniz::TDEFL_FINISH);
+                }
+
+                rewriteHeader(f_out);
+
+                free(zlibbuf);
+                free(comp);
+            } else {
                 f_out.write(buffer, buffer_size);
+                if (imageParams.hasRed && imageParams.bpp > 1) {
+                    spr2color(spr, imageParams, buffer, buffer_size, true);
+                    f_out.write(buffer, buffer_size);
+                }
             }
+
             free(buffer);
         } break;
 

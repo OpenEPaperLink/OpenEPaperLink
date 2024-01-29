@@ -1,10 +1,15 @@
 #include "contentmanager.h"
 
 // possibility to turn off, to save space if needed
+#ifndef SAVE_SPACE
 #define CONTENT_QR
 #define CONTENT_RSS
+#define CONTENT_BIGCAL
+#endif
 #define CONTENT_CAL
 #define CONTENT_BUIENRADAR
+#define CONTENT_NFCLUT
+#define CONTENT_TAGCFG
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -46,7 +51,6 @@ void contentRunner() {
             (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_NFC) &&
             config.runStatus == RUNSTATUS_RUN &&
             Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
-
             drawNew(taginfo->mac, taginfo);
             // taginfo->wakeupReason = 0;
         }
@@ -203,7 +207,11 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     imageParams.invert = taginfo->invert;
     imageParams.symbols = 0;
     imageParams.rotate = taginfo->rotate;
-
+    if (hwdata.zlib != 0 && taginfo->tagSoftwareVersion >= hwdata.zlib) {
+        imageParams.zlib = 1;
+    } else {
+        imageParams.zlib = 0;
+    }
     imageParams.shortlut = hwdata.shortlut;
 
     imageParams.lut = EPD_LUT_NO_REPEATS;
@@ -231,30 +239,33 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 if (!configFilename.startsWith("/")) {
                     configFilename = "/" + configFilename;
                 }
-                if (contentFS->exists(configFilename)) {
-                    imageParams.dither = cfgobj["dither"];
 
-                    imageParams.preload = cfgobj["preload"] && cfgobj["preload"] == "1";
-                    imageParams.preloadlut = cfgobj["preload_lut"];
-                    imageParams.preloadtype = cfgobj["preload_type"];
-
-                    jpg2buffer(configFilename, filename, imageParams);
-                } else {
-                    filename = "/current/" + String(hexmac) + ".raw";
-                    if (contentFS->exists(filename)) {
-                        prepareDataAvail(filename, imageParams.dataType, imageParams.lut, mac, cfgobj["timetolive"].as<int>(), true);
-                        wsLog("Resending image " + filename);
-                    } else {
-                        wsErr("File " + configFilename + " not found");
-                    }
+                if (!contentFS->exists(configFilename)) {
                     taginfo->nextupdate = 3216153600;
+                    wsErr("Not found: " + configFilename);
                     break;
                 }
-                if (imageParams.hasRed) {
+
+                imageParams.dither = cfgobj["dither"];
+
+                imageParams.preload = cfgobj["preload"] && cfgobj["preload"] == "1";
+                imageParams.preloadlut = cfgobj["preload_lut"];
+                imageParams.preloadtype = cfgobj["preload_type"];
+
+                jpg2buffer(configFilename, filename, imageParams);
+
+                if (imageParams.hasRed && imageParams.lut == EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
+                    imageParams.lut = EPD_LUT_DEFAULT;
+                }
+
+                if (imageParams.zlib) {
+                    imageParams.dataType = DATATYPE_IMG_ZLIB;
+                    Serial.println("datatype: DATATYPE_IMG_ZLIB");
+                } else if (imageParams.hasRed) {
                     imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
-                    if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
-                        imageParams.lut = EPD_LUT_DEFAULT;
-                    }
+                    Serial.println("datatype: DATATYPE_IMG_RAW_2BPP");
+                } else {
+                    Serial.println("datatype: DATATYPE_IMG_RAW_1BPP");
                 }
 
                 struct imageDataTypeArgStruct arg = {0};
@@ -352,6 +363,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             break;
         }
 
+#ifdef CONTENT_RSS
         case 9:  // RSSFeed
 
             if (getRssFeed(filename, cfgobj["url"], cfgobj["title"], taginfo, imageParams)) {
@@ -362,13 +374,16 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 taginfo->nextupdate = now + 300;
             }
             break;
+#endif
 
+#ifdef CONTENT_QR
         case 10:  // QRcode:
 
             drawQR(filename, cfgobj["qr-content"], cfgobj["title"], taginfo, imageParams);
             taginfo->nextupdate = now + 12 * 3600;
             updateTagImage(filename, mac, 0, taginfo, imageParams);
             break;
+#endif
 
         case 11:  // Calendar:
 
@@ -393,6 +408,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             sendAPSegmentedData(mac, (String)buffer, 0x0000, false, (taginfo->isExternal == false));
             break;
 
+#ifdef CONTENT_NFCLUT
         case 14:  // NFC URL
 
             taginfo->nextupdate = 3216153600;
@@ -405,7 +421,9 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             prepareLUTreq(mac, cfgobj["bytes"]);
             taginfo->hasCustomLUT = true;
             break;
+#endif
 
+#ifdef CONTENT_BUIENRADAR
         case 16:  // buienradar
 
         {
@@ -414,6 +432,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             updateTagImage(filename, mac, refresh, taginfo, imageParams);
             break;
         }
+#endif
 
         case 17:  // tag command
         {
@@ -422,12 +441,14 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             break;
         }
 
+#ifdef CONTENT_TAGCFG
         case 18:  // tag config
         {
             prepareConfigFile(mac, cfgobj);
             taginfo->nextupdate = 3216153600;
             break;
         }
+#endif
 
         case 19:  // json template
         {
@@ -497,11 +518,18 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
     if (taginfo->hwType == SOLUM_SEG_UK) {
         sendAPSegmentedData(dst, (String)imageParams.segments, imageParams.symbols, (imageParams.invert == 1), (taginfo->isExternal == false));
     } else {
-        if (imageParams.hasRed) {
+        if (imageParams.hasRed && imageParams.lut == EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
+            imageParams.lut = EPD_LUT_DEFAULT;
+        }
+
+        if (imageParams.zlib) {
+            imageParams.dataType = DATATYPE_IMG_ZLIB;
+            Serial.println("datatype: DATATYPE_IMG_ZLIB");
+        } else if (imageParams.hasRed) {
             imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
-            if (imageParams.lut = EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
-                imageParams.lut = EPD_LUT_DEFAULT;
-            }
+            Serial.println("datatype: DATATYPE_IMG_RAW_2BPP");
+        } else {
+            Serial.println("datatype: DATATYPE_IMG_RAW_1BPP");
         }
         prepareDataAvail(filename, imageParams.dataType, imageParams.lut, dst, nextCheckin);
     }
@@ -1005,8 +1033,8 @@ void stampTime(TFT_eSprite &spr) {
     drawString(spr, timeStr, spr.width() - 1, 12, "glasstown_nbp_tf", TR_DATUM, TFT_BLACK);
 }
 
-bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
 #ifdef CONTENT_RSS
+bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo, imgParam &imageParams) {
     // https://github.com/garretlab/shoddyxml2
 
     // http://feeds.feedburner.com/tweakers/nieuws
@@ -1062,10 +1090,10 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
-#endif
 
     return true;
 }
+#endif
 
 char *epoch_to_display(time_t utc) {
     static char display[6];
@@ -1164,6 +1192,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
             break;
         }
         case 1: {
+#ifdef CONTENT_BIGCAL
             // week view
 
             // gridparam:
@@ -1346,6 +1375,8 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
             }
 
             delete[] block;
+#endif
+            break;
         }
     }
 
@@ -1355,8 +1386,8 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     return true;
 }
 
-void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams) {
 #ifdef CONTENT_QR
+void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSprite spr = TFT_eSprite(&tft);
 
     const char *text = qrcontent.c_str();
@@ -1386,12 +1417,12 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
-#endif
 }
+#endif
 
+#ifdef CONTENT_BUIENRADAR
 uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     uint8_t refresh = 60;
-#ifdef CONTENT_BUIENRADAR
     wsLog("get weather");
 
     getLocation(cfgobj);
@@ -1470,9 +1501,9 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
         wsErr("Buitenradar http " + String(httpCode));
     }
     http.end();
-#endif
     return refresh;
 }
+#endif
 
 void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     if (taginfo->hwType == SOLUM_SEG_UK) {
@@ -1859,6 +1890,7 @@ void getLocation(JsonObject &cfgobj) {
     }
 }
 
+#ifdef CONTENT_NFCLUT
 void prepareNFCReq(const uint8_t *dst, const char *url) {
     uint8_t *data;
     size_t len = strlen(url);
@@ -1894,7 +1926,9 @@ void prepareLUTreq(const uint8_t *dst, const String &input) {
     const size_t waveformLen = sizeof(waveform);
     prepareDataAvail(waveform, waveformLen, DATATYPE_CUSTOM_LUT_OTA, dst);
 }
+#endif
 
+#ifdef CONTENT_TAGCFG
 void prepareConfigFile(const uint8_t *dst, const JsonObject &config) {
     struct tagsettings tagSettings;
     tagSettings.settingsVer = 1;
@@ -1911,6 +1945,7 @@ void prepareConfigFile(const uint8_t *dst, const JsonObject &config) {
     tagSettings.batLowVoltage = config["lowvoltage"].as<int>();
     prepareDataAvail((uint8_t *)&tagSettings, sizeof(tagSettings), 0xA8, dst);
 }
+#endif
 
 void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
     StaticJsonDocument<80> filter;

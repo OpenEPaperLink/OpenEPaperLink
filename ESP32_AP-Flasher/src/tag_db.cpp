@@ -378,6 +378,7 @@ HwType getHwType(const uint8_t id) {
             filter["rotatebuffer"] = true;
             filter["bpp"] = true;
             filter["shortlut"] = true;
+            filter["zlib_compression"] = true;
             StaticJsonDocument<250> doc;
             DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
             jsonFile.close();
@@ -390,6 +391,11 @@ HwType getHwType(const uint8_t id) {
                 hwdata[id].rotatebuffer = doc["rotatebuffer"];
                 hwdata[id].bpp = doc["bpp"];
                 hwdata[id].shortlut = doc["shortlut"];
+                if (doc.containsKey("zlib_compression")) {
+                    hwdata[id].zlib = strtol(doc["zlib_compression"], nullptr, 16);
+                } else {
+                    hwdata[id].zlib = 0;
+                }
                 return hwdata.at(id);
             }
         }
