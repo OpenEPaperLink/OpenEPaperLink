@@ -472,6 +472,7 @@
     "name": "Set NFC URL",
     "desc": "Send the URL to the NFC chip. The URL is transmitted to a NFC reader (like your phone) if you hold it next to the tag",
     "capabilities": 64,
+    "properties": [ "savespace" ],
     "param": [
       {
         "key": "url",
@@ -486,6 +487,7 @@
     "name": "Send custom LUT",
     "desc": "EXPERIMENTAL. Don't use. YOU RISK DAMAGING YOUR SCREEN.",
     "capabilities": 4,
+    "properties": [ "savespace" ],
     "param": [
       {
         "key": "bytes",

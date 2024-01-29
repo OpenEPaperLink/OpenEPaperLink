@@ -5,12 +5,12 @@
 #define CONTENT_QR
 #define CONTENT_RSS
 #define CONTENT_BIGCAL
+#define CONTENT_NFCLUT
+#define CONTENT_DAYAHEAD
 #endif
 #define CONTENT_CAL
 #define CONTENT_BUIENRADAR
-#define CONTENT_NFCLUT
 #define CONTENT_TAGCFG
-#define CONTENT_DAYAHEAD
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
