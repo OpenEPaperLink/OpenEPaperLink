@@ -1,33 +1,46 @@
-#include "main.h"
+// #include "main.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
+#include "epd_interface.h"
+
+extern "C" {
+
+#include "main.h"
 #include "comms.h"
-#include "core_cm3.h"
-#include "eeprom.h"
-#include "epd.h"
-#include "gpio.h"
-#include "mz100.h"
-#include "mz100_aon_ram.h"
-#include "mz100_clock.h"
-#include "mz100_flash.h"
-#include "mz100_gpio.h"
-#include "mz100_pinmux.h"
-#include "mz100_pmu.h"
-#include "mz100_sleep.h"
-#include "mz100_ssp.h"
-#include "mz100_uart.h"
+#include "mz100/core_cm3.h"
+#include "mz100/eeprom.h"
+
+#include "mz100/gpio.h"
+#include "mz100/mz100.h"
+#include "mz100/mz100_aon_ram.h"
+#include "mz100/mz100_clock.h"
+#include "mz100/mz100_flash.h"
+#include "mz100/mz100_gpio.h"
+#include "mz100/mz100_pinmux.h"
+#include "mz100/mz100_pmu.h"
+#include "mz100/mz100_sleep.h"
+#include "mz100/mz100_ssp.h"
+#include "mz100/mz100_uart.h"
 #include "powermgt.h"
-#include "printf.h"
+#include "mz100/printf.h"
 #include "proto.h"
 #include "settings.h"
 #include "syncedproto.h"
-#include "timer.h"
-#include "userinterface.h"
-#include "util.h"
+#include "mz100/timer.h"
+
+#include "mz100/util.h"
 #include "zigbee.h"
+extern void dump(const uint8_t *a, const uint16_t l);
+}
+
+#include "compression.h"
+#include "userinterface.h"
+
+#include "oepl_fs.h"
 
 #define SW_VER_CURRENT (0x0000011300000000ull)  // top 16 bits are off limits, xxxx.VV.tt.vvvv.mmmm means version V.t.v.m
 #define SW_DEFAULT_MAC (0x0000000000000014ull)
@@ -51,8 +64,8 @@ bool protectedFlashWrite(uint32_t address, uint8_t *buffer, uint32_t num) {
     while (attempt--) {
         qspiEraseRange(address, num);
         delay(50);
-        FLASH_Write(false, address, buffer, num);
-        FLASH_Read(0, address, buf2, num);
+        FLASH_Write((FLASH_ProgramMode_Type) false, address, buffer, num);
+        FLASH_Read((FLASH_ReadMode_Type)0, address, buf2, num);
         if (memcmp(buffer, buf2, num) == 0) {
             printf("Flash block at %06X written successfully\n", address);
             free(buf2);
@@ -66,14 +79,14 @@ bool protectedFlashWrite(uint32_t address, uint8_t *buffer, uint32_t num) {
 }
 
 static void prvGetSelfMac(void) {
-    FLASH_Read(0, EEPROM_MAC_INFO_START, mSelfMac, 8);
+    FLASH_Read((FLASH_ReadMode_Type)0, EEPROM_MAC_INFO_START, mSelfMac, 8);
 
     if ((((uint32_t *)mSelfMac)[0] | ((uint32_t *)mSelfMac)[1]) == 0 || (((uint32_t *)mSelfMac)[0] & ((uint32_t *)mSelfMac)[1]) == 0xffffffff) {  // fastest way to check for all ones or all zeroes
 
         printf("mac unknown\r\n");
         // Write a blank mac to have something to work with.
         memcpy(&mSelfMac, (uint8_t *)&default_mac, 8);
-        FLASH_Write(0, EEPROM_MAC_INFO_START, mSelfMac, 8);
+        FLASH_Write((FLASH_ProgramMode_Type)0, EEPROM_MAC_INFO_START, mSelfMac, 8);
         // sleep_with_with_wakeup(0);
     }
 }
@@ -210,18 +223,18 @@ void setupUART() {
     UART_CFG_Type uartcfg;
     uartcfg.baudRate = 115200;
     uartcfg.dataBits = UART_DATABITS_8;
-    uartcfg.stopBits = 1;
+    uartcfg.stopBits = (UART_StopBits_Type)1;
     uartcfg.parity = UART_PARITY_NONE;
     uartcfg.autoFlowControl = DISABLE;
-    UART_Init(1, &uartcfg);
+    UART_Init((UART_ID_Type)1, &uartcfg);
 
     UART_FIFO_Type uartFifo;
-    uartFifo.FIFO_ResetRx = 1;
-    uartFifo.FIFO_ResetTx = 1;
-    uartFifo.FIFO_Function = 1;
-    uartFifo.FIFO_RcvrTrigger = 2;
-    uartFifo.FIFO_TxEmptyTrigger = 3;
-    UART_FIFOConfig(1, &uartFifo);
+    uartFifo.FIFO_ResetRx = (FunctionalState)1;
+    uartFifo.FIFO_ResetTx = (FunctionalState)1;
+    uartFifo.FIFO_Function = (FunctionalState)1;
+    uartFifo.FIFO_RcvrTrigger = (UART_RxFIFOLevel_Type)2;
+    uartFifo.FIFO_TxEmptyTrigger = (UART_TxFIFOLevel_Type)3;
+    UART_FIFOConfig((UART_ID_Type)1, &uartFifo);
     // UART 1 DEBUG OUT
 }
 
@@ -242,9 +255,9 @@ void setupGPIO() {
     // NFC POWER Should be on if NFC is wanted to be used
     GPIO_PinOutputModeConfig(NFC_POWER, PIN_OUTPUT_MODE_NORMAL_FUNCTION);
     GPIO_PinModeConfig(NFC_POWER, PINMODE_DEFAULT);
-    GPIO_PinMuxFun(NFC_POWER, 0);
+    GPIO_PinMuxFun(NFC_POWER, (GPIO_PinMuxFunc_Type)0);
     GPIO_SetPinDir(NFC_POWER, GPIO_OUTPUT);
-    GPIO_WritePinOutput(NFC_POWER, 1);  // Better power NFC up so IRQ will work unpowered later
+    GPIO_WritePinOutput(NFC_POWER, (GPIO_IO_Type)1);  // Better power NFC up so IRQ will work unpowered later
     //** GPIOS
     if (!(~(*(volatile unsigned int *)0x4A080000) << 30)) {
         NVIC_EnableIRQ(ExtPin5_IRQn);
@@ -269,6 +282,7 @@ void setupCLKCalib() {
 void TagAssociated() {
     // associated
     struct AvailDataInfo *avail;
+    printf("longDataReqCounter = %d\n", longDataReqCounter);
     // Is there any reason why we should do a long (full) get data request (including reason, status)?
     if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
         // check if we should do a voltage measurement (those are pretty expensive)
@@ -298,6 +312,7 @@ void TagAssociated() {
         }
 
         powerUp(INIT_RADIO);
+        printf("full request\n");
         avail = getAvailDataInfo();
         powerDown(INIT_RADIO);
 
@@ -416,29 +431,31 @@ int main(void) {
         setupGPIO();
         setupCLKCalib();
         setupUART();
+        // fs = new OEPLFs();
         printf("Rst reason: %i\r\n", PMU_GetLastResetCause());
         printf("AON is not valid!\n");
         setupRTC();
         clearAonRam();
-
+        prvGetSelfMac();
         showSplashScreen();
+        delay(10000);
         currentChannel = 0;
         zigbeeCalibData.isValid = false;
         wakeUpReason = WAKEUP_REASON_FIRSTBOOT;
-        prvGetSelfMac();
         initializeProto();
         printf("Erz data\r\n");
         initPowerSaving(INTERVAL_BASE);
         loadDefaultSettings();
         doVoltageReading();
 
-        qspiEraseRange(EEPROM_SETTINGS_AREA_START, EEPROM_SETTINGS_AREA_LEN);
+        // qspiEraseRange(EEPROM_SETTINGS_AREA_START, EEPROM_SETTINGS_AREA_LEN);
 
         sprintf(macStr, "(" MACFMT ")", MACCVT(mSelfMac));
         currentChannel = showChannelSelect();
         WDT_RestartCounter();
         if (currentChannel) {
             printf("AP Found\r\n");
+            delay(10000);
             showAPFound();
             sprintf(macStr1, "OpenEPaperLink Ch: %i", currentChannel);
             timerDelay(TIMER_TICKS_PER_MSEC * 1000);
@@ -449,17 +466,20 @@ int main(void) {
             sleep_with_with_wakeup(120000UL);
             currentTagMode = TAG_MODE_CHANSEARCH;
         }
+        powerUp(INIT_UART);
 
     } else {
-        // setupWDT();
+        setupWDT();  // turn me off
         setupGPIO();
-        // setupCLKCalib();
-        // setupUART();
-        // setupRTC();
+        setupCLKCalib();  // turn me off
+        // setupUART();// turn me off
+        // setupRTC();// turn me off
         memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
+        powerUp(INIT_UART);
+
+        // fs = new OEPLFs();
     }
 
-    powerUp(INIT_UART);
     while (1) {
         wdt10s();
         switch (currentTagMode) {
@@ -475,7 +495,7 @@ int main(void) {
 }
 
 int _write(int file, char *ptr, int len) {
-    UART_SendBytes(1, ptr, len);
+    UART_SendBytes((UART_ID_Type)1, ptr, len);
     return len;
 }
 
@@ -492,8 +512,12 @@ void applyUpdate() {
     // apparently, the flash process is more reliable if we do these two first
     setupCLKCalib();
     setupRTC();
-    
+
     showApplyUpdate();
+
+
+    printf("Applying update\r\n");
+    qspiEraseRange(EEPROM_OS_START, EEPROM_OS_LEN);
 
     size = EEPROM_OS_LEN;
     for (ofst = 0; ofst < size; ofst += now) {
@@ -501,9 +525,11 @@ void applyUpdate() {
         if (now > pieceSz)
             now = pieceSz;
         printf("Cpy 0x%06x + 0x%04x to 0x%06x\r\n", EEPROM_UPDATE_START + ofst, now, EEPROM_OS_START + ofst);
-        FLASH_Read(0, EEPROM_UPDATE_START + ofst, chunkStore, now);
+        FLASH_Read((FLASH_ReadMode_Type)0, EEPROM_UPDATE_START + ofst, chunkStore, now);
         protectedFlashWrite(EEPROM_OS_START + ofst, chunkStore, now);
         WDT_RestartCounter();
     }
-    NVIC_SystemReset();
+    printf("Resetting!\n");
+    delay(1000);
+    sleep_with_with_wakeup(1000);
 }

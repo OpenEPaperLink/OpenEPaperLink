@@ -18,12 +18,12 @@ int8_t commsGetLastPacketRSSI(void) {
     return mLastRSSI;
 }
 
-static inline void __attribute__((always_inline)) macCopy(uint8_t *restrict dst, const uint8_t *restrict src) {
+static inline void __attribute__((always_inline)) macCopy(uint8_t* dst, const uint8_t* src) {
     ((uint32_t *)dst)[0] = ((const uint32_t *)src)[0];
     ((uint32_t *)dst)[1] = ((const uint32_t *)src)[1];
 }
 
-static inline bool __attribute__((always_inline)) macIsEq(const uint8_t *restrict dst, const uint8_t *restrict src) {
+static inline bool __attribute__((always_inline)) macIsEq(const uint8_t* dst, const uint8_t* src) {
     return ((uint32_t *)dst)[0] == ((const uint32_t *)src)[0] && ((uint32_t *)dst)[1] == ((const uint32_t *)src)[1];
 }
 

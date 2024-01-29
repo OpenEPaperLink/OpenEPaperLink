@@ -12,8 +12,8 @@
 #include "mz100_sleep.h"
 #include "util.h"
 #include "gpio.h"
-#include "main.h"
-#include "proto.h"
+#include "../main.h"
+//#include "proto.h"
 #include "printf.h"
 
 extern void saveAonRam();
@@ -88,9 +88,9 @@ void Set_Wakeup_pin_nfc()
   NVIC_EnableIRQ(ExtPin7_IRQn);
 }
 
-extern struct blockRequest curBlock;     // used by the block-requester, contains the next request that we'll send
-extern struct AvailDataInfo curDataInfo; // last 'AvailDataInfo' we received from the AP
-extern bool requestPartialBlock;         // if we should ask the AP to get this block from the host or not
+//extern struct blockRequest curBlock;     // used by the block-requester, contains the next request that we'll send
+//extern struct AvailDataInfo xferDataInfo; // last 'AvailDataInfo' we received from the AP
+//extern bool requestPartialBlock;         // if we should ask the AP to get this block from the host or not
 void sleep_with_with_wakeup(uint32_t sleep_time_ms)
 {
   saveAonRam();

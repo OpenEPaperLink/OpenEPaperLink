@@ -235,8 +235,9 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
         switch (pending->availdatainfo.dataType) {
             case DATATYPE_IMG_DIFF:
             case DATATYPE_IMG_RAW_1BPP:
-            case DATATYPE_IMG_RAW_2BPP:
-            case DATATYPE_IMG_RAW_1BPP_DIRECT: {
+            case DATATYPE_IMG_RAW_2BPP: {
+                Storage.begin();
+
                 char hexmac[17];
                 mac2hex(pending->targetMac, hexmac);
                 String filename = "/current/" + String(hexmac) + "_" + String(millis()) + ".pending";

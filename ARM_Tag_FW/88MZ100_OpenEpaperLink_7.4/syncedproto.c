@@ -3,21 +3,22 @@
 
 #include "board.h"
 #include "comms.h"
-#include "drawing.h"
-#include "eeprom.h"
+#include "mz100/eeprom.h"
 #include "main.h"
-#include "mz100_sleep.h"
+#include "mz100/mz100_sleep.h"
 #include "powermgt.h"
-#include "printf.h"
+#include "mz100/printf.h"
 #include "proto.h"
-#include "timer.h"
-#include "util.h"
+#include "mz100/timer.h"
+#include "mz100/util.h"
+#include "mz100/mz100_flash.h"
 #include "zigbee.h"
+#include "md5.h"
 
 // download-stuff
 uint8_t blockXferBuffer[BLOCK_XFER_BUFFER_SIZE] = {0};
 __attribute__((section(".aonshadow"))) struct blockRequest curBlock = {0};      // used by the block-requester, contains the next request that we'll send
-__attribute__((section(".aonshadow"))) struct AvailDataInfo curDataInfo = {0};  // last 'AvailDataInfo' we received from the AP
+__attribute__((section(".aonshadow"))) struct AvailDataInfo xferDataInfo = {0};  // last 'AvailDataInfo' we received from the AP
 bool requestPartialBlock = false;                                               // if we should ask the AP to get this block from the host or not
 #define BLOCK_TRANSFER_ATTEMPTS 10
 
@@ -40,6 +41,9 @@ static uint8_t inBuffer[128] = {0};
 static uint8_t outBuffer[128] = {0};
 
 // #define DEBUGBLOCKS 1
+
+// from drawing.cpp
+extern void drawImageAtAddress(uint32_t addr, uint8_t lut);
 
 // tools
 static uint8_t getPacketType(const void *buffer) {
@@ -186,6 +190,7 @@ static void sendAvailDataReq() {
     availreq->temperature = temperature;
     availreq->batteryMv = batteryVoltage;
     availreq->capabilities = capabilities;
+    availreq->tagSoftwareVersion = FW_VERSION;
     addCRC(availreq, sizeof(struct AvailDataReq));
     commsTxNoCpy(outBuffer);
 }
@@ -204,7 +209,6 @@ struct AvailDataInfo *getAvailDataInfo() {
                         memcpy(APmac, f->src, 8);
                         APsrcPan = f->pan;
                         dataReqLastAttempt = c;
-                        printf("%d", dataReqLastAttempt);
                         return (struct AvailDataInfo *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
                     }
                 }
@@ -399,6 +403,33 @@ static bool validateBlockData() {
 }
 
 // EEprom related stuff
+static bool validateEepromMD5(uint64_t ver, uint32_t eepromstart, uint32_t flen) {
+#define CHUNK_SIZE 512
+    uint8_t chunk[CHUNK_SIZE];
+    MD5Context ctx;
+    md5Init(&ctx);
+
+    // Open the executable itself for reading
+    for (uint32_t offset = 0; offset < flen; offset += CHUNK_SIZE) {
+        uint32_t len = flen - offset;
+        if (len > CHUNK_SIZE) len = CHUNK_SIZE;
+        FLASH_Read(FLASH_FAST_READ_QUAD_OUT, eepromstart + offset, chunk, len);
+        eepromRead(eepromstart + offset, chunk, 512);
+        md5Update(&ctx, chunk, len);
+    }
+
+    // Retrieve the final hash
+    md5Finalize(&ctx);
+
+    bool isValid = ver == *((uint64_t *)ctx.digest);
+    if (!isValid) {
+        printf("MD5 failed check! This is what we should get:\n");
+        dump((const uint8_t *)&(xferDataInfo.dataVer), 8);
+        printf("This is what we got:\n");
+        dump(ctx.digest, 16);
+    }
+    return isValid;
+}
 static uint32_t getAddressForSlot(const uint8_t s) {
     return EEPROM_IMG_START + (EEPROM_IMG_EACH * s);
 }
@@ -477,6 +508,7 @@ static uint32_t getHighSlotId() {
     printf("found high id=%lu in slot %d\n", temp, nextImgSlot);
     return temp;
 }
+
 
 static bool getDataBlock(const uint16_t blockSize) {
     static uint8_t partsThisBlock = 0;
@@ -574,28 +606,31 @@ static bool getDataBlock(const uint16_t blockSize) {
     return false;
 }
 uint16_t dataRequestSize = 0;
+uint32_t curXferSize = 0;
+
 static bool downloadFWUpdate(const struct AvailDataInfo *avail) {
     // check if we already started the transfer of this information & haven't completed it
-    if (!memcmp((const void *)&avail->dataVer, (const void *)&curDataInfo.dataVer, 8) && curDataInfo.dataSize) {
+    if (!memcmp((const void *)&avail->dataVer, (const void *)&xferDataInfo.dataVer, 8) && xferDataInfo.dataSize) {
         // looks like we did. We'll carry on where we left off.
     } else {
         // start, or restart the transfer from 0. Copy data from the AvailDataInfo struct, and the struct intself. This forces a new transfer
         curBlock.blockId = 0;
         memcpy(&(curBlock.ver), &(avail->dataVer), 8);
         curBlock.type = avail->dataType;
-        memcpy(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+        memcpy(&xferDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+        curXferSize = avail->dataSize;
         eraseUpdateBlock();
         delay(100);
     }
 
-    while (curDataInfo.dataSize) {
+    while (xferDataInfo.dataSize) {
         wdt10s();
-        if (curDataInfo.dataSize > BLOCK_DATA_SIZE) {
+        if (xferDataInfo.dataSize > BLOCK_DATA_SIZE) {
             // more than one block remaining
             dataRequestSize = BLOCK_DATA_SIZE;
         } else {
             // only one block remains
-            dataRequestSize = curDataInfo.dataSize;
+            dataRequestSize = xferDataInfo.dataSize;
         }
         if (getDataBlock(dataRequestSize)) {
             // succesfully downloaded datablock, save to eeprom
@@ -603,20 +638,27 @@ static bool downloadFWUpdate(const struct AvailDataInfo *avail) {
             saveUpdateBlockData(curBlock.blockId);
             powerDown(INIT_EEPROM);
             curBlock.blockId++;
-            curDataInfo.dataSize -= dataRequestSize;
+            xferDataInfo.dataSize -= dataRequestSize;
         } else {
             // failed to get the block we wanted, we'll stop for now, maybe resume later
             return false;
         }
     }
     // no more data, download complete
-    return true;
+    if (validateEepromMD5(xferDataInfo.dataVer, EEPROM_UPDATE_START, curXferSize)) {
+        // md5 matches
+        return true;
+    } else {
+        // md5 does not match, invalidate current transfer result, forcing a restart of the transfer
+        memset((void *)&xferDataInfo, 0, sizeof(struct AvailDataInfo));
+        return false;
+    }
 }
 
 uint16_t imageSize = 0;
 static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
     // check if we already started the transfer of this information & haven't completed it
-    if (!memcmp((const void *)&avail->dataVer, (const void *)&curDataInfo.dataVer, 8) && curDataInfo.dataSize) {
+    if (!memcmp((const void *)&avail->dataVer, (const void *)&xferDataInfo.dataVer, 8) && xferDataInfo.dataSize) {
         // looks like we did. We'll carry on where we left off.
         printf("restarting image download");
         curImgSlot = nextImgSlot;
@@ -643,19 +685,19 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
         memcpy(&(curBlock.ver), &(avail->dataVer), 8);
         curBlock.type = avail->dataType;
 
-        memcpy(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+        memcpy(&xferDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
 
-        imageSize = curDataInfo.dataSize;
+        imageSize = xferDataInfo.dataSize;
     }
 
-    while (curDataInfo.dataSize) {
+    while (xferDataInfo.dataSize) {
         wdt10s();
-        if (curDataInfo.dataSize > BLOCK_DATA_SIZE) {
+        if (xferDataInfo.dataSize > BLOCK_DATA_SIZE) {
             // more than one block remaining
             dataRequestSize = BLOCK_DATA_SIZE;
         } else {
             // only one block remains
-            dataRequestSize = curDataInfo.dataSize;
+            dataRequestSize = xferDataInfo.dataSize;
         }
         if (getDataBlock(dataRequestSize)) {
             // succesfully downloaded datablock, save to eeprom
@@ -666,7 +708,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
             saveImgBlockData(curImgSlot, curBlock.blockId);
             powerDown(INIT_EEPROM);
             curBlock.blockId++;
-            curDataInfo.dataSize -= dataRequestSize;
+            xferDataInfo.dataSize -= dataRequestSize;
         } else {
             // failed to get the block we wanted, we'll stop for now, probably resume later
             return false;
@@ -676,20 +718,27 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
 
     // borrow the blockXferBuffer temporarily
     struct EepromImageHeader *eih = (struct EepromImageHeader *)blockXferBuffer;
-    memcpy(&eih->version, &curDataInfo.dataVer, 8);
+    memcpy(&eih->version, &xferDataInfo.dataVer, 8);
     eih->validMarker = EEPROM_IMG_VALID;
     eih->id = ++curHighSlotId;
     eih->size = imageSize;
-    eih->dataType = curDataInfo.dataType;
+    eih->dataType = xferDataInfo.dataType;
 
 #ifdef DEBUGBLOCKS
     printf("Now writing datatype 0x%02X to slot %d\n", curDataInfo.dataType, curImgSlot);
 #endif
-    powerUp(INIT_EEPROM);
-    eepromWrite(getAddressForSlot(curImgSlot), eih, sizeof(struct EepromImageHeader));
-    powerDown(INIT_EEPROM);
-
-    return true;
+    if (validateEepromMD5(xferDataInfo.dataVer, getAddressForSlot(curImgSlot) + sizeof(struct EepromImageHeader), imageSize)) {
+        // md5 matches
+        eepromWrite(getAddressForSlot(curImgSlot), eih, sizeof(struct EepromImageHeader));
+        powerDown(INIT_EEPROM);
+        printf("md5 okay");
+        return true;
+    } else {
+        // md5 does not match, invalidate current transfer result, forcing a restart of the transfer
+        memset((void *)&xferDataInfo, 0, sizeof(struct AvailDataInfo));
+        powerDown(INIT_EEPROM);
+        return false;
+    }
 }
 
 bool processAvailDataInfo(struct AvailDataInfo *avail) {
@@ -698,8 +747,9 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
         case DATATYPE_IMG_DIFF:
         case DATATYPE_IMG_RAW_1BPP:
         case DATATYPE_IMG_RAW_2BPP:
+        case DATATYPE_IMG_ZLIB:
             // check if this download is currently displayed or active
-            if (curDataInfo.dataSize == 0 && !memcmp((const void *)&avail->dataVer, (const void *)&curDataInfo.dataVer, 8)) {
+            if (xferDataInfo.dataSize == 0 && !memcmp((const void *)&avail->dataVer, (const void *)&xferDataInfo.dataVer, 8)) {
                 // we've downloaded this already, we're guessing it's already displayed
                 printf("currently shown image, send xfc\n");
                 powerUp(INIT_RADIO);
@@ -721,8 +771,8 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
                 printf("already seen, drawing from eeprom slot %d\n", curImgSlot);
 
                 // mark as completed and draw from EEPROM
-                memcpy(&curDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
-                curDataInfo.dataSize = 0;  // mark as transfer not pending
+                memcpy(&xferDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
+                xferDataInfo.dataSize = 0;  // mark as transfer not pending
 
                 drawWithLut = avail->dataTypeArgument;
                 wdt60s();

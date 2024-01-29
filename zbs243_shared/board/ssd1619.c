@@ -238,32 +238,39 @@ void epdEnterSleep() {
     isInited = false;
 }
 void epdSetup() {
-    epdReset();
+        epdReset();
+    #ifdef VAR_BW16
+    commandBegin(CMD_DRV_OUTPUT_CTRL);
+    epdSend((SCREEN_HEIGHT - 1) & 0xff);
+    epdSend((SCREEN_HEIGHT - 1) >> 8);
+    epdSend(0x00);
+    commandEnd();
+    shortCommand1(CMD_BORDER_WAVEFORM_CTRL, 0x0B); // stock says 0x33
+    shortCommand1(CMD_DUMMY_PERIOD, 0x1B);
+    shortCommand1(CMD_GATE_LINE_WIDTH, 0x0B);
+    shortCommand1(CMD_TEMP_SENSOR_CONTROL, 0x80);
+    shortCommand1(CMD_DISP_UPDATE_CTRL, 0x40);
+    #else 
     shortCommand1(CMD_ANALOG_BLK_CTRL, 0x54);
     shortCommand1(CMD_DIGITAL_BLK_CTRL, 0x3B);
     shortCommand2(CMD_UNKNOWN_1, 0x04, 0x63);
-
     commandBegin(CMD_SOFT_START_CTRL);
     epdSend(0x8f);
     epdSend(0x8f);
     epdSend(0x8f);
     epdSend(0x3f);
     commandEnd();
-
     commandBegin(CMD_DRV_OUTPUT_CTRL);
     epdSend((SCREEN_HEIGHT - 1) & 0xff);
     epdSend((SCREEN_HEIGHT - 1) >> 8);
     epdSend(0x00);
     commandEnd();
-
-    // shortCommand1(CMD_DATA_ENTRY_MODE, 0x03);
-    // shortCommand1(CMD_BORDER_WAVEFORM_CTRL, 0xC0); // blurry edges
     shortCommand1(CMD_BORDER_WAVEFORM_CTRL, 0x01);
     shortCommand1(CMD_TEMP_SENSOR_CONTROL, 0x80);
     shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB1);  // mode 1 (i2C)
-    // shortCommand1(CMD_DISP_UPDATE_CTRL2, 0xB9);  // mode 2?
     shortCommand(CMD_ACTIVATION);
     epdBusyWait(TIMER_TICKS_PER_SECOND);
+    #endif
     isInited = true;
     currentLut = EPD_LUT_DEFAULT;
 }
@@ -372,6 +379,7 @@ static void lutGroupRepeatReduce(uint8_t group, uint8_t factor) {
     }
 }
 void selectLUT(uint8_t lut) {
+    #ifdef CUSTOMLUTS
     if (currentLut == lut) {
         return;
     }
@@ -468,6 +476,7 @@ void selectLUT(uint8_t lut) {
     }
     writeLut();
     free(waveformbuffer);
+    #endif
 }
 
 void setWindowX(uint16_t start, uint16_t end) {
@@ -516,7 +525,11 @@ void clearScreen() {
     epdBusyWait(TIMER_TICKS_PER_MS * 100);
 }
 void draw() {
+    #ifdef VAR_BW16
+    shortCommand1(0x22, 0xF7);
+    #else 
     shortCommand1(0x22, 0xCF);
+    #endif
     // shortCommand1(0x22, SCREEN_CMD_REFRESH);
     shortCommand(0x20);
     epdBusyWait(TIMER_TICKS_PER_SECOND * 120);

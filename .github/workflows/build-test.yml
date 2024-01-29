@@ -23,11 +23,11 @@ jobs:
       - name: Install intelhex
         run: pip install --upgrade intelhex
         
-      - name: Build Simple_AP
-        run: |
-          cd ESP32_AP-Flasher
-          pio run --environment Simple_AP
-          pio run --target buildfs --environment Simple_AP
+#      - name: Build Simple_AP
+#        run: |
+#          cd ESP32_AP-Flasher
+#          pio run --environment Simple_AP
+#          pio run --target buildfs --environment Simple_AP
           
       - name: Build OpenEPaperLink_Mini_AP
         run: |

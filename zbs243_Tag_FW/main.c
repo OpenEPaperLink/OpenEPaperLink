@@ -161,7 +161,7 @@ uint8_t channelSelect(uint8_t rounds) {  // returns 0 if no accesspoints were fo
             if (detectAP(channelList[c])) {
                 if (mLastLqi > result[c]) result[c] = mLastLqi;
 #ifdef DEBUGMAIN
-                if (rounds > 2) pr("Channel: %d - LQI: %d RSSI %d\n", channelList[c], mLastLqi, mLastRSSI);
+                if (rounds > 2) pr("MAIN: Channel: %d - LQI: %d RSSI %d\n", channelList[c], mLastLqi, mLastRSSI);
 #endif
             }
         }
@@ -754,8 +754,12 @@ void main() {
 
     wdt10s();
     if (currentChannel) {
-        showAPFound();
+#ifdef DEBUGMAIN
+        pr("MAIN: Ap Found!\n");
+#endif
+        //showNoAP();
 
+        showAPFound();
         // write the settings to the eeprom
         powerUp(INIT_EEPROM);
         writeSettings();
@@ -765,8 +769,11 @@ void main() {
         currentTagMode = TAG_MODE_ASSOCIATED;
         doSleep(5000UL);
     } else {
+#ifdef DEBUGMAIN
+        pr("MAIN: No AP found...\n");
+#endif
+        //showAPFound();
         showNoAP();
-
         // write the settings to the eeprom
         powerUp(INIT_EEPROM);
         writeSettings();

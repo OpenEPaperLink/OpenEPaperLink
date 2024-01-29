@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "proto.h"
 #include "main.h"
-#include "gpio.h"
+#include "mz100/gpio.h"
 
 #define eepromByte				spiByte
 #define eepromPrvSelect()		do { /*digitalWrite(FLASH_CS,LOW);*/ } while(0)

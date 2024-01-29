@@ -217,6 +217,9 @@ static void sendAvailDataReq() {
     commsTxNoCpy(outBuffer);
 }
 struct AvailDataInfo *__xdata getAvailDataInfo() {
+    #ifdef DEBUGPROTO
+    pr("PROTO: Full AvailData\n");
+    #endif
     radioRxEnable(true, true);
     uint32_t __xdata t;
     for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
@@ -241,6 +244,9 @@ struct AvailDataInfo *__xdata getAvailDataInfo() {
     return NULL;
 }
 struct AvailDataInfo *__xdata getShortAvailDataInfo() {
+    #ifdef DEBUGPROTO
+    pr("PROTO: Short AvailData\n");
+    #endif
     radioRxEnable(true, true);
     uint32_t __xdata t;
     for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
@@ -314,7 +320,6 @@ static bool processBlockPart(const struct blockPart *bp) {
     uint16_t __xdata size = BLOCK_PART_DATA_SIZE;
     // validate if it's okay to copy data
     if (bp->blockId != curBlock.blockId) {
-        // pr("got a packet for block %02X\n", bp->blockId);
         return false;
     }
     if (start >= (sizeof(blockbuffer) - 1)) return false;
@@ -380,7 +385,6 @@ static void sendBlockRequest() {
     f->seq = seq++;
     f->pan = APsrcPan;
     memcpy(blockreq, &curBlock, sizeof(struct blockRequest));
-    // pr("req ver: %02X%02X%02X%02X%02X%02X%02X%02X\n", ((uint8_t*)&blockreq->ver)[0],((uint8_t*)&blockreq->ver)[1],((uint8_t*)&blockreq->ver)[2],((uint8_t*)&blockreq->ver)[3],((uint8_t*)&blockreq->ver)[4],((uint8_t*)&blockreq->ver)[5],((uint8_t*)&blockreq->ver)[6],((uint8_t*)&blockreq->ver)[7]);
     addCRC(blockreq, sizeof(struct blockRequest));
     commsTxNoCpy(outBuffer);
 }
@@ -410,7 +414,7 @@ static struct blockRequestAck *__xdata performBlockRequest() __reentrant {
                         return NULL;
                     default:
 #ifdef DEBUGPROTO
-                        pr("pkt w/type %02X\n", getPacketType(inBuffer));
+                        pr("PROTO: pkt w/type %02X\n", getPacketType(inBuffer));
 #endif
                         break;
                 }
@@ -451,7 +455,7 @@ static void sendXferComplete() {
             if (ret > 1) {
                 if (getPacketType(inBuffer) == PKT_XFER_COMPLETE_ACK) {
 #ifdef DEBUGPROTO
-                    pr("XFC ACK\n");
+                    pr("PROTO: XFC ACK\n");
 #endif
                     return;
                 }
@@ -459,7 +463,7 @@ static void sendXferComplete() {
         }
     }
 #ifdef DEBUGPROTO
-    pr("XFC NACK!\n");
+    pr("PROTO: XFC NACK!\n");
 #endif
     return;
 }
@@ -481,14 +485,14 @@ static void getNumSlots() {
     eeSize = eepromGetSize();
     uint16_t nSlots = mathPrvDiv32x16(eeSize - EEPROM_IMG_START, EEPROM_IMG_EACH >> 8) >> 8;
     if (eeSize < EEPROM_IMG_START || !nSlots) {
-#ifdef DEBUGPROTO
-        pr("eeprom is too small\n");
+#ifdef DEBUGEEPROM
+        pr("EEPROM: eeprom is too small\n");
 #endif
         while (1)
             ;
     } else if (nSlots >> 8) {
-#ifdef DEBUGPROTO
-        pr("eeprom is too big, some will be unused\n");
+#ifdef DEBUGEEPROM
+        pr("EEPROM: eeprom is too big, some will be unused\n");
 #endif
         imgSlots = 254;
     } else
@@ -585,7 +589,7 @@ static uint32_t getHighSlotId() {
         }
     }
 #ifdef DEBUGPROTO
-    pr("found high id=%lu in slot %d\n", temp, nextImgSlot);
+    pr("PROTO: found high id=%lu in slot %d\n", temp, nextImgSlot);
 #endif
     return temp;
 }
@@ -631,7 +635,7 @@ static bool getDataBlock(const uint16_t blockSize) {
 
         if (ack == NULL) {
 #ifdef DEBUGPROTO
-            pr("Cancelled request\n");
+            pr("PROTO: Cancelled request\n");
 #endif
             return false;
         }
@@ -679,7 +683,9 @@ static bool getDataBlock(const uint16_t blockSize) {
                     curBlock.requestedParts[c / 8] |= (1 << (c % 8));
                 }
                 requestPartialBlock = false;
-                pr("blk failed validation!\n");
+                #ifdef DEBUGPROTO
+                pr("PROTO: blk failed validation!\n");
+                #endif
             }
         } else {
 #ifndef DEBUGBLOCKS
@@ -689,7 +695,9 @@ static bool getDataBlock(const uint16_t blockSize) {
             requestPartialBlock = true;
         }
     }
-    pr("failed getting block\n");
+    #ifdef DEBUGPROTO
+    pr("PROTO: failed getting block\n");
+    #endif
     return false;
 }
 
@@ -760,7 +768,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
         xferDataInfo.dataSize) {
 // looks like we did. We'll carry on where we left off.
 #ifdef DEBUGPROTO
-        pr("restarting image download");
+        pr("PROTO: restarting image download\n");
 #endif
     } else {
         // new transfer
@@ -780,7 +788,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
             if (nextImgSlot == startingSlot) {
                 powerDown(INIT_EEPROM);
 #ifdef DEBUGPROTO
-                pr("No slots available. Too many images in the slideshow?\n");
+                pr("PROTO: No slots available. Too many images in the slideshow?\n");
 #endif
                 return true;
             }
@@ -813,7 +821,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
     eraseSuccess:
         powerDown(INIT_EEPROM);
 #ifdef DEBUGPROTO
-        pr("new download, writing to slot %d\n", xferImgSlot);
+        pr("PROTO: new download, writing to slot %d\n", xferImgSlot);
 #endif
         // start, or restart the transfer. Copy data from the AvailDataInfo struct, and the struct intself. This forces a new transfer
         curBlock.blockId = 0;
@@ -837,7 +845,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
             powerUp(INIT_EEPROM);
             timerDelay(TIMER_TICKS_PER_MS * 100);
 #ifdef DEBUGBLOCKS
-            pr("Saving block %d to slot %d\n", curBlock.blockId, xferImgSlot);
+            pr("BLOCKS: Saving block %d to slot %d\n", curBlock.blockId, xferImgSlot);
 #endif
             saveImgBlockData(xferImgSlot, curBlock.blockId);
             timerDelay(TIMER_TICKS_PER_MS * 100);
@@ -871,7 +879,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *__xdata avail)
     eih->argument = xferDataInfo.dataTypeArgument;
 
 #ifdef DEBUGBLOCKS
-    pr("Now writing datatype 0x%02X to slot %d\n", xferDataInfo.dataType, xferImgSlot);
+    pr("BLOCKS: Now writing datatype 0x%02X to slot %d\n", xferDataInfo.dataType, xferImgSlot);
 #endif
     eepromWrite(getAddressForSlot(xferImgSlot), eih, sizeof(struct EepromImageHeader));
     powerDown(INIT_EEPROM);
@@ -884,7 +892,7 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
     *((uint8_t *)arg) = avail->dataTypeArgument;
     if (arg.preloadImage) {
 #ifdef DEBUGPROTO
-        pr("Preloading image with type 0x%02X from arg 0x%02X\n", arg.specialType, avail->dataTypeArgument);
+        pr("PROTO: Preloading image with type 0x%02X from arg 0x%02X\n", arg.specialType, avail->dataTypeArgument);
 #endif
         powerUp(INIT_EEPROM);
         switch (arg.specialType) {
@@ -911,12 +919,12 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
         }
         powerDown(INIT_EEPROM);
 #ifdef DEBUGPROTO
-        pr("downloading preload image...\n");
+        pr("PROTO: downloading preload image...\n");
 #endif
         if (downloadImageDataToEEPROM(avail)) {
             // sets xferImgSlot to the right slot
 #ifdef DEBUGPROTO
-            pr("preload complete!\n");
+            pr("PROTO: preload complete!\n");
 #endif
             powerUp(INIT_RADIO);
             sendXferComplete();
@@ -931,7 +939,7 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
         if (xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata)curDispDataVer, 8)) {
             // currently displayed, not doing anything except for sending an XFC
 #ifdef DEBUGPROTO
-            pr("currently shown image, send xfc\n");
+            pr("PROTO: currently shown image, send xfc\n");
 #endif
             powerUp(INIT_RADIO);
             sendXferComplete();
@@ -965,12 +973,12 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
             } else {
 // not found in cache, prepare to download
 #ifdef DEBUGPROTO
-                pr("downloading image...\n");
+                pr("PROTO: downloading image...\n");
 #endif
                 if (downloadImageDataToEEPROM(avail)) {
 // sets xferImgSlot to the right slot
 #ifdef DEBUGPROTO
-                    pr("download complete!\n");
+                    pr("PROTO: download complete!\n");
 #endif
                     powerUp(INIT_RADIO);
                     sendXferComplete();
@@ -1097,7 +1105,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
         case DATATYPE_TAG_CONFIG_DATA:
             if (xferDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & xferDataInfo.dataVer, 8)) {
 #ifdef DEBUGPROTO
-                pr("this was the same as the last transfer, disregard\n");
+                pr("PROTO: this was the same as the last transfer, disregard\n");
 #endif
                 powerUp(INIT_RADIO);
                 sendXferComplete();
@@ -1123,7 +1131,7 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             break;
         case DATATYPE_COMMAND_DATA:
 #ifdef DEBUGPROTO
-            pr("CMD received\n");
+            pr("PROTO: CMD received\n");
 #endif
             powerUp(INIT_RADIO);
             sendXferComplete();
@@ -1144,11 +1152,11 @@ bool processAvailDataInfo(struct AvailDataInfo *__xdata avail) {
             }
 #ifdef EPD_SSD1619
 #ifdef DEBUGPROTO
-            pr("OTA LUT received\n");
+            pr("PROTO: OTA LUT received\n");
 #endif
             if (xferDataInfo.dataSize == 0 && xMemEqual((const void *__xdata) & avail->dataVer, (const void *__xdata) & xferDataInfo.dataVer, 8)) {
 #ifdef DEBUGPROTO
-                pr("this was the same as the last transfer, disregard\n");
+                pr("PROTO: this was the same as the last transfer, disregard\n");
 #endif
                 powerUp(INIT_RADIO);
                 sendXferComplete();
@@ -1191,12 +1199,12 @@ bool validateMD5(uint32_t __xdata addr, uint16_t __xdata len) {
     md5Finalize();
     if (xMemEqual((const void *__xdata)ctxdigest, (const void *__xdata) & xferDataInfo.dataVer, 8)) {
 #ifdef DEBUGPROTO
-        pr("MD5 pass!");
+        pr("PROTO: MD5 pass!\n");
 #endif
         return true;
     } else {
 #ifdef DEBUGPROTO
-        pr("MD5 fail...");
+        pr("PROTO: MD5 fail...\n");
 #endif
         return false;
     }
@@ -1206,13 +1214,13 @@ bool validateFWMagic() {
     flashRead(0x8b, (void *)(blockbuffer + 1024), 256);
     eepromRead(eeSize - OTA_UPDATE_SIZE, blockbuffer, 256);
     if (xMemEqual((const void *__xdata)(blockbuffer + 1024), (const void *__xdata)(blockbuffer + 0x8b), 8)) {
-#ifdef DEBUGPROTO
-        pr("magic number matches! good fw");
+#ifdef DEBUGOTA
+        pr("OTA: magic number matches! good fw\n");
 #endif
         return true;
     } else {
-#ifdef DEBUGPROTO
-        pr("this probably isn't a (recent) firmware file\n");
+#ifdef DEBUGOTA
+        pr("OTA: this probably isn't a (recent) firmware file\n");
 #endif
         return false;
     }

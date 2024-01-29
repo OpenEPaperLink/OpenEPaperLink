@@ -7,13 +7,13 @@
 #include <string.h>
 
 #include "board.h"
-#include "eeprom.h"
+#include "mz100/eeprom.h"
 #include "main.h"
-#include "mz100_sleep.h"
-#include "printf.h"
+#include "mz100/mz100_sleep.h"
+#include "mz100/printf.h"
 #include "screen.h"
 #include "syncedproto.h"
-#include "util.h"
+#include "mz100/util.h"
 #include "zigbee.h"
 
 __attribute__((section(".aonshadow"))) uint16_t dataReqAttemptArr[POWER_SAVING_SMOOTHING] = {0};  // Holds the amount of attempts required per data_req/check-in

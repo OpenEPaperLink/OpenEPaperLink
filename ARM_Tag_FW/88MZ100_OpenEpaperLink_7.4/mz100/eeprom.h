@@ -11,14 +11,14 @@
 #define EEPROM_PAGE_SIZE			(0x01000UL)
 
 #define EEPROM_OS_START				(0x00000UL)
-#define EEPROM_OS_LEN				(0x13FFFUL)	//0xE820 of image, rounded up to 4K
+#define EEPROM_OS_LEN				(0x1FFFFUL)	//0xE820 of image, rounded up to 4K
 
-#define EEPROM_IMG_START			(0x17000UL)
+#define EEPROM_IMG_START			(0x20000UL)
 #define EEPROM_IMG_EACH				(0x1F000UL)
 #define EEPROM_IMG_LEN				(EEPROM_IMG_START + 0x13FFFUL)
 
-#define EEPROM_UPDATE_START			(0x17000UL)	//same header as images
-#define EEPROM_UPDATE_LEN			(0x13FFFUL)
+#define EEPROM_UPDATE_START			(0x20000UL)	//same header as images
+#define EEPROM_UPDATE_LEN			(0x1FFFFUL)
 
 #define EEPROM_SETTINGS_AREA_START		(0x14000UL)
 #define EEPROM_SETTINGS_AREA_LEN		(0x03000UL)
@@ -33,16 +33,6 @@
 
 //#define EEPROM_PIECE_SZ				(88)
 
-struct EepromImageHeader {				//each image space is 0x17000 bytes, we have space for ten of them
-	uint64_t version;
-	uint32_t validMarker;
-	uint32_t size;
-	uint8_t dataType;
-	uint32_t id;
-	
-	//image data here
-	//we pre-erase so progress can be calculated by finding the first non-0xff byte
-};
-
+#include "../../common/eeprom_struct.h"
 
 #endif

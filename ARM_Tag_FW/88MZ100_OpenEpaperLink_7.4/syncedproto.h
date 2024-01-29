@@ -8,7 +8,7 @@
 extern __attribute__((section(".aonshadow"))) uint8_t mSelfMac[];
 extern __attribute__((section(".aonshadow"))) volatile uint8_t currentChannel;
 extern __attribute__((section(".aonshadow"))) struct blockRequest curBlock;                                       // used by the block-requester, contains the next request that we'll send
-extern __attribute__((section(".aonshadow"))) struct AvailDataInfo curDataInfo;  // last 'AvailDataInfo' we received from the AP // __attribute__((section(".aon")))
+extern __attribute__((section(".aonshadow"))) struct AvailDataInfo xferDataInfo;  // last 'AvailDataInfo' we received from the AP // __attribute__((section(".aon")))
 
 
 extern uint8_t APmac[];

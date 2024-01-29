@@ -18,6 +18,8 @@
 #include "printf.h"
 #include "timer.h"
 
+#include "settings.h"
+
 #define __packed
 #include "../oepl-definitions.h"
 #include "../oepl-proto.h"
@@ -39,7 +41,10 @@ bool supportsNFCWake() {
     }
     if (pcount < 10000) {
         // P1_3 (Field Detect) dropped to 'low' pretty fast, this means the load on this pin is high
+        #ifdef DEBUGNFC
+        pr("counts = %d\n", pcount);
         pr("NFC: This tag currently does not support NFC wake, load on the FD pin (P1.3) is pretty high.\nOn some boards, a pull-up resistor backpowers the NFC IC. Consider removing it!\n");
+        #endif
         return false;
     } else {
         // No reason to believe this pin is currently loaded down severely

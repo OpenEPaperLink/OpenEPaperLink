@@ -3,6 +3,7 @@ BUILD		?= zbs29_ssd1619
 
 #file containing main() must be first!
 SOURCES		+= main.c eeprom.c drawing.c
+#SOURCES		+= ccm.c comms.c
 SOURCES		+= comms.c
 SOURCES		+= syncedproto.c userinterface.c
 SOURCES		+= powermgt.c barcode.c i2cdevices.c settings.c
@@ -56,7 +57,9 @@ main.elf: $(OBJS)
 SOURCES += board/zbs29_ssd1619/screen.c
 SOURCES += board/zbs42_ssd1619/screen.c
 SOURCES += board/zbs154_ssd1619/screen.c
+SOURCES += board/zbs16_ssd1619/screen.c
 SOURCES += board/zbs29_uc8151/screen.c
+SOURCES += board/zbs27_ucvar/screen.c
 
 
 clean:
