@@ -10,15 +10,6 @@ struct PendingItem {
     uint32_t len;
 };
 
-#include "commstructs.h"
-
-struct PendingItem {
-    struct pendingData pendingdata;
-    char filename[50];
-    uint8_t* data;
-    uint32_t len;
-};
-
 extern void addCRC(void* p, uint8_t len);
 extern bool checkCRC(void* p, uint8_t len);
 

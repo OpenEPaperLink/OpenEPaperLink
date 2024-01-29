@@ -378,7 +378,6 @@ void handleWSdata(uint8_t* data, size_t len, AsyncWebSocketClient* client) {
                 break;
             case WEBFLASH_PINTEST:
                 response["ok"] = 1;
-                pinTest();
                 break;
             case WEBFLASH_FOCUS:
 #ifdef HAS_TFT            

@@ -11,7 +11,6 @@ void flashCountDown(uint8_t c);
 #ifdef HAS_EXT_FLASHER
 bool extTagConnected();
 bool doTagFlash();
-void pinTest();
 #endif
 
 class flasher {

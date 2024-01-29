@@ -433,9 +433,6 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
 
     wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferComplete(xfc);
-
-    // more in the queue?
-    checkQueue(xfc->src);
 }
 
 void processXferTimeout(struct espXferComplete* xfc, bool local) {
@@ -466,8 +463,6 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
 
     wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferTimeout(xfc);
-
-    checkQueue(xfc->src);
 }
 
 void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP) {
