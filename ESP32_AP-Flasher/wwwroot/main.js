@@ -1085,7 +1085,7 @@ function processQueue() {
 		.then(buffer => {
 
 			data = new Uint8ClampedArray(buffer);
-			if (tagTypes[hwtype].zlib > 0 && $('#tag' + id).dataset.ver >= tagTypes[hwtype].zlib) {
+			if (data.length > 0 && tagTypes[hwtype].zlib > 0 && $('#tag' + id).dataset.ver >= tagTypes[hwtype].zlib) {
 				data = processZlib(data);
 			}
 
@@ -1094,7 +1094,6 @@ function processQueue() {
 			const ctx = canvas.getContext('2d');
 			const imageData = ctx.createImageData(canvas.width, canvas.height);
 			if (data.length == 0) {
-				console.log(imageSrc + ' empty');
 				canvas.style.display = 'none';
 			}
 
@@ -1141,10 +1140,14 @@ function processQueue() {
 }
 
 function processZlib(data) {
-		const subBuffer = data.subarray(4);
+	const subBuffer = data.subarray(4);
+	try {
 		const inflatedBuffer = pako.inflate(subBuffer);
 		const headerSize = inflatedBuffer[0];
 		return inflatedBuffer.subarray(headerSize);
+	} catch (err) {
+		console.log('zlib: ' + err);
+	}	
 }
 
 function displayTime(seconds) {
