@@ -42,8 +42,6 @@ struct espSetChannelPower curChannel = {0, 11, 10};
 volatile uint32_t lastAPActivity = 0;
 struct APInfoS apInfo;
 
-extern uint8_t* getDataForFile(File& file);
-
 struct rxCmd {
     uint8_t* data;
     uint8_t len;

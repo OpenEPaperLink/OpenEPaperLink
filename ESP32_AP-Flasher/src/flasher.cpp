@@ -640,44 +640,7 @@ void flashCountDown(uint8_t c) {
     }
 }
 
-#ifdef HAS_EXT_FLASHER
-
-void pinTest() {
-    uint8_t *pintest;
-    pintest = (uint8_t *)pinsExt;
-    for (uint8_t c = 0; c < 8; c++) {
-        if (pintest[c] != 255) {
-            pinMode(pintest[c], INPUT_PULLDOWN);
-            vTaskDelay(10 / portTICK_PERIOD_MS);
-            if (digitalRead(pintest[c])) {
-                Seriallog.printf("Pin %d failed to become low\n", c);
-            } else {
-                pinMode(pintest[c], INPUT_PULLUP);
-                bool pinChange = false;
-                uint16_t pinTime = 0;
-                for (uint16_t t = 0; t < 65535; t++) {
-                    if (digitalRead(pintest[c])) {
-                        pinChange = true;
-                        pinTime = t;
-                        break;
-                    }
-                    ets_delay_us(1);
-                }
-                if (pinChange) {
-                    Seriallog.printf("Pin %d went high in %d µS\n", pintest[c], pinTime);
-                } else {
-                    Seriallog.printf("Pin %d timeout becoming high\n", pintest[c]);
-                }
-            }
-        }
-    }
-    for (uint8_t c = 0; c < 8; c++) {
-        if (pintest[c] != 255) {
-            pinMode(pintest[c], INPUT_PULLDOWN);
-        }
-    }
-}
-
+#ifdef OPENEPAPERLINK_PCB
 // perform device flash, save mac, everything
 bool doTagFlash() {
     class flasher *f = new flasher();

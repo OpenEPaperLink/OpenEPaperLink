@@ -32,7 +32,6 @@ void addCRC(void* p, uint8_t len) {
         total += ((uint8_t*)p)[c];
     }
     ((uint8_t*)p)[0] = total;
-    // pr("%d",total);
 }
 bool checkCRC(void* p, uint8_t len) {
     uint8_t total = 0;
@@ -234,15 +233,14 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
     if (taginfo->isExternal == false) {
         switch (pending->availdatainfo.dataType) {
             case DATATYPE_IMG_DIFF:
+            case DATATYPE_IMG_ZLIB:
             case DATATYPE_IMG_RAW_1BPP:
             case DATATYPE_IMG_RAW_2BPP: {
-                Storage.begin();
-
                 char hexmac[17];
                 mac2hex(pending->targetMac, hexmac);
                 String filename = "/current/" + String(hexmac) + "_" + String(millis()) + ".pending";
-                String imageUrl = "http://" + remoteIP.toString() + filename;
-                wsLog("GET " + imageUrl);
+                String imageUrl = "http://" + remoteIP.toString() + "/getdata?mac=" + String(hexmac);
+                wsLog("prepareExternalDataAvail GET " + imageUrl);
                 HTTPClient http;
                 logLine("http prepareExternalDataAvail " + imageUrl);
                 http.begin(imageUrl);
@@ -324,8 +322,6 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 return;
             }
         }
-        // taginfo->contentMode = 12;
-        // taginfo->nextupdate = 3216153600;
         checkMirror(taginfo, pending);
         queueDataAvail(pending);
 
@@ -404,7 +400,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
             contentFS->remove(dst_path);
         }
         if (contentFS->exists(queueItem->filename)) {
-            if (config.preview && (queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP)) {
+            if (config.preview && (queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_ZLIB)) {
                 contentFS->rename(queueItem->filename, String(dst_path));
             } else {
                 contentFS->remove(queueItem->filename);
@@ -431,6 +427,9 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
             taginfo->nextupdate = now;
         }
     }
+
+    // more in the queue?
+    checkQueue(xfc->src);
 
     wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferComplete(xfc);
@@ -462,6 +461,9 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
         while (dequeueItem(xfc->src)) {
         };
     }
+
+    checkQueue(xfc->src);
+
     wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferTimeout(xfc);
 

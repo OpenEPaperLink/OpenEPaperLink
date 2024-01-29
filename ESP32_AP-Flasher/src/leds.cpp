@@ -85,36 +85,17 @@ void rgbIdle() {
 }
 
 void showColorPattern(CRGB colorone, CRGB colortwo, CRGB colorthree) {
-    struct ledInstructionRGB* rgb = new struct ledInstructionRGB;
-    rgb->ledColor = CRGB::Black;
-    rgb->fadeTime = 0;
-    rgb->length = 600;
-    addToRGBQueue(rgb, true);
-    rgb = new struct ledInstructionRGB;
-    rgb->ledColor = colorone;
-    rgb->fadeTime = 0;
-    rgb->length = 120;
-    addToRGBQueue(rgb, true);
-    rgb = new struct ledInstructionRGB;
-    rgb->ledColor = CRGB::Black;
-    rgb->fadeTime = 0;
-    rgb->length = 200;
-    addToRGBQueue(rgb, true);
-    rgb = new struct ledInstructionRGB;
-    rgb->ledColor = colortwo;
-    rgb->fadeTime = 0;
-    rgb->length = 120;
-    addToRGBQueue(rgb, true);
-    rgb = new struct ledInstructionRGB;
-    rgb->ledColor = CRGB::Black;
-    rgb->fadeTime = 0;
-    rgb->length = 200;
-    addToRGBQueue(rgb, true);
-    rgb = new struct ledInstructionRGB;
-    rgb->ledColor = colorthree;
-    rgb->fadeTime = 0;
-    rgb->length = 120;
-    addToRGBQueue(rgb, true);
+    struct ledInstructionRGB* rgb;
+    const int patternLengths[] = {600, 120, 200, 120, 200, 120};
+    const CRGB patternColors[] = {CRGB::Black, colorone, CRGB::Black, colortwo, CRGB::Black, colorthree};
+
+    for (int i = 0; i < sizeof(patternLengths) / sizeof(patternLengths[0]); i++) {
+        rgb = new struct ledInstructionRGB;
+        rgb->ledColor = patternColors[i];
+        rgb->fadeTime = 0;
+        rgb->length = patternLengths[i];
+        addToRGBQueue(rgb, true);
+    }
 }
 
 void showRGB() {

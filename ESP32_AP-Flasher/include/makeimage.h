@@ -32,6 +32,8 @@ struct imgParam {
     bool preload;
     uint8_t preloadtype;
     uint8_t preloadlut;
+
+    uint8_t zlib;
 };
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams);

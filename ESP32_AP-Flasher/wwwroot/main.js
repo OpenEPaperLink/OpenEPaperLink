@@ -1098,11 +1098,16 @@ function processQueue() {
 	fetch(imageSrc, { cache: "force-cache" })
 		.then(response => response.arrayBuffer())
 		.then(buffer => {
+
+			data = new Uint8ClampedArray(buffer);
+			if (data.length > 0 && tagTypes[hwtype].zlib > 0 && $('#tag' + id).dataset.ver >= tagTypes[hwtype].zlib) {
+				data = processZlib(data);
+			}
+
 			[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
 			if (tagTypes[hwtype].rotatebuffer) [canvas.width, canvas.height] = [canvas.height, canvas.width];
 			const ctx = canvas.getContext('2d');
 			const imageData = ctx.createImageData(canvas.width, canvas.height);
-			const data = new Uint8ClampedArray(buffer);
 			if (data.length == 0) {
 				canvas.style.display = 'none';
 			}
@@ -1144,8 +1149,20 @@ function processQueue() {
 			processQueue();
 		})
 		.catch(error => {
+			console.error('processQueue error:', error);
 			processQueue();
 		});
+}
+
+function processZlib(data) {
+	const subBuffer = data.subarray(4);
+	try {
+		const inflatedBuffer = pako.inflate(subBuffer);
+		const headerSize = inflatedBuffer[0];
+		return inflatedBuffer.subarray(headerSize);
+	} catch (err) {
+		console.log('zlib: ' + err);
+	}	
 }
 
 function displayTime(seconds) {
@@ -1326,6 +1343,7 @@ async function getTagtype(hwtype) {
 			colortable: Object.values(jsonData.colortable),
 			contentids: Object.values(jsonData.contentids ?? []),
 			options: Object.values(jsonData.options ?? []),
+			zlib: parseInt(jsonData.zlib_compression || "0", 16),
 			busy: false
 		};
 		tagTypes[hwtype] = data;
@@ -1663,3 +1681,4 @@ function debounce(func, delay) {
 function backupTagDB() {
 	localStorage.setItem("tagDB", JSON.stringify(tagDB));
 }
+

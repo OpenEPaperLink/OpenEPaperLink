@@ -175,51 +175,5 @@ void DynStorage::end() {
 #endif
 }
 
-void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
-    Serial.printf(" \n  ");
-
-    Serial.printf("Listing directory: %s\n", dirname);
-
-    File root = fs.open(dirname);
-    if (!root) {
-        Serial.println("Failed to open directory");
-        return;
-    }
-    if (!root.isDirectory()) {
-        Serial.println("Not a directory");
-        return;
-    }
-
-    File file = root.openNextFile();
-    while (file) {
-        if (!strcmp("System Volume Information", file.name())) {
-            file = root.openNextFile();
-            continue;
-        }
-
-        if (file.isDirectory()) {
-            Serial.print("  DIR : ");
-            Serial.println(file.name());
-            if (levels) {
-                listDir(fs, file.path(), levels - 1);
-            }
-            Serial.println();
-        } else {
-            Serial.print("  FILE: ");
-            Serial.print(file.name());
-            Serial.print("  SIZE: ");
-            Serial.println(file.size());
-        }
-        file = root.openNextFile();
-    }
-}
-
-void DynStorage::listFiles() {
-    listDir(LittleFS, "/", 1);
-#ifdef HAS_SDCARD
-    listDir(*contentFS, "/", 1);
-#endif
-}
-
 fs::FS* contentFS;
 DynStorage Storage;
