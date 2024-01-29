@@ -87,8 +87,10 @@ function startPainter(mac, width, height) {
 	clearButton.innerHTML = '&#128437;';
 	clearButton.addEventListener('click', () => {
 		if (isAddingText) handleFinish(false);
-		ctx.fillStyle = 'white';
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		if (window.confirm("Are you sure you want to clear the canvas?")) {
+			ctx.fillStyle = 'white';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+		}
 	});
 
 	const uploadButton = document.createElement('button');

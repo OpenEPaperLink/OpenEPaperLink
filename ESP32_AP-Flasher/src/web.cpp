@@ -442,13 +442,33 @@ void init_web() {
     server.on("/get_ap_config", HTTP_GET, [](AsyncWebServerRequest *request) {
         UDPcomm udpsync;
         udpsync.getAPList();
+        AsyncResponseStream *response = request->beginResponseStream("application/json");
+
         File configFile = contentFS->open("/current/apconfig.json", "r");
         if (!configFile) {
             request->send(500, "text/plain", "Error opening apconfig.json file");
             return;
         }
-        request->send(configFile, "application/json");
+        response->print("{");        
+#if defined YELLOW_IPS_AP || defined C6_OTA_FLASHING
+        response->print("\"C6\": \"1\", ");
+#else
+        response->print("\"C6\": \"1\", ");
+#endif
+#if defined SAVE_SPACE
+        response->print("\"savespace\": \"1\", ");
+#else
+        response->print("\"savespace\": \"0\", ");
+#endif
+        configFile.seek(1);
+        const size_t bufferSize = 64;
+        uint8_t buffer[bufferSize];
+        while (configFile.available()) {
+            size_t bytesRead = configFile.read(buffer, bufferSize);
+            response->write(buffer, bytesRead);
+        }
         configFile.close();
+        request->send(response);
     });
 
     server.on("/save_apcfg", HTTP_POST, [](AsyncWebServerRequest *request) {

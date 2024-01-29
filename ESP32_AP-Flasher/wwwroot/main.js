@@ -52,6 +52,8 @@ window.addEventListener("loadConfig", function () {
 				$(".logo").innerHTML = data.alias;
 				this.document.title = data.alias;
 			}
+			if (data.C6) {
+			}
 		});
 });
 
@@ -969,7 +971,7 @@ function populateSelectTag(hwtype, capabilities) {
 	let option;
 	cardconfig.forEach(item => {
 		const capcheck = item.capabilities ?? 0;
-		if (tagTypes[hwtype].contentids.includes(item.id) && (capabilities & capcheck || capcheck == 0)) {
+		if (tagTypes[hwtype].contentids.includes(item.id) && (capabilities & capcheck || capcheck == 0) && (apConfig.savespace == 0 || !item.properties?.includes("savespace"))) {
 			option = document.createElement("option");
 			option.value = item.id;
 			option.text = item.name;
@@ -995,10 +997,15 @@ function populateSelectTag(hwtype, capabilities) {
 
 	option = document.createElement("option");
 	option.value = "0";
-	option.text = "auto";
+	console.log('shortlut: ' + tagTypes[hwtype].shortlut);
+	if (tagTypes[hwtype].shortlut == 0) {
+		option.text = "Always full refresh";
+	} else {
+		option.text = "auto";
+	}
 	lutTag.appendChild(option);
 
-	if (hwtype != 240) {
+	if (tagTypes[hwtype].shortlut > 0) {
 		option = document.createElement("option");
 		option.value = "1";
 		option.text = "Always full refresh";
@@ -1329,6 +1336,7 @@ async function getTagtype(hwtype) {
 			contentids: Object.values(jsonData.contentids ?? []),
 			options: Object.values(jsonData.options ?? []),
 			zlib: parseInt(jsonData.zlib_compression || "0", 16),
+			shortlut: parseInt(jsonData.shortlut),
 			busy: false
 		};
 		tagTypes[hwtype] = data;

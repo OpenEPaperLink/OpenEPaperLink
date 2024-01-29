@@ -372,14 +372,15 @@ HwType getHwType(const uint8_t id) {
         File jsonFile = contentFS->open(filename, "r");
 
         if (jsonFile) {
-            StaticJsonDocument<100> filter;
+            StaticJsonDocument<150> filter;
             filter["width"] = true;
             filter["height"] = true;
             filter["rotatebuffer"] = true;
             filter["bpp"] = true;
             filter["shortlut"] = true;
             filter["zlib_compression"] = true;
-            StaticJsonDocument<250> doc;
+            filter["highlight_color"] = true;
+            StaticJsonDocument<1000> doc;
             DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
             jsonFile.close();
             if (error) {
@@ -396,10 +397,11 @@ HwType getHwType(const uint8_t id) {
                 } else {
                     hwdata[id].zlib = 0;
                 }
+                hwdata[id].highlightColor = doc.containsKey("highlight_color") ? doc["highlight_color"].as<uint16_t>() : 2;
                 return hwdata.at(id);
             }
         }
-        return {0, 0, 0, 0, 0};
+        return {0, 0, 0, 0, 0, 0, 0};
     }
 }
 

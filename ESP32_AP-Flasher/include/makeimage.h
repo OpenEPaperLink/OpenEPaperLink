@@ -16,6 +16,7 @@ struct imgParam {
     bool grayLut = false;
     uint8_t bufferbpp = 8;
     uint8_t rotate = 0;
+    uint16_t highlightColor = 2;
 
     uint16_t width;
     uint16_t height;
