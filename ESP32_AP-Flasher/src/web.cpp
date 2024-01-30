@@ -693,40 +693,77 @@ void init_web() {
     server.begin();
 }
 
+#define UPLOAD_BUFFER_SIZE 32768
+
+struct UploadInfo {
+    String filename;
+    uint8_t buffer[UPLOAD_BUFFER_SIZE];
+    size_t bufferSize;
+};
+
 void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-    Serial.println("upload part " + String(index));
     String uploadfilename;
     if (!index) {
         if (config.runStatus != RUNSTATUS_RUN) {
             request->send(409, "text/plain", "Come back later");
             return;
         }
-        if (request->hasParam("mac", true)) {
-            uploadfilename = request->getParam("mac", true)->value() + "_" + String(millis()) + ".jpg";
-        } else {
+        if (!request->hasParam("mac", true)) {
             request->send(400, "text/plain", "parameters incomplete");
             return;
         }
         logLine("http imageUpload " + uploadfilename);
-        request->_tempObject = (void *)new String(uploadfilename);
+
+        uploadfilename = request->getParam("mac", true)->value() + "_" + String(millis()) + ".jpg";
+        File file = contentFS->open("/temp/" + uploadfilename, "w");
+        file.close();
+        Serial.println("upload started " + uploadfilename);
+
+        UploadInfo *uploadInfo = new UploadInfo{uploadfilename, {}, 0};
+        request->_tempObject = (void *)uploadInfo;
     }
-    String *savedFilename = static_cast<String *>(request->_tempObject);
-    if (savedFilename != nullptr) {
-        uploadfilename = *savedFilename;
+
+    UploadInfo *uploadInfo = static_cast<UploadInfo *>(request->_tempObject);
+
+    if (uploadInfo != nullptr) {
+        uploadfilename = uploadInfo->filename;
+
         if (len) {
-            xSemaphoreTake(fsMutex, portMAX_DELAY);
-            File file = contentFS->open("/temp/" + uploadfilename, "a");
-            if (file) {
-                file.seek(index);
-                file.write(data, len);
-                file.close();
+            if (uploadInfo->bufferSize + len <= UPLOAD_BUFFER_SIZE) {
+                memcpy(&uploadInfo->buffer[uploadInfo->bufferSize], data, len);
+                uploadInfo->bufferSize += len;
             } else {
-                logLine("Failed to open file for appending: " + uploadfilename);
+                xSemaphoreTake(fsMutex, portMAX_DELAY);
+                File file = contentFS->open("/temp/" + uploadfilename, "a");
+                if (file) {
+                    file.write(uploadInfo->buffer, uploadInfo->bufferSize);
+                    file.close();
+                    uploadInfo->bufferSize = 0;
+                } else {
+                    logLine("Failed to open file for appending: " + uploadfilename);
+                }
+                xSemaphoreGive(fsMutex);
+
+                memcpy(uploadInfo->buffer, data, len);
+                uploadInfo->bufferSize = len;
             }
-            xSemaphoreGive(fsMutex);
         }
+
         if (final) {
-            Serial.println("upload final");
+            if (uploadInfo->bufferSize > 0) {
+                xSemaphoreTake(fsMutex, portMAX_DELAY);
+                File file = contentFS->open("/temp/" + uploadfilename, "a");
+                if (file) {
+                    file.write(uploadInfo->buffer, uploadInfo->bufferSize);
+                    file.close();
+                } else {
+                    logLine("Failed to open file for appending: " + uploadfilename);
+                }
+                xSemaphoreGive(fsMutex);
+                request->_tempObject = nullptr;
+                delete uploadInfo;
+            }
+
             if (request->hasParam("mac", true)) {
                 String dst = request->getParam("mac", true)->value();
                 uint8_t mac[8];
@@ -757,6 +794,7 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
                         } else {
                             taginfo->contentMode = 24;
                         }
+                        Serial.println("upload finished " + uploadfilename);
                         taginfo->nextupdate = 0;
                         wsSendTaginfo(mac, SYNC_USERCFG);
                         request->send(200, "text/plain", "Ok, saved");

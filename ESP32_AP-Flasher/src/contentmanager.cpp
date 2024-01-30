@@ -1462,7 +1462,7 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     getTemplate(loc, 27, taginfo->hwType);
 
     // This is a link to a Google Apps Script script, which fetches (and caches) the tariff from https://transparency.entsoe.eu/ 
-    // Please don't use this link in any other projects.
+    // I made it available to provide easy access to the data, but please don't use this link in any projects other than OpenEpaperLink.
     String URL = "https://script.google.com/macros/s/AKfycbwMmeGAaPrWzVZrESSpmPmD--O132PzW_acnBsuEottKNATTqCRn6h8zN0Yts7S56ggsg/exec?country=" + cfgobj["country"].as<String>();
 
     time_t now;
