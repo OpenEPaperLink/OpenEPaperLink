@@ -290,7 +290,7 @@
       {
         "key": "country",
         "name": "Country",
-        "desc": "Select your country. If your country is not in the list, I couldn't find prices for it on transparency.entsoe.eu . ",
+        "desc": "Select your country. If your country is not in the list, we couldn't find the right region for it on transparency.entsoe.eu . Add an issue on the OEPL github to add it",
         "type": "select",
         "options": {
           "AT": "Austria",
@@ -318,7 +318,7 @@
       {
         "key": "tariffkwh",
         "name": "Fixed surcharge",
-        "desc": "Fixed surcharge per kWh, in cents",
+        "desc": "Fixed surcharge per kWh, in 1/100 units (cents)",
         "type": "text"
       },
       {
