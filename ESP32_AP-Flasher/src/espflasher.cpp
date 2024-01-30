@@ -260,7 +260,7 @@ bool doC6flash(uint8_t doDownload) {
             return false;
         }
     } else {
-        wsSerial("Connection failed");
+        wsSerial("Connection to the C6 failed");
         loader_port_esp32_deinit();
         return false;
     }

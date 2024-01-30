@@ -5,10 +5,11 @@
 #define CONTENT_QR
 #define CONTENT_RSS
 #define CONTENT_BIGCAL
+#define CONTENT_NFCLUT
+#define CONTENT_DAYAHEAD
 #endif
 #define CONTENT_CAL
 #define CONTENT_BUIENRADAR
-#define CONTENT_NFCLUT
 #define CONTENT_TAGCFG
 
 #include <Arduino.h>
@@ -198,10 +199,11 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     imageParams.height = hwdata.height;
     imageParams.bpp = hwdata.bpp;
     imageParams.rotatebuffer = hwdata.rotatebuffer;
+    imageParams.highlightColor = getColor(String(hwdata.highlightColor));
 
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
-    imageParams.dither = 0;
+    imageParams.dither = 2;
     if (taginfo->hasCustomLUT && taginfo->lut != 1) imageParams.grayLut = true;
 
     imageParams.invert = taginfo->invert;
@@ -385,6 +387,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             break;
 #endif
 
+#ifdef CONTENT_CAL
         case 11:  // Calendar:
 
             if (getCalFeed(filename, cfgobj, taginfo, imageParams)) {
@@ -395,6 +398,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 taginfo->nextupdate = now + 300;
             }
             break;
+#endif
 
         case 12:  // RemoteAP
 
@@ -508,7 +512,18 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             drawTimestamp(filename, cfgobj, taginfo, imageParams);
             updateTagImage(filename, mac, 0, taginfo, imageParams);
             taginfo->nextupdate = 3216153600;
+
+#ifdef CONTENT_DAYAHEAD
+        case 27:  // Day Ahead:
+
+            if (getDayAheadFeed(filename, cfgobj, taginfo, imageParams)) {
+                taginfo->nextupdate = now + (3600 - now % 3600);
+                updateTagImage(filename, mac, 0, taginfo, imageParams);
+            } else {
+                taginfo->nextupdate = now + 300;
+            }
             break;
+#endif
     }
 
     taginfo->modeConfigJson = doc.as<String>();
@@ -724,14 +739,14 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     const auto &date = loc["date"];
     const auto &weekday = loc["weekday"];
     if (date) {
-        drawString(spr, languageDays[timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, TFT_RED, weekday[3]);
+        drawString(spr, languageDays[timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, imageParams.highlightColor, weekday[3]);
         drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[timeinfo.tm_mon], date[0], date[1], date[2], TC_DATUM, TFT_BLACK, date[3]);
     } else {
         const auto &month = loc["month"];
         const auto &day = loc["day"];
         drawString(spr, languageDays[timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, TFT_BLACK, weekday[3]);
         drawString(spr, String(languageMonth[timeinfo.tm_mon]), month[0], month[1], month[2], TC_DATUM, TFT_BLACK, month[3]);
-        drawString(spr, String(timeinfo.tm_mday), day[0], day[1], day[2], TC_DATUM, TFT_RED, day[3]);
+        drawString(spr, String(timeinfo.tm_mday), day[0], day[1], day[2], TC_DATUM, imageParams.highlightColor, day[3]);
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -768,7 +783,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     uint16_t color = TFT_BLACK;
     if (countTemp > thresholdred) {
-        color = TFT_RED;
+        color = imageParams.highlightColor;
     }
     String font = loc["fonts"][0].as<String>();
     uint8_t size = loc["fonts"][1].as<uint16_t>();
@@ -864,15 +879,15 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
     const auto &location = doc["location"];
     drawString(spr, cfgobj["location"], location[0], location[1], location[2]);
     const auto &wind = doc["wind"];
-    drawString(spr, String(windval), wind[0], wind[1], wind[2], TR_DATUM, (beaufort > 4 ? TFT_RED : TFT_BLACK));
+    drawString(spr, String(windval), wind[0], wind[1], wind[2], TR_DATUM, (beaufort > 4 ? imageParams.highlightColor : TFT_BLACK));
 
     char tmpOutput[5];
     dtostrf(temperature, 2, 1, tmpOutput);
     const auto &temp = doc["temp"];
-    drawString(spr, String(tmpOutput), temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? TFT_RED : TFT_BLACK));
+    drawString(spr, String(tmpOutput), temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? imageParams.highlightColor : TFT_BLACK));
 
     const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99)
-                              ? TFT_RED
+                              ? imageParams.highlightColor
                               : TFT_BLACK;
     const auto &icon = doc["icon"];
     drawString(spr, getWeatherIcon(weathercode, isNight), icon[0], icon[1], "/fonts/weathericons.ttf", icon[3], iconcolor, icon[2]);
@@ -880,7 +895,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
     drawString(spr, windDirectionIcon(winddirection), dir[0], dir[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, dir[2]);
     if (weathercode > 10) {
         const auto &umbrella = doc["umbrella"];
-        drawString(spr, "\uf084", umbrella[0], umbrella[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_RED, umbrella[2]);
+        drawString(spr, "\uf084", umbrella[0], umbrella[1], "/fonts/weathericons.ttf", TC_DATUM, imageParams.highlightColor, umbrella[2]);
     }
 
     spr2buffer(spr, filename, imageParams);
@@ -929,7 +944,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
         if (weathercode > 40) weathercode -= 40;
 
         const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99)
-                                  ? TFT_RED
+                                  ? imageParams.highlightColor
                                   : TFT_BLACK;
         drawString(spr, getWeatherIcon(weathercode), loc["icon"][0].as<int>() + dag * column1, loc["icon"][1], "/fonts/weathericons.ttf", TC_DATUM, iconcolor, loc["icon"][2]);
 
@@ -948,13 +963,13 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
         if (loc["rain"]) {
             const int8_t rain = round(daily["precipitation_sum"][dag].as<double>());
             if (rain > 0) {
-                drawString(spr, String(rain) + "mm", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], day[2], TC_DATUM, (rain > 10 ? TFT_RED : TFT_BLACK));
+                drawString(spr, String(rain) + "mm", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], day[2], TC_DATUM, (rain > 10 ? imageParams.highlightColor : TFT_BLACK));
             }
         }
 
-        drawString(spr, String(tmin) + " ", dag * column1 + day[0].as<int>(), day[4], day[2], TR_DATUM, (tmin < 0 ? TFT_RED : TFT_BLACK));
-        drawString(spr, String(" ") + String(tmax), dag * column1 + day[0].as<int>(), day[4], day[2], TL_DATUM, (tmax < 0 ? TFT_RED : TFT_BLACK));
-        drawString(spr, String(wind), dag * column1 + column1 - 10, day[3], day[2], TR_DATUM, (beaufort > 5 ? TFT_RED : TFT_BLACK));
+        drawString(spr, String(tmin) + " ", dag * column1 + day[0].as<int>(), day[4], day[2], TR_DATUM, (tmin < 0 ? imageParams.highlightColor : TFT_BLACK));
+        drawString(spr, String(" ") + String(tmax), dag * column1 + day[0].as<int>(), day[4], day[2], TL_DATUM, (tmax < 0 ? imageParams.highlightColor : TFT_BLACK));
+        drawString(spr, String(wind), dag * column1 + column1 - 10, day[3], day[2], TR_DATUM, (beaufort > 5 ? imageParams.highlightColor : TFT_BLACK));
         if (dag > 0) {
             for (int i = loc["line"][0]; i < loc["line"][1]; i += 3) {
                 spr.drawPixel(dag * column1, i, TFT_BLACK);
@@ -1115,8 +1130,8 @@ char *epoch_to_display(time_t utc) {
     return display;
 }
 
-bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
 #ifdef CONTENT_CAL
+bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     // google apps scripts method to retrieve calendar
     // see https://github.com/jjwbruijn/OpenEPaperLink/wiki/Google-Apps-Scripts for description
 
@@ -1181,9 +1196,9 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                 const time_t endtime = obj["end"];
 
                 if (starttime <= now && endtime > now) {
-                    spr.fillRect(loc["red"][0], loc["red"][1].as<int>() + i * loc["line"][2].as<int>(), loc["red"][2], loc["red"][3], TFT_RED);
-                    drawString(spr, epoch_to_display(obj["start"]), loc["line"][0], loc["line"][1].as<int>() + i * loc["line"][2].as<int>(), loc["line"][3], TL_DATUM, TFT_WHITE, 0, TFT_RED);
-                    drawString(spr, eventtitle, loc["line"][4], loc["line"][1].as<int>() + i * loc["line"][2].as<int>(), loc["line"][3], TL_DATUM, TFT_WHITE, 0, TFT_RED);
+                    spr.fillRect(loc["red"][0], loc["red"][1].as<int>() + i * loc["line"][2].as<int>(), loc["red"][2], loc["red"][3], imageParams.highlightColor);
+                    drawString(spr, epoch_to_display(obj["start"]), loc["line"][0], loc["line"][1].as<int>() + i * loc["line"][2].as<int>(), loc["line"][3], TL_DATUM, TFT_WHITE, 0, imageParams.highlightColor);
+                    drawString(spr, eventtitle, loc["line"][4], loc["line"][1].as<int>() + i * loc["line"][2].as<int>(), loc["line"][3], TL_DATUM, TFT_WHITE, 0, imageParams.highlightColor);
                 } else {
                     drawString(spr, epoch_to_display(obj["start"]), loc["line"][0], loc["line"][1].as<int>() + i * loc["line"][2].as<int>(), loc["line"][3], TL_DATUM, TFT_BLACK, 0, TFT_WHITE);
                     drawString(spr, eventtitle, loc["line"][4], loc["line"][1].as<int>() + i * loc["line"][2].as<int>(), loc["line"][3], TL_DATUM, TFT_BLACK, 0, TFT_WHITE);
@@ -1220,9 +1235,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
             int calYOffset = loc["gridparam"][1].as<int>();
             int lineHeight = loc["gridparam"][5].as<int>();
 
-            imageParams.dither = 2;
-
-            // drawString(spr, String(timeinfo.tm_mday), calWidth / 2, -calHeight/5, "Signika-SB.ttf", TC_DATUM, TFT_RED, calHeight * 1.2);
+            // drawString(spr, String(timeinfo.tm_mday), calWidth / 2, -calHeight/5, "Signika-SB.ttf", TC_DATUM, imageParams.highlightColor, calHeight * 1.2);
 
             for (int i = 0; i < calDays; i++) {
                 struct tm dayTimeinfo = *localtime(&midnightEpoch);
@@ -1382,9 +1395,173 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
-#endif
     return true;
 }
+#endif
+
+#ifdef CONTENT_DAYAHEAD
+uint16_t getPercentileColor(const double *prices, int numPrices, double price) {
+    double percentile = 100.0;
+    int colorIndex = 3;
+    const char *colors[] = {"black", "darkgray", "pink", "red"};
+    const int numColors = sizeof(colors) / sizeof(colors[0]);
+
+    const double boundaries[] = {40.0, 80.0, 90.0};
+    const int numBoundaries = sizeof(boundaries) / sizeof(boundaries[0]);
+
+    for (int i = 0; i < numBoundaries; i++) {
+        if (price < prices[int(numPrices * boundaries[i] / 100.0)]) {
+            colorIndex = i;
+            break;
+        }
+    }
+    return getColor(String(colors[constrain(colorIndex, 0, numColors - 1)]));
+}
+
+struct YAxisScale {
+    double min;
+    double max;
+    double step;
+};
+
+double roundToNearest(double value, double factor) {
+    return round(value / factor) * factor;
+}
+
+int mapDouble(double value, double fromMin, double fromMax, int toMin, int toMax) {
+    return static_cast<int>(round((value - fromMin) / (fromMax - fromMin) * (toMax - toMin) + toMin));
+}
+
+YAxisScale calculateYAxisScale(double priceMin, double priceMax, int divisions) {
+    double range = priceMax - priceMin;
+    double stepSize = range / divisions;
+    double orderOfMagnitude = pow(10, floor(log10(stepSize)));
+    double significantDigit = stepSize / orderOfMagnitude;
+
+    double roundedSignificantDigit;
+    double thresholds[] = {1.0, 2.0, 5.0, 10.0};
+    for (double threshold : thresholds) {
+        if (significantDigit <= threshold) {
+            roundedSignificantDigit = threshold;
+            break;
+        }
+    }
+
+    double roundedStepSize = roundedSignificantDigit * orderOfMagnitude;
+    double newRange = roundedStepSize * divisions;
+    double minY = floor(priceMin / roundedStepSize) * roundedStepSize;
+    double maxY = minY + newRange;
+
+    return {minY, maxY, roundedStepSize};
+}
+
+bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
+    wsLog("get dayahead prices");
+
+    StaticJsonDocument<512> loc;
+    getTemplate(loc, 27, taginfo->hwType);
+
+    // This is a link to a Google Apps Script script, which fetches (and caches) the tariff from https://transparency.entsoe.eu/ 
+    // I made it available to provide easy access to the data, but please don't use this link in any projects other than OpenEpaperLink.
+    String URL = "https://script.google.com/macros/s/AKfycbwMmeGAaPrWzVZrESSpmPmD--O132PzW_acnBsuEottKNATTqCRn6h8zN0Yts7S56ggsg/exec?country=" + cfgobj["country"].as<String>();
+
+    time_t now;
+    time(&now);
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+
+    char dateString[40];
+    strftime(dateString, sizeof(dateString), languageDateFormat[0].c_str(), &timeinfo);
+
+    HTTPClient http;
+    http.begin(URL);
+    http.setTimeout(10000);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    int httpCode = http.GET();
+    if (httpCode != 200) {
+        wsErr("getDayAhead http error " + String(httpCode));
+        return false;
+    }
+
+    DynamicJsonDocument doc(5000);
+    DeserializationError error = deserializeJson(doc, http.getString());
+    if (error) {
+        wsErr(error.c_str());
+    }
+    http.end();
+
+    TFT_eSprite spr = TFT_eSprite(&tft);
+
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
+
+    int n = doc.size();
+
+    double tarifkwh = cfgobj["tariffkwh"].as<double>();
+    double tariftax = cfgobj["tarifftax"].as<double>();
+    double minPrice = (doc[0]["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100);
+    double maxPrice = minPrice;
+    double prices[n];
+
+    for (int i = 0; i < n; i++) {
+        const JsonObject &obj = doc[i];
+        const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100);
+        minPrice = min(minPrice, price);
+        maxPrice = max(maxPrice, price);
+        prices[i] = price;
+    }
+    std::sort(prices, prices + n);
+
+    YAxisScale yAxisScale = calculateYAxisScale(minPrice, maxPrice, loc["yaxis"][2].as<int>());
+    minPrice = yAxisScale.min;
+
+    uint16_t yAxisX = loc["yaxis"][1].as<int>();
+    uint16_t barBottom = loc["bars"][3].as<int>();
+
+    for (double i = minPrice; i <= maxPrice; i += yAxisScale.step) {
+        int y = mapDouble(i, minPrice, maxPrice, spr.height() - barBottom, spr.height() - barBottom - loc["bars"][2].as<int>());
+        spr.drawLine(0, y, spr.width(), y, TFT_BLACK);
+        drawString(spr, String(int(i)), yAxisX, y - 8, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
+    }
+
+    uint16_t barwidth = loc["bars"][1].as<int>() / n;
+    uint16_t barheight = loc["bars"][2].as<int>() / (maxPrice - minPrice);
+
+    uint16_t barX = loc["bars"][0].as<int>();
+    double pricenow = std::numeric_limits<double>::quiet_NaN();
+
+    for (int i = 0; i < n; i++) {
+        const JsonObject &obj = doc[i];
+        const time_t item_time = obj["time"];
+        struct tm item_timeinfo;
+        localtime_r(&item_time, &item_timeinfo);
+
+        const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100);
+
+        uint16_t barcolor = getPercentileColor(prices, n, price);
+        uint16_t thisbarh = mapDouble(price, minPrice, maxPrice, 0, loc["bars"][2].as<int>());
+        spr.fillRect(barX + i * barwidth, spr.height() - barBottom - thisbarh, barwidth - 1, thisbarh, barcolor);
+        if (i % 2 == 0) {
+            drawString(spr, String(item_timeinfo.tm_hour), barX + i * barwidth + barwidth / 3 + 1, spr.height() - barBottom + 3, loc["time"][0], TC_DATUM, TFT_BLACK);
+        }
+
+        if (now - item_time < 3600 && std::isnan(pricenow)) {
+            spr.fillRect(barX + i * barwidth + 3, 5, barwidth - 6, 10, imageParams.highlightColor);
+            spr.fillTriangle(barX + i * barwidth, 15,
+                             barX + i * barwidth + barwidth - 1, 15,
+                             barX + i * barwidth + barwidth / 2, 15 + barwidth, imageParams.highlightColor);
+            spr.drawLine(barX + i * barwidth + barwidth / 2, 20 + barwidth, barX + i * barwidth + barwidth / 2, spr.height(), getColor("pink"));
+            pricenow = price;
+        }
+    }
+
+    drawString(spr, String(timeinfo.tm_hour) + ":00", barX, 5, loc["head"][0], TL_DATUM, TFT_BLACK, 30);
+    drawString(spr, String(pricenow) + "/kWh", spr.width() - barX, 5, loc["head"][0], TR_DATUM, TFT_BLACK, 30);
+
+    spr2buffer(spr, filename, imageParams);
+    spr.deleteSprite();
+    return true;
+}
+#endif
 
 #ifdef CONTENT_QR
 void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginfo, imgParam &imageParams) {
@@ -1488,7 +1665,7 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
             }
             value = value - 70;
 
-            spr.fillRect(i * cols2 + bars0, bars1 - (value * factor), bars2, value * factor, (value > 50 ? TFT_RED : TFT_BLACK));
+            spr.fillRect(i * cols2 + bars0, bars1 - (value * factor), bars2, value * factor, (value > 50 ? imageParams.highlightColor : TFT_BLACK));
 
             if (minutes % 15 == 0) {
                 drawString(spr, timestring, i * cols2 + cols0, cols1, cols3);
@@ -1720,7 +1897,6 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
     TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     uint8_t screenCurrentOrientation = 0;
-    imageParams.dither = 2;
     DynamicJsonDocument doc(500);
     if (stream.find("[")) {
         do {

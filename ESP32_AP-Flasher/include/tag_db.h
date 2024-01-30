@@ -78,6 +78,7 @@ struct HwType {
     uint8_t bpp;
     uint8_t shortlut;
     uint8_t zlib;
+    uint16_t highlightColor;
 };
 
 struct varStruct {

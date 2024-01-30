@@ -3,7 +3,7 @@
     "id": 0,
     "name": "",
     "desc": "Not configured",
-    "param": []
+    "param": [ ]
   },
   {
     "id": 22,
@@ -44,7 +44,7 @@
     "id": 1,
     "name": "Current date",
     "desc": "Shows the current date",
-    "param": []
+    "param": [ ]
   },
   {
     "id": 2,
@@ -195,6 +195,7 @@
     "id": 9,
     "name": "RSS feed",
     "desc": "Gets an RSS feed, and display the first few lines of it",
+    "properties": [ "savespace" ],
     "param": [
       {
         "key": "title",
@@ -239,6 +240,7 @@
     "id": 10,
     "name": "QR code",
     "desc": "Displayes a full screen QR code",
+    "properties": [ "savespace" ],
     "param": [
       {
         "key": "title",
@@ -323,6 +325,54 @@
         "name": "Name, or timestamp 2",
         "desc": "The name of the button that was pressed, or in case of seperate timestamp, the date/time of the second button press",
         "type": "ro"
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "name": "Dayahead prices",
+    "desc": "Dayahead dynamic electricity tariffs. Source: transparency.entsoe.eu",
+    "properties": [ "savespace" ],
+    "param": [
+      {
+        "key": "country",
+        "name": "Country",
+        "desc": "Select your country. If your country is not in the list, we couldn't find the right region for it on transparency.entsoe.eu . Add an issue on the OEPL github to add it",
+        "type": "select",
+        "options": {
+          "AT": "Austria",
+          "BE": "Belgium",
+          "CH": "Switzerland",
+          "CZ": "Czech Republic",
+          "EE": "Estonia",
+          "ES": "Spain",
+          "FI": "Finland",
+          "FR": "France",
+          "LT": "Lithuania",
+          "LV": "Latvia",
+          "NL": "Netherlands",
+          "NO1": "Norway NO1",
+          "NO2": "Norway NO2",
+          "NO3": "Norway NO3",
+          "NO4": "Norway NO4",
+          "NO5": "Norway NO5",
+          "PL": "Poland",
+          "RO": "Romania",
+          "SI": "Slovenia",
+          "SK": "Slovakia"
+        }
+      },
+      {
+        "key": "tariffkwh",
+        "name": "Fixed surcharge",
+        "desc": "Fixed surcharge per kWh, in 1/100 units (cents)",
+        "type": "text"
+      },
+      {
+        "key": "tarifftax",
+        "name": "Tax percentage",
+        "desc": "Percentage to add to the total (for example, 21, for 21% VAT)",
+        "type": "text"
       }
     ]
   },
@@ -474,6 +524,7 @@
     "name": "Set NFC URL",
     "desc": "Send the URL to the NFC chip. The URL is transmitted to a NFC reader (like your phone) if you hold it next to the tag",
     "capabilities": 64,
+    "properties": [ "savespace" ],
     "param": [
       {
         "key": "url",
@@ -488,6 +539,7 @@
     "name": "Send custom LUT",
     "desc": "EXPERIMENTAL. Don't use. YOU RISK DAMAGING YOUR SCREEN.",
     "capabilities": 4,
+    "properties": [ "savespace" ],
     "param": [
       {
         "key": "bytes",
