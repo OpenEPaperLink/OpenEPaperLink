@@ -314,22 +314,22 @@ void initAPconfig() {
         }
         configFile.close();
     }
-    config.channel = APconfig["channel"] | 0;
+    config.channel = APconfig.containsKey("channel") ? APconfig["channel"] : 0;
     if (APconfig["alias"]) strlcpy(config.alias, APconfig["alias"], sizeof(config.alias));
-    config.led = APconfig["led"] | 255;
-    config.tft = APconfig["tft"] | 255;
-    config.language = APconfig["language"] | 0;
-    config.maxsleep = APconfig["maxsleep"] | 10;
-    config.stopsleep = APconfig["stopsleep"] | 1;
-    config.preview = APconfig["preview"] | 1;
-    config.lock = APconfig["lock"] | 0;
-    config.sleepTime1 = APconfig["sleeptime1"] | 0;
-    config.sleepTime2 = APconfig["sleeptime2"] | 0;
+    config.led = APconfig.containsKey("led") ? APconfig["led"] : 255;
+    config.tft = APconfig.containsKey("tft") ? APconfig["tft"] : 255;
+    config.language = APconfig.containsKey("language") ? APconfig["language"] : 0;
+    config.maxsleep = APconfig.containsKey("maxsleep") ? APconfig["maxsleep"] : 10;
+    config.stopsleep = APconfig.containsKey("stopsleep") ? APconfig["stopsleep"] : 1;
+    config.preview = APconfig.containsKey("preview") ? APconfig["preview"] : 1;
+    config.lock = APconfig.containsKey("lock") ? APconfig["lock"] : 0;
+    config.sleepTime1 = APconfig.containsKey("sleeptime1") ? APconfig["sleeptime1"] : 0;
+    config.sleepTime2 = APconfig.containsKey("sleeptime2") ? APconfig["sleeptime2"] : 0;
     // default wifi power 8.5 dbM
     // see https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/src/WiFiGeneric.h#L111
-    config.wifiPower = APconfig["wifipower"] | 34;
-    config.repo = APconfig["repo"] | "jjwbruijn/OpenEPaperLink";
-    config.env = APconfig["env"] | STR(BUILD_ENV_NAME);
+    config.wifiPower = APconfig.containsKey("wifipower") ? APconfig["wifipower"] : 34;
+    config.repo = APconfig.containsKey("repo") ? APconfig["repo"].as<String>() : String("jjwbruijn/OpenEPaperLink");
+    config.env = APconfig.containsKey("env") ? APconfig["env"].as<String>() : String(STR(BUILD_ENV_NAME));
     if (APconfig["timezone"]) {
         strlcpy(config.timeZone, APconfig["timezone"], sizeof(config.timeZone));
     } else {

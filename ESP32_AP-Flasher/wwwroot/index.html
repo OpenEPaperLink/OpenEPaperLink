@@ -26,7 +26,7 @@
 					<div class="tablinks material-symbols-outlined" data-target="aptab" title="Access Points">cell_tower</div>
 					<!--<div class="tablinks material-symbols-outlined" data-target="templatetab" title="Templates">browse
 					</div>-->
-					<div class="tablinks material-symbols-outlined" data-target="flashtab" title="Tag flasher">flash_on</div>
+					<div class="tablinks material-symbols-outlined" data-target="flashtab" title="Tag flasher" style="display:none;">flash_on</div>
 					<div class="tablinks material-symbols-outlined" data-target="configtab" title="Settings">settings</div>
 					<div class="tablinks material-symbols-outlined" data-target="logtab" title="Logging">text_snippet</div>
 				</div>
@@ -231,9 +231,16 @@
 				<h3>Tag flasher</h3>
 				<div>
 					<div class="flashCol1">
-						<h4>Test</h4>
-						<div>
-							<button class="button" id="testButton">Test</button>
+						<h4>Mode</h4>
+						<div style="max-width:400px;">
+							<button class="button" id="doAutoflash">Automatic flash</button><br><br>
+							With automatic flash, a tag is flashed to the latest firmware as soon as you connect it. 
+							It sets the mac automatically, tries to recognize the type, and starts flashing.
+							<br><br>
+							<button class="button" id="doUSBflash">Command line</button><br><br>
+							Using OEPL-Flasher.py, you have full control over the flashing of the tag.
+							<br>
+
 						</div>
 						<h4>Other actions</h4>
 						<div>
@@ -264,7 +271,7 @@
 				<p>
 					<label for="apcfgledbrightness">RGB LED brightness</label>
 					<select id="apcfgledbrightness">
-						<option value="-1">off</option>
+						<option value="0">off</option>
 						<option value="15">10%</option>
 						<option value="31">25%</option>
 						<option value="127" selected>50%</option>
@@ -460,7 +467,7 @@
 								</div>
 							</p>
 							<p>
-								<span id="c6Option">
+								<span id="c6Option" style="display:none;">
 									<div id="updateC6Option">
 										<button type="button" id="updateC6Btn">Update ESP32-C6</button>
 										<input type="checkbox" value="1" checked id="c6download">download latest version

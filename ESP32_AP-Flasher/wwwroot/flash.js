@@ -3,7 +3,7 @@ let running = false;
 let buttonState = false;
 
 const WEBFLASH_ENABLE_AUTOFLASH = 1
-const WEBFLASH_PINTEST = 2
+const WEBFLASH_ENABLE_USBFLASHER = 2
 const WEBFLASH_FOCUS = 3
 export const WEBFLASH_BLUR = 4
 
@@ -19,12 +19,23 @@ export function wsCmd(command) {
     socket.send(jsonData);
 }
 
-$('#testButton').onclick = function () {
+$('#doAutoflash').onclick = function () {
     if (running) return;
     disableButtons(true);
     running = true;
 
-    wsCmd(WEBFLASH_PINTEST);
+    wsCmd(WEBFLASH_ENABLE_AUTOFLASH);
+
+    running = false;
+    disableButtons(false);
+}
+
+$('#doUSBflash').onclick = function () {
+    if (running) return;
+    disableButtons(true);
+    running = true;
+
+    wsCmd(WEBFLASH_ENABLE_USBFLASHER);
 
     running = false;
     disableButtons(false);

@@ -285,6 +285,7 @@
     "id": 26,
     "name": "Time Stamp",
     "desc": "Displays the last date and time when a button press took place. For example, to keep track of the last time somebody let the dog out, or when you last watered the plants, or change the bed sheets.",
+    "properties": [ "savespace" ],
     "param": [
       {
         "key": "title",

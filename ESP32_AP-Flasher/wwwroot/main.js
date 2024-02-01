@@ -15,7 +15,7 @@ let tagTypes = {};
 let apConfig = {};
 let tagDB = {};
 
-const apstate = [
+let apstate = [
 	{ state: "offline", color: "red" },
 	{ state: "online", color: "green" },
 	{ state: "flashing", color: "orange" },
@@ -26,7 +26,7 @@ const apstate = [
 ];
 const runstate = [
 	{ state: "⏹︎ stopped" },
-	{ state: "⏸pause" },
+	{ state: "⏸ pause" },
 	{ state: "" }, // hide running
 	{ state: "⏳︎ init" }
 ];
@@ -53,6 +53,20 @@ window.addEventListener("loadConfig", function () {
 				this.document.title = data.alias;
 			}
 			if (data.C6) {
+				var optionToRemove = $("#apcfgchid").querySelector('option[value="27"]');
+				if (optionToRemove) $("#apcfgchid").removeChild(optionToRemove);
+				$('#c6Option').style.display = 'block';
+			}
+			if (data.hasFlasher) {
+				$('[data-target="flashtab"]').style.display = 'block';
+				apstate[5].state = "flasher only";
+			}
+			if (data.savespace) {
+			}
+			if (data.apstate) {
+				$("#apstatecolor").style.color = apstate[data.apstate].color;
+				$("#apstate").innerHTML = apstate[data.apstate].state;
+				$('#dashboardStatus').innerHTML = apstate[data.apstate].state;
 			}
 		});
 });
@@ -86,7 +100,7 @@ window.addEventListener("load", function () {
 		faviconLink.rel = 'icon';
 		faviconLink.href = 'favicon.ico';
 		document.head.appendChild(faviconLink);
-	});	
+	});
 });
 
 /* tabs */
@@ -1169,7 +1183,7 @@ function processZlib(data) {
 		return inflatedBuffer.subarray(headerSize);
 	} catch (err) {
 		console.log('zlib: ' + err);
-	}	
+	}
 }
 
 function displayTime(seconds) {

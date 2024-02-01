@@ -138,14 +138,13 @@ void setBrightness(int brightness) {
 }
 
 void updateBrightnessFromConfig() {
-    if (config.led != 0) {
-        int newbrightness = config.led;
-        if (newbrightness < 0) newbrightness = 0;
-        if (newbrightness != maxledbrightness) {
-            setBrightness(newbrightness);
-        }
+    int newbrightness = config.led;
+    if (newbrightness != maxledbrightness) {
+        setBrightness(newbrightness);
     }
+#ifdef HAS_TFT
     ledcWrite(6, config.tft);
+#endif
 }
 
 void addToMonoQueue(struct ledInstruction* mono) {

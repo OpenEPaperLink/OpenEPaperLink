@@ -14,11 +14,12 @@ void timeSyncCallback(struct timeval* tv) {
 }
 
 void initTime(void* parameter) {
-    if (WiFi.status() == WL_CONNECTED) {
-        sntp_set_time_sync_notification_cb(timeSyncCallback);
-        sntp_set_sync_interval(300 * 1000);
-        configTzTime(config.timeZone, "nl.pool.ntp.org", "europe.pool.ntp.org", "time.nist.gov");
+    if (WiFi.status() != WL_CONNECTED) {
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
+    sntp_set_time_sync_notification_cb(timeSyncCallback);
+    sntp_set_sync_interval(300 * 1000);
+    configTzTime(config.timeZone, "time.cloudflare.com", "pool.ntp.org", "time.nist.gov");
     logStartUp();
     struct tm timeinfo;
     while (millis() < 30000) {

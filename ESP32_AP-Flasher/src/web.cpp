@@ -459,16 +459,22 @@ void init_web() {
             return;
         }
         response->print("{");        
-#if defined YELLOW_IPS_AP || defined C6_OTA_FLASHING
+#ifdef C6_OTA_FLASHING
         response->print("\"C6\": \"1\", ");
 #else
         response->print("\"C6\": \"1\", ");
 #endif
-#if defined SAVE_SPACE
+#ifdef SAVE_SPACE
         response->print("\"savespace\": \"1\", ");
 #else
         response->print("\"savespace\": \"0\", ");
 #endif
+#ifdef HAS_EXT_FLASHER
+        response->print("\"hasFlasher\": \"1\", ");
+#else
+        response->print("\"hasFlasher\": \"0\", ");
+#endif
+        response->print("\"apstate\": \"" + String(apInfo.state) + "\", ");
         configFile.seek(1);
         const size_t bufferSize = 64;
         uint8_t buffer[bufferSize];
@@ -488,15 +494,17 @@ void init_web() {
             aliasValue.toCharArray(config.alias, aliasLength + 1);
             config.alias[aliasLength] = '\0';
         }
+
+
         if (request->hasParam("channel", true)) {
             config.channel = static_cast<uint8_t>(request->getParam("channel", true)->value().toInt());
         }
         if (request->hasParam("led", true)) {
-            config.led = static_cast<int16_t>(request->getParam("led", true)->value().toInt());
+            config.led = static_cast<uint8_t>(request->getParam("led", true)->value().toInt());
             updateBrightnessFromConfig();
         }
         if (request->hasParam("tft", true)) {
-            config.tft = static_cast<int16_t>(request->getParam("tft", true)->value().toInt());
+            config.tft = static_cast<uint8_t>(request->getParam("tft", true)->value().toInt());
             updateBrightnessFromConfig();
         }
         if (request->hasParam("language", true)) {

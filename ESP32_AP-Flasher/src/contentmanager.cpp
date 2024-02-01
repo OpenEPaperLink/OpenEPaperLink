@@ -7,6 +7,7 @@
 #define CONTENT_BIGCAL
 #define CONTENT_NFCLUT
 #define CONTENT_DAYAHEAD
+#define CONTENT_TIMESTAMP
 #endif
 #define CONTENT_CAL
 #define CONTENT_BUIENRADAR
@@ -508,10 +509,12 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             taginfo->nextupdate = 3216153600;
             break;
 
+#ifdef CONTENT_TIMESTAMP
         case 26:  // timestamp
             drawTimestamp(filename, cfgobj, taginfo, imageParams);
             updateTagImage(filename, mac, 0, taginfo, imageParams);
             taginfo->nextupdate = 3216153600;
+#endif
 
 #ifdef CONTENT_DAYAHEAD
         case 27:  // Day Ahead:
@@ -1704,9 +1707,11 @@ void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     spr.deleteSprite();
 }
 
+#ifdef CONTENT_TIMESTAMP
 void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     // todo
 }
+#endif
 
 bool getJsonTemplateFile(String &filename, String jsonfile, tagRecord *&taginfo, imgParam &imageParams) {
     if (jsonfile.c_str()[0] != '/') {
