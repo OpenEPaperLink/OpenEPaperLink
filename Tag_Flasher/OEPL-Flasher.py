@@ -4,6 +4,8 @@ import serial
 import time
 from intelhex import IntelHex
 import os.path
+import socket
+import sys
 
 CMD_GET_VERSION = 1
 CMD_RESET_ESP = 2
@@ -33,6 +35,9 @@ CMD_WRITE_FLASH = 83
 CMD_AUTOFLASH = 87
 CMD_COMPLETE = 88
 
+TRANSPORT_SER = 0
+TRANSPORT_TCP = 1
+
 def read_binary_file(file_path):
     with open(file_path, 'rb') as file:
         binary_data = file.read()
@@ -55,10 +60,18 @@ def send_cmd(cmd, data):
     for x in return_data:
         crc_val += x
     return_data = b"AT" + return_data + to_byte(crc_val & 0xffff, 2)
-    ser.write(return_data)
-
+    if transport == TRANSPORT_TCP:
+        tcp_socket.send(return_data)
+    else:
+        ser.write(return_data)
 
 def wait_for_command():
+    if transport == TRANSPORT_TCP:
+        return wait_for_command_tcp()
+    else:
+        return wait_for_command_ser()
+
+def wait_for_command_ser():
     start_time = time.time()
     ser.timeout = 50  # Set the timeout to 1 second
     while True:
@@ -86,6 +99,33 @@ def wait_for_command():
             print("timeout waiting for reply")
             return None, None
 
+def wait_for_command_tcp():
+    start_time = time.time()
+    tcp_socket.settimeout(5)
+    while True:
+        try:
+            if tcp_socket.recv(2) == b"AT":
+                # Read the command byte
+                cmd = int.from_bytes(tcp_socket.recv(1), byteorder='big')
+                data_length = int.from_bytes(
+                    tcp_socket.recv(4), byteorder='big')  # Read the data length
+                data = tcp_socket.recv(data_length)  # Read the data
+                # Read the CRC value
+                crc = int.from_bytes(tcp_socket.recv(2), byteorder='big')
+                # Verify CRC
+                crc_val = 0xAB34
+                for x in to_byte(cmd, 1) + to_byte(data_length, 4) + data:
+                    crc_val += x
+                if crc_val & 0xffff == crc:
+                    return cmd, data
+                else:
+                    print("Invalid CRC. Discarding command. Got " +
+                          str(crc_val) + " but was expecting " + str(crc))
+                    print("data was:" + str(data))
+        except socket.timeout:
+            if time.time() - start_time > 1:
+                print("timeout waiting for reply")
+                return None, None
 
 def list_available_com_ports():
     ports = serial.tools.list_ports.comports()
@@ -95,14 +135,17 @@ def list_available_com_ports():
     for port in available_ports:
         print(port)
 
-
 def validate_arguments(args):
-    if not (args.nrf82511 or args.zbs243):
-        print("Either -nrf82511 or -zbs243 option is required.")
+    if not (args.port or args.ip):
+        print("Either --port or --ip option is required.")
         return False
+    if args.command:
+        if not (args.nrf82511 or args.zbs243):
+            print("Either -nrf82511 or -zbs243 option is required.")
+            return False
     if not (args.internalap or args.external or args.altradio):
-        print("One of -internalap, -external, or -altradio options is required.")
-        return False
+        print("Using external port")
+        args.external = True
     if args.command in ["read", "write"] and not (args.flash or args.infopage or args.eeprom):
         print("One of --flash, --infopage or --eeprom arguments is required for read and write commands.")
         return False
@@ -121,7 +164,7 @@ def validate_arguments(args):
     return True
 
 
-def read_from_serial(port, filename, args):
+def read_from_serial(filename, args):
     if args.flash:
         print(
             f"Reading flash data and saving to file: {filename}.")
@@ -158,7 +201,7 @@ def read_from_serial(port, filename, args):
             print("Failed reading block, timeout?")
 
 
-def write_to_serial(port, filename, args):
+def write_to_serial(filename, args):
     if (args.flash):
         print(f"\nErasing flash... ")
         send_cmd(CMD_ERASE_FLASH, bytearray([]))
@@ -204,7 +247,7 @@ def write_to_serial(port, filename, args):
             print(f'\rSent {i} bytes', end='', flush=True)
         elif (cmd == CMD_COMPLETE):
             print(
-                '\Tried to write more bytes than we have room for!   \n', end='', flush=True)
+                'Tried to write more bytes than we have room for!   \n', end='', flush=True)
             return
         else:
             print("Some other error, dunno\n")
@@ -212,23 +255,30 @@ def write_to_serial(port, filename, args):
     print('\rAll done writing! ', end='', flush=True)
 
 
-def short_passthough(period_time):
+def short_passthrough(period_time):
     start_time = time.time()
     while time.time() - start_time < period_time:
-        data = ser.read()
-        if data:
-            print(data.decode('utf-8', errors='ignore'), end='')
-            if chr(0x04) in data.decode('utf-8', errors='ignore'):
-                break
-
+        if transport == TRANSPORT_TCP:
+            try:
+                data = tcp_socket.recv(1)
+            except socket.timeout:
+                pass
+        else:
+            try:
+                data = ser.read(1)
+            except UnicodeDecodeError:
+                pass
+        print(data, end='')
+        if chr(0x04) in data:
+            break
 
 def main():
     try:
         parser = argparse.ArgumentParser(
             description="OpenEPaperLink Flasher for AP/Flasher board")
         parser.add_argument("-p", "--port", help="COM port to use")
-        parser.add_argument("command", choices=[
-                            "read", "write", "autoflash", "debug"], help="Command to execute")
+        parser.add_argument("-t", "--ip", help="IP Address to use")
+        parser.add_argument("command", nargs="?", choices=["read", "write", "autoflash", "debug"], help="Command to execute")
         parser.add_argument("filename", nargs="?",
                             help="Filename for read/write commands")
         parser.add_argument("-f", "--flash", action="store_true",
@@ -244,7 +294,7 @@ def main():
         parser.add_argument("--internalap", action="store_true",
                             help="Selects the internal accesspoint port")
         parser.add_argument("-e", "--external", action="store_true",
-                            help="Selects the external(side) port")
+                            help="Selects the external(side) port (default)")
         parser.add_argument("--altradio", action="store_true",
                             help="Selects the alternate radio port")
         parser.add_argument("--pt", "--passthrough", action="store_true",
@@ -254,22 +304,36 @@ def main():
         args = parser.parse_args()
 
         if not validate_arguments(args):
+            program_name = os.path.basename(sys.argv[0])
+            print(f"Usage: {program_name} --help")
             return
 
-        if not args.port:
-            list_available_com_ports()
-            return
+        global transport
+        if (args.ip):
+            global tcp_socket
+            ip_address = args.ip
+            port = 243
+            tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            transport = TRANSPORT_TCP
 
-        global ser
-        ser = serial.Serial(args.port, baudrate=115200)
-        time.sleep(0.1)  # Flush serial data
-        while (ser.inWaiting() > 0):
-            data_str = ser.read(ser.inWaiting())
-
+            try:
+                tcp_socket.connect((ip_address, port))
+                print(f"Connected to {ip_address}:{port}")
+            except Exception as e:
+                print(f"Error: {e}")
+                return
+        else:
+            global ser
+            ser = serial.Serial(args.port, baudrate=115200)
+            transport = TRANSPORT_SER
+            time.sleep(0.1)  # Flush serial data
+            while (ser.inWaiting() > 0):
+                data_str = ser.read(ser.inWaiting())
+	
         send_cmd(CMD_GET_VERSION, bytearray([]))
         cmd, answer = wait_for_command()
         if (cmd == CMD_GET_VERSION):
-            print("AP/Flasher version: " +
+            print("Connection with the flasher established. Version: " +
                   str(answer[0] << 24 | answer[1] << 16 | answer[2] << 8 | answer[3]))
         else:
             print(
@@ -311,15 +375,15 @@ def main():
                     exit(0)
                     
         if args.command == "read":
-            read_from_serial(ser, args.filename, args)
+            read_from_serial(args.filename, args)
         elif args.command == "write":
-            write_to_serial(ser, args.filename, args)
+            write_to_serial(args.filename, args)
         elif args.command == "autoflash":
             print("Starting automatic tag flash")
             send_cmd(CMD_AUTOFLASH, bytearray([]))
-            short_passthough(30)
+            short_passthrough(30)
         else:
-            print("Invalid command!")
+            print("No command")
 
         if(args.eeprom):
             send_cmd(CMD_SET_TESTP, bytearray([1]))
@@ -340,21 +404,28 @@ def main():
             print(
                 "---------------------------------------------------------------------------------")
             while True:
-                try:
-                    data = ser.read()
-                    if data:
-                        print(data.decode('utf-8', errors='ignore'), end='')
-                except UnicodeDecodeError:
-                    print(" ")
-                data = ser.read()
-                if data:
-                    print(data.decode('utf-8', errors='ignore'), end='')
-                    if chr(0x04) in data.decode('utf-8', errors='ignore'):
-                        break
+                if transport == TRANSPORT_TCP:
+                    try:
+                        data = tcp_socket.recv(1)
+                    except socket.timeout:
+                        data = ""
+                        pass
+                else:
+                    try:
+                        data = ser.read(1)
+                    except UnicodeDecodeError:
+                        data = ""
+                        pass
+                print(data, end='')
+                if chr(0x04) in data:
+                    break
 
     except KeyboardInterrupt:
         print("\nBye!")
-        ser.close()
+        if transport == TRANSPORT_TCP:
+            tcp_socket.close()
+        else:
+            ser.close()
         exit(1)
 
 

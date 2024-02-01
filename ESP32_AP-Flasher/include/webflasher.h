@@ -5,7 +5,7 @@
 #include "web.h"
 
 #define WEBFLASH_ENABLE_AUTOFLASH 1
-#define WEBFLASH_PINTEST 2
+#define WEBFLASH_ENABLE_USBFLASHER 2
 #define WEBFLASH_FOCUS 3
 #define WEBFLASH_BLUR 4
 
@@ -23,7 +23,8 @@ class Logger : public Print {
    private:
 };
 
-void webflasher_loop();
+void webFlasherTask(void* parameter);
 void handleWSdata(uint8_t* data, size_t len, AsyncWebSocketClient* client);
+void sendDataToClient(const uint8_t* data, size_t len);
 
 #endif

@@ -17,7 +17,7 @@
 #include "webflasher.h"
 #endif
 
-#ifdef HAS_USB
+#if defined HAS_USB || defined HAS_EXT_FLASHER
 #include "usbflasher.h"
 #endif
 
@@ -108,16 +108,12 @@ void setup() {
     }
     */
 
-#ifdef HAS_USB
-    // We'll need to start the 'usbflasher' task for boards with a second (USB) port. This can be used as a 'flasher' interface, using a python script on the host
-    xTaskCreate(usbFlasherTask, "usbflasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
-#endif
-
     initAPconfig();
 
     updateLanguageFromConfig();
     updateBrightnessFromConfig();
 
+    config.runStatus = RUNSTATUS_INIT;
     init_web();
     xTaskCreate(initTime, "init time", 5000, NULL, 2, NULL);
 
@@ -138,7 +134,15 @@ void setup() {
     xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
-    config.runStatus = RUNSTATUS_INIT;
+#ifdef HAS_USB
+    // We'll need to start the 'usbflasher' task for boards with a second (USB) port. This can be used as a 'flasher' interface, using a python script on the host
+    xTaskCreate(usbFlasherTask, "usbflasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
+#endif
+
+#ifdef HAS_EXT_FLASHER
+    xTaskCreate(webFlasherTask, "webflasher", 8000, NULL, 2, NULL);
+#endif
+
     esp_reset_reason_t resetReason = esp_reset_reason();
     if (resetReason == ESP_RST_PANIC) {
         Serial.println("Panic! Pausing content generation for 30 seconds");
@@ -171,10 +175,6 @@ void loop() {
 #ifdef HAS_TFT
     extern void yellow_ap_display_loop(void);
     yellow_ap_display_loop();
-#endif
-
-#ifdef HAS_EXT_FLASHER
-    webflasher_loop();
 #endif
 
     vTaskDelay(100 / portTICK_PERIOD_MS);
