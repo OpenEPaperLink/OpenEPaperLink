@@ -444,7 +444,7 @@ void cleanupCurrent() {
                     break;
                 }
             }
-            if (!found) {
+            if (!found || filename.endsWith(".pending")) {
                 filename = file.path();
                 file.close();
                 contentFS->remove(filename);

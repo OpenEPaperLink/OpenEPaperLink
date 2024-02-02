@@ -270,7 +270,7 @@ void C6firmwareUpdateTask(void* parameter) {
         Serial1.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
         rxSerialStopTask2 = false;
 #ifdef FLASHER_DEBUG_RXD
-        xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, configMAX_PRIORITIES - 4, NULL);
+        xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, 2, NULL);
 #endif
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 

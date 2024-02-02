@@ -36,7 +36,7 @@
 
 #define Seriallog logger
 
-uint8_t webFlashMode = FLASHMODE_AUTO_BACKGROUND;
+uint8_t webFlashMode = FLASHMODE_OFF;
 uint8_t autoFlashStep = AUTOFLASH_STEP_IDLE;
 // TaskHandle_t usbFlasherTaskHandle;
 
@@ -90,14 +90,14 @@ size_t Logger::println(const char* text) {
 
 Logger logger;
 util::Timer tagConnectTimer(seconds(2));
-flasher* f;
+extern flasher* zbsflasherp;
 uint8_t errors = 0;
 
 void infoDisplay(String actionName, uint8_t icon) {
     wsSerial("  " + actionName, "white");
 #ifdef HAS_TFT
     tftOverride = true;
-    tft2.fillScreen(TFT_NAVY);
+    tft2.fillScreen(TFT_PURPLE);
     tft2.setCursor(0, 0, 4);
     tft2.setTextColor(TFT_WHITE);
     tft2.print("Progress:");
@@ -135,17 +135,38 @@ bool report(bool result) {
 }
 
 void onDataReceived(void* arg, AsyncClient* client, void* data, size_t len) {
-    Serial.write((const uint8_t*)data, len);
     flasherDataHandler((uint8_t*)data, len, TRANSPORT_TCP);
 }
 
 void onClientConnect(void* arg, AsyncClient* client) {
     Serial.println("New client connected");
+    if (autoFlashStep == AUTOFLASH_USBFLASHER_RUNNING && tftOverride == true) {
+        tft2.fillRect(0, 62, tft2.width(), 18, TFT_BLUE);
+        tft2.setCursor(10, 63, 2);
+        tft2.setTextColor(TFT_GREEN);
+        tft2.print("TCP connected");
+    } else {
+        autoFlashStep = AUTOFLASH_START_USBFLASHER;
+    }
+    webFlashMode = FLASHMODE_OFF;
     if (connectedClient == NULL) {
         connectedClient = client;
         client->onData(&onDataReceived, NULL);
         client->onDisconnect([](void* arg, AsyncClient* c) {
             Serial.println("Client disconnected");
+
+            if (zbsflasherp != nullptr) {
+                zbsflasherp->zbs->reset();
+                delete zbsflasherp;
+                zbsflasherp = nullptr;
+            }
+
+            if (autoFlashStep == AUTOFLASH_USBFLASHER_RUNNING && tftOverride == true) {
+                tft2.fillRect(0, 62, tft2.width(), 18, TFT_BLUE);
+                tft2.setCursor(10, 63, 2);
+                tft2.setTextColor(TFT_YELLOW);
+                tft2.print("TCP disconnected");
+            }
             connectedClient = NULL;
         });
     } else {
@@ -185,60 +206,60 @@ void webFlasherTask(void* parameter) {
                 pinMode(FLASHER_EXT_TEST, OUTPUT);
                 digitalWrite(FLASHER_EXT_TEST, LOW);
 
-                f = new flasher();
+                zbsflasherp = new flasher();
                 errors = 0;
 
-                if (!report(f->connectTag(FLASHER_EXT_PORT))) {
+                if (!report(zbsflasherp->connectTag(FLASHER_EXT_PORT))) {
                     Seriallog.printf("Sorry, failed to connect to this tag...\n");
                     break;
 
                 } else {
                     infoDisplay("Get firmware md5", 0);
-                    report(f->getFirmwareMD5());
+                    report(zbsflasherp->getFirmwareMD5());
 
                     infoDisplay("Find tag", 0);
-                    if (f->findTagByMD5()) {
+                    if (zbsflasherp->findTagByMD5()) {
                         // this tag currently contains original firmware, found its fingerprint
-                        Seriallog.printf("Found original firmware tag (fingerprint %s)\n", f->md5char);
+                        Seriallog.printf("Found original firmware tag (fingerprint %s)\n", zbsflasherp->md5char);
 
                         infoDisplay("Read info block", 0);
-                        report(f->readInfoBlock());
+                        report(zbsflasherp->readInfoBlock());
                         if (errors) break;
 
                         infoDisplay("Get firmware mac", 0);
-                        report(f->getFirmwareMac());
+                        report(zbsflasherp->getFirmwareMac());
                         if (errors) break;
 
                         infoDisplay("Prepare info block", 0);
-                        report(f->prepareInfoBlock());
+                        report(zbsflasherp->prepareInfoBlock());
                         if (errors) break;
 
-                        f->includeInfoBlock = true;
+                        zbsflasherp->includeInfoBlock = true;
                         autoFlashStep = AUTOFLASH_STEP_COUNTDOWN;
                         break;
 
-                    } else if (report(f->getInfoBlockMD5())) {
+                    } else if (report(zbsflasherp->getInfoBlockMD5())) {
                         infoDisplay("Find by md5", 0);
                         // did find an infoblock MD5 that looks valid
-                        if (report(f->findTagByMD5())) {
+                        if (report(zbsflasherp->findTagByMD5())) {
                             // did find the md5 in the database
 
                             infoDisplay("Found tag", 0);
-                            Seriallog.printf("Found an already-flashed tag (fingerprint %s)\n", f->md5char);
+                            Seriallog.printf("Found an already-flashed tag (fingerprint %s)\n", zbsflasherp->md5char);
 
                             infoDisplay("Get infoblock mac", 0);
-                            report(f->getInfoBlockMac());
+                            report(zbsflasherp->getInfoBlockMac());
                             if (errors) break;
 
                             infoDisplay("Get infoblock type", 0);
-                            report(f->getInfoBlockType());
+                            report(zbsflasherp->getInfoBlockType());
                             if (errors) break;
 
                             infoDisplay("Read infoblock", 0);
-                            report(f->readInfoBlock());
+                            report(zbsflasherp->readInfoBlock());
                             if (errors) break;
 
-                            f->includeInfoBlock = false;
+                            zbsflasherp->includeInfoBlock = false;
                             autoFlashStep = AUTOFLASH_STEP_COUNTDOWN;
                             break;
 
@@ -246,15 +267,15 @@ void webFlasherTask(void* parameter) {
                             infoDisplay("Unknown fingerprint", 0);
                             report(false);
                             // couldn't find the md5 from the infoblock
-                            Seriallog.printf("Found an already-flashed tag, but we couldn't find its fingerprint (%s) in the database\n", f->md5char);
+                            Seriallog.printf("Found an already-flashed tag, but we couldn't find its fingerprint (%s) in the database\n", zbsflasherp->md5char);
                             break;
                         }
                     } else {
                         // We couldn't recognize the tag from its fingerprint...
-                        Seriallog.printf("Found a tag but didn't recognize its fingerprint (%s)\n", f->md5char);
+                        Seriallog.printf("Found a tag but didn't recognize its fingerprint (%s)\n", zbsflasherp->md5char);
 
                         infoDisplay("Backup firmware", 0);
-                        report(f->backupFlash());
+                        report(zbsflasherp->backupFlash());
 
                         Seriallog.printf("Saved this MD5 binary to filesystem\n");
 
@@ -264,9 +285,11 @@ void webFlasherTask(void* parameter) {
                     }
                 }
 
-                f->zbs->reset(false);
+                zbsflasherp->zbs->reset(false);
 
-                delete f;
+                delete zbsflasherp;
+                zbsflasherp = nullptr;
+
                 autoFlashStep = AUTOFLASH_STEP_FINISHED;
                 break;
             }
@@ -302,18 +325,19 @@ void webFlasherTask(void* parameter) {
             }
 
             case AUTOFLASH_STEP_WRITE: {
-                if (f->includeInfoBlock) {
+                if (zbsflasherp->includeInfoBlock) {
                     infoDisplay("Write info block", 0);
-                    report(f->writeInfoBlock());
+                    report(zbsflasherp->writeInfoBlock());
                     if (errors) break;
                 }
 
                 infoDisplay("Write flash", 0);
-                report(f->writeFlashFromPack("/Tag_FW_Pack.bin", f->tagtype));
+                report(zbsflasherp->writeFlashFromPack("/Tag_FW_Pack.bin", zbsflasherp->tagtype));
                 if (errors) break;
 
-                f->zbs->reset(false);
-                delete f;
+                zbsflasherp->zbs->reset(false);
+                delete zbsflasherp;
+                zbsflasherp = nullptr;
 
                 infoDisplay("Write successful", 0);
                 report(true);
@@ -343,8 +367,9 @@ void webFlasherTask(void* parameter) {
                 vTaskDelay(500 / portTICK_PERIOD_MS);
 #endif
 
-                f->zbs->reset(false);
-                delete f;
+                zbsflasherp->zbs->reset(false);
+                delete zbsflasherp;
+                zbsflasherp = nullptr;
 
                 vTaskDelay(100 / portTICK_PERIOD_MS);
                 pinMode(FLASHER_EXT_TEST, INPUT_PULLDOWN);
@@ -372,17 +397,17 @@ void webFlasherTask(void* parameter) {
             case AUTOFLASH_STEP_STARTUP: {
 #ifdef HAS_TFT
                 tftOverride = true;
-                tft2.fillScreen(TFT_NAVY);
+                tft2.fillScreen(TFT_PURPLE);
                 tft2.setCursor(0, 0, 4);
                 tft2.setTextColor(TFT_WHITE);
                 tft2.print("Flasher mode");
-                tft2.setCursor(0, 30, 2);
+                tft2.setCursor(0, 25, 2);
                 tft2.setTextColor(TFT_WHITE);
                 tft2.print("Ready to connect a tag.");
                 tft2.print("When recognized, it will be flashed automatically");
                 if (webFlashMode == FLASHMODE_AUTO_BACKGROUND) tftOverride = false;
 #endif
-                wsSerial("Ready to connect a tag", "white");
+                wsSerial("Ready to connect a tag. It will be flashed automatically", "silver");
                 autoFlashStep = AUTOFLASH_STEP_IDLE;
                 vTaskDelay(100 / portTICK_PERIOD_MS);
                 break;
@@ -391,13 +416,13 @@ void webFlasherTask(void* parameter) {
             case AUTOFLASH_START_USBFLASHER: {
 #ifdef HAS_TFT
                 tftOverride = true;
-                tft2.fillScreen(TFT_NAVY);
+                tft2.fillScreen(TFT_PURPLE);
                 tft2.setCursor(0, 0, 4);
                 tft2.setTextColor(TFT_WHITE);
                 tft2.print("CMD mode");
-                tft2.setCursor(0, 30, 2);
+                tft2.setCursor(0, 25, 2);
                 tft2.setTextColor(TFT_WHITE);
-                tft2.print("Use OEPL-flasher.py to  flash the tag");
+                tft2.print("Use OEPL-flasher.py to  flash a tag");
                 if (webFlashMode == FLASHMODE_AUTO_BACKGROUND) tftOverride = false;
 #endif
                 autoFlashStep = AUTOFLASH_USBFLASHER_RUNNING;
@@ -413,7 +438,7 @@ void webFlasherTask(void* parameter) {
                 autoFlashStep = AUTOFLASH_STEP_FINISHED;
             }
         }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
 
@@ -433,15 +458,8 @@ void handleWSdata(uint8_t* data, size_t len, AsyncWebSocketClient* client) {
         switch (flashcmd) {
             case WEBFLASH_ENABLE_AUTOFLASH:
                 wsSerial("Switching to autoflash", "yellow");
-                /*
-                if (usbFlasherTaskHandle != NULL) {
-                    Serial.println("stop task request");
-                    xTaskNotify(usbFlasherTaskHandle, 1, eSetValueWithOverwrite);
-                    vTaskDelay(500 / portTICK_PERIOD_MS);
-                    autoFlashStep = AUTOFLASH_STEP_STARTUP;
-                }
-                */
                 webFlashMode = FLASHMODE_AUTO_FOCUS;
+                autoFlashStep = AUTOFLASH_STEP_STARTUP;
                 break;
             case WEBFLASH_ENABLE_USBFLASHER:
                 wsSerial("Switching to usbflasher", "yellow");
@@ -451,7 +469,12 @@ void handleWSdata(uint8_t* data, size_t len, AsyncWebSocketClient* client) {
                 break;
             case WEBFLASH_FOCUS:
                 if (webFlashMode == FLASHMODE_AUTO_BACKGROUND) webFlashMode = FLASHMODE_AUTO_FOCUS;
-                autoFlashStep = AUTOFLASH_STEP_STARTUP;
+                if (webFlashMode == FLASHMODE_OFF) {
+                    autoFlashStep = AUTOFLASH_START_USBFLASHER;
+                } else {
+                    autoFlashStep = AUTOFLASH_STEP_STARTUP;
+                }
+                tftOverride = true;
                 break;
             case WEBFLASH_BLUR:
                 if (webFlashMode == FLASHMODE_AUTO_FOCUS) webFlashMode = FLASHMODE_AUTO_BACKGROUND;

@@ -235,14 +235,33 @@
 						<div style="max-width:400px;">
 							<button class="button" id="doAutoflash">Automatic flash</button><br><br>
 							With automatic flash, a tag is flashed to the latest firmware as soon as you connect it. 
-							It sets the mac automatically, tries to recognize the type, and starts flashing.
+							It sets the mac automatically, tries to recognize the type, and starts flashing. Currently, Solum M2 tags only.
 							<br><br>
 							<button class="button" id="doUSBflash">Command line</button><br><br>
-							Using OEPL-Flasher.py, you have full control over the flashing of the tag.
+							Using <a href="https://github.com/jjwbruijn/OpenEPaperLink/raw/master/Tag_Flasher/OEPL-Flasher.py" target="_blank">OEPL-Flasher.py</a>, you have full control over the flashing of the tag.<br>
+							Use the --ip argument to connect to the flasher.<br>
 							<br>
+							Usage:<br>
+							<pre style="text-wrap: wrap;">
+OEPL-Flasher.py [-h] [-t IP] [-f] [-i] [-eep] [-n] [-z]
+[--pt] [--exit] [{read,write,autoflash,debug}] [filename]
 
+{read,write,autoflash,debug} Command to execute
+filename Filename for read/write commands
+
+options:
+-h, --help show this help message and exit
+-t IP, --ip IP IP Address to use
+-f, --flash Write to the flash
+-i, --infopage Write to the infopage/UICR
+-eep, --eeprom EEPROM operations
+-n, --nrf82511 nRF82511 programming
+-z, --zbs243 ZBS243 programming
+--pt, --passthrough Enters serial passthrough for debug output after flashing
+--exit Exit eeprom loader after sending data
+							</pre>
 						</div>
-						<h4>Other actions</h4>
+						<!--<h4>Other actions</h4>-->
 						<div>
 						</div>
 					</div>

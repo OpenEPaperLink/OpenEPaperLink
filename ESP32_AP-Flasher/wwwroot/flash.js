@@ -9,6 +9,7 @@ export const WEBFLASH_BLUR = 4
 
 export async function init() {
     wsCmd(WEBFLASH_FOCUS);
+    checkTagFW();
 }
 
 export function wsCmd(command) {
@@ -90,4 +91,49 @@ function disableButtons(active) {
         button.disabled = active;
     });
     buttonState = active;
+}
+
+const fetchAndPost = async (url, name, path) => {
+    try {
+        print("updating " + path);
+        const response = await fetch(url);
+        const fileContent = await response.blob();
+
+        const formData = new FormData();
+        formData.append('path', path);
+        formData.append('file', fileContent, name);
+
+        const uploadResponse = await fetch('/littlefs_put', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!uploadResponse.ok) {
+            print(`${response.status} ${response.body}`, "red");
+            errors++;
+        } else {
+            print(`Firmware file downloaded`, "green");
+        }
+    } catch (error) {
+        print('error: ' + error, "red");
+        errors++;
+    }
+};
+
+async function checkTagFW() {
+    const fwfile = "/Tag_FW_Pack.bin";
+    const url = "/check_file?path=" + encodeURIComponent(fwfile);
+    const response = await fetch(url);
+    if (response.ok) {
+        const data = await response.json();
+        if (data.filesize > 0) {
+            print(`File ${fwfile} found`, "green");
+        } else {
+            print(`File ${fwfile} not found. Downloading...`, "red");
+            await fetchAndPost("https://raw.githubusercontent.com/jjwbruijn/OpenEPaperLink/master/binaries/Tag/Tag_FW_Pack.bin", "Tag_FW_Pack.bin", fwfile);
+        }
+    } else {
+        print(`error checking file ${file.path}: ${response.status}`, "red");
+        errors++;
+    }
 }

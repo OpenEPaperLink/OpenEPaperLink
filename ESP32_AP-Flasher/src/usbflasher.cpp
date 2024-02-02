@@ -204,7 +204,6 @@ void flasherDataHandler(uint8_t* data, size_t len, uint8_t transportType) {
                 break;
             case FLASHER_WAIT_CRCL:
                 flasherCRC -= ((uint16_t)usbbyte);
-                Serial.println("command received");
                 if (flasherCRC) {
                     flasherSerialState = FLASHER_RESET;
                     wsSerial("failed CRC");

@@ -131,16 +131,16 @@ void setup() {
     } else {
         cleanupCurrent();
     }
-    xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
+    xTaskCreate(APTask, "AP Process", 6000, NULL, 5, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
 #ifdef HAS_USB
     // We'll need to start the 'usbflasher' task for boards with a second (USB) port. This can be used as a 'flasher' interface, using a python script on the host
-    xTaskCreate(usbFlasherTask, "usbflasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
+    xTaskCreate(usbFlasherTask, "usbflasher", 10000, NULL, 5, NULL);
 #endif
 
 #ifdef HAS_EXT_FLASHER
-    xTaskCreate(webFlasherTask, "webflasher", 8000, NULL, 2, NULL);
+    xTaskCreate(webFlasherTask, "webflasher", 8000, NULL, 3, NULL);
 #endif
 
     esp_reset_reason_t resetReason = esp_reset_reason();

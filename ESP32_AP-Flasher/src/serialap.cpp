@@ -618,7 +618,7 @@ void rxSerialTask2(void* parameter) {
             charCount++;
 
             // debug
-            // Serial.write(lastchar);
+            Serial.write(lastchar);
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
 
@@ -728,10 +728,10 @@ bool bringAPOnline() {
 }
 
 void APTask(void* parameter) {
-    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 4000, NULL, configMAX_PRIORITIES - 10, NULL);
-    xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, configMAX_PRIORITIES - 4, NULL);
+    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 4000, NULL, 10, NULL);
+    xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, 11, NULL);
 #ifdef FLASHER_DEBUG_RXD
-    xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, configMAX_PRIORITIES - 4, NULL);
+    xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, 2, NULL);
 #endif
 
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
