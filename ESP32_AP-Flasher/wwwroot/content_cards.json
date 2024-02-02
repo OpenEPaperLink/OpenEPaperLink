@@ -295,14 +295,14 @@
         "options": {
           "AT": "Austria",
           "BE": "Belgium",
-          "CH": "Switzerland",
           "CZ": "Czech Republic",
           "EE": "Estonia",
-          "ES": "Spain",
           "FI": "Finland",
           "FR": "France",
-          "LT": "Lithuania",
+          "DE": "Germany",
           "LV": "Latvia",
+          "LT": "Lithuania",
+          "LU": "Luxembourg",
           "NL": "Netherlands",
           "NO1": "Norway NO1",
           "NO2": "Norway NO2",
@@ -311,8 +311,10 @@
           "NO5": "Norway NO5",
           "PL": "Poland",
           "RO": "Romania",
+          "SK": "Slovakia",
           "SI": "Slovenia",
-          "SK": "Slovakia"
+          "ES": "Spain",
+          "CH": "Switzerland"
         }
       },
       {
