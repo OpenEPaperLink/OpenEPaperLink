@@ -180,7 +180,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     char hexmac[17];
     mac2hex(mac, hexmac);
     String filename = "/temp/" + String(hexmac) + ".raw";
-#ifdef YELLOW_IPS_AP if (isAp) {
+#ifdef YELLOW_IPS_AP
+    if (isAp) {
         filename = "direct";
     }
 #endif
