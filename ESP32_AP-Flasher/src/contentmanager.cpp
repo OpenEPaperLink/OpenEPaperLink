@@ -180,7 +180,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
 
     char hexmac[17];
     mac2hex(mac, hexmac);
-    String filename = "/" + String(hexmac) + ".raw";
+    String filename = "/temp/" + String(hexmac) + ".raw";
 #ifdef HAS_TFT
     if (isAp) {
         filename = "direct";
@@ -546,8 +546,6 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
         } else if (imageParams.hasRed) {
             imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
             Serial.println("datatype: DATATYPE_IMG_RAW_2BPP");
-        } else {
-            Serial.println("datatype: DATATYPE_IMG_RAW_1BPP");
         }
         prepareDataAvail(filename, imageParams.dataType, imageParams.lut, dst, nextCheckin);
     }

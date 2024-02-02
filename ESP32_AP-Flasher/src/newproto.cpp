@@ -153,8 +153,10 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
         return true;
     }
 
-    filename = "/" + filename;
-
+    if (!filename.startsWith("/")) {
+        filename = "/" + filename;
+    }
+    
     if (!contentFS->exists(filename)) {
         wsErr("File not found. " + filename);
         return false;
@@ -182,7 +184,7 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
 
     if (dataType != DATATYPE_FW_UPDATE) {
         char dst_path[64];
-        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X_%lu.pending\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], millis());
+        sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X_%lu.pending", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], millis() % 1000000);
         if (contentFS->exists(dst_path)) {
             contentFS->remove(dst_path);
         }
@@ -238,7 +240,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
             case DATATYPE_IMG_RAW_2BPP: {
                 char hexmac[17];
                 mac2hex(pending->targetMac, hexmac);
-                String filename = "/current/" + String(hexmac) + "_" + String(millis()) + ".pending";
+                String filename = "/current/" + String(hexmac) + "_" + String(millis() % 1000000) + ".pending";
                 String imageUrl = "http://" + remoteIP.toString() + "/getdata?mac=" + String(hexmac);
                 wsLog("prepareExternalDataAvail GET " + imageUrl);
                 HTTPClient http;
@@ -348,7 +350,7 @@ void processBlockRequest(struct espBlockRequest* br) {
     if (queueItem->data == nullptr) {
         fs::File file = contentFS->open(queueItem->filename);
         if (!file) {
-            Serial.print("No current file. Canceling request\n");
+            Serial.print("No current file. " + String(queueItem->filename) + " Canceling request\n");
             prepareCancelPending(br->src);
             return;
         }
@@ -756,7 +758,7 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
                     queueDataAvail(&pending2);
                 } else {
                     char dst_path[64];
-                    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X_%lu.pending", taginfo2->mac[7], taginfo2->mac[6], taginfo2->mac[5], taginfo2->mac[4], taginfo2->mac[3], taginfo2->mac[2], taginfo2->mac[1], taginfo2->mac[0], millis());
+                    sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X_%lu.pending", taginfo2->mac[7], taginfo2->mac[6], taginfo2->mac[5], taginfo2->mac[4], taginfo2->mac[3], taginfo2->mac[2], taginfo2->mac[1], taginfo2->mac[0], millis() % 1000000);
                     xSemaphoreTake(fsMutex, portMAX_DELAY);
                     File file = contentFS->open(dst_path, "w");
                     if (file) {
@@ -879,6 +881,8 @@ bool queueDataAvail(struct pendingData* pending) {
             newPending.data = getDataForFile(file);
             Serial.println("Reading file " + String(newPending.filename));
             file.close();
+        } else {
+            Serial.println("Something's wrong... not found: " + String(newPending.filename));
         }
     }
     newPending.len = taginfo->len;
