@@ -34,6 +34,8 @@ void shortBlink(CRGB cname);
 void showColorPattern(CRGB colorone, CRGB colortwo, CRGB colorthree);
 void rgbIdle();
 void addFadeColor(CRGB cname);
+
 #endif
 
 void quickBlink(uint8_t repeat);
+void addFadeMono(uint8_t value);

@@ -8,6 +8,7 @@
 #include "leds.h"
 #include "settings.h"
 #include "tag_db.h"
+#include "serialap.h"
 
 QueueHandle_t ledQueue;
 int maxledbrightness = 255;
@@ -89,6 +90,8 @@ void showColorPattern(CRGB colorone, CRGB colortwo, CRGB colorthree) {
     const int patternLengths[] = {600, 120, 200, 120, 200, 120};
     const CRGB patternColors[] = {CRGB::Black, colorone, CRGB::Black, colortwo, CRGB::Black, colorthree};
 
+    while (xQueueReceive(rgbLedQueue, &rgb, 0) == pdPASS) { }
+
     for (int i = 0; i < sizeof(patternLengths) / sizeof(patternLengths[0]); i++) {
         rgb = new struct ledInstructionRGB;
         rgb->ledColor = patternColors[i];
@@ -145,6 +148,7 @@ void updateBrightnessFromConfig() {
 #ifdef HAS_TFT
     ledcWrite(6, config.tft);
 #endif
+    if (apInfo.state == AP_STATE_NORADIO) addFadeMono(config.led);
 }
 
 void addToMonoQueue(struct ledInstruction* mono) {

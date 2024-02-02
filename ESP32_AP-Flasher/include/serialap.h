@@ -9,6 +9,7 @@ extern struct espSetChannelPower curChannel;
 #define AP_STATE_REQUIRED_POWER_CYCLE 4
 #define AP_STATE_FAILED 5
 #define AP_STATE_COMING_ONLINE 6
+#define AP_STATE_NORADIO 7
 
 struct APInfoS {
     bool isOnline = false;

@@ -727,12 +727,30 @@ bool bringAPOnline() {
     }
 }
 
+bool checkRadio() {
+    // make a short between FLASHER_AP_TXD and FLASHER_AP_RXD to indicate that no radio is present
+    // e.g. for flasher only, or just to use the S3 to generate images for smaller AP's
+    pinMode(FLASHER_AP_TXD, OUTPUT);
+    pinMode(FLASHER_AP_RXD, INPUT_PULLDOWN);
+    digitalWrite(FLASHER_AP_TXD, LOW);
+    if (digitalRead(FLASHER_AP_RXD) != LOW) return true;
+    digitalWrite(FLASHER_AP_TXD, HIGH);
+    if (digitalRead(FLASHER_AP_RXD) != HIGH) return true;
+    pinMode(FLASHER_AP_TXD, INPUT_PULLDOWN);
+    return false;
+}
+
 void APTask(void* parameter) {
-    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 4000, NULL, 10, NULL);
-    xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, 11, NULL);
-#ifdef FLASHER_DEBUG_RXD
-    xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, 2, NULL);
-#endif
+
+    if (!checkRadio()) {
+        // no radio
+        Serial.println("Working without radio.");
+        addFadeMono(config.led);
+        setAPstate(true, AP_STATE_NORADIO);
+        refreshAllPending();
+        vTaskDelete(NULL);
+        return;
+    }
 
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
@@ -744,6 +762,12 @@ void APTask(void* parameter) {
 #if (AP_PROCESS_PORT == FLASHER_ALTRADIO_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 #endif
+#endif
+
+    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 4000, NULL, 10, NULL);
+    xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, 11, NULL);
+#ifdef FLASHER_DEBUG_RXD
+    xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, 2, NULL);
 #endif
 
     bringAPOnline();
@@ -826,7 +850,7 @@ void APTask(void* parameter) {
 #ifdef HAS_RGB_LED
             showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
 #endif
-            if(apInfo.state != AP_STATE_FLASHING)// In case we are flashing already we do not want to end in a failed AP
+            if(apInfo.state != AP_STATE_FLASHING) // In case we are flashing already we do not want to end in a failed AP
                 setAPstate(false, AP_STATE_FAILED);
         } else {
 #ifndef C6_OTA_FLASHING

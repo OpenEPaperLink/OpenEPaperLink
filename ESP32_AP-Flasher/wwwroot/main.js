@@ -15,14 +15,15 @@ let tagTypes = {};
 let apConfig = {};
 let tagDB = {};
 
-let apstate = [
+const apstate = [
 	{ state: "offline", color: "red" },
 	{ state: "online", color: "green" },
 	{ state: "flashing", color: "orange" },
 	{ state: "wait for reset", color: "blue" },
 	{ state: "requires power cycle", color: "purple" },
 	{ state: "failed", color: "red" },
-	{ state: "coming online", color: "yellow" }
+	{ state: "coming online", color: "yellow" },
+	{ state: "AP without radio", color: "green" }
 ];
 const runstate = [
 	{ state: "⏹︎ stopped" },
@@ -59,7 +60,6 @@ window.addEventListener("loadConfig", function () {
 			}
 			if (data.hasFlasher) {
 				$('[data-target="flashtab"]').style.display = 'block';
-				apstate[5].state = "flasher only";
 			}
 			if (data.savespace) {
 			}

@@ -129,17 +129,18 @@ void wsSendSysteminfo() {
         uint32_t tagcount = getTagCount(timeoutcount);
         char result[40];
         if (timeoutcount > 0) {
-#ifdef HAS_RGB_LED
-            if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::DarkBlue;
-#endif
             snprintf(result, sizeof(result), "%lu/%lu, %lu timeout", tagcount, tagDB.size(), timeoutcount);
         } else {
-#ifdef HAS_RGB_LED
-            if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::Green;
-#endif
             snprintf(result, sizeof(result), "%lu / %lu", tagcount, tagDB.size());
         }
         setVarDB("ap_tagcount", result);
+#ifdef HAS_RGB_LED
+        if (timeoutcount > 0) {
+            if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::DarkBlue;
+        } else {
+            if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::Green;
+        }
+#endif
         tagcounttimer = millis();
     }
 
@@ -453,11 +454,6 @@ void init_web() {
         udpsync.getAPList();
         AsyncResponseStream *response = request->beginResponseStream("application/json");
 
-        File configFile = contentFS->open("/current/apconfig.json", "r");
-        if (!configFile) {
-            request->send(500, "text/plain", "Error opening apconfig.json file");
-            return;
-        }
         response->print("{");        
 #ifdef C6_OTA_FLASHING
         response->print("\"C6\": \"1\", ");
@@ -475,14 +471,21 @@ void init_web() {
         response->print("\"hasFlasher\": \"0\", ");
 #endif
         response->print("\"apstate\": \"" + String(apInfo.state) + "\", ");
-        configFile.seek(1);
-        const size_t bufferSize = 64;
-        uint8_t buffer[bufferSize];
-        while (configFile.available()) {
-            size_t bytesRead = configFile.read(buffer, bufferSize);
-            response->write(buffer, bytesRead);
+
+        File configFile = contentFS->open("/current/apconfig.json", "r");
+        if (configFile) {
+            configFile.seek(1);
+            const size_t bufferSize = 64;
+            uint8_t buffer[bufferSize];
+            while (configFile.available()) {
+                size_t bytesRead = configFile.read(buffer, bufferSize);
+                response->write(buffer, bytesRead);
+            }
+            configFile.close();
+        } else {
+            response->print("}");
         }
-        configFile.close();
+
         request->send(response);
     });
 

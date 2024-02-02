@@ -168,7 +168,7 @@ void loop() {
     if (intervalSaveDB.doRun() && config.runStatus != RUNSTATUS_STOP) {
         saveDB("/current/tagDB.json");
     }
-    if (intervalContentRunner.doRun() && apInfo.state == AP_STATE_ONLINE) {
+    if (intervalContentRunner.doRun() && (apInfo.state == AP_STATE_ONLINE || apInfo.state == AP_STATE_NORADIO)) {
         contentRunner();
     }
 
