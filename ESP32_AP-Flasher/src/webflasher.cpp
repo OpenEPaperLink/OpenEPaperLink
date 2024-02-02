@@ -4,13 +4,14 @@
 
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
-//#include <freertos/FreeRTOS.h>
-//#include <freertos/task.h>
+// #include <freertos/FreeRTOS.h>
+// #include <freertos/task.h>
 
 #include "flasher.h"
 #include "ips_display.h"
 #include "settings.h"
 // #include "storage.h"
+#include "powermgt.h"
 #include "swd.h"
 #include "usbflasher.h"
 #include "util.h"
@@ -140,11 +141,15 @@ void onDataReceived(void* arg, AsyncClient* client, void* data, size_t len) {
 
 void onClientConnect(void* arg, AsyncClient* client) {
     Serial.println("New client connected");
-    if (autoFlashStep == AUTOFLASH_USBFLASHER_RUNNING && tftOverride == true) {
-        tft2.fillRect(0, 62, tft2.width(), 18, TFT_BLUE);
-        tft2.setCursor(10, 63, 2);
-        tft2.setTextColor(TFT_GREEN);
-        tft2.print("TCP connected");
+    if (autoFlashStep == AUTOFLASH_USBFLASHER_RUNNING) {
+#ifdef HAS_TFT
+        if (tftOverride == true) {
+            tft2.fillRect(0, 62, tft2.width(), 18, TFT_BLUE);
+            tft2.setCursor(10, 63, 2);
+            tft2.setTextColor(TFT_GREEN);
+            tft2.print("TCP connected");
+        }
+#endif
     } else {
         autoFlashStep = AUTOFLASH_START_USBFLASHER;
     }
@@ -161,12 +166,14 @@ void onClientConnect(void* arg, AsyncClient* client) {
                 zbsflasherp = nullptr;
             }
 
+#ifdef HAS_TFT
             if (autoFlashStep == AUTOFLASH_USBFLASHER_RUNNING && tftOverride == true) {
                 tft2.fillRect(0, 62, tft2.width(), 18, TFT_BLUE);
                 tft2.setCursor(10, 63, 2);
                 tft2.setTextColor(TFT_YELLOW);
                 tft2.print("TCP disconnected");
             }
+#endif
             connectedClient = NULL;
         });
     } else {
@@ -183,7 +190,6 @@ void sendDataToClient(const uint8_t* data, size_t len) {
 }
 
 void webFlasherTask(void* parameter) {
-
     TCPserver.begin();
     TCPserver.onClient(&onClientConnect, NULL);
 
@@ -395,6 +401,10 @@ void webFlasherTask(void* parameter) {
             }
 
             case AUTOFLASH_STEP_STARTUP: {
+                int8_t powerPins2[] = FLASHER_EXT_POWER;
+                uint8_t numPowerPins = sizeof(powerPins2);
+                powerControl(false, (uint8_t*)powerPins2, numPowerPins);
+
 #ifdef HAS_TFT
                 tftOverride = true;
                 tft2.fillScreen(TFT_PURPLE);
@@ -474,7 +484,9 @@ void handleWSdata(uint8_t* data, size_t len, AsyncWebSocketClient* client) {
                 } else {
                     autoFlashStep = AUTOFLASH_STEP_STARTUP;
                 }
+#ifdef HAS_TFT
                 tftOverride = true;
+#endif
                 break;
             case WEBFLASH_BLUR:
                 if (webFlashMode == FLASHMODE_AUTO_FOCUS) webFlashMode = FLASHMODE_AUTO_BACKGROUND;

@@ -141,8 +141,11 @@ void flasherDataHandler(uint8_t* data, size_t len, uint8_t transportType) {
         uint8_t usbbyte = *(data++);
         switch (flasherSerialState) {
             case FLASHER_RESET:
-                if (cmd != nullptr) {
-                    if (cmd->data != nullptr) free(cmd->data);
+                if (transportType == TRANSPORT_TCP && cmd != nullptr) {
+                    if (cmd->data != nullptr) {
+                        free(cmd->data);
+                        cmd->data = nullptr;
+                    }
                     delete cmd;
                     cmd = nullptr;
                 }
@@ -181,6 +184,7 @@ void flasherDataHandler(uint8_t* data, size_t len, uint8_t transportType) {
                         cmd->data = (uint8_t*)calloc(cmd->len, 1);
                         if (cmd->data == nullptr) {
                             delete cmd;
+                            cmd = nullptr;
                             flasherSerialState = FLASHER_WAIT_A;
                         } else {
                             flasherSerialState = FLASHER_WAIT_DATA;
@@ -317,7 +321,7 @@ typedef enum {
     CMD_COMPLETE = 88,
 
 } ZBS_UART_PROTO;
-uint32_t FLASHER_VERSION = 0x00000030;
+uint32_t FLASHER_VERSION = 0x00000031;
 
 #define CONTROLLER_ZBS243 0
 #define CONTROLLER_NRF82511 1
@@ -642,8 +646,10 @@ void usbFlasherTask(void* parameter) {
             lastCmdTimeStamp = millis();
             if (cmd->data != nullptr) {
                 free(cmd->data);
+                cmd->data = nullptr;
             }
             delete cmd;
+            cmd = nullptr;
         } else {
             if (lastCmdTimeStamp) {
                 if (millis() - lastCmdTimeStamp > USBFLASHER_CONNECTION_TIMEOUT)

@@ -73,7 +73,7 @@ def wait_for_command():
 
 def wait_for_command_ser():
     start_time = time.time()
-    ser.timeout = 50  # Set the timeout to 1 second
+    ser.timeout = 3  # Set the timeout to 3 seconds
     while True:
         if ser.in_waiting > 0:
             command = ser.read(2)  # Read the "AT" prefix
@@ -128,16 +128,13 @@ def wait_for_command_tcp():
                 return None, None
 
 def list_available_com_ports():
-    ports = serial.tools.list_ports.comports()
-    available_ports = [port.device for port in ports]
-    print("Specify a serial port to use with -p <PORT>")
-    print("available COM ports:")
-    for port in available_ports:
-        print(port)
+    available_ports = [port.device for port in serial.tools.list_ports.comports()]
+    print("Available COM ports:", ', '.join(available_ports))
 
 def validate_arguments(args):
     if not (args.port or args.ip):
         print("Either --port or --ip option is required.")
+        list_available_com_ports()
         return False
     if args.command:
         if not (args.nrf82511 or args.zbs243):
@@ -324,7 +321,14 @@ def main():
                 return
         else:
             global ser
-            ser = serial.Serial(args.port, baudrate=115200)
+            try:
+                ser = serial.Serial(args.port, baudrate=115200)
+                print(f"Successfully opened serial port {args.port}")
+            except serial.SerialException as e:
+                print(f"Error: {e}")
+                print("Please check if the specified COM port exists or is accessible.")
+                list_available_com_ports()
+                return
             transport = TRANSPORT_SER
             time.sleep(0.1)  # Flush serial data
             while (ser.inWaiting() > 0):
@@ -372,6 +376,7 @@ def main():
                     print("Connection established to microcontroller")
                 else:
                     print("Failed to establish a connection to the microcontroller")
+                    send_cmd(CMD_SET_POWER, bytearray([0]))
                     exit(0)
                     
         if args.command == "read":

@@ -67,6 +67,8 @@ void WifiManager::poll() {
         }
     }
 
+#ifndef HAS_USB
+    // ap_and_flasher has gpio0 in use as FLASHER_AP_POWER
     if (digitalRead(0) == LOW) {
         Serial.println("GPIO0 LOW");
         long starttime = millis();
@@ -97,6 +99,7 @@ void WifiManager::poll() {
             ESP.restart();
         }
     }
+#endif
 
     pollSerial();
 }
