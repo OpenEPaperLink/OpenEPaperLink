@@ -295,13 +295,13 @@
       },
       {
         "key": "button1",
-        "name": "Button 1",
+        "name": "Name for Button 1",
         "desc": "Text displayed for button 1 (for example, a name or activity)",
         "type": "text"
       },
       {
         "key": "button2",
-        "name": "Button 2",
+        "name": "Name for Button 2",
         "desc": "Text displayed for button 2 (for example, a name or activity)",
         "type": "text"
       },
@@ -314,6 +314,12 @@
           "0": "keep one timestamp",
           "1": "seperate timestamp per button"
         }
+      },
+      {
+        "key": "nextaction",
+        "name": "Frequency (days)",
+        "desc": "When is the next action expected to take place (in days after a timestamp). Leave 0 to disable.",
+        "type": "text"
       },
       {
         "key": "last1",

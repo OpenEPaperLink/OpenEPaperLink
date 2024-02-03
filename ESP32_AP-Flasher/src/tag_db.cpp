@@ -425,12 +425,14 @@ bool setVarDB(const std::string& key, const String& value, const bool notify) {
 }
 
 String getBaseName(const String& filename) {
-    int lastDotIndex = filename.lastIndexOf('.');
-    return lastDotIndex != -1 ? filename.substring(0, lastDotIndex) : filename;
+    // int lastDotIndex = filename.lastIndexOf('.');
+    // return lastDotIndex != -1 ? filename.substring(0, lastDotIndex) : filename;
+    return filename.substring(0, 16);
 }
 
 void cleanupCurrent() {
     // clean unknown previews
+    Serial.println("Cleaning up temporary files");
     File dir = contentFS->open("/current");
     File file = dir.openNextFile();
     while (file) {
@@ -447,6 +449,7 @@ void cleanupCurrent() {
             if (!found || filename.endsWith(".pending")) {
                 filename = file.path();
                 file.close();
+                Serial.println("remove " + filename);
                 contentFS->remove(filename);
             }
         }
