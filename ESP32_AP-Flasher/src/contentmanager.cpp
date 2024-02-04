@@ -7,6 +7,7 @@
 #define CONTENT_BIGCAL
 #define CONTENT_NFCLUT
 #define CONTENT_DAYAHEAD
+#define CONTENT_TIMESTAMP
 #endif
 #define CONTENT_CAL
 #define CONTENT_BUIENRADAR
@@ -41,6 +42,12 @@
 
 // https://csvjson.com/json_beautifier
 
+bool needRedraw(uint8_t contentMode, uint8_t wakeupReason) {
+    // contentmode 26, timestamp
+    if ((wakeupReason == WAKEUP_REASON_BUTTON1 || wakeupReason == WAKEUP_REASON_BUTTON2) && contentMode == 26) return true;
+    return false;
+}
+
 void contentRunner() {
     if (config.runStatus == RUNSTATUS_STOP) return;
 
@@ -49,11 +56,11 @@ void contentRunner() {
 
     for (tagRecord *taginfo : tagDB) {
         if (taginfo->RSSI &&
-            (now >= taginfo->nextupdate || taginfo->wakeupReason == WAKEUP_REASON_NFC) &&
+            (now >= taginfo->nextupdate || needRedraw(taginfo->contentMode, taginfo->wakeupReason)) &&
             config.runStatus == RUNSTATUS_RUN &&
             Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
             drawNew(taginfo->mac, taginfo);
-            // taginfo->wakeupReason = 0;
+            taginfo->wakeupReason = 0;
         }
 
         if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pendingCount == 0) {
@@ -73,7 +80,7 @@ void contentRunner() {
                 minutesUntilNextUpdate = (nextWakeTime - now) / 60 - 2;
             }
             if (minutesUntilNextUpdate > 1 && (wsClientCount() == 0 || config.stopsleep == 0)) {
-                taginfo->pendingIdle = minutesUntilNextUpdate;
+                taginfo->pendingIdle = minutesUntilNextUpdate * 60;
                 if (taginfo->isExternal == false) {
                     Serial.printf("sleeping for %d more minutes\n", minutesUntilNextUpdate);
                     prepareIdleReq(taginfo->mac, minutesUntilNextUpdate);
@@ -180,7 +187,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     char hexmac[17];
     mac2hex(mac, hexmac);
     String filename = "/temp/" + String(hexmac) + ".raw";
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     if (isAp) {
         filename = "direct";
     }
@@ -287,6 +294,11 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 } else {
                     wsErr("Error accessing " + filename);
                 }
+            } else {
+                // configfilename is empty. Probably the tag needs to redisplay the image after a reboot.
+                Serial.println("Resend static image");
+                // fixme: doesn't work yet
+                // prepareDataAvail(mac);
             }
             taginfo->nextupdate = 3216153600;
         } break;
@@ -508,10 +520,13 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             taginfo->nextupdate = 3216153600;
             break;
 
+#ifdef CONTENT_TIMESTAMP
         case 26:  // timestamp
+            taginfo->nextupdate = 3216153600;
             drawTimestamp(filename, cfgobj, taginfo, imageParams);
             updateTagImage(filename, mac, 0, taginfo, imageParams);
-            taginfo->nextupdate = 3216153600;
+            break;
+#endif
 
 #ifdef CONTENT_DAYAHEAD
         case 27:  // Day Ahead:
@@ -1459,7 +1474,7 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     StaticJsonDocument<512> loc;
     getTemplate(loc, 27, taginfo->hwType);
 
-    // This is a link to a Google Apps Script script, which fetches (and caches) the tariff from https://transparency.entsoe.eu/ 
+    // This is a link to a Google Apps Script script, which fetches (and caches) the tariff from https://transparency.entsoe.eu/
     // I made it available to provide easy access to the data, but please don't use this link in any projects other than OpenEpaperLink.
     String URL = "https://script.google.com/macros/s/AKfycbwMmeGAaPrWzVZrESSpmPmD--O132PzW_acnBsuEottKNATTqCRn6h8zN0Yts7S56ggsg/exec?country=" + cfgobj["country"].as<String>();
 
@@ -1546,8 +1561,8 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
             spr.fillRect(barX + i * barwidth + 3, 5, barwidth - 6, 10, imageParams.highlightColor);
             spr.fillTriangle(barX + i * barwidth, 15,
                              barX + i * barwidth + barwidth - 1, 15,
-                             barX + i * barwidth + barwidth / 2, 15 + barwidth, imageParams.highlightColor);
-            spr.drawLine(barX + i * barwidth + barwidth / 2, 20 + barwidth, barX + i * barwidth + barwidth / 2, spr.height(), getColor("pink"));
+                             barX + i * barwidth + (barwidth - 1) / 2, 15 + barwidth, imageParams.highlightColor);
+            spr.drawLine(barX + i * barwidth + (barwidth - 1) / 2, 20 + barwidth, barX + i * barwidth + (barwidth - 1) / 2, spr.height(), getColor("pink"));
             pricenow = price;
         }
     }
@@ -1702,9 +1717,142 @@ void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     spr.deleteSprite();
 }
 
+#ifdef CONTENT_TIMESTAMP
 void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
-    // todo
+    Serial.println("make Timestamp");
+    time_t now;
+    time(&now);
+    struct tm timeinfo;
+
+    StaticJsonDocument<512> loc;
+    getTemplate(loc, 1, taginfo->hwType);
+
+    TFT_eSprite spr = TFT_eSprite(&tft);
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
+
+    if (!cfgobj["#init"]) {
+        Serial.println("init");
+        // init preload images
+
+        char hexmac[17];
+        mac2hex(taginfo->mac, hexmac);
+
+        String filename2 = "/temp/" + String(hexmac) + "-2.raw";
+        drawString(spr, cfgobj["button1"].as<String>(), spr.width() / 2, 40, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, "Well done!", spr.width() / 2, 90, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
+        spr2buffer(spr, filename2, imageParams);
+
+        struct imageDataTypeArgStruct arg = {0};
+        arg.preloadImage = 1;
+        arg.specialType = 17;  // button 2
+        arg.lut = 0;
+        prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 5 | 0x8000 );
+
+        spr.fillRect(0, 0, spr.width(), spr.height(), TFT_WHITE);
+
+        filename2 = "/temp/" + String(hexmac) + "-3.raw";
+        drawString(spr, cfgobj["button2"].as<String>(), spr.width() / 2, 40, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, "Well done!", spr.width() / 2, 90, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
+        spr2buffer(spr, filename2, imageParams);
+
+        arg.preloadImage = 1;
+        arg.specialType = 16;  // button 1
+        arg.lut = 0;
+        prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 5 | 0x8000 );
+
+        cfgobj["#init"] = "1";
+    }
+
+    spr.fillRect(0, 0, spr.width(), spr.height(), TFT_WHITE);
+    drawString(spr, cfgobj["title"], spr.width() / 2, 10, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
+    spr.drawLine(0, 40, spr.width(), 40, TFT_BLACK);
+    drawString(spr, cfgobj["button1"], 32, 145, "calibrib16.vlw", TC_DATUM, TFT_BLACK);
+    drawString(spr, cfgobj["button2"], 122, 145, "calibrib16.vlw", TC_DATUM, TFT_BLACK);
+    spr.fillTriangle(27, 160, 37, 160, 32, 165, TFT_BLACK);
+    spr.fillTriangle(127, 160, 117, 160, 122, 165, TFT_BLACK);
+
+    uint8_t mode = cfgobj["mode"].as<int>();
+    switch (taginfo->wakeupReason) {
+        case WAKEUP_REASON_BUTTON2:
+            Serial.println("button 1");
+            cfgobj["last1"] = now;
+            if (mode == 0) {
+                // 1 timestamp
+                cfgobj["last2"] = cfgobj["button1"].as<String>();
+            }
+            break;
+        case WAKEUP_REASON_BUTTON1:
+            Serial.println("button 2");
+            if (mode == 0) {
+                // 1 timestamp
+                cfgobj["last1"] = now;
+                cfgobj["last2"] = cfgobj["button2"].as<String>();
+            } else {
+                cfgobj["last2"] = now;
+                // 2 timestamps
+            }
+            break;
+    }
+
+    char dateString1[40];
+    uint32_t nextaction = cfgobj["nextaction"].as<uint32_t>();
+    String dateformat = languageDateFormat[0] + " %H:%M";
+    time_t timestamp = cfgobj["last1"].as<uint32_t>();
+    localtime_r(&timestamp, &timeinfo);
+    strftime(dateString1, sizeof(dateString1), dateformat.c_str(), &timeinfo);
+    if (timestamp == 0) strcpy(dateString1, "never");
+
+    if (mode == 0) {
+        drawString(spr, "last:", 10, 50, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+        drawString(spr, dateString1, spr.width() / 2, 50, "bahnschrift30.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, cfgobj["last2"].as<String>(), spr.width() / 2, 80, "bahnschrift30.vlw", TC_DATUM, TFT_BLACK);
+
+        if (nextaction > 0 && timestamp > 0) {
+            timestamp += nextaction * 24 * 3600;
+            if (timestamp < taginfo->nextupdate) taginfo->nextupdate = timestamp;
+            localtime_r(&timestamp, &timeinfo);
+            strftime(dateString1, sizeof(dateString1), languageDateFormat[0].c_str(), &timeinfo);
+
+            drawString(spr, "next:", 10, 115, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+            drawString(spr, dateString1, 50, 115, "calibrib16.vlw", TL_DATUM, timestamp < now ? imageParams.highlightColor : TFT_BLACK);
+        }
+    } else {
+        drawString(spr, cfgobj["button1"].as<String>(), 10, 50, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+        drawString(spr, dateString1, 20, 67, "fonts/bahnschrift20", TL_DATUM, TFT_BLACK);
+
+        if (nextaction > 0 && timestamp > 0) {
+            timestamp += nextaction * 24 * 3600;
+            if (timestamp < taginfo->nextupdate) taginfo->nextupdate = timestamp;
+            localtime_r(&timestamp, &timeinfo);
+            strftime(dateString1, sizeof(dateString1), languageDateFormat[0].c_str(), &timeinfo);
+
+            drawString(spr, "next", 200, 50, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+            drawString(spr, dateString1, 210, 67, "fonts/bahnschrift20", TL_DATUM, timestamp < now ? imageParams.highlightColor : TFT_BLACK);
+        }
+
+        char dateString2[40];
+        time_t timestamp = cfgobj["last2"].as<uint32_t>();
+        localtime_r(&timestamp, &timeinfo);
+        strftime(dateString2, sizeof(dateString2), dateformat.c_str(), &timeinfo);
+        if (timestamp == 0) strcpy(dateString2, "never");
+
+        drawString(spr, cfgobj["button2"].as<String>(), 10, 90, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+        drawString(spr, dateString2, 20, 107, "fonts/bahnschrift20", TL_DATUM, TFT_BLACK);
+
+        if (nextaction > 0 && timestamp > 0) {
+            timestamp += nextaction * 24 * 3600;
+            localtime_r(&timestamp, &timeinfo);
+            strftime(dateString2, sizeof(dateString2), languageDateFormat[0].c_str(), &timeinfo);
+
+            drawString(spr, "next", 200, 90, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+            drawString(spr, dateString2, 210, 107, "fonts/bahnschrift20", TL_DATUM, timestamp < now ? imageParams.highlightColor : TFT_BLACK);
+        }
+    }
+
+    spr2buffer(spr, filename, imageParams);
+    spr.deleteSprite();
 }
+#endif
 
 bool getJsonTemplateFile(String &filename, String jsonfile, tagRecord *&taginfo, imgParam &imageParams) {
     if (jsonfile.c_str()[0] != '/') {

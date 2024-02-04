@@ -198,7 +198,8 @@ label {
 
 #aptab,
 #configtab,
-#updatetab {
+#updatetab,
+#flashtab {
 	padding: 10px;
 
 	& p {
@@ -206,7 +207,7 @@ label {
 	}
 }
 
-#updatetab {
+#updatetab, #flashtab {
 	&>div {
 		display: flex;
 		gap: 2em;
@@ -858,7 +859,7 @@ h4 {
 	display: none;
 }
 
-.updateCol1 {
+.updateCol1, .flashCol1 {
 	flex-grow: 1;
 }
 
@@ -873,6 +874,7 @@ h4 {
 	overflow-y: scroll;
 	white-space: break-spaces;
 	flex-grow: 1;
+	max-width: 600px;
 }
 
 .console div {

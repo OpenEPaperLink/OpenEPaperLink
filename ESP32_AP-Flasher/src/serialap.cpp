@@ -1,7 +1,7 @@
+#include "serialap.h"
+
 #include <Arduino.h>
 #include <HardwareSerial.h>
-
-#include "serialap.h"
 
 #include "commstructs.h"
 #include "contentmanager.h"
@@ -118,7 +118,7 @@ int8_t APpowerPins[] = FLASHER_AP_POWER;
 #define AP_RESET_PIN FLASHER_AP_RESET
 #define AP_POWER_PIN FLASHER_AP_POWER
 #endif
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 #if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
 int8_t APpowerPins[] = FLASHER_EXT_POWER;
 #define AP_RESET_PIN FLASHER_EXT_RESET
@@ -172,9 +172,11 @@ void APTagReset() {
 
 // Send data to the AP
 uint16_t sendBlock(const void* data, const uint16_t len) {
+    time_t timeCanary = millis();
     if (!apInfo.isOnline) return false;
     if (!txStart()) return 0;
-    for (uint8_t attempt = 0; attempt < 5; attempt++) {
+    // don't retry now, as it collides with communication from the tag
+    for (uint8_t attempt = 0; attempt < 1; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
         AP_SERIAL_PORT.print(">D>");
         if (waitCmdReply()) goto blksend;
@@ -190,32 +192,51 @@ blksend:
     bd->checksum = 0;
 
     // calculate checksum
+    const uint8_t* dataBytes = reinterpret_cast<const uint8_t*>(data);
     for (uint16_t c = 0; c < len; c++) {
-        bd->checksum += ((uint8_t*)data)[c];
+        bd->checksum += dataBytes[c];
     }
 
     // send blockData header
-    for (uint8_t c = 0; c < sizeof(struct blockData); c++) {
-        AP_SERIAL_PORT.write(0xAA ^ blockbuffer[c]);
+    dataBytes = reinterpret_cast<const uint8_t*>(&blockbuffer);
+    const size_t bufferSize = sizeof(struct blockData);
+    uint8_t* modifiedHeader = static_cast<uint8_t*>(malloc(bufferSize));
+    if (modifiedHeader != nullptr) {
+        for (size_t i = 0; i < bufferSize; i++) {
+            modifiedHeader[i] = 0xAA ^ dataBytes[i];
+        }
+        AP_SERIAL_PORT.write(modifiedHeader, bufferSize);
+        free(modifiedHeader);
     }
 
     // send an entire block of data
     uint16_t c;
-    for (c = 0; c < len; c++) {
-        AP_SERIAL_PORT.write(0xAA ^ ((uint8_t*)data)[c]);
+    dataBytes = reinterpret_cast<const uint8_t*>(data);
+    uint8_t* modifiedBuffer = static_cast<uint8_t*>(malloc(len));
+    if (modifiedBuffer != nullptr) {
+        for (c = 0; c < len; c++) {
+            modifiedBuffer[c] = 0xAA ^ dataBytes[c];
+        }
+        AP_SERIAL_PORT.write(modifiedBuffer, len);
+        free(modifiedBuffer);
     }
 
     // fill the rest of the block-length filled with something else (will end up as 0xFF in the buffer)
-    for (; c < BLOCK_DATA_SIZE; c++) {
-        AP_SERIAL_PORT.write(0x55);
+    const size_t remainingBytes = BLOCK_DATA_SIZE - c;
+    if (remainingBytes > 0) {
+        uint8_t fillBuffer[remainingBytes];
+        memset(fillBuffer, 0x55, remainingBytes);
+        AP_SERIAL_PORT.write(fillBuffer, remainingBytes);
     }
 
     // dummy bytes in case some bytes were missed, makes sure the AP gets kicked out of data-loading mode
-    for (c = 0; c < 32; c++) {
-        AP_SERIAL_PORT.write(0xF5);
-    }
+    uint8_t dummyBuffer[32];
+    memset(dummyBuffer, 0xF5, 32);
+    AP_SERIAL_PORT.write(dummyBuffer, 32);
+
     if (apInfo.type != ESP32_C6) delay(10);
     txEnd();
+    Serial.println("Sendblock complete, " + String(millis() - timeCanary) + "ms");
     return bd->checksum;
 }
 
@@ -353,21 +374,21 @@ void rxCmdProcessor(void* parameter) {
                 case RX_CMD_RQB:
                     processBlockRequest((struct espBlockRequest*)rxcmd->data);
 #ifdef HAS_RGB_LED
-                    shortBlink(CRGB::Blue);
+                    // shortBlink(CRGB::Blue);
 #endif
                     quickBlink(3);
                     break;
                 case RX_CMD_ADR:
                     processDataReq((struct espAvailDataReq*)rxcmd->data, true);
 #ifdef HAS_RGB_LED
-                    shortBlink(CRGB::Aqua);
+                    // shortBlink(CRGB::Aqua);
 #endif
                     quickBlink(1);
                     break;
                 case RX_CMD_XFC:
                     processXferComplete((struct espXferComplete*)rxcmd->data, true);
 #ifdef HAS_RGB_LED
-                    shortBlink(CRGB::Purple);
+                    // shortBlink(CRGB::Purple);
 #endif
                     break;
                 case RX_CMD_XTO:
@@ -402,7 +423,9 @@ void rxSerialTask(void* parameter) {
             lastchar = AP_SERIAL_PORT.read();
             switch (RXState) {
                 case ZBS_RX_WAIT_HEADER:
+
                     Serial.write(lastchar);
+
                     //  shift characters in
                     for (uint8_t c = 0; c < 3; c++) {
                         cmdbuffer[c] = cmdbuffer[c + 1];
@@ -614,6 +637,8 @@ void rxSerialTask2(void* parameter) {
         while (Serial2.available()) {
             lastchar = Serial2.read();
             charCount++;
+
+            // debug info
             Serial.write(lastchar);
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
@@ -723,17 +748,34 @@ bool bringAPOnline() {
     }
 }
 
+bool checkRadio() {
+    // make a short between FLASHER_AP_TXD and FLASHER_AP_RXD to indicate that no radio is present
+    // e.g. for flasher only, or just to use the S3 to generate images for smaller AP's
+    pinMode(FLASHER_AP_TXD, OUTPUT);
+    pinMode(FLASHER_AP_RXD, INPUT_PULLDOWN);
+    digitalWrite(FLASHER_AP_TXD, LOW);
+    if (digitalRead(FLASHER_AP_RXD) != LOW) return true;
+    digitalWrite(FLASHER_AP_TXD, HIGH);
+    if (digitalRead(FLASHER_AP_RXD) != HIGH) return true;
+    pinMode(FLASHER_AP_TXD, INPUT_PULLDOWN);
+    return false;
+}
+
 void APTask(void* parameter) {
-    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 4000, NULL, configMAX_PRIORITIES - 10, NULL);
-    xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, configMAX_PRIORITIES - 4, NULL);
-#ifdef FLASHER_DEBUG_RXD
-    xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, configMAX_PRIORITIES - 4, NULL);
-#endif
+    if (!checkRadio()) {
+        // no radio
+        Serial.println("Working without radio.");
+        addFadeMono(config.led);
+        setAPstate(true, AP_STATE_NORADIO);
+        refreshAllPending();
+        vTaskDelete(NULL);
+        return;
+    }
 
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 #endif
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 #if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
     AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
 #endif
@@ -742,8 +784,15 @@ void APTask(void* parameter) {
 #endif
 #endif
 
+    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 6000, NULL, 15, NULL);
+    xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, 11, NULL);
+#ifdef FLASHER_DEBUG_RXD
+    xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, 2, NULL);
+#endif
+
     bringAPOnline();
 
+#ifndef C6_OTA_FLASHING
     if (checkForcedAPFlash() && FLASHER_AP_MOSI != -1) {
         if (apInfo.type == SOLUM_SEG_UK && apInfo.isOnline) {
             notifySegmentedFlash();
@@ -756,6 +805,7 @@ void APTask(void* parameter) {
         checkWaitPowerCycle();
         bringAPOnline();
     }
+#endif
 
     if (apInfo.isOnline) {
         // AP works!
@@ -770,6 +820,7 @@ void APTask(void* parameter) {
         }
 
         uint16_t fsversion;
+#ifndef C6_OTA_FLASHING
         if (FLASHER_AP_MOSI != -1) {
             fsversion = getAPUpdateVersion(apInfo.type);
             if ((fsversion) && (apInfo.version != fsversion)) {
@@ -805,6 +856,8 @@ void APTask(void* parameter) {
                 }
             }
         }
+#endif
+
         refreshAllPending();
     } else {
 #ifndef FLASH_TIMEOUT
@@ -817,9 +870,10 @@ void APTask(void* parameter) {
 #ifdef HAS_RGB_LED
             showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
 #endif
-            if(apInfo.state != AP_STATE_FLASHING)// In case we are flashing already we do not want to end in a failed AP
+            if (apInfo.state != AP_STATE_FLASHING)  // In case we are flashing already we do not want to end in a failed AP
                 setAPstate(false, AP_STATE_FAILED);
         } else {
+#ifndef C6_OTA_FLASHING
             // AP unavailable, maybe time to flash?
             setAPstate(false, AP_STATE_OFFLINE);
 
@@ -887,12 +941,13 @@ void APTask(void* parameter) {
                 ESP.restart();
             }
 #endif
+#endif
         }
     }
 
     uint8_t attempts = 0;
     while (1) {
-        if (((apInfo.state == AP_STATE_ONLINE)||(apInfo.state == AP_STATE_FAILED)) && (millis() - lastAPActivity > AP_ACTIVITY_MAX_INTERVAL)) {
+        if (((apInfo.state == AP_STATE_ONLINE) || (apInfo.state == AP_STATE_FAILED)) && (millis() - lastAPActivity > AP_ACTIVITY_MAX_INTERVAL)) {
             bool reply = sendPing();
             if (!reply) {
                 attempts++;

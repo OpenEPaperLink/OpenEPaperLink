@@ -41,8 +41,14 @@ jobs:
           pio run --environment OpenEPaperLink_AP_and_Flasher
           pio run --target buildfs --environment OpenEPaperLink_AP_and_Flasher
           
-      - name: Build ESP32_S3_16_8_YELLOW_AP]
+      - name: Build ESP32_S3_16_8_YELLOW_AP
         run: |
           cd ESP32_AP-Flasher
           pio run --environment ESP32_S3_16_8_YELLOW_AP
           pio run --target buildfs --environment ESP32_S3_16_8_YELLOW_AP
+
+      - name: OpenEPaperLink_Mini_AP_v4
+        run: |
+          cd ESP32_AP-Flasher
+          pio run --environment OpenEPaperLink_Mini_AP_v4
+          pio run --target buildfs --environment OpenEPaperLink_Mini_AP_v4

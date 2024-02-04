@@ -57,7 +57,7 @@ void ZBS_interface::setSpeed(uint32_t speed) {
 }
 
 ZBS_interface::~ZBS_interface() {
-    if (spi) delete spi;
+    // if (spi) delete spi;
 }
 void ZBS_interface::set_power(uint8_t state) {
     powerControl(state, _POWER_PIN, _POWER_PINS);
@@ -91,12 +91,14 @@ void ZBS_interface::enable_debug() {
     delay(100);
 }
 
-void ZBS_interface::reset() {
+void ZBS_interface::reset(bool leavepower) {
+    /*
     if (spi) {
         spi->end();
         delete spi;
         spi = nullptr;
     }
+    */
     pinMode(_SS_PIN, INPUT);
     pinMode(_CLK_PIN, INPUT);
     pinMode(_MOSI_PIN, INPUT);
@@ -105,7 +107,7 @@ void ZBS_interface::reset() {
     set_power(ZBS_OFF);
     delay(500);
     digitalWrite(_RESET_PIN, HIGH);
-    set_power(ZBS_ON);
+    if (leavepower) set_power(ZBS_ON);
     pinMode(_RESET_PIN, INPUT);
 }
 

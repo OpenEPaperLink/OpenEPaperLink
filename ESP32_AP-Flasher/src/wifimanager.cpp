@@ -37,7 +37,7 @@ WifiManager::WifiManager() {
 
 void WifiManager::terminalLog(String text) {
     Serial.println(text);
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     TFTLog(text);
 #endif
 }
@@ -67,6 +67,8 @@ void WifiManager::poll() {
         }
     }
 
+#ifndef HAS_USB
+    // ap_and_flasher has gpio0 in use as FLASHER_AP_POWER
     if (digitalRead(0) == LOW) {
         Serial.println("GPIO0 LOW");
         long starttime = millis();
@@ -97,6 +99,7 @@ void WifiManager::poll() {
             ESP.restart();
         }
     }
+#endif
 
     pollSerial();
 }
@@ -107,12 +110,12 @@ bool WifiManager::connectToWifi() {
     _ssid = preferences.getString("ssid", WiFi_SSID());
     _pass = preferences.getString("pw", WiFi_psk());
     if (_ssid == "") {
-        terminalLog("No connection information saved");
+        terminalLog("No connection info saved");
         logLine("No connection information saved");
         startManagementServer();
         return false;
     }
-    terminalLog("Stored ssid: " + String(_ssid));
+    terminalLog("ssid: " + String(_ssid));
 
     String ip = preferences.getString("ip", "");
     String mask = preferences.getString("mask", "");
@@ -166,7 +169,7 @@ bool WifiManager::connectToWifi(String ssid, String pass, bool savewhensuccessfu
     WiFi.setSleep(WIFI_PS_MIN_MODEM);
 
     terminalLog("Connecting to WiFi...");
-    logLine("Connecting to WiFi...");
+    // logLine("Connecting to WiFi...");
     WiFi.persistent(savewhensuccessfull);
     WiFi.begin(_ssid.c_str(), _pass.c_str());
     _connected = waitForConnection();
@@ -199,7 +202,7 @@ bool WifiManager::waitForConnection() {
     WiFi.persistent(true);
     IPAddress IP = WiFi.localIP();
     terminalLog("Connected!");
-    logLine("Connected!");
+    // logLine("Connected!");
     _nextReconnectCheck = millis() + _reconnectIntervalCheck;
     wifiStatus = CONNECTED;
     return true;
@@ -207,7 +210,7 @@ bool WifiManager::waitForConnection() {
 
 void WifiManager::startManagementServer() {
     if (!_APstarted) {
-        terminalLog("Starting configuration AP, ssid: OpenEPaperLink");
+        terminalLog("Starting config AP, ssid: OpenEPaperLink");
         logLine("Starting configuration AP, ssid OpenEPaperLink");
         WiFi.disconnect(true, true);
         delay(100);

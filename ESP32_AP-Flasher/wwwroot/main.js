@@ -22,11 +22,12 @@ const apstate = [
 	{ state: "wait for reset", color: "blue" },
 	{ state: "requires power cycle", color: "purple" },
 	{ state: "failed", color: "red" },
-	{ state: "coming online", color: "yellow" }
+	{ state: "coming online", color: "yellow" },
+	{ state: "AP without radio", color: "green" }
 ];
 const runstate = [
 	{ state: "⏹︎ stopped" },
-	{ state: "⏸pause" },
+	{ state: "⏸ pause" },
 	{ state: "" }, // hide running
 	{ state: "⏳︎ init" }
 ];
@@ -36,7 +37,7 @@ let isProcessing = false;
 let servertimediff = 0;
 let paintLoaded = false, paintShow = false;
 let cardconfig;
-let otamodule;
+let otamodule, flashmodule;
 let socket;
 let finishedInitialLoading = false;
 let getTagtypeBusy = false;
@@ -53,6 +54,19 @@ window.addEventListener("loadConfig", function () {
 				this.document.title = data.alias;
 			}
 			if (data.C6) {
+				var optionToRemove = $("#apcfgchid").querySelector('option[value="27"]');
+				if (optionToRemove) $("#apcfgchid").removeChild(optionToRemove);
+				$('#c6Option').style.display = 'block';
+			}
+			if (data.hasFlasher) {
+				$('[data-target="flashtab"]').style.display = 'block';
+			}
+			if (data.savespace) {
+			}
+			if (data.apstate) {
+				$("#apstatecolor").style.color = apstate[data.apstate].color;
+				$("#apstate").innerHTML = apstate[data.apstate].state;
+				$('#dashboardStatus').innerHTML = apstate[data.apstate].state;
 			}
 		});
 });
@@ -86,11 +100,12 @@ window.addEventListener("load", function () {
 		faviconLink.rel = 'icon';
 		faviconLink.href = 'favicon.ico';
 		document.head.appendChild(faviconLink);
-	});	
+	});
 });
 
 /* tabs */
-let activeTab = '';
+let activeTab = '', previousTab = '';
+
 function initTabs() {
 	const tabLinks = document.querySelectorAll(".tablinks");
 	const tabContents = document.querySelectorAll(".tabcontent");
@@ -204,7 +219,13 @@ function connect() {
 			populateAPCard(msg.apitem);
 		}
 		if (msg.console) {
-			if (otamodule && typeof (otamodule.print) === "function") {
+			if (activeTab == 'flashtab' && flashmodule && typeof (flashmodule.print) === "function") {
+				let color = (msg.color ? msg.color : "#c0c0c0");
+				if (msg.console.startsWith("Fail") || msg.console.startsWith("Err")) {
+					color = "red";
+				}
+				flashmodule.print(msg.console, color);
+			} else if (otamodule && typeof (otamodule.print) === "function") {
 				let color = "#c0c0c0";
 				if (msg.console.startsWith("Fail") || msg.console.startsWith("Err")) {
 					color = "red";
@@ -426,7 +447,7 @@ function updatecards() {
 			let nextcheckin = item.dataset.nextcheckin - ((Date.now() / 1000) - servertimediff);
 			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<span>expected checkin</span>" + displayTime(Math.floor(nextcheckin));
 		} else {
-			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "";
+			// $('#tag' + tagmac + ' .nextcheckin').innerHTML = "";
 		}
 	})
 
@@ -723,7 +744,15 @@ document.addEventListener("loadTab", function (event) {
 			$('#updateconsole').innerHTML = '';
 			loadOTA();
 			break;
+		case 'flashtab':
+			$('#flashconsole').innerHTML = '';
+			loadFlash();
+			break;
 	}
+	if (previousTab == 'flashtab' && activeTab != 'flashtab' && flashmodule && typeof (flashmodule.wsCmd) === "function") {
+		flashmodule.wsCmd(flashmodule.WEBFLASH_BLUR);
+	}
+	previousTab = activeTab;
 });
 
 $('#apcfgsave').onclick = function () {
@@ -771,16 +800,13 @@ $('#uploadButton').onclick = function () {
 				return response.text();
 			})
 			.then(data => {
-				console.log('File uploaded successfully: ', data);
 				alert('TagDB restored. Webpage will reload.');
 				location.reload();
 			})
 			.catch(error => {
-				console.error('Error uploading file:', error);
 				alert('Error uploading file: ' + error);
 			});
 	} else {
-		console.error('No file selected.');
 		alert('No file selected');
 	}
 }
@@ -812,22 +838,25 @@ $('#restoreFromLocal').onclick = function () {
 				return response.text();
 			})
 			.then(data => {
-				console.log('File uploaded successfully: ', data);
 				alert('TagDB restored. Webpage will reload.');
 				location.reload();
 			})
 			.catch(error => {
-				console.error('Error uploading file:', error);
 				alert('Error uploading file: ' + error);
 			});
 	} else {
-		console.log('No data found in localStorage');
+		alert('No data found in localStorage');
 	}
 }
 
 async function loadOTA() {
 	otamodule = await import('./ota.js?v=' + Date.now());
 	otamodule.initUpdate();
+}
+
+async function loadFlash() {
+	flashmodule = await import('./flash.js?v=' + Date.now());
+	flashmodule.init();
 }
 
 $('#paintbutton').onclick = function () {
@@ -1154,7 +1183,7 @@ function processZlib(data) {
 		return inflatedBuffer.subarray(headerSize);
 	} catch (err) {
 		console.log('zlib: ' + err);
-	}	
+	}
 }
 
 function displayTime(seconds) {
@@ -1656,7 +1685,6 @@ function selectLocation(location) {
 	document.getElementById('opt#lon').value = location.longitude;
 	if (document.getElementById('opt#tz')) document.getElementById('opt#tz').value = location.timezone;
 	$('#georesults').innerHTML = '';
-	console.log('Selected location:', location);
 }
 
 function debounce(func, delay) {

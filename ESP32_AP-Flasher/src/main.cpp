@@ -13,7 +13,11 @@
 #include "tagdata.h"
 #include "wifimanager.h"
 
-#ifdef HAS_USB
+#ifdef HAS_EXT_FLASHER
+#include "webflasher.h"
+#endif
+
+#if defined HAS_USB || defined HAS_EXT_FLASHER
 #include "usbflasher.h"
 #endif
 
@@ -27,10 +31,6 @@ util::Timer intervalContentRunner(seconds(1));
 util::Timer intervalSysinfo(seconds(5));
 util::Timer intervalVars(seconds(10));
 util::Timer intervalSaveDB(minutes(5));
-
-#ifdef OPENEPAPERLINK_PCB
-util::Timer tagConnectTimer(seconds(1));
-#endif
 
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 
@@ -47,7 +47,7 @@ void delayedStart(void* parameter) {
 void setup() {
     Serial.begin(115200);
     Serial.print(">\n");
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     extern void yellow_ap_display_init(void);
     yellow_ap_display_init();
 #endif
@@ -108,16 +108,12 @@ void setup() {
     }
     */
 
-#ifdef HAS_USB
-    // We'll need to start the 'usbflasher' task for boards with a second (USB) port. This can be used as a 'flasher' interface, using a python script on the host
-    xTaskCreate(usbFlasherTask, "usbflasher", 10000, NULL, configMAX_PRIORITIES - 10, NULL);
-#endif
-
     initAPconfig();
 
     updateLanguageFromConfig();
     updateBrightnessFromConfig();
 
+    config.runStatus = RUNSTATUS_INIT;
     init_web();
     xTaskCreate(initTime, "init time", 5000, NULL, 2, NULL);
 
@@ -135,10 +131,18 @@ void setup() {
     } else {
         cleanupCurrent();
     }
-    xTaskCreate(APTask, "AP Process", 6000, NULL, 2, NULL);
+    xTaskCreate(APTask, "AP Process", 6000, NULL, 5, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
-    config.runStatus = RUNSTATUS_INIT;
+#ifdef HAS_USB
+    // We'll need to start the 'usbflasher' task for boards with a second (USB) port. This can be used as a 'flasher' interface, using a python script on the host
+    xTaskCreate(usbFlasherTask, "usbflasher", 10000, NULL, 5, NULL);
+#endif
+
+#ifdef HAS_EXT_FLASHER
+    xTaskCreate(webFlasherTask, "webflasher", 8000, NULL, 3, NULL);
+#endif
+
     esp_reset_reason_t resetReason = esp_reset_reason();
     if (resetReason == ESP_RST_PANIC) {
         Serial.println("Panic! Pausing content generation for 30 seconds");
@@ -164,28 +168,13 @@ void loop() {
     if (intervalSaveDB.doRun() && config.runStatus != RUNSTATUS_STOP) {
         saveDB("/current/tagDB.json");
     }
-    if (intervalContentRunner.doRun() && apInfo.state == AP_STATE_ONLINE) {
+    if (intervalContentRunner.doRun() && (apInfo.state == AP_STATE_ONLINE || apInfo.state == AP_STATE_NORADIO)) {
         contentRunner();
     }
 
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     extern void yellow_ap_display_loop(void);
     yellow_ap_display_loop();
-#endif
-
-#ifdef OPENEPAPERLINK_PCB
-    if (tagConnectTimer.doRun() && extTagConnected()) {
-        flashCountDown(3);
-
-        pinMode(FLASHER_EXT_TEST, OUTPUT);
-        digitalWrite(FLASHER_EXT_TEST, LOW);
-
-        doTagFlash();
-
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
-        pinMode(FLASHER_EXT_TEST, INPUT);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
 #endif
 
     vTaskDelay(100 / portTICK_PERIOD_MS);

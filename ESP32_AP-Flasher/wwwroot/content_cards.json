@@ -282,6 +282,60 @@
     ]
   },
   {
+    "id": 26,
+    "name": "Time Stamp",
+    "desc": "Displays the last date and time when a button press took place. For example, to keep track of the last time somebody let the dog out, or when you last watered the plants, or change the bed sheets.",
+    "properties": [ "savespace" ],
+    "param": [
+      {
+        "key": "title",
+        "name": "Title",
+        "desc": "Displayed title",
+        "type": "text"
+      },
+      {
+        "key": "button1",
+        "name": "Name for Button 1",
+        "desc": "Text displayed for button 1 (for example, a name or activity)",
+        "type": "text"
+      },
+      {
+        "key": "button2",
+        "name": "Name for Button 2",
+        "desc": "Text displayed for button 2 (for example, a name or activity)",
+        "type": "text"
+      },
+      {
+        "key": "mode",
+        "name": "Working mode",
+        "desc": "With 'keep one time', both buttons reset the same timestamp, recording which button is pressed last. The option for seperate date/time, records two different timestamps, one for each button.",
+        "type": "select",
+        "options": {
+          "0": "keep one timestamp",
+          "1": "seperate timestamp per button"
+        }
+      },
+      {
+        "key": "nextaction",
+        "name": "Frequency (days)",
+        "desc": "When is the next action expected to take place (in days after a timestamp). Leave 0 to disable.",
+        "type": "text"
+      },
+      {
+        "key": "last1",
+        "name": "Timestamp 1",
+        "desc": "The date/time the last event took place",
+        "type": "ro"
+      },
+      {
+        "key": "last2",
+        "name": "Name, or timestamp 2",
+        "desc": "The name of the button that was pressed, or in case of seperate timestamp, the date/time of the second button press",
+        "type": "ro"
+      }
+    ]
+  },
+  {
     "id": 27,
     "name": "Dayahead prices",
     "desc": "Dayahead dynamic electricity tariffs. Source: transparency.entsoe.eu",

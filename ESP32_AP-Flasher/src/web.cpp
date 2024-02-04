@@ -9,6 +9,8 @@
 #include <Preferences.h>
 #include <WiFi.h>
 
+#include <algorithm>
+
 #include "AsyncJson.h"
 #include "LittleFS.h"
 #include "SPIFFSEditor.h"
@@ -24,6 +26,10 @@
 #include "tag_db.h"
 #include "udp.h"
 #include "wifimanager.h"
+
+#ifdef HAS_EXT_FLASHER
+#include "webflasher.h"
+#endif
 
 extern uint8_t data_to_send[];
 
@@ -125,17 +131,18 @@ void wsSendSysteminfo() {
         uint32_t tagcount = getTagCount(timeoutcount);
         char result[40];
         if (timeoutcount > 0) {
-#ifdef HAS_RGB_LED
-            if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::DarkBlue;
-#endif
-            snprintf(result, sizeof(result), "%lu / %lu, %lu timed out", tagcount, tagDB.size(), timeoutcount);
+            snprintf(result, sizeof(result), "%lu/%lu, %lu timeout", tagcount, tagDB.size(), timeoutcount);
         } else {
-#ifdef HAS_RGB_LED
-            if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::Green;
-#endif
             snprintf(result, sizeof(result), "%lu / %lu", tagcount, tagDB.size());
         }
         setVarDB("ap_tagcount", result);
+#ifdef HAS_RGB_LED
+        if (timeoutcount > 0) {
+            if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::DarkBlue;
+        } else {
+            if (apInfo.state == AP_STATE_ONLINE && apInfo.isOnline == true) rgbIdleColor = CRGB::Green;
+        }
+#endif
         tagcounttimer = millis();
     }
 
@@ -201,8 +208,13 @@ void wsSendAPitem(struct APlist *apitem) {
 }
 
 void wsSerial(const String &text) {
+    wsSerial(text, String(""));
+}
+
+void wsSerial(const String &text, const String &color) {
     StaticJsonDocument<250> doc;
     doc["console"] = text;
+    if (!color.isEmpty()) doc["color"] = color;
     Serial.println(text);
     if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
@@ -274,17 +286,38 @@ void init_web() {
             if (hex2mac(dst, mac)) {
                 tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
-                    if (taginfo->data == nullptr) {
-                        fs::File file = contentFS->open(taginfo->filename);
-                        if (!file) {
-                            request->send(404, "text/plain", "File not found");
+                    if (request->hasParam("md5")) {
+                        uint8_t md5[8];
+                        if (hex2mac(request->getParam("md5")->value(), md5)) {
+                            PendingItem *queueItem = getQueueItem(mac, *reinterpret_cast<uint64_t *>(md5));
+                            if (queueItem->data == nullptr) {
+                                fs::File file = contentFS->open(queueItem->filename);
+                                if (file) {
+                                    queueItem->data = getDataForFile(file);
+                                    Serial.println("Reading file " + String(queueItem->filename));
+                                    file.close();
+                                } else {
+                                    request->send(404, "text/plain", "File not found");
+                                    return;
+                                }
+                            }
+                            request->send_P(200, "application/octet-stream", queueItem->data, queueItem->len);
                             return;
                         }
-                        taginfo->data = getDataForFile(file);
-                        file.close();
+                    } else {
+                        // older version without queue
+                        if (taginfo->data == nullptr) {
+                            fs::File file = contentFS->open(taginfo->filename);
+                            if (!file) {
+                                request->send(404, "text/plain", "File not found");
+                                return;
+                            }
+                            taginfo->data = getDataForFile(file);
+                            file.close();
+                        }
+                        request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
+                        return;
                     }
-                    request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
-                    return;
                 }
             }
         }
@@ -444,30 +477,38 @@ void init_web() {
         udpsync.getAPList();
         AsyncResponseStream *response = request->beginResponseStream("application/json");
 
-        File configFile = contentFS->open("/current/apconfig.json", "r");
-        if (!configFile) {
-            request->send(500, "text/plain", "Error opening apconfig.json file");
-            return;
-        }
         response->print("{");        
-#if defined YELLOW_IPS_AP || defined C6_OTA_FLASHING
+#ifdef C6_OTA_FLASHING
         response->print("\"C6\": \"1\", ");
 #else
         response->print("\"C6\": \"1\", ");
 #endif
-#if defined SAVE_SPACE
+#ifdef SAVE_SPACE
         response->print("\"savespace\": \"1\", ");
 #else
         response->print("\"savespace\": \"0\", ");
 #endif
-        configFile.seek(1);
-        const size_t bufferSize = 64;
-        uint8_t buffer[bufferSize];
-        while (configFile.available()) {
-            size_t bytesRead = configFile.read(buffer, bufferSize);
-            response->write(buffer, bytesRead);
+#ifdef HAS_EXT_FLASHER
+        response->print("\"hasFlasher\": \"1\", ");
+#else
+        response->print("\"hasFlasher\": \"0\", ");
+#endif
+        response->print("\"apstate\": \"" + String(apInfo.state) + "\", ");
+
+        File configFile = contentFS->open("/current/apconfig.json", "r");
+        if (configFile) {
+            configFile.seek(1);
+            const size_t bufferSize = 64;
+            uint8_t buffer[bufferSize];
+            while (configFile.available()) {
+                size_t bytesRead = configFile.read(buffer, bufferSize);
+                response->write(buffer, bytesRead);
+            }
+            configFile.close();
+        } else {
+            response->print("}");
         }
-        configFile.close();
+
         request->send(response);
     });
 
@@ -479,15 +520,17 @@ void init_web() {
             aliasValue.toCharArray(config.alias, aliasLength + 1);
             config.alias[aliasLength] = '\0';
         }
+
+
         if (request->hasParam("channel", true)) {
             config.channel = static_cast<uint8_t>(request->getParam("channel", true)->value().toInt());
         }
         if (request->hasParam("led", true)) {
-            config.led = static_cast<int16_t>(request->getParam("led", true)->value().toInt());
+            config.led = static_cast<uint8_t>(request->getParam("led", true)->value().toInt());
             updateBrightnessFromConfig();
         }
         if (request->hasParam("tft", true)) {
-            config.tft = static_cast<int16_t>(request->getParam("tft", true)->value().toInt());
+            config.tft = static_cast<uint8_t>(request->getParam("tft", true)->value().toInt());
             updateBrightnessFromConfig();
         }
         if (request->hasParam("language", true)) {
@@ -663,6 +706,8 @@ void init_web() {
         },
         dotagDBUpload);
 
+    // OTA related calls
+
     server.on("/sysinfo", HTTP_GET, handleSysinfoRequest);
     server.on("/check_file", HTTP_GET, handleCheckFile);
     server.on("/rollback", HTTP_POST, handleRollback);
@@ -676,6 +721,15 @@ void init_web() {
             request->send(200);
         },
         handleLittleFSUpload);
+
+#ifdef HAS_EXT_FLASHER
+
+    // Flasher related calls
+    ws.onEvent([](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+        if (type == WS_EVT_DATA) handleWSdata(data, len, client);
+    });
+
+#endif
 
     server.onNotFound([](AsyncWebServerRequest *request) {
         if (request->url() == "/" || request->url() == "index.htm") {

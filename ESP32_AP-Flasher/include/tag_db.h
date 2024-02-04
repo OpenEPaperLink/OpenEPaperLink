@@ -55,7 +55,7 @@ class tagRecord {
 struct Config {
     uint8_t channel;
     char alias[32];
-    int16_t led;
+    uint8_t led;
     uint8_t tft;
     uint8_t language;
     uint8_t maxsleep;

@@ -8,7 +8,7 @@ bool doAPFlash();
 bool doAPUpdate(uint8_t type);
 void flashCountDown(uint8_t c);
 
-#ifdef OPENEPAPERLINK_PCB
+#ifdef HAS_EXT_FLASHER
 bool extTagConnected();
 bool doTagFlash();
 #endif
@@ -20,6 +20,7 @@ class flasher {
     char md5char[34];
     uint8_t tagtype;
     uint8_t *infoblock = nullptr;
+    bool includeInfoBlock = false;
 
     // Infoblock structure:
     // 0x00-0x0F - Calibration data
@@ -35,7 +36,7 @@ class flasher {
     flasher();
     ~flasher();
     bool connectTag(uint8_t port);
-    void getFirmwareMD5();
+    bool getFirmwareMD5();
     bool getFirmwareMac();
     bool findTagByMD5();
     bool findTagByType(uint8_t type);

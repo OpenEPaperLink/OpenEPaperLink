@@ -10,6 +10,10 @@
 #include "storage.h"
 #include "util.h"
 
+#ifdef HAS_TFT
+#include "ips_display.h"
+#endif
+
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
 
@@ -276,11 +280,22 @@ void rewriteHeader(File &f_out) {
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     long t = millis();
 
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     extern uint8_t YellowSense;
     if (fileout == "direct") {
-        tft.setRotation(YellowSense == 1 ? 1 : 3);
-        spr.pushSprite(0, 0);
+        if (tftOverride == false) {
+            TFT_eSprite spr2 = TFT_eSprite(&tft2);
+            tft2.setRotation(YellowSense == 1 ? 1 : 3);
+            spr2.createSprite(spr.width(), spr.height());
+            spr2.setColorDepth(spr.getColorDepth());
+
+            void *spriteData = spr.getPointer();
+            void *spriteData2 = spr2.getPointer();
+            size_t dataSize = spr.width() * spr.height() * (spr.getColorDepth() / 8);
+            memcpy(spriteData2, spriteData, dataSize);
+
+            spr2.pushSprite(0, 0);
+        }
         return;
     }
 #endif

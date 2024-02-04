@@ -1,14 +1,12 @@
 import os
 import json
 
-version = "0022"  # You can set your desired version here.
+version = "26"  # You can set your desired version here.
 
 types = {
-    0x00: "SOLUM_154_SSD1619-tag-00-" + version + ".bin",
-    0x01: "SOLUM_29_SSD1619-tag-01-" + version + ".bin",
-    0xF0: "Tag_FW_Segmented_UK.bin",
-    0x02: "SOLUM_42_SSD1619-tag-02-" + version + ".bin",
-    0x11: "SOLUM_29_UC8151-tag-11-" + version + ".bin",
+    0x00: "SOL_M2_154_SSD_" + version + ".bin",
+    0x01: "SOL_M2_29_SSD_" + version + ".bin",
+    0x02: "SOL_M2_42_SSD_" + version + ".bin"
 }
 
 binpath = "../binaries/Tag"

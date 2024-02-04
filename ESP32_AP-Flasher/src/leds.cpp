@@ -8,6 +8,7 @@
 #include "leds.h"
 #include "settings.h"
 #include "tag_db.h"
+#include "serialap.h"
 
 QueueHandle_t ledQueue;
 int maxledbrightness = 255;
@@ -58,7 +59,6 @@ void addFadeColor(CRGB cname) {
 }
 
 void shortBlink(CRGB cname) {
-#ifndef YELLOW_IPS_AP
     struct ledInstructionRGB* rgb = new struct ledInstructionRGB;
     rgb->ledColor = CRGB::Black;
     rgb->fadeTime = 0;
@@ -75,7 +75,6 @@ void shortBlink(CRGB cname) {
     rgb->fadeTime = 0;
     rgb->length = 3;
     addToRGBQueue(rgb, false);
-#endif
 }
 
 void flushRGBQueue() {
@@ -90,6 +89,8 @@ void showColorPattern(CRGB colorone, CRGB colortwo, CRGB colorthree) {
     struct ledInstructionRGB* rgb;
     const int patternLengths[] = {600, 120, 200, 120, 200, 120};
     const CRGB patternColors[] = {CRGB::Black, colorone, CRGB::Black, colortwo, CRGB::Black, colorthree};
+
+    while (xQueueReceive(rgbLedQueue, &rgb, 0) == pdPASS) { }
 
     for (int i = 0; i < sizeof(patternLengths) / sizeof(patternLengths[0]); i++) {
         rgb = new struct ledInstructionRGB;
@@ -131,7 +132,7 @@ void rgbIdleStep() {
 
 void setBrightness(int brightness) {
     maxledbrightness = brightness;
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     ledcWrite(6, config.tft);
 #endif
 #ifdef HAS_RGB_LED
@@ -140,14 +141,14 @@ void setBrightness(int brightness) {
 }
 
 void updateBrightnessFromConfig() {
-    if (config.led != 0) {
-        int newbrightness = config.led;
-        if (newbrightness < 0) newbrightness = 0;
-        if (newbrightness != maxledbrightness) {
-            setBrightness(newbrightness);
-        }
+    int newbrightness = config.led;
+    if (newbrightness != maxledbrightness) {
+        setBrightness(newbrightness);
     }
+#ifdef HAS_TFT
     ledcWrite(6, config.tft);
+#endif
+    if (apInfo.state == AP_STATE_NORADIO) addFadeMono(config.led);
 }
 
 void addToMonoQueue(struct ledInstruction* mono) {
@@ -176,7 +177,7 @@ void showMono(uint8_t brightness) {
 void quickBlink(uint8_t repeat) {
     for (int i = 0; i < repeat; i++) {
         struct ledInstruction* mono = new struct ledInstruction;
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
         mono->value = 255;
 #else
         mono->value = maxledbrightness;
@@ -222,7 +223,7 @@ void ledTask(void* parameter) {
     struct ledInstruction* monoled = nullptr;
 
     addFadeMono(0);
-#ifdef YELLOW_IPS_AP
+#ifdef HAS_TFT
     addFadeMono(255);
 #else
     addFadeMono(maxledbrightness);

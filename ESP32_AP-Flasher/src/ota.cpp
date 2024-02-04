@@ -41,12 +41,16 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["psramsize"] = ESP.getPsramSize();
     doc["flashsize"] = ESP.getFlashChipSize();
     doc["rollback"] = Update.canRollBack();
-#if defined YELLOW_IPS_AP || defined C6_OTA_FLASHING
-    doc["C6"] = 1;
+#if defined C6_OTA_FLASHING
+    doc["hasC6"] = 1;
 #else
-    doc["C6"] = 0;
+    doc["hasC6"] = 0;
 #endif
-
+#ifdef HAS_EXT_FLASHER
+    doc["hasFlasher"] = 1;
+#else
+    doc["hasFlasher"] = 0;
+#endif
     const size_t bufferSize = measureJson(doc) + 1;
     AsyncResponseStream* response = request->beginResponseStream("application/json", bufferSize);
     serializeJson(doc, *response);
@@ -266,7 +270,7 @@ void C6firmwareUpdateTask(void* parameter) {
         Serial1.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
         rxSerialStopTask2 = false;
 #ifdef FLASHER_DEBUG_RXD
-        xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, configMAX_PRIORITIES - 4, NULL);
+        xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, 2, NULL);
 #endif
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
@@ -285,7 +289,7 @@ void C6firmwareUpdateTask(void* parameter) {
 }
 
 void handleUpdateC6(AsyncWebServerRequest* request) {
-#if defined YELLOW_IPS_AP || defined C6_OTA_FLASHING
+#if defined C6_OTA_FLASHING
     uint8_t doDownload = 1;
     if (request->hasParam("download", true)) {
         doDownload = atoi(request->getParam("download", true)->value().c_str());
