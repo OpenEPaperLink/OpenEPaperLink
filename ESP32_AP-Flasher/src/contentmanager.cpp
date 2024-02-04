@@ -80,7 +80,7 @@ void contentRunner() {
                 minutesUntilNextUpdate = (nextWakeTime - now) / 60 - 2;
             }
             if (minutesUntilNextUpdate > 1 && (wsClientCount() == 0 || config.stopsleep == 0)) {
-                taginfo->pendingIdle = minutesUntilNextUpdate;
+                taginfo->pendingIdle = minutesUntilNextUpdate * 60;
                 if (taginfo->isExternal == false) {
                     Serial.printf("sleeping for %d more minutes\n", minutesUntilNextUpdate);
                     prepareIdleReq(taginfo->mac, minutesUntilNextUpdate);
@@ -294,6 +294,11 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 } else {
                     wsErr("Error accessing " + filename);
                 }
+            } else {
+                // configfilename is empty. Probably the tag needs to redisplay the image after a reboot.
+                Serial.println("Resend static image");
+                // fixme: doesn't work yet
+                // prepareDataAvail(mac);
             }
             taginfo->nextupdate = 3216153600;
         } break;
@@ -1556,8 +1561,8 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
             spr.fillRect(barX + i * barwidth + 3, 5, barwidth - 6, 10, imageParams.highlightColor);
             spr.fillTriangle(barX + i * barwidth, 15,
                              barX + i * barwidth + barwidth - 1, 15,
-                             barX + i * barwidth + barwidth / 2, 15 + barwidth, imageParams.highlightColor);
-            spr.drawLine(barX + i * barwidth + barwidth / 2, 20 + barwidth, barX + i * barwidth + barwidth / 2, spr.height(), getColor("pink"));
+                             barX + i * barwidth + (barwidth - 1) / 2, 15 + barwidth, imageParams.highlightColor);
+            spr.drawLine(barX + i * barwidth + (barwidth - 1) / 2, 20 + barwidth, barX + i * barwidth + (barwidth - 1) / 2, spr.height(), getColor("pink"));
             pricenow = price;
         }
     }
@@ -1733,27 +1738,27 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
         mac2hex(taginfo->mac, hexmac);
 
         String filename2 = "/temp/" + String(hexmac) + "-2.raw";
-        drawString(spr, cfgobj["button1"].as<String>(), spr.width() / 2, 50, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
-        drawString(spr, "Well done!", spr.width() / 2, 100, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, cfgobj["button1"].as<String>(), spr.width() / 2, 40, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, "Well done!", spr.width() / 2, 90, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
         spr2buffer(spr, filename2, imageParams);
 
         struct imageDataTypeArgStruct arg = {0};
         arg.preloadImage = 1;
         arg.specialType = 17;  // button 2
         arg.lut = 0;
-        prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 0);
+        prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 5 | 0x8000 );
 
         spr.fillRect(0, 0, spr.width(), spr.height(), TFT_WHITE);
 
         filename2 = "/temp/" + String(hexmac) + "-3.raw";
-        drawString(spr, cfgobj["button2"].as<String>(), spr.width() / 2, 50, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
-        drawString(spr, "Well done!", spr.width() / 2, 100, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, cfgobj["button2"].as<String>(), spr.width() / 2, 40, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, "Well done!", spr.width() / 2, 90, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
         spr2buffer(spr, filename2, imageParams);
 
         arg.preloadImage = 1;
         arg.specialType = 16;  // button 1
         arg.lut = 0;
-        prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 0);
+        prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 5 | 0x8000 );
 
         cfgobj["#init"] = "1";
     }
@@ -1767,7 +1772,6 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
     spr.fillTriangle(127, 160, 117, 160, 122, 165, TFT_BLACK);
 
     uint8_t mode = cfgobj["mode"].as<int>();
-    Serial.println("wakeupreason: " + String(taginfo->wakeupReason));
     switch (taginfo->wakeupReason) {
         case WAKEUP_REASON_BUTTON2:
             Serial.println("button 1");
@@ -1775,15 +1779,14 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
             if (mode == 0) {
                 // 1 timestamp
                 cfgobj["last2"] = cfgobj["button1"].as<String>();
-                Serial.println("by " + cfgobj["button1"].as<String>());
             }
             break;
         case WAKEUP_REASON_BUTTON1:
             Serial.println("button 2");
             if (mode == 0) {
                 // 1 timestamp
+                cfgobj["last1"] = now;
                 cfgobj["last2"] = cfgobj["button2"].as<String>();
-                Serial.println("by " + cfgobj["button2"].as<String>());
             } else {
                 cfgobj["last2"] = now;
                 // 2 timestamps
@@ -1800,7 +1803,6 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
     if (timestamp == 0) strcpy(dateString1, "never");
 
     if (mode == 0) {
-        Serial.println("mode0");
         drawString(spr, "last:", 10, 50, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
         drawString(spr, dateString1, spr.width() / 2, 50, "bahnschrift30.vlw", TC_DATUM, TFT_BLACK);
         drawString(spr, cfgobj["last2"].as<String>(), spr.width() / 2, 80, "bahnschrift30.vlw", TC_DATUM, TFT_BLACK);
@@ -1815,8 +1817,6 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
             drawString(spr, dateString1, 50, 115, "calibrib16.vlw", TL_DATUM, timestamp < now ? imageParams.highlightColor : TFT_BLACK);
         }
     } else {
-        Serial.println("mode1");
-
         drawString(spr, cfgobj["button1"].as<String>(), 10, 50, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
         drawString(spr, dateString1, 20, 67, "fonts/bahnschrift20", TL_DATUM, TFT_BLACK);
 

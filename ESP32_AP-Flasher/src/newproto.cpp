@@ -82,8 +82,36 @@ void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin) {
         pending.attemptsLeft = 10 + config.maxsleep;
 
         Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X NOP\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        queueDataAvail(&pending);
+        queueDataAvail(&pending, true);
     }
+}
+
+void prepareDataAvail(const uint8_t* dst) {
+    // resend
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
+    if (taginfo == nullptr) {
+        if (config.lock) return;
+        wsErr("Tag not found, this shouldn't happen.");
+        return;
+    }
+
+    taginfo->pendingCount++;
+    taginfo->pendingIdle = 0;
+
+    struct pendingData pending = {0};
+    memcpy(pending.targetMac, dst, 8);
+    pending.availdatainfo.dataSize = taginfo->len;
+    pending.availdatainfo.dataType = taginfo->dataType;
+    pending.availdatainfo.nextCheckIn = 0;
+    memcpy(&pending.availdatainfo.dataVer, taginfo->md5, sizeof(uint64_t));
+    pending.attemptsLeft = 10;
+
+    queueDataAvail(&pending, !taginfo->isExternal);
+    if (taginfo->isExternal) {
+        udpsync.netSendDataAvail(&pending);
+    }
+
+    wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
 void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8_t* dst) {
@@ -121,22 +149,21 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8
     memcpy(pending.targetMac, dst, 8);
     pending.availdatainfo.dataSize = len;
     pending.availdatainfo.dataType = dataType;
-    pending.availdatainfo.nextCheckIn = 0;
+    pending.availdatainfo.nextCheckIn = 5 | 0x8000;  // 5 seconds
     pending.availdatainfo.dataVer = *((uint64_t*)md5bytes);
     pending.attemptsLeft = 10;
 
+    queueDataAvail(&pending, !taginfo->isExternal);
     if (taginfo->isExternal) {
         udpsync.netSendDataAvail(&pending);
-    } else {
-        queueDataAvail(&pending);
     }
 
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
 bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgument, const uint8_t* dst, uint16_t nextCheckin, bool resend) {
-    if (nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
-    if (wsClientCount() && config.stopsleep == 1) nextCheckin = 0;
+    if ((nextCheckin & 0x8000) == 0 && nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
+    if ((nextCheckin & 0x8000) == 0 && wsClientCount() && (config.stopsleep == 1)) nextCheckin = 0;
 #ifdef HAS_TFT
     if (filename == "direct") {
         char dst_path[64];
@@ -196,7 +223,8 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
 
         time_t now;
         time(&now);
-        taginfo->pendingIdle = nextCheckin * 60 + 60;
+
+        taginfo->pendingIdle = (nextCheckin & 0x8000) ? (nextCheckin & 0x7FFF) + 5 : (nextCheckin * 60) + 60;
         clearPending(taginfo);
     } else {
         wsLog("firmware upload pending");
@@ -216,9 +244,9 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
     pending.availdatainfo.nextCheckIn = nextCheckin;
     pending.attemptsLeft = attempts;
     checkMirror(taginfo, &pending);
+    queueDataAvail(&pending, !taginfo->isExternal);
     if (taginfo->isExternal == false) {
         Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X TYPE 0x%02X\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], pending.availdatainfo.dataType);
-        queueDataAvail(&pending);
     } else {
         udpsync.netSendDataAvail(&pending);
     }
@@ -241,10 +269,12 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 char hexmac[17];
                 mac2hex(pending->targetMac, hexmac);
                 String filename = "/current/" + String(hexmac) + "_" + String(millis() % 1000000) + ".pending";
-                String imageUrl = "http://" + remoteIP.toString() + "/getdata?mac=" + String(hexmac);
-                wsLog("prepareExternalDataAvail GET " + imageUrl);
+                char md5[17];
+                mac2hex(reinterpret_cast<uint8_t*>(&pending->availdatainfo.dataVer), md5);
+                char imageUrl[80];
+                snprintf(imageUrl, sizeof(imageUrl), "http://%s/getdata?mac=%s&md5=%s", remoteIP.toString().c_str(), hexmac, md5);
+                wsLog("prepareExternalDataAvail GET " + String(imageUrl));
                 HTTPClient http;
-                logLine("http prepareExternalDataAvail " + imageUrl);
                 http.begin(imageUrl);
                 int httpCode = http.GET();
                 if (httpCode == 200) {
@@ -254,9 +284,9 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                     file.close();
                     xSemaphoreGive(fsMutex);
                 } else if (httpCode == 404) {
-                    imageUrl = "http://" + remoteIP.toString() + "/current/" + String(hexmac) + ".raw";
+                    snprintf(imageUrl, sizeof(imageUrl), "http://%s/current/%s.raw", remoteIP.toString().c_str(), hexmac);
+                    // imageUrl = "http://" + remoteIP.toString() + "/current/" + String(hexmac) + ".raw";
                     http.end();
-                    logLine("http prepareExternalDataAvail " + imageUrl);
                     http.begin(imageUrl);
                     httpCode = http.GET();
                     if (httpCode == 200) {
@@ -266,6 +296,9 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                         file.close();
                         xSemaphoreGive(fsMutex);
                     }
+                } else {
+                    logLine("prepareExternalDataAvail " + String(imageUrl) + " error " + String(httpCode));
+                    wsLog("error " + String(httpCode));
                 }
                 http.end();
 
@@ -299,10 +332,13 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
             case DATATYPE_CUSTOM_LUT_OTA: {
                 char hexmac[17];
                 mac2hex(pending->targetMac, hexmac);
-                String dataUrl = "http://" + remoteIP.toString() + "/getdata?mac=" + String(hexmac);
-                wsLog("GET " + dataUrl);
+                char dataUrl[80];
+                char md5[17];
+                mac2hex(reinterpret_cast<uint8_t*>(&pending->availdatainfo.dataVer), md5);
+                snprintf(dataUrl, sizeof(dataUrl), "http://%s/getdata?mac=%s&md5=%s", remoteIP.toString().c_str(), hexmac, md5);
+                wsLog("GET " + String(dataUrl));
                 HTTPClient http;
-                logLine("http DATATYPE_CUSTOM_LUT_OTA " + dataUrl);
+                logLine("http DATATYPE_CUSTOM_LUT_OTA " + String(dataUrl));
                 http.begin(dataUrl);
                 int httpCode = http.GET();
                 if (httpCode == 200) {
@@ -325,7 +361,7 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
             }
         }
         checkMirror(taginfo, pending);
-        queueDataAvail(pending);
+        queueDataAvail(pending, !taginfo->isExternal);
 
         wsSendTaginfo(pending->targetMac, SYNC_NOSYNC);
     }
@@ -365,7 +401,6 @@ void processBlockRequest(struct espBlockRequest* br) {
     if (br->blockId >= totalblocks) {
         br->blockId = totalblocks - 1;
     }
-
     uint32_t len = queueItem->len - (BLOCK_DATA_SIZE * br->blockId);
     if (len > BLOCK_DATA_SIZE) len = BLOCK_DATA_SIZE;
     uint16_t checksum = sendBlock(queueItem->data + (br->blockId * BLOCK_DATA_SIZE), len);
@@ -431,7 +466,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     }
 
     // more in the queue?
-    checkQueue(xfc->src);
+    if (local) checkQueue(xfc->src);
 
     wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferComplete(xfc);
@@ -507,7 +542,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         taginfo->expectedNextCheckin = 3216153600;
         taginfo->pendingIdle = 0;
     } else {
-        taginfo->expectedNextCheckin = now + 60 * taginfo->pendingIdle;
+        taginfo->expectedNextCheckin = now + taginfo->pendingIdle;
         taginfo->pendingIdle = 0;
     }
     taginfo->lastseen = now;
@@ -537,7 +572,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         taginfo->temperature = eadr->adr.temperature;
         taginfo->batteryMv = eadr->adr.batteryMv;
         taginfo->hwType = eadr->adr.hwType;
-        taginfo->wakeupReason = eadr->adr.wakeupReason;
+        if (eadr->adr.wakeupReason > 0) taginfo->wakeupReason = eadr->adr.wakeupReason;
         taginfo->capabilities = eadr->adr.capabilities;
         taginfo->currentChannel = eadr->adr.currentChannel;
         taginfo->tagSoftwareVersion = eadr->adr.tagSoftwareVersion;
@@ -618,8 +653,9 @@ bool sendAPSegmentedData(const uint8_t* dst, String data, uint16_t icons, bool i
     pending.attemptsLeft = 120;
     Serial.printf(">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     if (local) {
-        return queueDataAvail(&pending);
+        return queueDataAvail(&pending, true);
     } else {
+        queueDataAvail(&pending, false);
         udpsync.netSendDataAvail(&pending);
         return true;
     }
@@ -636,8 +672,9 @@ bool showAPSegmentedInfo(const uint8_t* dst, bool local) {
     pending.attemptsLeft = 120;
     Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     if (local) {
-        return queueDataAvail(&pending);
+        return queueDataAvail(&pending, true);
     } else {
+        queueDataAvail(&pending, false);
         udpsync.netSendDataAvail(&pending);
         return true;
     }
@@ -663,8 +700,9 @@ bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* 
     }
 
     if (local) {
-        return queueDataAvail(&pending);
+        return queueDataAvail(&pending, true);
     } else {
+        queueDataAvail(&pending, false);
         udpsync.netSendDataAvail(&pending);
         return true;
     }
@@ -755,7 +793,7 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
                 pending2.attemptsLeft = pending->attemptsLeft;
 
                 if (taginfo2->isExternal == false) {
-                    queueDataAvail(&pending2);
+                    queueDataAvail(&pending2, true);
                 } else {
                     char dst_path[64];
                     sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X_%lu.pending", taginfo2->mac[7], taginfo2->mac[6], taginfo2->mac[5], taginfo2->mac[4], taginfo2->mac[3], taginfo2->mac[2], taginfo2->mac[1], taginfo2->mac[0], millis() % 1000000);
@@ -765,6 +803,7 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
                         file.write(taginfo2->data, taginfo2->len);
                         file.close();
                         xSemaphoreGive(fsMutex);
+                        queueDataAvail(&pending2, false);
                         udpsync.netSendDataAvail(&pending2);
                     } else {
                         xSemaphoreGive(fsMutex);
@@ -850,12 +889,12 @@ void checkQueue(const uint8_t* targetMac) {
         if (queueItem == nullptr) {
             return;
         }
-        if (queueCount > 1) queueItem->pendingdata.availdatainfo.nextCheckIn = 0;
+        if (queueCount > 1) queueItem->pendingdata.availdatainfo.nextCheckIn = 5 | 0x8000;
         sendDataAvail(&queueItem->pendingdata);
     }
 }
 
-bool queueDataAvail(struct pendingData* pending) {
+bool queueDataAvail(struct pendingData* pending, bool local) {
     PendingItem newPending;
     newPending.pendingdata.availdatainfo = pending->availdatainfo;
     newPending.pendingdata.attemptsLeft = pending->attemptsLeft;
@@ -882,7 +921,7 @@ bool queueDataAvail(struct pendingData* pending) {
             Serial.println("Reading file " + String(newPending.filename));
             file.close();
         } else {
-            Serial.println("Something's wrong... not found: " + String(newPending.filename));
+            Serial.println("Warning: not found: " + String(newPending.filename));
         }
     }
     newPending.len = taginfo->len;
@@ -891,10 +930,11 @@ bool queueDataAvail(struct pendingData* pending) {
         enqueueItem(newPending);
         // first in line, send to tag
         Serial.printf("queue item added, first in line, total %d elements\n", pendingQueue.size());
-        sendDataAvail(pending);
+        if (local) sendDataAvail(pending);
     } else {
         enqueueItem(newPending);
         Serial.printf("queue item added, total %d elements\n", pendingQueue.size());
+        // to do: notify C6 to shorten the checkin time for the current SDA
     }
 
     return true;

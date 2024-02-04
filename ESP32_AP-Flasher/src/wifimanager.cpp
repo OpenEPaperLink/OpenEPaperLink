@@ -169,7 +169,7 @@ bool WifiManager::connectToWifi(String ssid, String pass, bool savewhensuccessfu
     WiFi.setSleep(WIFI_PS_MIN_MODEM);
 
     terminalLog("Connecting to WiFi...");
-    logLine("Connecting to WiFi...");
+    // logLine("Connecting to WiFi...");
     WiFi.persistent(savewhensuccessfull);
     WiFi.begin(_ssid.c_str(), _pass.c_str());
     _connected = waitForConnection();
@@ -202,7 +202,7 @@ bool WifiManager::waitForConnection() {
     WiFi.persistent(true);
     IPAddress IP = WiFi.localIP();
     terminalLog("Connected!");
-    logLine("Connected!");
+    // logLine("Connected!");
     _nextReconnectCheck = millis() + _reconnectIntervalCheck;
     wifiStatus = CONNECTED;
     return true;

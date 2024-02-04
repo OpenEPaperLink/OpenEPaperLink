@@ -447,7 +447,7 @@ function updatecards() {
 			let nextcheckin = item.dataset.nextcheckin - ((Date.now() / 1000) - servertimediff);
 			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<span>expected checkin</span>" + displayTime(Math.floor(nextcheckin));
 		} else {
-			$('#tag' + tagmac + ' .nextcheckin').innerHTML = "";
+			// $('#tag' + tagmac + ' .nextcheckin').innerHTML = "";
 		}
 	})
 

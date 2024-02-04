@@ -1,7 +1,7 @@
+#include "serialap.h"
+
 #include <Arduino.h>
 #include <HardwareSerial.h>
-
-#include "serialap.h"
 
 #include "commstructs.h"
 #include "contentmanager.h"
@@ -172,9 +172,11 @@ void APTagReset() {
 
 // Send data to the AP
 uint16_t sendBlock(const void* data, const uint16_t len) {
+    time_t timeCanary = millis();
     if (!apInfo.isOnline) return false;
     if (!txStart()) return 0;
-    for (uint8_t attempt = 0; attempt < 5; attempt++) {
+    // don't retry now, as it collides with communication from the tag
+    for (uint8_t attempt = 0; attempt < 1; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
         AP_SERIAL_PORT.print(">D>");
         if (waitCmdReply()) goto blksend;
@@ -190,32 +192,51 @@ blksend:
     bd->checksum = 0;
 
     // calculate checksum
+    const uint8_t* dataBytes = reinterpret_cast<const uint8_t*>(data);
     for (uint16_t c = 0; c < len; c++) {
-        bd->checksum += ((uint8_t*)data)[c];
+        bd->checksum += dataBytes[c];
     }
 
     // send blockData header
-    for (uint8_t c = 0; c < sizeof(struct blockData); c++) {
-        AP_SERIAL_PORT.write(0xAA ^ blockbuffer[c]);
+    dataBytes = reinterpret_cast<const uint8_t*>(&blockbuffer);
+    const size_t bufferSize = sizeof(struct blockData);
+    uint8_t* modifiedHeader = static_cast<uint8_t*>(malloc(bufferSize));
+    if (modifiedHeader != nullptr) {
+        for (size_t i = 0; i < bufferSize; i++) {
+            modifiedHeader[i] = 0xAA ^ dataBytes[i];
+        }
+        AP_SERIAL_PORT.write(modifiedHeader, bufferSize);
+        free(modifiedHeader);
     }
 
     // send an entire block of data
     uint16_t c;
-    for (c = 0; c < len; c++) {
-        AP_SERIAL_PORT.write(0xAA ^ ((uint8_t*)data)[c]);
+    dataBytes = reinterpret_cast<const uint8_t*>(data);
+    uint8_t* modifiedBuffer = static_cast<uint8_t*>(malloc(len));
+    if (modifiedBuffer != nullptr) {
+        for (c = 0; c < len; c++) {
+            modifiedBuffer[c] = 0xAA ^ dataBytes[c];
+        }
+        AP_SERIAL_PORT.write(modifiedBuffer, len);
+        free(modifiedBuffer);
     }
 
     // fill the rest of the block-length filled with something else (will end up as 0xFF in the buffer)
-    for (; c < BLOCK_DATA_SIZE; c++) {
-        AP_SERIAL_PORT.write(0x55);
+    const size_t remainingBytes = BLOCK_DATA_SIZE - c;
+    if (remainingBytes > 0) {
+        uint8_t fillBuffer[remainingBytes];
+        memset(fillBuffer, 0x55, remainingBytes);
+        AP_SERIAL_PORT.write(fillBuffer, remainingBytes);
     }
 
     // dummy bytes in case some bytes were missed, makes sure the AP gets kicked out of data-loading mode
-    for (c = 0; c < 32; c++) {
-        AP_SERIAL_PORT.write(0xF5);
-    }
+    uint8_t dummyBuffer[32];
+    memset(dummyBuffer, 0xF5, 32);
+    AP_SERIAL_PORT.write(dummyBuffer, 32);
+
     if (apInfo.type != ESP32_C6) delay(10);
     txEnd();
+    Serial.println("Sendblock complete, " + String(millis() - timeCanary) + "ms");
     return bd->checksum;
 }
 
@@ -617,7 +638,7 @@ void rxSerialTask2(void* parameter) {
             lastchar = Serial2.read();
             charCount++;
 
-            // debug
+            // debug info
             Serial.write(lastchar);
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
@@ -741,7 +762,6 @@ bool checkRadio() {
 }
 
 void APTask(void* parameter) {
-
     if (!checkRadio()) {
         // no radio
         Serial.println("Working without radio.");
@@ -764,7 +784,7 @@ void APTask(void* parameter) {
 #endif
 #endif
 
-    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 4000, NULL, 10, NULL);
+    xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 6000, NULL, 15, NULL);
     xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, 11, NULL);
 #ifdef FLASHER_DEBUG_RXD
     xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, 2, NULL);
@@ -850,7 +870,7 @@ void APTask(void* parameter) {
 #ifdef HAS_RGB_LED
             showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
 #endif
-            if(apInfo.state != AP_STATE_FLASHING) // In case we are flashing already we do not want to end in a failed AP
+            if (apInfo.state != AP_STATE_FLASHING)  // In case we are flashing already we do not want to end in a failed AP
                 setAPstate(false, AP_STATE_FAILED);
         } else {
 #ifndef C6_OTA_FLASHING
@@ -927,7 +947,7 @@ void APTask(void* parameter) {
 
     uint8_t attempts = 0;
     while (1) {
-        if (((apInfo.state == AP_STATE_ONLINE)||(apInfo.state == AP_STATE_FAILED)) && (millis() - lastAPActivity > AP_ACTIVITY_MAX_INTERVAL)) {
+        if (((apInfo.state == AP_STATE_ONLINE) || (apInfo.state == AP_STATE_FAILED)) && (millis() - lastAPActivity > AP_ACTIVITY_MAX_INTERVAL)) {
             bool reply = sendPing();
             if (!reply) {
                 attempts++;

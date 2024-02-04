@@ -9,6 +9,8 @@
 #include <Preferences.h>
 #include <WiFi.h>
 
+#include <algorithm>
+
 #include "AsyncJson.h"
 #include "LittleFS.h"
 #include "SPIFFSEditor.h"
@@ -284,17 +286,38 @@ void init_web() {
             if (hex2mac(dst, mac)) {
                 tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
-                    if (taginfo->data == nullptr) {
-                        fs::File file = contentFS->open(taginfo->filename);
-                        if (!file) {
-                            request->send(404, "text/plain", "File not found");
+                    if (request->hasParam("md5")) {
+                        uint8_t md5[8];
+                        if (hex2mac(request->getParam("md5")->value(), md5)) {
+                            PendingItem *queueItem = getQueueItem(mac, *reinterpret_cast<uint64_t *>(md5));
+                            if (queueItem->data == nullptr) {
+                                fs::File file = contentFS->open(queueItem->filename);
+                                if (file) {
+                                    queueItem->data = getDataForFile(file);
+                                    Serial.println("Reading file " + String(queueItem->filename));
+                                    file.close();
+                                } else {
+                                    request->send(404, "text/plain", "File not found");
+                                    return;
+                                }
+                            }
+                            request->send_P(200, "application/octet-stream", queueItem->data, queueItem->len);
                             return;
                         }
-                        taginfo->data = getDataForFile(file);
-                        file.close();
+                    } else {
+                        // older version without queue
+                        if (taginfo->data == nullptr) {
+                            fs::File file = contentFS->open(taginfo->filename);
+                            if (!file) {
+                                request->send(404, "text/plain", "File not found");
+                                return;
+                            }
+                            taginfo->data = getDataForFile(file);
+                            file.close();
+                        }
+                        request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
+                        return;
                     }
-                    request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
-                    return;
                 }
             }
         }
