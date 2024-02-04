@@ -15,7 +15,6 @@
 #define TFT_BACKLIGHT 14
 
 TFT_eSPI tft2 = TFT_eSPI();
-int32_t tftid = -1;
 uint8_t YellowSense = 0;
 bool tftLogscreen = true;
 bool tftOverride = false;
@@ -79,7 +78,6 @@ void sendAvail(uint8_t wakeupReason) {
     eadr.adr.tagSoftwareVersion = 0;
     eadr.adr.customMode = 0;
     processDataReq(&eadr, true);
-    if (wakeupReason) tftid = findId(eadr.src);
 }
 
 void yellow_ap_display_init(void) {
@@ -118,8 +116,15 @@ void yellow_ap_display_loop(void) {
         sendAvail(0xFC);
         first_run = 1;
     }
-    if (millis() - last_update >= 1000) {
-        tagRecord* tag = tagDB.at(tftid);
+    if (millis() - last_update >= 3000) {
+        uint8_t wifimac[8];
+        WiFi.macAddress(wifimac);
+        memset(&wifimac[6], 0, 2);
+        tagRecord* tag = tagRecord::findByMAC(wifimac);
+        if (tag == nullptr) {
+            last_update = millis();
+            return;
+        }
         if (tag->pendingCount > 0 && tftOverride == false) {
             String filename = tag->filename;
             fs::File file = contentFS->open(filename);
