@@ -25,7 +25,11 @@
 #define CMD_POWER_ON_MEASURE 0x05
 #define CMD_BOOSTER_SOFT_START 0x06
 #define CMD_DEEP_SLEEP 0x07
+#ifndef BW_SCREEN
 #define CMD_DISPLAY_START_TRANSMISSION_DTM1 0x10
+#else
+#define CMD_DISPLAY_START_TRANSMISSION_DTM1 0x13
+#endif
 #define CMD_DATA_STOP 0x11
 #define CMD_DISPLAY_REFRESH 0x12
 #define CMD_DISPLAY_START_TRANSMISSION_DTM2 0x13
@@ -344,7 +348,7 @@ static void epdDrawDirection(bool direction) {
     if (direction == drawDirection) return;
 
     drawDirection = direction;
-
+#ifndef BW_SCREEN
     uint8_t psr_setting = RES_128x296 | FORMAT_BWR | BOOSTER_ON | RESET_NONE | LUT_OTP | SHIFT_RIGHT;
     if (drawDirection) {
         psr_setting |= SCAN_DOWN;
@@ -352,6 +356,16 @@ static void epdDrawDirection(bool direction) {
         psr_setting |= SCAN_UP;
     }
     shortCommand1(CMD_PANEL_SETTING, psr_setting);
+#else
+    uint8_t psr_setting = RES_128x296 | FORMAT_BW | BOOSTER_ON | RESET_NONE | LUT_OTP | SHIFT_RIGHT;
+    if (drawDirection) {
+        psr_setting |= SCAN_DOWN;
+    } else {
+        psr_setting |= SCAN_UP;
+    }
+    shortCommand2(CMD_PANEL_SETTING, psr_setting, 0b00001011);
+#endif
+
 }
 
 void epdSetup() {
@@ -359,7 +373,7 @@ void epdSetup() {
 
     drawDirection = false;
     epdDrawDirection(true);
-
+#ifndef BW_SCREEN
     commandBegin(CMD_POWER_SETTING);
     epdSend(VDS_INTERNAL | VDG_INTERNAL);
     epdSend(VCOM_VD | VGHL_16V);
@@ -367,9 +381,13 @@ void epdSetup() {
     epdSend(0b101011);
     epdSend(0b101011);
     commandEnd();
+#else
+    commandBegin(CMD_POWER_SETTING);
+    epdSend(VDS_INTERNAL | VDG_INTERNAL);
+    epdSend(VCOM_VD | VGHL_15V);
+    commandEnd();
+#endif
 
-    shortCommand(CMD_POWER_ON);
-    epdWaitRdy();
 
     commandBegin(CMD_BOOSTER_SOFT_START);
     epdSend(START_10MS | STRENGTH_3 | OFF_6_58US);
@@ -377,16 +395,23 @@ void epdSetup() {
     epdSend(START_10MS | STRENGTH_3 | OFF_6_58US);
     commandEnd();
 
+    shortCommand(CMD_POWER_ON);
+    epdWaitRdy();
+    
+  
     commandBegin(CMD_RESOLUTION_SETING);
     epdSend(SCREEN_WIDTH);
     epdSend(SCREEN_HEIGHT >> 8);
     epdSend(SCREEN_HEIGHT & 0xFF);
     commandEnd();
-
     shortCommand1(CMD_POWER_OFF_SEQUENCE, FRAMES_1);
     shortCommand1(CMD_TEMPERATURE_SELECT, TEMP_INTERNAL | OFFSET_0);
     shortCommand1(CMD_TCON_SETTING, 0x22);
+#ifndef BW_SCREEN
     shortCommand1(CMD_VCOM_INTERVAL, 0x8d);  // 0x87
+#else
+    shortCommand1(CMD_VCOM_INTERVAL, 0x4d);  // 0x87
+#endif
     shortCommand1(CMD_PLL_CONTROL, HZ_200);
     epdWaitRdy();
     shortCommand(CMD_POWER_ON);
@@ -493,6 +518,7 @@ void beginFullscreenImage() {
     // setPosXY(0, 0);
 }
 void beginWriteFramebuffer(bool color) {
+
     if (color == EPD_COLOR_RED) {
         commandBegin(CMD_DISPLAY_START_TRANSMISSION_DTM2);
     } else {
@@ -505,7 +531,7 @@ void endWriteFramebuffer() {
 }
 
 void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color) __reentrant {
-    // this function is very badly hurt by the switch to UC8151, taking up LOTS of valuable idata space. Only defining variables
+   // this function is very badly hurt by the switch to UC8151, taking up LOTS of valuable idata space. Only defining variables
     // as static, or the function as reentrant (relegating variables to the stack) seemed to fix the idata issue. Fix me, or put me out of my misery...
 
     uint16_t xsize = bmp[0] / 8;
@@ -513,7 +539,7 @@ void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color) __reentrant
     uint16_t ysize = bmp[1];
     uint16_t size = xsize * bmp[1];
 
-    // shortCommand1(CMD_DATA_ENTRY_MODE, 3);
+    //shortCommand1(CMD_DATA_ENTRY_MODE, 3);
 
     bmp += 2;
 
@@ -530,7 +556,7 @@ void loadRawBitmap(uint8_t* bmp, uint16_t x, uint16_t y, bool color) __reentrant
             curY++;
             if (color) {
                 commandBegin(CMD_DISPLAY_START_TRANSMISSION_DTM2);
-            } else {
+         } else {
                 commandBegin(CMD_DISPLAY_START_TRANSMISSION_DTM1);
             }
         }
@@ -726,7 +752,6 @@ void epdPrintBegin(uint16_t x, uint16_t y, bool direction, bool fontsize, bool c
         //  shortCommand1(CMD_DATA_ENTRY_MODE, 7);
         memset(rbuffer, 0, 32);
     }
-
     if (color) {
         commandBegin(CMD_DISPLAY_START_TRANSMISSION_DTM2);
     } else {
