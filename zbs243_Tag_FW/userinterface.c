@@ -1,5 +1,4 @@
 
-
 #include "userinterface.h"
 
 #include <stdbool.h>
@@ -80,16 +79,17 @@ void addOverlay() {
 #ifdef ISDEBUGBUILD
 #if (SCREEN_WIDTH == 152) || (SCREEN_WIDTH == 176) || (SCREEN_WIDTH == 200)
     epdPrintBegin(139, 151, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    epdpr("DEBUG");
+    epdPrintEnd();
 #elif (SCREEN_WIDTH == 400)
     epdPrintBegin(87, 0, EPD_DIRECTION_Y, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    epdpr("DEBUG");
+    epdPrintEnd();
 #elif (SCREEN_WIDTH == 128)
-    epdPrintBegin(87, 0, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
+    loadRawBitmap(debugbuild, 100, 2, EPD_COLOR_RED);
 #elif (SCREEN_WIDTH == 176)
     loadRawBitmap(debugbuild, 144, 2, EPD_COLOR_RED);
-    // epdPrintBegin(130, 1, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_RED);
 #endif
-    //  epdpr("DEBUG");
-    //  epdPrintEnd();
 #endif
 }
 
@@ -292,8 +292,10 @@ void showSplashScreen() {
     spr(buffer + 12, "%02X%02X", mSelfMac[1], mSelfMac[0]);
     printBarcode(buffer, 120, 284);
 #ifndef LEAN_VERSION
-    loadRawBitmap(oepli, 0, 12, EPD_COLOR_BLACK);
+   
     loadRawBitmap(cloud, 0, 0, EPD_COLOR_RED);
+    loadRawBitmap(oepli, 0, 12, EPD_COLOR_BLACK);
+    
 #endif
 #endif
 
