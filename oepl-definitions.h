@@ -55,6 +55,20 @@
 #define HS_NEBULAR_BWR_35 0x61
 #define HS_NEBULAR_BW_35 0x62
 
+// Gicisky / PICKSMART BLE Types
+#define GICI_BLE_EPD_21_BW 0xB0
+#define GICI_BLE_EPD_21_BWR 0xB1
+#define GICI_BLE_EPD_29_BW 0xB2
+#define GICI_BLE_EPD_29_BWR 0xB3
+#define GICI_BLE_EPD_29_BWR1 0xB3
+#define GICI_BLE_EPD_BW_42 0xB4
+#define GICI_BLE_EPD_BWR_42 0xB5
+#define GICI_BLE_TFT_BW_42 0xB6
+#define GICI_BLE_TFT_BWR_42 0xB7
+#define GICI_BLE_EPD_BW_74 0xB8
+#define GICI_BLE_EPD_BWR_74 0xB9
+#define GICI_BLE_UNKNOWN 0xBF
+
 // Solum types - customer data byte 16 in M3 (nRF) UICR
 #define STYPE_SIZE_016 0x40
 #define STYPE_SIZE_022 0x41

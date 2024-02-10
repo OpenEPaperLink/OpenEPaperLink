@@ -26,6 +26,7 @@
 #include "udp.h"
 #include "util.h"
 #include "web.h"
+#include "ble_writer.h"
 
 util::Timer intervalContentRunner(seconds(1));
 util::Timer intervalSysinfo(seconds(5));
@@ -133,6 +134,10 @@ void setup() {
     }
     xTaskCreate(APTask, "AP Process", 6000, NULL, 5, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
+
+#ifdef HAS_BLE_WRITER
+    xTaskCreate(BLETask, "BLE Writer", 12000, NULL, 5, NULL);
+#endif
 
 #ifdef HAS_USB
     // We'll need to start the 'usbflasher' task for boards with a second (USB) port. This can be used as a 'flasher' interface, using a python script on the host
