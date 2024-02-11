@@ -49,9 +49,8 @@
 
 // M3 Tags overflow
 #define SOLUM_M3_BW_29 0x40
-#define SOLUM_M3_BWR_26 0x41
-#define SOLUM_M3_BWR_58 0x42
-#define SOLUM_M3_BW_58 0x43
+#define SOLUM_M3_BWR_58 0x41
+#define SOLUM_M3_BW_58 0x42
 
 // Hanshow Nebular types
 #define HS_NEBULAR_BWY_35 0x60
