@@ -46,7 +46,7 @@ void addOverlay() {
     } else {
         lowBatteryShown = false;
     }
-#ifdef DEBUGBLOCKS
+#ifdef DEBUG_BUILD
     fontrender fr(&FreeSansBold18pt7b);
     drawMask(15, epd->Yres - 53, 129, 33, COLOR_BLACK);
     drawMask(15, epd->Yres - 53, 129, 33, COLOR_RED);

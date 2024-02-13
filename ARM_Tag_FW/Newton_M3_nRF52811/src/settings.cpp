@@ -20,8 +20,6 @@
 #define SETTINGS_MAGIC 0xABBA5AA5
 
 struct tagsettings __xdata tagSettings = {0};
-extern uint8_t __xdata blockbuffer[];
-uint8_t* __xdata settingsTempBuffer = 1024 + blockbuffer;
 
 void loadDefaultSettings() {
     tagSettings.settingsVer = SETTINGS_STRUCT_VERSION;
@@ -57,6 +55,7 @@ static void upgradeSettings() {
 }
 
 void loadSettings() {
+    uint8_t settingsTempBuffer[sizeof(struct tagsettings)];
     eepromRead(EEPROM_SETTINGS_AREA_START+4, (void*)settingsTempBuffer, sizeof(struct tagsettings));
     memcpy((void*)&tagSettings, (void*)settingsTempBuffer, sizeof(struct tagsettings));
     uint32_t valid = 0;

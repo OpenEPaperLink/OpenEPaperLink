@@ -1,3 +1,6 @@
 [submodule "ARM_Tag_FW/common/uzlib"]
 	path = ARM_Tag_FW/common/uzlib
 	url = https://github.com/pfalcon/uzlib.git
+[submodule "ARM_Tag_FW/common/QRCode"]
+	path = ARM_Tag_FW/common/QRCode
+	url = https://github.com/ricmoo/QRCode

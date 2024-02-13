@@ -197,27 +197,38 @@ void uc8159::selectLUT(uint8_t lut) {
 }
 
 void uc8159::epdWriteDisplayData() {
-    uint8_t screenrow_bw[epd->effectiveXRes / 8];
-    uint8_t screenrow_r[epd->effectiveXRes / 8];
-    uint8_t screenrowInterleaved[epd->effectiveXRes / 8 * 4];
+    uint8_t blocksize = 16;
+    uint16_t byteWidth = this->effectiveXRes / 8;
+    uint8_t screenrow_bw[byteWidth * blocksize];
+    uint8_t screenrow_r[byteWidth * blocksize];
+    uint8_t screenrowInterleaved[byteWidth * 4];
 
     epd_cmd(CMD_DISPLAY_START_TRANSMISSION_DTM1);
     markData();
     epdSelect();
-    for (uint16_t curY = 0; curY < epd->effectiveYRes; curY++) {
-        memset(screenrow_bw, 0, epd->effectiveXRes / 8);
-        memset(screenrow_r, 0, epd->effectiveXRes / 8);
-        drawItem::renderDrawLine(screenrow_bw, curY, 0);
-        drawItem::renderDrawLine(screenrow_r, curY, 1);
-        if (curY != 0) {
+
+    for (uint16_t curY = 0; curY < this->effectiveYRes; curY += blocksize) {  //
+        wdt30s();
+        memset(screenrow_bw, 0, byteWidth * blocksize);
+        memset(screenrow_r, 0, byteWidth * blocksize);
+
+        for (uint8_t bcount = 0; bcount < blocksize; bcount++) {
+            drawItem::renderDrawLine(screenrow_bw + (byteWidth * bcount), curY + bcount, 0);
+        }
+        for (uint8_t bcount = 0; bcount < blocksize; bcount++) {
+            drawItem::renderDrawLine(screenrow_r + (byteWidth * bcount), curY + bcount, 1);
+        }
+
+        for (uint8_t bcount = 0; bcount < blocksize; bcount++) {
+            for (uint16_t curX = 0; curX < (byteWidth); curX++) {
+                interleaveColorToBuffer(screenrowInterleaved + (curX * 4), screenrow_bw[curX + (byteWidth * bcount)], screenrow_r[curX + (byteWidth * bcount)]);
+            }
+
+            epdSPIAsyncWrite(screenrowInterleaved, byteWidth * 4);
             epdSPIWait();
             epdDeselect();
             epdSelect();
         }
-        for (uint16_t curX = 0; curX < (epd->effectiveXRes / 8); curX++) {
-            interleaveColorToBuffer(screenrowInterleaved + (curX * 4), screenrow_bw[curX], screenrow_r[curX]);
-        }
-        epdSPIAsyncWrite(screenrowInterleaved, epd->effectiveXRes / 8 * 4);
     }
     epdSPIWait();
 
@@ -230,7 +241,7 @@ void uc8159::epdWriteDisplayData() {
 void uc8159::draw() {
     delay(1);
     drawNoWait();
-    epdBusyWaitRising(25000);
+    epdBusyWaitRising(30000);
 }
 void uc8159::drawNoWait() {
     epdWriteDisplayData();
@@ -238,5 +249,5 @@ void uc8159::drawNoWait() {
     epdWrite(CMD_DISPLAY_REFRESH, 0);
 }
 void uc8159::epdWaitRdy() {
-    epdBusyWaitRising(25000);
+    epdBusyWaitRising(30000);
 }

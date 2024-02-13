@@ -1,4 +1,4 @@
-#include <vector>
+// #include <vector>
 
 std::vector<decompress *> decompContexts;
 
@@ -16,7 +16,7 @@ int decompCallback(TINF_DATA *d) {
                 return dec->getNextCompressedBlockFromFlash();
         }
     }
-    printf("Couldn't find callback...\n");
+    printf("FS: Couldn't find callback...\n");
     return -1;
 }
 
@@ -33,7 +33,7 @@ bool decompress::readHeader() {
     // read the window size from the zlib header
     int res = uzlib_zlib_parse_header(this->ctx);
     if (res < 0) {
-            printf("FS: Invalid zlib header\n");
+        printf("FS: Invalid zlib header\n");
         return false;
     }
 
@@ -45,11 +45,14 @@ bool decompress::readHeader() {
         printf("FS: Asked to decompress a file with a specified window size of %d, I don't see that happening\n", window);
         return false;
     } else {
-        // printf("FS: Opened compressed file with dictionary size %d\n", window);
+        //printf("FS: Opened compressed file with dictionary size %d\n", window);
     }
+
+    window = 8192;
 
     // allocate dict/window if not already allocated
     if (!this->dictionary) this->dictionary = (uint8_t *)malloc(window);
+    if (!this->dictionary) printf("FS: window malloc failed\n");
 
     uzlib_uncompress_init(this->ctx, this->dictionary, window);
     return true;
@@ -134,28 +137,30 @@ uint32_t decompress::getBlock(uint32_t address, uint8_t *target, uint32_t len) {
         this->ctx->source = this->compBuffer;
         compressedPos = 0;
         decompressedPos = 0;
+#ifdef ENABLE_OEPLFS
         if (this->fromFile)
             this->getNextCompressedBlockFromFile();
         else
+#endif
             this->getNextCompressedBlockFromFlash();
         this->ctx->source = this->compBuffer;
         this->readHeader();
     }
 
     // skip to the next part of the output stream
-    uint8_t *temp = nullptr;
-    if (address != decompressedPos) temp = (uint8_t *)malloc(ZLIB_CACHE_SIZE);
-    while (this->decompressedPos < address) {
-        uint32_t readBytes = address - decompressedPos;
-        if (readBytes > ZLIB_CACHE_SIZE) readBytes = ZLIB_CACHE_SIZE;
-        decompressedPos += readBytes;
-        this->ctx->dest = temp;
-        ctx->dest_start = ctx->dest;
-        ctx->dest_limit = ctx->dest + readBytes;
-        uzlib_uncompress(ctx);
-    }
-    if (temp) free(temp);
 
+    if (address != decompressedPos) {
+        uint8_t temp[ZLIB_CACHE_SIZE];
+        while (this->decompressedPos < address) {
+            uint32_t readBytes = address - decompressedPos;
+            if (readBytes > ZLIB_CACHE_SIZE) readBytes = ZLIB_CACHE_SIZE;
+            decompressedPos += readBytes;
+            this->ctx->dest = temp;
+            ctx->dest_start = ctx->dest;
+            ctx->dest_limit = ctx->dest + readBytes;
+            uzlib_uncompress(ctx);
+        }
+    }
     uint32_t bytesLeft = this->decompressedSize - this->decompressedPos;
     if (len > bytesLeft) len = bytesLeft;
 
