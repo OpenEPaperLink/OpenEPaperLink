@@ -1,0 +1,3 @@
+[submodule "mbed-core"]
+	path = mbed-core
+	url = https://github.com/platformio/builder-framework-arduino-core-mbed.git

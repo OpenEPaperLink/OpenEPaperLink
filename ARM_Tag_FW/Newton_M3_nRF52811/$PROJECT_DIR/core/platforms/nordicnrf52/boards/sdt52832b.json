@@ -1,0 +1,37 @@
+{
+  "build": {
+    "arduino":{
+      "ldscript": "nrf52_xxaa.ld"
+    },
+    "cpu": "cortex-m4",
+    "extra_flags": "-DARDUINO_NRF52_DK",
+    "f_cpu": "64000000L",
+    "mcu": "nrf52832"
+  },
+  "connectivity": [
+    "bluetooth"
+  ],
+  "debug": {
+    "jlink_device": "nRF52832_xxAA",
+    "svd_path": "nrf52.svd"
+  },
+  "frameworks": [
+    "mbed"
+  ],
+  "name": "SDT52832B",
+  "upload": {
+    "maximum_ram_size": 65536,
+    "maximum_size": 524288,
+    "protocol": "mbed",
+    "protocols": [
+      "jlink",
+      "nrfjprog",
+      "stlink",
+      "blackmagic",
+      "cmsis-dap",
+      "mbed"
+    ]
+  },
+  "url": "https://os.mbed.com/platforms/SDT52832B/",
+  "vendor": "Sigma Delta Technologies"
+}

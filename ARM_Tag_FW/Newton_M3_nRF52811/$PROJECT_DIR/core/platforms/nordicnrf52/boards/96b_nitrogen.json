@@ -1,0 +1,31 @@
+{
+  "build": {
+    "cpu": "cortex-m4",
+    "f_cpu": "64000000L",
+    "mcu": "nrf52832"
+  },
+  "connectivity": [
+    "bluetooth"
+  ],
+  "debug": {
+    "jlink_device": "nRF52832_xxAA",
+    "svd_path": "nrf52.svd"
+  },
+  "frameworks": [
+    "zephyr"
+  ],
+  "name": "96Boards Nitrogen",
+  "upload": {
+    "maximum_ram_size": 65536,
+    "maximum_size": 524288,
+    "protocol": "jlink",
+    "protocols": [
+      "jlink",
+      "nrfjprog",
+      "stlink",
+      "blackmagic"
+    ]
+  },
+  "url": "https://www.96boards.org/product/nitrogen/",
+  "vendor": "96Boards"
+}
