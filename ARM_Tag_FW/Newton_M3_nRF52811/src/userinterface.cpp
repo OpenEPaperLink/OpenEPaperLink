@@ -115,10 +115,20 @@ void showSplashScreen() {
             fr.setFont(&FreeSansBold18pt7b);
             fr.epdPrintf(2, 2, COLOR_BLACK, rotation::ROTATE_0, "OpenEPaperLink");
             fr.setFont(&FreeSans9pt7b);
-            fr.epdPrintf(10, 38, 1, rotation::ROTATE_0, "Newton M3 5.85\"");
+            fr.epdPrintf(10, 38, COLOR_RED, rotation::ROTATE_0, "Newton M3 5.85\"");
             fr.setFont(&FreeSans9pt7b);
             fr.epdPrintf(epd->Xres - 17, 0, 0, rotation::ROTATE_270, "FW: %04X-%s", fwVersion, fwVersionSuffix);
             fr.epdPrintf(5, epd->Yres - 20, 0, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+            addQR(epd->Xres - 120, 42, 3, 3, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", tag.OEPLtype, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+            break;
+        case STYPE_SIZE_058_FREEZER:
+            fr.setFont(&FreeSansBold18pt7b);
+            fr.epdPrintf(2, 2, COLOR_BLACK, rotation::ROTATE_0, "OpenEPaperLink");
+            fr.setFont(&FreeSans9pt7b);
+            fr.epdPrintf(10, 38, COLOR_BLACK, rotation::ROTATE_0, "Newton M3 5.85\" Freezer");
+            fr.setFont(&FreeSans9pt7b);
+            fr.epdPrintf(epd->Xres - 17, 0, COLOR_BLACK, rotation::ROTATE_270, "FW: %04X-%s", fwVersion, fwVersionSuffix);
+            fr.epdPrintf(5, epd->Yres - 20, COLOR_BLACK, rotation::ROTATE_0, "MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
             addQR(epd->Xres - 120, 42, 3, 3, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", tag.OEPLtype, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
             break;
         case STYPE_SIZE_060:

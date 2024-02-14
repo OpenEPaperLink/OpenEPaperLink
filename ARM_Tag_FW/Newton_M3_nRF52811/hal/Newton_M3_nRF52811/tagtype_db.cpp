@@ -36,7 +36,9 @@ void identifyTagInfo() {
     CA FE BA DE 15 0B 12 04 00 10 01 E0 01 20 03 39 00 03 81 9D 00 00 4C FF FF FF FF FF FF FF FF FF		7.4 UC8179
     F3 22 BC 05 15 0A 0D 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 SSD
     AD BA FE CA 15 0A 1B 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 type 2
-    22 F0 BF 05 15 0A 14 04 00 12 00 18 03 10 01 04 07 07 01 80 00 00 24 FF FF FF FF FF FF FF FF FF     5.85
+    92 C3 80 05 15 08 19 04 00 12 01 18 03 10 01 04 07 07 01 80 00 00 63 FF FF FF FF FF FF FF FF FF     5.85 BWR
+    22 F0 BF 05 15 0A 14 04 00 12 00 18 03 10 01 04 07 07 01 80 00 00 24 FF FF FF FF FF FF FF FF FF     5.85 BW
+
 
 
             MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
@@ -51,7 +53,7 @@ void identifyTagInfo() {
             0x12 - SSD (var1.6)
             0x15 - SSD (2.9 lite)
             0x19 - SSD (9.7)
-
+    0x0A -  Have third color?
     0x12 -  0x01 | (0x80 if it has a button)
     0x13 -  0x80 | (0x10 if it has a LED) | (0x0C ?? ) | (0x01 if it has a button)
     */
@@ -66,6 +68,10 @@ void identifyTagInfo() {
     capabilities[0] = getUICRByte(0x12);
     capabilities[1] = getUICRByte(0x13);
     tag.solumType = getUICRByte(0x16);
+
+    if(getUICRByte(0x0A) == 0x01){
+        tag.hasThirdColor = true;
+    }
 
     switch (controllerType) {
         case 0x0F:
@@ -125,7 +131,11 @@ void identifyTagInfo() {
     }else{
         printf("This tag have NFC: No\n"); 
     }
-
+    if(tag.hasThirdColor){
+        printf("This tag is Black and white only: No\n");
+    }else{
+        printf("This tag is Black and white only: Yes\n"); 
+    }
 
     // we'll calculate image slot size here
     uint32_t imageSize = epd->Xres * epd->Yres / 4;
@@ -170,6 +180,11 @@ void identifyTagInfo() {
             tag.macSuffix = 0xE3D0;
             epd->epdMirrorV = true;
             tag.OEPLtype = SOLUM_M3_BWR_58;
+            break;
+        case STYPE_SIZE_058_FREEZER:
+            tag.macSuffix = 0x84D0;
+            epd->epdMirrorV = true;
+            tag.OEPLtype = SOLUM_M3_BW_58;
             break;
         case STYPE_SIZE_060:
             tag.macSuffix = 0xB890;

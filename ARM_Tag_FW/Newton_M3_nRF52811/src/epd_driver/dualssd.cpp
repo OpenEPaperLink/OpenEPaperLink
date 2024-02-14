@@ -69,20 +69,6 @@ void dualssd::epdSetup() {
         case 0x0F:
         case 0x12:
         case 0x15:
-            // stock init 1.6"
-            /*epdWrite(CMD_DRV_OUTPUT_CTRL, 3, this->effectiveYRes & 0xFF, this->effectiveYRes >> 8, 0x00);
-            epdWrite(CMD_DATA_ENTRY_MODE, 1, 0x01);
-            epdWrite(CMD_WINDOW_X_SIZE, 2, this->XOffset / 8, ((this->XOffset + this->effectiveXRes) / 8) - 1);
-            epdWrite(CMD_WINDOW_Y_SIZE, 4, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8, this->YOffset & 0xFF, this->YOffset >> 8);
-            
-            epdWrite(CMD_BORDER_WAVEFORM_CTRL, 1, 0x05);
-            epdWrite(CMD_TEMP_SENSOR_CONTROL, 1, 0x80);
-            */
-            // end stock init
-            // added
-            //epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x08, 0x00);  // fix reversed image with stock setup
-
-
             /* 5.85 INIT SEQUENCE
             0x11, 0x00
             0x91, 0x01
@@ -113,7 +99,11 @@ void dualssd::epdSetup() {
 
             epdWrite(0x11, 1, 0x00);
             epdWrite(0x91, 1, 0x01);
-            epdWrite(0x21, 2, 0x08, 0x10);
+            if(tag.hasThirdColor){
+                epdWrite(0x21, 2, 0x08, 0x10);
+            }else{
+                epdWrite(0x21, 2, 0x48, 0x10);
+            }
             //epdWrite(CMD_WINDOW_X_SIZE, 2, this->XOffset / 8, ((this->XOffset + this->effectiveXRes) / 8) - 1);
             //epdWrite(CMD_WINDOW_Y_SIZE, 4, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8, this->YOffset & 0xFF, this->YOffset >> 8);
             epdWrite(0x44, 2, 0x31, 0x00);
@@ -126,28 +116,7 @@ void dualssd::epdSetup() {
             epdWrite(0xC5, 4, 0x0F, 0x01, 0x00, 0x00);
             epdWrite(0xCE, 1, 0x00);
             epdWrite(0xCF, 4, 0x0F, 0x01, 0x3C, 0x01);
-            
-            //epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x08, 0x00);  // fix reversed image with stock setup
-
-
-            break;
-        case 0x19:
-            // stock init 9.7"
-            epdWrite(0x46, 1, 0xF7);
-            delay(15);
-            epdWrite(0x47, 1, 0xF7);
-            delay(15);
-            epdWrite(0x0C, 5, 0xAE, 0xC7, 0xC3, 0xC0, 0x80);
-            epdWrite(0x01, 3, 0x9F, 0x02, 0x00);
-            epdWrite(0x11, 1, 0x02);
-            epdWrite(0x44, 4, 0xBF, 0x03, 0x00, 0x00);
-            epdWrite(0x45, 4, 0x00, 0x00, 0x9F, 0x02);
             epdWrite(0x3C, 1, 0x01);
-            epdWrite(0x18, 1, 0x80);
-            epdWrite(0x22, 1, 0xF7);
-            // end stock init
-            // added
-            //epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x08, 0x00);  // fix reversed image with stock setup
             break;
     }
 }
@@ -156,12 +125,16 @@ void dualssd::epdWriteDisplayData() {
    
     uint8_t *buf[2] = {0, 0};  // this will hold pointers to odd/even data lines
     // Those dual SSD controller (SSD1683??) behave as 2 400pxx wide screens, that needs independent data transfers.
-    for (uint8_t c = 0; c < 4; c++) {
+    uint8_t c_increment = 1;
+    if(!tag.hasThirdColor){
+        c_increment = 2;
+    }
+    for (uint8_t c = 0; c < 4; c = c + c_increment) {
         delay(10);
-        if (c == 0) epd_cmd(0x24);//RED
-        if (c == 1) epd_cmd(0x26);//BW
-        if (c == 2) epd_cmd(0xA4);//Red 2
-        if (c == 3) epd_cmd(0xA6);//BW 2
+        if (c == 0) epd_cmd(0x24);//BW
+        if (c == 1) epd_cmd(0x26);//RED
+        if (c == 2) epd_cmd(0xA4);//BW
+        if (c == 3) epd_cmd(0xA6);//RED
 
         delay(10);
         markData();
@@ -239,7 +212,11 @@ void dualssd::draw() {
 }
 void dualssd::drawNoWait() {
     epdWriteDisplayData();
-    epdWrite(CMD_DISP_UPDATE_CTRL2, 1, 0xF7);
+    if(tag.hasThirdColor){
+        epdWrite(CMD_DISP_UPDATE_CTRL2, 1, 0xF7);
+    }else{
+        //epdWrite(CMD_DISP_UPDATE_CTRL2, 1, 0xF7);
+    }
     epdWrite(CMD_ACTIVATION, 0);
 }
 void dualssd::epdWaitRdy() {
