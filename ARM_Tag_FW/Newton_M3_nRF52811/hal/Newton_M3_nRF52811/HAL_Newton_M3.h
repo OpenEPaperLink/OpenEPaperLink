@@ -105,6 +105,7 @@ struct tagSpecs {
     uint8_t buttonCount = 0;
     bool hasNFC = false;
     bool hasLED = false;
+    bool hasSecondColor = true;
     uint16_t macSuffix = 0x0000;
     uint8_t OEPLtype = 0;
     uint8_t solumType = 0;

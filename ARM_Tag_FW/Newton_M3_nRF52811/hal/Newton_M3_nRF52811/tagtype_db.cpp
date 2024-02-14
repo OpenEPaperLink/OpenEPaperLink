@@ -36,6 +36,8 @@ void identifyTagInfo() {
     CA FE BA DE 15 0B 12 04 00 10 01 E0 01 20 03 39 00 03 81 9D 00 00 4C FF FF FF FF FF FF FF FF FF		7.4 UC8179
     F3 22 BC 05 15 0A 0D 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 SSD
     AD BA FE CA 15 0A 1B 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 type 2
+    22 F0 BF 05 15 0A 14 04 00 12 00 18 03 10 01 04 07 07 01 80 00 00 24 FF FF FF FF FF FF FF FF FF     5.85
+    
 
             MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
 
@@ -70,8 +72,12 @@ void identifyTagInfo() {
         case 0x12:
         case 0x15:
         case 0x19:
-            epd = new unissd;
-            break;
+            if(epdXRes == 792 && epdYRes == 272){
+                epd = new dualssd;
+            }else{
+                epd = new unissd;
+            }
+              break;
         case 0x0D:
             epd = new epdvar29;
             break;
@@ -105,6 +111,21 @@ void identifyTagInfo() {
     if (capabilities[1] & 0x01) tag.buttonCount++;
     if (capabilities[1] & 0x10) tag.hasLED = true;
     if (capabilities[0] & 0x01) tag.hasNFC = true;
+    
+    printf("TagType report:\n");
+    printf("Resolution: %d*%d Px\n", epd->Xres,epd->Yres);
+    printf("Nb of buttons: %d\n", tag.buttonCount);
+    if(tag.hasLED){
+        printf("This tag have a led: Yes\n");
+    }else{
+        printf("This tag have a led: No\n"); 
+    }
+    if(tag.hasNFC){
+        printf("This tag have a led: Yes\n");
+    }else{
+        printf("This tag have a led: No\n"); 
+    }
+
 
     // we'll calculate image slot size here
     uint32_t imageSize = epd->Xres * epd->Yres / 4;
@@ -144,6 +165,11 @@ void identifyTagInfo() {
             epd->drawDirectionRight = true;
             //            epd->mirrorH = true;
             tag.OEPLtype = SOLUM_M3_BWR_43;
+            break;
+        case STYPE_SIZE_058:
+            tag.macSuffix = 0xE3D0;
+            epd->epdMirrorV = true;
+            tag.OEPLtype = SOLUM_M3_BWR_58;
             break;
         case STYPE_SIZE_060:
             tag.macSuffix = 0xB890;

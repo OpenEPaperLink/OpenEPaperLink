@@ -38,14 +38,18 @@
 #define SOLUM_M3_BWY_26 0x3A
 #define SOLUM_M3_BWR_29 0x33	// the 'standard' SSD1619 version
 #define SOLUM_M3_BWY_29 0x3B
+#define SOLUM_M3_BW_29 0x40
 #define SOLUM_M3_BWR_42 0x34
 #define SOLUM_M3_BWY_42 0x3C
+#define SOLUM_M3_BWR_58 0x41
+#define SOLUM_M3_BW_58 0x42
 #define SOLUM_M3_BWR_60 0x35
 #define SOLUM_M3_BWY_60 0x3D
 #define SOLUM_M3_BWR_75 0x36
 #define SOLUM_M3_BWY_75 0x3E
 #define SOLUM_M3_BWR_116 0x37
 #define SOLUM_M3_BWY_116 0x3F
+
 
 // M3 Tags overflow
 #define SOLUM_M3_BW_29 0x40
@@ -74,9 +78,12 @@
 // Solum types - customer data byte 16 in M3 (nRF) UICR
 #define STYPE_SIZE_016 0x40
 #define STYPE_SIZE_022 0x41
+#define STYPE_SIZE_026 0x43
 #define STYPE_SIZE_029 0x42
 #define STYPE_SIZE_042 0x46
 #define STYPE_SIZE_043 0x47
+#define STYPE_SIZE_058 0x63
+#define STYPE_SIZE_058_FREEZER 0x24
 #define STYPE_SIZE_060 0x48
 #define STYPE_SIZE_075 0x4C
 #define STYPE_SIZE_097 0x64
