@@ -37,7 +37,7 @@ void identifyTagInfo() {
     F3 22 BC 05 15 0A 0D 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 SSD
     AD BA FE CA 15 0A 1B 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 type 2
     22 F0 BF 05 15 0A 14 04 00 12 00 18 03 10 01 04 07 07 01 80 00 00 24 FF FF FF FF FF FF FF FF FF     5.85
-    
+
 
             MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
 
@@ -121,9 +121,9 @@ void identifyTagInfo() {
         printf("This tag have a led: No\n"); 
     }
     if(tag.hasNFC){
-        printf("This tag have a led: Yes\n");
+        printf("This tag have NFC: Yes\n");
     }else{
-        printf("This tag have a led: No\n"); 
+        printf("This tag have NFC: No\n"); 
     }
 
 

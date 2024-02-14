@@ -153,46 +153,23 @@ void dualssd::epdSetup() {
 }
 
 void dualssd::epdWriteDisplayData() {
-    printf("getting ready to draw\n");
-
-    // this display expects two entire framebuffers worth of data to be written, one for b/w and one for red
-    if(epd->epdMirrorV){
-        printf("unissd: uses epdMirorV\n");
-    }else{
-        printf("uniss: epdMirorV is false\n");
-    }
-    if(epd->epdMirrorH){
-        printf("unissd: uses epdMirorH\n");
-    }else{
-        printf("uniss: epdMirorH is false\n");
-    }
-    
+   
     uint8_t *buf[2] = {0, 0};  // this will hold pointers to odd/even data lines
+    // Those dual SSD controller (SSD1683??) behave as 2 400pxx wide screens, that needs independent data transfers.
     for (uint8_t c = 0; c < 4; c++) {
-        printf("boucle for iteration %d\n", c);
-        switch (this->controllerType) {
-            case 0x0F:
-            case 0x12:
-            case 0x15:
-                //epdWrite(CMD_XSTART_POS, 1, (this->XOffset / 8));
-                //epdWrite(CMD_YSTART_POS, 2, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8);
-                break;
-            case 0x19:
-                epdWrite(CMD_XSTART_POS, 2, 0xBF, 0x03);
-                epdWrite(CMD_YSTART_POS, 2, 0x00, 0x00);
-                break;
-        }
+        delay(10);
         if (c == 0) epd_cmd(0x24);//RED
         if (c == 1) epd_cmd(0x26);//BW
         if (c == 2) epd_cmd(0xA4);//Red 2
         if (c == 3) epd_cmd(0xA6);//BW 2
+
         delay(10);
         markData();
         epdSelect();
+
         for (uint16_t curY = 0; curY < epd->effectiveYRes; curY += 2) {
             // Get 'even' screen line
             buf[0] = (uint8_t *)calloc(epd->effectiveXRes / 8, 1);
-            //buf_b[0] = (uint8_t *)calloc(epd->effectiveXRes / 16, 1);
 
             if (epd->epdMirrorV) {
                 drawItem::renderDrawLine(buf[0], (epd->effectiveYRes - 1) - curY, c%2);
