@@ -14,6 +14,7 @@
 	Jelmer Bruijn 2024
 */
 
+
 #define PROGMEM 
 #define WINDOW_SIZE 12 // 4096 bytes
 #define FILENAME_LENGTH 32
@@ -108,7 +109,7 @@ unsigned long doCompress(uint8_t* in, uint32_t in_len, uint8_t* out) {
         fprintf(stderr, "Error finalizing compression\n");
         return 1;
     }
-    dump(out, 16);
+    //dump(out, 16);
     return stream.total_out+4;
 }
 
@@ -232,7 +233,6 @@ void saveFontData(const GFXfont* font, char* name){
 #include "../../common/fonts/FreeSans9pt7b.h"
 #include "../../common/fonts/FreeSansBold18pt7b.h"
 #include "../../common/fonts/FreeSansBold24pt7b.h"
-#include "../../common/bitmaps.h"
 
 int main(){
 	wptr = fopen("../build/fs.img","wb");  // w for write, b for binary
@@ -243,11 +243,14 @@ int main(){
 	saveFontData(&FreeSans9pt7b, (char*)"font/FreeSans9pt7b");
 
 	/* OTHER STUFF */
-	addFile((uint8_t*)sadpanda, sizeof(sadpanda), "img/sadpanda", true);
-	//addFileFromFS("img_tbird.bin", true);
+	addFileFromFS("tagprofile.bin", false);
+	addFileFromFS("norf.bin", true);
+	addFileFromFS("lowbat.bin", true);
+	addFileFromFS("sadpanda.bin", true);
+        addFileFromFS("tbird2.bin", true);
+	addFileFromFS("jet.bin", true);
 	printFAT();
 	fwrite(buffer,curOffset,1,wptr);
 	fclose(wptr);
-
 	return 0;
 }

@@ -77,7 +77,6 @@ static bool checkCRC(const void *p, const uint8_t len) {
     for (uint8_t c = 1; c < len; c++) {
         total += ((uint8_t *)p)[c];
     }
-    // printf("CRC: rx %d, calc %d\n", ((uint8_t *)p)[0], total);
     return ((uint8_t *)p)[0] == total;
 }
 static void addCRC(void *p, const uint8_t len) {
@@ -229,7 +228,6 @@ static bool processBlockPart(const struct blockPart *bp, uint8_t *blockbuffer) {
     uint16_t size = BLOCK_PART_DATA_SIZE;
     // validate if it's okay to copy data
     if (bp->blockId != curBlock.blockId) {
-        // printf("got a packet for block %02X\n", bp->blockId);
         return false;
     }
     if (start >= BLOCK_XFER_BUFFER_SIZE - 1)
@@ -335,7 +333,9 @@ static struct blockRequestAck *performBlockRequest() {
                     case PKT_CANCEL_XFER:
                         return NULL;
                     default:
-                        printf("pkt w/type %02X\n", getPacketType(inBuffer));
+#ifdef DEBUG_PROTO
+                        printf("PROTO: pkt w/type %02X\n", getPacketType(inBuffer));
+#endif
                         break;
                 }
             }
@@ -374,30 +374,42 @@ static void sendXferComplete() {
             int8_t ret = HAL_PacketRX(inBuffer);
             if (ret > 1) {
                 if (getPacketType(inBuffer) == PKT_XFER_COMPLETE_ACK) {
-                    printf("XFC ACK\n");
+#ifdef DEBUG_PROTO
+                    printf("PROTO: XFC ACK\n");
+#endif
                     return;
                 }
             }
         }
     }
-    printf("XFC NACK!\n");
+#ifdef DEBUG_PROTO
+    printf("PROTO: XFC NACK!\n");
+#endif
     return;
 }
 static bool validateBlockData(uint8_t *blockbuffer) {
     struct blockData *bd = (struct blockData *)blockbuffer;
-    printf("expected len = %d, checksum=%d\n", bd->size, bd->checksum);
+#ifdef DEBUG_PROTO
+    printf("PROTO: expected len = %d, checksum=%d\n", bd->size, bd->checksum);
+#endif
     if (bd->size > BLOCK_XFER_BUFFER_SIZE - sizeof(blockData)) {
-        printf("Impossible data size; size = %d\n", bd->size);
+        printf("PROTO: Impossible data size; size = %d\n", bd->size);
         return false;
     }
     uint16_t t = 0;
     for (uint16_t c = 0; c < bd->size; c++) {
         t += bd->data[c];
     }
-    printf("calculated checksum = %04X, %d\n", t, t);
-    if (t != bd->checksum) dump(blockbuffer, BLOCK_XFER_BUFFER_SIZE + sizeof(blockData));
+#ifdef DEBUG_PROTO
+    printf("PROTO: calculated checksum = %04X, %d\n", t, t);
+    if (t != bd->checksum) printf("PROTO: Checksum failed!\n");
+#endif
+
+#ifdef DEBUG_DONTVALIDATEPROTO
     return true;
+#else
     return bd->checksum == t;
+#endif
 }
 
 // EEprom related stuff
@@ -406,19 +418,22 @@ static uint32_t getAddressForSlot(const uint8_t s) {
 }
 static void getNumSlots() {
     uint32_t eeSize = eepromGetSize();
-    printf("eeSize = %lu, image = %lu\n", eeSize, tag.imageSize);
-
+#ifdef DEBUG_PROTO
+    printf("PROTO: eeSize = %lu, image = %lu\n", eeSize, tag.imageSize);
+#endif
     uint16_t nSlots = (eeSize - EEPROM_SETTINGS_SIZE) / (tag.imageSize >> 8) >> 8;
     if (!nSlots) {
-        printf("eeprom is too small\n");
+        printf("PROTO: eeprom is too small\n");
         while (1)
             ;
     } else if (nSlots >> 8) {
-        printf("eeprom is too big, some will be unused\n");
+        printf("PROTO: eeprom is too big, some will be unused\n");
         imgSlots = 254;
     } else
         imgSlots = nSlots;
-    printf("EEPROM reported size = %lu, %d slots\n", eeSize, imgSlots);
+#ifdef DEBUG_PROTO
+    printf("PROTO: EEPROM reported size = %lu, %d slots\n", eeSize, imgSlots);
+#endif
 }
 static uint8_t findSlotVer(uint64_t ver) {
 #ifdef DEBUGBLOCKS
@@ -485,7 +500,7 @@ static void eraseImageBlock(const uint8_t c) {
 }
 static void saveUpdateBlockData(uint8_t blockId, uint8_t *blockbuffer) {
     if (!eepromWrite(FW_LOC + (blockId * BLOCK_DATA_SIZE), blockbuffer + sizeof(struct blockData), BLOCK_DATA_SIZE))
-        printf("EEPROM write failed\n");
+        printf("PROTO: EEPROM write failed\n");
 }
 
 static void saveImgBlockData(const uint8_t imgSlot, const uint8_t blockId, uint8_t *blockbuffer) {
@@ -494,7 +509,7 @@ static void saveImgBlockData(const uint8_t imgSlot, const uint8_t blockId, uint8
         length = 4096;
 
     if (!eepromWrite(getAddressForSlot(imgSlot) + sizeof(struct EepromImageHeader) + (blockId * BLOCK_DATA_SIZE), blockbuffer + sizeof(struct blockData), length))
-        printf("EEPROM write failed\n");
+        printf("PROTO: EEPROM write failed\n");
 }
 void eraseImageBlocks() {
     for (uint8_t c = 0; c < imgSlots; c++) {
@@ -517,7 +532,9 @@ static uint32_t getHighSlotId() {
             }
         }
     }
-    printf("found high id=%lu in slot %d\n", temp, nextImgSlot);
+#ifdef DEBUG_PROTO
+    printf("PROTO: found high id=%lu in slot %d\n", temp, nextImgSlot);
+#endif
     return temp;
 }
 
@@ -527,7 +544,7 @@ static uint8_t *getDataBlock(const uint16_t blockSize) {
 
     uint8_t *blockbuffer = (uint8_t *)malloc(BLOCK_XFER_BUFFER_SIZE);
     if (!blockbuffer) {
-        printf("failed to allocate block buffer\n");
+        printf("PROTO: failed to allocate block buffer\n");
         return nullptr;
     }
 
@@ -566,7 +583,9 @@ static uint8_t *getDataBlock(const uint16_t blockSize) {
         powerUp(INIT_RADIO);
         struct blockRequestAck *ack = performBlockRequest();
         if (ack == NULL) {
-            printf("Cancelled request\n");
+#ifdef DEBUG_PROTO
+            printf("PROTO: Cancelled request\n");
+#endif
             free(blockbuffer);
             return nullptr;
         }
@@ -621,7 +640,7 @@ static uint8_t *getDataBlock(const uint16_t blockSize) {
                     curBlock.requestedParts[c / 8] |= (1 << (c % 8));
                 }
                 requestPartialBlock = false;
-                printf("blk failed validation!\n");
+                printf("PROTO: blk failed validation!\n");
             }
         } else {
 #ifndef DEBUGBLOCKS
@@ -631,7 +650,7 @@ static uint8_t *getDataBlock(const uint16_t blockSize) {
             requestPartialBlock = true;
         }
     }
-    printf("failed getting block\n");
+    printf("PROTO: failed getting block\n");
     free(blockbuffer);
     return nullptr;
 }
@@ -696,7 +715,9 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
     // check if we already started the transfer of this information & haven't completed it
     if (!memcmp((const void *)&avail->dataVer, (const void *)&xferDataInfo.dataVer, 8) && xferDataInfo.dataSize) {
         // looks like we did. We'll carry on where we left off.
-        printf("restarting image download");
+#ifdef DEBUG_PROTO
+        printf("PROTO: restarting image download");
+#endif
         // curImgSlot = nextImgSlot; // hmmm
     } else {
         // new transfer
@@ -707,7 +728,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
             if (nextImgSlot == startingSlot) {
                 // looped
                 powerDown(INIT_EEPROM);
-                printf("no slot available...\n");
+                printf("PROTO: no slot available...\n");
                 return true;
             }
             struct EepromImageHeader eih;
@@ -739,7 +760,9 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
 #endif
         NVIC_SystemReset();
     eraseSuccess:
-        printf("new download, writing to slot %d\n", xferImgSlot);
+#ifdef DEBUG_PROTO
+        printf("PROTO: new download, writing to slot %d\n", xferImgSlot);
+#endif
         // start, or restart the transfer. Copy data from the AvailDataInfo struct, and the struct intself. This forces a new transfer
         curBlock.blockId = 0;
         memcpy(&(curBlock.ver), &(avail->dataVer), 8);
@@ -761,7 +784,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
             // succesfully downloaded datablock, save to eeprom
             powerUp(INIT_EEPROM);
 #ifdef DEBUGBLOCKS
-            printf("Saving block %d to slot %d\n", curBlock.blockId, xferImgSlot);
+            printf("PROTO: Saving block %d to slot %d\n", curBlock.blockId, xferImgSlot);
 #endif
             saveImgBlockData(xferImgSlot, curBlock.blockId, blockbuffer);
             powerDown(INIT_EEPROM);
@@ -784,7 +807,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
     eih.argument = xferDataInfo.dataTypeArgument;
 
 #ifdef DEBUGBLOCKS
-    printf("Now writing datatype 0x%02X to slot %d\n", xferDataInfo.dataType, xferImgSlot);
+    printf("PROTO: Now writing datatype 0x%02X to slot %d\n", xferDataInfo.dataType, xferImgSlot);
 #endif
 
     powerUp(INIT_EEPROM);
@@ -806,7 +829,9 @@ bool processImageDataAvail(struct AvailDataInfo *avail) {
     struct imageDataTypeArgStruct arg = *((struct imageDataTypeArgStruct *)avail->dataTypeArgument);
 
     if (arg.preloadImage) {
-        printf("Preloading image with type 0x%02X from arg 0x%02X\n", arg.specialType, avail->dataTypeArgument);
+#ifdef DEBUG_PROTO
+        printf("PROTO: Preloading image with type 0x%02X from arg 0x%02X\n", arg.specialType, avail->dataTypeArgument);
+#endif
         powerUp(INIT_EEPROM);
         switch (arg.specialType) {
             // check if a slot with this argument is already set; if so, erase. Only one of each arg type should exist
@@ -831,11 +856,14 @@ bool processImageDataAvail(struct AvailDataInfo *avail) {
                 break;
         }
         powerDown(INIT_EEPROM);
-
-        printf("downloading preload image...\n");
+#ifdef DEBUG_PROTO
+        printf("PROTO: downloading preload image...\n");
+#endif
         if (downloadImageDataToEEPROM(avail)) {
             // sets xferImgSlot to the right slot
-            printf("preload complete!\n");
+#ifdef DEBUG_PROTO
+            printf("PROTO: preload complete!\n");
+#endif
             powerUp(INIT_RADIO);
             sendXferComplete();
             powerDown(INIT_RADIO);
@@ -848,8 +876,9 @@ bool processImageDataAvail(struct AvailDataInfo *avail) {
         // check if we're currently displaying this data payload
         if (avail->dataVer == curDispDataVer) {
             // currently displayed, not doing anything except for sending an XFC
-
-            printf("currently shown image, send xfc\n");
+#ifdef DEBUG_PROTO
+            printf("PROTO: currently shown image, send xfc\n");
+#endif
             powerUp(INIT_RADIO);
             sendXferComplete();
             powerDown(INIT_RADIO);
@@ -882,10 +911,14 @@ bool processImageDataAvail(struct AvailDataInfo *avail) {
 
             } else {
                 // not found in cache, prepare to download
-                printf("downloading image...\n");
+#ifdef DEBUG_PROTO
+                printf("PROTO: downloading image...\n");
+#endif
                 if (downloadImageDataToEEPROM(avail)) {
                     // sets xferImgSlot to the right slot
-                    printf("download complete!\n");
+#ifdef DEBUG_PROTO
+                    printf("PROTO: download complete!\n");
+#endif
                     powerUp(INIT_RADIO);
                     sendXferComplete();
                     powerDown(INIT_RADIO);
@@ -919,8 +952,9 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
         case DATATYPE_FW_UPDATE:
             powerUp(INIT_EEPROM);
             if (uint32_t fwsize = downloadFWUpdate(avail)) {
-                printf("firmware download complete, doing update.\n");
-
+#ifdef DEBUG_PROTO
+                printf("PROTO: firmware download complete, doing update.\n");
+#endif
                 powerUp(INIT_EPD);
                 // showApplyUpdate();
 
@@ -954,11 +988,14 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
                 powerDown(INIT_RADIO);
                 return true;
             }
-
-            printf("NFC URL received\n");
+#ifdef DEBUG_PROTO
+            printf("PROTO: NFC URL received\n");
+#endif
             if (xferDataInfo.dataSize == 0 && !memcmp((const void *)&avail->dataVer, (const void *)&xferDataInfo.dataVer, 8)) {
                 // we've already downloaded this NFC data, disregard and send XFC
-                printf("this was the same as the last transfer, disregard\n");
+#ifdef DEBUG_PROTO
+                printf("PROTO: this was the same as the last transfer, disregard\n");
+#endif
                 powerUp(INIT_RADIO);
                 sendXferComplete();
                 powerDown(INIT_RADIO);
@@ -995,7 +1032,9 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
             memcpy(&xferDataInfo, (void *)avail, sizeof(struct AvailDataInfo));
 #ifdef LEDSENABLED
             if (avail->dataTypeArgument == 4) {
-                printf("LED CMD");
+#ifdef DEBUG_PROTO
+                printf("PROTO: LED CMD");
+#endif
                 setled(xferDataInfo.dataVer, xferDataInfo.dataSize);
             }
 #endif
@@ -1009,7 +1048,9 @@ bool processAvailDataInfo(struct AvailDataInfo *avail) {
             break;
         case DATATYPE_TAG_CONFIG_DATA:
             if (xferDataInfo.dataSize == 0 && memcmp((const void *)&avail->dataVer, (const void *)&xferDataInfo.dataVer, 8) == 0) {
-                printf("this was the same as the last transfer, disregard\n");
+#ifdef DEBUG_PROTO
+                printf("PROTO: this was the same as the last transfer, disregard\n");
+#endif
                 powerUp(INIT_RADIO);
                 sendXferComplete();
                 powerDown(INIT_RADIO);
