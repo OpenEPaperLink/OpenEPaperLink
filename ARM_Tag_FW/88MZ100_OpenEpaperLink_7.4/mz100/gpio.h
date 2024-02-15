@@ -1,5 +1,7 @@
 #pragma once
 
+void setupWDT();
+
 void NVIC_some_IRQ1(unsigned int a1);
 void NIVC_some_IRQ(unsigned int a1);
 void init_GPIO_boot();

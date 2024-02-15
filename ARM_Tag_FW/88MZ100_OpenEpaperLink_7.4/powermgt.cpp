@@ -7,16 +7,11 @@
 #include <string.h>
 
 #include "epd_interface.h"
+#include "main.h"
+#include "oepl-protocol.h"
 #include "board.h"
 
-
-#include "main.h"
-
-#include "oepl-protocol.h"
-
-#include "settings.h"
-
-extern "C" {
+extern "C"{
 #include "mz100/eeprom.h"
 #include "mz100/mz100_sleep.h"
 #include "mz100/printf.h"
@@ -56,7 +51,7 @@ void setupPortsInitial() {
 
 uint16_t doVoltageReading() {
     batteryVoltage = (uint16_t)measureBattery();
-    if (batteryVoltage < tagSettings.batLowVoltage) {
+    if (batteryVoltage < BATTERY_VOLTAGE_MINIMUM) {
         lowBattery = true;
     } else {
         lowBattery = false;

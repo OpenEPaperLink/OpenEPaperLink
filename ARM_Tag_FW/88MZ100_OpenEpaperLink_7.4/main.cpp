@@ -6,10 +6,13 @@
 #include <stdlib.h>
 
 #include "epd_interface.h"
-
-extern "C" {
+#include "powermgt.h"
 
 #include "main.h"
+
+#include "settings.h"
+extern "C" {
+
 #include "comms.h"
 #include "mz100/core_cm3.h"
 #include "mz100/eeprom.h"
@@ -25,17 +28,17 @@ extern "C" {
 #include "mz100/mz100_sleep.h"
 #include "mz100/mz100_ssp.h"
 #include "mz100/mz100_uart.h"
-#include "powermgt.h"
 #include "mz100/printf.h"
 #include "proto.h"
-#include "settings.h"
-#include "syncedproto.h"
+
 #include "mz100/timer.h"
 
 #include "mz100/util.h"
 #include "zigbee.h"
 extern void dump(const uint8_t *a, const uint16_t l);
 }
+
+#include "oepl-protocol.h"
 
 #include "compression.h"
 #include "userinterface.h"
@@ -50,7 +53,6 @@ uint64_t __attribute__((section(".default_mac"))) default_mac = SW_DEFAULT_MAC;
 
 char macStr[32];
 char macStr1[32];
-// uint8_t mSelfMac[8];
 
 #define TAG_MODE_CHANSEARCH 0
 #define TAG_MODE_ASSOCIATED 1
@@ -78,17 +80,18 @@ bool protectedFlashWrite(uint32_t address, uint8_t *buffer, uint32_t num) {
     return false;
 }
 
-static void prvGetSelfMac(void) {
-    FLASH_Read((FLASH_ReadMode_Type)0, EEPROM_MAC_INFO_START, mSelfMac, 8);
-
+static void initTagProfile() {
+    for (uint8_t c = 0; c < 8; c++) {
+        mSelfMac[c] = tagProfile.macAddress[7 - c];
+    }
     if ((((uint32_t *)mSelfMac)[0] | ((uint32_t *)mSelfMac)[1]) == 0 || (((uint32_t *)mSelfMac)[0] & ((uint32_t *)mSelfMac)[1]) == 0xffffffff) {  // fastest way to check for all ones or all zeroes
 
-        printf("mac unknown\r\n");
-        // Write a blank mac to have something to work with.
-        memcpy(&mSelfMac, (uint8_t *)&default_mac, 8);
-        FLASH_Write((FLASH_ProgramMode_Type)0, EEPROM_MAC_INFO_START, mSelfMac, 8);
-        // sleep_with_with_wakeup(0);
+        printf("MAC: mac unknown, taking random Flash ID\n");
+        *((uint64_t *)&tagProfile.macAddress) = FLASH_GetUniqueID();
     }
+
+    tag.imageSize = flashRoundUp(sizeof(struct EepromImageHeader) + (tagProfile.xRes * tagProfile.yRes * tagProfile.bpp) / 8);
+    tag.OEPLtype = 0x05;
 }
 
 uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
@@ -147,6 +150,7 @@ uint8_t channelSelect() {  // returns 0 if no accesspoints were found
 
 void __attribute__((interrupt)) NMIException(void) {
     printf("-----------> NMIException\r\n");
+    delay(1000);
     PMU->CLK_SRC.BF.MAIN_CLK_SOURCE = 1;
     PMU->PWR_MODE.BF.PWR_MODE = 0;
     NVIC_SystemReset();
@@ -181,25 +185,42 @@ void __attribute__((interrupt)) UsageFaultException(void) {
 }
 
 void __attribute__((interrupt)) SVCHandler(void) {
+    printf("-----------> SVCHandler\r\n");
+    PMU->CLK_SRC.BF.MAIN_CLK_SOURCE = 1;
+    PMU->PWR_MODE.BF.PWR_MODE = 0;
+    NVIC_SystemReset();
 }
 
 void __attribute__((interrupt)) DebugMonitor(void) {
+    printf("-----------> DebugMonitor\r\n");
+    PMU->CLK_SRC.BF.MAIN_CLK_SOURCE = 1;
+    PMU->PWR_MODE.BF.PWR_MODE = 0;
+    NVIC_SystemReset();
 }
 
 void __attribute__((interrupt)) PendSVC(void) {
+    printf("-----------> PendSVC\r\n");
+    PMU->CLK_SRC.BF.MAIN_CLK_SOURCE = 1;
+    PMU->PWR_MODE.BF.PWR_MODE = 0;
+    NVIC_SystemReset();
 }
 
-void setupRTC() {
-    CLK_Xtal32MEnable(CLK_OSC_INTERN);
-    while (!CLK_GetClkStatus(CLK_OUT_XTAL64M))
-        ;
+int32_t setupRTC(uint32_t calibrate) {
+    // CLK_Xtal32MEnable(CLK_OSC_INTERN);
+    // while (!CLK_GetClkStatus(CLK_OUT_XTAL64M))
+    //     ;
     RC32K_CalClk_Div(63, 31);
     CLK_ModuleClkEnable(CLK_RC32K_CAL);
     CLK_RC32KEnable();
     while (!CLK_GetClkStatus(CLK_OUT_RC32K))
         ;
     PMU->RC32K_CAL_CNTL.BF.RC32K_CAL_DIV = 0;
-    CLK_RC32KCalibration(CLK_RC32KCAL_XTAL64M, CLK_AUTO_CAL, 0);
+    int32_t calres;
+    if (!calibrate) {
+        calres = CLK_RC32KCalibration(CLK_RC32KCAL_XTAL64M, CLK_AUTO_CAL, 0);
+    } else {
+        calres = CLK_RC32KCalibration(CLK_RC32KCAL_XTAL64M, CLK_MANUAL_CAL, calibrate);
+    }
     CLK_ModuleClkEnable(CLK_RTC);
     CLK_RTCClkSrc(CLK_RTC_RC32K);
     RTC_Stop();
@@ -212,6 +233,7 @@ void setupRTC() {
     NVIC_ClearPendingIRQ(RTC_IRQn);
     RTC_IntMask(RTC_INT_CNT_UPP, UNMASK);
     NVIC_EnableIRQ(RTC_IRQn);
+    return calres;
 }
 
 void setupUART() {
@@ -238,17 +260,6 @@ void setupUART() {
     // UART 1 DEBUG OUT
 }
 
-void setupWDT() {
-    //** WATCHDOG
-    CLK_ModuleClkEnable(CLK_WDT);
-    WDT_SetMode(WDT_MODE_RESET);
-    WDT_SetResetPulseLen(WDT_RESET_PULSE_LEN_256);
-    WDT_SetTimeoutVal(30);
-    WDT_RestartCounter();
-    WDT_Enable();
-    //** WATCHDOG
-}
-
 void setupGPIO() {
     //** GPIOS
     init_GPIO_boot();
@@ -265,9 +276,9 @@ void setupGPIO() {
     }
 }
 
-void setupCLKCalib() {
+int32_t setupCLKCalib() {
     (*(volatile unsigned int *)0x4A070004) = ((*(volatile unsigned int *)0x4A070004) & 0xFFFFFFE0) + 2;
-    PMU->PWR_MODE.BF.PWR_MODE = 2;
+    // PMU->PWR_MODE.BF.PWR_MODE = 2; // hmmm
     uint32_t v0 = FLASH_WordRead(FLASH_NORMAL_READ, 4u);
     char v1;
     if (!(~v0 << 25)) {
@@ -276,13 +287,14 @@ void setupCLKCalib() {
             ;
         v1 = CLK_RC32MCalibration(CLK_AUTO_CAL, 0);
         FLASH_WordWrite(FLASH_PROGRAM_NORMAL, 4u, (v0 & 0xFFFFFF00) | (v1 & 0x7F));
+        return v1;
     }
+    return -1;
 }
 
 void TagAssociated() {
     // associated
     struct AvailDataInfo *avail;
-    printf("longDataReqCounter = %d\n", longDataReqCounter);
     // Is there any reason why we should do a long (full) get data request (including reason, status)?
     if ((longDataReqCounter > LONG_DATAREQ_INTERVAL) || wakeUpReason != WAKEUP_REASON_TIMED) {
         // check if we should do a voltage measurement (those are pretty expensive)
@@ -302,9 +314,10 @@ void TagAssociated() {
             if (curImgSlot != 0xFF) {
                 powerUp(INIT_EEPROM | INIT_EPD);
                 wdt60s();
-                drawImageFromEeprom(curImgSlot);
+                drawImageFromEeprom(curImgSlot, 0);
                 powerDown(INIT_EEPROM | INIT_EPD);
             } else {
+                WDT_RestartCounter();
                 powerUp(INIT_EPD);
                 showAPFound();
                 powerDown(INIT_EPD);
@@ -313,6 +326,7 @@ void TagAssociated() {
 
         powerUp(INIT_RADIO);
         printf("full request\n");
+        avail = getAvailDataInfo();
         avail = getAvailDataInfo();
         powerDown(INIT_RADIO);
 
@@ -389,7 +403,7 @@ void TagChanSearch() {
         wdt60s();
         if (curImgSlot != 0xFF) {
             powerUp(INIT_EEPROM);
-            drawImageFromEeprom(curImgSlot);
+            drawImageFromEeprom(curImgSlot, 0);
             powerDown(INIT_EEPROM);
         } else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
             showLongTermSleep();
@@ -401,12 +415,13 @@ void TagChanSearch() {
 
     // did we find a working channel?
     if (currentChannel) {
+        printf("PROTO: Found a working channel from the TagChanSearch loop\n");
         // now associated! set up and bail out of this loop.
         scanAttempts = 0;
         wakeUpReason = WAKEUP_REASON_NETWORK_SCAN;
         initPowerSaving(INTERVAL_BASE);
-        doSleep(getNextSleep() * 1000UL);
         currentTagMode = TAG_MODE_ASSOCIATED;
+        sleep_with_with_wakeup(getNextSleep() * 1000UL);
         return;
     } else {
         // still not associated
@@ -419,65 +434,80 @@ int main(void) {
     (*(volatile unsigned int *)0xE000ED08) = 0x20100000;  // Vector table in RAM and offset 0x4000
     (*(volatile unsigned int *)0xE000E41A) = 0x40;        // ??
 
-    timerInit();
-
     CLK_SystemClkInit(CLK_SYS_XTAL64M, CLK_SYS_64M);
     CLK_Xtal32MEnable(CLK_OSC_INTERN);
     while (CLK_GetClkStatus(CLK_OUT_XTAL64M) != 1)
         ;
-
+    setupUART();
+    setupCLKCalib();
     if (!loadValidateAonRam() || PMU_GetLastResetCause()) {
-        setupWDT();
+        // cold boot!
+
+        // calibrate the 32K RC oscillator (autocal), we'll store the result to flash later
+        uint32_t rtccal = setupRTC(0);
         setupGPIO();
-        setupCLKCalib();
-        setupUART();
-        // fs = new OEPLFs();
-        printf("Rst reason: %i\r\n", PMU_GetLastResetCause());
-        printf("AON is not valid!\n");
-        setupRTC();
+        timerInit();
+        setupWDT();
+
         clearAonRam();
-        prvGetSelfMac();
+        // all variables are set to 0 now. This might not be appropriate for all variables, such as:
+        curImgSlot = 0xFF;
+
+        // try to load settings
+        if (!loadSettings()) {
+            // if we couldn't load settings, we'll try to get it from the tagprofile file. Useful during development
+            fs->init();
+            if (!loadProfileFromFile((char *)"tagprofile.bin")) {
+                // whoops. Empty profile, that shouldn't really ever happen, ever.
+                printf("We don't know the type of this tag. That's kinda bad, I guess...\n");
+            } else {
+                fs->deleteFile((char *)"tagprofile.bin");
+            }
+        }
+        printf("MAIN: MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", tagProfile.macAddress[0], tagProfile.macAddress[1], tagProfile.macAddress[2], tagProfile.macAddress[3], tagProfile.macAddress[4], tagProfile.macAddress[5], tagProfile.macAddress[6], tagProfile.macAddress[7]);
+
+        tagProfile.RC32Kcal = rtccal;
+
+        printf("MAIN: Rst reason: %i\r\n", PMU_GetLastResetCause());
+
+        initTagProfile();
+
+        wdt10s();
         showSplashScreen();
         delay(10000);
         currentChannel = 0;
         zigbeeCalibData.isValid = false;
         wakeUpReason = WAKEUP_REASON_FIRSTBOOT;
         initializeProto();
-        printf("Erz data\r\n");
         initPowerSaving(INTERVAL_BASE);
-        loadDefaultSettings();
+
         doVoltageReading();
 
-        // qspiEraseRange(EEPROM_SETTINGS_AREA_START, EEPROM_SETTINGS_AREA_LEN);
-
-        sprintf(macStr, "(" MACFMT ")", MACCVT(mSelfMac));
         currentChannel = showChannelSelect();
-        WDT_RestartCounter();
         if (currentChannel) {
-            printf("AP Found\r\n");
+            printf("MAIN: AP Found\r\n");
+            wdt10s();
             delay(10000);
             showAPFound();
-            sprintf(macStr1, "OpenEPaperLink Ch: %i", currentChannel);
+            sprintf(macStr1, "MAIN: OpenEPaperLink Ch: %i", currentChannel);
+            wdt10s();
             timerDelay(TIMER_TICKS_PER_MSEC * 1000);
             currentTagMode = TAG_MODE_ASSOCIATED;
         } else {
             printf("No AP found\r\n");
+            wdt10s();
+            delay(10000);
             showNoAP();
-            sleep_with_with_wakeup(120000UL);
+            wdt10s();
+            timerDelay(TIMER_TICKS_PER_MSEC * 1000);
             currentTagMode = TAG_MODE_CHANSEARCH;
         }
-        powerUp(INIT_UART);
-
+        writeSettings();
     } else {
-        setupWDT();  // turn me off
+        setupRTC(tagProfile.RC32Kcal);
+        setupWDT();
         setupGPIO();
-        setupCLKCalib();  // turn me off
-        // setupUART();// turn me off
-        // setupRTC();// turn me off
-        memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
-        powerUp(INIT_UART);
-
-        // fs = new OEPLFs();
+        timerInit();
     }
 
     while (1) {
@@ -503,30 +533,29 @@ void _putchar(char c) {
     _write(0, &c, 1);
 }
 
-void applyUpdate() {
-    uint32_t ofst, now, size, pieceSz = 0x2000;
+void applyUpdate(uint32_t size) {
+    uint32_t ofst, now, pieceSz = 0x2000;
     uint8_t chunkStore[0x2000];
 
     printf("Applying update\r\n");
 
     // apparently, the flash process is more reliable if we do these two first
     setupCLKCalib();
-    setupRTC();
+    setupRTC(0);
 
     showApplyUpdate();
 
-
     printf("Applying update\r\n");
-    qspiEraseRange(EEPROM_OS_START, EEPROM_OS_LEN);
+    // qspiEraseRange(EEPROM_OS_START, EEPROM_OS_LEN);
 
-    size = EEPROM_OS_LEN;
     for (ofst = 0; ofst < size; ofst += now) {
         now = size - ofst;
         if (now > pieceSz)
             now = pieceSz;
-        printf("Cpy 0x%06x + 0x%04x to 0x%06x\r\n", EEPROM_UPDATE_START + ofst, now, EEPROM_OS_START + ofst);
-        FLASH_Read((FLASH_ReadMode_Type)0, EEPROM_UPDATE_START + ofst, chunkStore, now);
-        protectedFlashWrite(EEPROM_OS_START + ofst, chunkStore, now);
+        printf("Cpy 0x%06x + 0x%04x to 0x%06x\r\n", fsEnd + ofst, now, ofst);
+        FLASH_Read((FLASH_ReadMode_Type)0, fsEnd + ofst, chunkStore, now);
+        // qspiEraseRange(ofst, now);
+        protectedFlashWrite(ofst, chunkStore, now);
         WDT_RestartCounter();
     }
     printf("Resetting!\n");

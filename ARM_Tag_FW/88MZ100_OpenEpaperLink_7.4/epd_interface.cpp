@@ -23,21 +23,24 @@ extern "C" {
 #include "mz100/util.h"
 }
 
+#include "settings.h"
+
 #include "../../oepl-definitions.h"
 #include "../../oepl-proto.h"
 
-epdInterface *epd;
-
+__attribute__((section(".aonshadow"))) epdInterface *epd;
+__attribute__((section(".aonshadow"))) tagSpecs tag;
 epdInterface::~epdInterface(){
     
 }
 
 void epdSetup() {
     epd = new uc8159;
-    epd->effectiveXRes = 640;
-    epd->effectiveYRes = 384;
-    epd->Xres = 640;
-    epd->Yres = 384;
+    epd->effectiveXRes = tagProfile.xRes;
+    epd->effectiveYRes = tagProfile.yRes;
+    epd->Xres = tagProfile.xRes;
+    epd->Yres = tagProfile.yRes;
+    epd->bpp = tagProfile.bpp;
     epd->epdSetup();
 }
 

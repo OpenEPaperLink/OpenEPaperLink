@@ -2,9 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
+#include "settings.h"
 extern "C" {
 #include "mz100/mz100_flash.h"
 #include "mz100/printf.h"
+#include "mz100/util.h"
 }
 
 // #pragma pack(1)
@@ -14,8 +16,9 @@ extern "C" {
 extern "C" {
 __attribute__((section(".aonshadow"))) uint32_t fsEntry;
 __attribute__((section(".aonshadow"))) uint32_t fsEnd;
-extern void dump(const uint8_t *a, const uint16_t l);
 }
+
+extern void dump(const uint8_t *a, const uint16_t l);
 
 OEPLFs oeplfs;
 OEPLFs *fs = &oeplfs;
@@ -41,7 +44,9 @@ OEPLFs::~OEPLFs() {
 }
 
 uint32_t OEPLFs::findEntry() {
+#ifdef DEBUG_FS
     printf("FS: Trying to find OEPL FS...\n");
+#endif
     uint8_t *scan = (uint8_t *)malloc(1024);
     uint32_t offset = 0;
     // scan flash with some overlap, to ensure the entire string is in the buffer at some point
@@ -69,7 +74,9 @@ uint32_t OEPLFs::findEntry() {
     }
 
     if (offset) {
+#ifdef DEBUG_FS
         printf("FS: Found at 0x%08X\n", offset);
+#endif
     } else {
         printf("FS: Not found. Did you forget to add it?\n");
         FLASH_Read(FLASH_FAST_READ_QUAD_OUT, 0x109C0, scan, 1024);
@@ -77,6 +84,40 @@ uint32_t OEPLFs::findEntry() {
     }
     free(scan);
     return offset;
+}
+
+void OEPLFs::deleteFile(char *name) {
+    // get file list inside of the vector
+    uint8_t *buffer = (uint8_t *)malloc(1024);
+    FLASH_Read(FLASH_FAST_READ_QUAD_OUT, fsEntry, buffer, 1024);
+    bool firstFile = true;
+    uint8_t *fatEnd = nullptr;
+    uint8_t *curFileP = buffer;
+    curFileP += 11;  // set to begin file table
+    while (1) {
+        OEPLFSFile *file;
+        file = new OEPLFSFile;
+        memcpy((void *)file, curFileP, sizeof(OEPLFSFile));
+
+        if (firstFile) {
+            firstFile = false;
+            fatEnd = buffer + file->offset - 1;
+        }
+
+        if (strncmp(name, file->name, FILENAME_LENGTH) == 0) {
+            char overwriteName[FILENAME_LENGTH];
+            memset(overwriteName, 0x00, FILENAME_LENGTH);
+            FLASH_Write(FLASH_PROGRAM_NORMAL, fsEntry + (curFileP - buffer), (uint8_t *)overwriteName, FILENAME_LENGTH);
+            break;
+        }
+
+        curFileP += sizeof(OEPLFSFile);
+
+        if (curFileP > fatEnd) {
+            break;
+        }
+    }
+    free(buffer);
 }
 
 void OEPLFs::populateFiles() {
@@ -104,8 +145,9 @@ void OEPLFs::populateFiles() {
         char tmp[32];
         memcpy(tmp, file->name, 32);
         tmp[31] = 0x00;
-        if(!silent)printf("name=%s, size=%u, offset=%u\n", tmp, file->len, file->offset);
-
+#ifdef DEBUG_FS
+        if (!silent) printf("name=%s, size=%u, offset=%u\n", tmp, file->len, file->offset);
+#endif
         fsend = file->len + file->offset;
         if (curFileP > fatEnd) {
             done = true;
@@ -113,6 +155,7 @@ void OEPLFs::populateFiles() {
         }
     }
     fsEnd = fsend + fsEntry;
+    fsEnd = flashRoundUp(fsEnd);
     free(buffer);
 }
 

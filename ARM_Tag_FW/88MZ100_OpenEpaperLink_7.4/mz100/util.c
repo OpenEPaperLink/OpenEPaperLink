@@ -1,7 +1,7 @@
 #include "util.h"
 
 #include <stdarg.h>
-//#include <stdio.h>
+// #include <stdio.h>
 #include "printf.h"
 
 #include "eeprom.h"
@@ -12,7 +12,7 @@
 #include "timer.h"
 
 void wdt10s() {
-    WDT_RestartCounter();
+   WDT_RestartCounter();
 }
 void wdt30s() {
     WDT_RestartCounter();
@@ -120,19 +120,19 @@ uint32_t measureBattery(void) {
 void qspiEraseRange(uint32_t addr, uint32_t len) {
     uint64_t time;
     // round starting address down
-    if (addr % EEPROM_PAGE_SIZE) {
-        len += addr % EEPROM_PAGE_SIZE;
-        addr = addr / EEPROM_PAGE_SIZE * EEPROM_PAGE_SIZE;
+    if (addr % EEPROM_ERZ_SECTOR_SZ) {
+        len += addr % EEPROM_ERZ_SECTOR_SZ;
+        addr = addr / EEPROM_ERZ_SECTOR_SZ * EEPROM_ERZ_SECTOR_SZ;
     }
 
     // round length up
-    len = (len + EEPROM_PAGE_SIZE - 1) / EEPROM_PAGE_SIZE * EEPROM_PAGE_SIZE;
+    len = (len + EEPROM_ERZ_SECTOR_SZ - 1) / EEPROM_ERZ_SECTOR_SZ * EEPROM_ERZ_SECTOR_SZ;
 
     while (len) {
         uint32_t now;
         bool ok;
 
-        WDT_RestartCounter();
+        //WDT_RestartCounter();
         if (!(addr % 0x10000) && len >= 0x10000) {
             ok = FLASH_Block64KErase(addr / 0x10000);
             now = 0x10000;
@@ -156,16 +156,16 @@ void qspiEraseRange(uint32_t addr, uint32_t len) {
                 ;
         }
     }
-    WDT_RestartCounter();
+    //WDT_RestartCounter();
 }
 
 bool eepromWrite(uint32_t addr, const void *srcP, uint16_t len) {
-    FLASH_Write(0, addr, (void*)srcP, len);
+    FLASH_Write(0, addr, (void *)srcP, len);
     return true;
 }
 
 bool eepromErase(uint32_t addr, uint16_t nSec) {
-    qspiEraseRange(addr, nSec);
+    qspiEraseRange(addr, nSec*EEPROM_ERZ_SECTOR_SZ);
     return true;
 }
 
@@ -173,8 +173,18 @@ void eepromRead(uint32_t addr, void *dstP, uint16_t len) {
     uint8_t *dst = (uint8_t *)dstP;
     FLASH_Read(0, addr, dst, len);
 }
+
+extern __attribute__((section(".aonshadow"))) uint32_t fsEnd;
+
 uint32_t eepromGetSize(void) {
-    return EEPROM_IMG_LEN;
+    return EEPROM_TOTAL_SIZE - fsEnd;
+}
+
+uint32_t flashRoundUp(uint32_t in) {
+    uint32_t temp = in / EEPROM_ERZ_SECTOR_SZ;
+    if (in % EEPROM_ERZ_SECTOR_SZ)
+        temp++;
+    return temp * EEPROM_ERZ_SECTOR_SZ;
 }
 
 void radioShutdown(void) {

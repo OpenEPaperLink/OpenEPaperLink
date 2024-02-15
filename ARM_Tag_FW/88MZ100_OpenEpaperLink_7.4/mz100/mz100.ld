@@ -3,8 +3,8 @@ GROUP(-lgcc -lc -lnosys)
 
 MEMORY
 {
-  FLASH (rx) : ORIGIN = 0x100000, LENGTH = 80k
-  RAM (rwx) :  ORIGIN = 0x20100000 + 80k, LENGTH = 160k - 80k - 2k
+  FLASH (rx) : ORIGIN = 0x100000, LENGTH = 90k
+  RAM (rwx) :  ORIGIN = 0x20100000 + 90k, LENGTH = 160k - 90k - 2k
   AONSHADOW (rwx) : ORIGIN =   0x20128000 - 2k, LENGTH = 2k
   AON (rwx) : ORIGIN = 0x20130000 , LENGTH = 4k
 }

@@ -97,7 +97,7 @@ void sleep_with_with_wakeup(uint32_t sleep_time_ms)
   //memcpy((uint8_t *)&(*(volatile unsigned int *)0x130500), (uint8_t *)&curBlock, sizeof(struct blockRequest));
   //memcpy((uint8_t *)&(*(volatile unsigned int *)0x130600), (uint8_t *)&curDataInfo, sizeof(struct AvailDataInfo));
   //sleep_time_ms = 10000;
-  printf("sleep! %u\n", sleep_time_ms);
+  //printf("sleep! %u\n", sleep_time_ms);
   uint32_t sleep_time_ms_1;
   AON_level_VDD(7);
   AON_level_VAA(0);

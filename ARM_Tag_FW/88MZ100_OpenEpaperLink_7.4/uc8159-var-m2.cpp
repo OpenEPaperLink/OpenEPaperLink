@@ -120,7 +120,9 @@ struct __attribute__((packed)) epd_xonlut {
 };
 
 void uc8159::epdSetup() {
+#ifdef DEBUG_EPD
     printf("EPD: Init begin\n");
+#endif
     initEPDGPIO();
     this->epdReset();
     epdWrite(EPD_POWER_ON, 0);
@@ -149,10 +151,11 @@ void uc8159::epdSetup() {
     this->loadFrameRatePLL(EPDtempBracket);
     this->loadTempVCOMDC(EPDtempBracket);
 
-    // this->loadTempVSH(EPDtempBracket);
-    // epdWrite(EPD_POWER_SETTING, 4, 0x37, 0x00, this->vshc, this->vslc); // this doesn't work
-
+// this->loadTempVSH(EPDtempBracket);
+// epdWrite(EPD_POWER_SETTING, 4, 0x37, 0x00, this->vshc, this->vslc); // this doesn't work
+#ifdef DEBUG_EPD
     printf("EPD: Init complete\n");
+#endif
 }
 
 void uc8159::selectLUT(uint8_t lut) {
@@ -183,7 +186,9 @@ uint8_t uc8159::getTempBracket() {
             break;
         }
     }
+#ifdef DEBUG_EPD
     printf("EPD: Temp bracket = %d\n", bracket);
+#endif
     return bracket;
 }
 void uc8159::loadFrameRatePLL(uint8_t bracket) {
@@ -193,8 +198,10 @@ void uc8159::loadFrameRatePLL(uint8_t bracket) {
     eepromReadBlock(0, 25039, plltable, 10);
     epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0x00);
     pllvalue = plltable[bracket];
+#ifdef DEBUG_EPD
     printf("loading pll value 0x%02X\n", pllvalue);
-    pllvalue = 0x3A;  // was 0x3C
+#endif
+    // pllvalue = 0x3A;  // was 0x3C
     epdWrite(EPD_PLL_CONTROL, 1, pllvalue);
 }
 void uc8159::loadTempVCOMDC(uint8_t bracket) {
@@ -269,6 +276,7 @@ void xonLutSkip(struct epd_xonlut *colorlut, uint8_t skip) {
 }
 
 void uc8159::loadLUTSfromEEPROM(uint8_t bracket, bool doRed) {
+    doRed = false;
     for (uint8_t c = EPD_LUT_B; c <= EPD_LUT_R3; c++) {
         struct epd_colorlut *colorlut = (struct epd_colorlut *)loadLUT(c, bracket);
 
@@ -277,9 +285,10 @@ void uc8159::loadLUTSfromEEPROM(uint8_t bracket, bool doRed) {
         colorlut->part[0].repeat = 1;
         colorLutSkip(colorlut, 2);
         if (!doRed) {
-            colorLutSkip(colorlut, 3);
-            colorLutSkip(colorlut, 3);
-            colorLutSkip(colorlut, 3);
+            colorLutSkip(colorlut, 2);
+            colorLutSkip(colorlut, 2);
+            colorLutSkip(colorlut, 2);
+            colorLutSkip(colorlut, 2);
         }
 
         // colorLutSkip(colorlut, 3);
@@ -295,9 +304,10 @@ void uc8159::loadLUTSfromEEPROM(uint8_t bracket, bool doRed) {
 
     vcomLutSkip(vcomlut, 2);
     if (!doRed) {
-        vcomLutSkip(vcomlut, 3);
-        vcomLutSkip(vcomlut, 3);
-        vcomLutSkip(vcomlut, 3);
+        vcomLutSkip(vcomlut, 2);
+        vcomLutSkip(vcomlut, 2);
+        vcomLutSkip(vcomlut, 2);
+        vcomLutSkip(vcomlut, 2);
     }
     epdBlockWrite(EPD_LUT_VCOM, (uint8_t *)vcomlut, 220);
     if (vcomlut) free(vcomlut);
@@ -309,16 +319,19 @@ void uc8159::loadLUTSfromEEPROM(uint8_t bracket, bool doRed) {
     xonlut->part[0].repeat = 1;
     xonLutSkip(xonlut, 2);
     if (!doRed) {
-        xonLutSkip(xonlut, 3);
-        xonLutSkip(xonlut, 3);
-        xonLutSkip(xonlut, 3);
+        xonLutSkip(xonlut, 2);
+        xonLutSkip(xonlut, 2);
+        xonLutSkip(xonlut, 2);
+        xonLutSkip(xonlut, 2);
     }
     epdBlockWrite(EPD_LUT_XON, (uint8_t *)xonlut, 200);
     if (xonlut) free(xonlut);
 }
 void uc8159::epdReset() {
     uint8_t v0 = 5;
+#ifdef DEBUG_EPD
     printf("EPD: Reset... ");
+#endif
     while (1) {
         GPIO_WritePinOutput(EPD_RESET, GPIO_IO_HIGH);
         delay(100);
@@ -335,7 +348,9 @@ void uc8159::epdReset() {
         }
     }
     delay(5000);
+#ifdef DEBUG_EPD
     printf("complete.\n");
+#endif
 }
 
 void uc8159::eepromReadBlock(char a1, uint16_t readaddress, uint8_t *target, uint16_t length) {
@@ -406,6 +421,7 @@ void uc8159::epdWriteDisplayData() {
     enableHardSPI(true);
     GPIO_WritePinOutput(EPD_CS, GPIO_IO_LOW);
     for (uint16_t curY = 0; curY < this->effectiveYRes; curY += blocksize) {  //
+        wdt10s();
         memset(screenrow_bw, 0, byteWidth * blocksize);
         memset(screenrow_r, 0, byteWidth * blocksize);
 
@@ -413,7 +429,11 @@ void uc8159::epdWriteDisplayData() {
             drawItem::renderDrawLine(screenrow_bw + (byteWidth * bcount), curY + bcount, 0);
         }
         for (uint8_t bcount = 0; bcount < blocksize; bcount++) {
-            drawItem::renderDrawLine(screenrow_r + (byteWidth * bcount), curY + bcount, 1);
+            if (this->bpp == 1) {
+                drawItem::renderDrawLine(screenrow_bw + (byteWidth * bcount), curY + bcount, 1);
+            } else {
+                drawItem::renderDrawLine(screenrow_r + (byteWidth * bcount), curY + bcount, 1);
+            }
         }
 
         for (uint8_t bcount = 0; bcount < blocksize; bcount++) {
@@ -435,9 +455,9 @@ void uc8159::draw() {
 }
 
 void uc8159::drawNoWait() {
-    wdt60s();
     epdWriteDisplayData();
     if (drawLut) {
+        // epdWrite(EPD_PLL_CONTROL, 1, 0x3A); // scan the gates a little faster
         epdWrite(EPD_PANEL_SETTING, 2, 0xC3, 0x88);  // 0xC3-0x88 // lut from register
         bool doReds = true;
         if (drawLut == 2) doReds = false;
@@ -448,15 +468,21 @@ void uc8159::drawNoWait() {
         busyWaitUntil(EPD_IS_BUSY, 10);
         busyWaitUntil(!EPD_IS_BUSY, 100);
     }
+#ifdef DEBUG_EPD
     printf("EPD: Draw start\n");
+#endif
+    wdt10s();
     epdWrite(EPD_REFRESH, 0);
     busyWaitUntil(EPD_IS_BUSY, 10);
 }
 
 void uc8159::epdWaitRdy() {
-    // do_sleeped_epd_refresh();
-    busyWaitUntil(!EPD_IS_BUSY, 300000);
+    delay(15000);
+    do_sleeped_epd_refresh();
+    // busyWaitUntil(!EPD_IS_BUSY, 300000);
+#ifdef DEBUG_EPD
     printf("EPD: Draw done!\n");
+#endif
 }
 
 void uc8159::epdEnterSleep() {

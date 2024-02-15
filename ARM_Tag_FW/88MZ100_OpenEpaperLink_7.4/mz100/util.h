@@ -18,6 +18,8 @@ bool eepromWrite(uint32_t addr, const void *srcP, uint16_t len);
 bool eepromErase(uint32_t addr, uint16_t nSec);
 void eepromRead(uint32_t addr, void *dstP, uint16_t len);
 
+uint32_t flashRoundUp(uint32_t in);
+
 uint32_t eepromGetSize(void);
 void radioShutdown(void);		//experimentally written. suggest reset after use to bring radio back :)
 

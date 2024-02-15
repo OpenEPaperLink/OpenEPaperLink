@@ -38,6 +38,7 @@ class OEPLFs {
     OEPLFs();
     std::vector<OEPLFSFile*> files;
     OEPLFile* getFile(char* name);
+    void deleteFile(char* name);
     void init();
     bool isStarted = false;
 

@@ -3,16 +3,27 @@
 
 #include <stdint.h>
 
-#define FW_VERSION 0x0027            // version number (max 2.5.5 :) )
-#define FW_VERSION_SUFFIX "-75"  // suffix, like -RC1 or whatever.
-// #define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
-// #define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
+#define FW_VERSION 0x0027          // version number (max 2.5.5 :) )
+#define FW_VERSION_SUFFIX "-zlib"  // suffix, like -RC1 or whatever.
 
 
-#define DEBUG_EPD
-#define DEBUG_FS
+//#define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
+//#define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
+
+//#define DEBUG_EPD
+//#define DEBUG_FS
+
+//#define DEBUG_COMPRESSION
+//#define DEBUG_PROTO
+//#define DEBUG_SETTINGS
+//#define DEBUG_DONTVALIDATEPROTO
+
+
+
+#if defined(DEBUG_SETTINGS) || defined(DEBUG_EPD) || defined(DEBUGBLOCKS) || defined(DEBUG_PROTO) || defined(DEBUG_COMPRESSION) || defined(DEBUG_FS)
 #define DEBUG_BUILD
-#define DEBUG_COMPRESSION
+#endif
+
 
 
 #define SETTINGS_STRUCT_VERSION 0x01
@@ -24,10 +35,17 @@
 #define DEFAULT_SETTING_LOWBATSYMBOL 1
 #define DEFAULT_SETTING_NORFSYMBOL 1
 
-extern __attribute__((section(".aonshadow")))struct tagsettings tagSettings;
+#define MAGIC_NUMBER_SETTINGS (0xD34DBEEFD0D0CAFEull)
 
+#include "tagprofile_struct.h"
+
+extern __attribute__((section(".aonshadow"))) struct tagsettings tagSettings;
+extern __attribute__((section(".aonshadow"))) struct tagHardwareProfile tagProfile;
+
+void invalidateSettings();
 void loadDefaultSettings();
 void writeSettings();
-void loadSettings();
+bool loadSettings();
 void loadSettingsFromBuffer(uint8_t* p);
+bool loadProfileFromFile(char* filename);
 #endif

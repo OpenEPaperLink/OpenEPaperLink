@@ -1,5 +1,5 @@
 #pragma once
-//#include <stdio.h>
+// #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -20,13 +20,26 @@ class epdInterface {
     uint16_t effectiveYRes;
     uint16_t XOffset = 0;
     uint16_t YOffset = 0;
+    uint8_t bpp = 0;
     bool drawDirectionRight = false;
     bool epdMirrorV = false;
     bool epdMirrorH = false;
 };
 
+struct tagSpecs {
+    uint8_t buttonCount = 0;
+    bool hasNFC = false;
+    bool hasLED = false;
+    uint16_t macSuffix = 0x0000;
+    uint8_t OEPLtype = 0;
+    uint8_t solumType = 0;
+    uint32_t imageSize = 0;
+} __attribute__((packed));
+
+extern __attribute__((section(".aonshadow"))) tagSpecs tag;
+
 //__attribute__((section(".aonshadow")))
-extern epdInterface* epd;
+extern epdInterface *epd;
 
 void epdSetup();
 void epdEnterSleep();
