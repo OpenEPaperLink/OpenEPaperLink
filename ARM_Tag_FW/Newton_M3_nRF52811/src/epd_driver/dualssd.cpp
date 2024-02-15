@@ -212,11 +212,7 @@ void dualssd::draw() {
 }
 void dualssd::drawNoWait() {
     epdWriteDisplayData();
-    if(tag.hasThirdColor){
-        epdWrite(CMD_DISP_UPDATE_CTRL2, 1, 0xF7);
-    }else{
-        //epdWrite(CMD_DISP_UPDATE_CTRL2, 1, 0xF7);
-    }
+    epdWrite(CMD_DISP_UPDATE_CTRL2, 1, 0xF7);
     epdWrite(CMD_ACTIVATION, 0);
 }
 void dualssd::epdWaitRdy() {

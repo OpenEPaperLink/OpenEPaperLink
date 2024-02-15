@@ -38,6 +38,7 @@ void identifyTagInfo() {
     AD BA FE CA 15 0A 1B 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 type 2
     92 C3 80 05 15 08 19 04 00 12 01 18 03 10 01 04 07 07 01 80 00 00 63 FF FF FF FF FF FF FF FF FF     5.85 BWR
     22 F0 BF 05 15 0A 14 04 00 12 00 18 03 10 01 04 07 07 01 80 00 00 24 FF FF FF FF FF FF FF FF FF     5.85 BW
+    99 78 B1 05 15 0A 06 04 00 0D 01 68 01 B8 00 38 07 07 01 80 00 00 43 FF FF FF FF FF FF FF FF FF     2.6"
 
 
 
@@ -149,6 +150,12 @@ void identifyTagInfo() {
             break;
         case STYPE_SIZE_022:
             tag.macSuffix = 0xB190;
+            epd->drawDirectionRight = true;
+            tag.OEPLtype = SOLUM_M3_BWR_22;
+            epd->XOffset = 8;
+            break;
+        case STYPE_SIZE_026:
+            tag.macSuffix = 0xB3D0;
             epd->drawDirectionRight = true;
             tag.OEPLtype = SOLUM_M3_BWR_22;
             epd->XOffset = 8;
