@@ -155,7 +155,7 @@ void BLETask(void* parameter) {
                 if (millis() - last_ble_scan > (INTERVAL_BLE_SCANNING_SECONDS * 1000)) {
                     last_ble_scan = millis();
                     Serial.println("Doing the BLE Scan");
-                    BLE_startScan(5);  // timeout in seconds, this is blocking but only for this thread!
+                    BLE_startScan(10);  // timeout in seconds, this is blocking but only for this thread!
                 }
                 if (millis() - BLE_last_pending_check >= (INTERVAL_HANDLE_PENDING_SECONDS * 1000)) {
                     if (BLE_is_image_pending(BLE_curr_address)) {

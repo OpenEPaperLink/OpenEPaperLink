@@ -70,6 +70,7 @@
 #define GICI_BLE_EPD_BW_74 0xB8
 #define GICI_BLE_EPD_BWR_74 0xB9
 #define GICI_BLE_UNKNOWN 0xBF
+#define ATC_MI_THERMOMETER 0xBE
 
 // Solum types - customer data byte 16 in M3 (nRF) UICR
 #define STYPE_SIZE_016 0x40

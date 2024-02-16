@@ -57,19 +57,28 @@ uint8_t gicToOEPLtype(uint8_t gicType) {
 }
 
 bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
+    Serial.print("BLE Advertised Device found: ");
+    Serial.println(advertisedDevice.toString().c_str());
+
+    uint8_t payloadData[100];
+    int payloadDatalen = advertisedDevice.getPayloadLength();
+    memcpy(&payloadData, (uint8_t*)advertisedDevice.getPayload(), payloadDatalen);
+    Serial.printf(" Payload data: ");
+    for (int i = 0; i < payloadDatalen; i++)
+        Serial.printf("%02X", payloadData[i]);
+    Serial.printf("\r\n");
+
     if (advertisedDevice.haveManufacturerData()) {
         int manuDatalen = advertisedDevice.getManufacturerData().length();
         uint8_t manuData[100];
         if (manuDatalen > sizeof(manuData))
             return false;  // Manu data too big, could never happen but better make sure here
+        Serial.printf(" Address type: %02X Manu data: ", advertisedDevice.getAddressType());
+        for (int i = 0; i < advertisedDevice.getManufacturerData().length(); i++)
+            Serial.printf("%02X", manuData[i]);
+        Serial.printf("\r\n");
         memcpy(&manuData, (uint8_t*)advertisedDevice.getManufacturerData().data(), manuDatalen);
-        if (manuDatalen == 7 && manuData[0] == 0x53 && manuData[1] == 0x50) {
-            Serial.print("BLE Advertised Device found: ");
-            Serial.println(advertisedDevice.toString().c_str());
-            Serial.printf(" Address type: %02X Manu data: ", advertisedDevice.getAddressType());
-            for (int i = 0; i < advertisedDevice.getManufacturerData().length(); i++)
-                Serial.printf("%02X", manuData[i]);
-            Serial.printf("\r\n");
+        if (manuDatalen == 7 && manuData[0] == 0x53 && manuData[1] == 0x50) {  // Lets check for a Gicisky E-Paper display
 
             struct espAvailDataReq theAdvData;
             memset((uint8_t*)&theAdvData, 0x00, sizeof(espAvailDataReq));
@@ -94,7 +103,34 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             return true;
         }
     }
+    if (payloadDatalen >= 17) {  // Lets check for an ATC Mi Thermometer
+        uint8_t macReversed[6];
+        memcpy(&macReversed, (uint8_t*)advertisedDevice.getAddress().getNative(), 6);
+        if (payloadData[9] == macReversed[5] && payloadData[8] == macReversed[4] && payloadData[7] == macReversed[3]) {  // Here we found an ATC Mi Thermometer
+            struct espAvailDataReq theAdvData;
+            memset((uint8_t*)&theAdvData, 0x00, sizeof(espAvailDataReq));
 
+            theAdvData.src[0] = macReversed[5];
+            theAdvData.src[1] = macReversed[4];
+            theAdvData.src[2] = macReversed[3];
+            theAdvData.src[3] = macReversed[2];
+            theAdvData.src[4] = macReversed[1];
+            theAdvData.src[5] = macReversed[0];
+            theAdvData.src[6] = 0x00;  // We use this do find out what type of display we got for compression^^
+            theAdvData.src[7] = 0x00;
+            theAdvData.adr.batteryMv = payloadData[14] << 8 | payloadData[15];
+            theAdvData.adr.temperature = (payloadData[10] << 8 | payloadData[11]) / 10;
+            theAdvData.adr.lastPacketLQI = payloadData[12];
+            theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
+            theAdvData.adr.hwType = ATC_MI_THERMOMETER;
+            theAdvData.adr.tagSoftwareVersion = 0x00;
+            theAdvData.adr.capabilities = 0x00;
+
+            processDataReq(&theAdvData, true);
+            Serial.printf("We got an ATC_MiThermometer via BLE\r\n");
+            return true;
+        }
+    }
     return false;
 }
 
