@@ -18,8 +18,9 @@ extern uint8_t our_ch;
 RAM u8 ourmac[8] = {0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0x02, 0x00, 0x00};
 extern RAM uint8_t mSelfMac[8];
 RAM char ownMacString[100] = "";
+RAM bool noApShown = false;
 
- uint8_t showChannelSelect()
+uint8_t showChannelSelect()
 { // returns 0 if no accesspoints were found
 	uint8_t result[sizeof(channelList)];
 	memset(result, 0, sizeof(result));
@@ -50,7 +51,7 @@ RAM char ownMacString[100] = "";
 	return highestSlot;
 }
 
- uint8_t channelSelect()
+uint8_t channelSelect()
 { // returns 0 if no accesspoints were found
 	uint8_t result[16];
 	memset(result, 0, sizeof(result));
@@ -82,11 +83,12 @@ RAM char ownMacString[100] = "";
 	return highestSlot;
 }
 
- int main(void)
+int main(void)
 {
 	startup_state_e state = drv_platform_init();
 	u8 isRetention = (state == SYSTEM_DEEP_RETENTION) ? 1 : 0;
-	isRetention = 0;// keep the compiler happy
+	isRetention = 0; // keep the compiler happy
+	noApShown = false;
 	drv_enable_irq();
 	init_led();
 	init_uart();
@@ -142,6 +144,7 @@ RAM char ownMacString[100] = "";
 		printf("No AP found\r\n");
 		epd_display("No AP Found", batteryVoltage, ownMacString, 1);
 		initPowerSaving(INTERVAL_AT_MAX_ATTEMPTS);
+		noApShown = true;
 		doSleep(120000UL);
 	}
 	while (1)
@@ -222,27 +225,30 @@ RAM char ownMacString[100] = "";
 			set_led_color(0);
 			currentChannel = channelSelect();
 
-			if ((!currentChannel) || (lowBattery) || (scanAttempts == (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1)))
+			if (!currentChannel)
 			{
 				wdt60s();
-				if (curImgSlot != 0xFF)
+				if (!noApShown)
 				{
-					drawImageFromEeprom(curImgSlot);
-				}
-				else if ((scanAttempts >= (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1)))
-				{
-					epd_display("Sleep", batteryVoltage, ownMacString, 1);
-				}
-				else
-				{
-					epd_display("No AP", batteryVoltage, ownMacString, 1);
+					noApShown = true;
+					if (curImgSlot != 0xFF)
+					{
+						drawImageFromEeprom(curImgSlot);
+					}
+					else
+					{
+						epd_display("No AP", batteryVoltage, ownMacString, 1);
+					}
 				}
 			}
 			// did we find a working channel?
 			if (currentChannel)
 			{
 				// now associated!
+				noApShown = false;
 				our_ch = currentChannel;
+				printf("AP Found\r\n");
+				epd_display("AP Found", batteryVoltage, ownMacString, 1);
 				scanAttempts = 0;
 				wakeUpReason = WAKEUP_REASON_NETWORK_SCAN;
 				initPowerSaving(INTERVAL_BASE);
