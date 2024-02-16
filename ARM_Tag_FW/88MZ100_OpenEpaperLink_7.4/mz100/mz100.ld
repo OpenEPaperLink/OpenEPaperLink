@@ -17,7 +17,7 @@ SECTIONS
     {
         KEEP(*(.isr_vector))
         KEEP(*(.ver))
-        KEEP(*(.default_mac))
+        KEEP(*(.fwmagic))
         *(.text*)
 
         KEEP(*(.init))

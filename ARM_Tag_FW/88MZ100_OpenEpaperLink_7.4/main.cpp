@@ -46,10 +46,10 @@ extern void dump(const uint8_t *a, const uint16_t l);
 #include "oepl_fs.h"
 
 #define SW_VER_CURRENT (0x0000011300000000ull)  // top 16 bits are off limits, xxxx.VV.tt.vvvv.mmmm means version V.t.v.m
-#define SW_DEFAULT_MAC (0x0000000000000014ull)
+#define FW_MAGIC (0x14AFEEBCDC14AE5Aull)
 
 uint64_t __attribute__((section(".ver"))) mCurVersionExport = SW_VER_CURRENT;
-uint64_t __attribute__((section(".default_mac"))) default_mac = SW_DEFAULT_MAC;
+uint64_t __attribute__((section(".fwmagic"))) magic = FW_MAGIC;
 
 char macStr[32];
 char macStr1[32];
@@ -542,6 +542,16 @@ void applyUpdate(uint32_t size) {
     // apparently, the flash process is more reliable if we do these two first
     setupCLKCalib();
     setupRTC(0);
+
+
+    uint64_t test;
+    FLASH_Read((FLASH_ReadMode_Type)0, fsEnd + 0x0168, (uint8_t *)&test, 8);
+    if (test != magic) {
+        printf("Update didn't have the correct magic number!\n");
+        printf("got %llu\n", test);
+        delay(1000);
+        return;
+    }
 
     showApplyUpdate();
 
