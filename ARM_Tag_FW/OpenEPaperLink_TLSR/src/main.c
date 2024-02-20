@@ -233,7 +233,9 @@ int main(void)
 					noApShown = true;
 					if (curImgSlot != 0xFF)
 					{
+						drawOnOffline(0);
 						drawImageFromEeprom(curImgSlot);
+						drawOnOffline(1);
 					}
 					else
 					{
@@ -248,7 +250,15 @@ int main(void)
 				noApShown = false;
 				our_ch = currentChannel;
 				printf("AP Found\r\n");
-				epd_display("AP Found", batteryVoltage, ownMacString, 1);
+				if (curImgSlot != 0xFF)
+				{
+					drawOnOffline(1);
+					drawImageFromEeprom(curImgSlot);
+				}
+				else
+				{
+					epd_display("AP Found", batteryVoltage, ownMacString, 1);
+				}
 				scanAttempts = 0;
 				wakeUpReason = WAKEUP_REASON_NETWORK_SCAN;
 				initPowerSaving(INTERVAL_BASE);

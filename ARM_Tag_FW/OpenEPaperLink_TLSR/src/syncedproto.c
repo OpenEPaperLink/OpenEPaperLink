@@ -484,7 +484,7 @@ static void getNumSlots()
 }
 static uint8_t findSlot(const uint8_t *ver)
 {
-    //return 0xFF; // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
+    // return 0xFF; // remove me! This forces the tag to re-download each and every upload without checking if it's already in the eeprom somewhere
     uint32_t markerValid = EEPROM_IMG_VALID;
     for (uint8_t c = 0; c < imgSlots; c++)
     {
@@ -837,6 +837,7 @@ bool processAvailDataInfo(struct AvailDataInfo *avail)
 
             drawWithLut = avail->dataTypeArgument;
             wdt60s();
+            drawOnOffline(1);
             drawImageFromEeprom(curImgSlot);
             return true;
         }
@@ -851,6 +852,7 @@ bool processAvailDataInfo(struct AvailDataInfo *avail)
                 sendXferComplete();
 
                 wdt60s();
+                drawOnOffline(1);
                 drawImageFromEeprom(curImgSlot);
                 return true;
             }
@@ -911,7 +913,7 @@ void test_firmware_writing()
     }
 }
 
- _attribute_ram_code_  void write_ota_firmware_to_flash(void)
+_attribute_ram_code_ void write_ota_firmware_to_flash(void)
 {
     irq_disable();
     address = 0;

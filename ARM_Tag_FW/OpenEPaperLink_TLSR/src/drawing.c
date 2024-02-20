@@ -8,9 +8,19 @@
 #include "screen.h"
 #include "epd.h"
 
+#define LINE_BYTE_COUNTER ((SCREEN_WIDTH/8)*5)// Draw 5 lines
+
+RAM uint8_t onlineState = 1;
+uint32_t byteCounter = 0;
+void drawOnOffline(uint8_t state)
+{
+    onlineState = state;
+}
+
 static uint8_t mClutMap[256];
 void drawImageAtAddress(uint32_t addr, uint8_t lut)
 {
+    byteCounter = 0;
     struct EepromImageHeader *eih = (struct EepromImageHeader *)mClutMap;
     eepromRead(addr, mClutMap, sizeof(struct EepromImageHeader));
     switch (eih->dataType)
@@ -24,7 +34,11 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut)
             {
                 eepromRead(addr + sizeof(struct EepromImageHeader) + c, mClutMap, 256);
             }
-            EPD_Display_byte(mClutMap[c % 256]);
+            if (byteCounter < LINE_BYTE_COUNTER && onlineState == 0)
+                EPD_Display_byte(0x55);
+            else
+                EPD_Display_byte(mClutMap[c % 256]);
+            byteCounter++;
         }
         EPD_Display_color_change();
         for (uint32_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++)
@@ -42,7 +56,11 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut)
             {
                 eepromRead(addr + sizeof(struct EepromImageHeader) + c, mClutMap, 256);
             }
-            EPD_Display_byte(mClutMap[c % 256]);
+            if (byteCounter < LINE_BYTE_COUNTER && onlineState == 0)
+                EPD_Display_byte(0x55);
+            else
+                EPD_Display_byte(mClutMap[c % 256]);
+            byteCounter++;
         }
         EPD_Display_color_change();
         for (uint32_t c = 0; c < (SCREEN_HEIGHT * (SCREEN_WIDTH / 8)); c++)
