@@ -25,6 +25,7 @@ void simpleAPPower(uint8_t* pin, uint8_t pincount, bool state) {
     }
 }
 
+#ifdef POWER_RAMPING
 // On the OpenEPaperLink board, there is no in-rush current limiting. The tags that can be connected to the board can have significant capacity, which,
 // when drained if the board applies power, will cause the 3v3 rail to sag enough to reset the ESP32. This is obviously not great. To prevent this from happening,
 // we ramp up/down the voltage with PWM. Ramping down really is unnecessary, as the board has a resistor to dump the charge into.
@@ -73,6 +74,7 @@ void rampTagPower(uint8_t* pin, bool up) {
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1);
 #endif
 }
+#endif
 
 void powerControl(bool powerState, uint8_t* pin, uint8_t pincount) {
     if (pincount == 0) return;
