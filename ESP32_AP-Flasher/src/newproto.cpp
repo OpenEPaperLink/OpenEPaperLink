@@ -183,7 +183,7 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
     if (!filename.startsWith("/")) {
         filename = "/" + filename;
     }
-    
+
     if (!contentFS->exists(filename)) {
         wsErr("File not found. " + filename);
         return false;
@@ -511,6 +511,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     tagRecord* taginfo = tagRecord::findByMAC(eadr->src);
     if (taginfo == nullptr) {
         if (config.lock == 1 || (config.lock == 2 && eadr->adr.wakeupReason != WAKEUP_REASON_FIRSTBOOT)) return;
+        if (eadr->adr.currentChannel > 0 && eadr->adr.currentChannel != apInfo.channel) return;
         taginfo = new tagRecord;
         memcpy(taginfo->mac, eadr->src, sizeof(taginfo->mac));
         taginfo->pendingCount = 0;
@@ -926,16 +927,28 @@ bool queueDataAvail(struct pendingData* pending, bool local) {
     }
     newPending.len = taginfo->len;
 
-    if (countQueueItem(pending->targetMac) == 0) {
-        enqueueItem(newPending);
-        // first in line, send to tag
-        Serial.printf("queue item added, first in line, total %d elements\n", pendingQueue.size());
-        if (local) sendDataAvail(pending);
+    if ((pending->availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP || pending->availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || pending->availdatainfo.dataType == DATATYPE_IMG_ZLIB) && (pending->availdatainfo.dataTypeArgument & 0xF8) == 0x00) {
+        // in case of an image (no preload), remove already queued images
+        pendingQueue.erase(std::remove_if(pendingQueue.begin(), pendingQueue.end(),
+                                          [pending](const PendingItem& item) {
+                                              bool macMatches = memcmp(item.pendingdata.targetMac, pending->targetMac, sizeof(item.pendingdata.targetMac)) == 0;
+                                              bool dataTypeArgumentMatches = (pending->availdatainfo.dataType == item.pendingdata.availdatainfo.dataType) && ((item.pendingdata.availdatainfo.dataTypeArgument & 0xF8) == 0x00);
+                                              return macMatches && dataTypeArgumentMatches;
+                                          }),
+                           pendingQueue.end());
+    }
+
+    enqueueItem(newPending);
+    taginfo->pendingCount = countQueueItem(pending->targetMac);
+    if (taginfo->pendingCount == 1) {
+        Serial.printf("queue item added, first in line\n");
+        // if (local) sendDataAvail(pending);
     } else {
-        enqueueItem(newPending);
-        Serial.printf("queue item added, total %d elements\n", pendingQueue.size());
+        Serial.printf("queue item added, total %d elements\n", taginfo->pendingCount);
         // to do: notify C6 to shorten the checkin time for the current SDA
     }
+
+    if (local) checkQueue(pending->targetMac);
 
     return true;
 }

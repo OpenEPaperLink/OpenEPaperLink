@@ -8,6 +8,8 @@
 #define WEBFLASH_ENABLE_USBFLASHER 2
 #define WEBFLASH_FOCUS 3
 #define WEBFLASH_BLUR 4
+#define WEBFLASH_POWER_ON 5
+#define WEBFLASH_POWER_OFF 6
 
 class Logger : public Print {
    public:

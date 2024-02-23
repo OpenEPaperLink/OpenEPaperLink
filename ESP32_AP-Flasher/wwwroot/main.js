@@ -723,20 +723,22 @@ document.addEventListener("loadTab", function (event) {
 			fetch("/get_ap_config")
 				.then(response => response.json())
 				.then(data => {
-					apConfig = data;
-					$('#apcfgalias').value = data.alias;
-					$('#apcfgchid').value = data.channel;
-					$("#apcfgledbrightness").value = data.led;
-					$("#apcfgtftbrightness").value = data.tft;
-					$("#apcfglanguage").value = data.language;
-					$("#apclatency").value = data.maxsleep;
-					$("#apcpreventsleep").value = data.stopsleep;
-					$("#apcpreview").value = data.preview;
-					$("#apclock").value = data.lock;
-					$("#apcwifipower").value = data.wifipower;
-					$("#apctimezone").value = data.timezone;
-					$("#apcnight1").value = data.sleeptime1;
-					$("#apcnight2").value = data.sleeptime2;
+					if (data.alias) {
+						apConfig = data;
+						$('#apcfgalias').value = data.alias;
+						$('#apcfgchid').value = data.channel;
+						$("#apcfgledbrightness").value = data.led;
+						$("#apcfgtftbrightness").value = data.tft;
+						$("#apcfglanguage").value = data.language;
+						$("#apclatency").value = data.maxsleep;
+						$("#apcpreventsleep").value = data.stopsleep;
+						$("#apcpreview").value = data.preview;
+						$("#apclock").value = data.lock;
+						$("#apcwifipower").value = data.wifipower;
+						$("#apctimezone").value = data.timezone;
+						$("#apcnight1").value = data.sleeptime1;
+						$("#apcnight2").value = data.sleeptime2;
+					}
 				})
 			$('#apcfgmsg').innerHTML = '';
 			break;
@@ -1529,6 +1531,12 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 		contextMenuOptions.push(
 			{ id: 'del', label: 'Delete tag from list' }
 		);
+		let idletime = (Date.now() / 1000) - servertimediff - clickedGridItem.dataset.lastseen;
+		if ((Date.now() / 1000) - servertimediff - 600 > clickedGridItem.dataset.nextcheckin || idletime > 24 * 3600 || clickedGridItem.dataset.nextcheckin == 3216153600) {
+			contextMenuOptions.push(
+				{ id: 'purge', label: 'Delete all inactive tags' }
+			);
+		}
 		contextMenu.innerHTML = '';
 		contextMenuOptions.forEach(option => {
 			const li = document.createElement('li');

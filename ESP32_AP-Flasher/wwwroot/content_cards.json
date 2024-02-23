@@ -368,6 +368,10 @@
           "SK": "Slovakia",
           "SI": "Slovenia",
           "ES": "Spain",
+          "SE1": "Sweden SE1",
+          "SE2": "Sweden SE2",
+          "SE3": "Sweden SE3",
+          "SE4": "Sweden SE4",
           "CH": "Switzerland"
         }
       },

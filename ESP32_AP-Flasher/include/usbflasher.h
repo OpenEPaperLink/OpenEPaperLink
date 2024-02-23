@@ -8,3 +8,4 @@ void usbFlasherTask(void* parameter);
 #endif
 void flasherDataHandler(uint8_t* data, size_t len, uint8_t transportType);
 void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType);
+void tagDebugPassthrough();

@@ -24,7 +24,7 @@ USBCDC USBSerial;
 QueueHandle_t flasherCmdQueue;
 
 uint32_t usbConnectedStartTime = 0;
-bool serialPassthroughState = false;
+extern bool serialPassthroughState;
 
 #define FLASHER_WAIT_A 0
 #define FLASHER_WAIT_T 1
@@ -226,7 +226,7 @@ void flasherDataHandler(uint8_t* data, size_t len, uint8_t transportType) {
 
 void resetFlasherState() {
     if (serialPassthroughState) {
-        Serial2.end();
+        Serial0.end();
     }
     serialPassthroughState = false;
 }
@@ -280,7 +280,7 @@ static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t eve
                     uint8_t buf[data->rx.len];
                     size_t len = cmdSerial.read(buf, data->rx.len);
                     if (serialPassthroughState) {
-                        Serial2.write(buf, len);
+                        Serial0.write(buf, len);
                     } else {
                         flasherDataHandler(buf, len, TRANSPORT_USB);
                     }
@@ -319,6 +319,8 @@ typedef enum {
     CMD_WRITE_FLASH = 83,
     CMD_AUTOFLASH = 87,
     CMD_COMPLETE = 88,
+
+    CMD_WRITE_ERROR = 99,
 
 } ZBS_UART_PROTO;
 uint32_t FLASHER_VERSION = 0x00000031;
@@ -514,7 +516,7 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
             }
             break;
         case CMD_WRITE_FLASH:
-            wsSerial("> write flash");
+            Serial.println("> write flash");
             if (selectedController == CONTROLLER_NRF82511) {
                 if (nrfflasherp == nullptr) return;
                 if (currentFlasherOffset >= nrfflasherp->nrf_info.flash_size) {
@@ -530,9 +532,13 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
                             c++;
                         }
                     }
-                    nrfflasherp->nrf_write_bank(currentFlasherOffset, (uint32_t*)cmd->data, cmd->len);
-                    Serial.printf("wrote page to nrf\n");
+                    uint8_t result = nrfflasherp->nrf_write_bank(currentFlasherOffset, (uint32_t*)cmd->data, cmd->len);
+                    Serial.printf("wrote page offset %lu to nrf\n", currentFlasherOffset);
                     currentFlasherOffset += cmd->len;
+                    if (result == 3) {
+                        sendFlasherAnswer(CMD_WRITE_ERROR, NULL, 0, transportType);
+                        return;
+                    }
                     sendFlasherAnswer(CMD_WRITE_FLASH, NULL, 0, transportType);
                 }
             } else if (selectedController == CONTROLLER_ZBS243) {
@@ -553,9 +559,13 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
                 if (currentFlasherOffset >= 4096) {
                     sendFlasherAnswer(CMD_COMPLETE, temp_buff, 1, transportType);
                 } else {
-                    nrfflasherp->nrf_write_bank(0x10001000 + currentFlasherOffset, (uint32_t*)cmd->data, cmd->len);
-                    Serial.printf("wrote page to nrf\n");
+                    uint8_t result =  nrfflasherp->nrf_write_bank(0x10001000 + currentFlasherOffset, (uint32_t*)cmd->data, cmd->len);
+                    Serial.printf("wrote infopage to nrf\n");
                     currentFlasherOffset += cmd->len;
+                    if (result == 3) {
+                        sendFlasherAnswer(CMD_WRITE_ERROR, NULL, 0, transportType);
+                        return;
+                    }
                     sendFlasherAnswer(CMD_WRITE_INFOPAGE, NULL, 0, transportType);
                 }
             } else if (selectedController == CONTROLLER_ZBS243) {
@@ -571,7 +581,7 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
             break;
         case CMD_PASS_THROUGH:
             wsSerial("> pass through");
-            Serial2.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
+            Serial0.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
             cmdSerial.println(">>>");
             serialPassthroughState = true;
             break;
@@ -606,12 +616,14 @@ void flasherCommandTimeout() {
 }
 
 void tagDebugPassthrough() {
-    uint16_t len = Serial2.available();
+    uint16_t len = Serial0.available();
     if (len > 0) {
         uint8_t* buf = (uint8_t*)malloc(len);
-        Serial2.read(buf, len);
+        Serial0.read(buf, len);
         Serial.write(buf, len);
         cmdSerial.write(buf, len);
+        String dataString((char*)buf, len);
+        wsSerial(dataString, "cyan");
         free(buf);
     }
 }

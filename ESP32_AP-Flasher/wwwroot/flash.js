@@ -6,6 +6,8 @@ const WEBFLASH_ENABLE_AUTOFLASH = 1
 const WEBFLASH_ENABLE_USBFLASHER = 2
 const WEBFLASH_FOCUS = 3
 export const WEBFLASH_BLUR = 4
+const WEBFLASH_POWER_ON = 5
+const WEBFLASH_POWER_OFF = 6
 
 export async function init() {
     wsCmd(WEBFLASH_FOCUS);
@@ -37,6 +39,28 @@ $('#doUSBflash').onclick = function () {
     running = true;
 
     wsCmd(WEBFLASH_ENABLE_USBFLASHER);
+
+    running = false;
+    disableButtons(false);
+}
+
+$('#doPowerOn').onclick = function () {
+    if (running) return;
+    disableButtons(true);
+    running = true;
+
+    wsCmd(WEBFLASH_POWER_ON);
+
+    running = false;
+    disableButtons(false);
+}
+
+$('#doPowerOff').onclick = function () {
+    if (running) return;
+    disableButtons(true);
+    running = true;
+
+    wsCmd(WEBFLASH_POWER_OFF);
 
     running = false;
     disableButtons(false);

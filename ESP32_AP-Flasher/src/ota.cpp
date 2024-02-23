@@ -251,8 +251,8 @@ void C6firmwareUpdateTask(void* parameter) {
     config.runStatus = RUNSTATUS_STOP;
     extern bool rxSerialStopTask2;
     rxSerialStopTask2 = true;
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial1.end();
-    delay(250);
 
     wsSerial("C6 flash starting");
 

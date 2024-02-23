@@ -33,36 +33,36 @@ void rampTagPower(uint8_t* pin, bool up) {
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 #endif
     if (up) {
-        ledcSetup(0, 152000, 8);  // 141251 okay // 101251 okay
+        ledcSetup(0, 50000, 8);
         ledcWrite(0, 254);
         vTaskDelay(1 / portTICK_PERIOD_MS);
-        ledcAttachPin(pin[0], 0);
         pinMode(pin[0], OUTPUT);
+        pinMode(FLASHER_EXT_RESET, OUTPUT);
+        digitalWrite(FLASHER_EXT_RESET, LOW);
+        ledcAttachPin(pin[0], 0);
         vTaskDelay(10 / portTICK_PERIOD_MS);
         for (uint8_t c = 254; c != 0xFF; c--) {
             ledcWrite(0, c);
-            if (c > 250) {
-                vTaskDelay(2 / portTICK_PERIOD_MS);
-            } else {
-                delayMicroseconds(100);
-            }
+            delayMicroseconds(700);
         }
         digitalWrite(pin[0], LOW);
         ledcDetachPin(pin[0]);
         digitalWrite(pin[0], LOW);
+        digitalWrite(FLASHER_EXT_RESET, INPUT_PULLUP);
     } else {
-        ledcSetup(0, 152000, 8);  // 141251 okay // 101251 okay
+        ledcSetup(0, 50000, 8);
         ledcWrite(0, 0);
         vTaskDelay(1 / portTICK_PERIOD_MS);
-        ledcAttachPin(pin[0], 0);
         pinMode(pin[0], OUTPUT);
+        pinMode(FLASHER_EXT_RESET, INPUT_PULLDOWN);
+        ledcAttachPin(pin[0], 0);
         vTaskDelay(10 / portTICK_PERIOD_MS);
         for (uint8_t c = 0; c < 0xFF; c++) {
             ledcWrite(0, c);
             if (c > 250) {
                 vTaskDelay(2 / portTICK_PERIOD_MS);
             } else {
-                delayMicroseconds(100);
+                delayMicroseconds(500);
             }
         }
         digitalWrite(pin[0], HIGH);
@@ -78,6 +78,10 @@ void powerControl(bool powerState, uint8_t* pin, uint8_t pincount) {
     if (pincount == 0) return;
     if (pin == nullptr) return;
 
+    static bool currentState = false;
+    if (currentState == true && powerState == true) return;
+    currentState = powerState;
+
 #ifdef POWER_RAMPING
     if (powerState == true) {
 #ifdef POWER_HIGH_SIDE_DRIVER
@@ -86,16 +90,23 @@ void powerControl(bool powerState, uint8_t* pin, uint8_t pincount) {
         rampTagPower(pin, false);
 #endif
     } else {
+/*
         pinMode(pin[0], OUTPUT);
 #ifdef POWER_HIGH_SIDE_DRIVER
         digitalWrite(pin[0], HIGH);
 #else
         digitalWrite(pin[0], LOW);
 #endif
+*/
+#ifdef POWER_HIGH_SIDE_DRIVER
+        rampTagPower(pin, false);
+#else
+        rampTagPower(pin, true);
+#endif
     }
 #else
-    simpleAPPower(pin, pincount, false);
+    simpleAPPower(pin, pincount, powerState);
     delay(500);
-    simpleAPPower(pin, pincount, true);
+    // simpleAPPower(pin, pincount, true);
 #endif
-}
+    }

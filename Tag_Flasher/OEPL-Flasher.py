@@ -35,6 +35,8 @@ CMD_WRITE_FLASH = 83
 CMD_AUTOFLASH = 87
 CMD_COMPLETE = 88
 
+CMD_WRITE_ERROR = 99
+
 TRANSPORT_SER = 0
 TRANSPORT_TCP = 1
 
@@ -244,7 +246,11 @@ def write_to_serial(filename, args):
             print(f'\rSent {i} bytes', end='', flush=True)
         elif (cmd == CMD_COMPLETE):
             print(
-                'Tried to write more bytes than we have room for!   \n', end='', flush=True)
+                '\nTried to write more bytes than we have room for!   \n', end='', flush=True)
+            return
+        elif (cmd == CMD_WRITE_ERROR):
+            print(
+                '\nError writing to the tag. Check your connection.   \n', end='', flush=True)
             return
         else:
             print("Some other error, dunno\n")

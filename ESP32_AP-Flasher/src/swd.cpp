@@ -195,7 +195,7 @@ uint32_t nrfswd::nrf_read_port(bool APorDP, uint8_t address) {
         DP_Read(address, temp);
     DP_Read(DP_RDBUFF, temp);
     DP_Read(DP_RDBUFF, temp);
-    Serial.printf("%s Read reg: 0x%02x : 0x%08x\r\n", APorDP ? "AP" : "DP", address, temp);
+    // Serial.printf("%s Read reg: 0x%02x : 0x%08x\r\n", APorDP ? "AP" : "DP", address, temp);
     return temp;
 }
 void nrfswd::nrf_write_port(bool APorDP, uint8_t address, uint32_t value) {
@@ -206,7 +206,7 @@ void nrfswd::nrf_write_port(bool APorDP, uint8_t address, uint32_t value) {
         DP_Write(address, value);
     DP_Read(DP_RDBUFF, temp);
     DP_Read(DP_RDBUFF, temp);
-    Serial.printf("%s Write reg: 0x%02x : 0x%08x\r\n", APorDP ? "AP" : "DP", address, value);
+    // Serial.printf("%s Write reg: 0x%02x : 0x%08x\r\n", APorDP ? "AP" : "DP", address, value);
 }
 void nrfswd::nrf_abort_all() {
     nrf_write_port(0, DP_ABORT, 0x1e);
@@ -254,8 +254,7 @@ uint32_t nrfswd::read_register(uint32_t address) {
     bool state2 = AP_Read(AP_DRW, temp);
     bool state3 = DP_Read(DP_RDBUFF, temp);
     bool state4 = DP_Read(DP_RDBUFF, temp);
-    if (showDebug)
-        Serial.printf("%i%i%i%i Read Register: 0x%08x : 0x%08x\r\n", state1, state2, state3, state4, address, temp);
+    // if (showDebug) Serial.printf("%i%i%i%i Read Register: 0x%08x : 0x%08x\r\n", state1, state2, state3, state4, address, temp);
     return temp;
 }
 void nrfswd::write_register(uint32_t address, uint32_t value) {
@@ -263,8 +262,7 @@ void nrfswd::write_register(uint32_t address, uint32_t value) {
     bool state1 = AP_Write(AP_TAR, address);
     bool state2 = AP_Write(AP_DRW, value);
     bool state3 = DP_Read(DP_RDBUFF, temp);
-    if (showDebug)
-        Serial.printf("%i%i%i Write Register: 0x%08x : 0x%08x\r\n", state1, state2, state3, address, value);
+    // if (showDebug) Serial.printf("%i%i%i Write Register: 0x%08x : 0x%08x\r\n", state1, state2, state3, address, value);
 }
 
 uint8_t nrfswd::erase_all_flash() {

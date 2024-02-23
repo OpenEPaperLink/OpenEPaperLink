@@ -371,6 +371,17 @@ void init_web() {
                         wsSendTaginfo(mac, SYNC_DELETE);
                         deleteRecord(mac);
                     }
+                    if (strcmp(cmdValue, "purge") == 0) {
+                        time_t now;
+                        time(&now);
+                        for (int c = tagDB.size() - 1; c >= 0; --c) {
+                            tagRecord *tag = tagDB.at(c);
+                            if (tag->expectedNextCheckin == 3216153600 || tag->lastseen < now - 24 * 3600 || now > tag->expectedNextCheckin + 600) {
+                                wsSendTaginfo(tag->mac, SYNC_DELETE);
+                                deleteRecord(tag->mac);
+                            }
+                        }
+                    }
                     if (strcmp(cmdValue, "clear") == 0) {
                         clearPending(taginfo);
                         while (dequeueItem(mac)) {
@@ -493,10 +504,11 @@ void init_web() {
 #else
         response->print("\"hasFlasher\": \"0\", ");
 #endif
-        response->print("\"apstate\": \"" + String(apInfo.state) + "\", ");
+        response->print("\"apstate\": \"" + String(apInfo.state) + "\"");
 
         File configFile = contentFS->open("/current/apconfig.json", "r");
         if (configFile) {
+            response->print(", ");
             configFile.seek(1);
             const size_t bufferSize = 64;
             uint8_t buffer[bufferSize];
