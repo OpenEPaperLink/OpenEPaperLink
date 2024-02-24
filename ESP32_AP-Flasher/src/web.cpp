@@ -504,6 +504,11 @@ void init_web() {
 #else
         response->print("\"hasFlasher\": \"0\", ");
 #endif
+#ifdef HAS_BLE_WRITER
+        response->print("\"hasBLE\": \"1\", ");
+#else
+        response->print("\"hasBLE\": \"0\", ");
+#endif
         response->print("\"apstate\": \"" + String(apInfo.state) + "\"");
 
         File configFile = contentFS->open("/current/apconfig.json", "r");
@@ -560,6 +565,9 @@ void init_web() {
         }
         if (request->hasParam("lock", true)) {
             config.lock = static_cast<uint8_t>(request->getParam("lock", true)->value().toInt());
+        }
+        if (request->hasParam("ble", true)) {
+            config.ble = static_cast<uint8_t>(request->getParam("ble", true)->value().toInt());
         }
         if (request->hasParam("sleeptime1", true)) {
             config.sleepTime1 = static_cast<uint8_t>(request->getParam("sleeptime1", true)->value().toInt());

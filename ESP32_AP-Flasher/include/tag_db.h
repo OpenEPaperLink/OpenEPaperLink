@@ -67,6 +67,7 @@ struct Config {
     char timeZone[52];
     uint8_t sleepTime1;
     uint8_t sleepTime2;
+    uint8_t ble;
     String repo;
     String env;
 };

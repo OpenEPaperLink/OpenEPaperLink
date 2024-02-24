@@ -139,7 +139,9 @@ void setup() {
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
 #ifdef HAS_BLE_WRITER
-    xTaskCreate(BLETask, "BLE Writer", 12000, NULL, 5, NULL);
+    if (config.ble) {
+        xTaskCreate(BLETask, "BLE Writer", 12000, NULL, 5, NULL);
+    }
 #endif
 
 #ifdef HAS_USB

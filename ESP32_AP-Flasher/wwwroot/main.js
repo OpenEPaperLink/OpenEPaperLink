@@ -61,6 +61,9 @@ window.addEventListener("loadConfig", function () {
 			if (data.hasFlasher) {
 				$('[data-target="flashtab"]').style.display = 'block';
 			}
+			if (data.hasBLE == 0) {
+				$("#apcfgble").parentNode.style.display = 'none';
+			}
 			if (data.savespace) {
 			}
 			if (data.apstate) {
@@ -727,6 +730,7 @@ document.addEventListener("loadTab", function (event) {
 						apConfig = data;
 						$('#apcfgalias').value = data.alias;
 						$('#apcfgchid').value = data.channel;
+						$('#apcfgble').value = data.ble;
 						$("#apcfgledbrightness").value = data.led;
 						$("#apcfgtftbrightness").value = data.tft;
 						$("#apcfglanguage").value = data.language;
@@ -761,6 +765,7 @@ $('#apcfgsave').onclick = function () {
 	let formData = new FormData();
 	formData.append("alias", $('#apcfgalias').value);
 	formData.append("channel", $('#apcfgchid').value);
+	formData.append('ble', $('#apcfgble').value);
 	formData.append('led', $('#apcfgledbrightness').value);
 	formData.append('tft', $('#apcfgtftbrightness').value);
 	formData.append('language', $('#apcfglanguage').value);

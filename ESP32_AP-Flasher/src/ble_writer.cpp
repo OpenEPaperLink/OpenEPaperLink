@@ -147,6 +147,7 @@ void BLE_startScan(uint32_t timeout) {
 
 void BLETask(void* parameter) {
     vTaskDelay(5000 / portTICK_PERIOD_MS);
+    Serial.println("BLE task started");
     BLEDevice::init("");
     while (1) {
         switch (ble_main_state) {
