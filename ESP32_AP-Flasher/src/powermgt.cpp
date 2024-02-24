@@ -81,7 +81,7 @@ void powerControl(bool powerState, uint8_t* pin, uint8_t pincount) {
     if (pin == nullptr) return;
 
     static bool currentState = false;
-    if (currentState == true && powerState == true) return;
+    if (currentState == powerState) return;
     currentState = powerState;
 
 #ifdef POWER_RAMPING

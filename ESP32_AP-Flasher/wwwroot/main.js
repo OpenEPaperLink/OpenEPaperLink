@@ -747,7 +747,7 @@ document.addEventListener("loadTab", function (event) {
 			loadOTA();
 			break;
 		case 'flashtab':
-			$('#flashconsole').innerHTML = '';
+			// $('#flashconsole').innerHTML = '';
 			loadFlash();
 			break;
 	}

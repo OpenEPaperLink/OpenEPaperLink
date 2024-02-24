@@ -445,21 +445,23 @@ void webFlasherTask(void* parameter) {
             }
 
             case AUTOFLASH_USBFLASHER_RUNNING: {
-                vTaskDelay(500 / portTICK_PERIOD_MS);
                 break;
             }
 
             case AUTOFLASH_END_USBFLASHER: {
                 autoFlashStep = AUTOFLASH_STEP_FINISHED;
+                break;
             }
         }
 
+        /* work in progress
         if (serialPassthroughState) {
             tagDebugPassthrough();
             vTaskDelay(1 / portTICK_PERIOD_MS);
         } else {
+        */
             vTaskDelay(100 / portTICK_PERIOD_MS);
-        }
+        // }
     }
 }
 
@@ -508,20 +510,38 @@ void handleWSdata(uint8_t* data, size_t len, AsyncWebSocketClient* client) {
                 break;
             case WEBFLASH_POWER_ON: {
                 wsSerial("Power up", "yellow");
+
+                extern bool rxSerialStopTask2;
+                if (rxSerialStopTask2 == false) {
+                    rxSerialStopTask2 = true;
+                    vTaskDelay(500 / portTICK_PERIOD_MS);
+                }
+
                 int8_t powerPins2[] = FLASHER_EXT_POWER;
                 uint8_t numPowerPins = sizeof(powerPins2);
                 powerControl(true, (uint8_t*)powerPins2, numPowerPins);
 
-                Serial0.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
+                /*  work in progress
+                if (Serial2) Serial2.end();
+                Serial2.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
                 Serial.println(">>>");
                 serialPassthroughState = true;
+                */
                 break;
             }
             case WEBFLASH_POWER_OFF: {
                 wsSerial("Power down", "yellow");
-                serialPassthroughState = false;
-                vTaskDelay(50 / portTICK_PERIOD_MS);
-                if (Serial0) Serial0.end();
+                if (serialPassthroughState) {
+                    serialPassthroughState = false;
+                    vTaskDelay(500 / portTICK_PERIOD_MS);
+                }
+                extern bool rxSerialStopTask2;
+                if (rxSerialStopTask2 == false) {
+                    rxSerialStopTask2 = true;
+                    vTaskDelay(500 / portTICK_PERIOD_MS);
+                }
+
+                if (Serial2) Serial2.end();
                 pinMode(FLASHER_EXT_MISO, INPUT);
                 pinMode(FLASHER_EXT_CLK, INPUT);
                 pinMode(FLASHER_EXT_TEST, INPUT);

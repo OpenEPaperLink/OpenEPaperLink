@@ -226,7 +226,7 @@ void flasherDataHandler(uint8_t* data, size_t len, uint8_t transportType) {
 
 void resetFlasherState() {
     if (serialPassthroughState) {
-        Serial0.end();
+        Serial2.end();
     }
     serialPassthroughState = false;
 }
@@ -280,7 +280,7 @@ static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t eve
                     uint8_t buf[data->rx.len];
                     size_t len = cmdSerial.read(buf, data->rx.len);
                     if (serialPassthroughState) {
-                        Serial0.write(buf, len);
+                        Serial2.write(buf, len);
                     } else {
                         flasherDataHandler(buf, len, TRANSPORT_USB);
                     }
@@ -581,7 +581,13 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
             break;
         case CMD_PASS_THROUGH:
             wsSerial("> pass through");
-            Serial0.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
+
+            extern bool rxSerialStopTask2;
+            rxSerialStopTask2 = true;
+            vTaskDelay(500 / portTICK_PERIOD_MS);
+
+            if (Serial2) Serial2.end();
+            Serial2.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
             cmdSerial.println(">>>");
             serialPassthroughState = true;
             break;
@@ -616,16 +622,28 @@ void flasherCommandTimeout() {
 }
 
 void tagDebugPassthrough() {
-    uint16_t len = Serial0.available();
+    // static String accumulatedData = "";
+    // static unsigned long flushTimer = 0;
+    uint16_t len = Serial2.available();
+
     if (len > 0) {
         uint8_t* buf = (uint8_t*)malloc(len);
-        Serial0.read(buf, len);
-        Serial.write(buf, len);
+        Serial2.readBytes(buf, len);
+        cmdSerial.printf("%d bytes: ", len);
         cmdSerial.write(buf, len);
-        String dataString((char*)buf, len);
-        wsSerial(dataString, "cyan");
+        cmdSerial.print("\n");
+        //String dataString((char*)buf, len);
+        //wsSerial(dataString, "cyan");
+        //  accumulatedData += dataString;
         free(buf);
     }
+    /*
+    if (millis() - flushTimer > 500 && accumulatedData.length() > 0) {
+        // wsSerial("*", "cyan");
+        flushTimer = millis();
+        accumulatedData = "";
+    }
+    */
 }
 
 #ifdef HAS_USB

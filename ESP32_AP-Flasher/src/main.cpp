@@ -47,7 +47,7 @@ void delayedStart(void* parameter) {
 
 void setup() {
     Serial.begin(115200);
-#ifdef ARDUINO_USB_CDC_ON_BOOT
+#if ARDUINO_USB_CDC_ON_BOOT == 1
     Serial.setTxTimeoutMs(0); // workaround bug in USB CDC that slows down serial output when no usb connected
 #endif
     Serial.print(">\n");
