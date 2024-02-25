@@ -249,7 +249,7 @@ size_t prepareHeader(uint8_t headerbuf[], uint16_t bufw, uint16_t bufh, imgParam
 }
 
 bool initializeCompressor(Miniz::tdefl_compressor *comp, int flags) {
-    return Miniz::tdefl_init(comp, NULL, NULL, flags) == Miniz::TDEFL_STATUS_OKAY;
+    return Miniz::tdefl_initOEPL(comp, NULL, NULL, flags) == Miniz::TDEFL_STATUS_OKAY;
 }
 
 size_t compressAndWrite(Miniz::tdefl_compressor *comp, const void *inbuf, size_t inbytes, void *zlibbuf, size_t outsize, size_t totalbytes, File &f_out, Miniz::tdefl_flush flush) {
@@ -257,7 +257,7 @@ size_t compressAndWrite(Miniz::tdefl_compressor *comp, const void *inbuf, size_t
     size_t outbytes_compressed = outsize;
 
     uint32_t t = millis();
-    tdefl_compress(comp, inbuf, &inbytes_compressed, zlibbuf, &outbytes_compressed, flush);
+    Miniz::tdefl_compressOEPL(comp, inbuf, &inbytes_compressed, zlibbuf, &outbytes_compressed, flush);
     Serial.printf("zlib: compressed %d into %d bytes in %d ms\n", inbytes_compressed, outbytes_compressed, millis()-t);
 
     f_out.write((const uint8_t *)zlibbuf, outbytes_compressed);
@@ -266,7 +266,8 @@ size_t compressAndWrite(Miniz::tdefl_compressor *comp, const void *inbuf, size_t
 
 void rewriteHeader(File &f_out) {
     // https://www.rfc-editor.org/rfc/rfc1950
-    const uint8_t cmf = 0x48;
+    const uint8_t cmf = 0x48; // 4096
+    // const uint8_t cmf = 0x58; // 8192
     uint8_t flg, flevel = 3;
     uint16_t header = cmf << 8 | (flevel << 6);
     header += 31 - (header % 31);
@@ -333,6 +334,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
 
                 f_out.write(reinterpret_cast<uint8_t *>(&totalbytes), sizeof(uint32_t));
 
+                // 768 = compression level 9, 1500 = unofficial level 10
                 if (comp == NULL || zlibbuf == NULL || totalbytes == 0 || !initializeCompressor(comp, Miniz::TDEFL_WRITE_ZLIB_HEADER | 1500)) {
                     Serial.println("Failed to initialize compressor or allocate memory for zlib");
                     if (zlibbuf != NULL) free(zlibbuf);
@@ -348,10 +350,10 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                     compressAndWrite(comp, buffer, buffer_size, zlibbuf, buffer_size, buffer_size, f_out, Miniz::TDEFL_FINISH);
                 }
 
-                rewriteHeader(f_out);
-
                 free(zlibbuf);
                 free(comp);
+
+                rewriteHeader(f_out);
             } else {
                 f_out.write(buffer, buffer_size);
                 if (imageParams.hasRed && imageParams.bpp > 1) {

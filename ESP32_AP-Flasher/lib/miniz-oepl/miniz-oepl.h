@@ -149,7 +149,7 @@ namespace Miniz {
 /*#define MINIZ_NO_ZLIB_APIS */
 
 /* Define MINIZ_NO_ZLIB_COMPATIBLE_NAME to disable zlib names, to prevent conflicts against stock zlib. */
-/*#define MINIZ_NO_ZLIB_COMPATIBLE_NAMES */
+#define MINIZ_NO_ZLIB_COMPATIBLE_NAMES
 
 /* Define MINIZ_NO_MALLOC to disable all calls to malloc, free, and realloc. 
    Note if MINIZ_NO_MALLOC is defined then the user must always provide custom user alloc/free/realloc
@@ -316,7 +316,7 @@ enum
 };
 
 /* Window bits */
-#define MZ_DEFAULT_WINDOW_BITS 15
+#define MZ_DEFAULT_WINDOW_BITS 12
 
 struct mz_internal_state;
 
@@ -797,10 +797,10 @@ typedef struct
 /* pBut_buf_func: If NULL, output data will be supplied to the specified callback. In this case, the user should call the tdefl_compress_buffer() API for compression. */
 /* If pBut_buf_func is NULL the user should always call the tdefl_compress() API. */
 /* flags: See the above enums (TDEFL_HUFFMAN_ONLY, TDEFL_WRITE_ZLIB_HEADER, etc.) */
-MINIZ_EXPORT tdefl_status tdefl_init(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags);
+MINIZ_EXPORT tdefl_status tdefl_initOEPL(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags);
 
 /* Compresses a block of data, consuming as much of the specified input buffer as possible, and writing as much compressed data to the specified output buffer as possible. */
-MINIZ_EXPORT tdefl_status tdefl_compress(tdefl_compressor *d, const void *pIn_buf, size_t *pIn_buf_size, void *pOut_buf, size_t *pOut_buf_size, tdefl_flush flush);
+MINIZ_EXPORT tdefl_status tdefl_compressOEPL(tdefl_compressor *d, const void *pIn_buf, size_t *pIn_buf_size, void *pOut_buf, size_t *pOut_buf_size, tdefl_flush flush);
 
 /* tdefl_compress_buffer() is only usable when the tdefl_init() is called with a non-NULL tdefl_put_buf_func_ptr. */
 /* tdefl_compress_buffer() always consumes the entire input buffer. */

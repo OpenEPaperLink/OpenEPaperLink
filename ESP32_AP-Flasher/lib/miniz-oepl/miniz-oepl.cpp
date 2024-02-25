@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 #include "miniz-oepl.h"
 
 #include <stdio.h>
@@ -226,7 +228,7 @@ int mz_deflateInit2(mz_streamp pStream, int level, int method, int window_bits, 
 
     pStream->state = (struct mz_internal_state *)pComp;
 
-    if (tdefl_init(pComp, NULL, NULL, comp_flags) != TDEFL_STATUS_OKAY)
+    if (tdefl_initOEPL(pComp, NULL, NULL, comp_flags) != TDEFL_STATUS_OKAY)
     {
         mz_deflateEnd(pStream);
         return MZ_PARAM_ERROR;
@@ -240,7 +242,7 @@ int mz_deflateReset(mz_streamp pStream)
     if ((!pStream) || (!pStream->state) || (!pStream->zalloc) || (!pStream->zfree))
         return MZ_STREAM_ERROR;
     pStream->total_in = pStream->total_out = 0;
-    tdefl_init((tdefl_compressor *)pStream->state, NULL, NULL, ((tdefl_compressor *)pStream->state)->m_flags);
+    tdefl_initOEPL((tdefl_compressor *)pStream->state, NULL, NULL, ((tdefl_compressor *)pStream->state)->m_flags);
     return MZ_OK;
 }
 
@@ -269,7 +271,7 @@ int mz_deflate(mz_streamp pStream, int flush)
         in_bytes = pStream->avail_in;
         out_bytes = pStream->avail_out;
 
-        defl_status = tdefl_compress((tdefl_compressor *)pStream->state, pStream->next_in, &in_bytes, pStream->next_out, &out_bytes, (tdefl_flush)flush);
+        defl_status = tdefl_compressOEPL((tdefl_compressor *)pStream->state, pStream->next_in, &in_bytes, pStream->next_out, &out_bytes, (tdefl_flush)flush);
         pStream->next_in += (mz_uint)in_bytes;
         pStream->avail_in -= (mz_uint)in_bytes;
         pStream->total_in += (mz_uint)in_bytes;
@@ -1591,7 +1593,9 @@ static mz_bool tdefl_compress_fast(tdefl_compressor *d)
                 if (!probe_len)
                     cur_match_len = cur_match_dist ? TDEFL_MAX_MATCH_LEN : 0;
 
-                if ((cur_match_len < TDEFL_MIN_MATCH_LEN) || ((cur_match_len == TDEFL_MIN_MATCH_LEN) && (cur_match_dist >= 8U * 1024U)))
+// fixme: hardcoded 8*1024
+//                if ((cur_match_len < TDEFL_MIN_MATCH_LEN) || ((cur_match_len == TDEFL_MIN_MATCH_LEN) && (cur_match_dist >= 8U * 1024U)))
+                if ((cur_match_len < TDEFL_MIN_MATCH_LEN) || ((cur_match_len == TDEFL_MIN_MATCH_LEN) && (cur_match_dist >= 4U * 1024U)))
                 {
                     cur_match_len = 1;
                     *pLZ_code_buf++ = (mz_uint8)first_trigram;
@@ -1924,8 +1928,9 @@ static tdefl_status tdefl_flush_output_buffer(tdefl_compressor *d)
     return (d->m_finished && !d->m_output_flush_remaining) ? TDEFL_STATUS_DONE : TDEFL_STATUS_OKAY;
 }
 
-tdefl_status tdefl_compress(tdefl_compressor *d, const void *pIn_buf, size_t *pIn_buf_size, void *pOut_buf, size_t *pOut_buf_size, tdefl_flush flush)
+tdefl_status tdefl_compressOEPL(tdefl_compressor *d, const void *pIn_buf, size_t *pIn_buf_size, void *pOut_buf, size_t *pOut_buf_size, tdefl_flush flush)
 {
+    Serial.println("tdefl_compress");
     if (!d)
     {
         if (pIn_buf_size)
@@ -1995,11 +2000,12 @@ tdefl_status tdefl_compress(tdefl_compressor *d, const void *pIn_buf, size_t *pI
 tdefl_status tdefl_compress_buffer(tdefl_compressor *d, const void *pIn_buf, size_t in_buf_size, tdefl_flush flush)
 {
     MZ_ASSERT(d->m_pPut_buf_func);
-    return tdefl_compress(d, pIn_buf, &in_buf_size, NULL, NULL, flush);
+    return tdefl_compressOEPL(d, pIn_buf, &in_buf_size, NULL, NULL, flush);
 }
 
-tdefl_status tdefl_init(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags)
+tdefl_status tdefl_initOEPL(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags)
 {
+    Serial.println("tdefl_init");
     d->m_pPut_buf_func = pPut_buf_func;
     d->m_pPut_buf_user = pPut_buf_user;
     d->m_flags = (mz_uint)(flags);
@@ -2053,7 +2059,7 @@ mz_bool tdefl_compress_mem_to_output(const void *pBuf, size_t buf_len, tdefl_put
     pComp = (tdefl_compressor *)MZ_MALLOC(sizeof(tdefl_compressor));
     if (!pComp)
         return MZ_FALSE;
-    succeeded = (tdefl_init(pComp, pPut_buf_func, pPut_buf_user, flags) == TDEFL_STATUS_OKAY);
+    succeeded = (tdefl_initOEPL(pComp, pPut_buf_func, pPut_buf_user, flags) == TDEFL_STATUS_OKAY);
     succeeded = succeeded && (tdefl_compress_buffer(pComp, pBuf, buf_len, TDEFL_FINISH) == TDEFL_STATUS_DONE);
     MZ_FREE(pComp);
     return succeeded;
@@ -2171,7 +2177,7 @@ void *tdefl_write_image_to_png_file_in_memory_ex(const void *pImage, int w, int 
     for (z = 41; z; --z)
         tdefl_output_buffer_putter(&z, 1, &out_buf);
     /* compress image data */
-    tdefl_init(pComp, tdefl_output_buffer_putter, &out_buf, s_tdefl_png_num_probes[MZ_MIN(10, level)] | TDEFL_WRITE_ZLIB_HEADER);
+    tdefl_initOEPL(pComp, tdefl_output_buffer_putter, &out_buf, s_tdefl_png_num_probes[MZ_MIN(10, level)] | TDEFL_WRITE_ZLIB_HEADER);
     for (y = 0; y < h; ++y)
     {
         tdefl_compress_buffer(pComp, &z, 1, TDEFL_NO_FLUSH);
