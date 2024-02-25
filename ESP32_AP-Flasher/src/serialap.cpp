@@ -755,6 +755,9 @@ bool bringAPOnline() {
 }
 
 bool checkRadio() {
+#ifndef C6_OTA_FLASHING
+    return true;
+#endif
     // make a short between FLASHER_AP_TXD and FLASHER_AP_RXD to indicate that no radio is present
     // e.g. for flasher only, or just to use the S3 to generate images for smaller AP's
     pinMode(FLASHER_AP_TXD, OUTPUT);
