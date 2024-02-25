@@ -492,7 +492,7 @@ void init_web() {
 #ifdef C6_OTA_FLASHING
         response->print("\"C6\": \"1\", ");
 #else
-        response->print("\"C6\": \"1\", ");
+        response->print("\"C6\": \"0\", ");
 #endif
 #ifdef SAVE_SPACE
         response->print("\"savespace\": \"1\", ");
