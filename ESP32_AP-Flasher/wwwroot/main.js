@@ -1133,7 +1133,8 @@ function processQueue() {
 			}
 
 			[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
-			if (tagTypes[hwtype].rotatebuffer) [canvas.width, canvas.height] = [canvas.height, canvas.width];
+			if (tagTypes[hwtype].rotatebuffer%2) [canvas.width, canvas.height] = [canvas.height, canvas.width];
+			if (tagTypes[hwtype].rotatebuffer>=2) canvas.style.transform='rotate(180deg)';
 			const ctx = canvas.getContext('2d');
 			const imageData = ctx.createImageData(canvas.width, canvas.height);
 			if (data.length == 0) {

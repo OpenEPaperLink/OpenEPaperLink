@@ -1186,7 +1186,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
         int temp = imageParams.height;
         imageParams.height = imageParams.width;
         imageParams.width = temp;
-        imageParams.rotatebuffer = 1 - imageParams.rotatebuffer;
+        imageParams.rotatebuffer = 1 - (imageParams.rotatebuffer%2);
         initSprite(spr, imageParams.width, imageParams.height, imageParams);
     } else {
         initSprite(spr, imageParams.width, imageParams.height, imageParams);
@@ -2085,7 +2085,7 @@ void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &sp
             initSprite(spr, sprCpy.width(), sprCpy.height(), imageParams);
             sprCpy.pushToSprite(&spr, 0, 0);
             sprCpy.deleteSprite();
-            imageParams.rotatebuffer = 1 - imageParams.rotatebuffer;
+            imageParams.rotatebuffer = 1 - (imageParams.rotatebuffer%2);
         }
         currentOrientation = rotation;
     }
