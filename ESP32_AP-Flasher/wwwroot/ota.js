@@ -10,7 +10,7 @@ let buttonState = false;
 
 export async function initUpdate() {
 
-    const response = await fetch("/version.txt");
+    const response = await fetch("version.txt");
     let filesystemversion = await response.text();
     if (!filesystemversion) filesystemversion = "unknown";
     $('#repo').value = repo;
@@ -30,7 +30,7 @@ export async function initUpdate() {
     $('#selectRepo').style.display = 'inline-block';
     $('#repoWarning').style.display = 'none';
 
-    const sysinfoPromise = fetch("/sysinfo")
+    const sysinfoPromise = fetch("sysinfo")
         .then(response => {
             if (response.status != 200) {
                 print("Error fetching sysinfo: " + response.status, "red");
@@ -181,7 +181,7 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
                     if (updateactions) {
                         await fetchAndPost(updateactions.url, updateactions.name, updateactions.path);
                         try {
-                            const response = await fetch("/update_actions", {
+                            const response = await fetch("update_actions", {
                                 method: "POST",
                                 body: ''
                             });
@@ -200,7 +200,7 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
                     for (const file of files) {
                         try {
                             if (file.name != "update_actions.json") {
-                                const url = "/check_file?path=" + encodeURIComponent(file.path);
+                                const url = "check_file?path=" + encodeURIComponent(file.path);
                                 const response = await fetch(url);
                                 if (response.ok) {
                                     const data = await response.json();
@@ -290,7 +290,7 @@ export async function updateESP(fileUrl, showConfirm) {
                 console.log(`URL for "${file.name}": ${binurl}`);
 
                 try {
-                    const response = await fetch('/update_ota', {
+                    const response = await fetch('update_ota', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
@@ -342,7 +342,7 @@ $('#rollbackBtn').onclick = function () {
 
     print("Rolling back...");
 
-    fetch("/rollback", {
+    fetch("rollback", {
         method: "POST",
         body: ''
     })
@@ -365,7 +365,7 @@ $('#updateC6Btn').onclick = function () {
     const formData = new FormData();
     formData.append('download', isChecked ? '1' : '0'); // Convert to '1' or '0'
 
-    fetch("/update_c6", {
+    fetch("update_c6", {
         method: "POST",
         body: formData
     })
@@ -443,7 +443,7 @@ $('#confirmSelectRepo').onclick = function (event) {
     let formData = new FormData();
     formData.append("repo", repo);
     formData.append("env", $('#environment').value);
-    fetch("/save_apcfg", {
+    fetch("save_apcfg", {
         method: "POST",
         body: formData
     })
@@ -478,7 +478,7 @@ export function print(line, color = "white") {
 
 export function reboot() {
     print("Rebooting now... Reloading webpage in 5 seconds...", "yellow");
-    fetch("/reboot", { method: "POST" });
+    fetch("reboot", { method: "POST" });
     setTimeout(() => {
         location.reload();
     }, 5000);
@@ -520,7 +520,7 @@ const fetchAndPost = async (url, name, path) => {
         formData.append('path', path);
         formData.append('file', fileContent, name);
 
-        const uploadResponse = await fetch('/littlefs_put', {
+        const uploadResponse = await fetch('littlefs_put', {
             method: 'POST',
             body: formData
         });
@@ -544,7 +544,7 @@ const writeVersion = async (content, name, path) => {
         const blob = new Blob([content]);
         formData.append('file', blob, name);
 
-        const uploadResponse = await fetch('/littlefs_put', {
+        const uploadResponse = await fetch('littlefs_put', {
             method: 'POST',
             body: formData
         });
