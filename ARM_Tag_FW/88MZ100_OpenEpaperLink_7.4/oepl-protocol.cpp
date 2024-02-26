@@ -15,7 +15,7 @@ extern "C" {
 #include "mz100/util.h"
 #include "mz100/mz100_flash.h"
 #include "zigbee.h"
-#include "md5.h"
+#include "../common/md5.h"
 }
 
 #include "drawing.h"
@@ -32,7 +32,7 @@ extern "C" {
 
 #define HAL_PacketRX commsRxUnenc
 #define millis() timerGet()
-#define HAL_TIMER_TICK TIMER_TICKS_PER_MSEC
+#define HAL_TIMER_TICK (TIMER_TICKS_PER_MSEC)
 
 
 void inline HAL_msDelay(uint32_t t) {

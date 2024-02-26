@@ -51,9 +51,6 @@ extern void dump(const uint8_t *a, const uint16_t l);
 uint64_t __attribute__((section(".ver"))) mCurVersionExport = SW_VER_CURRENT;
 uint64_t __attribute__((section(".fwmagic"))) magic = FW_MAGIC;
 
-char macStr[32];
-char macStr1[32];
-
 #define TAG_MODE_CHANSEARCH 0
 #define TAG_MODE_ASSOCIATED 1
 
@@ -91,7 +88,7 @@ static void initTagProfile() {
     }
 
     tag.imageSize = flashRoundUp(sizeof(struct EepromImageHeader) + (tagProfile.xRes * tagProfile.yRes * tagProfile.bpp) / 8);
-    tag.OEPLtype = 0x05;
+    tag.OEPLtype = tagProfile.OEPLType;
 }
 
 uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
@@ -104,7 +101,9 @@ uint8_t showChannelSelect() {  // returns 0 if no accesspoints were found
             if (detectAP(channelList[c])) {
                 if (mLastLqi > result[c])
                     result[c] = mLastLqi;
-                printf("Channel: %d - LQI: %d RSSI %d\n", channelList[c], mLastLqi, mLastRSSI);
+#ifdef DEBUG_MAIN
+                printf("MAIN: Channel: %d - LQI: %d RSSI %d\n", channelList[c], mLastLqi, mLastRSSI);
+#endif
             }
         }
     }
@@ -292,6 +291,17 @@ int32_t setupCLKCalib() {
     return -1;
 }
 
+void checkWDT() {
+    uint32_t val1 = WDT_GetCounterVal();
+    delay(10000);
+    uint32_t val2 = WDT_GetCounterVal();
+    if (val1 == val2) {
+        printf("WDT: Not running!\n");
+    } else {
+        printf("WDT: 1: %lu 2: %lu divider is now %lu\n", val1, val2, (val2 - val1) / 10000);
+    }
+}
+
 void TagAssociated() {
     // associated
     struct AvailDataInfo *avail;
@@ -308,8 +318,9 @@ void TagAssociated() {
 
         // check if the battery level is below minimum, and force a redraw of the screen
 
-        if ((lowBattery && !lowBatteryShown && tagSettings.enableLowBatSymbol) || (noAPShown && tagSettings.enableNoRFSymbol)) {
-            printf("For some reason, we're going to redraw the image. lowbat=%d, lowbatshown=%d, noAPShown=%d\n", lowBattery, lowBatteryShown, noAPShown);
+        if ((lowBattery && !lowBatteryShown && tagSettings.enableLowBatSymbol) ||
+            (!lowBattery && lowBatteryShown) ||
+            (noAPShown && tagSettings.enableNoRFSymbol)) {
             // Check if we were already displaying an image
             if (curImgSlot != 0xFF) {
                 powerUp(INIT_EEPROM | INIT_EPD);
@@ -317,15 +328,16 @@ void TagAssociated() {
                 drawImageFromEeprom(curImgSlot, 0);
                 powerDown(INIT_EEPROM | INIT_EPD);
             } else {
-                WDT_RestartCounter();
-                powerUp(INIT_EPD);
+                wdt60s();
                 showAPFound();
-                powerDown(INIT_EPD);
+                wdt60s();
             }
         }
 
         powerUp(INIT_RADIO);
-        printf("full request\n");
+#ifdef DEBUG_MAIN
+        printf("MAIN: full request\n");
+#endif
         avail = getAvailDataInfo();
         avail = getAvailDataInfo();
         powerDown(INIT_RADIO);
@@ -398,6 +410,7 @@ void TagChanSearch() {
     // Check if we should redraw the screen with icons, info screen or screensaver
     if ((!currentChannel && !noAPShown && tagSettings.enableNoRFSymbol) ||
         (lowBattery && !lowBatteryShown && tagSettings.enableLowBatSymbol) ||
+        (!lowBattery && lowBatteryShown) ||
         (scanAttempts == (INTERVAL_1_ATTEMPTS + INTERVAL_2_ATTEMPTS - 1))) {
         powerUp(INIT_EPD);
         wdt60s();
@@ -415,7 +428,9 @@ void TagChanSearch() {
 
     // did we find a working channel?
     if (currentChannel) {
+#ifdef DEBUG_PROTO
         printf("PROTO: Found a working channel from the TagChanSearch loop\n");
+#endif
         // now associated! set up and bail out of this loop.
         scanAttempts = 0;
         wakeUpReason = WAKEUP_REASON_NETWORK_SCAN;
@@ -425,7 +440,7 @@ void TagChanSearch() {
         return;
     } else {
         // still not associated
-        doSleep(getNextScanSleep(true) * 1000UL);
+        sleep_with_with_wakeup(getNextScanSleep(true) * 1000UL);
     }
 }
 
@@ -442,7 +457,7 @@ int main(void) {
     setupCLKCalib();
     if (!loadValidateAonRam() || PMU_GetLastResetCause()) {
         // cold boot!
-
+        printf("BOOT: Cold boot!\n");
         // calibrate the 32K RC oscillator (autocal), we'll store the result to flash later
         uint32_t rtccal = setupRTC(0);
         setupGPIO();
@@ -463,12 +478,13 @@ int main(void) {
             } else {
                 fs->deleteFile((char *)"tagprofile.bin");
             }
+        } else {
+            printf("BOOT: Loaded tag settings from EEPROM\n");
         }
-        printf("MAIN: MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", tagProfile.macAddress[0], tagProfile.macAddress[1], tagProfile.macAddress[2], tagProfile.macAddress[3], tagProfile.macAddress[4], tagProfile.macAddress[5], tagProfile.macAddress[6], tagProfile.macAddress[7]);
-
+        printf("BOOT: MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", tagProfile.macAddress[0], tagProfile.macAddress[1], tagProfile.macAddress[2], tagProfile.macAddress[3], tagProfile.macAddress[4], tagProfile.macAddress[5], tagProfile.macAddress[6], tagProfile.macAddress[7]);
         tagProfile.RC32Kcal = rtccal;
 
-        printf("MAIN: Rst reason: %i\r\n", PMU_GetLastResetCause());
+        printf("BOOT: Rst reason: %i\r\n", PMU_GetLastResetCause());
 
         initTagProfile();
 
@@ -484,17 +500,17 @@ int main(void) {
         doVoltageReading();
 
         currentChannel = showChannelSelect();
+        radioShutdown();
         if (currentChannel) {
-            printf("MAIN: AP Found\r\n");
+            printf("BOOT: AP Found\n");
             wdt10s();
             delay(10000);
             showAPFound();
-            sprintf(macStr1, "MAIN: OpenEPaperLink Ch: %i", currentChannel);
             wdt10s();
             timerDelay(TIMER_TICKS_PER_MSEC * 1000);
             currentTagMode = TAG_MODE_ASSOCIATED;
         } else {
-            printf("No AP found\r\n");
+            printf("BOOT: No AP found\n");
             wdt10s();
             delay(10000);
             showNoAP();
@@ -503,6 +519,9 @@ int main(void) {
             currentTagMode = TAG_MODE_CHANSEARCH;
         }
         writeSettings();
+        printf("BOOT: Cold boot complete\n");
+        sleep_with_with_wakeup(5 * 1000UL);
+
     } else {
         setupRTC(tagProfile.RC32Kcal);
         setupWDT();
@@ -543,7 +562,6 @@ void applyUpdate(uint32_t size) {
     setupCLKCalib();
     setupRTC(0);
 
-
     uint64_t test;
     FLASH_Read((FLASH_ReadMode_Type)0, fsEnd + 0x0168, (uint8_t *)&test, 8);
     if (test != magic) {
@@ -570,5 +588,7 @@ void applyUpdate(uint32_t size) {
     }
     printf("Resetting!\n");
     delay(1000);
-    sleep_with_with_wakeup(1000);
+    NVIC_SystemReset();
+    while (1)
+        ;
 }

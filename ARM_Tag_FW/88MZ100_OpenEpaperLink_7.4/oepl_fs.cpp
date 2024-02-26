@@ -50,7 +50,7 @@ uint32_t OEPLFs::findEntry() {
     uint8_t *scan = (uint8_t *)malloc(1024);
     uint32_t offset = 0;
     // scan flash with some overlap, to ensure the entire string is in the buffer at some point
-    for (uint32_t c = 60000; c < 180000; c += 512) {
+    for (uint32_t c = 64000; c < 180000; c += 512) {
         FLASH_Read(FLASH_FAST_READ_QUAD_OUT, c, scan, 1024);
         uint32_t scan_offset = 0;
         bool nextblock = false;
@@ -80,7 +80,6 @@ uint32_t OEPLFs::findEntry() {
     } else {
         printf("FS: Not found. Did you forget to add it?\n");
         FLASH_Read(FLASH_FAST_READ_QUAD_OUT, 0x109C0, scan, 1024);
-        dump(scan, 1024);
     }
     free(scan);
     return offset;

@@ -9,6 +9,7 @@
 void timerInit(void);
 uint64_t timerGet(void);
 void timerStop(void);
+uint32_t timerMs(void);
 
 void timerDelay(uint64_t cycles);
 

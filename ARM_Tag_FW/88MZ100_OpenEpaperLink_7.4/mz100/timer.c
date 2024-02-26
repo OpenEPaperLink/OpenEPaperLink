@@ -59,3 +59,12 @@ void timerDelay(uint64_t cycles)
 	while (timerGet() - t < cycles)
 		;
 }
+
+uint32_t timerMs(){
+	static uint64_t prev = 0;
+	uint64_t now = timerGet();
+	uint64_t diff = now - prev;
+	prev = now;
+	return (uint32_t)(diff/TIMER_TICKS_PER_MSEC);
+}
+

@@ -16,7 +16,9 @@ int decompCallback(TINF_DATA *d) {
                 return dec->getNextCompressedBlockFromFlash();
         }
     }
+    #ifdef DEBUG_COMPRESSION
     printf("FS: Couldn't find callback...\n");
+    #endif
     return -1;
 }
 
@@ -42,13 +44,17 @@ bool decompress::readHeader() {
 
     // check if the file served has a sensible window size
     if (window > MAX_WINDOW_SIZE) {
+#ifdef DEBUG_COMPRESSION
         printf("FS: Asked to decompress a file with a specified window size of %d, I don't see that happening\n", window);
+#endif
         return false;
     } else {
-        //printf("FS: Opened compressed file with dictionary size %d\n", window);
+#ifdef DEBUG_COMPRESSION
+        printf("FS: Opened compressed file with dictionary size %d\n", window);
+#endif
     }
 
-    window = 8192;
+    // window = 8192;
 
     // allocate dict/window if not already allocated
     if (!this->dictionary) this->dictionary = (uint8_t *)malloc(window);

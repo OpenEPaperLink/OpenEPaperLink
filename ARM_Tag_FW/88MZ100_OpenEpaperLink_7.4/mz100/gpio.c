@@ -23,7 +23,7 @@ void setupWDT() {
     CLK_ModuleClkEnable(CLK_WDT);
     WDT_SetMode(WDT_MODE_RESET);
     WDT_SetResetPulseLen(WDT_RESET_PULSE_LEN_256);
-    WDT_SetTimeoutVal(30);
+    WDT_SetTimeoutVal(0x0B);
     WDT_RestartCounter();
     WDT_Enable();
     //** WATCHDOG

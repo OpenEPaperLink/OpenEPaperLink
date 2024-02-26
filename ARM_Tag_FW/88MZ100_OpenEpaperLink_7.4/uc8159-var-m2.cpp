@@ -14,10 +14,13 @@ extern "C" {
 #include "mz100/mz100_pinmux.h"
 #include "mz100/printf.h"
 #include "mz100/util.h"
+#include "mz100/timer.h"
 }
 
 #include "drawing.h"
 #include "epd_interface.h"
+
+#include "settings.h"
 
 #define EPD_PANEL_SETTING 0x00
 #define EPD_POWER_SETTING 0x01
@@ -122,39 +125,63 @@ struct __attribute__((packed)) epd_xonlut {
 void uc8159::epdSetup() {
 #ifdef DEBUG_EPD
     printf("EPD: Init begin\n");
+    timerMs();
 #endif
+    // printf("Start=%lu\n", timerMs());
     initEPDGPIO();
     this->epdReset();
+    eepromWake();
     epdWrite(EPD_POWER_ON, 0);
-    busyWaitUntil(EPD_IS_NOT_BUSY, 100);
-
-    epdWrite(EPD_TRES, 0x04, 2, 128, 1, 128);
-
-    // wake the eeprom
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0x01);
-    GPIO_WritePinOutput(EPD_HLT_CTRL, GPIO_IO_LOW);
-    epdWrite(EPD_WAKE_EEPROM, 0x00);
-    GPIO_WritePinOutput(EPD_HLT_CTRL, GPIO_IO_HIGH);
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0x00);
-
+    busyWaitUntil(EPD_IS_NOT_BUSY, 200);
     epdWrite(EPD_POWER_SETTING, 4, 0x37, 0x00, 0x05, 0x05);  // 0x37 - 00- 05 05 this one worked
-
+    busyWaitUntil(EPD_IS_BUSY, 50);
+    busyWaitUntil(EPD_IS_NOT_BUSY, 200);
     epdWrite(EPD_PANEL_SETTING, 2, 0xC3, 0x08);  // 0xC3-0x88 // lut from EEPROM
+    epdWrite(EPD_UNKNOWN_1, 1, 0x03);            // load lut, probably
+    epdWrite(0xE3, 1, 0xFF);                     // max power save
     epdWrite(EPD_POWER_OFF_SEQUENCE, 1, 0x00);
-    epdWrite(EPD_BOOSTER_SOFT_START, 0x03, 199, 204, 45);
-    epdWrite(EPD_PLL_CONTROL, 0x01, 60);
-    epdWrite(EPD_TEMP_SELECT, 0x01, 0x00);
-    epdWrite(EPD_VCOM_DATA_INTERVAL, 0x01, 119);
-    epdWrite(EPD_TCON_SET, 0x01, 34);
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xC7, 0xCC, 0x2D); // stock  - 11 000 111 / 11 001 100 / 00 101 101
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0x17, 0x17, 0x17); //- default   -  00 010 111
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0x07, 0x0C, 0x2D); - no noticable difference
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0x0F, 0x0F, 0x0F);  // 00 001 111
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xC7, 0xCC, 0x25);  // end: 00 100 101 - works, good greys/no shadow
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xC7, 0xCC, 0x1C);  // end: 00 011 101 - works!
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xC7, 0xCC, 0x15);  // end: 00 010 101 - works too! Used this one!!!!!
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xC7, 0xCC, 0x0D); // end: 00 001 101 - still works!
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xC7, 0xCC, 0x05); // end: 00 000 101 - not enough
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0x17, 0x17, 0x1C);  // ?
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xC7, 0xCC, 0x2D); // stock  - 11 000 111 / 11 001 100 / 00 101 101
+
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xD7, 0xDC, 0x15); // 11 000 111 / 11 001 100 // okay shadowing
+
+    epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xC7, 0xCC, 0x26);  // end: 00 100 110 - max 38mA?
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xC7, 0xCC, 0x25);  // end: 00 100 101 - works, good greys/no shadows, 60mA
+    // epdWrite(EPD_BOOSTER_SOFT_START, 3, 0xC7, 0xCC, 0x28); // end 00 101 000 - max 170mA
+
+    epdWrite(EPD_PLL_CONTROL, 1, 0x3C);
+    epdWrite(EPD_TEMP_SELECT, 1, 0x00);
+    epdWrite(EPD_VCOM_DATA_INTERVAL, 1, 0x77);
+    // epdWrite(EPD_VCOM_DATA_INTERVAL, 1, 0x70);
+
+    epdWrite(EPD_TCON_SET, 1, 0x22);
+
+    busyWaitUntil(EPD_IS_NOT_BUSY, 200);
+
+    epdWrite(EPD_TRES, 4, 2, 128, 1, 128);
+    busyWaitUntil(EPD_IS_NOT_BUSY, 200);
 
     EPDtempBracket = this->getTempBracket();
-    this->loadFrameRatePLL(EPDtempBracket);
-    this->loadTempVCOMDC(EPDtempBracket);
+    this->loadTempVCOMDC();
+    epdWrite(EPD_POWER_OFF, 0);
+    busyWaitUntil(EPD_IS_NOT_BUSY, 200);
 
-// this->loadTempVSH(EPDtempBracket);
-// epdWrite(EPD_POWER_SETTING, 4, 0x37, 0x00, this->vshc, this->vslc); // this doesn't work
+    epdWrite(EPD_POWER_ON, 0);
+    busyWaitUntil(EPD_IS_NOT_BUSY, 200);
+
+    this->loadFrameRatePLL();
+
 #ifdef DEBUG_EPD
-    printf("EPD: Init complete\n");
+    printf("EPD: Init complete (%lu ms)\n", timerMs());
 #endif
 }
 
@@ -170,12 +197,10 @@ uint8_t uc8159::getTempBracket() {
     uint8_t v1;
     uint8_t temptable[40];
 
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0x01);
     eepromReadBlock(0, 25002, temptable, 10);
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0x00);
 
     epdWrite(EPD_TEMP_CALIB, 0);
-    busyWaitUntil(EPD_IS_NOT_BUSY, 10);
+    busyWaitUntil(EPD_IS_NOT_BUSY, 200);
     v0 = softSPIReadByte();
     v1 = (uint8_t)(2 * v0) + ((uint8_t)softSPIReadByte() >> 7);
 
@@ -191,44 +216,35 @@ uint8_t uc8159::getTempBracket() {
 #endif
     return bracket;
 }
-void uc8159::loadFrameRatePLL(uint8_t bracket) {
+void uc8159::loadFrameRatePLL() {
     uint8_t pllvalue;
     uint8_t plltable[12];
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0x01);
     eepromReadBlock(0, 25039, plltable, 10);
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0x00);
-    pllvalue = plltable[bracket];
+    pllvalue = plltable[EPDtempBracket];
 #ifdef DEBUG_EPD
-    printf("loading pll value 0x%02X\n", pllvalue);
+    printf("EPD: loading pll value 0x%02X\n", pllvalue);
 #endif
-    // pllvalue = 0x3A;  // was 0x3C
     epdWrite(EPD_PLL_CONTROL, 1, pllvalue);
 }
-void uc8159::loadTempVCOMDC(uint8_t bracket) {
+void uc8159::loadTempVCOMDC() {
     uint8_t vcomvalue;
     uint8_t vcomtable[12];
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 1);
     eepromReadBlock(0, 25049, vcomtable, 10);
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0);
-    vcomvalue = vcomtable[bracket];
+    vcomvalue = vcomtable[EPDtempBracket];
+#ifdef DEBUG_EPD
+    printf("EPD: loading vcomvalue value 0x%02X\n", vcomvalue);
+#endif
     epdWrite(EPD_VCOM_DC_SET, 1, vcomvalue);
 }
-void uc8159::loadTempVSH(uint8_t bracket) {
-    uint8_t vshtable[20];
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 1);
-    eepromReadBlock(0, 25011, vshtable, 20);
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0);
-    this->vshc = vshtable[bracket * 2];
-    this->vslc = vshtable[(bracket * 2) + 1];
-}
-uint8_t *uc8159::loadLUT(uint8_t index, uint8_t bracket) {
+
+uint8_t *uc8159::loadLUT(uint8_t index) {
     uint16_t adr = 0;
     uint16_t len = 0;
     uint8_t *lutBuffer;
     switch (index) {
         case EPD_LUT_VCOM:
             // VCOM LUT
-            adr = 20800 + (220 * bracket);
+            adr = 20800 + (220 * EPDtempBracket);
             len = 220;
             break;
         case EPD_LUT_B:
@@ -239,21 +255,19 @@ uint8_t *uc8159::loadLUT(uint8_t index, uint8_t bracket) {
         case EPD_LUT_R1:
         case EPD_LUT_R2:
         case EPD_LUT_R3:
-            adr = (bracket * 2080);
+            adr = (EPDtempBracket * 2080);
             adr += (index - 0x21) * 260;
             len = 260;
             break;
         case EPD_LUT_XON:
             // XON LUT
-            adr = 23000 + (200 * bracket);
+            adr = 23000 + (200 * EPDtempBracket);
             len = 200;
             break;
     }
 
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 1);
     lutBuffer = (uint8_t *)malloc(len);
     if (lutBuffer) eepromReadBlock(0, adr, lutBuffer, len);
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0);
     return lutBuffer;
 }
 
@@ -275,16 +289,17 @@ void xonLutSkip(struct epd_xonlut *colorlut, uint8_t skip) {
     }
 }
 
-void uc8159::loadLUTSfromEEPROM(uint8_t bracket, bool doRed) {
+void uc8159::loadLUTSfromEEPROM(bool doRed) {
     doRed = false;
     for (uint8_t c = EPD_LUT_B; c <= EPD_LUT_R3; c++) {
-        struct epd_colorlut *colorlut = (struct epd_colorlut *)loadLUT(c, bracket);
+        struct epd_colorlut *colorlut = (struct epd_colorlut *)loadLUT(c);
 
         colorLutSkip(colorlut, 0);
         colorLutSkip(colorlut, 0);
         colorlut->part[0].repeat = 1;
         colorLutSkip(colorlut, 2);
         if (!doRed) {
+            colorLutSkip(colorlut, 2);
             colorLutSkip(colorlut, 2);
             colorLutSkip(colorlut, 2);
             colorLutSkip(colorlut, 2);
@@ -297,7 +312,7 @@ void uc8159::loadLUTSfromEEPROM(uint8_t bracket, bool doRed) {
         if (colorlut) free(colorlut);
     }
 
-    struct epd_vcomlut *vcomlut = (struct epd_vcomlut *)loadLUT(EPD_LUT_VCOM, bracket);
+    struct epd_vcomlut *vcomlut = (struct epd_vcomlut *)loadLUT(EPD_LUT_VCOM);
     vcomLutSkip(vcomlut, 0);
     vcomLutSkip(vcomlut, 0);
     vcomlut->part[0].repeat = 1;
@@ -308,11 +323,12 @@ void uc8159::loadLUTSfromEEPROM(uint8_t bracket, bool doRed) {
         vcomLutSkip(vcomlut, 2);
         vcomLutSkip(vcomlut, 2);
         vcomLutSkip(vcomlut, 2);
+        vcomLutSkip(vcomlut, 2);
     }
     epdBlockWrite(EPD_LUT_VCOM, (uint8_t *)vcomlut, 220);
     if (vcomlut) free(vcomlut);
 
-    struct epd_xonlut *xonlut = (struct epd_xonlut *)loadLUT(EPD_LUT_XON, bracket);
+    struct epd_xonlut *xonlut = (struct epd_xonlut *)loadLUT(EPD_LUT_XON);
 
     xonLutSkip(xonlut, 0);
     xonLutSkip(xonlut, 0);
@@ -323,38 +339,32 @@ void uc8159::loadLUTSfromEEPROM(uint8_t bracket, bool doRed) {
         xonLutSkip(xonlut, 2);
         xonLutSkip(xonlut, 2);
         xonLutSkip(xonlut, 2);
+        xonLutSkip(xonlut, 2);
     }
     epdBlockWrite(EPD_LUT_XON, (uint8_t *)xonlut, 200);
     if (xonlut) free(xonlut);
 }
 void uc8159::epdReset() {
-    uint8_t v0 = 5;
 #ifdef DEBUG_EPD
-    printf("EPD: Reset... ");
+    printf("EPD: Reset\n");
 #endif
-    while (1) {
+    uint8_t attempt = 0;
+    while (attempt < 5) {
         GPIO_WritePinOutput(EPD_RESET, GPIO_IO_HIGH);
         delay(100);
         GPIO_WritePinOutput(EPD_RESET, GPIO_IO_LOW);
-        delay(3000);
+        delay(30 + (750 * attempt));
         GPIO_WritePinOutput(EPD_RESET, GPIO_IO_HIGH);
-        delay(3000);
+        busyWaitUntil(EPD_IS_NOT_BUSY, 500);
+        delay(600);
         if (GPIO_ReadPinLevel(EPD_BUSY))
             break;
-        v0--;
-        if (!v0) {
-            printf(" - EPD reset failure!\r\n");
-            break;
-        }
+        printf("EPD: Reset attempt %d\n", attempt + 1);
     }
-    delay(5000);
-#ifdef DEBUG_EPD
-    printf("complete.\n");
-#endif
 }
 
 void uc8159::eepromReadBlock(char a1, uint16_t readaddress, uint8_t *target, uint16_t length) {
-    GPIO_WritePinOutput(EPD_CS, GPIO_IO_HIGH);
+    eepromSelect(true);
     GPIO_WritePinOutput(EPD_HLT_CTRL, GPIO_IO_LOW);
     softSPIWriteByte(3);
     softSPIWriteByte(a1);
@@ -372,7 +382,6 @@ void uc8159::eepromReadBlock(char a1, uint16_t readaddress, uint8_t *target, uin
                 readbyte |= 1u;
             GPIO_WritePinOutput(EPD_CLK, GPIO_IO_HIGH);
             delay_us(1);
-            delay(1);
             loopCount++;
         } while (loopCount < 8);
         delay_us(1);
@@ -380,8 +389,29 @@ void uc8159::eepromReadBlock(char a1, uint16_t readaddress, uint8_t *target, uin
     }
 
     GPIO_WritePinOutput(EPD_CLK, GPIO_IO_LOW);
-    GPIO_WritePinOutput(EPD_HLT_CTRL, GPIO_IO_HIGH);
-    delay(1);
+    eepromSelect(false);
+}
+void uc8159::eepromSelect(bool select) {
+    if (select) {
+        epdWrite(EPD_SPI_FLASH_CONTROL, 1, 1);
+        GPIO_WritePinOutput(EPD_HLT_CTRL, GPIO_IO_LOW);
+    } else {
+        GPIO_WritePinOutput(EPD_HLT_CTRL, GPIO_IO_HIGH);
+        epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0);
+    }
+    delay(100);
+}
+
+void uc8159::eepromWake() {
+    eepromSelect(true);
+    softSPIWriteByte(EPD_WAKE_EEPROM);
+    eepromSelect(false);
+}
+
+void uc8159::eepromSleep() {
+    eepromSelect(true);
+    softSPIWriteByte(EPD_EEPROM_SLEEP);
+    eepromSelect(false);
 }
 
 void uc8159::interleaveColorToBuffer(uint8_t *dst, uint8_t b, uint8_t r) {
@@ -411,12 +441,11 @@ void uc8159::interleaveColorToBuffer(uint8_t *dst, uint8_t b, uint8_t r) {
 }
 
 void uc8159::epdWriteDisplayData() {
-    uint8_t blocksize = 32;
+    uint8_t blocksize = 64;  // how many rows of pixels will be rendered in one go. Increasing this will increase rendering speed for compressed BWR images, but will use more RAM
     uint16_t byteWidth = this->effectiveXRes / 8;
     uint8_t screenrow_bw[byteWidth * blocksize];
     uint8_t screenrow_r[byteWidth * blocksize];
     uint8_t screenrowInterleaved[byteWidth * 4];
-    // setDisplayWindow(0, 0, 640, 384);
     epdWrite(EPD_START_DATA, 0);
     enableHardSPI(true);
     GPIO_WritePinOutput(EPD_CS, GPIO_IO_LOW);
@@ -429,11 +458,15 @@ void uc8159::epdWriteDisplayData() {
             drawItem::renderDrawLine(screenrow_bw + (byteWidth * bcount), curY + bcount, 0);
         }
         for (uint8_t bcount = 0; bcount < blocksize; bcount++) {
-            if (this->bpp == 1) {
-                drawItem::renderDrawLine(screenrow_bw + (byteWidth * bcount), curY + bcount, 1);
-            } else {
-                drawItem::renderDrawLine(screenrow_r + (byteWidth * bcount), curY + bcount, 1);
+            drawItem::renderDrawLine(screenrow_r + (byteWidth * bcount), curY + bcount, 1);
+        }
+
+        // the BW tags need to map Red onto the black buffer
+        if (this->bpp == 1) {
+            for (uint16_t i = 0; i < (byteWidth * blocksize); i++) {
+                screenrow_bw[i] |= screenrow_r[i];
             }
+            memset(screenrow_r, 0, byteWidth * blocksize);
         }
 
         for (uint8_t bcount = 0; bcount < blocksize; bcount++) {
@@ -445,7 +478,7 @@ void uc8159::epdWriteDisplayData() {
     }
     GPIO_WritePinOutput(EPD_CS, GPIO_IO_HIGH);
     enableHardSPI(false);
-
+    // get rid of the drawItem list
     drawItem::flushDrawItems();
 }
 
@@ -455,31 +488,37 @@ void uc8159::draw() {
 }
 
 void uc8159::drawNoWait() {
+#ifdef DEBUG_EPD
+    timerMs();
+#endif
     epdWriteDisplayData();
+    if (this->bpp == 1) drawLut = 0;
+
+#ifdef DEBUG_EPD
+    printf("EPD: Rendering took %lu ms\n", timerMs());
+#endif
+
     if (drawLut) {
-        // epdWrite(EPD_PLL_CONTROL, 1, 0x3A); // scan the gates a little faster
         epdWrite(EPD_PANEL_SETTING, 2, 0xC3, 0x88);  // 0xC3-0x88 // lut from register
         bool doReds = true;
         if (drawLut == 2) doReds = false;
-        loadLUTSfromEEPROM(EPDtempBracket, doReds);
+        loadLUTSfromEEPROM(doReds);
+        epdWrite(EPD_PLL_CONTROL, 1, 0x3A);  // 0x29 turbo turbo
     } else {
         epdWrite(EPD_PANEL_SETTING, 2, 0xC3, 0x08);  // 0xC3-0x88 // lut from EEPROM
         epdWrite(EPD_UNKNOWN_1, 1, 0x03);            // load lut, probably
-        busyWaitUntil(EPD_IS_BUSY, 10);
-        busyWaitUntil(!EPD_IS_BUSY, 100);
     }
 #ifdef DEBUG_EPD
     printf("EPD: Draw start\n");
 #endif
     wdt10s();
     epdWrite(EPD_REFRESH, 0);
-    busyWaitUntil(EPD_IS_BUSY, 10);
+    busyWaitUntil(EPD_IS_BUSY, 500);
 }
 
 void uc8159::epdWaitRdy() {
-    delay(15000);
     do_sleeped_epd_refresh();
-    // busyWaitUntil(!EPD_IS_BUSY, 300000);
+    // busyWaitUntil(!EPD_IS_BUSY, 40000);
 #ifdef DEBUG_EPD
     printf("EPD: Draw done!\n");
 #endif
@@ -488,15 +527,12 @@ void uc8159::epdWaitRdy() {
 void uc8159::epdEnterSleep() {
     initEPDGPIO();
     this->epdReset();
+    eepromSleep();
     epdWrite(EPD_POWER_SETTING, 4, 0x02, 0x00, 0x00, 0x00);
-    delay_us(50000);
+    delay_us(10000);
     epdWrite(EPD_POWER_OFF, 0);
-    delay_us(100000);
-    busyWaitUntil(EPD_IS_NOT_BUSY, 100000);
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 1);
-    GPIO_WritePinOutput(EPD_HLT_CTRL, GPIO_IO_LOW);
-    softSPIWriteByte(EPD_EEPROM_SLEEP);
-    GPIO_WritePinOutput(EPD_HLT_CTRL, GPIO_IO_HIGH);
-    epdWrite(EPD_SPI_FLASH_CONTROL, 1, 0);
+    delay_us(10000);
+    busyWaitUntil(EPD_IS_NOT_BUSY, 1000);
+
     epdWrite(EPD_DEEP_SLEEP, 1, 0xA5);
 }

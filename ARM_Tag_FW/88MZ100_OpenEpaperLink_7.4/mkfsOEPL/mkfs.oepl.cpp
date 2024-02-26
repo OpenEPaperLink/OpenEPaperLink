@@ -16,7 +16,8 @@
 
 
 #define PROGMEM 
-#define WINDOW_SIZE 12 // 4096 bytes
+//#define WINDOW_SIZE 12 // 4096 bytes
+#define WINDOW_SIZE 10 // 1024 bytes
 #define FILENAME_LENGTH 32
 
 
@@ -243,6 +244,7 @@ int main(){
 	saveFontData(&FreeSans9pt7b, (char*)"font/FreeSans9pt7b");
 
 	/* OTHER STUFF */
+	addFileFromFS("marker.txt", false);
 	addFileFromFS("tagprofile.bin", false);
 	addFileFromFS("norf.bin", true);
 	addFileFromFS("lowbat.bin", true);

@@ -7,6 +7,7 @@
 
 #include "epd_interface.h"
 #include "uc8159-var-m2.h"
+#include "uc8176-var-m2.h"
 
 #include "mz100/printf.h"
 #include "mz100/eeprom.h"
@@ -30,12 +31,19 @@ extern "C" {
 
 __attribute__((section(".aonshadow"))) epdInterface *epd;
 __attribute__((section(".aonshadow"))) tagSpecs tag;
-epdInterface::~epdInterface(){
-    
+epdInterface::~epdInterface() {
 }
 
 void epdSetup() {
-    epd = new uc8159;
+    switch (tagProfile.controllerType) {
+        case 0:
+            epd = new uc8159;
+            break;
+        case 1:
+            epd = new uc8176;
+            break;
+    }
+
     epd->effectiveXRes = tagProfile.xRes;
     epd->effectiveYRes = tagProfile.yRes;
     epd->Xres = tagProfile.xRes;
@@ -66,7 +74,7 @@ void selectLUT(uint8_t sel) {
 static void busyWaitUntilHigh(uint32_t timeout) {
     uint32_t v2 = 0;
     while (GPIO_ReadPinLevel(EPD_BUSY) == GPIO_IO_LOW) {
-        delay(10000);
+        delay(50);
         v2++;
         if (v2 > timeout)
             break;
@@ -78,7 +86,7 @@ static void busyWaitUntilHigh(uint32_t timeout) {
 static void busyWaitUntilLow(uint32_t timeout) {
     uint32_t v2 = 0;
     while (GPIO_ReadPinLevel(EPD_BUSY) == GPIO_IO_HIGH) {
-        delay(10000);
+        delay(50);
         v2++;
         if (v2 > timeout)
             break;
@@ -107,7 +115,7 @@ void softSPIWriteByte(char byteOut) {
         GPIO_WritePinOutput(EPD_CLK, GPIO_IO_LOW);
         byteOut *= 2;
         loopCount++;
-        delay(1);
+        delay_us(1);
     } while (loopCount < 8);
     GPIO_WritePinOutput(EPD_MOSI, GPIO_IO_LOW);
     delay_us(1);
@@ -134,7 +142,7 @@ uint8_t softSPIReadByte() {
             readByte |= 1u;
         GPIO_WritePinOutput(EPD_CLK, GPIO_IO_LOW);
         delay_us(1);
-        delay(1);
+        // delay(1);
         loopCount++;
     } while (loopCount < 8);
     GPIO_SetPinDir(EPD_MOSI, GPIO_OUTPUT);
@@ -144,7 +152,9 @@ uint8_t softSPIReadByte() {
     GPIO_WritePinOutput(EPD_CS, GPIO_IO_HIGH);
     delay_us(1);
     GPIO_WritePinOutput(EPD_BS, GPIO_IO_LOW);
-    delay(1);
+    // delay(1);
+    delay_us(1);
+
     return readByte;
 }
 

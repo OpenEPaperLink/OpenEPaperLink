@@ -11,7 +11,7 @@
 #include "oepl-protocol.h"
 #include "board.h"
 
-extern "C"{
+extern "C" {
 #include "mz100/eeprom.h"
 #include "mz100/mz100_sleep.h"
 #include "mz100/printf.h"
@@ -113,7 +113,7 @@ void powerUp(const uint8_t parts) {
 }
 
 void powerDown(const uint8_t parts) {
-    if(parts & INIT_EPD){
+    if (parts & INIT_EPD) {
         epdEnterSleep();
     }
     // printf("Power down: %d\r\n", parts);
@@ -150,6 +150,9 @@ void addAverageValue() {
 }
 
 uint16_t getNextSleep() {
+#ifdef DEBUG_FAST_CHECK_IN
+    return 20;
+#endif
     uint16_t avg = 0;
     for (uint8_t c = 0; c < POWER_SAVING_SMOOTHING; c++) {
         avg += dataReqAttemptArr[c];

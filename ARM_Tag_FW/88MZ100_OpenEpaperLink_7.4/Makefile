@@ -10,7 +10,7 @@ OBJCOPY=$(ARMGCC)arm-none-eabi-objcopy
 #-Wall
 CC_WARNING_FLAGS=-Wall -Wformat=0 -Wattributes -Wstrict-aliasing=0
 CPP_FLAGS=-lstdc++ -mcpu=cortex-m3 -g -O3 -mthumb -fdata-sections -ffunction-sections -std=c++98 -std=gnu++0x
-CPP0_FLAGS=-lstdc++ -mcpu=cortex-m3 -g -O0 -mthumb -fdata-sections -ffunction-sections -std=c++98 -std=gnu++0x
+CPP0_FLAGS=-lstdc++ -mcpu=cortex-m3 -g -O0 -mthumb -fdata-sections -ffunction-sections -std=c++98 -std=gnu++0x 
 CC_FLAGS=-mcpu=cortex-m3 -g -O0 -mthumb -fdata-sections -ffunction-sections -std=c99
 CC3_FLAGS=-mcpu=cortex-m3 -g -O3 -mthumb -fdata-sections -ffunction-sections -std=c99
 CC_END_FLAGS=-lstdc++ -lc -lnosys -L. -T mz100/mz100.ld -fPIE --specs=nosys.specs -mcpu=cortex-m3 -mthumb -Wl,--gc-sections -O0 -flto -ffunction-sections -fdata-sections -DARM_GNU
@@ -64,23 +64,20 @@ compile:
 
 	@$(CC) $(CC3_FLAGS) $(CC_WARNING_FLAGS) -Wno-unknown-pragmas -c ../common/QRCode/src/qrcode.c      -o build/qrcode.o
 
-
-
 	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLAGS) -c compression.cpp        -o build/compression.o
 
 	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLAGS) -c drawing.cpp        -o build/drawing.o
 	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLAGS) -c epd_interface.cpp	-o build/epd_interface.o
 	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLAGS) -c powermgt.cpp        -o build/powermgt.o
-#	@$(CC) $(CC3_FLAGS) $(CC_WARNING_FLAGS) -c syncedproto.c        -o build/syncedproto.o
 	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLASGS) -c oepl-protocol.cpp -o build/oepl-protocol.o
 	@$(CC) $(CC3_FLAGS) $(CC_WARNING_FLAGS) -c comms.c        -o build/comms.o
-	@$(CC) $(CC3_FLAGS) $(CC_WARNING_FLAGS) -c md5.c        -o build/md5.o
-#	@$(CC) $(CC3_FLAGS) $(CC_WARNING_FLAGS) -c settings.c        -o build/settings.o
+	@$(CC) $(CC3_FLAGS) $(CC_WARNING_FLAGS) -c ../common/md5.c        -o build/md5.o
 	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLAGS) -c settings.cpp        -o build/settings.o
 	@$(CC) $(CC3_FLAGS) $(CC_WARNING_FLAGS) -c mz100/timer.c        -o build/timer.o
 	@$(CC) $(CC3_FLAGS) $(CC_WARNING_FLAGS) -c mz100/util.c        -o build/util.o
 	@$(CC) $(CC_FLAGS) $(CC_WARNING_FLAGS) -c mz100/gpio.c        -o build/gpio.o
 	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLAGS)  -c uc8159-var-m2.cpp        -o build/uc8159-var-m2.o
+	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLAGS)  -c uc8176-var-m2.cpp        -o build/uc8176-var-m2.o
 	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLAGS) -c userinterface.cpp	-o build/userinterface.o
 	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLAGS) -c main.cpp             -o build/main.o
 	@$(GPLUSPLUS) $(CPP_FLAGS) $(CC_WARNING_FLAGS) -c oepl_fs.cpp             -o build/oepl_fs.o
@@ -102,7 +99,8 @@ compile:
 		build/util.o \
 		build/md5.o \
 		build/gpio.o \
-		build/uc8159-var-m2.o \
+		build/uc8176-var-m2.o \
+                build/uc8159-var-m2.o \
 		build/mz100_sleep.o \
 		build/core_cm3.o \
 		build/qrcode.o \

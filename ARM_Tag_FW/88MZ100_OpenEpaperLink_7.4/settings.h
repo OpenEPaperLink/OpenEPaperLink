@@ -6,25 +6,21 @@
 #define FW_VERSION 0x0027          // version number (max 2.5.5 :) )
 #define FW_VERSION_SUFFIX "-zlib"  // suffix, like -RC1 or whatever.
 
+// #define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
+// #define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
 
-//#define DEBUGBLOCKS                 // uncomment to enable extra debug information on the block transfers
-//#define PRINT_LUT                   // uncomment if you want the tag to print the LUT for the current temperature bracket
+// #define DEBUG_EPD
+// #define DEBUG_FS
+// #define DEBUG_COMPRESSION
+// #define DEBUG_PROTO
+// #define DEBUG_SETTINGS
+// #define DEBUG_MAIN
+// #define DEBUG_FAST_CHECK_IN
+// #define DEBUG_DONTVALIDATEPROTO
 
-//#define DEBUG_EPD
-//#define DEBUG_FS
-
-//#define DEBUG_COMPRESSION
-//#define DEBUG_PROTO
-//#define DEBUG_SETTINGS
-//#define DEBUG_DONTVALIDATEPROTO
-
-
-
-#if defined(DEBUG_SETTINGS) || defined(DEBUG_EPD) || defined(DEBUGBLOCKS) || defined(DEBUG_PROTO) || defined(DEBUG_COMPRESSION) || defined(DEBUG_FS)
+#if defined(DEBUG_SETTINGS) || defined(DEBUG_EPD) || defined(DEBUGBLOCKS) || defined(DEBUG_PROTO) || defined(DEBUG_COMPRESSION) || defined(DEBUG_FS) || defined(DEBUG_MAIN) || defined(DEBUG_FAST_CHECK_IN)
 #define DEBUG_BUILD
 #endif
-
-
 
 #define SETTINGS_STRUCT_VERSION 0x01
 

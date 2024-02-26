@@ -129,6 +129,7 @@ void WDT_SetMode(WDT_Mode_Type mode)
 void WDT_SetTimeoutVal(uint32_t timeoutVal)
 {
   /* set WDT timeout value */
+  // This value can be anything between 0x00 and 0x0F; this configures the WDT to reset at 2^(16+value) cycles (2^16 - 2^31)
   WDT->TORR.BF.TOP = timeoutVal;
 }
  

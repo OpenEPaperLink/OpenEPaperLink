@@ -211,8 +211,6 @@ void addQR(uint16_t x, uint16_t y, uint8_t version, uint8_t scale, const char *c
 }
 
 void drawImageAtAddressWrap(uint32_t addr, uint8_t lut) {
-    // powerUp(INIT_EEPROM);
-    // epdSetup();
     selectLUT(lut);
     struct EepromImageHeader eih;
     HAL_flashRead(addr, (uint8_t *)&eih, sizeof(struct EepromImageHeader));
@@ -281,7 +279,6 @@ void drawImageAtAddressWrap(uint32_t addr, uint8_t lut) {
         } break;
     }
     addOverlay();
-
     draw();
 }
 

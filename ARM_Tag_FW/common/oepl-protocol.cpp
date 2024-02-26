@@ -828,6 +828,15 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
 bool processImageDataAvail(struct AvailDataInfo *avail) {
     struct imageDataTypeArgStruct arg = *((struct imageDataTypeArgStruct *)avail->dataTypeArgument);
 
+    // check if the size sent can be contained in the image slot
+    if (avail->dataSize > tag.imageSize) {
+        printf("PROTO: Unable to save image, it's too big!\n");
+        powerUp(INIT_RADIO);
+        sendXferComplete();
+        powerDown(INIT_RADIO);
+        return false;
+    }
+
     if (arg.preloadImage) {
 #ifdef DEBUG_PROTO
         printf("PROTO: Preloading image with type 0x%02X from arg 0x%02X\n", arg.specialType, avail->dataTypeArgument);
