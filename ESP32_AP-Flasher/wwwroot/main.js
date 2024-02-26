@@ -726,7 +726,7 @@ document.addEventListener("loadTab", function (event) {
 			fetch("/get_ap_config")
 				.then(response => response.json())
 				.then(data => {
-					if (data.alias) {
+					if (data && 'alias' in data) {
 						apConfig = data;
 						$('#apcfgalias').value = data.alias;
 						$('#apcfgchid').value = data.channel;
@@ -1186,6 +1186,8 @@ function processZlib(data) {
 	const subBuffer = data.subarray(4);
 	try {
 		const inflatedBuffer = pako.inflate(subBuffer);
+		// to constrain window size for testing:
+		// const inflatedBuffer = pako.inflate(subBuffer, { windowBits: 12 });
 		const headerSize = inflatedBuffer[0];
 		return inflatedBuffer.subarray(headerSize);
 	} catch (err) {
