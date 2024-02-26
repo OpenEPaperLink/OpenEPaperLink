@@ -573,7 +573,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         taginfo->temperature = eadr->adr.temperature;
         taginfo->batteryMv = eadr->adr.batteryMv;
         taginfo->hwType = eadr->adr.hwType;
-        if (eadr->adr.wakeupReason > 0) taginfo->wakeupReason = eadr->adr.wakeupReason;
+        taginfo->wakeupReason = eadr->adr.wakeupReason;
         taginfo->capabilities = eadr->adr.capabilities;
         taginfo->currentChannel = eadr->adr.currentChannel;
         taginfo->tagSoftwareVersion = eadr->adr.tagSoftwareVersion;

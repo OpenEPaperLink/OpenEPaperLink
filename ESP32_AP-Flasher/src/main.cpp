@@ -147,6 +147,8 @@ void setup() {
 #ifdef HAS_USB
     // We'll need to start the 'usbflasher' task for boards with a second (USB) port. This can be used as a 'flasher' interface, using a python script on the host
     xTaskCreate(usbFlasherTask, "usbflasher", 10000, NULL, 5, NULL);
+#else
+    pinMode(0, INPUT_PULLUP);
 #endif
 
 #ifdef HAS_EXT_FLASHER
