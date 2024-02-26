@@ -39,6 +39,8 @@ void identifyTagInfo() {
     92 C3 80 05 15 08 19 04 00 12 01 18 03 10 01 04 07 07 01 80 00 00 63 FF FF FF FF FF FF FF FF FF     5.85 BWR
     22 F0 BF 05 15 0A 14 04 00 12 00 18 03 10 01 04 07 07 01 80 00 00 24 FF FF FF FF FF FF FF FF FF     5.85 BW
     99 78 B1 05 15 0A 06 04 00 0D 01 68 01 B8 00 38 07 07 01 80 00 00 43 FF FF FF FF FF FF FF FF FF     2.6"
+    72 92 1E 7E 15 0B 09 04 00 15 00 80 01 A8 00 38 00 01 01 9C 00 00 22 FF FF FF FF FF FF FF FF FF     2.9" FREEZER
+    31 50 53 06 16 02 19 04 00 12 01 C8 00 C8 00 04 00 07 01 9C 00 00 40 FF FF FF FF FF FF FF FF FF
 
 
 
@@ -147,6 +149,8 @@ void identifyTagInfo() {
             tag.macSuffix = 0xB0D0;
             epd->epdMirrorV = true;
             tag.OEPLtype = SOLUM_M3_BWR_16;
+            epd->effectiveXRes = epdXRes;
+            epd->effectiveYRes = epdYRes-1; //Yeah... I wonder why too....
             break;
         case STYPE_SIZE_022:
             tag.macSuffix = 0xB190;
@@ -169,6 +173,12 @@ void identifyTagInfo() {
                 // probably the 'lite' version
                 tag.macSuffix = 0xB2DA;
             }
+            epd->drawDirectionRight = true;
+            epd->XOffset = 8;
+            break;
+        case STYPE_SIZE_029_FREEZER:
+            tag.OEPLtype = SOLUM_M3_BW_29;
+            tag.macSuffix = 0x82D0;
             epd->drawDirectionRight = true;
             epd->XOffset = 8;
             break;

@@ -76,13 +76,17 @@ void unissd::epdSetup() {
             // stock init 1.6"
             epdWrite(CMD_DRV_OUTPUT_CTRL, 3, this->effectiveYRes & 0xFF, this->effectiveYRes >> 8, 0x00);
             epdWrite(CMD_DATA_ENTRY_MODE, 1, 0x01);
-            epdWrite(CMD_WINDOW_X_SIZE, 2, this->XOffset / 8, ((this->XOffset + this->effectiveXRes) / 8) - 1);
+            epdWrite(CMD_WINDOW_X_SIZE, 2, this->XOffset / 8, ((this->XOffset + this->effectiveXRes) / 8)-1);
             epdWrite(CMD_WINDOW_Y_SIZE, 4, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8, this->YOffset & 0xFF, this->YOffset >> 8);
             epdWrite(CMD_BORDER_WAVEFORM_CTRL, 1, 0x05);
             epdWrite(CMD_TEMP_SENSOR_CONTROL, 1, 0x80);
             // end stock init
             // added
-            epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x08, 0x00);  // fix reversed image with stock setup
+            if(tag.hasThirdColor){
+                epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x08, 0x00);  // fix reversed image with stock setup
+            }else{
+                epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x48, 0x00);  // fix reversed image with stock setup
+            }
             break;
         case 0x19:
             // stock init 9.7"
@@ -108,7 +112,11 @@ void unissd::epdSetup() {
 void unissd::epdWriteDisplayData() {
     // this display expects two entire framebuffers worth of data to be written, one for b/w and one for red
     uint8_t *buf[2] = {0, 0};  // this will hold pointers to odd/even data lines
-    for (uint8_t c = 0; c < 2; c++) {
+    uint8_t c_end = 2; //The loop must be executed 2 times if BWR, 1 time if BW
+    if(!tag.hasThirdColor){
+        c_end = 1;
+    }
+    for (uint8_t c = 0; c < c_end; c++) {
         switch (this->controllerType) {
             case 0x0F:
             case 0x12:
