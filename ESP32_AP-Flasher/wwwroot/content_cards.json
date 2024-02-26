@@ -409,7 +409,7 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "In case of an url, wow often (in minutes) the template is being fetched. Minimum is 3 minutes.",
+        "desc": "In case of an url, how often (in minutes) the template is being fetched. Minimum is 3 minutes.",
         "type": "int"
       }
     ]
