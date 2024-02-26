@@ -36,6 +36,13 @@ void identifyTagInfo() {
     CA FE BA DE 15 0B 12 04 00 10 01 E0 01 20 03 39 00 03 81 9D 00 00 4C FF FF FF FF FF FF FF FF FF		7.4 UC8179
     F3 22 BC 05 15 0A 0D 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 SSD
     AD BA FE CA 15 0A 1B 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 type 2
+    92 C3 80 05 15 08 19 04 00 12 01 18 03 10 01 04 07 07 01 80 00 00 63 FF FF FF FF FF FF FF FF FF     5.85 BWR
+    22 F0 BF 05 15 0A 14 04 00 12 00 18 03 10 01 04 07 07 01 80 00 00 24 FF FF FF FF FF FF FF FF FF     5.85 BW
+    99 78 B1 05 15 0A 06 04 00 0D 01 68 01 B8 00 38 07 07 01 80 00 00 43 FF FF FF FF FF FF FF FF FF     2.6"
+    72 92 1E 7E 15 0B 09 04 00 15 00 80 01 A8 00 38 00 01 01 9C 00 00 22 FF FF FF FF FF FF FF FF FF     2.9" FREEZER
+    31 50 53 06 16 02 19 04 00 12 01 C8 00 C8 00 04 00 07 01 9C 00 00 40 FF FF FF FF FF FF FF FF FF
+
+
 
             MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
 
@@ -49,7 +56,7 @@ void identifyTagInfo() {
             0x12 - SSD (var1.6)
             0x15 - SSD (2.9 lite)
             0x19 - SSD (9.7)
-
+    0x0A -  Have third color?
     0x12 -  0x01 | (0x80 if it has a button)
     0x13 -  0x80 | (0x10 if it has a LED) | (0x0C ?? ) | (0x01 if it has a button)
     */
@@ -65,13 +72,21 @@ void identifyTagInfo() {
     capabilities[1] = getUICRByte(0x13);
     tag.solumType = getUICRByte(0x16);
 
+    if(getUICRByte(0x0A) == 0x01){
+        tag.hasThirdColor = true;
+    }
+
     switch (controllerType) {
         case 0x0F:
         case 0x12:
         case 0x15:
         case 0x19:
-            epd = new unissd;
-            break;
+            if(epdXRes == 792 && epdYRes == 272){
+                epd = new dualssd;
+            }else{
+                epd = new unissd;
+            }
+              break;
         case 0x0D:
             epd = new epdvar29;
             break;
@@ -105,6 +120,25 @@ void identifyTagInfo() {
     if (capabilities[1] & 0x01) tag.buttonCount++;
     if (capabilities[1] & 0x10) tag.hasLED = true;
     if (capabilities[0] & 0x01) tag.hasNFC = true;
+    
+    printf("TagType report:\n");
+    printf("Resolution: %d*%d Px\n", epd->Xres,epd->Yres);
+    printf("Nb of buttons: %d\n", tag.buttonCount);
+    if(tag.hasLED){
+        printf("This tag have a led: Yes\n");
+    }else{
+        printf("This tag have a led: No\n"); 
+    }
+    if(tag.hasNFC){
+        printf("This tag have NFC: Yes\n");
+    }else{
+        printf("This tag have NFC: No\n"); 
+    }
+    if(tag.hasThirdColor){
+        printf("This tag is Black and white only: No\n");
+    }else{
+        printf("This tag is Black and white only: Yes\n"); 
+    }
 
     // we'll calculate image slot size here
     uint32_t imageSize = epd->Xres * epd->Yres / 4;
@@ -115,9 +149,17 @@ void identifyTagInfo() {
             tag.macSuffix = 0xB0D0;
             epd->epdMirrorV = true;
             tag.OEPLtype = SOLUM_M3_BWR_16;
+            epd->effectiveXRes = epdXRes;
+            epd->effectiveYRes = epdYRes-1; //Yeah... I wonder why too....
             break;
         case STYPE_SIZE_022:
             tag.macSuffix = 0xB190;
+            epd->drawDirectionRight = true;
+            tag.OEPLtype = SOLUM_M3_BWR_22;
+            epd->XOffset = 8;
+            break;
+        case STYPE_SIZE_026:
+            tag.macSuffix = 0xB3D0;
             epd->drawDirectionRight = true;
             tag.OEPLtype = SOLUM_M3_BWR_22;
             epd->XOffset = 8;
@@ -134,6 +176,12 @@ void identifyTagInfo() {
             epd->drawDirectionRight = true;
             epd->XOffset = 8;
             break;
+        case STYPE_SIZE_029_FREEZER:
+            tag.OEPLtype = SOLUM_M3_BW_29;
+            tag.macSuffix = 0x82D0;
+            epd->drawDirectionRight = true;
+            epd->XOffset = 8;
+            break;
         case STYPE_SIZE_042:
             tag.macSuffix = 0xB6D0;
             tag.OEPLtype = SOLUM_M3_BWR_42;
@@ -144,6 +192,16 @@ void identifyTagInfo() {
             epd->drawDirectionRight = true;
             //            epd->mirrorH = true;
             tag.OEPLtype = SOLUM_M3_BWR_43;
+            break;
+        case STYPE_SIZE_058:
+            tag.macSuffix = 0xE3D0;
+            epd->epdMirrorV = true;
+            tag.OEPLtype = SOLUM_M3_BWR_58;
+            break;
+        case STYPE_SIZE_058_FREEZER:
+            tag.macSuffix = 0x84D0;
+            epd->epdMirrorV = true;
+            tag.OEPLtype = SOLUM_M3_BW_58;
             break;
         case STYPE_SIZE_060:
             tag.macSuffix = 0xB890;

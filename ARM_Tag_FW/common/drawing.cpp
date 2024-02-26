@@ -291,17 +291,19 @@ void drawImageAtAddress(uint32_t addr, uint8_t lut) {
 void drawRoundedRectangle(uint16_t xpos, uint16_t ypos, uint16_t width, uint16_t height, bool color) {
     uint16_t widthBytes = width / 8;
     if (width % 8) widthBytes++;
-    uint32_t framebufferSize = (widthBytes + 1) * height;
+    uint32_t framebufferSize = widthBytes * height;
     uint8_t *framebuffer = (uint8_t *)calloc(framebufferSize + 4, 1);
     if (framebuffer == NULL) {
         return;
     }
-
-    ((uint16_t *)framebuffer)[0] = width + 1;
+    uint8_t frameBufferZerosize = width;
+    if((width % 8) != 0){
+        frameBufferZerosize++;
+    }
+    ((uint16_t *)framebuffer)[0] = frameBufferZerosize;
     ((uint16_t *)framebuffer)[1] = height;
 
     framebuffer += 4;
-
     uint16_t w = width - 1;
     uint16_t x = 1;
     while (w--) {

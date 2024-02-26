@@ -11,7 +11,7 @@
 #include "wdt.h"
 
 #include "drawing.h"
-#include "unissd.h"
+#include "dualssd.h"
 
 #define CMD_DRV_OUTPUT_CTRL 0x01
 #define CMD_SOFT_START_CTRL 0x0C
@@ -48,7 +48,7 @@
 #define SCREEN_CMD_USE_MODE_2 0x08  // modified commands 0x10 and 0x04
 #define SCREEN_CMD_REFRESH 0xC7
 
-void unissd::selectLUT(uint8_t lut) {
+void dualssd::selectLUT(uint8_t lut) {
     // implement alternative LUTs here. Currently just reset the watchdog to two minutes,
     // to ensure it doesn't reset during the much longer bootup procedure
     lut += 1;  // make the compiler a happy camper
@@ -56,16 +56,12 @@ void unissd::selectLUT(uint8_t lut) {
     return;
 }
 
-void unissd::epdEnterSleep() {
-    digitalWrite(EPD_RST, LOW);
-    delay(10);
-    digitalWrite(EPD_RST, HIGH);
-    delay(50);
-    epdWrite(CMD_SOFT_RESET2, 0);
-    epdBusyWaitFalling(15);
-    epdWrite(CMD_ENTER_SLEEP, 1, 0x03);
+void dualssd::epdEnterSleep() {
+    epdWrite(CMD_ENTER_SLEEP, 1, 0x01);
 }
-void unissd::epdSetup() {
+void dualssd::epdSetup() {
+    
+    printf("init epd...\n");
     epdReset();
     epdWrite(CMD_SOFT_RESET, 0);
     delay(10);
@@ -73,76 +69,87 @@ void unissd::epdSetup() {
         case 0x0F:
         case 0x12:
         case 0x15:
-            // stock init 1.6"
-            epdWrite(CMD_DRV_OUTPUT_CTRL, 3, this->effectiveYRes & 0xFF, this->effectiveYRes >> 8, 0x00);
-            epdWrite(CMD_DATA_ENTRY_MODE, 1, 0x01);
-            epdWrite(CMD_WINDOW_X_SIZE, 2, this->XOffset / 8, ((this->XOffset + this->effectiveXRes) / 8)-1);
-            epdWrite(CMD_WINDOW_Y_SIZE, 4, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8, this->YOffset & 0xFF, this->YOffset >> 8);
-            epdWrite(CMD_BORDER_WAVEFORM_CTRL, 1, 0x05);
-            epdWrite(CMD_TEMP_SENSOR_CONTROL, 1, 0x80);
-            // end stock init
-            // added
+            /* 5.85 INIT SEQUENCE
+            0x11, 0x00
+            0x91, 0x01
+            0x44, 0x31, 0x00
+            0x45, 0x0F, 0x01, 0x00, 0x00
+            0x4E, 0x31
+            0x4F, 0x0F, 0x01
+            0xC4, 0x00, 0x31
+            0xC5, 0x0F, 0x01, 0x00, 0x00
+            0xCE, 0x00
+            0xCF, 0x0F, 0x01, 0x3C, 0x01
+            
+            */
+           /* 5.85 BW INIT SEQUENCE
+            0x11, 0x00
+            0x91, 0x01
+            0x44, 0x31, 0x00
+            0x45, 0x0F, 0x01, 0x00, 0x00
+            0x4E, 0x31
+            0x4F, 0x0F, 0x01
+            0xC4, 0x00, 0x31
+            0xC5, 0x0F, 0x01, 0x00, 0x00
+            0xCE, 0x00
+            0xCF, 0x0F, 0x01, 0x3C, 0x01
+            
+            */
+
+
+            epdWrite(0x11, 1, 0x00);
+            epdWrite(0x91, 1, 0x01);
             if(tag.hasThirdColor){
-                epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x08, 0x00);  // fix reversed image with stock setup
+                epdWrite(0x21, 2, 0x08, 0x10);
             }else{
-                epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x48, 0x00);  // fix reversed image with stock setup
+                epdWrite(0x21, 2, 0x48, 0x10);
             }
-            break;
-        case 0x19:
-            // stock init 9.7"
-            epdWrite(0x46, 1, 0xF7);
-            delay(15);
-            epdWrite(0x47, 1, 0xF7);
-            delay(15);
-            epdWrite(0x0C, 5, 0xAE, 0xC7, 0xC3, 0xC0, 0x80);
-            epdWrite(0x01, 3, 0x9F, 0x02, 0x00);
-            epdWrite(0x11, 1, 0x02);
-            epdWrite(0x44, 4, 0xBF, 0x03, 0x00, 0x00);
-            epdWrite(0x45, 4, 0x00, 0x00, 0x9F, 0x02);
+            //epdWrite(CMD_WINDOW_X_SIZE, 2, this->XOffset / 8, ((this->XOffset + this->effectiveXRes) / 8) - 1);
+            //epdWrite(CMD_WINDOW_Y_SIZE, 4, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8, this->YOffset & 0xFF, this->YOffset >> 8);
+            epdWrite(0x44, 2, 0x31, 0x00);
+            epdWrite(0x45, 4, 0x0F, 0x01, 0x00, 0x00);
+            //epdWrite(0x4E, 2, this->XOffset / 8, ((this->XOffset + this->effectiveXRes) / 8) - 1);
+            //epdWrite(0x4F, 4, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8, this->YOffset & 0xFF, this->YOffset >> 8);
+            epdWrite(0x4E, 1, 0x31);
+            epdWrite(0x4F, 2, 0x0F, 0x01);
+            epdWrite(0xC4, 2, 0x00, 0x31);
+            epdWrite(0xC5, 4, 0x0F, 0x01, 0x00, 0x00);
+            epdWrite(0xCE, 1, 0x00);
+            epdWrite(0xCF, 4, 0x0F, 0x01, 0x3C, 0x01);
             epdWrite(0x3C, 1, 0x01);
-            epdWrite(0x18, 1, 0x80);
-            epdWrite(0x22, 1, 0xF7);
-            // end stock init
-            // added
-            epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x08, 0x00);  // fix reversed image with stock setup
             break;
     }
 }
 
-void unissd::epdWriteDisplayData() {
-    // this display expects two entire framebuffers worth of data to be written, one for b/w and one for red
+void dualssd::epdWriteDisplayData() {
+   
     uint8_t *buf[2] = {0, 0};  // this will hold pointers to odd/even data lines
-    uint8_t c_end = 2; //The loop must be executed 2 times if BWR, 1 time if BW
+    // Those dual SSD controller (SSD1683??) behave as 2 400pxx wide screens, that needs independent data transfers.
+    uint8_t c_increment = 1;
     if(!tag.hasThirdColor){
-        c_end = 1;
+        c_increment = 2;
     }
-    for (uint8_t c = 0; c < c_end; c++) {
-        switch (this->controllerType) {
-            case 0x0F:
-            case 0x12:
-            case 0x15:
-                epdWrite(CMD_XSTART_POS, 1, (this->XOffset / 8));
-                epdWrite(CMD_YSTART_POS, 2, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8);
-                break;
-            case 0x19:
-                epdWrite(CMD_XSTART_POS, 2, 0xBF, 0x03);
-                epdWrite(CMD_YSTART_POS, 2, 0x00, 0x00);
-                break;
-        }
-        if (c == 0) epd_cmd(CMD_WRITE_FB_BW);
-        if (c == 1) epd_cmd(CMD_WRITE_FB_RED);
+    for (uint8_t c = 0; c < 4; c = c + c_increment) {
+        delay(10);
+        if (c == 0) epd_cmd(0x24);//BW
+        if (c == 1) epd_cmd(0x26);//RED
+        if (c == 2) epd_cmd(0xA4);//BW
+        if (c == 3) epd_cmd(0xA6);//RED
+
         delay(10);
         markData();
         epdSelect();
+
         for (uint16_t curY = 0; curY < epd->effectiveYRes; curY += 2) {
             // Get 'even' screen line
             buf[0] = (uint8_t *)calloc(epd->effectiveXRes / 8, 1);
 
             if (epd->epdMirrorV) {
-                drawItem::renderDrawLine(buf[0], (epd->effectiveYRes - 1) - curY, c);
+                drawItem::renderDrawLine(buf[0], (epd->effectiveYRes - 1) - curY, c%2);
             } else {
-                drawItem::renderDrawLine(buf[0], curY, c);
+                drawItem::renderDrawLine(buf[0], curY, c%2);
             }
+
             if (epd->epdMirrorH) drawItem::reverseBytes(buf[0], epd->effectiveXRes / 8);
             // on the first pass, the second (buf[1]) buffer is unused, so we don't have to wait for it to flush to the display / free it
             if (buf[1]) {
@@ -152,14 +159,19 @@ void unissd::epdWriteDisplayData() {
             }
 
             // start transfer of even data line to the screen
-            epdSPIAsyncWrite(buf[0], (epd->effectiveXRes / 8));
+            if(c<2){
+                epdSPIAsyncWrite(buf[0] + (epd->effectiveXRes / 16), (epd->effectiveXRes / 16)+1);
+            }else{
+                epdSPIAsyncWrite(buf[0], (epd->effectiveXRes / 16)+1);
+            }
 
             // Get 'odd' screen display line
             buf[1] = (uint8_t *)calloc(epd->effectiveXRes / 8, 1);
+
             if (epd->epdMirrorV) {
-                drawItem::renderDrawLine(buf[1], (epd->effectiveYRes - 1) - (curY + 1), c);
+                drawItem::renderDrawLine(buf[1], (epd->effectiveYRes - 1) - (curY + 1), c%2);
             } else {
-                drawItem::renderDrawLine(buf[1], curY + 1, c);
+                drawItem::renderDrawLine(buf[1], curY + 1, c%2);
             }
             if (epd->epdMirrorH) drawItem::reverseBytes(buf[1], epd->effectiveXRes / 8);
 
@@ -168,10 +180,15 @@ void unissd::epdWriteDisplayData() {
             free(buf[0]);
 
             // start transfer of the 'odd' data line
-            epdSPIAsyncWrite(buf[1], (epd->effectiveXRes / 8));
+            if(c<2){
+                epdSPIAsyncWrite(buf[1]+(epd->effectiveXRes / 16), (epd->effectiveXRes / 16)+1);
+            }else{
+                
+                epdSPIAsyncWrite(buf[1], (epd->effectiveXRes / 16)+1);
+            }
         }
         // check if this was the first pass. If it was, we'll need to wait until the last display line finished writing
-        if (c == 0) {
+        if (c == 0 || c==2) {
             epdSPIWait();
             epdDeselect();
             free(buf[1]);
@@ -187,16 +204,17 @@ void unissd::epdWriteDisplayData() {
     if (buf[1]) free(buf[1]);
 }
 
-void unissd::draw() {
+
+void dualssd::draw() {
     drawNoWait();
     getVoltage();
     epdBusyWaitFalling(120000);
 }
-void unissd::drawNoWait() {
+void dualssd::drawNoWait() {
     epdWriteDisplayData();
-    epdWrite(CMD_DISP_UPDATE_CTRL2, 1, 0xF7);
+    //epdWrite(CMD_DISP_UPDATE_CTRL2, 1, 0xF7);
     epdWrite(CMD_ACTIVATION, 0);
 }
-void unissd::epdWaitRdy() {
+void dualssd::epdWaitRdy() {
     epdBusyWaitFalling(120000);
 }
