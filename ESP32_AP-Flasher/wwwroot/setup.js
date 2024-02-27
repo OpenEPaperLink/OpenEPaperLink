@@ -1,7 +1,7 @@
 const $ = document.querySelector.bind(document);
 
 window.addEventListener("load", function () {
-    fetch("/get_wifi_config")
+    fetch("get_wifi_config")
         .then(response => response.json())
         .then(data => {
             $('#ssid').value = data.ssid || "";
@@ -25,7 +25,7 @@ $('#listssid').addEventListener('click', () => {
 });
 
 function getSsidList() {
-    fetch("/get_ssid_list")
+    fetch("get_ssid_list")
         .then(response => response.json())
         .then(data => {
             if (data.scanstatus < 0) {
@@ -64,7 +64,7 @@ $('#connect').addEventListener('click', () => {
         dns: $('#dns').value
     };
 
-    fetch('/save_wifi_config', {
+    fetch('save_wifi_config', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

@@ -127,7 +127,7 @@ const fetchAndPost = async (url, name, path) => {
         formData.append('path', path);
         formData.append('file', fileContent, name);
 
-        const uploadResponse = await fetch('/littlefs_put', {
+        const uploadResponse = await fetch('littlefs_put', {
             method: 'POST',
             body: formData
         });
@@ -146,7 +146,7 @@ const fetchAndPost = async (url, name, path) => {
 
 async function checkTagFW() {
     const fwfile = "/Tag_FW_Pack.bin";
-    const url = "/check_file?path=" + encodeURIComponent(fwfile);
+    const url = "check_file?path=" + encodeURIComponent(fwfile);
     const response = await fetch(url);
     if (response.ok) {
         const data = await response.json();
