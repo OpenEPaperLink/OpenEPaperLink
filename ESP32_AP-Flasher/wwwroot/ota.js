@@ -167,7 +167,7 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
 
                 print("Updating littleFS partition...");
 
-                fetch("http://openepaperlink.eu/getupdate/?url=" + fileUrl)
+                fetch(location.protocol + "//openepaperlink.eu/getupdate/?url=" + fileUrl)
                     .then(response => response.json())
                     .then(data => {
                         checkfiles(data);
@@ -271,7 +271,7 @@ export async function updateESP(fileUrl, showConfirm) {
 
     while (retryCount < maxRetries) {
         try {
-            const response = await fetch("http://openepaperlink.eu/getupdate/?url=" + fileUrl + "&env=" + env);
+            const response = await fetch(location.protocol + "//openepaperlink.eu/getupdate/?url=" + fileUrl + "&env=" + env);
             const responseBody = await response.text();
             if (!response.ok) {
                 throw new Error("Network response was not OK: " + responseBody);
@@ -284,7 +284,7 @@ export async function updateESP(fileUrl, showConfirm) {
             const data = JSON.parse(responseBody);
             const file = data.find((entry) => entry.name == env + '.bin');
             if (file) {
-                binurl = "http://openepaperlink.eu/getupdate/?url=" + encodeURIComponent(file.url);
+                binurl = location.protocol + "//openepaperlink.eu/getupdate/?url=" + encodeURIComponent(file.url);
                 binmd5 = file.md5;
                 binsize = file.size;
                 console.log(`URL for "${file.name}": ${binurl}`);
@@ -389,7 +389,7 @@ $('#selectRepo').onclick = function (event) {
                 const filesJsonAsset = assets.find(asset => asset.name === 'filesystem.json');
                 const binariesJsonAsset = assets.find(asset => asset.name === 'binaries.json');
                 if (filesJsonAsset && binariesJsonAsset) {
-                    const updateUrl = "http://openepaperlink.eu/getupdate/?url=" + binariesJsonAsset.browser_download_url + "&env=" + $('#repo').value;
+                    const updateUrl = location.protocol + "//openepaperlink.eu/getupdate/?url=" + binariesJsonAsset.browser_download_url + "&env=" + $('#repo').value;
                     return fetch(updateUrl);
                 } else {
                     throw new Error("Json file binaries.json and/or filesystem.json not found in the release assets");
