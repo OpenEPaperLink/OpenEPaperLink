@@ -57,7 +57,10 @@ void logLine(const String& text) {
             contentFS->remove("/logold.txt");
             contentFS->rename("/log.txt", "/logold.txt");
             logFile = contentFS->open("/log.txt", "a");
-            if (!logFile) return;
+            if (!logFile) {
+                xSemaphoreGive(fsMutex);
+                return;
+            }
         }
 
         logFile.print(timeStr);
