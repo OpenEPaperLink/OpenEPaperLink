@@ -74,15 +74,15 @@ void prepareCancelPending(const uint8_t dst[8]) {
 }
 
 void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin) {
-    if (nextCheckin > 0) {
+    if (nextCheckin > 0 && countQueueItem(dst) == 0) {
         struct pendingData pending = {0};
         memcpy(pending.targetMac, dst, 8);
         pending.availdatainfo.dataType = DATATYPE_NOUPDATE;
         pending.availdatainfo.nextCheckIn = nextCheckin;
         pending.attemptsLeft = 10 + config.maxsleep;
 
-        Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X NOP\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
-        queueDataAvail(&pending, true);
+        Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X sleeping %d minutes\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], nextCheckin);
+        sendDataAvail(&pending);
     }
 }
 
@@ -508,10 +508,16 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     }
     char buffer[64];
 
+    char hexmac[17];
+    mac2hex(eadr->src, hexmac);
+
     tagRecord* taginfo = tagRecord::findByMAC(eadr->src);
     if (taginfo == nullptr) {
         if (config.lock == 1 || (config.lock == 2 && eadr->adr.wakeupReason != WAKEUP_REASON_FIRSTBOOT)) return;
-        if (eadr->adr.currentChannel > 0 && eadr->adr.currentChannel != apInfo.channel) return;
+        if (eadr->adr.currentChannel > 0 && eadr->adr.currentChannel != apInfo.channel) {
+            Serial.printf("Tag %s reports illegal channel %d\n", hexmac, eadr->adr.currentChannel);
+            return;
+        }
         taginfo = new tagRecord;
         memcpy(taginfo->mac, eadr->src, sizeof(taginfo->mac));
         taginfo->pendingCount = 0;
@@ -519,9 +525,6 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     }
     time_t now;
     time(&now);
-
-    char hexmac[17];
-    mac2hex(eadr->src, hexmac);
 
     if (!local) {
         if (taginfo->isExternal == false) {

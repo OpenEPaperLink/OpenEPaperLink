@@ -82,7 +82,6 @@ void contentRunner() {
             if (minutesUntilNextUpdate > 1 && (wsClientCount() == 0 || config.stopsleep == 0)) {
                 taginfo->pendingIdle = minutesUntilNextUpdate * 60;
                 if (taginfo->isExternal == false) {
-                    Serial.printf("sleeping for %d more minutes\n", minutesUntilNextUpdate);
                     prepareIdleReq(taginfo->mac, minutesUntilNextUpdate);
                 }
             }
