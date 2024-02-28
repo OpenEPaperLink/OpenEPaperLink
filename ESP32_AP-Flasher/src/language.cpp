@@ -17,7 +17,7 @@ int currentLanguage = 0;
 
 void updateLanguageFromConfig() {
     int tempLang = config.language;
-    if (tempLang < 0 || tempLang > 8) {
+    if (tempLang < 0 || tempLang > 9) {
         Serial.println("Language not supported");
         return;
     }
