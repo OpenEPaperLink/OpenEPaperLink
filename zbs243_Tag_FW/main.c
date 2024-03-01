@@ -558,6 +558,10 @@ void executeCommand(uint8_t cmd) {
             eraseImageBlocks();
             powerDown(INIT_EEPROM);
             break;
+        case CMD_GET_BATTERY_VOLTAGE:
+            longDataReqCounter = LONG_DATAREQ_INTERVAL + 1;
+            voltageCheckCounter = VOLTAGE_CHECK_INTERVAL;
+            break;
 #ifndef LEAN_VERSION
         case CMD_ENTER_SLIDESHOW_FAST:
             powerUp(INIT_EEPROM);
@@ -757,7 +761,7 @@ void main() {
 #ifdef DEBUGMAIN
         pr("MAIN: Ap Found!\n");
 #endif
-        //showNoAP();
+        // showNoAP();
 
         showAPFound();
         // write the settings to the eeprom
@@ -772,7 +776,7 @@ void main() {
 #ifdef DEBUGMAIN
         pr("MAIN: No AP found...\n");
 #endif
-        //showAPFound();
+        // showAPFound();
         showNoAP();
         // write the settings to the eeprom
         powerUp(INIT_EEPROM);

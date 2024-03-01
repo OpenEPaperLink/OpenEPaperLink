@@ -217,9 +217,9 @@ static void sendAvailDataReq() {
     commsTxNoCpy(outBuffer);
 }
 struct AvailDataInfo *__xdata getAvailDataInfo() {
-    #ifdef DEBUGPROTO
+#ifdef DEBUGPROTO
     pr("PROTO: Full AvailData\n");
-    #endif
+#endif
     radioRxEnable(true, true);
     uint32_t __xdata t;
     for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
@@ -244,9 +244,9 @@ struct AvailDataInfo *__xdata getAvailDataInfo() {
     return NULL;
 }
 struct AvailDataInfo *__xdata getShortAvailDataInfo() {
-    #ifdef DEBUGPROTO
+#ifdef DEBUGPROTO
     pr("PROTO: Short AvailData\n");
-    #endif
+#endif
     radioRxEnable(true, true);
     uint32_t __xdata t;
     for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
@@ -683,9 +683,9 @@ static bool getDataBlock(const uint16_t blockSize) {
                     curBlock.requestedParts[c / 8] |= (1 << (c % 8));
                 }
                 requestPartialBlock = false;
-                #ifdef DEBUGPROTO
+#ifdef DEBUGPROTO
                 pr("PROTO: blk failed validation!\n");
-                #endif
+#endif
             }
         } else {
 #ifndef DEBUGBLOCKS
@@ -695,9 +695,9 @@ static bool getDataBlock(const uint16_t blockSize) {
             requestPartialBlock = true;
         }
     }
-    #ifdef DEBUGPROTO
+#ifdef DEBUGPROTO
     pr("PROTO: failed getting block\n");
-    #endif
+#endif
     return false;
 }
 
@@ -948,7 +948,9 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
 
         } else {
             // currently not displayed
-
+#ifdef DEBUGPROTO
+            pr("PROTO: currently not shown image\n");
+#endif
             // try to find the data in the SPI EEPROM
             powerUp(INIT_EEPROM);
             uint8_t findImgSlot = findSlotVer(&(avail->dataVer));
@@ -956,6 +958,9 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
 
             // Is this image already in a slot somewhere
             if (findImgSlot != 0xFF) {
+#ifdef DEBUGPROTO
+                pr("PROTO: Found image in EEPROM\n");
+#endif
                 // found a (complete)valid image slot for this version
                 powerUp(INIT_RADIO);
                 sendXferComplete();
@@ -994,9 +999,8 @@ inline bool processImageDataAvail(struct AvailDataInfo *__xdata avail) {
                     return false;
                 }
             }
-
-            // keep track on what is currently displayed
-            xMemCopy8(curDispDataVer, xferDataInfo.dataVer);
+            //  keep track on what is currently displayed
+            xMemCopy8(curDispDataVer, &xferDataInfo.dataVer);
             return true;
         }
     }
