@@ -68,5 +68,12 @@
     "days": [ "Söndag", "Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag" ],
     "months": [ "Januari", "Februari", "Mars", "April", "Maj", "Juni", "Juli", "Augusti", "September", "Oktober", "November", "December" ],
     "date_format": [ "%d-%m-%Y", "%d-%m" ]
+  },
+  "10": {
+    "language": "dk",
+    "daysShort": [ "SØ", "MA", "TI", "ON", "TO", "FR", "LØ" ],
+    "days": [ "Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag" ],
+    "months": [ "Januar", "Februar", "Marts", "April", "Maj", "Juni", "Juli", "August", "September", "Oktober", "November", "December" ],
+    "date_format": [ "%d-%m-%Y", "%d-%m" ]  
   }
 }

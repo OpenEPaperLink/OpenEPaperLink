@@ -58,7 +58,7 @@ window.addEventListener("loadConfig", function () {
 				if (optionToRemove) $("#apcfgchid").removeChild(optionToRemove);
 				$('#c6Option').style.display = 'block';
 			}
-			if (data.hasFlasher) {
+			if (data.hasFlasher == 1) {
 				$('[data-target="flashtab"]').style.display = 'block';
 			}
 			if (data.hasBLE == 0) {
