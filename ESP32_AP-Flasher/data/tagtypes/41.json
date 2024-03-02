@@ -1,0 +1,67 @@
+{
+	"name": "M3 5.85\"",
+	"width": 792,
+	"height": 272,
+	"rotatebuffer": 0,
+	"bpp": 2,
+	"colors": 3,
+	"colortable": {
+		"white": [255, 255, 255],
+		"black": [0, 0, 0],
+		"red": [255, 0, 0],
+		"gray": [150, 150, 150]
+	},
+	"shortlut": 0,
+	"options": [],
+	"contentids": [22, 23, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 16, 17, 18, 19, 20, 26, 27],
+	"usetemplate": 1,
+	"template": {
+		"1": {
+			"weekday": [ 192, 0, "Signika-SB.ttf", 70 ],
+			"date": [ 192, 85, "Signika-SB.ttf", 60 ]
+		},
+		"2": {
+			"fonts": [ "Signika-SB.ttf", 150, 150, 110, 80, 60, 50 ],
+			"xy": [ 192, 72 ]
+		},
+		"16": {
+			"location": [ 5, 5, "fonts/bahnschrift30" ],
+			"title": [ 335, 11, "glasstown_nbp_tf" ],
+			"cols": [ 1, 157, 16, "glasstown_nbp_tf" ],
+			"bars": [ 5, 141, 14 ]
+		},
+		"8": {
+			"location": [5, 12, "t0_14b_tf"],
+			"column": [5, 76],
+			"day": [39, 23, "bahnschrift20.vlw", 48, 140],
+			"icon": [39, 65, 45],
+			"wind": [23, 26],
+			"line": [20, 168]
+		},
+		"9": {
+			"title": [ 5, 4, "bahnschrift20.vlw", 25 ],
+			"items": 8,
+			"line": [ 4, 25, "REFSAN12.vlw" ],
+			"desc": [ 0, 5, "", 1 ]
+		},
+		"10": {
+			"title": [ 192, 5, "fonts/bahnschrift20" ],
+			"pos": [ 192, 30 ]
+		},
+		"11": {
+			"mode": 0,
+			"days": 1,
+			"title": [ 5, 2, "fonts/bahnschrift20" ],
+			"date": [ 378, 2 ],
+			"items": 10,
+			"red": [ 0, 21, 384, 16 ],
+			"line": [ 5, 23, 18, "calibrib16.vlw", 55 ]
+		},		
+		"27": {
+			"bars": [ 12, 360, 110, 20 ],
+			"time": [ "calibrib16.vlw" ],
+			"yaxis": [ "BellCent10.vlw", 1, 6 ],
+			"head": [ "calibrib30.vlw" ]
+		}	
+	}
+}
