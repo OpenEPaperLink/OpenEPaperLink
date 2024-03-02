@@ -161,7 +161,7 @@ void identifyTagInfo() {
         case STYPE_SIZE_026:
             tag.macSuffix = 0xB3D0;
             epd->drawDirectionRight = true;
-            tag.OEPLtype = SOLUM_M3_BWR_22;
+            tag.OEPLtype = SOLUM_M3_BWR_26;
             epd->XOffset = 8;
             break;
         case STYPE_SIZE_029:
