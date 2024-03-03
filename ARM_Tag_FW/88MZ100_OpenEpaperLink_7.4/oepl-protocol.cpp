@@ -31,15 +31,10 @@ extern "C" {
 #define FW88MZ100
 
 #define HAL_PacketRX commsRxUnenc
-#define millis() timerGet()
-#define HAL_TIMER_TICK (TIMER_TICKS_PER_MSEC)
 
 
 void inline HAL_msDelay(uint32_t t) {
     timerDelay(t * TIMER_TICKS_PER_MSEC);
-}
-
-void executeCommand(uint8_t c) {
 }
 
 void loadSettingsFromBuffer(uint8_t *buffer) {

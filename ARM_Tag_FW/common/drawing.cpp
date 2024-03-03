@@ -63,7 +63,7 @@ void addBufferedImage(uint16_t x, uint16_t y, bool color, enum rotation ro, cons
         di->type = drawItem::drawType::DRAW_MASK;
     else
         di->type = drawItem::drawType::DRAW_BUFFERED_1BPP;
-
+    di->checkBounds();
     di->addToList();
 }
 
@@ -85,6 +85,7 @@ void addFlashImage(uint16_t x, uint16_t y, bool color, enum rotation ro, const u
     di->color = color;
     di->cleanUp = false;
     di->type = drawItem::drawType::DRAW_BUFFERED_1BPP;
+    di->checkBounds();
     di->addToList();
 }
 #ifdef ENABLE_OEPLFS
@@ -119,6 +120,7 @@ void addFSImage(uint16_t x, uint16_t y, uint8_t color, enum rotation ro, char *n
     } else {
         di->type = drawItem::drawType::DRAW_OEPLFS_1BPP;
     }
+    di->checkBounds();
     di->addToList();
 }
 
@@ -153,6 +155,7 @@ void addCompressedFSImage(uint16_t x, uint16_t y, enum rotation ro, char *name) 
     di->color = imgheader.bpp;
     if (di->color == 1) di->color = 0;
     di->cleanUp = true;
+    di->checkBounds();
     di->addToList();
 }
 #endif
@@ -207,6 +210,8 @@ void addQR(uint16_t x, uint16_t y, uint8_t version, uint8_t scale, const char *c
     di->ypos = y;
     di->color = 0;
     di->type = drawItem::drawType::DRAW_BUFFERED_1BPP;
+
+    di->checkBounds();
     di->addToList();
 }
 
@@ -227,8 +232,12 @@ void drawImageAtAddressWrap(uint32_t addr, uint8_t lut) {
             di->addItem((uint8_t *)addr, epd->effectiveXRes, epd->effectiveYRes);
             di->type = drawItem::drawType::DRAW_EEPROM_1BPP;
             di->direction = false;
-            if (di->mirrorH) di->mirrorV = !di->mirrorV;
+            if (di->mirrorH) {
+                di->mirrorH = 0;
+                di->mirrorV = !di->mirrorV;
+            }
             di->cleanUp = false;
+            di->checkBounds();
             di->addToList();
         } break;
         case DATATYPE_IMG_RAW_2BPP: {
@@ -240,8 +249,12 @@ void drawImageAtAddressWrap(uint32_t addr, uint8_t lut) {
             di->addItem((uint8_t *)addr, epd->effectiveXRes, epd->effectiveYRes);
             di->type = drawItem::drawType::DRAW_EEPROM_2BPP;
             di->direction = false;
-            if (di->mirrorH) di->mirrorV = !di->mirrorV;
+            if (di->mirrorH) {
+                di->mirrorH = 0;
+                di->mirrorV = !di->mirrorV;
+            }
             di->cleanUp = false;
+            di->checkBounds();
             di->addToList();
         } break;
         case DATATYPE_IMG_ZLIB: {
@@ -271,10 +284,14 @@ void drawImageAtAddressWrap(uint32_t addr, uint8_t lut) {
             di->xpos = 0;
             di->ypos = 0;
             di->direction = false;
-            if (di->mirrorH) di->mirrorV = !di->mirrorV;
+            if (di->mirrorH) {
+                di->mirrorH = 0;
+                di->mirrorV = !di->mirrorV;
+            }
             if (imgheader.bpp == 1) di->color = 0;
             if (imgheader.bpp == 2) di->color = 2;
             di->cleanUp = true;
+            di->checkBounds();
             di->addToList();
         } break;
     }
@@ -297,7 +314,7 @@ void drawRoundedRectangle(uint16_t xpos, uint16_t ypos, uint16_t width, uint16_t
         return;
     }
     uint8_t frameBufferZerosize = width;
-    if((width % 8) != 0){
+    if ((width % 8) != 0) {
         frameBufferZerosize++;
     }
     ((uint16_t *)framebuffer)[0] = frameBufferZerosize;
@@ -455,9 +472,9 @@ void drawItem::getXLine(uint8_t *line, uint16_t y, uint8_t c) {
                     }
                 }
                 if (mirrorH) {
-                    copyWithByteShift(line, &buffer[((height - (y - ypos)) * widthBytes)], widthBytes, xpos / 8);
+                    copyWithByteShift(line, &buffer[((height - (y - ypos)) * widthBytes)], drawnWidthBytes, xpos / 8);
                 } else {
-                    copyWithByteShift(line, &buffer[((y - ypos) * widthBytes)], widthBytes, xpos / 8);
+                    copyWithByteShift(line, &buffer[((y - ypos) * widthBytes)], drawnWidthBytes, xpos / 8);
                 }
             }
             break;
@@ -478,7 +495,7 @@ void drawItem::getXLine(uint8_t *line, uint16_t y, uint8_t c) {
                 if (mirrorV) {
                     reverseBytes(dbuffer, widthBytes);
                 }
-                copyWithByteShift(line, dbuffer, widthBytes, xpos / 8);
+                copyWithByteShift(line, dbuffer, drawnWidthBytes, xpos / 8);
                 free(dbuffer);
             }
             break;
@@ -498,20 +515,36 @@ void drawItem::getXLine(uint8_t *line, uint16_t y, uint8_t c) {
                 if (mirrorV) {
                     reverseBytes(dbuffer, widthBytes);
                 }
-                copyWithByteShift(line, dbuffer, widthBytes, xpos / 8);
+                copyWithByteShift(line, dbuffer, drawnWidthBytes, xpos / 8);
                 free(dbuffer);
             }
             break;
         case DRAW_EEPROM_1BPP:
             if (c != color) return;
-            if (epd->drawDirectionRight)
+            if (mirrorH)
                 y = epd->effectiveYRes - 1 - y;
-            HAL_flashRead((uint32_t)buffer + sizeof(struct EepromImageHeader) + (y * (epd->effectiveXRes / 8)), line, (epd->effectiveXRes / 8));
+            if (mirrorV) {
+                uint8_t *dbuffer = (uint8_t *)malloc(widthBytes);
+                HAL_flashRead((uint32_t)buffer + sizeof(struct EepromImageHeader) + (y * (epd->effectiveXRes / 8)), dbuffer, (epd->effectiveXRes / 8));
+                reverseBytes(dbuffer, widthBytes);
+                memcpy(line, dbuffer, widthBytes);
+                free(dbuffer);
+            } else {
+                HAL_flashRead((uint32_t)buffer + sizeof(struct EepromImageHeader) + (y * (epd->effectiveXRes / 8)), line, (epd->effectiveXRes / 8));
+            }
             break;
         case DRAW_EEPROM_2BPP:
-            if (epd->drawDirectionRight)
+            if (mirrorH)
                 y = epd->effectiveYRes - 1 - y;
-            HAL_flashRead((uint32_t)(buffer + sizeof(struct EepromImageHeader) + ((y + (c * epd->effectiveYRes)) * (epd->effectiveXRes / 8))), line, (epd->effectiveXRes / 8));
+            if (mirrorV) {
+                uint8_t *dbuffer = (uint8_t *)malloc(widthBytes);
+                HAL_flashRead((uint32_t)(buffer + sizeof(struct EepromImageHeader) + ((y + (c * epd->effectiveYRes)) * (epd->effectiveXRes / 8))), dbuffer, (epd->effectiveXRes / 8));
+                reverseBytes(dbuffer, widthBytes);
+                memcpy(line, dbuffer, widthBytes);
+                free(dbuffer);
+            } else {
+                HAL_flashRead((uint32_t)(buffer + sizeof(struct EepromImageHeader) + ((y + (c * epd->effectiveYRes)) * (epd->effectiveXRes / 8))), line, (epd->effectiveXRes / 8));
+            }
             break;
         default:
             printf("DRAW: Not supported mode!\n");
@@ -639,6 +672,16 @@ bool drawItem::addToList() {
         };
     }
     return false;
+}
+
+void drawItem::checkBounds() {
+    drawnWidthBytes = widthBytes;
+
+    // if(!direction){ // draw X lines
+    uint8_t availBytesWidth = epd->effectiveXRes / 8;
+    availBytesWidth -= (xpos / 8);
+    if (widthBytes < availBytesWidth) availBytesWidth = widthBytes;
+    drawnWidthBytes = availBytesWidth;
 }
 
 drawItem::~drawItem() {
@@ -935,5 +978,6 @@ void fontrender::epdPrintf(uint16_t x, uint16_t y, bool color, enum rotation ro,
     di->xpos = x;
     di->color = color;
     di->type = drawItem::drawType::DRAW_FONT;
+    di->checkBounds();
     di->addToList();
 }

@@ -72,6 +72,8 @@ class drawItem {
     static void renderDrawLine(uint8_t *line, uint16_t number, uint8_t c);
     static void flushDrawItems();
 
+    void checkBounds();
+
     // these are also used for rotated screens
     static void reverseBytes(uint8_t *src, uint8_t src_len);
     static uint8_t bitReverse(uint8_t byte);
@@ -113,6 +115,7 @@ class drawItem {
     void getXLine(uint8_t *line, uint16_t yPos, uint8_t color);
     void getYLine(uint8_t *line, uint16_t xPos, uint8_t color);
     uint8_t widthBytes = 0;
+    uint8_t drawnWidthBytes = 0;
     uint8_t *buffer = nullptr;
 };
 

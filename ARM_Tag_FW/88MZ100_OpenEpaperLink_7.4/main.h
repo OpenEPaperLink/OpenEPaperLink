@@ -31,3 +31,4 @@
 
 #define RADIO_FIRST_CHANNEL				(11)		//2.4-GHz channels start at 11
 void applyUpdate(uint32_t len);
+void executeCommand(uint8_t cmd);

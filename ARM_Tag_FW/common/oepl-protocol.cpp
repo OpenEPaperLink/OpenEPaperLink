@@ -23,8 +23,6 @@ volatile uint8_t PERSISTENTVAR currentChannel = 0;
 static uint8_t inBuffer[128] = {0};
 static uint8_t outBuffer[128] = {0};
 
-extern void executeCommand(uint8_t cmd);  // this is defined in main.c
-
 // tools
 static uint8_t getPacketType(const void *buffer) {
     const struct MacFcs *fcs = (MacFcs *)buffer;
@@ -112,7 +110,7 @@ uint8_t detectAP(const uint8_t channel) {
     radioRxEnable(true);
     for (uint8_t c = 1; c <= MAXIMUM_PING_ATTEMPTS; c++) {
         sendPing();
-        t = millis() + (HAL_TIMER_TICK * (PING_REPLY_WINDOW));
+        t = millis() + PING_REPLY_WINDOW;
         while (millis() < t) {
             int8_t ret = HAL_PacketRX(inBuffer);
             if (ret > 1) {
@@ -126,7 +124,7 @@ uint8_t detectAP(const uint8_t channel) {
                     }
                 }
             }
-            HAL_msDelay(1);
+            HAL_msDelay(10);
         }
     }
     return 0;
@@ -179,7 +177,7 @@ struct AvailDataInfo *getAvailDataInfo() {
     uint32_t t;
     for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
         sendAvailDataReq();
-        t = millis() + (HAL_TIMER_TICK * (DATA_REQ_RX_WINDOW_SIZE));
+        t = millis() + DATA_REQ_RX_WINDOW_SIZE;
         while (millis() < t) {
             int8_t ret = HAL_PacketRX(inBuffer);
             if (ret > 1) {
@@ -203,8 +201,7 @@ struct AvailDataInfo *getShortAvailDataInfo() {
     uint32_t t;
     for (uint8_t c = 0; c < DATA_REQ_MAX_ATTEMPTS; c++) {
         sendShortAvailDataReq();
-        // sendAvailDataReq();
-        t = millis() + (HAL_TIMER_TICK * (DATA_REQ_RX_WINDOW_SIZE));
+        t = millis() + DATA_REQ_RX_WINDOW_SIZE;
         while (millis() < t) {
             int8_t ret = HAL_PacketRX(inBuffer);
             if (ret > 1) {
@@ -251,7 +248,7 @@ static bool blockRxLoop(const uint32_t timeout, uint8_t *blockbuffer) {
     uint32_t t;
     bool success = false;
     radioRxEnable(true);
-    t = millis() + (HAL_TIMER_TICK * (timeout + 20));
+    t = millis() + (timeout + 20);
 
     bool blockComplete = false;
 
@@ -316,16 +313,17 @@ static struct blockRequestAck *performBlockRequest() {
     uint32_t t;
     radioRxEnable(true);
     radioRxFlush();
-    for (uint8_t c = 0; c < 30; c++) {
+    for (uint8_t c = 0; c < 10; c++) {
         sendBlockRequest();
-        t = millis() + (HAL_TIMER_TICK * ((7UL + c / 10)));
+        t = millis() + 6UL;
         do {
             int8_t ret = HAL_PacketRX(inBuffer);
             if (ret > 1) {
                 switch (getPacketType(inBuffer)) {
                     case PKT_BLOCK_REQUEST_ACK:
-                        if (checkCRC((inBuffer + sizeof(struct MacFrameNormal) + 1), sizeof(struct blockRequestAck)))
+                        if (checkCRC((inBuffer + sizeof(struct MacFrameNormal) + 1), sizeof(struct blockRequestAck))) {
                             return (struct blockRequestAck *)(inBuffer + sizeof(struct MacFrameNormal) + 1);
+                        }
                         break;
                     case PKT_BLOCK_PART:
                         return continueToRX();
@@ -370,7 +368,7 @@ static void sendXferComplete() {
     for (uint8_t c = 0; c < 16; c++) {
         sendXferCompletePacket();
         uint32_t start = millis();
-        while ((millis() - start) < (HAL_TIMER_TICK * (6UL))) {
+        while ((millis() - start) < (6UL)) {
             int8_t ret = HAL_PacketRX(inBuffer);
             if (ret > 1) {
                 if (getPacketType(inBuffer) == PKT_XFER_COMPLETE_ACK) {
@@ -591,7 +589,7 @@ static uint8_t *getDataBlock(const uint16_t blockSize) {
         }
 
 #ifdef FWNRF
-        doSleep(ack->pleaseWaitMs + 40);
+        doSleep(ack->pleaseWaitMs);
         powerUp(INIT_UART | INIT_RADIO);
         radioRxEnable(true);
 #endif
@@ -656,8 +654,8 @@ static uint8_t *getDataBlock(const uint16_t blockSize) {
 }
 
 static uint32_t downloadFWUpdate(const struct AvailDataInfo *avail) {
-    uint16_t dataRequestSize = 0;
-    uint32_t curXferSize = 0;
+    static uint32_t PERSISTENTVAR curXferSize = 0;
+
     // check if we already started the transfer of this information & haven't completed it
     if (!memcmp((const void *)&avail->dataVer, (const void *)&xferDataInfo.dataVer, 8) && xferDataInfo.dataSize) {
         // looks like we did. We'll carry on where we left off.
@@ -672,6 +670,7 @@ static uint32_t downloadFWUpdate(const struct AvailDataInfo *avail) {
     }
 
     while (xferDataInfo.dataSize) {
+        uint16_t dataRequestSize = 0;
         wdt10s();
         if (xferDataInfo.dataSize > BLOCK_DATA_SIZE) {
             // more than one block remaining
@@ -709,8 +708,8 @@ static uint32_t downloadFWUpdate(const struct AvailDataInfo *avail) {
 }
 
 static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
-    uint16_t dataRequestSize = 0;
-    uint32_t curXferSize = 0;
+    static uint32_t PERSISTENTVAR curXferSize = 0;
+
     powerUp(INIT_EEPROM);
     // check if we already started the transfer of this information & haven't completed it
     if (!memcmp((const void *)&avail->dataVer, (const void *)&xferDataInfo.dataVer, 8) && xferDataInfo.dataSize) {
@@ -772,6 +771,7 @@ static bool downloadImageDataToEEPROM(const struct AvailDataInfo *avail) {
     }
 
     while (xferDataInfo.dataSize) {
+        uint16_t dataRequestSize = 0;
         wdt10s();
         if (xferDataInfo.dataSize > BLOCK_DATA_SIZE) {
             // more than one block remaining

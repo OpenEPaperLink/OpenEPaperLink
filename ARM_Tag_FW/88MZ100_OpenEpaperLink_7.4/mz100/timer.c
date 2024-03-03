@@ -68,3 +68,6 @@ uint32_t timerMs(){
 	return (uint32_t)(diff/TIMER_TICKS_PER_MSEC);
 }
 
+uint32_t millis(){
+	return (uint32_t)(timerGet() / TIMER_TICKS_PER_MSEC);
+}

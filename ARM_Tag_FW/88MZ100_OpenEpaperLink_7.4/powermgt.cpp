@@ -18,6 +18,7 @@ extern "C" {
 #include "screen.h"
 #include "mz100/util.h"
 #include "zigbee.h"
+#include "mz100/timer.h"
 }
 
 __attribute__((section(".aonshadow"))) uint16_t dataReqAttemptArr[POWER_SAVING_SMOOTHING] = {0};  // Holds the amount of attempts required per data_req/check-in
@@ -120,9 +121,7 @@ void powerDown(const uint8_t parts) {
 }
 
 void doSleep(const uint32_t t) {
-    printf("Sleeping for: %d ms\r\n", t);
-    // sleepForMs(t);
-    delay(t);
+    timerDelay(t*TIMER_TICKS_PER_MSEC);
 }
 
 uint32_t getNextScanSleep(const bool increment) {

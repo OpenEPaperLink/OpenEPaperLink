@@ -83,14 +83,11 @@ void showSplashScreen() {
     fr.epdPrintf(10, 350, 0, rotation::ROTATE_0, "Tag MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
     addQR(80, 160, 3, 3, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", tag.OEPLtype, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
     fr.setFont((char *)"font/FreeSans9pt7b");
-    fr.epdPrintf(622, 290, 0, rotation::ROTATE_270, "v%04X%s", FW_VERSION, FW_VERSION_SUFFIX);
+    fr.epdPrintf(622, 280, 0, rotation::ROTATE_270, "v%04X%s", FW_VERSION, FW_VERSION_SUFFIX);
     selectLUT(1);
     draw();
     epdEnterSleep();
 }
-
-#define FW_VERSION 0x0027          // version number (max 2.5.5 :) )
-#define FW_VERSION_SUFFIX "-zlib"  // suffix, like -RC1 or whatever.
 
 void showApplyUpdate() {
     epdSetup();
@@ -120,7 +117,7 @@ void showAPFound() {
     fr.epdPrintf(10, 315, 0, rotation::ROTATE_0, "Battery: %d.%dV", batteryVoltage / 1000, batteryVoltage % 1000);
     fr.epdPrintf(10, 350, 0, rotation::ROTATE_0, "Tag MAC: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
     fr.setFont((char *)"font/FreeSans9pt7b");
-    fr.epdPrintf(622, 290, 0, rotation::ROTATE_270, "v%04X%s", FW_VERSION, FW_VERSION_SUFFIX);
+    fr.epdPrintf(622, 280, 0, rotation::ROTATE_270, "v%04X%s", FW_VERSION, FW_VERSION_SUFFIX);
     addOverlay();
 
     if (lowBatteryShown) {
@@ -154,16 +151,12 @@ void showNoAP() {
 }
 
 void showLongTermSleep() {
-    // selectLUT(EPD_LUT_NO_REPEATS);
-    // clearScreen();
-
-    // epdPrintBegin(2, SCREEN_HEIGHT - 16, EPD_DIRECTION_X, EPD_SIZE_SINGLE, EPD_COLOR_BLACK);
-    // epdpr("zZ");
-    // epdPrintEnd();
-
-    addOverlay();
-    // drawWithSleep();
+    epdSetup();
+    selectLUT(0);
+    draw();
+    epdEnterSleep();
 }
+
 void showNoEEPROM() {
     // selectLUT(EPD_LUT_NO_REPEATS);
     // clearScreen();

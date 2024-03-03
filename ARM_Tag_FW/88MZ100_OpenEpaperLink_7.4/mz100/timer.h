@@ -11,6 +11,8 @@ uint64_t timerGet(void);
 void timerStop(void);
 uint32_t timerMs(void);
 
+uint32_t millis();
+
 void timerDelay(uint64_t cycles);
 
 

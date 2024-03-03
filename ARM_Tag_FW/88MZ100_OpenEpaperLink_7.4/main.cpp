@@ -53,6 +53,7 @@ uint64_t __attribute__((section(".fwmagic"))) magic = FW_MAGIC;
 
 #define TAG_MODE_CHANSEARCH 0
 #define TAG_MODE_ASSOCIATED 1
+#define TAG_MODE_DEEPSLEEP 0x10
 
 __attribute__((section(".aon"))) uint8_t currentTagMode = TAG_MODE_CHANSEARCH;
 __attribute__((section(".aon"))) volatile struct zigbeeCalibDataStruct zigbeeCalibData;
@@ -444,6 +445,11 @@ void TagChanSearch() {
     }
 }
 
+void tagDeepSleep() {
+    printf("MAIN: long sleepy\n");
+    sleep_with_with_wakeup(1800 * 1000UL);
+}
+
 int main(void) {
     (*(volatile unsigned int *)0x20124000) = 0x100004;    // On WARM RESET: Goto this address. -> entry
     (*(volatile unsigned int *)0xE000ED08) = 0x20100000;  // Vector table in RAM and offset 0x4000
@@ -538,6 +544,9 @@ int main(void) {
             case TAG_MODE_CHANSEARCH:
                 TagChanSearch();
                 break;
+            case TAG_MODE_DEEPSLEEP:
+                tagDeepSleep();
+                break;
         }
     }
     return 0;
@@ -591,4 +600,35 @@ void applyUpdate(uint32_t size) {
     NVIC_SystemReset();
     while (1)
         ;
+}
+
+void executeCommand(uint8_t cmd) {
+    printf("executing command %d \n", cmd);
+    delay(20);
+    switch (cmd) {
+        case CMD_DO_REBOOT:
+            NVIC_SystemReset();
+            break;
+        case CMD_DO_RESET_SETTINGS:
+            break;
+        case CMD_DO_SCAN:
+            currentChannel = showChannelSelect();
+            break;
+        case CMD_ERASE_EEPROM_IMAGES:
+            eraseImageBlocks();
+            break;
+        case CMD_GET_BATTERY_VOLTAGE:
+            doVoltageReading();
+            // ensure
+            longDataReqCounter = LONG_DATAREQ_INTERVAL + 1;
+            sleep_with_with_wakeup(2 * 1000UL);
+            break;
+        case CMD_DO_DEEPSLEEP:
+            showLongTermSleep();
+            currentTagMode = TAG_MODE_DEEPSLEEP;
+            break;
+        default:
+            printf("Unimplemented command 0x%02X\n", cmd);
+            break;
+    }
 }
