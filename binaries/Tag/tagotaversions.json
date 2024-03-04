@@ -1,74 +1,94 @@
 [
   {
-   "00" : {
-   "type": "SOL_M2_154_SSD",
-   "version": "0027",
-   "md5": "0cf7b60327ff2b0318185be2e8ba82a0"
-   },
-   "01" : {
-   "type": "SOL_M2_29_SSD",
-   "version": "0027",
-   "md5": "a051ee5d5517b3e8d3d09ae1e076eabc"
-   },
-   "02" : {
-   "type": "SOL_M2_42_SSD",
-   "version": "0027",
-   "md5": "94aa727296a4c480a6702ea612288b4c"
-   },
-   "05" : {
-   "type": "SOL_M2_75_ota",
-   "version": "04",
-   "md5": "26c058db1f14c7ee2f301283bcbe7c9d"
-   },
-   "11" : {
-   "type": "SOL_M2_29_UC",
-   "version": "0027",
-   "md5": "aba3e35ef2bb63066d47e924bccd64f0"
-   },
-   "21" : {
-   "type": "SOL_M2_29_LT",
-   "version": "0027",
-   "md5": "130203d9ab7905b14166af1cc7260285"
-   },
-   "2E" : {
-   "type": "SOL_M3_Uni_ota",
-   "version": "26",
-   "md5": "d234e395a8441779caa2df75ca9a508d"
-   },
-   "2F" : {
-   "type": "SOL_M3_Uni_ota",
-   "version": "26",
-   "md5": "d234e395a8441779caa2df75ca9a508d"
-   },
-   "30" : {
-   "type": "SOL_M3_Uni_ota",
-   "version": "26",
-   "md5": "d234e395a8441779caa2df75ca9a508d"
-   },
-   "31" : {
-   "type": "SOL_M3_Uni_ota",
-   "version": "26",
-   "md5": "d234e395a8441779caa2df75ca9a508d"
-   },
-   "33" : {
-   "type": "SOL_M3_Uni_ota",
-   "version": "26",
-   "md5": "d234e395a8441779caa2df75ca9a508d"
-   },
-   "34" : {
-   "type": "SOL_M3_Uni_ota",
-   "version": "26",
-   "md5": "d234e395a8441779caa2df75ca9a508d"
-   },
-   "35" : {
-   "type": "SOL_M3_Uni_ota",
-   "version": "26",
-   "md5": "d234e395a8441779caa2df75ca9a508d"
-   },
-   "36" : {
-   "type": "SOL_M3_Uni_ota",
-   "version": "26",
-   "md5": "d234e395a8441779caa2df75ca9a508d"
-   }
+    "00": {
+      "type": "SOL_M2_154_SSD",
+      "version": "0027",
+      "md5": "0cf7b60327ff2b0318185be2e8ba82a0"
+    },
+    "01": {
+      "type": "SOL_M2_29_SSD",
+      "version": "0027",
+      "md5": "a051ee5d5517b3e8d3d09ae1e076eabc"
+    },
+    "02": {
+      "type": "SOL_M2_42_SSD",
+      "version": "0027",
+      "md5": "94aa727296a4c480a6702ea612288b4c"
+    },
+    "05": {
+      "type": "SOL_M2_75_ota",
+      "version": "04",
+      "md5": "26c058db1f14c7ee2f301283bcbe7c9d"
+    },
+    "11": {
+      "type": "SOL_M2_29_UC",
+      "version": "0027",
+      "md5": "aba3e35ef2bb63066d47e924bccd64f0"
+    },
+    "21": {
+      "type": "SOL_M2_29_LT",
+      "version": "0027",
+      "md5": "130203d9ab7905b14166af1cc7260285"
+    },
+    "2E": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "2F": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "30": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "31": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "32": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "33": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "34": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "35": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "36": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "40": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "41": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    },
+    "42": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "0027",
+      "md5": "03311a065fe4e1d20f373df7bc5f8dbe"
+    }
   }
 ]

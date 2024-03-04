@@ -72,7 +72,7 @@ void identifyTagInfo() {
     capabilities[1] = getUICRByte(0x13);
     tag.solumType = getUICRByte(0x16);
 
-    if(getUICRByte(0x0A) == 0x01){
+    if (getUICRByte(0x0A) == 0x01) {
         tag.hasThirdColor = true;
     }
 
@@ -81,12 +81,12 @@ void identifyTagInfo() {
         case 0x12:
         case 0x15:
         case 0x19:
-            if(epdXRes == 792 && epdYRes == 272){
+            if (epdXRes == 792 && epdYRes == 272) {
                 epd = new dualssd;
-            }else{
+            } else {
                 epd = new unissd;
             }
-              break;
+            break;
         case 0x0D:
             epd = new epdvar29;
             break;
@@ -120,25 +120,28 @@ void identifyTagInfo() {
     if (capabilities[1] & 0x01) tag.buttonCount++;
     if (capabilities[1] & 0x10) tag.hasLED = true;
     if (capabilities[0] & 0x01) tag.hasNFC = true;
-    
+
+#ifdef DEBUG_SHOW_TAGINFO
+
     printf("TagType report:\n");
-    printf("Resolution: %d*%d Px\n", epd->Xres,epd->Yres);
+    printf("Resolution: %d*%d Px\n", epd->Xres, epd->Yres);
     printf("Nb of buttons: %d\n", tag.buttonCount);
-    if(tag.hasLED){
+    if (tag.hasLED) {
         printf("This tag have a led: Yes\n");
-    }else{
-        printf("This tag have a led: No\n"); 
+    } else {
+        printf("This tag have a led: No\n");
     }
-    if(tag.hasNFC){
+    if (tag.hasNFC) {
         printf("This tag have NFC: Yes\n");
-    }else{
-        printf("This tag have NFC: No\n"); 
+    } else {
+        printf("This tag have NFC: No\n");
     }
-    if(tag.hasThirdColor){
+    if (tag.hasThirdColor) {
         printf("This tag is Black and white only: No\n");
-    }else{
-        printf("This tag is Black and white only: Yes\n"); 
+    } else {
+        printf("This tag is Black and white only: Yes\n");
     }
+#endif
 
     // we'll calculate image slot size here
     uint32_t imageSize = epd->Xres * epd->Yres / 4;
@@ -150,7 +153,7 @@ void identifyTagInfo() {
             epd->epdMirrorV = true;
             tag.OEPLtype = SOLUM_M3_BWR_16;
             epd->effectiveXRes = epdXRes;
-            epd->effectiveYRes = epdYRes-1; //Yeah... I wonder why too....
+            epd->effectiveYRes = epdYRes - 1;  // Yeah... I wonder why too....
             break;
         case STYPE_SIZE_022:
             tag.macSuffix = 0xB190;
@@ -161,7 +164,7 @@ void identifyTagInfo() {
         case STYPE_SIZE_026:
             tag.macSuffix = 0xB3D0;
             epd->drawDirectionRight = true;
-            tag.OEPLtype = SOLUM_M3_BWR_22;
+            tag.OEPLtype = SOLUM_M3_BWR_26;
             epd->XOffset = 8;
             break;
         case STYPE_SIZE_029:
@@ -195,12 +198,10 @@ void identifyTagInfo() {
             break;
         case STYPE_SIZE_058:
             tag.macSuffix = 0xE3D0;
-            epd->epdMirrorV = true;
             tag.OEPLtype = SOLUM_M3_BWR_58;
             break;
         case STYPE_SIZE_058_FREEZER:
             tag.macSuffix = 0x84D0;
-            epd->epdMirrorV = true;
             tag.OEPLtype = SOLUM_M3_BW_58;
             break;
         case STYPE_SIZE_060:

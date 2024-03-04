@@ -25,19 +25,20 @@ struct fwmetadata {
 
 #define EEPROM_SETTINGS_SIZE 4096
 
-#define BLOCKSIZE_MS 240  // was 270
+#define BLOCKSIZE_MS 280  // was 270
 
 #define FWNRF
 #define LEDSENABLED
-#define PERSISTENTVAR 
-#define HAL_TIMER_TICK 1
+#define PERSISTENTVAR
 #define EEPROM_IMG_START 0
 
-
+;
 #define HAL_PacketRX commsRxUnencrypted
 #define HAL_msDelay delay
 
 void dump(const uint8_t *a, const uint16_t l);
+
+extern void executeCommand(uint8_t cmd);  // this is defined in main.c
 
 static void saveUpdateMetadata(uint32_t size) {
     struct fwmetadata metadata;
@@ -71,8 +72,12 @@ static bool validateEepromMD5(uint64_t ver, uint32_t eepromstart, uint32_t flen)
         printf("This is what we got:\n");
         dump(hash, 16);
     }
+
+#ifdef DEBUG_DONTVALIDATEPROTO
     return true;
+#else
     return isValid;
+#endif
 }
 
 #include "../../common/oepl-protocol.cpp"

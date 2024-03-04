@@ -134,7 +134,7 @@ void getTemperature() {
 
     temperature = (uint8_t)(temp / 100);
 
-    printf("temp = %lu.%lu\n", temp / 100, temp % 100);
+    //printf("temp = %lu.%lu\n", temp / 100, temp % 100);
 }
 
 void boardGetOwnMac(uint8_t *mac) {

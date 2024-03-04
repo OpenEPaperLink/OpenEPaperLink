@@ -84,25 +84,10 @@ bool displayCustomImage(uint8_t imagetype) {
     return false;
 }
 
-void externalWakeHandler(uint8_t type) {
-    if (displayCustomImage(type)) {
-        doSleep(2000);
-
-        // if something else was previously on the display, draw that
-        if (curImgSlot != 0xFF) {
-            powerUp(INIT_EEPROM);
-            uint8_t lut = getEepromImageDataArgument(curImgSlot);
-            lut &= 0x03;
-            powerUp(INIT_EPD);
-            drawImageFromEeprom(curImgSlot, lut);
-            powerDown(INIT_EPD | INIT_EEPROM);
-        }
-    }
-}
-
 void TagAssociated() {
     // associated
     bool fastNextCheckin = false;
+    uint32_t fastNextCheckinDelay = WAKE_SECOND_CHECKIN_DELAY;
     struct AvailDataInfo *avail;
     static bool buttonCheckOut = false;  // send another full request if the previous was a trigger reason (buttons, nfc)
     // Is there any reason why we should do a long (full) get data request (including reason, status)?
@@ -139,23 +124,23 @@ void TagAssociated() {
 
         switch (wakeUpReason) {
             case WAKEUP_REASON_BUTTON1:
-                externalWakeHandler(CUSTOM_IMAGE_BUTTON1);
+                if (displayCustomImage(CUSTOM_IMAGE_BUTTON1)) fastNextCheckinDelay = 0;
                 fastNextCheckin = true;
                 break;
             case WAKEUP_REASON_BUTTON2:
-                externalWakeHandler(CUSTOM_IMAGE_BUTTON2);
+                if (displayCustomImage(CUSTOM_IMAGE_BUTTON2)) fastNextCheckinDelay = 0;
                 fastNextCheckin = true;
                 break;
             case WAKEUP_REASON_GPIO:
-                externalWakeHandler(CUSTOM_IMAGE_GPIO);
+                if (displayCustomImage(CUSTOM_IMAGE_GPIO)) fastNextCheckinDelay = 0;
                 fastNextCheckin = true;
                 break;
             case WAKEUP_REASON_RF:
-                externalWakeHandler(CUSTOM_IMAGE_RF_WAKE);
+                if (displayCustomImage(CUSTOM_IMAGE_RF_WAKE)) fastNextCheckinDelay = 0;
                 fastNextCheckin = true;
                 break;
             case WAKEUP_REASON_NFC:
-                externalWakeHandler(CUSTOM_IMAGE_NFC_WAKE);
+                if (displayCustomImage(CUSTOM_IMAGE_NFC_WAKE)) fastNextCheckinDelay = 0;
                 fastNextCheckin = true;
                 break;
         }
@@ -168,7 +153,7 @@ void TagAssociated() {
             }
 
             // since we've had succesful contact, and communicated the wakeup reason succesfully, we can now reset to the 'normal' status
-            if ((wakeUpReason == WAKEUP_REASON_BUTTON1) | (wakeUpReason == WAKEUP_REASON_BUTTON2) | (wakeUpReason == WAKEUP_REASON_NFC) | (wakeUpReason == CUSTOM_IMAGE_RF_WAKE)) {
+            if ((wakeUpReason == WAKEUP_REASON_GPIO) | (wakeUpReason == WAKEUP_REASON_BUTTON1) | (wakeUpReason == WAKEUP_REASON_BUTTON2) | (wakeUpReason == WAKEUP_REASON_NFC) | (wakeUpReason == CUSTOM_IMAGE_RF_WAKE)) {
                 buttonCheckOut = true;
             }
             wakeUpReason = WAKEUP_REASON_TIMED;
@@ -225,9 +210,13 @@ void TagAssociated() {
     if (fastNextCheckin) {
         // do a fast check-in next
         fastNextCheckin = false;
-        doSleep(100UL);
+        if (fastNextCheckinDelay) {
+            doSleep(fastNextCheckinDelay);
+        } else {
+            doSleep(100UL);
+        }
     } else {
-        if (nextCheckInFromAP) {
+        if (nextCheckInFromAP & 0x7FFF) {
             // if the AP told us to sleep for a specific period, do so.
             if (nextCheckInFromAP & 0x8000) {
                 doSleep((nextCheckInFromAP & 0x7FFF) * 1000UL);

@@ -62,7 +62,7 @@ void addOverlay() {
     fontrender fr(&FreeSansBold18pt7b);
     drawMask(15, epd->Yres - 53, 130, 33, COLOR_BLACK);
     if(tag.hasThirdColor){
-        drawMask(15, epd->Yres - 53, 140, 35, COLOR_RED);
+        drawMask(15, epd->Yres - 53, 130, 33, COLOR_RED);
         drawRoundedRectangle(15, epd->Yres - 53, 129, 33, COLOR_RED);
         fr.epdPrintf(17, epd->Yres - 50, COLOR_RED, rotation::ROTATE_0, "DEBUG");
     }else{
@@ -203,7 +203,7 @@ void showSplashScreen() {
             addQR(260, 160, 3, 7, "https://openepaperlink.eu/tag/0/%02X/%02X%02X%02X%02X%02X%02X%02X%02X/", tag.OEPLtype, mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
             break;
     }
-#ifdef DEBUGBLOCKS
+#ifdef DEBUG_BUILD
     drawMask(15, epd->Yres - 53, 129, 33, COLOR_BLACK);
     if(tag.hasThirdColor){
         drawMask(15, epd->Yres - 53, 129, 33, COLOR_RED);

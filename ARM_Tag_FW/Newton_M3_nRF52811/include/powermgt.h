@@ -49,6 +49,8 @@
 
 #define BATTERY_VOLTAGE_MINIMUM 2450  // 2600 or below is the best we can do on the EPD
 
+#define WAKE_SECOND_CHECKIN_DELAY 10000UL
+
 // power saving when no AP's were found (scanning every X)
 #define VOLTAGEREADING_DURING_SCAN_INTERVAL 2  // how often we should read voltages; this is done every scan attempt in interval bracket 3
 #define INTERVAL_1_TIME 3600UL                 // Try every hour

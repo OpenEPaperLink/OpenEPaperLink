@@ -75,16 +75,21 @@ void unissd::epdSetup() {
         case 0x15:
             // stock init 1.6"
             epdWrite(CMD_DRV_OUTPUT_CTRL, 3, this->effectiveYRes & 0xFF, this->effectiveYRes >> 8, 0x00);
-            epdWrite(CMD_DATA_ENTRY_MODE, 1, 0x01);
-            epdWrite(CMD_WINDOW_X_SIZE, 2, this->XOffset / 8, ((this->XOffset + this->effectiveXRes) / 8)-1);
-            epdWrite(CMD_WINDOW_Y_SIZE, 4, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8, this->YOffset & 0xFF, this->YOffset >> 8);
+            if (epd->epdMirrorV) {
+                epdWrite(CMD_DATA_ENTRY_MODE, 1, 0x03);
+                epdWrite(CMD_WINDOW_Y_SIZE, 4, this->YOffset & 0xFF, this->YOffset >> 8, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8);
+            } else {
+                epdWrite(CMD_DATA_ENTRY_MODE, 1, 0x01);
+                epdWrite(CMD_WINDOW_Y_SIZE, 4, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8, this->YOffset & 0xFF, this->YOffset >> 8);
+            }
+            epdWrite(CMD_WINDOW_X_SIZE, 2, this->XOffset / 8, ((this->XOffset + this->effectiveXRes) / 8) - 1);
             epdWrite(CMD_BORDER_WAVEFORM_CTRL, 1, 0x05);
             epdWrite(CMD_TEMP_SENSOR_CONTROL, 1, 0x80);
             // end stock init
             // added
-            if(tag.hasThirdColor){
+            if (tag.hasThirdColor) {
                 epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x08, 0x00);  // fix reversed image with stock setup
-            }else{
+            } else {
                 epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x48, 0x00);  // fix reversed image with stock setup
             }
             break;
@@ -112,8 +117,8 @@ void unissd::epdSetup() {
 void unissd::epdWriteDisplayData() {
     // this display expects two entire framebuffers worth of data to be written, one for b/w and one for red
     uint8_t *buf[2] = {0, 0};  // this will hold pointers to odd/even data lines
-    uint8_t c_end = 2; //The loop must be executed 2 times if BWR, 1 time if BW
-    if(!tag.hasThirdColor){
+    uint8_t c_end = 2;         // The loop must be executed 2 times if BWR, 1 time if BW
+    if (!tag.hasThirdColor) {
         c_end = 1;
     }
     for (uint8_t c = 0; c < c_end; c++) {
@@ -122,7 +127,11 @@ void unissd::epdWriteDisplayData() {
             case 0x12:
             case 0x15:
                 epdWrite(CMD_XSTART_POS, 1, (this->XOffset / 8));
-                epdWrite(CMD_YSTART_POS, 2, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8);
+                if (epd->epdMirrorV) {
+                    epdWrite(CMD_YSTART_POS, 2, this->YOffset & 0xFF, (this->YOffset) >> 8);
+                } else {
+                    epdWrite(CMD_YSTART_POS, 2, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8);
+                }
                 break;
             case 0x19:
                 epdWrite(CMD_XSTART_POS, 2, 0xBF, 0x03);
@@ -138,11 +147,8 @@ void unissd::epdWriteDisplayData() {
             // Get 'even' screen line
             buf[0] = (uint8_t *)calloc(epd->effectiveXRes / 8, 1);
 
-            if (epd->epdMirrorV) {
-                drawItem::renderDrawLine(buf[0], (epd->effectiveYRes - 1) - curY, c);
-            } else {
-                drawItem::renderDrawLine(buf[0], curY, c);
-            }
+            drawItem::renderDrawLine(buf[0], curY, c);
+
             if (epd->epdMirrorH) drawItem::reverseBytes(buf[0], epd->effectiveXRes / 8);
             // on the first pass, the second (buf[1]) buffer is unused, so we don't have to wait for it to flush to the display / free it
             if (buf[1]) {
@@ -156,11 +162,9 @@ void unissd::epdWriteDisplayData() {
 
             // Get 'odd' screen display line
             buf[1] = (uint8_t *)calloc(epd->effectiveXRes / 8, 1);
-            if (epd->epdMirrorV) {
-                drawItem::renderDrawLine(buf[1], (epd->effectiveYRes - 1) - (curY + 1), c);
-            } else {
-                drawItem::renderDrawLine(buf[1], curY + 1, c);
-            }
+
+            drawItem::renderDrawLine(buf[1], curY + 1, c);
+
             if (epd->epdMirrorH) drawItem::reverseBytes(buf[1], epd->effectiveXRes / 8);
 
             // wait until the 'even' data has finished writing
