@@ -1,4 +1,4 @@
-This subdirectory contains scripts to build the correct version of SDCC (4.2.0) for compiling 8051 based firmware.
+This subdirectory contains scripts to build the correct version of SDCC (4.2.0) for compiling 8051 based firmware on Linux.
 
 To use simply source setup_sdcc.sh before building.  The first time setup_sdcc.sh is run proper version of SDCC sources will be checkout from github and built locally.
 Finally the environment variable CC will be set to 'sdcc' and the path to the local version of sdcc will be added to the beginning of the path.
