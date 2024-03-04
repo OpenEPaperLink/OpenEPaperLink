@@ -74,6 +74,13 @@
     "daysShort": [ "SØ", "MA", "TI", "ON", "TO", "FR", "LØ" ],
     "days": [ "Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag" ],
     "months": [ "Januar", "Februar", "Marts", "April", "Maj", "Juni", "Juli", "August", "September", "Oktober", "November", "December" ],
-    "date_format": [ "%d-%m-%Y", "%d-%m" ]  
+    "date_format": [ "%d-%m-%Y", "%d-%m" ]
+  },
+  "11": {
+    "language": "et",
+    "daysShort": [ "P", "E", "T", "K", "N", "R", "L" ],
+    "days": [ "Pühapäev", "Esmaspäev", "Teisipäev", "Kolmapäev", "Neljapäev", "Reede", "Laupäev" ],
+    "months": [ "Jaanuar", "Veebruar", "Märts", "Aprill", "Mai", "Juuni", "Juuli", "August", "September", "Oktoober", "November", "Detsember" ],
+    "date_format": [ "%d-%m-%Y", "%d-%m" ]
   }
 }
