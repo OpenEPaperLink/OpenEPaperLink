@@ -54,6 +54,7 @@ class tagRecord {
 
 struct Config {
     uint8_t channel;
+    uint8_t subghzchannel;
     char alias[32];
     uint8_t led;
     uint8_t tft;
