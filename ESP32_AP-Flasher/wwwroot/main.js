@@ -64,6 +64,9 @@ window.addEventListener("loadConfig", function () {
 			if (data.hasBLE == 0) {
 				$("#apcfgble").parentNode.style.display = 'none';
 			}
+      if (data.hasSubGhz == 0) {
+        $("#apcfgsubgigchid").parentNode.style.display = 'none';
+      }
 			if (data.savespace) {
 			}
 			if (data.apstate) {
@@ -730,6 +733,7 @@ document.addEventListener("loadTab", function (event) {
 						apConfig = data;
 						$('#apcfgalias').value = data.alias;
 						$('#apcfgchid').value = data.channel;
+            $('#apcfgsubgigchid').value = data.subghzchannel;
 						$('#apcfgble').value = data.ble;
 						$("#apcfgledbrightness").value = data.led;
 						$("#apcfgtftbrightness").value = data.tft;
@@ -765,6 +769,7 @@ $('#apcfgsave').onclick = function () {
 	let formData = new FormData();
 	formData.append("alias", $('#apcfgalias').value);
 	formData.append("channel", $('#apcfgchid').value);
+  formData.append("subghzchannel", $('#apcfgsubgigchid').value);
 	formData.append('ble', $('#apcfgble').value);
 	formData.append('led', $('#apcfgledbrightness').value);
 	formData.append('tft', $('#apcfgtftbrightness').value);

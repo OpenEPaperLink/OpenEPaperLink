@@ -315,6 +315,7 @@ void initAPconfig() {
         configFile.close();
     }
     config.channel = APconfig.containsKey("channel") ? APconfig["channel"] : 0;
+    config.subghzchannel = APconfig.containsKey("subghzchannel") ? APconfig["subghzchannel"] : 0;
     if (APconfig["alias"]) strlcpy(config.alias, APconfig["alias"], sizeof(config.alias));
     config.led = APconfig.containsKey("led") ? APconfig["led"] : 255;
     config.tft = APconfig.containsKey("tft") ? APconfig["tft"] : 255;
@@ -343,6 +344,7 @@ void saveAPconfig() {
     fs::File configFile = contentFS->open("/current/apconfig.json", "w");
     DynamicJsonDocument APconfig(500);
     APconfig["channel"] = config.channel;
+    APconfig["subghzchannel"] = config.subghzchannel;
     APconfig["alias"] = config.alias;
     APconfig["led"] = config.led;
     APconfig["tft"] = config.tft;

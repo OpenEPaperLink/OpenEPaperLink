@@ -289,6 +289,24 @@ options:
 						<option value="27">27</option>
 					</select>
 				</p>
+                <p title="Enable SubGhz support and select channel. This requires an AP that has an optional CC1101 SubGhz radio module attached.">
+                    <label for="apcfgsubgigchid">SubGhz channel</label>
+                    <select id="apcfgsubgigchid">
+                        <option value="0" selected>disabled</option>
+                        <option value="100">100 - 864.000 Mhz (Europe, etc)</option>
+                        <option value="101">101 - 865.006 Mhz (Europe, etc)</option>
+                        <option value="102">102 - 866.014 Mhz (Europe, etc)</option>
+                        <option value="103">103 - 867.020 Mhz (Europe, etc)</option>
+                        <option value="104">104 - 868.027 Mhz (Europe, etc)</option>
+                        <option value="105">105 - 869.034 Mhz (Europe, etc)</option>
+                        <option value="200">200 - 903.000 Mhz (US, etc)</option>
+                        <option value="201">201 - 907.027 Mhz (US, etc)</option>
+                        <option value="202">202 - 911.054 Mhz (US, etc)</option>
+                        <option value="203">203 - 915.083 Mhz (US, etc)</option>
+                        <option value="204">204 - 919.110 Mhz (US, etc)</option>
+                        <option value="205">205 - 923.138 Mhz (US, etc)</option>
+                    </select>
+                </p>
 				<p title="Enable Bluetooth (BLE) support. Only enable this if you have BLE capable tags. Changing this value requires a reboot to take effect.">
 					<label for="apcfgble">Bluetooth</label>
 					<select id="apcfgble">

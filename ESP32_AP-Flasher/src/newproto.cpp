@@ -640,8 +640,11 @@ void setAPchannel() {
         udpsync.getAPList();
     } else {
         if (curChannel.channel != config.channel) {
-            curChannel.channel = config.channel;
-            sendChannelPower(&curChannel);
+           curChannel.channel = config.channel;
+#ifdef HAS_SUBGHZ
+           curChannel.subghzchannel = config.subghzchannel;
+#endif
+           sendChannelPower(&curChannel);
         }
     }
 }

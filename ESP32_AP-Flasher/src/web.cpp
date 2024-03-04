@@ -509,6 +509,13 @@ void init_web() {
 #else
         response->print("\"hasBLE\": \"0\", ");
 #endif
+
+#ifdef HAS_SUBGHZ
+        response->print("\"hasSubGhz\": \"1\", ");
+#else
+        response->print("\"hasSubGhz\": \"0\", ");
+#endif
+
         response->print("\"apstate\": \"" + String(apInfo.state) + "\"");
 
         File configFile = contentFS->open("/current/apconfig.json", "r");
@@ -541,6 +548,9 @@ void init_web() {
 
         if (request->hasParam("channel", true)) {
             config.channel = static_cast<uint8_t>(request->getParam("channel", true)->value().toInt());
+        }
+        if (request->hasParam("subghzchannel", true)) {
+            config.subghzchannel = static_cast<uint8_t>(request->getParam("subghzchannel", true)->value().toInt());
         }
         if (request->hasParam("led", true)) {
             config.led = static_cast<uint8_t>(request->getParam("led", true)->value().toInt());

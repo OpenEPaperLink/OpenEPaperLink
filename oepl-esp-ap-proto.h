@@ -18,6 +18,9 @@ struct espSetChannelPower {
     uint8_t checksum;
     uint8_t channel;
     uint8_t power;
+#ifdef HAS_SUBGHZ
+    uint8_t subghzchannel;
+#endif
 } __packed;
 
 struct espAvailDataReq {
