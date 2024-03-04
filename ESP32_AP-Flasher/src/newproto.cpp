@@ -209,6 +209,15 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
     file.close();
     uint16_t attempts = 60 * 24;
 
+    if (memcmp(md5bytes, taginfo->md5, 16) == 0) {
+        wsLog("new image is the same as current image. not updating tag.");
+        wsSendTaginfo(dst, SYNC_TAGSTATUS);
+        if (contentFS->exists(filename) && resend == false) {
+            contentFS->remove(filename);
+        }
+        return true;
+    }
+
     if (dataType != DATATYPE_FW_UPDATE) {
         char dst_path[64];
         sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X_%lu.pending", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], millis() % 1000000);
@@ -440,7 +449,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
             if (config.preview && (queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_ZLIB)) {
                 contentFS->rename(queueItem->filename, String(dst_path));
             } else {
-                contentFS->remove(queueItem->filename);
+                if (queueItem->pendingdata.availdatainfo.dataType != DATATYPE_FW_UPDATE) contentFS->remove(queueItem->filename);
             }
         }
         memcpy(md5bytes, &queueItem->pendingdata.availdatainfo.dataVer, sizeof(uint64_t));
