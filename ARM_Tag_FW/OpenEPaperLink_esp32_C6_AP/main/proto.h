@@ -6,6 +6,7 @@
 #define LED2 23
 
 #define PROTO_PAN_ID (0x4447)  // PAN ID compression shall be used
+#define PROTO_PAN_ID_SUBGHZ   (0x1337)  // PAN ID compression shall be used
 
 #define RADIO_MAX_PACKET_LEN (125)  // useful payload, not including the crc
 
@@ -178,6 +179,9 @@ struct espSetChannelPower {
     uint8_t checksum;
     uint8_t channel;
     uint8_t power;
+#ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+    uint8_t subghzchannel;
+#endif
 } __attribute__((packed, aligned(1)));
 
 struct espTagReturnData {

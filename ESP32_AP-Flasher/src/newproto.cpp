@@ -523,8 +523,13 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     tagRecord* taginfo = tagRecord::findByMAC(eadr->src);
     if (taginfo == nullptr) {
         if (config.lock == 1 || (config.lock == 2 && eadr->adr.wakeupReason != WAKEUP_REASON_FIRSTBOOT)) return;
+#ifdef HAS_SUBGHZ
+        if(apInfo.hasSubGhz && eadr->adr.currentChannel > 0 && eadr->adr.currentChannel == apInfo.SubGhzChannel) {
+        // Empty intentionally
+        } else
+#endif
         if (eadr->adr.currentChannel > 0 && eadr->adr.currentChannel != apInfo.channel) {
-            Serial.printf("Tag %s reports illegal channel %d\n", hexmac, eadr->adr.currentChannel);
+           Serial.printf("Tag %s reports illegal channel %d\n", hexmac, eadr->adr.currentChannel);
             return;
         }
         taginfo = new tagRecord;
@@ -643,6 +648,8 @@ void updateContent(const uint8_t* dst) {
 }
 
 void setAPchannel() {
+    bool bSendRadioLayer = false;
+    struct espSetChannelPower tmp;
     if (config.channel == 0) {
         // trigger channel autoselect
         UDPcomm udpsync;
@@ -650,11 +657,22 @@ void setAPchannel() {
     } else {
         if (curChannel.channel != config.channel) {
            curChannel.channel = config.channel;
-#ifdef HAS_SUBGHZ
-           curChannel.subghzchannel = config.subghzchannel;
-#endif
-           sendChannelPower(&curChannel);
+           bSendRadioLayer = true;
         }
+    }
+#ifdef HAS_SUBGHZ
+    if(curChannel.subghzchannel != config.subghzchannel) {
+       curChannel.subghzchannel = config.subghzchannel;
+       apInfo.SubGhzChannel = config.subghzchannel;
+       bSendRadioLayer = true;
+    }
+#endif
+    if(bSendRadioLayer) {
+       tmp = curChannel;
+       if(config.channel == 0) {
+          tmp.channel = 0;    // don't set the 802.15.4 channel
+        }
+       sendChannelPower(&tmp);
     }
 }
 

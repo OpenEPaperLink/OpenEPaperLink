@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "radio.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
@@ -23,6 +24,8 @@
 #include <math.h>
 #include <stdarg.h>
 #include <string.h>
+#include "SubGigRadio.h"
+
 
 static const char *TAG = "RADIO";
 
@@ -91,7 +94,12 @@ void radio_init(uint8_t ch) {
 
 // uint32_t lastZbTx = 0;
 bool radioTx(uint8_t *packet) {
+#ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+// The subghz driver uses DMA 
+    static DMA_ATTR uint8_t txPKT[130];
+#else
     static uint8_t txPKT[130];
+#endif
     led_flash(1);
 	while (isInTransmit) {
 	}
@@ -99,6 +107,13 @@ bool radioTx(uint8_t *packet) {
 	// }
 	// lastZbTx = getMillis();
 	memcpy(txPKT, packet, packet[0]);
+#ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+	struct MacFrameNormal  *txHeader = (struct MacFrameNormal *) (packet + 1);
+
+	if(txHeader->pan == PROTO_PAN_ID_SUBGHZ) {
+		return SubGig_radioTx(packet);
+	}
+#endif
 	isInTransmit = 1;
 	esp_ieee802154_transmit(txPKT, false);
 	return true;
@@ -116,5 +131,13 @@ int8_t commsRxUnencrypted(uint8_t *data) {
         memcpy(data, &inner_rxPKT_out[1], inner_rxPKT_out[0] + 1);
         return inner_rxPKT_out[0] - 2;
     }
+#ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+    if(gSubGigData.Enabled) {
+       int8_t Ret = SubGig_commsRxUnencrypted(data);
+       if(Ret > 0) {
+          return Ret;
+        }
+    }
+#endif
     return 0;
 }

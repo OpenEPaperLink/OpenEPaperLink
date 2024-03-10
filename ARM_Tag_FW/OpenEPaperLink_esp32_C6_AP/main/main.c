@@ -26,6 +26,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include "SubGigRadio.h"
+
 
 static const char *TAG = "MAIN";
 
@@ -66,6 +68,8 @@ uint32_t lastBlockRequest = 0;
 uint8_t  lastBlockMac[8];
 uint8_t  lastTagReturn[8];
 
+#define NO_SUBGHZ_CHANNEL  255
+uint8_t curSubGhzChannel;
 uint8_t curChannel = 25;
 uint8_t curPower   = 10;
 
@@ -320,7 +324,20 @@ void     processSerial(uint8_t lastchar) {
             bytesRemain--;
             if (bytesRemain == 0) {
                 if (checkCRC(serialbuffer, sizeof(struct espSetChannelPower))) {
-                    struct espSetChannelPower *scp = (struct espSetChannelPower *) serialbuffer;
+                   struct espSetChannelPower *scp = (struct espSetChannelPower *) serialbuffer;
+#ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+                    if(curSubGhzChannel != scp->subghzchannel
+                       && curSubGhzChannel != NO_SUBGHZ_CHANNEL)
+                    {
+                        curSubGhzChannel = scp->subghzchannel;
+                        ESP_LOGI(TAG,"Set SubGhz channel: %d",curSubGhzChannel);
+                        SubGig_radioSetChannel(scp->subghzchannel);
+                        if(scp->channel == 0) {
+                        // Not setting 802.15.4 channel
+                           goto SCPchannelFound;
+                        }
+                    }
+#endif
                     for (uint8_t c = 0; c < sizeof(channelList); c++) {
                         if (channelList[c] == scp->channel) goto SCPchannelFound;
                     }
@@ -405,6 +422,9 @@ void espNotifyAPInfo() {
     pr("%02X%02X", mSelfMac[4], mSelfMac[5]);
     pr("%02X%02X", mSelfMac[6], mSelfMac[7]);
     pr("ZCH>%02X", curChannel);
+#ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+    pr("SCH>%03d",curSubGhzChannel);
+#endif
     pr("ZPW>%02X", curPower);
     countSlots();
     pr("PEN>%02X", curPendingData);
@@ -684,6 +704,12 @@ void sendPong(void *buf) {
     struct MacFrameBcast  *rxframe                   = (struct MacFrameBcast *) buf;
     struct MacFrameNormal *frameHeader               = (struct MacFrameNormal *) (radiotxbuffer + 1);
     radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_PONG;
+#ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+    if(rxframe->srcPan == PROTO_PAN_ID_SUBGHZ) {
+       radiotxbuffer[sizeof(struct MacFrameNormal) + 2] = curSubGhzChannel;
+    }
+    else 
+#endif
     radiotxbuffer[sizeof(struct MacFrameNormal) + 2] = curChannel;
     radiotxbuffer[0]                                 = sizeof(struct MacFrameNormal) + 1 + 1 + RAW_PKT_PADDING;
     memcpy(frameHeader->src, mSelfMac, 8);
@@ -707,6 +733,16 @@ void app_main(void) {
     memset(pendingDataArr, 0, sizeof(pendingDataArr));
 
     radio_init(curChannel);
+#ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+    if(!SubGig_radio_init(curSubGhzChannel)) {
+    // Ether we don't have a cc1101 or it's not working
+       curSubGhzChannel = NO_SUBGHZ_CHANNEL; 
+       ESP_LOGI(TAG,"CC1101 NOT detected.");
+    }
+    else {
+       ESP_LOGI(TAG,"CC1101 detected.");
+    }
+#endif
     radioSetTxPower(10);
 
     pr("RES>");

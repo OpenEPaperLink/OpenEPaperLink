@@ -511,7 +511,7 @@ void init_web() {
 #endif
 
 #ifdef HAS_SUBGHZ
-        response->print("\"hasSubGhz\": \"1\", ");
+        response->print("\"hasSubGhz\": \"" + String(apInfo.hasSubGhz) + "\",");
 #else
         response->print("\"hasSubGhz\": \"0\", ");
 #endif
