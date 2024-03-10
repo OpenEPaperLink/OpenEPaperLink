@@ -21,6 +21,10 @@ struct APInfoS {
     uint8_t power;
     uint8_t pendingBuffer;
     uint8_t nop;
+#ifdef HAS_SUBGHZ
+    bool hasSubGhz = false;
+    uint8_t SubGhzChannel;
+#endif
 };
 
 extern struct APInfoS apInfo;
