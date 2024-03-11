@@ -5,10 +5,10 @@
 	"rotatebuffer": 0,
 	"bpp": 1,
 	"colors": 0,
-	"colortable": {},
+	"colortable": { },
 	"shortlut": 0,
-	"options": [],
-	"contentids": [ 1, 2, 3, 4, 5, 13, 17, 18],
+	"options": [ ],
+	"contentids": [ 1, 2, 3, 4, 5, 13, 17, 18 ],
 	"template": {
 	}
 }

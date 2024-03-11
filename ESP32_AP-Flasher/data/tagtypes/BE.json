@@ -6,11 +6,11 @@
 	"bpp": 1,
 	"colors": 1,
 	"colortable": {
-		"white": [255, 255, 255],
-		"black": [0, 0, 0]
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ]
 	},
 	"shortlut": 0,
-	"options": [],
+	"options": [ ],
 	"contentids": [ 22 ],
 	"usetemplate": 0
 }

@@ -6,13 +6,13 @@
 	"bpp": 1,
 	"colors": 2,
 	"colortable": {
-		"white": [255, 255, 255],
-		"black": [0, 0, 0],
-		"gray": [150, 150, 150]
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"gray": [ 150, 150, 150 ]
 	},
-		"highlight_color": 5,
+	"highlight_color": 5,
 	"shortlut": 0,
-	"options": ["led"],
+	"options": [ "led" ],
 	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19, 20 ],
 	"usetemplate": 51
 }

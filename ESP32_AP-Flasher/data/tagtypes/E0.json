@@ -12,7 +12,7 @@
 		"gray": [ 150, 150, 150 ]
 	},
 	"shortlut": 0,
-	"options": [],
+	"options": [ ],
 	"contentids": [ 22, 1, 2, 3, 4, 8, 7, 19, 10, 11, 21 ],
 	"usetemplate": 1,
 	"template": {

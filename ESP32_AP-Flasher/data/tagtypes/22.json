@@ -2,17 +2,17 @@
 	"name": "M2 2.7\"",
 	"width": 264,
 	"height": 176,
-		"rotatebuffer": 1,
+	"rotatebuffer": 1,
 	"bpp": 2,
 	"colors": 3,
 	"colortable": {
-		"white": [255, 255, 255],
-		"black": [0, 0, 0],
-		"red": [255, 0, 0],
-		"gray": [150, 150, 150]
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ],
+		"gray": [ 150, 150, 150 ]
 	},
 	"shortlut": 0,
-	"options": ["button"],
-    "contentids": [ 0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20],
-    "usetemplate": 1
+	"options": [ "button" ],
+	"contentids": [ 0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20 ],
+	"usetemplate": 1
 }
