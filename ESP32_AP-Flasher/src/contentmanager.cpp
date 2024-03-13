@@ -1516,7 +1516,7 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
 
     for (int i = 0; i < n; i++) {
         const JsonObject &obj = doc[i];
-        const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100);
+        const double price = (obj["price"].as<double>() / 0 + tarifkwh) * (1 + tariftax / 100);
         minPrice = min(minPrice, price);
         maxPrice = max(maxPrice, price);
         prices[i] = price;
