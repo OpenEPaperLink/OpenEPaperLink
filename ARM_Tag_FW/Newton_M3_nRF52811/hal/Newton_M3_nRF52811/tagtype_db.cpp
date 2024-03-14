@@ -42,6 +42,9 @@ void identifyTagInfo() {
     72 92 1E 7E 15 0B 09 04 00 15 00 80 01 A8 00 38 00 01 01 9C 00 00 22 FF FF FF FF FF FF FF FF FF     2.9" FREEZER
     31 50 53 06 16 02 19 04 00 12 01 C8 00 C8 00 04 00 07 01 9C 00 00 40 FF FF FF FF FF FF FF FF FF
 
+    2F A5 03 06 15 0C 07 04 00 15 00 80 01 A8 00 38 00 07 81 1D 00 00 4E FF FF FF FF FF FF FF FF FF     2.9-unknown?
+    4B F3 DE 04 15 05 07 04 00 0F 01 C8 00 90 00 38 00 07 01 19 00 00 4D FF FF FF FF FF FF FF FF FF     1.3-peghook
+
 
 
             MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
@@ -153,7 +156,6 @@ void identifyTagInfo() {
             epd->epdMirrorV = true;
             tag.OEPLtype = SOLUM_M3_BWR_16;
             epd->effectiveXRes = epdXRes;
-            epd->effectiveYRes = epdYRes - 1;  // Yeah... I wonder why too....
             break;
         case STYPE_SIZE_022:
             tag.macSuffix = 0xB190;
@@ -220,6 +222,17 @@ void identifyTagInfo() {
             tag.macSuffix = 0xE4D0;
             epd->drawDirectionRight = true;
             tag.OEPLtype = SOLUM_M3_BWR_97;
+            break;
+        case STYPE_SIZE_013:
+            //epdXRes -= 1;
+            tag.ledInverted = true;
+            tag.macSuffix = 0xBDB0;
+            epd->drawDirectionRight = true;
+            epd->effectiveXRes = epdYRes;
+            epd->effectiveYRes = epdXRes;
+            tag.OEPLtype = SOLUM_M3_PEGHOOK_BWR_13;
+            tag.boardType = NRF_BOARDTYPE_PEGHOOK;
+            epd->XOffset = 8;
             break;
     }
 

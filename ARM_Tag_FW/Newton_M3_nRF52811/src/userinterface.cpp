@@ -26,15 +26,14 @@ bool lowBatteryShown = false;
 bool noAPShown = false;
 
 void addOverlay() {
-
     if (currentChannel == 0) {
         drawMask(epd->Xres - 28, 4, 24, 24, COLOR_BLACK);
-        if(tag.hasThirdColor){
+        if (tag.hasThirdColor) {
             drawMask(epd->Xres - 28, 4, 24, 24, COLOR_RED);
             drawRoundedRectangle(epd->Xres - 28, 4, 24, 24, COLOR_RED);
             addBufferedImage(epd->Xres - 24, 8, COLOR_BLACK, rotation::ROTATE_0, ant, DRAW_NORMAL);
             addBufferedImage(epd->Xres - 16, 15, COLOR_RED, rotation::ROTATE_0, cross, DRAW_NORMAL);
-        }else{
+        } else {
             drawRoundedRectangle(epd->Xres - 28, 4, 24, 24, COLOR_BLACK);
             addBufferedImage(epd->Xres - 24, 8, COLOR_BLACK, rotation::ROTATE_0, ant, DRAW_NORMAL);
             addBufferedImage(epd->Xres - 16, 15, COLOR_BLACK, rotation::ROTATE_0, cross, DRAW_NORMAL);
@@ -46,10 +45,10 @@ void addOverlay() {
 
     if (lowBattery) {
         drawMask(epd->Xres - 27, epd->Yres - 26, 22, 22, COLOR_BLACK);
-        if(tag.hasThirdColor){
+        if (tag.hasThirdColor) {
             drawMask(epd->Xres - 27, epd->Yres - 26, 22, 22, COLOR_RED);
             drawRoundedRectangle(epd->Xres - 28, epd->Yres - 26, 24, 24, COLOR_RED);
-        }else{
+        } else {
             drawMask(epd->Xres - 27, epd->Yres - 26, 22, 22, COLOR_BLACK);
             drawRoundedRectangle(epd->Xres - 28, epd->Yres - 26, 24, 24, COLOR_BLACK);
         }
@@ -61,11 +60,11 @@ void addOverlay() {
 #ifdef DEBUG_BUILD
     fontrender fr(&FreeSansBold18pt7b);
     drawMask(15, epd->Yres - 53, 130, 33, COLOR_BLACK);
-    if(tag.hasThirdColor){
+    if (tag.hasThirdColor) {
         drawMask(15, epd->Yres - 53, 130, 33, COLOR_RED);
         drawRoundedRectangle(15, epd->Yres - 53, 129, 33, COLOR_RED);
         fr.epdPrintf(17, epd->Yres - 50, COLOR_RED, rotation::ROTATE_0, "DEBUG");
-    }else{
+    } else {
         drawMask(15, epd->Yres - 53, 130, 33, COLOR_BLACK);
         drawRoundedRectangle(15, epd->Yres - 53, 129, 33, COLOR_BLACK);
         fr.epdPrintf(17, epd->Yres - 50, COLOR_BLACK, rotation::ROTATE_0, "DEBUG");
@@ -83,9 +82,14 @@ void showSplashScreen() {
     fontrender fr(&FreeSansBold18pt7b);
     switch (tag.solumType) {
         case STYPE_SIZE_016:
+        case STYPE_SIZE_013:
             fr.setFont(&FreeSans9pt7b);
             fr.epdPrintf(2, 2, COLOR_BLACK, rotation::ROTATE_0, "OpenEPaperLink");
+            if(tag.solumType==STYPE_SIZE_013){
+            fr.epdPrintf(2, 38, COLOR_RED, rotation::ROTATE_0, "Newton M3 1.3 Peghook\"");
+            } else {
             fr.epdPrintf(10, 38, COLOR_RED, rotation::ROTATE_0, "Newton M3 1.6\"");
+            }
             fr.epdPrintf(5, epd->Yres - 40, 0, rotation::ROTATE_0, "FW: %04X-%s", fwVersion, fwVersionSuffix);
             fr.epdPrintf(2, epd->Yres - 20, 0, rotation::ROTATE_0, "%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
             break;
@@ -205,12 +209,12 @@ void showSplashScreen() {
     }
 #ifdef DEBUG_BUILD
     drawMask(15, epd->Yres - 53, 129, 33, COLOR_BLACK);
-    if(tag.hasThirdColor){
+    if (tag.hasThirdColor) {
         drawMask(15, epd->Yres - 53, 129, 33, COLOR_RED);
         drawRoundedRectangle(15, epd->Yres - 53, 129, 33, COLOR_RED);
         fr.setFont(&FreeSansBold18pt7b);
         fr.epdPrintf(17, epd->Yres - 50, COLOR_RED, rotation::ROTATE_0, "DEBUG");
-    }else{
+    } else {
         drawMask(15, epd->Yres - 53, 129, 33, COLOR_BLACK);
         drawRoundedRectangle(15, epd->Yres - 53, 129, 33, COLOR_BLACK);
         fr.setFont(&FreeSansBold18pt7b);
@@ -241,6 +245,7 @@ void showAPFound() {
     fontrender fr(&FreeSansBold18pt7b);
     switch (tag.solumType) {
         case STYPE_SIZE_016:
+        case STYPE_SIZE_013:
             fr.setFont(&FreeSans9pt7b);
             fr.epdPrintf(7, 6, COLOR_BLACK, rotation::ROTATE_0, "AP Found");
             fr.epdPrintf(0, 24, COLOR_RED, rotation::ROTATE_0, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", APmac[7], APmac[6], APmac[5], APmac[4], APmac[3], APmac[2], APmac[1], APmac[0]);
@@ -249,7 +254,6 @@ void showAPFound() {
             fr.setFont(&FreeSans9pt7b);
             fr.epdPrintf(5, epd->Yres - 43, 0, rotation::ROTATE_0, "Battery: %d.%dV Temp: %d'C", batteryVoltage / 1000, batteryVoltage % 1000, temperature);
             fr.epdPrintf(0, epd->Yres - 25, 0, rotation::ROTATE_0, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
-
             break;
         case STYPE_SIZE_022:
             fr.setFont(&FreeSansBold18pt7b);
@@ -396,6 +400,7 @@ void showNoAP() {
     fontrender fr(&FreeSansBold18pt7b);
     switch (tag.solumType) {
         case STYPE_SIZE_016:
+        case STYPE_SIZE_013:
             fr.setFont(&FreeSans9pt7b);
             fr.epdPrintf(7, 7, COLOR_BLACK, rotation::ROTATE_0, "NO AP Found");
             fr.epdPrintf(2, 25, COLOR_BLACK, rotation::ROTATE_0, "Couldn't find an AP :(");

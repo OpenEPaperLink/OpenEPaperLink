@@ -130,7 +130,7 @@ void unissd::epdWriteDisplayData() {
                 if (epd->epdMirrorV) {
                     epdWrite(CMD_YSTART_POS, 2, this->YOffset & 0xFF, (this->YOffset) >> 8);
                 } else {
-                    epdWrite(CMD_YSTART_POS, 2, (this->YOffset + this->effectiveYRes) & 0xFF, (this->YOffset + this->effectiveYRes) >> 8);
+                    epdWrite(CMD_YSTART_POS, 2, (this->YOffset + this->effectiveYRes -1) & 0xFF, (this->YOffset + this->effectiveYRes-1) >> 8);
                 }
                 break;
             case 0x19:
@@ -143,7 +143,7 @@ void unissd::epdWriteDisplayData() {
         delay(10);
         markData();
         epdSelect();
-        for (uint16_t curY = 0; curY < epd->effectiveYRes; curY += 2) {
+        for (uint16_t curY = 0+epd->YOffset; curY < (epd->effectiveYRes+epd->YOffset); curY += 2) {
             // Get 'even' screen line
             buf[0] = (uint8_t *)calloc(epd->effectiveXRes / 8, 1);
 

@@ -51,14 +51,31 @@ void nfcwake() {
 }
 
 void setupPortsInitial() {
-    digitalWrite(LED_RED, HIGH);
-    digitalWrite(LED_GREEN, HIGH);
-    digitalWrite(LED_BLUE, HIGH);
+    if (tag.ledInverted) {
+        digitalWrite(LED_RED, LOW);
+        digitalWrite(LED_GREEN, LOW);
+        digitalWrite(LED_BLUE, LOW);
+    } else {
+        digitalWrite(LED_RED, HIGH);
+        digitalWrite(LED_GREEN, HIGH);
+        digitalWrite(LED_BLUE, HIGH);
+    }
     pinMode(LED_RED, OUTPUT);
     pinMode(LED_GREEN, OUTPUT);
     pinMode(LED_BLUE, OUTPUT);
-    pinMode(BUTTON1, INPUT_PULLUP);
-    pinMode(BUTTON2, INPUT_PULLUP);
+    switch (tag.boardType) {
+        case NRF_BOARDTYPE_REGULAR:
+            pinMode(BUTTON1, INPUT_PULLUP);
+            pinMode(BUTTON2, INPUT_PULLUP);
+            attachInterrupt(digitalPinToInterrupt(BUTTON1), button1wake, FALLING);
+            attachInterrupt(digitalPinToInterrupt(BUTTON2), button2wake, FALLING);
+            break;
+        case NRF_BOARDTYPE_PEGHOOK:
+            pinMode(PEGHOOK_BUTTON, INPUT_PULLUP);
+            attachInterrupt(digitalPinToInterrupt(PEGHOOK_BUTTON), button1wake, FALLING);
+            break;
+    }
+
     pinMode(NFC_POWER, INPUT_PULLDOWN);
     pinMode(NFC_IRQ, INPUT_PULLDOWN);
 
@@ -76,8 +93,6 @@ void setupPortsInitial() {
     // pinMode(EPD_HLT, OUTPUT);
     // digitalWrite(EPD_HLT, HIGH);
 
-    attachInterrupt(digitalPinToInterrupt(BUTTON1), button1wake, FALLING);
-    attachInterrupt(digitalPinToInterrupt(BUTTON2), button2wake, FALLING);
     attachInterrupt(digitalPinToInterrupt(NFC_IRQ), nfcwake, RISING);
 }
 
@@ -212,7 +227,7 @@ void powerDown(const uint8_t parts) {
 }
 
 void doSleep(const uint32_t t) {
-    //printf("Sleeping for: %lu ms\r\n", t);
+    // printf("Sleeping for: %lu ms\r\n", t);
     sleepForMs(t);
 }
 

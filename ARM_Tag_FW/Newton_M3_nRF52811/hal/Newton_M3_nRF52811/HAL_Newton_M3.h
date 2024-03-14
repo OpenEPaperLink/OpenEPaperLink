@@ -20,6 +20,7 @@
 
 #define BUTTON1 28
 #define BUTTON2 29
+#define PEGHOOK_BUTTON 23
 
 #define EPD_RST 4
 #define EPD_BS 2
@@ -101,11 +102,16 @@ class epdInterface {
 
 extern epdInterface* epd;
 
+#define NRF_BOARDTYPE_REGULAR 0
+#define NRF_BOARDTYPE_PEGHOOK 1
+
 struct tagSpecs {
     uint8_t buttonCount = 0;
     bool hasNFC = false;
     bool hasLED = false;
+    bool ledInverted = false;
     bool hasThirdColor = false;
+    uint8_t boardType = NRF_BOARDTYPE_REGULAR;
     uint16_t macSuffix = 0x0000;
     uint8_t OEPLtype = 0;
     uint8_t solumType = 0;

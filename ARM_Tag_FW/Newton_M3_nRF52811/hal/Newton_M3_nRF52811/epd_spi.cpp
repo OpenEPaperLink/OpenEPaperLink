@@ -6,7 +6,6 @@
 #include "wdt.h"
 #include "stdarg.h"
 
-
 bool epdGPIOActive = false;
 
 void epdReset() {
@@ -32,15 +31,18 @@ void epdConfigGPIO(bool setup) {
         pinMode(EPD_CLK, OUTPUT);
         pinMode(EPD_MOSI, OUTPUT);
 
-        pinMode(EPD_HLT, OUTPUT);
-        pinMode(EPD_VPP, INPUT);
+        switch (tag.boardType) {
+            case NRF_BOARDTYPE_REGULAR:
+                pinMode(EPD_HLT, OUTPUT);
+                pinMode(EPD_VPP, INPUT);
+                digitalWrite(EPD_HLT, HIGH);
+                break;
+        }
 
         digitalWrite(EPD_BS, LOW);  // low works!
         digitalWrite(EPD_CS, HIGH);
-        digitalWrite(EPD_HLT, HIGH);
 
         epdHardSPI(true);
-
     } else {
         epdHardSPI(false);
 
@@ -52,9 +54,15 @@ void epdConfigGPIO(bool setup) {
         pinMode(EPD_BUSY, OUTPUT);
         pinMode(EPD_CLK, OUTPUT);
         pinMode(EPD_MOSI, OUTPUT);
-        pinMode(EPD_HLT, OUTPUT);
-        pinMode(EPD_VPP, OUTPUT);
 
+        switch (tag.boardType) {
+            case NRF_BOARDTYPE_REGULAR:
+                pinMode(EPD_HLT, OUTPUT);
+                pinMode(EPD_VPP, OUTPUT);
+                digitalWrite(EPD_HLT, LOW);
+                digitalWrite(EPD_VPP, LOW);
+                break;
+        }
         digitalWrite(EPD_RST, LOW);
         digitalWrite(EPD_BS, LOW);
         digitalWrite(EPD_CS, LOW);
@@ -62,8 +70,6 @@ void epdConfigGPIO(bool setup) {
         digitalWrite(EPD_BUSY, LOW);
         digitalWrite(EPD_CLK, LOW);
         digitalWrite(EPD_MOSI, LOW);
-        digitalWrite(EPD_HLT, LOW);
-        digitalWrite(EPD_VPP, LOW);
     }
     epdGPIOActive = setup;
 }

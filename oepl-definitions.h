@@ -55,6 +55,8 @@
 #define SOLUM_M3_BW_29 0x40
 #define SOLUM_M3_BWR_58 0x41
 #define SOLUM_M3_BW_58 0x42
+#define SOLUM_M3_PEGHOOK_BWR_13 0x43
+
 
 // Hanshow Nebular types
 #define HS_NEBULAR_BWY_35 0x60
@@ -90,6 +92,9 @@
 #define STYPE_SIZE_060 0x48
 #define STYPE_SIZE_075 0x4C
 #define STYPE_SIZE_097 0x64
+#define STYPE_SIZE_013 0x4D
+
+
 
 
 // Capability flags

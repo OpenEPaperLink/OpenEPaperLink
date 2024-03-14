@@ -446,12 +446,12 @@ void setup() {
 }
 
 void loop() {
-    setupPortsInitial();
     powerUp(INIT_BASE | INIT_UART);
     printf("BOOTED> %04X-%s\n", fwVersion, fwVersionSuffix);
 
     wakeUpReason = getFirstWakeUpReason();
     identifyTagInfo();
+    setupPortsInitial();
     boardGetOwnMac(mSelfMac);
 
     // do something if the mac isn't valid
