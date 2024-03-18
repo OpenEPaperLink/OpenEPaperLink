@@ -1038,7 +1038,6 @@ function populateSelectTag(hwtype, capabilities) {
 
 	option = document.createElement("option");
 	option.value = "0";
-	console.log('shortlut: ' + tagTypes[hwtype].shortlut);
 	if (tagTypes[hwtype].shortlut == 0) {
 		option.text = "Always full refresh";
 	} else {
@@ -1556,7 +1555,6 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 			li.textContent = option.label;
 			li.addEventListener('click', (e) => {
 				e.preventDefault();
-				console.log(`${option.id} clicked for ${mac}`);
 				sendCmd(mac, option.id);
 				contextMenu.style.display = 'none';
 			});

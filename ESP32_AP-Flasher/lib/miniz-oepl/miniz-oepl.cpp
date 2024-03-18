@@ -1930,7 +1930,6 @@ static tdefl_status tdefl_flush_output_buffer(tdefl_compressor *d)
 
 tdefl_status tdefl_compressOEPL(tdefl_compressor *d, const void *pIn_buf, size_t *pIn_buf_size, void *pOut_buf, size_t *pOut_buf_size, tdefl_flush flush)
 {
-    Serial.println("tdefl_compress");
     if (!d)
     {
         if (pIn_buf_size)
@@ -2005,7 +2004,6 @@ tdefl_status tdefl_compress_buffer(tdefl_compressor *d, const void *pIn_buf, siz
 
 tdefl_status tdefl_initOEPL(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags)
 {
-    Serial.println("tdefl_init");
     d->m_pPut_buf_func = pPut_buf_func;
     d->m_pPut_buf_user = pPut_buf_user;
     d->m_flags = (mz_uint)(flags);

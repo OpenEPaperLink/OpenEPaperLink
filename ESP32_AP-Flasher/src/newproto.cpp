@@ -919,7 +919,7 @@ void checkQueue(const uint8_t* targetMac) {
     uint16_t queueCount;
     queueCount = countQueueItem(targetMac);
     if (queueCount > 0) {
-        Serial.printf("more from queue: total %d elements\n", pendingQueue.size());
+        Serial.printf("queue: total %d elements\n", pendingQueue.size());
         PendingItem* queueItem = getQueueItem(targetMac);
         if (queueItem == nullptr) {
             return;

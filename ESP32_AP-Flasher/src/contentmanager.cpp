@@ -237,12 +237,10 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
 
     int32_t interval = 60 * 60;
     interval = cfgobj["interval"].as<int>() * 60;
-    Serial.println("interval: " + String(interval));
     if (interval < 0) {
         interval = -interval;
         unsigned int secondsUntilNext = (interval - (now % interval)) % interval;
         interval = secondsUntilNext;
-        Serial.println("seconds until next: " + String(interval));
     } else if (interval < 180)
         interval = 60 * 60;
 
@@ -665,7 +663,7 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
             spr.setTextDatum(align);
             if (font != "") spr.loadFont(font.substring(1), *contentFS);
             spr.setTextColor(color, bgcolor);
-            spr.setTextWrap(true, false);
+            spr.setTextWrap(false, false);
             spr.drawString(content, posx, posy);
             if (font != "") spr.unloadFont();
         }
@@ -1748,10 +1746,13 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
         drawString(spr, "Well done!", spr.width() / 2, 90, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
         spr2buffer(spr, filename2, imageParams);
 
+        if (imageParams.zlib) imageParams.dataType = DATATYPE_IMG_ZLIB;
+
         struct imageDataTypeArgStruct arg = {0};
         arg.preloadImage = 1;
         arg.specialType = 17;  // button 2
         arg.lut = 0;
+
         prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 5 | 0x8000 );
 
         spr.fillRect(0, 0, spr.width(), spr.height(), TFT_WHITE);
@@ -1768,14 +1769,24 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
 
         cfgobj["#init"] = "1";
     }
-
+    uint8_t offsety = 0;
+    uint8_t buttony = 145;
     spr.fillRect(0, 0, spr.width(), spr.height(), TFT_WHITE);
-    drawString(spr, cfgobj["title"], spr.width() / 2, 10, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
-    spr.drawLine(0, 40, spr.width(), 40, TFT_BLACK);
-    drawString(spr, cfgobj["button1"], 32, 145, "calibrib16.vlw", TC_DATUM, TFT_BLACK);
-    drawString(spr, cfgobj["button2"], 122, 145, "calibrib16.vlw", TC_DATUM, TFT_BLACK);
-    spr.fillTriangle(27, 160, 37, 160, 32, 165, TFT_BLACK);
-    spr.fillTriangle(127, 160, 117, 160, 122, 165, TFT_BLACK);
+    if (imageParams.rotate == 2) {
+        offsety = 25;
+        buttony = 10;
+        spr.fillTriangle(spr.width() - 27, spr.height() - 160, spr.width() - 37, spr.height() - 160, spr.width() - 32, spr.height() - 165, TFT_BLACK);
+        spr.fillTriangle(spr.width() - 127, spr.height() - 160, spr.width() - 117, spr.height() - 160, spr.width() - 122, spr.height() - 165, TFT_BLACK);
+        drawString(spr, cfgobj["button1"], spr.width() - 32, buttony, "calibrib16.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, cfgobj["button2"], spr.width() - 122, buttony, "calibrib16.vlw", TC_DATUM, TFT_BLACK);
+    } else {
+        spr.fillTriangle(27, 160, 37, 160, 32, 165, TFT_BLACK);
+        spr.fillTriangle(127, 160, 117, 160, 122, 165, TFT_BLACK);
+        drawString(spr, cfgobj["button1"], 32, buttony, "calibrib16.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, cfgobj["button2"], 122, buttony, "calibrib16.vlw", TC_DATUM, TFT_BLACK);
+    }
+    drawString(spr, cfgobj["title"], spr.width() / 2, 10 + offsety, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
+    spr.drawLine(0, 40 + offsety, spr.width(), 40 + offsety, TFT_BLACK);
 
     uint8_t mode = cfgobj["mode"].as<int>();
     switch (taginfo->wakeupReason) {
@@ -1809,9 +1820,9 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
     if (timestamp == 0) strcpy(dateString1, "never");
 
     if (mode == 0) {
-        drawString(spr, "last:", 10, 50, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
-        drawString(spr, dateString1, spr.width() / 2, 50, "bahnschrift30.vlw", TC_DATUM, TFT_BLACK);
-        drawString(spr, cfgobj["last2"].as<String>(), spr.width() / 2, 80, "bahnschrift30.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, "last:", 10, 50 + offsety, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+        drawString(spr, dateString1, spr.width() / 2, 50 + offsety, "bahnschrift30.vlw", TC_DATUM, TFT_BLACK);
+        drawString(spr, cfgobj["last2"].as<String>(), spr.width() / 2, 80 + offsety, "bahnschrift30.vlw", TC_DATUM, TFT_BLACK);
 
         if (nextaction > 0 && timestamp > 0) {
             timestamp += nextaction * 24 * 3600;
@@ -1819,12 +1830,12 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
             localtime_r(&timestamp, &timeinfo);
             strftime(dateString1, sizeof(dateString1), languageDateFormat[0].c_str(), &timeinfo);
 
-            drawString(spr, "next:", 10, 115, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
-            drawString(spr, dateString1, 50, 115, "calibrib16.vlw", TL_DATUM, timestamp < now ? imageParams.highlightColor : TFT_BLACK);
+            drawString(spr, "next:", 10, 115 + offsety, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+            drawString(spr, dateString1, 50, 115 + offsety, "calibrib16.vlw", TL_DATUM, timestamp < now ? imageParams.highlightColor : TFT_BLACK);
         }
     } else {
-        drawString(spr, cfgobj["button1"].as<String>(), 10, 50, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
-        drawString(spr, dateString1, 20, 67, "fonts/bahnschrift20", TL_DATUM, TFT_BLACK);
+        drawString(spr, cfgobj["button1"].as<String>(), 10, 50 + offsety, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+        drawString(spr, dateString1, 20, 67 + offsety, "fonts/bahnschrift20", TL_DATUM, TFT_BLACK);
 
         if (nextaction > 0 && timestamp > 0) {
             timestamp += nextaction * 24 * 3600;
@@ -1832,8 +1843,8 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
             localtime_r(&timestamp, &timeinfo);
             strftime(dateString1, sizeof(dateString1), languageDateFormat[0].c_str(), &timeinfo);
 
-            drawString(spr, "next", 200, 50, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
-            drawString(spr, dateString1, 210, 67, "fonts/bahnschrift20", TL_DATUM, timestamp < now ? imageParams.highlightColor : TFT_BLACK);
+            drawString(spr, "next", 200, 50 + offsety, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+            drawString(spr, dateString1, 210, 67 + offsety, "fonts/bahnschrift20", TL_DATUM, timestamp < now ? imageParams.highlightColor : TFT_BLACK);
         }
 
         char dateString2[40];
@@ -1842,16 +1853,16 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
         strftime(dateString2, sizeof(dateString2), dateformat.c_str(), &timeinfo);
         if (timestamp == 0) strcpy(dateString2, "never");
 
-        drawString(spr, cfgobj["button2"].as<String>(), 10, 90, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
-        drawString(spr, dateString2, 20, 107, "fonts/bahnschrift20", TL_DATUM, TFT_BLACK);
+        drawString(spr, cfgobj["button2"].as<String>(), 10, 90 + offsety, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+        drawString(spr, dateString2, 20, 107 + offsety, "fonts/bahnschrift20", TL_DATUM, TFT_BLACK);
 
         if (nextaction > 0 && timestamp > 0) {
             timestamp += nextaction * 24 * 3600;
             localtime_r(&timestamp, &timeinfo);
             strftime(dateString2, sizeof(dateString2), languageDateFormat[0].c_str(), &timeinfo);
 
-            drawString(spr, "next", 200, 90, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
-            drawString(spr, dateString2, 210, 107, "fonts/bahnschrift20", TL_DATUM, timestamp < now ? imageParams.highlightColor : TFT_BLACK);
+            drawString(spr, "next", 200, 90 + offsety, "calibrib16.vlw", TL_DATUM, TFT_BLACK);
+            drawString(spr, dateString2, 210, 107 + offsety, "fonts/bahnschrift20", TL_DATUM, timestamp < now ? imageParams.highlightColor : TFT_BLACK);
         }
     }
 
