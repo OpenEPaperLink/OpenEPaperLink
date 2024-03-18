@@ -207,9 +207,8 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
     }
 
     file.close();
-    uint16_t attempts = 60 * 24;
 
-    if (memcmp(md5bytes, taginfo->md5, 16) == 0) {
+    if (memcmp(md5bytes, taginfo->md5, 8) == 0) {
         wsLog("new image is the same as current image. not updating tag.");
         wsSendTaginfo(dst, SYNC_TAGSTATUS);
         if (contentFS->exists(filename) && resend == false) {
@@ -251,7 +250,7 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
     pending.availdatainfo.dataSize = filesize;
     pending.availdatainfo.dataTypeArgument = dataTypeArgument;
     pending.availdatainfo.nextCheckIn = nextCheckin;
-    pending.attemptsLeft = attempts;
+    pending.attemptsLeft = MAX_XFER_ATTEMPTS;
     checkMirror(taginfo, &pending);
     queueDataAvail(&pending, !taginfo->isExternal);
     if (taginfo->isExternal == false) {
@@ -453,6 +452,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
             }
         }
         memcpy(md5bytes, &queueItem->pendingdata.availdatainfo.dataVer, sizeof(uint64_t));
+        memset(md5bytes + sizeof(uint64_t), 0, 16 - sizeof(uint64_t));
         dequeueItem(xfc->src);
     }
 
@@ -460,6 +460,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     if (taginfo != nullptr) {
         clearPending(taginfo);
         memcpy(taginfo->md5, md5bytes, sizeof(md5bytes));
+        taginfo->updateCount++;
         taginfo->pendingCount = countQueueItem(xfc->src);
         taginfo->wakeupReason = 0;
         if (taginfo->contentMode == 12 && local == false) {
@@ -684,7 +685,7 @@ bool sendAPSegmentedData(const uint8_t* dst, String data, uint16_t icons, bool i
     memcpy((void*)&(pending.availdatainfo.dataVer), data.c_str(), 10);
     pending.availdatainfo.dataTypeArgument = inverted;
     pending.availdatainfo.nextCheckIn = 0;
-    pending.attemptsLeft = 120;
+    pending.attemptsLeft = MAX_XFER_ATTEMPTS;
     Serial.printf(">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     if (local) {
         return queueDataAvail(&pending, true);
@@ -703,7 +704,7 @@ bool showAPSegmentedInfo(const uint8_t* dst, bool local) {
     pending.availdatainfo.dataVer = 0x00;
     pending.availdatainfo.dataTypeArgument = 0;
     pending.availdatainfo.nextCheckIn = 0;
-    pending.attemptsLeft = 120;
+    pending.attemptsLeft = MAX_XFER_ATTEMPTS;
     Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     if (local) {
         return queueDataAvail(&pending, true);
@@ -724,7 +725,7 @@ bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* 
         memcpy(&pending.availdatainfo.dataVer, payload, sizeof(uint64_t));
         memcpy(&pending.availdatainfo.dataSize, payload + sizeof(uint64_t), sizeof(uint32_t));
     }
-    pending.attemptsLeft = 120;
+    pending.attemptsLeft = MAX_XFER_ATTEMPTS;
     Serial.printf(">Tag CMD %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
 
     tagRecord* taginfo = tagRecord::findByMAC(dst);

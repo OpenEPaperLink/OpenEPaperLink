@@ -235,6 +235,17 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
         imageParams.lut = EPD_LUT_OTA;
     }
 
+    int32_t interval = 60 * 60;
+    interval = cfgobj["interval"].as<int>() * 60;
+    Serial.println("interval: " + String(interval));
+    if (interval < 0) {
+        interval = -interval;
+        unsigned int secondsUntilNext = (interval - (now % interval)) % interval;
+        interval = secondsUntilNext;
+        Serial.println("seconds until next: " + String(interval));
+    } else if (interval < 180)
+        interval = 60 * 60;
+
     switch (taginfo->contentMode) {
         case 0:   // Not configured
         case 22:  // Static image
@@ -363,13 +374,12 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
 
         {
             const int httpcode = getImgURL(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], imageParams, String(hexmac));
-            const int interval = cfgobj["interval"].as<int>();
             if (httpcode == 200) {
-                taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
-                updateTagImage(filename, mac, interval, taginfo, imageParams);
+                taginfo->nextupdate = now + interval;
+                updateTagImage(filename, mac, interval / 60, taginfo, imageParams);
                 cfgobj["#fetched"] = now;
             } else if (httpcode == 304) {
-                taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
+                taginfo->nextupdate = now + interval;
             } else {
                 taginfo->nextupdate = now + 300;
             }
@@ -380,9 +390,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
         case 9:  // RSSFeed
 
             if (getRssFeed(filename, cfgobj["url"], cfgobj["title"], taginfo, imageParams)) {
-                const int interval = cfgobj["interval"].as<int>();
-                taginfo->nextupdate = now + 60 * (interval < 3 ? 60 : interval);
-                updateTagImage(filename, mac, interval, taginfo, imageParams);
+                taginfo->nextupdate = now + interval;
+                updateTagImage(filename, mac, interval / 60, taginfo, imageParams);
             } else {
                 taginfo->nextupdate = now + 300;
             }
@@ -402,9 +411,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
         case 11:  // Calendar:
 
             if (getCalFeed(filename, cfgobj, taginfo, imageParams)) {
-                const int interval = cfgobj["interval"].as<int>();
-                taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
-                updateTagImage(filename, mac, interval, taginfo, imageParams);
+                taginfo->nextupdate = now + interval;
+                updateTagImage(filename, mac, interval / 60, taginfo, imageParams);
             } else {
                 taginfo->nextupdate = now + 300;
             }
@@ -474,13 +482,12 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                     DynamicJsonDocument json(1000);
                     Serial.println("Get json url + file");
                     if (util::httpGetJson(configUrl, json, 1000)) {
+                        taginfo->nextupdate = now + interval;
                         if (getJsonTemplateFileExtractVariables(filename, configFilename, json, taginfo, imageParams)) {
-                            updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
+                            updateTagImage(filename, mac, interval / 60, taginfo, imageParams);
                         } else {
                             wsErr("error opening file " + configFilename);
                         }
-                        const int interval = cfgobj["interval"].as<int>();
-                        taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
                     } else {
                         taginfo->nextupdate = now + 600;
                     }
@@ -488,7 +495,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 } else {
                     const bool result = getJsonTemplateFile(filename, configFilename, taginfo, imageParams);
                     if (result) {
-                        updateTagImage(filename, mac, cfgobj["interval"].as<int>(), taginfo, imageParams);
+                        updateTagImage(filename, mac, interval, taginfo, imageParams);
                     } else {
                         wsErr("error opening file " + configFilename);
                     }
@@ -496,13 +503,12 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 }
             } else {
                 const int httpcode = getJsonTemplateUrl(filename, cfgobj["url"], (time_t)cfgobj["#fetched"], String(hexmac), taginfo, imageParams);
-                const int interval = cfgobj["interval"].as<int>();
                 if (httpcode == 200) {
-                    taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
-                    updateTagImage(filename, mac, interval, taginfo, imageParams);
+                    taginfo->nextupdate = now + interval;
+                    updateTagImage(filename, mac, interval / 60, taginfo, imageParams);
                     cfgobj["#fetched"] = now;
                 } else if (httpcode == 304) {
-                    taginfo->nextupdate = now + 60 * (interval < 3 ? 15 : interval);
+                    taginfo->nextupdate = now + interval;
                 } else {
                     taginfo->nextupdate = now + 600;
                 }
@@ -558,6 +564,7 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
             imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
             Serial.println("datatype: DATATYPE_IMG_RAW_2BPP");
         }
+        if (nextCheckin > 0x7fff) nextCheckin = 0;
         prepareDataAvail(filename, imageParams.dataType, imageParams.lut, dst, nextCheckin);
     }
     return true;

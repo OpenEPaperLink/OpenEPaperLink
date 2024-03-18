@@ -212,7 +212,7 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often (in minutes) the feed is being refreshed",
+        "desc": "How often (in minutes) the feed is being refreshed. Negative value to align the interval (-60 is 'on the whole hour')",
         "type": "int"
       }
     ]
@@ -231,7 +231,7 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often (in minutes) the image is being fetched. Minimum is 3 minutes.",
+        "desc": "How often (in minutes) the image is being fetched. Minimum is 3 minutes. Negative value to align the interval (-60 is 'on the whole hour')",
         "type": "int"
       }
     ]
@@ -276,7 +276,7 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often (in minutes) the calendar is being refreshed",
+        "desc": "How often (in minutes) the calendar is being refreshed. Negative value to align the interval (-60 is 'on the whole hour')",
         "type": "int"
       }
     ]
@@ -411,7 +411,7 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "In case of an url, how often (in minutes) the template is being fetched. Minimum is 3 minutes.",
+        "desc": "In case of an url, how often (in minutes) the template is being fetched. Minimum is 3 minutes. Negative value to align the interval (-60 is 'on the whole hour')",
         "type": "int"
       }
     ]
