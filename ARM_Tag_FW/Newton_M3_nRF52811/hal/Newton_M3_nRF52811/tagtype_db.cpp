@@ -5,6 +5,7 @@
 #include "../src/epd_driver/epd_interface.h"
 #include "../../../../oepl-definitions.h"
 #include "../include/eeprom.h"
+#include "settings.h"
 
 uint8_t getUICRByte(uint8_t offset) {
     // the nRF accesses registers and data in 32-bit words. We'll need to do some quick maffs to get individual bytes
