@@ -9,6 +9,12 @@
     <link rel="stylesheet" href="main.css" type="text/css" />
     <link rel="icon" type="image/vnd.icon" href="favicon.ico">
     <style>
+        .window {
+            margin-left: 10px;
+        }
+        p {
+            margin-bottom: 10px;
+        }
         .window input {
             width: 120px;
         }
@@ -29,6 +35,7 @@
     <div class="container">
         <div class="window">
             <h1>WiFi config</h1>
+            <p>WiFi mac address: <span id="mac">-</span></p>
             <pre>
 SSID            <input type="text" id="ssid"> <button id="listssid">find SSID</button>
 Password        <input type="password" id="pw">
@@ -40,7 +47,6 @@ Subnet mask     <input type="text" id="mask">
 Gateway         <input type="text" id="gw">
 DNS             <input type="text" id="dns">
             </pre>
-
             <button id="connect">Save WiFi settings and reboot</button><br>
 
         </div>

@@ -120,6 +120,7 @@ void fillNode(JsonObject& tag, const tagRecord* taginfo) {
     tag["lut"] = taginfo->lut;
     tag["invert"] = taginfo->invert;
     tag["updatecount"] = taginfo->updateCount;
+    tag["updatelast"] = taginfo->updateLast;
     tag["ch"] = taginfo->currentChannel;
     tag["ver"] = taginfo->tagSoftwareVersion;
 }
@@ -228,6 +229,7 @@ bool loadDB(const String& filename) {
                     taginfo->lut = tag["lut"] | 0;
                     taginfo->invert = tag["invert"] | 0;
                     taginfo->updateCount = tag["updatecount"] | 0;
+                    taginfo->updateLast = tag["updatelast"] | 0;
                     taginfo->currentChannel = tag["ch"] | 0;
                     taginfo->tagSoftwareVersion = tag["ver"] | 0;
                 }

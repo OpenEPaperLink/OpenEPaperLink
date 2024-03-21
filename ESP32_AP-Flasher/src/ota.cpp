@@ -93,34 +93,80 @@ void handleCheckFile(AsyncWebServerRequest* request) {
     request->send(200, "application/json", jsonResponse);
 }
 
+#define UPLOAD_BUFFER_SIZE 32768
+
+struct UploadInfo {
+    String filename;
+    uint8_t buffer[UPLOAD_BUFFER_SIZE];
+    size_t bufferSize;
+};
+
 void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final) {
+    String uploadfilename;
     bool error = false;
     if (!index) {
         String path;
         if (!request->hasParam("path", true)) {
-            path = "/temp/null.bin";
             final = true;
             error = true;
         } else {
-            path = request->getParam("path", true)->value();
-            Serial.println("update " + path);
-            xSemaphoreTake(fsMutex, portMAX_DELAY);
-            request->_tempFile = contentFS->open(path, "w", true);
+            uploadfilename = request->getParam("path", true)->value();
+            Serial.println("update " + uploadfilename);
+            File file = contentFS->open(uploadfilename, "w");
+            file.close();
+            UploadInfo* uploadInfo = new UploadInfo{uploadfilename, {}, 0};
+            request->_tempObject = (void*)uploadInfo;
         }
     }
-    if (len) {
-        if (!request->_tempFile.write(data, len)) {
-            error = true;
-            final = true;
+
+    UploadInfo* uploadInfo = static_cast<UploadInfo*>(request->_tempObject);
+
+    if (uploadInfo != nullptr) {
+        uploadfilename = uploadInfo->filename;
+
+        if (len) {
+            if (uploadInfo->bufferSize + len <= UPLOAD_BUFFER_SIZE) {
+                memcpy(&uploadInfo->buffer[uploadInfo->bufferSize], data, len);
+                uploadInfo->bufferSize += len;
+            } else {
+                xSemaphoreTake(fsMutex, portMAX_DELAY);
+                File file = contentFS->open(uploadfilename, "a");
+                if (file) {
+                    file.write(uploadInfo->buffer, uploadInfo->bufferSize);
+                    file.close();
+                    uploadInfo->bufferSize = 0;
+                } else {
+                    logLine("Failed to open file for appending: " + uploadfilename);
+                    final = true;
+                    error = true;
+                }
+                xSemaphoreGive(fsMutex);
+
+                memcpy(uploadInfo->buffer, data, len);
+                uploadInfo->bufferSize = len;
+            }
         }
-    }
-    if (final) {
-        request->_tempFile.close();
-        xSemaphoreGive(fsMutex);
-        if (error) {
-            request->send(507, "text/plain", "Error. Disk full?");
-        } else {
-            request->send(200, "text/plain", "Ok, file written");
+        if (final) {
+            if (uploadInfo->bufferSize > 0) {
+                xSemaphoreTake(fsMutex, portMAX_DELAY);
+                File file = contentFS->open(uploadfilename, "a");
+                if (file) {
+                    file.write(uploadInfo->buffer, uploadInfo->bufferSize);
+                    file.close();
+                } else {
+                    logLine("Failed to open file for appending: " + uploadfilename);
+                    error = true;
+                }
+                xSemaphoreGive(fsMutex);
+                request->_tempObject = nullptr;
+                delete uploadInfo;
+            }
+
+            if (error) {
+                request->send(507, "text/plain", "Error. Disk full?");
+            } else {
+                request->send(200, "text/plain", "Ok, file written");
+            }
         }
     }
 }

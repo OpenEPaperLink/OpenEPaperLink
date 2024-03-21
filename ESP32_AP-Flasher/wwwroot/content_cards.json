@@ -147,6 +147,17 @@
         }
       },
       {
+        "key": "interval",
+        "name": "Interval",
+        "desc": "How often the forecast is being refreshed.",
+        "type": "select",
+        "options": {
+          "60": "Every hour",
+          "180": "-Every three hours",
+          "-1440": "At midnight"
+        }
+      },
+      {
         "key": "#lat",
         "name": "Lat",
         "desc": "Latitude (set automatic when generating image)",
@@ -380,7 +391,7 @@
       {
         "key": "tariffkwh",
         "name": "Fixed surcharge",
-        "desc": "Fixed surcharge per kWh, in 1/100 units (cents)",
+        "desc": "Fixed surcharge per kWh, in 1/100 units (cents/öre/øre)",
         "type": "text"
       },
       {
@@ -388,7 +399,17 @@
         "name": "Tax percentage",
         "desc": "Percentage to add to the total (for example, 21, for 21% VAT)",
         "type": "text"
-      }
+      },
+      {
+        "key": "units",
+        "name": "Price units",
+        "desc": "Display whole units (EUR/NOK/DKK) or cents",
+        "type": "select",
+        "options": {
+          "100": "1/1 units (EUR/NOK/DKK)",
+          "1": "1/100 units (cents/öre/øre)"
+        }
+      }      
     ]
   },
   {

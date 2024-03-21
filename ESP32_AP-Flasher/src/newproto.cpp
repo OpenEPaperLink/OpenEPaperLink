@@ -461,6 +461,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         clearPending(taginfo);
         memcpy(taginfo->md5, md5bytes, sizeof(md5bytes));
         taginfo->updateCount++;
+        taginfo->updateLast = now;
         taginfo->pendingCount = countQueueItem(xfc->src);
         taginfo->wakeupReason = 0;
         if (taginfo->contentMode == 12 && local == false) {
@@ -568,7 +569,10 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
 
     if (eadr->adr.lastPacketRSSI != 0) {
         if (eadr->adr.wakeupReason >= 0xE0) {
-            if (taginfo->pendingCount == 0) taginfo->nextupdate = 0;
+            if (taginfo->pendingCount == 0) {
+                taginfo->nextupdate = 0;
+                memset(taginfo->md5, 0, sizeof(taginfo->md5));
+            }
 
             if (local) {
                 const char* reason = "";
@@ -643,6 +647,7 @@ void updateContent(const uint8_t* dst) {
     tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo != nullptr) {
         clearPending(taginfo);
+        memset(taginfo->md5, 0, sizeof(taginfo->md5));
         taginfo->nextupdate = 0;
         wsSendTaginfo(taginfo->mac, SYNC_TAGSTATUS);
     }

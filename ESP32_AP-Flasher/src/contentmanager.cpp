@@ -235,9 +235,10 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
         imageParams.lut = EPD_LUT_OTA;
     }
 
-    int32_t interval = 60 * 60;
-    interval = cfgobj["interval"].as<int>() * 60;
-    if (interval < 0) {
+    int32_t interval = cfgobj["interval"].as<int>() * 60;
+    if (interval == -1440 * 60) {
+        interval = util::getMidnightTime() - now;
+    } else if (interval < 0) {
         interval = -interval;
         unsigned int secondsUntilNext = (interval - (now % interval)) % interval;
         interval = secondsUntilNext;
@@ -341,8 +342,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
         case 8:  // Forecast
 
             drawForecast(filename, cfgobj, taginfo, imageParams);
-            taginfo->nextupdate = now + 3600;
-            updateTagImage(filename, mac, 15, taginfo, imageParams);
+            taginfo->nextupdate = now + interval;
+            updateTagImage(filename, mac, interval / 60, taginfo, imageParams);
             break;
 
         case 5:  // Firmware
@@ -1513,15 +1514,17 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
 
     int n = doc.size();
 
+    int units = cfgobj["units"].as<int>();
+    if (units == 0) units = 1;
     double tarifkwh = cfgobj["tariffkwh"].as<double>();
     double tariftax = cfgobj["tarifftax"].as<double>();
-    double minPrice = (doc[0]["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100);
+    double minPrice = (doc[0]["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
     double maxPrice = minPrice;
     double prices[n];
 
     for (int i = 0; i < n; i++) {
         const JsonObject &obj = doc[i];
-        const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100);
+        const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
         minPrice = min(minPrice, price);
         maxPrice = max(maxPrice, price);
         prices[i] = price;
@@ -1537,7 +1540,7 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     for (double i = minPrice; i <= maxPrice; i += yAxisScale.step) {
         int y = mapDouble(i, minPrice, maxPrice, spr.height() - barBottom, spr.height() - barBottom - loc["bars"][2].as<int>());
         spr.drawLine(0, y, spr.width(), y, TFT_BLACK);
-        drawString(spr, String(int(i)), yAxisX, y - 8, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
+        drawString(spr, String(int(i * units)), yAxisX, y - 8, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
     }
 
     uint16_t barwidth = loc["bars"][1].as<int>() / n;
@@ -1552,7 +1555,7 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
         struct tm item_timeinfo;
         localtime_r(&item_time, &item_timeinfo);
 
-        const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100);
+        const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
 
         uint16_t barcolor = getPercentileColor(prices, n, price);
         uint16_t thisbarh = mapDouble(price, minPrice, maxPrice, 0, loc["bars"][2].as<int>());
