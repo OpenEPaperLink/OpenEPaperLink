@@ -1,0 +1,15 @@
+{
+	"version": 0,
+	"name": "SLT‐EM007 Segmented",
+	"width": 0,
+	"height": 0,
+	"rotatebuffer": 0,
+	"bpp": 1,
+	"colors": 0,
+	"colortable": { },
+	"shortlut": 0,
+	"options": [ ],
+	"contentids": [ 1, 2, 3, 4, 5, 13, 17, 18 ],
+	"template": {
+	}
+}

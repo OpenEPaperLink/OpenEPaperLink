@@ -69,7 +69,6 @@ export async function initUpdate() {
                 currentVer = sdata.buildversion;
                 currentBuildtime = sdata.buildtime;
                 if (sdata.rollback) $("#rollbackOption").style.display = 'block';
-                if (sdata.env == 'ESP32_S3_16_8_YELLOW_AP') $("#c6Option").style.display = 'block';
                 $('#environment').value = env;
             }
 
@@ -140,6 +139,9 @@ export async function initUpdate() {
 
 export function updateAll(binUrl, fileUrl, tagname) {
     updateWebpage(fileUrl, tagname, false)
+        .then(() => {
+            fetchAndCheckTagtypes(true);
+        })
         .then(() => {
             updateESP(binUrl, false);
         })
@@ -363,7 +365,7 @@ $('#updateC6Btn').onclick = function () {
 
     const isChecked = $('#c6download').checked;
     const formData = new FormData();
-    formData.append('download', isChecked ? '1' : '0'); // Convert to '1' or '0'
+    formData.append('download', isChecked ? '1' : '0');
 
     fetch("update_c6", {
         method: "POST",
@@ -372,6 +374,11 @@ $('#updateC6Btn').onclick = function () {
 
     running = false;
     disableButtons(false);
+}
+
+$('#updateTagtypeBtn').onclick = function () {
+    const cleanup = $('#tagtype_clean').checked;
+    fetchAndCheckTagtypes(cleanup);
 }
 
 $('#selectRepo').onclick = function (event) {
@@ -514,20 +521,26 @@ const fetchAndPost = async (url, name, path) => {
     try {
         print("updating " + path);
         const response = await fetch(url);
-        const fileContent = await response.blob();
 
-        const formData = new FormData();
-        formData.append('path', path);
-        formData.append('file', fileContent, name);
-
-        const uploadResponse = await fetch('littlefs_put', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!uploadResponse.ok) {
-            print(`${response.status} ${response.body}`, "red");
+        if (!response.ok) {
+            print(`download error: ${response.status} ${response.body}`, "red");
             errors++;
+        } else {
+            const fileContent = await response.blob();
+
+            const formData = new FormData();
+            formData.append('path', path);
+            formData.append('file', fileContent, name);
+
+            const uploadResponse = await fetch('littlefs_put', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!uploadResponse.ok) {
+                print(`upload error: ${uploadResponse.status} ${uploadResponse.body}`, "red");
+                errors++;
+            }
         }
     } catch (error) {
         print('error: ' + error, "red");
@@ -564,4 +577,58 @@ function disableButtons(active) {
         button.disabled = active;
     });
     buttonState = active;
+}
+
+async function fetchAndCheckTagtypes(cleanup) {
+    print("Updating tagtype definitions...");
+    const sortableGrid = $('#taglist');
+    const gridItems = Array.from(sortableGrid.querySelectorAll('.tagcard:not(#tagtemplate)'));
+    try {
+        const response = await fetch('/edit?list=%2Ftagtypes');
+        if (!response.ok) {
+            print("Failed to fetch tagtypes list", "red");
+            throw new Error('Failed to fetch tagtypes list');
+        }
+        const fileList = await response.json();
+
+        for (const file of fileList) {
+            const filename = file.name;
+            print(filename, "green");
+            let check = true;
+
+            if (cleanup) {
+                let isInUse = Array.from(gridItems).some(element => element.dataset.hwtype == parseInt(filename, 16));
+                if (!isInUse) {
+                    print("not in use, deleting", "yellow");
+                    const formData = new FormData();
+                    formData.append('path', '/tagtypes/' + filename);
+                    fetch('/edit', {
+                        method: 'DELETE',
+                        body: formData
+                    })
+                    check = false;
+                }
+            }
+            
+            if (check) {
+                let githubUrl = "https://raw.githubusercontent.com/" + repo + "/master/ESP32_AP-Flasher/resources/tagtypes/" + filename;
+
+                const localResponse = await fetch(`/tagtypes/${filename}`);
+                const localJson = await localResponse.json();
+                const localVersion = localJson.version || 0;
+
+                const githubResponse = await fetch(githubUrl);
+                const githubJson = await githubResponse.json();
+                const githubVersion = githubJson.version || 0;
+
+                if (githubVersion > localVersion) {
+                    print("update from version " + localVersion + " to " + githubVersion);
+                    await fetchAndPost(githubUrl, filename, "/tagtypes/" + filename);
+                }
+            }
+        }
+        print("Finished.");
+    } catch (error) {
+        print("Error: " + error, "red");
+    }
 }

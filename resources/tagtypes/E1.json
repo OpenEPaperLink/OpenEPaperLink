@@ -1,0 +1,30 @@
+{
+	"version": 0,
+	"name": "TFT 160x80",
+	"width": 160,
+	"height": 80,
+	"rotatebuffer": 1,
+	"bpp": 16,
+	"colors": 4,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ],
+		"gray": [ 150, 150, 150 ]
+	},
+	"shortlut": 0,
+	"options": [ ],
+	"contentids": [ 22, 21 ],
+	"template": {
+		"21": [
+			{ "box": [ 0, 0, 160, 80, 1 ] },
+			{ "text": [ 1, 3, "OpenEpaperLink AP", "calibrib16.vlw", 2, 0, 0, 1 ] },
+			{ "text": [ 1, 28, "IP:", "REFSAN12.vlw", "#888888", 0, 0, 1 ] },
+			{ "text": [ 45, 28, "{ap_ip}", "REFSAN12.vlw", 0, 0, 0, 1 ] },
+			{ "text": [ 1, 45, "Ch:", "REFSAN12.vlw", "#888888", 0, 0, 1 ] },
+			{ "text": [ 45, 45, "{ap_ch}", "REFSAN12.vlw", 0, 0, 0, "1" ] },
+			{ "text": [ 1, 62, "Tags:", "REFSAN12.vlw", "#888888", 0, 0, 1 ] },
+			{ "text": [ 45, 62, "{ap_tagcount}", "REFSAN12.vlw", 0, 0, 0, "1" ] }
+		]
+	}
+}

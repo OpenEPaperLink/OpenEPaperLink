@@ -56,7 +56,7 @@ window.addEventListener("loadConfig", function () {
 			if (data.C6 == 1) {
 				var optionToRemove = $("#apcfgchid").querySelector('option[value="27"]');
 				if (optionToRemove) $("#apcfgchid").removeChild(optionToRemove);
-				$('#c6Option').style.display = 'block';
+				$('#updateC6Option').style.display = 'block';
 			}
 			if (data.hasFlasher == 1) {
 				$('[data-target="flashtab"]').style.display = 'block';
@@ -1319,6 +1319,36 @@ $('#activefilter').addEventListener('click', (event) => {
 	filterOptions.style.maxHeight = filterOptions.scrollHeight + 20 + 'px';
 });
 
+const downloadTagtype = async (hwtype) => {
+	try {
+		console.log("download tagtype " + hwtype);
+		let repo = apConfig.repo || 'jjwbruijn/OpenEPaperLink';
+		let url = "https://raw.githubusercontent.com/" + repo + "/master/ESP32_AP-Flasher/resources/tagtypes/" + hwtype + ".json";
+		console.log(url);
+
+		const response = await fetch(url);
+		const clonedResponse = response.clone();
+		const fileContent = await clonedResponse.blob();
+
+		const formData = new FormData();
+		formData.append('path', "/tagtypes/" + hwtype + ".json");
+		formData.append('file', fileContent, hwtype + ".json");
+
+		const uploadResponse = await fetch('littlefs_put', {
+			method: 'POST',
+			body: formData
+		});
+
+		if (!uploadResponse.ok) {
+			console.log("upload error " + uploadResponse.status);
+		}
+
+		return response;
+	} catch (error) {
+		console.log('error: ' + error);
+	}
+};
+
 async function getTagtype(hwtype) {
 	if (tagTypes[hwtype] && tagTypes[hwtype].busy == false) {
 		return tagTypes[hwtype];
@@ -1361,7 +1391,12 @@ async function getTagtype(hwtype) {
 	try {
 		getTagtypeBusy = true;
 		tagTypes[hwtype] = { busy: true };
-		const response = await fetch('tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json');
+		let response = await fetch('tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json');
+
+		if (response.status === 404) {
+			response = await downloadTagtype(hwtype.toString(16).padStart(2, '0').toUpperCase());
+		}
+
 		if (!response.ok) {
 			let data = { name: 'unknown id ' + hwtype.toString(16), width: 0, height: 0, bpp: 0, rotatebuffer: 0, colortable: [], busy: false };
 			tagTypes[hwtype] = data;
@@ -1631,7 +1666,6 @@ function populateAPInfo(apip) {
 				version += `psram size:         ${data.psramsize}<br>`;
 				version += `flash size:         ${data.flashsize}<br>`;
 				$('#ap' + apid + ' .apswversion').innerHTML = version;
-				// if (data.env == 'ESP32_S3_16_8_YELLOW_AP') $("#c6Option").style.display = 'block';
 			}
 		})
 		.catch(error => {

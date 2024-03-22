@@ -510,18 +510,16 @@ options:
 						<div id="releasetable"></div>
 						<h4>Other actions</h4>
 						<div>
-							<p>
-								<div id="rollbackOption" style="display:none">
-									<button type="button" id="rollbackBtn">Rollback to previous firmware</button>
-								</div>
+							<p id="rollbackOption" style="display:none">
+								<button type="button" id="rollbackBtn">Rollback to previous firmware</button>
 							</p>
-							<p>
-								<span id="c6Option" style="display:none;">
-									<div id="updateC6Option">
-										<button type="button" id="updateC6Btn">Update ESP32-C6</button>
-										<input type="checkbox" value="1" checked id="c6download">download latest version
-									</div>
-								</span>
+							<p id="updateC6Option" style="display:none;">
+								<button type="button" id="updateC6Btn">Update ESP32-C6</button>
+								<input type="checkbox" value="1" checked id="c6download">download latest version
+							</p>
+							<p id="updateTagtypeOption">
+								<button type="button" id="updateTagtypeBtn">Update tagtype definitions</button>
+								<input type="checkbox" value="1" id="tagtype_clean">remove unused tagtype files
 							</p>
 						</div>
 					</div>

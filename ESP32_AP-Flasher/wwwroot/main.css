@@ -354,6 +354,10 @@ input[type=file] {
 	width: 200px;
 }
 
+input[type=checkbox] {
+	margin-right: 5px;
+}
+
 select {
 	padding: 3px 4px;
 	border-radius: 0px;
@@ -853,10 +857,6 @@ h4 {
 
 #releasetable button:hover {
 	background-color: #a0a0a0;
-}
-
-#c6Option {
-	display: none;
 }
 
 .updateCol1, .flashCol1 {

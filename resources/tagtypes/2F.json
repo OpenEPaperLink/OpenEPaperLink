@@ -1,0 +1,49 @@
+{
+	"version": 0,
+	"name": "M3 4.3\"",
+	"width": 522,
+	"height": 152,
+	"rotatebuffer": 3,
+	"bpp": 2,
+	"colors": 3,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ],
+		"gray": [ 150, 150, 150 ]
+	},
+	"shortlut": 0,
+	"zlib_compression": "27",
+	"options": [ "button" ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 8, 9, 11, 17, 18, 19, 20, 27 ],
+	"usetemplate": 1,
+	"template": {
+		"1": {
+			"weekday": [ 160, 5, "Signika-SB.ttf", 60 ],
+			"month": [ 160, 75, "Signika-SB.ttf", 60 ],
+			"day": [ 422, -27, "Signika-SB.ttf", 170 ]
+		},
+		"2": {
+			"fonts": [ "Signika-SB.ttf", 170, 170, 170, 170, 170, 170 ],
+			"xy": [ 261, 63 ]
+		},
+		"9": {
+			"title": [ 6, 0, "Signika-SB.ttf", 25 ],
+			"items": 1,
+			"line": [ 9, 40, "calibrib16.vlw" ],
+			"desc": [ 2, 8, "REFSAN12.vlw", 1.2 ]
+		},
+		"11": {
+			"rotate": 1,
+			"mode": 1,
+			"days": 1,
+			"gridparam": [ 5, 17, 20, "calibrib16.vlw", "BellCent10.vlw", 14 ]
+		},
+		"27": {
+			"bars": [ 27, 468, 100, 18 ],
+			"time": [ "calibrib16.vlw" ],
+			"yaxis": [ "BellCent10.vlw", 5, 6 ],
+			"head": [ "calibrib30.vlw" ]
+		}
+	}
+}

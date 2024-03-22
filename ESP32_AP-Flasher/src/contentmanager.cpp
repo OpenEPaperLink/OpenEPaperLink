@@ -153,8 +153,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
 
     const HwType hwdata = getHwType(taginfo->hwType);
     if (hwdata.bpp == 0) {
-        taginfo->nextupdate = now + 600;
-        wsErr("No definition found for tag type " + String(taginfo->hwType));
+        taginfo->nextupdate = now + 300;
+        Serial.println("No definition found for tag type " + String(taginfo->hwType));
         return;
     }
 
