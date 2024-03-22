@@ -611,7 +611,7 @@ async function fetchAndCheckTagtypes(cleanup) {
             }
             
             if (check) {
-                let githubUrl = "https://raw.githubusercontent.com/" + repo + "/master/ESP32_AP-Flasher/resources/tagtypes/" + filename;
+                let githubUrl = "https://raw.githubusercontent.com/" + repo + "/master/resources/tagtypes/" + filename;
 
                 const localResponse = await fetch(`/tagtypes/${filename}`);
                 const localJson = await localResponse.json();

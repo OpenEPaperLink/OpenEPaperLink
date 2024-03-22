@@ -253,7 +253,7 @@ bool loadDB(const String& filename) {
 }
 
 void destroyDB() {
-    Serial.println("destoying DB");
+    Serial.println("destroying DB");
     util::printHeap();
     for (tagRecord*& tag : tagDB) {
         if (tag->data != nullptr) {

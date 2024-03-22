@@ -1323,7 +1323,7 @@ const downloadTagtype = async (hwtype) => {
 	try {
 		console.log("download tagtype " + hwtype);
 		let repo = apConfig.repo || 'jjwbruijn/OpenEPaperLink';
-		let url = "https://raw.githubusercontent.com/" + repo + "/master/ESP32_AP-Flasher/resources/tagtypes/" + hwtype + ".json";
+		let url = "https://raw.githubusercontent.com/" + repo + "/master/resources/tagtypes/" + hwtype + ".json";
 		console.log(url);
 
 		const response = await fetch(url);
