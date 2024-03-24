@@ -182,6 +182,7 @@ void identifyTagInfo() {
             epd->drawDirectionRight = true;
             epd->XOffset = 8;
             break;
+        case STYPE_SIZE_029_BW:
         case STYPE_SIZE_029_FREEZER:
             tag.OEPLtype = SOLUM_M3_BW_29;
             tag.macSuffix = 0x82D0;
