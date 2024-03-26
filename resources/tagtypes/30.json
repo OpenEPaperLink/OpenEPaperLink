@@ -5,6 +5,7 @@
 	"height": 200,
 	"rotatebuffer": 0,
 	"bpp": 2,
+	"colors": 3,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
@@ -13,6 +14,38 @@
 	"shortlut": 0,
 	"zlib_compression": "27",
 	"options": [ "button" ],
-	"contentids": [ 22, 23, 1, 2, 3, 4, 8, 7, 19, 10, 21 ],
-	"usetemplate": 0
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 10, 14, 15, 17, 18, 19, 20, 21 ],
+	"template": {
+		"1": {
+			"weekday": [ 100, 5, "fonts/calibrib40" ],
+			"month": [ 100, 150, "fonts/calibrib40" ],
+			"day": [ 100, 28, "Signika-SB.ttf", 120 ]
+		},
+		"2": {
+			"fonts": [ "Signika-SB.ttf", 180, 140, 110, 80, 60, 45 ],
+			"xy": [ 100, 85 ]
+		},
+		"4": {
+			"location": [ 10, 180, "fonts/calibrib16" ],
+			"wind": [ 190, 5, "fonts/bahnschrift30" ],
+			"temp": [ 10, -8, "fonts/calibrib50" ],
+			"icon": [ 100, 30, 100, 1 ],
+			"dir": [ 160, -12, 40 ],
+			"umbrella": [ 155, 160, 30 ]
+		},
+		"10": {
+			"title": [ 100, 15, "t0_14b_tf" ],
+			"pos": [ 100, 30 ]
+		},
+		"21": [
+			{ "text": [ 12, 5, "OpenEpaperLink", "fonts/calibrib16", 1, 0, 0 ] },
+			{ "text": [ 12, 25, "Access Point", "fonts/calibrib16", 1, 0, 0 ] },
+			{ "text": [ 13, 65, "IP address:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 20, 80, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 13, 105, "Channel:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 20, 120, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 13, 145, "Tag count:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 20, 160, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
+		]
+	}
 }

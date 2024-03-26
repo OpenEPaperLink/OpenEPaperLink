@@ -250,7 +250,7 @@ void init_web() {
     });
 
     server.serveStatic("/current", *contentFS, "/current/").setCacheControl("max-age=604800");
-    server.serveStatic("/tagtypes", *contentFS, "/tagtypes/").setCacheControl("max-age=600");
+    server.serveStatic("/tagtypes", *contentFS, "/tagtypes/").setCacheControl("max-age=300");
 
     server.on(
         "/imgupload", HTTP_POST, [](AsyncWebServerRequest *request) {

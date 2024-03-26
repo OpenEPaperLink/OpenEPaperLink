@@ -616,7 +616,7 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
     if (font.startsWith("fonts/calibrib")) {
         String numericValueStr = font.substring(14);
         int calibriSize = numericValueStr.toInt();
-        if (calibriSize > 30) {
+        if (calibriSize != 30 && calibriSize != 16) {
             font = "Signika-SB.ttf";
             size = calibriSize;
         }
@@ -1429,10 +1429,15 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 #endif
 
 #ifdef CONTENT_DAYAHEAD
-uint16_t getPercentileColor(const double *prices, int numPrices, double price) {
+uint16_t getPercentileColor(const double *prices, int numPrices, double price, HwType hwdata) {
     double percentile = 100.0;
     int colorIndex = 3;
     const char *colors[] = {"black", "darkgray", "pink", "red"};
+    if (hwdata.highlightColor == 3) {
+        // yellow
+        colors[2] = "brown";
+        colors[3] = "yellow";
+    }
     const int numColors = sizeof(colors) / sizeof(colors[0]);
 
     const double boundaries[] = {40.0, 80.0, 90.0};
@@ -1568,7 +1573,7 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
 
         const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
 
-        uint16_t barcolor = getPercentileColor(prices, n, price);
+        uint16_t barcolor = getPercentileColor(prices, n, price, imageParams.hwdata);
         uint16_t thisbarh = mapDouble(price, minPrice, maxPrice, 0, loc["bars"][2].as<int>());
         spr.fillRect(barX + i * barwidth, spr.height() - barBottom - thisbarh, barwidth - 1, thisbarh, barcolor);
         if (i % 2 == 0) {
@@ -2167,6 +2172,7 @@ uint16_t getColor(const String &color) {
     if (color == "4" || color == "lightgray") return 0xBDF7;
     if (color == "5" || color == "darkgray") return TFT_DARKGREY;
     if (color == "6" || color == "pink") return 0xFBCF;
+    if (color == "7" || color == "brown") return 0x8400;
     uint16_t r, g, b;
     if (color.length() == 7 && color[0] == '#' &&
         sscanf(color.c_str(), "#%2hx%2hx%2hx", &r, &g, &b) == 3) {
