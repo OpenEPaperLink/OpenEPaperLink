@@ -290,6 +290,11 @@ void init_web() {
                         uint8_t md5[8];
                         if (hex2mac(request->getParam("md5")->value(), md5)) {
                             PendingItem *queueItem = getQueueItem(mac, *reinterpret_cast<uint64_t *>(md5));
+                            if (queueItem == nullptr) {
+                                Serial.println("getQueueItem: no queue item");
+                                request->send(404, "text/plain", "File not found");
+                                return;
+                            } 
                             if (queueItem->data == nullptr) {
                                 fs::File file = contentFS->open(queueItem->filename);
                                 if (file) {

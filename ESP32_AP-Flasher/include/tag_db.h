@@ -76,7 +76,15 @@ struct Config {
     String env;
 };
 
+struct Color {
+    uint8_t r, g, b;
+    Color() : r(0), g(0), b(0) {}
+    Color(uint16_t value_) : r((value_ >> 8) & 0xF8 | (value_ >> 13) & 0x07), g((value_ >> 3) & 0xFC | (value_ >> 9) & 0x03), b((value_ << 3) & 0xF8 | (value_ >> 2) & 0x07) {}
+    Color(uint8_t r_, uint8_t g_, uint8_t b_) : r(r_), g(g_), b(b_) {}
+};
+
 struct HwType {
+    uint8_t id;
     uint16_t width;
     uint16_t height;
     uint8_t rotatebuffer;
@@ -84,6 +92,7 @@ struct HwType {
     uint8_t shortlut;
     uint8_t zlib;
     uint16_t highlightColor;
+    std::vector<Color> colortable;
 };
 
 struct varStruct {
@@ -109,6 +118,7 @@ extern void clearPending(tagRecord* taginfo);
 extern void initAPconfig();
 extern void saveAPconfig();
 extern HwType getHwType(const uint8_t id);
+
 /// @brief Update a variable with the given key and value
 ///
 /// @param key Variable key
@@ -117,6 +127,7 @@ extern HwType getHwType(const uint8_t id);
 /// @return true If variable was created/updated
 /// @return false If not
 extern bool setVarDB(const std::string& key, const String& value, const bool notify = true);
+
 extern void cleanupCurrent();
 extern void pushTagInfo(tagRecord* taginfo);
 extern void popTagInfo(const uint8_t mac[8] = nullptr);

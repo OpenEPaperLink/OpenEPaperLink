@@ -1,15 +1,13 @@
 {
-	"version": 0,
+	"version": 1,
 	"name": "HS BW 3.5\"",
 	"width": 384,
 	"height": 184,
 	"rotatebuffer": 1,
 	"bpp": 1,
-	"colors": 2,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
-		"black": [ 0, 0, 0 ],
-		"gray": [ 150, 150, 150 ]
+		"black": [ 0, 0, 0 ]
 	},
 	"highlight_color": 5,
 	"shortlut": 0,

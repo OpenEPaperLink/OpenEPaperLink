@@ -201,16 +201,18 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     taginfo->nextupdate = now + 60;
 
     imgParam imageParams;
+    imageParams.hwdata = hwdata;
     imageParams.width = hwdata.width;
     imageParams.height = hwdata.height;
     imageParams.bpp = hwdata.bpp;
     imageParams.rotatebuffer = hwdata.rotatebuffer;
+    imageParams.shortlut = hwdata.shortlut;
     imageParams.highlightColor = getColor(String(hwdata.highlightColor));
 
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
     imageParams.dither = 2;
-    if (taginfo->hasCustomLUT && taginfo->lut != 1) imageParams.grayLut = true;
+    // if (taginfo->hasCustomLUT && taginfo->lut != 1) imageParams.grayLut = true;
 
     imageParams.invert = taginfo->invert;
     imageParams.symbols = 0;
@@ -220,7 +222,6 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     } else {
         imageParams.zlib = 0;
     }
-    imageParams.shortlut = hwdata.shortlut;
 
     imageParams.lut = EPD_LUT_NO_REPEATS;
     if (taginfo->lut == 2) imageParams.lut = EPD_LUT_FAST_NO_REDS;
@@ -655,7 +656,11 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
                 posx -= truetype.getStringWidth(content);
             }
             truetype.setTextBoundary(posx, spr.width(), spr.height());
-            truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
+            if (spr.getColorDepth() == 8) {
+                truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
+            } else {
+                truetype.setTextColor(color, color);
+            }
             truetype.textDraw(posx, posy, content);
             truetype.end();
         } break;
@@ -716,9 +721,14 @@ void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy
 }
 
 void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams) {
-    spr.setColorDepth(8);
+    spr.setColorDepth(16);
     spr.createSprite(w, h);
-    spr.setRotation(3);
+    if (spr.getPointer() == nullptr) {
+        wsErr("low on memory. Fallback to 8bpp");
+        util::printLargestFreeBlock();
+        spr.setColorDepth(8);
+        spr.createSprite(w, h);
+    }
     if (spr.getPointer() == nullptr) {
         wsErr("low on memory. Fallback to 1bpp");
         util::printLargestFreeBlock();
@@ -730,6 +740,7 @@ void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams) {
     if (spr.getPointer() == nullptr) {
         wsErr("Failed to create sprite");
     }
+    spr.setRotation(3);
     spr.fillSprite(TFT_WHITE);
 }
 
@@ -1266,9 +1277,9 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                 drawString(spr, String(languageDaysShort[dayInfo->tm_wday]) + " " + String(dayInfo->tm_mday), colStart + colWidth / 2, calTop, loc["gridparam"][3], TC_DATUM, TFT_BLACK);
 
                 if (dayInfo->tm_wday == 0 || dayInfo->tm_wday == 6) {
-                    spr.fillRect(colStart + 1, calTop + calYOffset, colWidth - 1, calHeight - 1, TFT_DARKGREY);
+                    spr.fillRect(colStart + 1, calTop + calYOffset, colWidth - 1, calHeight - 1, getColor("darkgray"));
                 } else {
-                    spr.fillRect(colStart + 1, calTop + calYOffset, colWidth - 1, calHeight - 1, TFT_LIGHTGREY);
+                    spr.fillRect(colStart + 1, calTop + calYOffset, colWidth - 1, calHeight - 1, getColor("lightgray"));
                 }
             }
 
@@ -2153,9 +2164,9 @@ uint16_t getColor(const String &color) {
     if (color == "1" || color == "" || color == "black") return TFT_BLACK;
     if (color == "2" || color == "red") return TFT_RED;
     if (color == "3" || color == "yellow") return TFT_YELLOW;
-    if (color == "4" || color == "lightgray") return TFT_LIGHTGREY;
+    if (color == "4" || color == "lightgray") return 0xBDF7;
     if (color == "5" || color == "darkgray") return TFT_DARKGREY;
-    if (color == "6" || color == "pink") return TFT_PINK;
+    if (color == "6" || color == "pink") return 0xFBCF;
     uint16_t r, g, b;
     if (color.length() == 7 && color[0] == '#' &&
         sscanf(color.c_str(), "#%2hx%2hx%2hx", &r, &g, &b) == 3) {

@@ -1023,7 +1023,8 @@ void truetypeClass::addPixel(int16_t _x, int16_t _y, uint16_t _colorCode) {
     switch (framebufferBit) {
         case 16:  // 16bit horizontal
         {
-            uint16_t *p = (uint16_t *)&userFrameBuffer[(uint16_t)_x + (uint16_t)_y * displayWidthFrame];
+            uint16_t *p = (uint16_t *)&userFrameBuffer[(uint16_t)_x * 2 + (uint16_t)_y * displayWidthFrame];
+            _colorCode = (_colorCode >> 8) | (_colorCode << 8);
             *p = _colorCode;
         } break;
         case 8:  // 8bit Horizontal

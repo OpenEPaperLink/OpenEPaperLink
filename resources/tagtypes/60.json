@@ -1,16 +1,14 @@
 {
-	"version": 0,
+	"version": 1,
 	"name": "HS BWY 3.5\"",
 	"width": 384,
 	"height": 184,
 	"rotatebuffer": 1,
 	"bpp": 2,
-	"colors": 3,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
-		"yellow": [ 200, 200, 0 ],
-		"gray": [ 150, 150, 150 ]
+		"yellow": [ 255, 255, 0 ]
 	},
 	"highlight_color": 2,
 	"shortlut": 0,

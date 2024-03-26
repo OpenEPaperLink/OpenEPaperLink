@@ -418,17 +418,19 @@ def main():
                 if transport == TRANSPORT_TCP:
                     try:
                         data = tcp_socket.recv(1)
+                        data_str = data.decode('utf-8')
                     except socket.timeout:
-                        data = ""
+                        data_str = ""
                         pass
                 else:
                     try:
                         data = ser.read(1)
+                        data_str = data.decode('utf-8')
                     except UnicodeDecodeError:
-                        data = ""
+                        data_str = ""
                         pass
-                print(data, end='')
-                if chr(0x04) in data:
+                print(data_str, end='')
+                if chr(0x04) in data_str:
                     break
 
     except KeyboardInterrupt:

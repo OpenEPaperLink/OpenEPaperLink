@@ -1,16 +1,14 @@
 {
-	"version": 0,
+	"version": 1,
 	"name": "HS BWR 3.5\"",
 	"width": 384,
 	"height": 184,
 	"rotatebuffer": 1,
 	"bpp": 2,
-	"colors": 3,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
-		"red": [ 255, 0, 0 ],
-		"gray": [ 150, 150, 150 ]
+		"red": [ 255, 0, 0 ]
 	},
 	"shortlut": 0,
 	"options": [ "led" ],

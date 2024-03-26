@@ -1,11 +1,10 @@
 {
-	"version": 0,
+	"version": 1,
 	"name": "M2 7.5\" BW",
 	"width": 640,
 	"height": 384,
 	"rotatebuffer": 0,
 	"bpp": 1,
-	"colors": 2,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ]

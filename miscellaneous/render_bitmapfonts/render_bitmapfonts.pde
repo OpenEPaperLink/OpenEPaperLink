@@ -56,7 +56,7 @@ void setup() {
 
   String str = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_abcdefghijklmnopqrstuvwxyz{|}~°ÄÅÆÖØÚÜßáäåæéíöøúüýąČěľłńŘřŚŠź";
   char[] charsetbasic = str.toCharArray();
-  str = "ACDEFHIJLMNOPRSTUVWZiortzÁØÚČŚŠ0123456789-";
+  str = "ACDEFHIJLMNOPRSTUVWZiortzÁÅÄÖØÚČŚŠ0123456789-";
   char[] charsetdaynames = str.toCharArray();
   str = "0123456789.°-";
   char[] charsetnumbers = str.toCharArray();

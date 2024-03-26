@@ -1,16 +1,14 @@
 {
-	"version": 0,
+	"version": 1,
 	"name": "TFT 160x80",
 	"width": 160,
 	"height": 80,
 	"rotatebuffer": 1,
 	"bpp": 16,
-	"colors": 4,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
-		"red": [ 255, 0, 0 ],
-		"gray": [ 150, 150, 150 ]
+		"red": [ 255, 0, 0 ]
 	},
 	"shortlut": 0,
 	"options": [ ],

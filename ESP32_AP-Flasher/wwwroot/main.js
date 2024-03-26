@@ -1012,7 +1012,7 @@ function populateSelectTag(hwtype, capabilities) {
 	let option;
 	cardconfig.forEach(item => {
 		const capcheck = item.capabilities ?? 0;
-		if (tagTypes[hwtype].contentids.includes(item.id) && (capabilities & capcheck || capcheck == 0) && (apConfig.savespace == 0 || !item.properties?.includes("savespace"))) {
+		if (tagTypes[hwtype].contentids?.includes(item.id) && (capabilities & capcheck || capcheck == 0) && (apConfig.savespace == 0 || !item.properties?.includes("savespace"))) {
 			option = document.createElement("option");
 			option.value = item.id;
 			option.text = item.name;
@@ -1327,6 +1327,10 @@ const downloadTagtype = async (hwtype) => {
 		console.log(url);
 
 		const response = await fetch(url);
+		if (!response.ok) {
+			console.log("github download error " + response.status);
+			return response;
+		}
 		const clonedResponse = response.clone();
 		const fileContent = await clonedResponse.blob();
 
@@ -1398,7 +1402,7 @@ async function getTagtype(hwtype) {
 		}
 
 		if (!response.ok) {
-			let data = { name: 'unknown id ' + hwtype.toString(16), width: 0, height: 0, bpp: 0, rotatebuffer: 0, colortable: [], busy: false };
+			let data = { name: 'unknown id ' + hwtype.toString(16).toUpperCase(), width: 0, height: 0, bpp: 0, rotatebuffer: 0, colortable: [], busy: false };
 			tagTypes[hwtype] = data;
 			getTagtypeBusy = false;
 			return data;

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "tag_db.h"
+
 extern TFT_eSPI tft;
 
 #define SHORTLUT_DISABLED 0
@@ -10,10 +12,12 @@ extern TFT_eSPI tft;
 #define SHORTLUT_ALLOWED 2
 
 struct imgParam {
+    HwType hwdata;
+
     bool hasRed;
     uint8_t dataType;
     uint8_t dither;
-    bool grayLut = false;
+    // bool grayLut = false;
     uint8_t bufferbpp = 8;
     uint8_t rotate = 0;
     uint16_t highlightColor = 2;

@@ -8,6 +8,7 @@
 #include "leds.h"
 #include "miniz-oepl.h"
 #include "storage.h"
+#include "tag_db.h"
 #include "util.h"
 
 #ifdef HAS_TFT
@@ -62,13 +63,6 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
     }
 }
 
-struct Color {
-    uint8_t r, g, b;
-    Color() : r(0), g(0), b(0) {}
-    Color(uint16_t value_) : r((value_ >> 8) & 0xF8 | (value_ >> 13) & 0x07), g((value_ >> 3) & 0xFC | (value_ >> 9) & 0x03), b((value_ << 3) & 0xF8 | (value_ >> 2) & 0x07) {}
-    Color(uint8_t r_, uint8_t g_, uint8_t b_) : r(r_), g(g_), b(b_) {}
-};
-
 struct Error {
     int32_t r;
     int32_t g;
@@ -102,31 +96,21 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
 
     memset(buffer, 0, buffer_size);
 
-    std::vector<Color> palette = {
-        {255, 255, 255},  // White
-        {0, 0, 0},        // Black
-        {255, 0, 0}       // Red
-    };
+    std::vector<Color> palette = imageParams.hwdata.colortable;
     if (imageParams.invert == 1) {
         std::swap(palette[0], palette[1]);
     }
     Color color;
-    if (imageParams.dither == 2) {
-        color = {128, 128, 128};
-        palette.push_back(color);
-        color = {211, 211, 211};
-        palette.push_back(color);
-        color = {255, 192, 203};
-        palette.push_back(color);
-    } else if (imageParams.grayLut) {
-        color = {160, 160, 160};
-        palette.push_back(color);
-        Serial.println("rendering with gray");
-    }
     int num_colors = palette.size();
     if (imageParams.bufferbpp == 1) num_colors = 2;
     Error *error_bufferold = new Error[bufw + 4];
     Error *error_buffernew = new Error[bufw + 4];
+
+    const uint8_t ditherMatrix[4][4] = {
+        {0, 9, 2, 10},
+        {12, 5, 14, 6},
+        {3, 11, 1, 8},
+        {15, 7, 13, 4}};
 
     memset(error_bufferold, 0, bufw * sizeof(Error));
     for (uint16_t y = 0; y < bufh; y++) {
@@ -147,8 +131,17 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                     break;
             }
 
+            if (imageParams.dither == 2) {
+                // Ordered dithering
+                uint8_t ditherValue = ditherMatrix[y % 4][x % 4];
+                error_bufferold[x].r = (ditherValue << 4) - 120;  // * 256 / 16 - 128 + 8
+                error_bufferold[x].g = (ditherValue << 4) - 120;
+                error_bufferold[x].b = (ditherValue << 4) - 120;
+            }
+
             int best_color_index = 0;
             uint32_t best_color_distance = colorDistance(color, palette[0], error_bufferold[x]);
+
             for (int i = 1; i < num_colors; i++) {
                 if (best_color_distance == 0) break;
                 uint32_t distance = colorDistance(color, palette[i], error_bufferold[x]);
@@ -157,7 +150,6 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                     best_color_index = i;
                 }
             }
-
             uint8_t bitIndex = 7 - (x % 8);
             uint32_t byteIndex = (y * bufw + x) / 8;
 
@@ -173,29 +165,19 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                         buffer[byteIndex] |= (1 << bitIndex);
                     break;
                 case 3:
-                    if (imageParams.grayLut) {
-                        buffer[byteIndex] |= (1 << bitIndex);
-                        imageParams.hasRed = true;
-                    } else {
-                        if (!is_red && (x + y) % 2) buffer[byteIndex] |= (1 << bitIndex);
-                    }
-                    break;
-                case 4:
-                    if (!is_red && ((x + y / 2) % 2 == 0) && (y % 2 == 0)) buffer[byteIndex] |= (1 << bitIndex);
-                    break;
-                case 5:
-                    if (is_red && (x + y) % 2) buffer[byteIndex] |= (1 << bitIndex);
                     imageParams.hasRed = true;
+                    buffer[byteIndex] |= (1 << bitIndex);
                     break;
             }
 
             if (imageParams.dither == 1) {
+                // Burkes Dithering
+
                 Error error = {
                     color.r + error_bufferold[x].r - palette[best_color_index].r,
                     color.g + error_bufferold[x].g - palette[best_color_index].g,
                     color.b + error_bufferold[x].b - palette[best_color_index].b};
 
-                // Burkes Dithering
                 error_buffernew[x].r += error.r >> 2;
                 error_buffernew[x].g += error.g >> 2;
                 error_buffernew[x].b += error.b >> 2;

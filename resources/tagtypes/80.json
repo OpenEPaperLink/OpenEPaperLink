@@ -1,58 +1,17 @@
 {
- "version": 0,
+ "version": 1,
  "name": "Chroma 7.4\"",
  "width": 640,
  "height": 384,
  "rotatebuffer": 0,
  "bpp": 2,
- "colors": 3,
  "colortable": {
   "white": [ 255, 255, 255 ],
   "black": [ 0, 0, 0 ],
-  "red": [ 255, 0, 0 ],
-  "gray": [ 150, 150, 150 ]
+  "red": [ 255, 0, 0 ]
  },
  "shortlut": 1,
  "options": [ ],
  "contentids": [ 22, 23, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20 ],
- "template": {
-  "1": {
-   "weekday": [ 320, -5, "Signika-SB.ttf", 100 ],
-   "month": [ 320, 265, "Signika-SB.ttf", 100 ],
-   "day": [ 320, 60, "Signika-SB.ttf", 220 ]
-  },
-  "4": {
-   "location": [ 20, 20, "fonts/calibrib30" ],
-   "wind": [ 90, 83, "fonts/calibrib30" ],
-   "temp": [ 20, 170, "fonts/calibrib30" ],
-   "icon": [ 385, 0, 100, 2 ],
-   "dir": [ 40, 50, 80 ],
-   "umbrella": [ 325, 155, 78 ]
-  },
-  "8": {
-   "location": [ 10, 10, "fonts/calibrib30" ],
-   "column": [ 6, 66 ],
-   "day": [ 33, 60, "fonts/bahnschrift20", 104, 230 ],
-   "rain": [ 34, 260 ],
-   "icon": [ 32, 145, 30 ],
-   "wind": [ 17, 90 ],
-   "line": [ 50, 300 ]
-  },
-  "9": {
-   "title": [ 6, 0, "Signika-SB.ttf", 32 ],
-   "items": 5,
-   "line": [ 9, 40, "calibrib16.vlw" ],
-   "desc": [ 2, 8, "REFSAN12.vlw", 1.2 ]
-  },
-  "10": {
-   "title": [ 320, 10, "fonts/bahnschrift20" ],
-   "pos": [ 320, 40 ]
-  },
-  "11": {
-   "rotate": 0,
-   "mode": 1,
-   "days": 7,
-   "gridparam": [ 3, 17, 30, "calibrib16.vlw", "BellCent10.vlw", 14 ]
-  }
- }
+ "usetemplate": 5
 }

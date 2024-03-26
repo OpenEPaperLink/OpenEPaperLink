@@ -23,7 +23,8 @@
         "type": "select",
         "options": {
           "0": "off",
-          "1": "on"
+          "1": "floyd-steinberg dithering",
+          "2": "ordered dithering"
         }
       }
     ]
@@ -479,7 +480,8 @@
         "type": "select",
         "options": {
           "0": "off",
-          "1": "on"
+          "1": "floyd-steinberg dithering",
+          "2": "ordered dithering"
         }
       },
       {
