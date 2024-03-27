@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "HS BWR 2.13\"",
 	"width": 256,
 	"height": 128,
@@ -75,8 +75,8 @@
 		],
 		"27": {
 			"bars": [ 26, 216, 80, 20 ],
-			"time": [ "BellCent10.vlw" ],
-			"yaxis": [ "BellCent10.vlw", 6, 6 ],
+			"time": [ "tahoma9.vlw" ],
+			"yaxis": [ "tahoma9.vlw", 6, 6 ],
 			"head": [ "bahnschrift20.vlw" ]
 		}
 	}

@@ -622,7 +622,7 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
         }
     }
     if (font == "glasstown_nbp_tf") {
-        font = "BellCent10.vlw";
+        font = "tahoma9.vlw";
         posy -= 8;
     }
     if (font == "7x14_tf") {
@@ -1244,7 +1244,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
             // 1: 20; offset cal block
             // 2: 30; offset left
             // 3: calibrib16.vlw; headers font
-            // 4: BellCent10.vlw; appointments font
+            // 4: tahoma9.vlw; appointments font
             // 5: 14; line height
 
             timeinfo.tm_hour = 0;
@@ -1556,7 +1556,7 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     for (double i = minPrice; i <= maxPrice; i += yAxisScale.step) {
         int y = mapDouble(i, minPrice, maxPrice, spr.height() - barBottom, spr.height() - barBottom - loc["bars"][2].as<int>());
         spr.drawLine(0, y, spr.width(), y, TFT_BLACK);
-        drawString(spr, String(int(i * units)), yAxisX, y - 8, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
+        drawString(spr, String(int(i * units)), yAxisX, y - 9, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
     }
 
     uint16_t barwidth = loc["bars"][1].as<int>() / n;

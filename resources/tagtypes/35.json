@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "M3 6.0\"",
 	"width": 600,
 	"height": 448,
@@ -12,7 +12,7 @@
 	},
 	"shortlut": 0,
 	"zlib_compression": "27",
-	"options": [ "led" ],
+	"options": [ "button", "led" ],
 	"contentids": [ 22, 23, 1, 4, 5, 8, 9, 7, 19, 10, 11 ],
 	"usetemplate": 1,
 	"template": {
@@ -35,7 +35,7 @@
 			"rotate": 0,
 			"mode": 1,
 			"days": 7,
-			"gridparam": [ 7, 17, 30, "calibrib16.vlw", "BellCent10.vlw", 14 ]
+			"gridparam": [ 7, 17, 30, "calibrib16.vlw", "tahoma9.vlw", 14 ]
 		}
 	}
 }
