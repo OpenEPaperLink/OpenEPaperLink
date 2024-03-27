@@ -56,7 +56,7 @@ void setup() {
 
   String str = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_abcdefghijklmnopqrstuvwxyz{|}~°ÄÅÆÖØÚÜßáäåæéíöøúüýąČěľłńŘřŚŠź";
   char[] charsetbasic = str.toCharArray();
-  str = "ACDEFHIJLMNOPRSTUVWZiortzÁÅÄÖØÚČŚŠ0123456789-";
+  str = "ABCDEFGHIJKLMNOPQRSTUVWXYZiortzÁÅÄÖØÚČŚŠ0123456789-";
   char[] charsetdaynames = str.toCharArray();
   str = "0123456789.°-";
   char[] charsetnumbers = str.toCharArray();
@@ -71,7 +71,7 @@ void setup() {
 
   createAndSaveFont("calibrib", ".ttf", charset, 16, crisp);
   createAndSaveFont("REFSAN", ".ttf", charset, 12, crisp);
-  createAndSaveFont("BellCentennialStd-Address", ".ttf", charset, 10, crisp);
+  createAndSaveFont("tahoma", ".ttf", charset, 9, crisp);
 
   try {
     String path = sketchPath();
