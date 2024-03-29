@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "M2 2.9\"",
 	"width": 296,
 	"height": 128,
@@ -73,9 +73,9 @@
 			{ "text": [ 120, 90, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
 		],
 		"27": {
-			"bars": [ 9, 288, 90, 10 ],
-			"time": [ "BellCent10.vlw" ],
-			"yaxis": [ "BellCent10.vlw", 0, 6 ],
+			"bars": [ 9, 288, 90, 11 ],
+			"time": [ "tahoma9.vlw" ],
+			"yaxis": [ "tahoma9.vlw", 0, 6 ],
 			"head": [ "calibrib30.vlw" ]
 		}
 	}

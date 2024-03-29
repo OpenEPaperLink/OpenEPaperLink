@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "M2 7.4\"",
 	"width": 640,
 	"height": 384,
@@ -51,7 +51,7 @@
 			"rotate": 0,
 			"mode": 1,
 			"days": 7,
-			"gridparam": [ 3, 17, 30, "calibrib16.vlw", "BellCent10.vlw", 14 ]
+			"gridparam": [ 3, 17, 30, "calibrib16.vlw", "tahoma9.vlw", 14 ]
 		}
 	}
 }
