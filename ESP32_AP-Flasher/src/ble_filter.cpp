@@ -16,6 +16,7 @@
 
 uint8_t gicToOEPLtype(uint8_t gicType) {
     switch (gicType) {
+        case 0xA0:
         case 0x08:
             return GICI_BLE_EPD_21_BW;
             break;
@@ -191,6 +192,10 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
         case 3:
             width_display = 384;
             height_display = 640;
+            break;
+        case 5:// TFT 2.1"
+            width_display = 104;
+            height_display = 212;
             break;
         case 7:
             width_display = 168;

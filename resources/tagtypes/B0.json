@@ -1,0 +1,16 @@
+{
+	"version": 1,
+	"name": "Gicisky BLE EPD BW 2.1\"",
+	"width": 212,
+	"height": 104,
+	"rotatebuffer": 1,
+	"bpp": 1,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ]
+	},
+	"shortlut": 0,
+	"options": [ "button", "customlut" ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 15, 16, 17, 18, 19, 20, 21 ],
+	"usetemplate": 1
+}
