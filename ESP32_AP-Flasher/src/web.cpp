@@ -110,7 +110,22 @@ void wsSendSysteminfo() {
         setVarDB("ap_date", timeBuffer);
     }
     setVarDB("ap_ip", WiFi.localIP().toString());
+
+#ifdef HAS_SUBGHZ
+    String ApChanString = String(apInfo.channel);
+    if(apInfo.hasSubGhz) {
+       ApChanString += ", SubGhz ";
+       if(apInfo.SubGhzChannel == 0) {
+          ApChanString += "disabled";
+       }
+       else {
+          ApChanString += "Ch " + String(apInfo.SubGhzChannel);
+       }
+    }
+    setVarDB("ap_ch", ApChanString);
+#else
     setVarDB("ap_ch", String(apInfo.channel));
+#endif
 
     // reboot once at night
     if (timeinfo.tm_hour == 4 && timeinfo.tm_min == 0 && millis() > 2 * 3600 * 1000) {
