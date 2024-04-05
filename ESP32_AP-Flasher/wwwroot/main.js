@@ -64,9 +64,9 @@ window.addEventListener("loadConfig", function () {
 			if (data.hasBLE == 0) {
 				$("#apcfgble").parentNode.style.display = 'none';
 			}
-			if (data.hasSubGhz == 0) {
-				$("#apcfgsubgigchid").parentNode.style.display = 'none';
-			}
+      if (data.hasSubGhz == 0) {
+        $("#apcfgsubgigchid").parentNode.style.display = 'none';
+      }
 			if (data.savespace) {
 			}
 			if (data.apstate) {
@@ -1472,7 +1472,7 @@ function dropUpload() {
 					const canvas = createCanvas(width, height);
 					const ctx = canvas.getContext('2d');
 
-					const scaleFactor = Math.min(
+					const scaleFactor = Math.max(
 						canvas.width / image.width,
 						canvas.height / image.height
 					);
@@ -1483,8 +1483,6 @@ function dropUpload() {
 					const x = (canvas.width - newWidth) / 2;
 					const y = (canvas.height - newHeight) / 2;
 
-					ctx.fillStyle = "white";
-					ctx.fillRect(0, 0, canvas.width, canvas.height);
 					ctx.drawImage(image, x, y, newWidth, newHeight);
 
 					canvas.toBlob(async (blob) => {
