@@ -84,6 +84,7 @@
 #define STYPE_SIZE_022 0x41
 #define STYPE_SIZE_026 0x43
 #define STYPE_SIZE_029 0x42
+#define STYPE_SIZE_029_BW 0x4E
 #define STYPE_SIZE_029_FREEZER 0x22
 #define STYPE_SIZE_042 0x46
 #define STYPE_SIZE_043 0x47
@@ -113,7 +114,7 @@
 #define DATATYPE_IMG_DIFF 0x10             // always 1BPP ** deprecated
 #define DATATYPE_IMG_RAW_1BPP 0x20         // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
 #define DATATYPE_IMG_RAW_2BPP 0x21         // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2"
-#define DATATYPE_IMG_ZLIB 0x30             // compressed format. 
+#define DATATYPE_IMG_ZLIB 0x30             // compressed format.
                                                     // [uint32_t uncompressed size][2 byte zlib header][zlib compressed image]
                                                     // image format: [uint8_t header length][uint16_t width][uint16_t height][uint8_t bpp (lower 4)][img data]
 
@@ -156,7 +157,7 @@
 #define EPD_LUT_FAST 3
 #define EPD_LUT_OTA 0x10
 
-// these are the 'custom image' arguments that will be sent in addition to their 'type'. 
+// these are the 'custom image' arguments that will be sent in addition to their 'type'.
 #define CUSTOM_IMAGE_NOCUSTOM 0x00         // regular image type
 #define CUSTOM_IMAGE_SPLASHSCREEN 0x01     // will show at first boot/powerup
 #define CUSTOM_IMAGE_LOST_CONNECTION 0x02  // this image will be shown (if it exists on the tag) if the tag looses its connection
