@@ -1,2 +1,7 @@
 /appstate.json
 **/.cache/*
+
+# ignore all packages except framework-arduinonordicnrf5
+/packages/**/
+!/packages/framework-arduinonordicnrf5/
+!/packages/framework-arduinonordicnrf5/**
