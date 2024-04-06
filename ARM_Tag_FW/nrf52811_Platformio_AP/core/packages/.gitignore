@@ -1,0 +1,7 @@
+**/tool-bossac-nordicnrf52/*
+**/tool-jlink/*
+**/tool-nrfjprog/*
+**/tool-openocd/*
+**/tool-scons/*
+**/tool-sreccat/*
+**/toolchain-gccarmnoneeabi/*
