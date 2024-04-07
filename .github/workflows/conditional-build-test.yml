@@ -18,7 +18,8 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          token: ${{ github.token }}
+          # TODO: work around issue with paths-filter (https://github.com/dorny/paths-filter/issues/227)
+          token: ''
           filters: .github/path-filters.yml
 
   tag-build:
