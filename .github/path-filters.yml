@@ -1,0 +1,16 @@
+arm-tag_common: &arm-tag_common
+  - 'ARM_Tag_FW/common/**'
+
+arm-tag_88MZ100:
+  - '*arm-tag_common'
+  - 'ARM_Tag_FW/88MZ100/**'
+
+arm-tag_newton-m3-nrf52811:
+  - '*arm-tag_common'
+  - 'ARM_Tag_FW/Newton_M3_nRF52811/**'
+
+arm-tag_nrf52811-pio-ap:
+  - 'ARM_Tag_FW/nrf52811_Platformio_AP/**'
+
+esp32-ap:
+  - 'ESP32_AP-Flasher/**'
