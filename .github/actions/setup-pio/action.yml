@@ -17,7 +17,7 @@ runs:
         path: |
           ~/.cache/pip
           ~/.platformio/.cache
-        key: ${{ runner.os }}-${{ inputs.python-version }}-pio }}
+        key: ${{ runner.os }}-${{ inputs.python-version }}-pio
 
     - name: Set up Python
       uses: actions/setup-python@v4
