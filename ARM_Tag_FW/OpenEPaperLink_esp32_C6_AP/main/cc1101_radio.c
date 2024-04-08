@@ -142,10 +142,16 @@ enum RFSTATE {
 
 // IOCFG2 GDO2: high when TX FIFO at or above the TX FIFO threshold
 #define CC1101_DEFVAL_IOCFG2           0x02
+
+// IOCFG1 GDO1: High impedance (3-state)
 #define CC1101_DEFVAL_IOCFG1           0x2E
-// GDO0 Asserts when sync word has been sent / received, and 
-// de-asserts at the end of the packet.
+
+// GDO0 goes high when sync word has been sent / received, and 
+// goes low at the end of the packet.
+// In TX mode the pin will go low if the TX FIFO underflows.
 #define CC1101_DEFVAL_IOCFG0           0x06
+
+// Threshold = 32 bytes (1/2 of FIFO len)
 #define CC1101_DEFVAL_FIFOTHR          0x07
 #define CC1101_DEFVAL_RCCTRL1          0x41
 #define CC1101_DEFVAL_RCCTRL0          0x00
