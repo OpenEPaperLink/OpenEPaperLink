@@ -26,7 +26,8 @@
 sdcc/sdcc
 
 ESP32_AP-Flasher/.vscode/extensions.json
-ARM_Tag_FW\Newton_M3_nRF52811\$PROJECT_DIR
+# ignore any $PROJECT_DIR directories (from incorrect interpolation variables)
+$PROJECT_DIR/
 
 # OS generated files
 .DS_Store
