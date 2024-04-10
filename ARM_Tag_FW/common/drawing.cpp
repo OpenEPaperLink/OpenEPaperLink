@@ -224,6 +224,9 @@ void drawImageAtAddressWrap(uint32_t addr, uint8_t lut) {
 #endif
     switch (eih.dataType) {
         case DATATYPE_IMG_RAW_1BPP: {
+#ifdef DEBUG_DRAWING
+            printf("DRAW: 1BPP\n");
+#endif
             drawItem *di = new drawItem;
             // di->setRotation(ro);
             di->xpos = 0;
@@ -241,6 +244,9 @@ void drawImageAtAddressWrap(uint32_t addr, uint8_t lut) {
             di->addToList();
         } break;
         case DATATYPE_IMG_RAW_2BPP: {
+#ifdef DEBUG_DRAWING
+            printf("DRAW: 2BPP\n");
+#endif
             drawItem *di = new drawItem;
             // di->setRotation(ro);
             di->xpos = 0;
