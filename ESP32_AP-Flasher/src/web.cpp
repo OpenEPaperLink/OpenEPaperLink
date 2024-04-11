@@ -131,8 +131,9 @@ void wsSendSysteminfo() {
     if (timeinfo.tm_hour == 4 && timeinfo.tm_min == 0 && millis() > 2 * 3600 * 1000) {
         logLine("Nightly reboot");
         wsErr("REBOOTING");
-        delay(100);
+        config.runStatus = RUNSTATUS_STOP;
         ws.enable(false);
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
         refreshAllPending();
         saveDB("/current/tagDB.json");
         ws.closeAll();
@@ -721,18 +722,27 @@ void init_web() {
         ws.enable(false);
 
         if (jsonObj["ssid"].as<String>() == "factory") {
+            config.runStatus = RUNSTATUS_STOP;
+            vTaskDelay(2000 / portTICK_PERIOD_MS);
             preferences.begin("wifi", false);
             preferences.putString("ssid", "");
             preferences.putString("pw", "");
             preferences.end();
+            destroyDB();
+            cleanupCurrent();
             contentFS->remove("/AP_FW_Pack.bin");
             contentFS->remove("/OpenEPaperLink_esp32_C6.bin");
             contentFS->remove("/bootloader.bin");
             contentFS->remove("/partition-table.bin");
             contentFS->remove("/update_actions.json");
             contentFS->remove("/log.txt");
+            contentFS->remove("/logold.txt");
             contentFS->remove("/current/tagDB.json");
+            contentFS->remove("/current/tagDB.json.bak");
+            contentFS->remove("/current/tagDBrestored.json");
+            contentFS->remove("/current/apconfig.json");
             delay(100);
+            esp_deep_sleep_start();
             ESP.restart();
         } else {
             refreshAllPending();

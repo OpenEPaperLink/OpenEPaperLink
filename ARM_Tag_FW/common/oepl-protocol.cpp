@@ -552,7 +552,7 @@ static uint8_t *getDataBlock(const uint16_t blockSize) {
         memset(curBlock.requestedParts, 0xFF, BLOCK_REQ_PARTS_BYTES);
     } else {
         partsThisBlock = (sizeof(struct blockData) + blockSize) / BLOCK_PART_DATA_SIZE;
-        if (blockSize % BLOCK_PART_DATA_SIZE)
+        if ((sizeof(struct blockData) + blockSize) % BLOCK_PART_DATA_SIZE)
             partsThisBlock++;
         memset(curBlock.requestedParts, 0x00, BLOCK_REQ_PARTS_BYTES);
         for (uint8_t c = 0; c < partsThisBlock; c++) {
@@ -952,6 +952,9 @@ bool processImageDataAvail(struct AvailDataInfo *avail) {
 }
 
 bool processAvailDataInfo(struct AvailDataInfo *avail) {
+#ifdef DEBUG_PROTO
+    printf("PROTO: New dataAvail with type 0x%02X\n", avail->dataType);
+#endif
     switch (avail->dataType) {
         case DATATYPE_IMG_RAW_1BPP:
         case DATATYPE_IMG_RAW_2BPP:

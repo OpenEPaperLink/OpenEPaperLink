@@ -1,16 +1,15 @@
 {
-	"version": 0,
+	"version": 1,
 	"name": "M3 2.9\" BW",
 	"width": 384,
 	"height": 168,
 	"rotatebuffer": 3,
 	"bpp": 1,
-	"colors": 2,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
-		"black": [ 0, 0, 0 ],
-		"gray": [ 150, 150, 150 ]
+		"black": [ 0, 0, 0 ]
 	},
+	"highlight_color": 5,
 	"shortlut": 0,
 	"zlib_compression": "27",
 	"options": [ "button", "led" ],
