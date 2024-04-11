@@ -10,6 +10,7 @@ jobs:
     # Map a step output to job output
     outputs:
       arm-tag_newton-m3-nrf52811: ${{ steps.filter.outputs.arm-tag_newton-m3-nrf52811 }}
+      arm-tag_nrf-bootloader: ${{ steps.filter.outputs.arm-tag_nrf-bootloader }}
       arm-tag_nrf52811-pio-ap: ${{ steps.filter.outputs.arm-tag_nrf52811-pio-ap }}
       arm-tag_88MZ100: ${{ steps.filter.outputs.arm-tag_88MZ100 }}
       esp32-ap: ${{ steps.filter.outputs.esp32-ap }}
@@ -32,6 +33,12 @@ jobs:
         with:
           submodules: 'recursive'
       - uses: ./.github/actions/setup-pio
+
+      - name: ARM_Tag_FW/nRF_Bootloader
+        if: ${{ needs.determine-builds.outputs.arm-tag_nrf-bootloader == 'true' }}
+        run: |
+          cd ARM_Tag_FW/nRF_Bootloader
+          pio run --environment nRFBootload
 
       - name: ARM_Tag_FW/Newton_M3_nRF52811
         if: ${{ needs.determine-builds.outputs.arm-tag_newton-m3-nrf52811 == 'true' }}
