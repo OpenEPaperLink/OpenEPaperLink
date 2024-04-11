@@ -21,7 +21,7 @@ Parts for the PCB:
 - 3x 0603 LEDs in the color of your choice : LTST-C190KRKT
 - 2x 0603 Capacitor 10uf : CL10A106KP8NNNC
 - 2x Button : TS24CA
-- 2x 0603 Resistor 1K for the LEDs : 0603WAF1001T5E
+- 3x 0603 Resistor 1K for the LEDs : 0603WAF1001T5E
 - 5x 0603 Resistor 10K for Buttons, Enable, flash pull-up and Boot line of ESP32-S3 and C6 : 0603WAF1002T5E
 - 2x 0603 Resistor 5,1K for USB-C : 0603WAF5101T5E
 - 2x SOT23-5 LDO 6V to 3.3V : ME6211C33M5G
