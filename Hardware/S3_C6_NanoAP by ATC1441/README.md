@@ -29,4 +29,4 @@ Parts for the PCB:
 - 4x 0603 Capacitor 100nf : CC0603KRX7R9BB104
 
 ## BOM Passives Placement Guide
-<img width="400" alt="PCB_S3_C6_NanoAP BOM Placement Guide" src="s3_c6_nano_v1_BOM_placement.jpg">
+<img width="400" alt="PCB_S3_C6_NanoAP BOM Placement Guide" src="s3_c6_nano_v1_BOM_placement_v1.jpg">
