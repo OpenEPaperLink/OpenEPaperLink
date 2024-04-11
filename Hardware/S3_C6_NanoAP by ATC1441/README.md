@@ -27,3 +27,6 @@ Parts for the PCB:
 - 2x SOT23-5 LDO 6V to 3.3V : ME6211C33M5G
 - 1x 16pin USB-C Connector : TYPE-C 16PIN 5A 143
 - 4x 0603 Capacitor 100nf : CC0603KRX7R9BB104
+
+## BOM Passives Placement Guide
+<img width="600" alt="PCB_S3_C6_NanoAP BOM Placement Guide" src="s3_c6_nano_v1_BOM_placement.jpg">
