@@ -60,6 +60,7 @@ void identifyTagInfo() {
             0x12 - SSD (var1.6)
             0x15 - SSD (2.9 lite)
             0x19 - SSD (9.7)
+            0x0A - SSD (4.2)
     0x0A -  Have third color?
     0x12 -  0x01 | (0x80 if it has a button)
     0x13 -  0x80 | (0x10 if it has a LED) | (0x0C ?? ) | (0x01 if it has a button)
@@ -81,6 +82,7 @@ void identifyTagInfo() {
     }
 
     switch (controllerType) {
+        case 0x0A:
         case 0x0F:
         case 0x12:
         case 0x15:
