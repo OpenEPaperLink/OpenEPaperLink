@@ -50,7 +50,6 @@ jobs:
 
       - name: Add C6 files to release
         run: |
-          cd ESP32_AP-Flasher
           cp /home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/build/OpenEPaperLink_esp32_C6.bin espbinaries/OpenEPaperLink_esp32_C6.bin
 #      - name: Zip web files
 #        run: | 
