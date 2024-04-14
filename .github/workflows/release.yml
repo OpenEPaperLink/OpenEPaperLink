@@ -25,7 +25,7 @@ jobs:
         with:
           esp_idf_version: latest
           target: esp32c6
-          path: 'OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/'
+          path: '/home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/'
           
 #      - name: Commit zipped files 
 #        run: |
