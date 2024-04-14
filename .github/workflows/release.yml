@@ -20,17 +20,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-      - name: esp-idf build
-        uses: espressif/esp-idf-ci-action@v1
-        with:
-          esp_idf_version: latest
-          target: esp32c6
-          path: 'ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/'
-
-      - name: Add C6 files to release
-        run: |
-          cd ESP32_AP-Flasher
-          cp /home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/build/OpenEPaperLink_esp32_C6.bin espbinaries/OpenEPaperLink_esp32_C6.bin
           
 #      - name: Commit zipped files 
 #        run: |
@@ -52,6 +41,17 @@ jobs:
         run: |
           mkdir espbinaries
 
+      - name: esp-idf build
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: latest
+          target: esp32c6
+          path: 'ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/'
+
+      - name: Add C6 files to release
+        run: |
+          cd ESP32_AP-Flasher
+          cp /home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/build/OpenEPaperLink_esp32_C6.bin espbinaries/OpenEPaperLink_esp32_C6.bin
 #      - name: Zip web files
 #        run: | 
 #            cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_AP-Flasher
