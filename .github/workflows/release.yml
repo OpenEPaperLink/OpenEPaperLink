@@ -20,6 +20,12 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+      - name: esp-idf build
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: latest
+          target: esp32c6
+          path: 'OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/'
           
 #      - name: Commit zipped files 
 #        run: |
