@@ -64,9 +64,9 @@ window.addEventListener("loadConfig", function () {
 			if (data.hasBLE == 0) {
 				$("#apcfgble").parentNode.style.display = 'none';
 			}
-      if (data.hasSubGhz == 0) {
-        $("#apcfgsubgigchid").parentNode.style.display = 'none';
-      }
+			if (data.hasSubGhz == 0) {
+				$("#apcfgsubgigchid").parentNode.style.display = 'none';
+			}
 			if (data.savespace) {
 			}
 			if (data.apstate) {
@@ -297,6 +297,9 @@ function processTags(tagArray) {
 			(async () => {
 				const localTagmac = tagmac;
 				const data = await getTagtype(element.hwType);
+				if (data.usetemplate != 0) {
+					const template = await getTagtype(data.usetemplate);
+				}
 				$('#tag' + localTagmac + ' .model').innerHTML = data.name;
 				$('#tag' + localTagmac + ' .resolution').innerHTML = data.width + "x" + data.height;
 				if (element.ver != 0 && element.ver != 1) {
@@ -1408,6 +1411,7 @@ async function getTagtype(hwtype) {
 			return data;
 		}
 		const jsonData = await response.json();
+
 		let data = {
 			name: jsonData.name,
 			width: parseInt(jsonData.width),
@@ -1419,11 +1423,13 @@ async function getTagtype(hwtype) {
 			options: Object.values(jsonData.options ?? []),
 			zlib: parseInt(jsonData.zlib_compression || "0", 16),
 			shortlut: parseInt(jsonData.shortlut),
-			busy: false
+			busy: false,
+			usetemplate:parseInt(jsonData.usetemplate || "0",10)
 		};
 		tagTypes[hwtype] = data;
 		localStorage.setItem("tagTypes", JSON.stringify(tagTypes));
 		getTagtypeBusy = false;
+
 		return data;
 
 	} catch (error) {
