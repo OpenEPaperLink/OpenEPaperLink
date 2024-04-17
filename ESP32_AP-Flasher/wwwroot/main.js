@@ -1424,7 +1424,7 @@ async function getTagtype(hwtype) {
 			zlib: parseInt(jsonData.zlib_compression || "0", 16),
 			shortlut: parseInt(jsonData.shortlut),
 			busy: false,
-			usetemplate:parseInt(jsonData.usetemplate || "0",16)
+			usetemplate:parseInt(jsonData.usetemplate || "0",10)
 		};
 		tagTypes[hwtype] = data;
 		localStorage.setItem("tagTypes", JSON.stringify(tagTypes));
