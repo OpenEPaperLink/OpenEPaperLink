@@ -9,3 +9,5 @@
 	- ribbon cable with connectors, 10 pin, 1.27 pitch (https://www.aliexpress.com/item/1005003375672088.html, make sure you select '2x5 10P')
 	- P75-B1 pogo pins (https://www.aliexpress.com/item/32944964110.html)
 
+When glueing the cap: Don't use cyanoacrylate glue, as this is too liquid: it creeps into the pogo pins, glueing them stuck. Use a simple cheap hobby glue or wood glue. Let it dry overnight.
+
