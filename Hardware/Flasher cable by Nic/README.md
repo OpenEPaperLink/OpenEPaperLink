@@ -11,3 +11,12 @@
 
 When glueing the cap: Don't use cyanoacrylate glue, as this is too liquid: it creeps into the pogo pins, glueing them stuck. Use a simple cheap hobby glue or wood glue. Let it dry overnight.
 
+<img width="600" src="IMG_5527.jpeg">
+
+<img width="600" src="IMG_5529.jpeg">
+
+<img width="600" src="IMG_5555.jpeg">
+
+<img width="600" src="IMG_5557.jpeg">
+
+<img width="600" src="IMG_6062.jpeg">
