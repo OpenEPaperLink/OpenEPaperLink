@@ -297,6 +297,7 @@ function processTags(tagArray) {
 			(async () => {
 				const localTagmac = tagmac;
 				const data = await getTagtype(element.hwType);
+				div.dataset.usetemplate = data.usetemplate;
 				if (data.usetemplate != 0) {
 					const template = await getTagtype(data.usetemplate);
 				}
@@ -523,6 +524,7 @@ function loadContentCard(mac) {
 			$('#cfglut').value = tagdata.lut;
 			$('#cfginvert').value = tagdata.invert;
 			$('#cfgmore').innerHTML = '&#x25BC;';
+			$('#cfgmac').dataset.ch = tagdata.ch;
 			$('#configbox').showModal();
 		})
 }
@@ -969,13 +971,27 @@ function contentselected() {
 						});
 					break;
 				case 'select':
+				case 'chanselect':
 					input = document.createElement("select");
-					for (const key in element.options) {
+					let options;
+					if(element.type == 'chanselect') {
+						if($('#cfgmac').dataset.ch < 100) {
+							options = element.chans;
+						}
+						else {
+							options = element.subchans;
+						}
+					}
+					else {
+						options = element.options
+					}
+
+					for (const key in options) {
 						const optionElement = document.createElement("option");
 						optionElement.value = key;
-						optionElement.text = element.options[key];
-						if (element.options[key].substring(0, 1) == "-") {
-							optionElement.text = element.options[key].substring(1);
+						optionElement.text = options[key];
+						if (options[key].substring(0, 1) == "-") {
+							optionElement.text = options[key].substring(1);
 							optionElement.selected = true;
 						} else {
 							optionElement.selected = false;
