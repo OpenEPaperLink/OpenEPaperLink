@@ -64,9 +64,9 @@ window.addEventListener("loadConfig", function () {
 			if (data.hasBLE == 0) {
 				$("#apcfgble").parentNode.style.display = 'none';
 			}
-      if (data.hasSubGhz == 0) {
-        $("#apcfgsubgigchid").parentNode.style.display = 'none';
-      }
+			if (data.hasSubGhz == 0) {
+				$("#apcfgsubgigchid").parentNode.style.display = 'none';
+			}
 			if (data.savespace) {
 			}
 			if (data.apstate) {
@@ -297,6 +297,10 @@ function processTags(tagArray) {
 			(async () => {
 				const localTagmac = tagmac;
 				const data = await getTagtype(element.hwType);
+				div.dataset.usetemplate = data.usetemplate;
+				if (data.usetemplate != 0) {
+					const template = await getTagtype(data.usetemplate);
+				}
 				$('#tag' + localTagmac + ' .model').innerHTML = data.name;
 				$('#tag' + localTagmac + ' .resolution').innerHTML = data.width + "x" + data.height;
 				if (element.ver != 0 && element.ver != 1) {
@@ -520,6 +524,7 @@ function loadContentCard(mac) {
 			$('#cfglut').value = tagdata.lut;
 			$('#cfginvert').value = tagdata.invert;
 			$('#cfgmore').innerHTML = '&#x25BC;';
+			$('#cfgmac').dataset.ch = tagdata.ch;
 			$('#configbox').showModal();
 		})
 }
@@ -966,13 +971,27 @@ function contentselected() {
 						});
 					break;
 				case 'select':
+				case 'chanselect':
 					input = document.createElement("select");
-					for (const key in element.options) {
+					let options;
+					if(element.type == 'chanselect') {
+						if($('#cfgmac').dataset.ch < 100) {
+							options = element.chans;
+						}
+						else {
+							options = element.subchans;
+						}
+					}
+					else {
+						options = element.options
+					}
+
+					for (const key in options) {
 						const optionElement = document.createElement("option");
 						optionElement.value = key;
-						optionElement.text = element.options[key];
-						if (element.options[key].substring(0, 1) == "-") {
-							optionElement.text = element.options[key].substring(1);
+						optionElement.text = options[key];
+						if (options[key].substring(0, 1) == "-") {
+							optionElement.text = options[key].substring(1);
 							optionElement.selected = true;
 						} else {
 							optionElement.selected = false;
@@ -1408,6 +1427,7 @@ async function getTagtype(hwtype) {
 			return data;
 		}
 		const jsonData = await response.json();
+
 		let data = {
 			name: jsonData.name,
 			width: parseInt(jsonData.width),
@@ -1419,11 +1439,13 @@ async function getTagtype(hwtype) {
 			options: Object.values(jsonData.options ?? []),
 			zlib: parseInt(jsonData.zlib_compression || "0", 16),
 			shortlut: parseInt(jsonData.shortlut),
-			busy: false
+			busy: false,
+			usetemplate:parseInt(jsonData.usetemplate || "0",10)
 		};
 		tagTypes[hwtype] = data;
 		localStorage.setItem("tagTypes", JSON.stringify(tagTypes));
 		getTagtypeBusy = false;
+
 		return data;
 
 	} catch (error) {

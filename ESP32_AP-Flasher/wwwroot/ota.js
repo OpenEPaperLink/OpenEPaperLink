@@ -595,9 +595,14 @@ async function fetchAndCheckTagtypes(cleanup) {
             const filename = file.name;
             print(filename, "green");
             let check = true;
+            let hwtype = parseInt(filename, 16);
 
             if (cleanup) {
-                let isInUse = Array.from(gridItems).some(element => element.dataset.hwtype == parseInt(filename, 16));
+                let isInUse = Array.from(gridItems).some(element => element.dataset.hwtype == hwtype);
+                if (!isInUse) {
+
+                    isInUse = Array.from(gridItems).some(element => element.dataset.usetemplate == hwtype);
+                }
                 if (!isInUse) {
                     print("not in use, deleting", "yellow");
                     const formData = new FormData();

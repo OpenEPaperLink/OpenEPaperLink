@@ -668,6 +668,11 @@ void sendBlockData() {
                 partNo++;
             }
         }
+        if(dstPan == PROTO_PAN_ID_SUBGHZ) {
+        // Don't send BLOCK_MAX_PARTS for subgig, it requests what it 
+        // can handle with its limited RAM
+           break;
+        }
     }
 }
 void sendXferCompleteAck(uint8_t *dst) {
@@ -734,7 +739,7 @@ void app_main(void) {
 
     radio_init(curChannel);
 #ifdef CONFIG_OEPL_SUBGIG_SUPPORT
-    if(!SubGig_radio_init(curSubGhzChannel)) {
+    if(SubGig_radio_init(curSubGhzChannel)) {
     // Ether we don't have a cc1101 or it's not working
        curSubGhzChannel = NO_SUBGHZ_CHANNEL; 
        ESP_LOGI(TAG,"CC1101 NOT detected.");
