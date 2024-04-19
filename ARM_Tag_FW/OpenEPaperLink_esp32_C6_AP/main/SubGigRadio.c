@@ -18,6 +18,9 @@
 
 void DumpHex(void *AdrIn,int Len);
 
+#define LOGE(format, ... ) \
+   printf("%s#%d: " format,__FUNCTION__,__LINE__,## __VA_ARGS__)
+
 #if 0
 #define LOG(format, ... ) printf("%s: " format,__FUNCTION__,## __VA_ARGS__)
 #define LOG_RAW(format, ... ) printf(format,## __VA_ARGS__)
@@ -219,6 +222,7 @@ static void IRAM_ATTR gpio_isr_handler(void *arg)
    gSubGigData.RxAvailable = true;
 }
 
+// return SUBGIG_ERR_NONE aka ESP_OK aka 0 if CC1101 is detected and all is good
 SubGigErr SubGig_radio_init(uint8_t ch)
 {
    esp_err_t Err;
@@ -300,18 +304,20 @@ SubGigErr SubGig_radio_init(uint8_t ch)
       SubGig_CC1101_reset();
       CC1101_SetConfig(NULL);
       SubGig_CC1101_SetConfig(gDmitry915);
-#if 1
+#if 0
       CC1101_DumpRegs();
 #endif
       if(ch != 0) {
          SubGig_radioSetChannel(ch);
       }
    // good to go!
-      Ret = true;
    } while(false);
 
    if(ErrLine != 0) {
       LOG("%s#%d: failed %d\n",__FUNCTION__,ErrLine,Err);
+      if(Err == 0) {
+         Ret = ESP_FAIL;
+      }
    }
    return Ret;
 }
@@ -426,7 +432,16 @@ int8_t SubGig_commsRxUnencrypted(uint8_t *data)
       if(gSubGigData.FreqTest) {
          break;
       }
-      if(gSubGigData.RxAvailable) {
+      if(!gSubGigData.RxAvailable && gpio_get_level(CONFIG_GDO0_GPIO) == 1) {
+      // Did we miss an interrupt?
+         if(gpio_get_level(CONFIG_GDO0_GPIO) == 1) {
+         // Yup!
+            LOGE("SubGhz lost interrupt\n");
+            gSubGigData.RxAvailable = true;
+         }
+      }
+
+      if(gSubGigData.RxAvailable){
          gSubGigData.RxAvailable = false;
          RxBytes = CC1101_Rx(data,128,NULL,NULL);
 
