@@ -28,7 +28,7 @@ bool noAPShown = false;
 void addOverlay() {
     if (currentChannel == 0) {
         drawMask(epd->Xres - 28, 4, 24, 24, COLOR_BLACK);
-        if (tag.hasThirdColor) {
+        if (tag.thirdColor) {
             drawMask(epd->Xres - 28, 4, 24, 24, COLOR_RED);
             drawRoundedRectangle(epd->Xres - 28, 4, 24, 24, COLOR_RED);
             addBufferedImage(epd->Xres - 24, 8, COLOR_BLACK, rotation::ROTATE_0, ant, DRAW_NORMAL);
@@ -45,7 +45,7 @@ void addOverlay() {
 
     if (lowBattery) {
         drawMask(epd->Xres - 27, epd->Yres - 26, 22, 22, COLOR_BLACK);
-        if (tag.hasThirdColor) {
+        if (tag.thirdColor) {
             drawMask(epd->Xres - 27, epd->Yres - 26, 22, 22, COLOR_RED);
             drawRoundedRectangle(epd->Xres - 28, epd->Yres - 26, 24, 24, COLOR_RED);
         } else {
@@ -60,7 +60,7 @@ void addOverlay() {
 #ifdef DEBUG_BUILD
     fontrender fr(&FreeSansBold18pt7b);
     drawMask(15, epd->Yres - 53, 130, 33, COLOR_BLACK);
-    if (tag.hasThirdColor) {
+    if (tag.thirdColor) {
         drawMask(15, epd->Yres - 53, 130, 33, COLOR_RED);
         drawRoundedRectangle(15, epd->Yres - 53, 129, 33, COLOR_RED);
         fr.epdPrintf(17, epd->Yres - 50, COLOR_RED, rotation::ROTATE_0, "DEBUG");
@@ -209,7 +209,7 @@ void showSplashScreen() {
     }
 #ifdef DEBUG_BUILD
     drawMask(15, epd->Yres - 53, 129, 33, COLOR_BLACK);
-    if (tag.hasThirdColor) {
+    if (tag.thirdColor) {
         drawMask(15, epd->Yres - 53, 129, 33, COLOR_RED);
         drawRoundedRectangle(15, epd->Yres - 53, 129, 33, COLOR_RED);
         fr.setFont(&FreeSansBold18pt7b);

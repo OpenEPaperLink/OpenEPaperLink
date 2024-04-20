@@ -102,7 +102,7 @@ void dualssd::epdSetup() {
             epdWrite(CMD_DATA_ENTRY_MODE + CONTROLLER_ONE, 1, 0x02);
             epdWrite(CMD_DATA_ENTRY_MODE + CONTROLLER_TWO, 1, 0x03);
 
-            if (tag.hasThirdColor) {
+            if (tag.thirdColor) {
                 epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x08, 0x10);
             } else {
                 epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x48, 0x10);
@@ -127,7 +127,7 @@ void dualssd::epdWriteDisplayData() {
     uint8_t *buf[2] = {0, 0};  // this will hold pointers to odd/even data lines
     // Those dual SSD controller (SSD1683??) behave as 2 400pxx wide screens, that needs independent data transfers.
     uint8_t c_increment = 1;
-    if (!tag.hasThirdColor) {
+    if (!tag.thirdColor) {
         c_increment = 2;
     }
     for (uint8_t c = 0; c < 4; c = c + c_increment) {

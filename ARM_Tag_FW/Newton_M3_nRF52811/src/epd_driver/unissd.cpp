@@ -87,7 +87,7 @@ void unissd::epdSetup() {
             epdWrite(CMD_TEMP_SENSOR_CONTROL, 1, 0x80);
             // end stock init
             // added
-            if (tag.hasThirdColor) {
+            if (tag.thirdColor) {
                 epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x08, 0x00);  // fix reversed image with stock setup
             } else {
                 epdWrite(CMD_DISP_UPDATE_CTRL, 2, 0x48, 0x00);  // fix reversed image with stock setup
@@ -118,7 +118,7 @@ void unissd::epdWriteDisplayData() {
     // this display expects two entire framebuffers worth of data to be written, one for b/w and one for red
     uint8_t *buf[2] = {0, 0};  // this will hold pointers to odd/even data lines
     uint8_t c_end = 2;         // The loop must be executed 2 times if BWR, 1 time if BW
-    if (!tag.hasThirdColor) {
+    if (!tag.thirdColor) {
         c_end = 1;
     }
     for (uint8_t c = 0; c < c_end; c++) {

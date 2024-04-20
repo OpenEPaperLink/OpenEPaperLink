@@ -110,7 +110,7 @@ struct tagSpecs {
     bool hasNFC = false;
     bool hasLED = false;
     bool ledInverted = false;
-    bool hasThirdColor = false;
+    uint8_t thirdColor = false;
     uint8_t boardType = NRF_BOARDTYPE_REGULAR;
     uint16_t macSuffix = 0x0000;
     uint8_t OEPLtype = 0;
