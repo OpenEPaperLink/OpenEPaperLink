@@ -44,12 +44,11 @@ void identifyTagInfo() {
     72 92 1E 7E 15 0B 09 04 00 15 00 80 01 A8 00 38 00 01 01 9C 00 00 22 FF FF FF FF FF FF FF FF FF     2.9" FREEZER
     2F A5 03 06 15 0C 07 04 00 15 00 80 01 A8 00 38 00 07 81 1D 00 00 4E FF FF FF FF FF FF FF FF FF     2.9" BW
     31 50 53 06 16 02 19 04 00 12 01 C8 00 C8 00 04 00 07 01 9C 00 00 40 FF FF FF FF FF FF FF FF FF
-
     4B F3 DE 04 15 05 07 04 00 0F 01 C8 00 90 00 38 00 07 01 19 00 00 4D FF FF FF FF FF FF FF FF FF     1.3-peghook
+---|----MAC----|--------------|--|SC|X----|Y----|--------|B1|--------|TY|
 
 
-
-            MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
+        MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
 
     0x09 - controller?
             0x0D - UC8151?
@@ -205,9 +204,6 @@ void identifyTagInfo() {
                     tag.OEPLtype = SOLUM_M3_BWY_42;
                     break;
             }
-            tag.macSuffix = 0xB6D0;
-            tag.OEPLtype = SOLUM_M3_BWR_42;
-
             epd->epdMirrorV = true;
             break;
         case STYPE_SIZE_043:
