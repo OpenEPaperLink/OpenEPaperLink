@@ -94,7 +94,7 @@ SECTIONS
 	    }
 		PROVIDE(_end_bss_ = .);
     
-    /* ASSERT((_end_bss_ < 0x848000), "RETENTION OVERFOLWN!!!!!") */
+     ASSERT((_end_bss_ < 0x848000), "RETENTION OVERFOLWN!!!!!") 
     
      . = (((. + 3) / 4)*4);
     PROVIDE(_custom_stored_ = _dstored_ + _end_data_ - _start_data_);

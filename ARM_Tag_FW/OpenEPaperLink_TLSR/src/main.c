@@ -87,66 +87,71 @@ int main(void)
 {
 	startup_state_e state = drv_platform_init();
 	u8 isRetention = (state == SYSTEM_DEEP_RETENTION) ? 1 : 0;
-	isRetention = 0; // keep the compiler happy
-	noApShown = false;
 	drv_enable_irq();
 	init_led();
 	init_uart();
 	init_nfc();
 
-	printf("\r\n\r\n\r\nSTARTING\r\n\r\n\r\n\r\n");
-
-	u32 flash_mid = 0;
-	u8 flash_uid[16] = {0};
-	printf("Reading UID");
-	int flag = flash_read_mid_uid_with_check(&flash_mid, flash_uid);
-	if (flag)
-	{
-		for (int i = 0; i < 16; i++)
-		{
-			printf(" %02X", flash_uid[i]);
-		}
-		printf("\r\n");
-		for (int i = 0; i < 8; i++)
-		{
-			mSelfMac[i] = flash_uid[i + 8];
-		}
-	}
-	else
-	{
-		printf(" - Failed!\r\n");
-	}
-
-	sprintf(ownMacString, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
-
-	batteryVoltage = get_battery_mv();
-
-	printf("Battery mv: %d Millis: %d\r\n", batteryVoltage, getMillis());
-
-	// epd_display("Boot", batteryVoltage, ownMacString, 1);
-
-	initializeProto();
-
-	currentChannel = showChannelSelect();
+	printf("\r\n\r\n\r\nSTARTING %02X\r\n\r\n\r\n\r\n", isRetention);
 
 	wdt10s();
-
-	if (currentChannel)
+	if (isRetention == 0)
 	{
-		our_ch = currentChannel;
-		printf("AP Found\r\n");
-		epd_display("AP Found", batteryVoltage, ownMacString, 1);
-		initPowerSaving(INTERVAL_BASE);
-		doSleep(5000UL);
+		u32 flash_mid = 0;
+		u8 flash_uid[16] = {0};
+		printf("Reading UID");
+		int flag = flash_read_mid_uid_with_check(&flash_mid, flash_uid);
+		if (flag)
+		{
+			for (int i = 0; i < 16; i++)
+			{
+				printf(" %02X", flash_uid[i]);
+			}
+			printf("\r\n");
+			for (int i = 0; i < 8; i++)
+			{
+				mSelfMac[i] = flash_uid[i + 8];
+			}
+		}
+		else
+		{
+			printf(" - Failed!\r\n");
+		}
+
+		sprintf(ownMacString, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
+
+		batteryVoltage = get_battery_mv();
+
+		printf("Battery mv: %d Millis: %d\r\n", batteryVoltage, getMillis());
+
+		// epd_display("Boot", batteryVoltage, ownMacString, 1);
+
+		initializeProto();
+
+		currentChannel = showChannelSelect();
+
+		if (currentChannel)
+		{
+			our_ch = currentChannel;
+			printf("AP Found\r\n");
+			epd_display("AP Found", batteryVoltage, ownMacString, 1);
+			initPowerSaving(INTERVAL_BASE);
+			doSleep(5000UL);
+		}
+		else
+		{
+			printf("No AP found\r\n");
+			epd_display("No AP Found", batteryVoltage, ownMacString, 1);
+			initPowerSaving(INTERVAL_AT_MAX_ATTEMPTS);
+			noApShown = true;
+			doSleep(120000UL);
+		}
 	}
 	else
 	{
-		printf("No AP found\r\n");
-		epd_display("No AP Found", batteryVoltage, ownMacString, 1);
-		initPowerSaving(INTERVAL_AT_MAX_ATTEMPTS);
-		noApShown = true;
-		doSleep(120000UL);
+		printf("Saved Mac after reboot: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\r\n", mSelfMac[7], mSelfMac[6], mSelfMac[5], mSelfMac[4], mSelfMac[3], mSelfMac[2], mSelfMac[1], mSelfMac[0]);
 	}
+
 	while (1)
 	{
 		batteryVoltage = get_battery_mv();

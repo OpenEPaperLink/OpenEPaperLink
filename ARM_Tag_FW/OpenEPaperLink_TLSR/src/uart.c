@@ -22,6 +22,7 @@ void init_uart(void)
 	dma_chn_irq_enable(0, 0);
 	uart_irq_enable(0, 0);
 	uart_ndma_irq_triglevel(0, 0);
+    uart_ndma_clear_tx_index(); // UART will be garbled otherwise
 }
 
  void puts(const char *str)
