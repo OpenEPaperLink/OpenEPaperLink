@@ -3,9 +3,9 @@
 #include "uart.h"
 #include "main.h"
 
-#define RXD 		GPIO_PA0
-#define TXD			GPIO_PB1
+#define UART_DEBUG
 
+#ifdef UART_DEBUG
 void init_uart(void)
 {
 	gpio_set_func(TXD, AS_GPIO);
@@ -43,3 +43,19 @@ int putchar_custom(int c)
 	};
 	return 0;
 }
+
+#else
+void init_uart(void)
+{
+}
+
+_attribute_ram_code_ void puts(const char *str)
+{
+	
+}
+
+int putchar_custom(int c)
+{
+	return 0;
+}
+#endif
