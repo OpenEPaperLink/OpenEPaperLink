@@ -50,7 +50,7 @@ void setup() {
 #if ARDUINO_USB_CDC_ON_BOOT == 1
     Serial.setTxTimeoutMs(0); // workaround bug in USB CDC that slows down serial output when no usb connected
 #endif
-    Serial.print(">\n");
+    Serial.print(">\r\n");
 #ifdef HAS_TFT
     extern void yellow_ap_display_init(void);
     yellow_ap_display_init();
@@ -66,7 +66,7 @@ void setup() {
 #ifdef DEBUG_VERSION
     // Specifically for the Mini-version (using an ESP32-S2), use another serial port for debug output. Makes it possible to see core dumps
     Serial0.begin(115200, SERIAL_8N1, 38, 37);
-    Serial0.printf("Started debug output...\n");
+    Serial0.printf("Started debug output...\r\n");
     Serial0.setDebugOutput(true);
 #endif
 #endif

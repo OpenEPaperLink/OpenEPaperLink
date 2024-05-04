@@ -376,7 +376,7 @@ HwType getHwType(const uint8_t id) {
     } else {
         char filename[20];
         snprintf(filename, sizeof(filename), "/tagtypes/%02X.json", id);
-        Serial.printf("read %s\n", filename);
+        Serial.printf("read %s\r\n", filename);
         File jsonFile = contentFS->open(filename, "r");
 
         if (jsonFile) {

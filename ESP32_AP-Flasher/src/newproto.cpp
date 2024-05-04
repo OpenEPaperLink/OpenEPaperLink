@@ -48,7 +48,7 @@ uint8_t* getDataForFile(fs::File& file) {
         file.seek(0);
         file.readBytes((char*)ret, fileSize);
     } else {
-        Serial.printf("malloc failed for file with size %d\n", fileSize);
+        Serial.printf("malloc failed for file with size %d\r\n", fileSize);
         wsErr("malloc failed while reading file");
         util::printHeap();
     }
@@ -81,7 +81,7 @@ void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin) {
         pending.availdatainfo.nextCheckIn = nextCheckin;
         pending.attemptsLeft = 10 + config.maxsleep;
 
-        Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X sleeping %d minutes\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], nextCheckin);
+        Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X sleeping %d minutes\r\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], nextCheckin);
         sendDataAvail(&pending);
     }
 }
@@ -254,7 +254,7 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
     checkMirror(taginfo, &pending);
     queueDataAvail(&pending, !taginfo->isExternal);
     if (taginfo->isExternal == false) {
-        Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X TYPE 0x%02X\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], pending.availdatainfo.dataType);
+        Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X TYPE 0x%02X\r\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], pending.availdatainfo.dataType);
     } else {
         udpsync.netSendDataAvail(&pending);
     }
@@ -388,13 +388,13 @@ void processBlockRequest(struct espBlockRequest* br) {
     PendingItem* queueItem = getQueueItem(br->src, br->ver);
     if (queueItem == nullptr) {
         prepareCancelPending(br->src);
-        Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
+        Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\r\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
         return;
     }
     if (queueItem->data == nullptr) {
         fs::File file = contentFS->open(queueItem->filename);
         if (!file) {
-            Serial.print("No current file. " + String(queueItem->filename) + " Canceling request\n");
+            Serial.print("No current file. " + String(queueItem->filename) + " Canceling request\r\n");
             prepareCancelPending(br->src);
             return;
         }
@@ -415,7 +415,7 @@ void processBlockRequest(struct espBlockRequest* br) {
     char buffer[150];
     sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X block request %s block %d, len %d checksum %u\0", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0], queueItem->filename, br->blockId, len, checksum);
     wsLog((String)buffer);
-    Serial.printf("<RQB file %s block %d, len %d checksum %u\n\0", queueItem->filename, br->blockId, len, checksum);
+    Serial.printf("<RQB file %s block %d, len %d checksum %u\r\n\0", queueItem->filename, br->blockId, len, checksum);
 }
 
 void processXferComplete(struct espXferComplete* xfc, bool local) {
@@ -423,13 +423,13 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         return;
     }
     char buffer[64];
-    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X reports xfer complete\n\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X reports xfer complete\r\n\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     wsLog((String)buffer);
 
     if (local) {
-        Serial.printf("<XFC %02X%02X%02X%02X%02X%02X%02X%02X\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
+        Serial.printf("<XFC %02X%02X%02X%02X%02X%02X%02X%02X\r\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     } else {
-        Serial.printf("<REMOTE XFC %02X%02X%02X%02X%02X%02X%02X%02X\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
+        Serial.printf("<REMOTE XFC %02X%02X%02X%02X%02X%02X%02X%02X\r\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     }
 
     time_t now;
@@ -488,13 +488,13 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
         return;
     }
     char buffer[64];
-    sprintf(buffer, "< %02X%02X%02X%02X%02X%02X%02X%02X xfer timeout\n\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
+    sprintf(buffer, "< %02X%02X%02X%02X%02X%02X%02X%02X xfer timeout\r\n\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     wsErr((String)buffer);
 
     if (local) {
-        Serial.printf("<XTO %02X%02X%02X%02X%02X%02X%02X%02X\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
+        Serial.printf("<XTO %02X%02X%02X%02X%02X%02X%02X%02X\r\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     } else {
-        Serial.printf("<REMOTE XTO %02X%02X%02X%02X%02X%02X%02X%02X\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
+        Serial.printf("<REMOTE XTO %02X%02X%02X%02X%02X%02X%02X%02X\r\n", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
     }
 
     time_t now;
@@ -531,7 +531,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         } else
 #endif
             if (local == true && eadr->adr.currentChannel > 0 && eadr->adr.currentChannel != apInfo.channel) {
-            Serial.printf("Tag %s reports illegal channel %d\n", hexmac, eadr->adr.currentChannel);
+            Serial.printf("Tag %s reports illegal channel %d\r\n", hexmac, eadr->adr.currentChannel);
             return;
         }
         taginfo = new tagRecord;
@@ -601,7 +601,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         taginfo->tagSoftwareVersion = eadr->adr.tagSoftwareVersion;
     }
     if (local) {
-        sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
+        sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\r\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
         Serial.print(buffer);
     }
 
@@ -622,9 +622,9 @@ void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local)
 
     // Replace this stuff with something that handles the data coming from the tag. This is here for demo purposes!
     char buffer[64];
-    sprintf(buffer, "<TRD %02X%02X%02X%02X%02X%02X%02X%02X\n", trd->src[7], trd->src[6], trd->src[5], trd->src[4], trd->src[3], trd->src[2], trd->src[1], trd->src[0]);
+    sprintf(buffer, "<TRD %02X%02X%02X%02X%02X%02X%02X%02X\r\n", trd->src[7], trd->src[6], trd->src[5], trd->src[4], trd->src[3], trd->src[2], trd->src[1], trd->src[0]);
     wsLog((String)buffer);
-    sprintf(buffer, "TRD Data: len=%d, type=%d, ver=0x%08X\n", payloadLength, trd->returnData.dataType, trd->returnData.dataVer);
+    sprintf(buffer, "TRD Data: len=%d, type=%d, ver=0x%08X\r\n", payloadLength, trd->returnData.dataType, trd->returnData.dataVer);
     wsLog((String)buffer);
 
 #ifndef SAVE_SPACE
@@ -691,7 +691,7 @@ bool sendAPSegmentedData(const uint8_t* dst, String data, uint16_t icons, bool i
     pending.availdatainfo.dataTypeArgument = inverted;
     pending.availdatainfo.nextCheckIn = 0;
     pending.attemptsLeft = MAX_XFER_ATTEMPTS;
-    Serial.printf(">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+    Serial.printf(">AP Segmented Data %02X%02X%02X%02X%02X%02X%02X%02X\r\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     if (local) {
         return queueDataAvail(&pending, true);
     } else {
@@ -710,7 +710,7 @@ bool showAPSegmentedInfo(const uint8_t* dst, bool local) {
     pending.availdatainfo.dataTypeArgument = 0;
     pending.availdatainfo.nextCheckIn = 0;
     pending.attemptsLeft = MAX_XFER_ATTEMPTS;
-    Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+    Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X\r\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
     if (local) {
         return queueDataAvail(&pending, true);
     } else {
@@ -731,7 +731,7 @@ bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* 
         memcpy(&pending.availdatainfo.dataSize, payload + sizeof(uint64_t), sizeof(uint32_t));
     }
     pending.attemptsLeft = MAX_XFER_ATTEMPTS;
-    Serial.printf(">Tag CMD %02X%02X%02X%02X%02X%02X%02X%02X\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+    Serial.printf(">Tag CMD %02X%02X%02X%02X%02X%02X%02X%02X\r\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
 
     tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo != nullptr) {
@@ -924,7 +924,7 @@ void checkQueue(const uint8_t* targetMac) {
     uint16_t queueCount;
     queueCount = countQueueItem(targetMac);
     if (queueCount > 0) {
-        Serial.printf("queue: total %d elements\n", pendingQueue.size());
+        Serial.printf("queue: total %d elements\r\n", pendingQueue.size());
         PendingItem* queueItem = getQueueItem(targetMac);
         if (queueItem == nullptr) {
             return;
@@ -980,10 +980,10 @@ bool queueDataAvail(struct pendingData* pending, bool local) {
     enqueueItem(newPending);
     taginfo->pendingCount = countQueueItem(pending->targetMac);
     if (taginfo->pendingCount == 1) {
-        Serial.printf("queue item added, first in line\n");
+        Serial.printf("queue item added, first in line\r\n");
         // if (local) sendDataAvail(pending);
     } else {
-        Serial.printf("queue item added, total %d elements\n", taginfo->pendingCount);
+        Serial.printf("queue item added, total %d elements\r\n", taginfo->pendingCount);
         // to do: notify C6 to shorten the checkin time for the current SDA
     }
 

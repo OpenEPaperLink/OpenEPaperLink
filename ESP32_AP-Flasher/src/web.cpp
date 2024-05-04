@@ -629,7 +629,7 @@ void init_web() {
         if (request->hasParam("key", true) && request->hasParam("val", true)) {
             std::string key = request->getParam("key", true)->value().c_str();
             String val = request->getParam("val", true)->value();
-            Serial.printf("set key %s value %s\n", key.c_str(), val);
+            Serial.printf("set key %s value %s\r\n", key.c_str(), val);
             setVarDB(key, val);
             request->send(200, "text/plain", "Ok, saved");
         } else {
@@ -647,7 +647,7 @@ void init_web() {
             for (JsonPair kv : jsonDocument.as<JsonObject>()) {
                 std::string key = kv.key().c_str();
                 String val = kv.value().as<String>();
-                Serial.printf("set key %s value %s\n", key.c_str(), val);
+                Serial.printf("set key %s value %s\r\n", key.c_str(), val);
                 setVarDB(key, val);
             }
             request->send(200, "text/plain", "JSON uploaded and processed");

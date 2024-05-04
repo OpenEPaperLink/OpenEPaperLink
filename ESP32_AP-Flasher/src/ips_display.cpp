@@ -129,7 +129,7 @@ void yellow_ap_display_loop(void) {
             String filename = tag->filename;
             fs::File file = contentFS->open(filename);
             if (!file) {
-                Serial.print("No current file. Canceling request\n");
+                Serial.print("No current file. Canceling request\r\n");
                 prepareCancelPending(tag->mac);
                 return;
             }
