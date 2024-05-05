@@ -154,7 +154,7 @@ bool radioInit(void)
 int32_t radioRxDequeuePkt(uint8_t *dstBuf, uint32_t maxLen, int8_t *rssiP, uint8_t *lqiP)
 {
 	u8 curr_rx = getRxBuffer(dstBuf, lqiP);
-	*rssiP = lqiP;
+	*rssiP = *lqiP;
 
 	/*if (curr_rx)
 	{

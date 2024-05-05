@@ -92,7 +92,10 @@ bool BLE_connect(uint8_t addr[8]) {
         pClient->disconnect();
         return false;
     }
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    uint32_t timeStart = millis();
+    while (millis() - timeStart <= 5000) {// We wait for a few seconds as otherwise the connection might not be ready!
+        delay(100);
+    }
     if (!BLE_connected)
         return false;
     Serial.printf("BLE starting to get service\r\n");

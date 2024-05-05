@@ -53,9 +53,9 @@ void doSleepGpio(uint32_t t, GPIO_PinTypeDef pin)
     // WaitMs(2000);
     //  return;
     uint32_t r = drv_disable_irq();
-    pm_wakeup_pad_cfg(pin, !drv_gpio_read(pin), 1);
+    //pm_wakeup_pad_cfg(pin, !drv_gpio_read(pin), 1);
     drv_pm_longSleep(PM_SLEEP_MODE_SUSPEND, PM_WAKEUP_SRC_TIMER | PM_WAKEUP_SRC_PAD, t);
-    pm_wakeup_pad_cfg(pin, !drv_gpio_read(pin), 0);
+    //pm_wakeup_pad_cfg(pin, !drv_gpio_read(pin), 0);
     drv_restore_irq(r);
     uart_ndma_clear_tx_index(); // UART will be garbled otherwise
 }
@@ -70,7 +70,7 @@ void doSleep(uint32_t t)
     //  return;
     uint32_t r = drv_disable_irq();
     pm_wakeup_pad_cfg(NFC_IRQ, PM_WAKEUP_LEVEL_LOW, 1);
-    drv_pm_longSleep(PM_SLEEP_MODE_SUSPEND, PM_WAKEUP_SRC_TIMER | PM_WAKEUP_SRC_PAD, t);
+    drv_pm_longSleep(PM_SLEEP_MODE_DEEP_WITH_RETENTION, PM_WAKEUP_SRC_TIMER | PM_WAKEUP_SRC_PAD, t);
     pm_wakeup_pad_cfg(NFC_IRQ, PM_WAKEUP_LEVEL_LOW, 0);
     drv_restore_irq(r);
     uart_ndma_clear_tx_index(); // UART will be garbled otherwise

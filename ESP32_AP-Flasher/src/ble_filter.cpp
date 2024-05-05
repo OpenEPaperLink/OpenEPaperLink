@@ -17,6 +17,8 @@
 uint8_t gicToOEPLtype(uint8_t gicType) {
     switch (gicType) {
         case 0xA0:
+            return GICI_BLE_TFT_21_BW;
+            break;
         case 0x08:
             return GICI_BLE_EPD_21_BW;
             break;
@@ -55,7 +57,7 @@ uint8_t gicToOEPLtype(uint8_t gicType) {
             return GICI_BLE_EPD_BWR_29_SILABS;
             break;
         default:
-            return GICI_BLE_UNKNOWN;  // Should never happen, return 1.54"
+            return GICI_BLE_UNKNOWN;
             break;
     }
 }
@@ -96,7 +98,7 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.src[4] = macReversed[1];
             theAdvData.src[5] = macReversed[0];
             theAdvData.src[6] = manuData[2];  // We use this do find out what type of display we got for compression^^
-            theAdvData.src[7] = 0x00;
+            theAdvData.src[7] = manuData[6];
             theAdvData.adr.batteryMv = manuData[3] * 100;
             theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
             theAdvData.adr.hwType = gicToOEPLtype(manuData[2]);
@@ -120,7 +122,7 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.src[3] = macReversed[2];
             theAdvData.src[4] = macReversed[1];
             theAdvData.src[5] = macReversed[0];
-            theAdvData.src[6] = 0x00;  // We use this do find out what type of display we got for compression^^
+            theAdvData.src[6] = 0x00;
             theAdvData.src[7] = 0x00;
             theAdvData.adr.batteryMv = payloadData[14] << 8 | payloadData[15];
             theAdvData.adr.temperature = (payloadData[10] << 8 | payloadData[11]) / 10;
@@ -169,21 +171,34 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
         file.close();
     }
 
-    uint8_t giciType = address[6];  // here we "extract" the display info again
+    uint16_t giciType = (address[7] << 8) | address[6];  // here we "extract" the display info again
+
+    uint8_t screenResolution = (giciType >> 5) & 63;
+    uint8_t dispPtype = (giciType >> 3) & 3;
+    uint8_t availColors = ((giciType >> 1) & 3);
+    uint8_t special_color = ((giciType >> 10) & 12);
+    uint8_t singleDoubleMirror = giciType & 1;
+    uint8_t canDoCompression = (giciType & 0x4000) ? 0 : 1;
+    Serial.printf("BLE Filter options:\r\n");
+    Serial.printf("screenResolution %d\r\n", screenResolution);
+    Serial.printf("dispPtype %d\r\n", dispPtype);
+    Serial.printf("availColors %d\r\n", availColors);
+    Serial.printf("special_color %d\r\n", special_color);
+    Serial.printf("singleDoubleMirror %d\r\n", singleDoubleMirror);
+    Serial.printf("canDoCompression %d\r\n", canDoCompression);
 
     bool extra_color = false;
     uint16_t width_display = 104;
     uint16_t height_display = 212;
-    switch ((giciType >> 5) & 7)  // Resolution
-    {
-        default:
+
+    switch (screenResolution) {
         case 0:
             width_display = 104;
             height_display = 212;
             break;
         case 1:
-            width_display = 296;
-            height_display = 128;
+            width_display = 128;
+            height_display = 296;
             break;
         case 2:
             width_display = 300;
@@ -193,45 +208,78 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
             width_display = 384;
             height_display = 640;
             break;
-        case 5:// TFT 2.1"
-            width_display = 104;
-            height_display = 212;
+        case 4:
+            width_display = 640;
+            height_display = 960;
+            break;
+        case 5:
+            width_display = 132;
+            height_display = 256;
+            break;
+        case 6:
+            width_display = 96;
+            height_display = 196;
             break;
         case 7:
-            width_display = 168;
-            height_display = 384;
+            width_display = 480;
+            height_display = 640;
             break;
-    }
-    switch ((giciType >> 1) & 3)  // Extra color
-    {
-        default:
-        case 0:
-            extra_color = false;
+        case 8:
+            width_display = 128;
+            height_display = 256;
             break;
-        case 1:
-        case 2:
-            extra_color = true;
+        case 9:
+            width_display = 480;
+            height_display = 800;
+            break;
+        case 10:
+            width_display = 480;
+            height_display = 280;
             break;
     }
 
-    // Yeah, this is no real compression, but maybe it will be solved in the future to the "real" RLE Compression
-    uint32_t len_compressed = 4;
+    switch (dispPtype) {
+        case 0:  // TFT
+            break;
+        case 1:  // EPA
+            break;
+        case 2:  // EPA1
+            break;
+        case 3:  // EPA2
+            break;
+    }
+
+    switch (availColors) {
+        case 0:  // BW
+            extra_color = false;
+            break;
+        case 1:  // BWR
+            extra_color = true;
+            break;
+        case 2:  // BWY
+            extra_color = true;
+            break;
+        case 3:  // BWRY
+            extra_color = true;
+            break;
+        case 4:  // BWRGBYO
+            extra_color = true;
+            break;
+    }
+    switch (singleDoubleMirror) {
+        case 0:  // Single image
+            break;
+        case 1:  // 2 Images
+            break;
+    }
+
+    uint32_t len_compressed = 0;
+    if (canDoCompression)
+        len_compressed = 4;
     uint32_t curr_input_posi = 0;
     uint32_t byte_per_line = (height_display / 8);
     for (int i = 0; i < width_display; i++) {
-        buffer[len_compressed++] = 0x75;
-        buffer[len_compressed++] = byte_per_line + 7;
-        buffer[len_compressed++] = byte_per_line;
-        buffer[len_compressed++] = 0x00;
-        buffer[len_compressed++] = 0x00;
-        buffer[len_compressed++] = 0x00;
-        buffer[len_compressed++] = 0x00;
-        for (int b = 0; b < byte_per_line; b++) {
-            buffer[len_compressed++] = ~queueItem->data[curr_input_posi++];
-        }
-    }
-    if (extra_color) {
-        for (int i = 0; i < width_display; i++) {
+        if (canDoCompression) {
             buffer[len_compressed++] = 0x75;
             buffer[len_compressed++] = byte_per_line + 7;
             buffer[len_compressed++] = byte_per_line;
@@ -239,6 +287,22 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
             buffer[len_compressed++] = 0x00;
             buffer[len_compressed++] = 0x00;
             buffer[len_compressed++] = 0x00;
+        }
+        for (int b = 0; b < byte_per_line; b++) {
+            buffer[len_compressed++] = ~queueItem->data[curr_input_posi++];
+        }
+    }
+    if (extra_color) {
+        for (int i = 0; i < width_display; i++) {
+            if (canDoCompression) {
+                buffer[len_compressed++] = 0x75;
+                buffer[len_compressed++] = byte_per_line + 7;
+                buffer[len_compressed++] = byte_per_line;
+                buffer[len_compressed++] = 0x00;
+                buffer[len_compressed++] = 0x00;
+                buffer[len_compressed++] = 0x00;
+                buffer[len_compressed++] = 0x00;
+            }
             for (int b = 0; b < byte_per_line; b++) {
                 if (queueItem->len <= curr_input_posi)
                     buffer[len_compressed++] = 0x00;
@@ -247,10 +311,12 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
             }
         }
     }
-    buffer[0] = len_compressed & 0xff;
-    buffer[1] = (len_compressed >> 8) & 0xff;
-    buffer[2] = (len_compressed >> 16) & 0xff;
-    buffer[3] = (len_compressed >> 24) & 0xff;
+    if (canDoCompression) {
+        buffer[0] = len_compressed & 0xff;
+        buffer[1] = (len_compressed >> 8) & 0xff;
+        buffer[2] = (len_compressed >> 16) & 0xff;
+        buffer[3] = (len_compressed >> 24) & 0xff;
+    }
     return len_compressed;
 }
 
