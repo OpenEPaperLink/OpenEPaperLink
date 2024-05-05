@@ -34,6 +34,7 @@ void identifyTagInfo() {
     0B 81 08 04 14 09 0F 04 00 0D 01 80 01 A8 00 38 00 07 81 9D 00 00 42 FF FF FF FF FF FF FF FF FF		2.9 UC8151
     26 36 42 7E 16 03 14 04 00 15 01 80 01 A8 00 38 00 07 01 9C 00 00 42 FF FF FF FF FF FF FF FF FF		2.9 Lite (SSD) (no buttons)
     F1 D5 B2 05 15 0A 04 04 00 12 01 90 01 2C 01 04 00 07 01 9C 00 00 46 FF FF FF FF FF FF FF FF FF		4.2 SSD
+    79 19 1C 06 16 01 05 04 00 12 02 90 01 2C 01 04 00 07 81 9D 00 00 46 FF FF FF FF FF FF FF FF FF     4.2 SSD Yellow
     CA FE BA DE 15 0B 12 04 00 10 01 E0 01 20 03 39 00 03 81 9D 00 00 4C FF FF FF FF FF FF FF FF FF		7.4 UC8179
     F3 22 BC 05 15 0A 0D 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 SSD
     AD BA FE CA 15 0A 1B 04 00 19 01 A0 02 C0 03 38 07 07 01 80 00 00 64 FF FF FF FF FF FF FF FF FF		9.7 type 2
@@ -43,12 +44,11 @@ void identifyTagInfo() {
     72 92 1E 7E 15 0B 09 04 00 15 00 80 01 A8 00 38 00 01 01 9C 00 00 22 FF FF FF FF FF FF FF FF FF     2.9" FREEZER
     2F A5 03 06 15 0C 07 04 00 15 00 80 01 A8 00 38 00 07 81 1D 00 00 4E FF FF FF FF FF FF FF FF FF     2.9" BW
     31 50 53 06 16 02 19 04 00 12 01 C8 00 C8 00 04 00 07 01 9C 00 00 40 FF FF FF FF FF FF FF FF FF
-
     4B F3 DE 04 15 05 07 04 00 0F 01 C8 00 90 00 38 00 07 01 19 00 00 4D FF FF FF FF FF FF FF FF FF     1.3-peghook
+---|----MAC----|--------------|--|SC|X----|Y----|--------|B1|--------|TY|
 
 
-
-            MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
+        MAC    | calib  |	  |?????|Xres |Yres |  ???   |capab|    |type|
 
     0x09 - controller?
             0x0D - UC8151?
@@ -76,10 +76,7 @@ void identifyTagInfo() {
     capabilities[0] = getUICRByte(0x12);
     capabilities[1] = getUICRByte(0x13);
     tag.solumType = getUICRByte(0x16);
-
-    if (getUICRByte(0x0A) == 0x01) {
-        tag.hasThirdColor = true;
-    }
+    tag.thirdColor = getUICRByte(0x0A);
 
     switch (controllerType) {
         case 0x0A:
@@ -142,7 +139,7 @@ void identifyTagInfo() {
     } else {
         printf("This tag have NFC: No\n");
     }
-    if (tag.hasThirdColor) {
+    if (tag.thirdColor) {
         printf("This tag is Black and white only: No\n");
     } else {
         printf("This tag is Black and white only: Yes\n");
@@ -197,8 +194,16 @@ void identifyTagInfo() {
             epd->XOffset = 8;
             break;
         case STYPE_SIZE_042:
-            tag.macSuffix = 0xB6D0;
-            tag.OEPLtype = SOLUM_M3_BWR_42;
+            switch (tag.thirdColor) {
+                case 0x01:
+                    tag.macSuffix = 0xB6D0;
+                    tag.OEPLtype = SOLUM_M3_BWR_42;
+                    break;
+                case 0x02:
+                    tag.macSuffix = 0xC690;
+                    tag.OEPLtype = SOLUM_M3_BWY_42;
+                    break;
+            }
             epd->epdMirrorV = true;
             break;
         case STYPE_SIZE_043:
@@ -233,7 +238,7 @@ void identifyTagInfo() {
             tag.OEPLtype = SOLUM_M3_BWR_97;
             break;
         case STYPE_SIZE_013:
-            //epdXRes -= 1;
+            // epdXRes -= 1;
             tag.ledInverted = true;
             tag.macSuffix = 0xBDB0;
             epd->drawDirectionRight = true;

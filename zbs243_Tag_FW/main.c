@@ -442,7 +442,9 @@ void TagChanSearch() {
 #ifndef LEAN_VERSION
 void TagSlideShow() {
     currentChannel = 11;  // suppress the no-rf image thing
-    displayCustomImage(CUSTOM_IMAGE_SPLASHSCREEN);
+    if(!displayCustomImage(CUSTOM_IMAGE_SPLASHSCREEN)){
+        showSplashScreen();     // show -something- during bootup if custom splash is not defined
+    }
 
     // do a short channel search
     currentChannel = channelSelect(2);
@@ -460,6 +462,9 @@ void TagSlideShow() {
             processAvailDataInfo(avail);
         }
     }
+    powerDown(INIT_RADIO);
+    powerUp(INIT_EEPROM);
+    writeSettings();        // entered slideshow mode, save settings to ensure the next boot is into slideshow mode
     powerDown(INIT_RADIO);
 
     // suppress the no-rf image
@@ -628,7 +633,7 @@ void executeCommand(uint8_t cmd) {
 void main() {
     setupPortsInitial();
     powerUp(INIT_BASE | INIT_UART);
-    pr("BOOTED>  %d.%d.%d%s\n", fwVersion / 100, (fwVersion % 100) / 10, (fwVersion % 10), fwVersionSuffix);
+    pr("BOOTED> %04X%s\n",fwVersion, fwVersionSuffix);
 
 #ifdef DEBUGGUI
     displayLoop();  // remove me

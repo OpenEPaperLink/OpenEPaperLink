@@ -28,8 +28,8 @@ const char *BLE_conn_string[] = {"", "B"};
 RAM uint8_t epd_temperature_is_read = 0;
 RAM uint8_t epd_temperature = 0;
 
-uint8_t epd_buffer[epd_buffer_size];
-uint8_t epd_temp[epd_buffer_size]; // for OneBitDisplay to draw into
+uint8_t *epd_buffer = (uint8_t *)0x84C000;
+uint8_t *epd_temp = (uint8_t *)(0x84C000 + epd_buffer_size);
 OBDISP obd;                        // virtual display structure
 
 // With this we can force a display if it wasnt detected correctly
