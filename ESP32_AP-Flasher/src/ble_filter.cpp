@@ -14,6 +14,8 @@
 #include "util.h"
 #include "web.h"
 
+uint8_t* Mirrorbuffer;
+
 uint8_t gicToOEPLtype(uint8_t gicType) {
     switch (gicType) {
         case 0xA0:
@@ -143,12 +145,20 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
 bool BLE_is_image_pending(uint8_t address[8]) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
         tagRecord* taginfo = tagDB.at(c);
-        if (taginfo->pendingCount > 0 && taginfo->version == 0 && (taginfo->hwType & 0xB0)) {
+        if (taginfo->pendingCount > 0 && taginfo->version == 0 && ((taginfo->hwType & 0xB0) == 0xB0)) {
             memcpy(address, taginfo->mac, 8);
             return true;
         }
     }
     return false;
+}
+
+uint8_t swapBits(uint8_t num) {
+    uint8_t result = 0;
+    for (int i = 0; i < 8; ++i) {
+        result |= ((num >> i) & 0x01) << (7 - i);
+    }
+    return result;
 }
 
 uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
@@ -179,75 +189,76 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
     uint8_t special_color = ((giciType >> 10) & 12);
     uint8_t singleDoubleMirror = giciType & 1;
     uint8_t canDoCompression = (giciType & 0x4000) ? 0 : 1;
-    Serial.printf("BLE Filter options:\r\n");
-    Serial.printf("screenResolution %d\r\n", screenResolution);
-    Serial.printf("dispPtype %d\r\n", dispPtype);
-    Serial.printf("availColors %d\r\n", availColors);
-    Serial.printf("special_color %d\r\n", special_color);
-    Serial.printf("singleDoubleMirror %d\r\n", singleDoubleMirror);
-    Serial.printf("canDoCompression %d\r\n", canDoCompression);
 
     bool extra_color = false;
+    bool mirror_width = false;
     uint16_t width_display = 104;
     uint16_t height_display = 212;
 
     switch (screenResolution) {
         case 0:
-            width_display = 104;
-            height_display = 212;
+            width_display = 216;
+            height_display = 104;
             break;
         case 1:
-            width_display = 128;
-            height_display = 296;
+            width_display = 296;
+            height_display = 128;
             break;
         case 2:
             width_display = 300;
             height_display = 400;
             break;
         case 3:
-            width_display = 384;
-            height_display = 640;
+            width_display = 640;
+            height_display = 384;
             break;
         case 4:
-            width_display = 640;
-            height_display = 960;
-            break;
-        case 5:
-            width_display = 132;
-            height_display = 256;
-            break;
-        case 6:
-            width_display = 96;
-            height_display = 196;
-            break;
-        case 7:
-            width_display = 480;
+            width_display = 960;
             height_display = 640;
             break;
+        case 5:
+            width_display = 250;
+            height_display = 136;
+            break;
+        case 6:
+            width_display = 196;
+            height_display = 96;
+            break;
+        case 7:
+            width_display = 640;
+            height_display = 480;
+            break;
         case 8:
-            width_display = 128;
-            height_display = 256;
+            width_display = 250;
+            height_display = 128;
             break;
         case 9:
-            width_display = 480;
-            height_display = 800;
+            width_display = 800;
+            height_display = 480;
             break;
         case 10:
-            width_display = 480;
-            height_display = 280;
+            width_display = 280;
+            height_display = 480;
             break;
     }
 
     switch (dispPtype) {
         case 0:  // TFT
+            mirror_width = true;
             break;
         case 1:  // EPA
+            mirror_width = false;
             break;
         case 2:  // EPA1
+            mirror_width = false;
             break;
         case 3:  // EPA2
+            mirror_width = false;
             break;
     }
+
+    if (giciType & 0x100)  // Some special case, needs to be tested if always correct
+        mirror_width = true;
 
     switch (availColors) {
         case 0:  // BW
@@ -278,6 +289,24 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
         len_compressed = 4;
     uint32_t curr_input_posi = 0;
     uint32_t byte_per_line = (height_display / 8);
+    if (height_display % 8 != 0)
+        byte_per_line++;
+    Mirrorbuffer = (uint8_t*)malloc(byte_per_line + 1);
+    if (Mirrorbuffer == nullptr) {
+        Serial.println("BLE Could not create Mirrorbuffer!");
+        return 0;
+    }
+    Serial.printf("BLE Filter options:\r\n");
+    Serial.printf("screenResolution %d\r\n", screenResolution);
+    Serial.printf("dispPtype %d\r\n", dispPtype);
+    Serial.printf("availColors %d\r\n", availColors);
+    Serial.printf("special_color %d\r\n", special_color);
+    Serial.printf("singleDoubleMirror %d\r\n", singleDoubleMirror);
+    Serial.printf("canDoCompression %d\r\n", canDoCompression);
+    Serial.printf("byte_per_line %d\r\n", byte_per_line);
+    Serial.printf("width_display %d\r\n", width_display);
+    Serial.printf("height_display %d\r\n", height_display);
+    Serial.printf("mirror_width %d\r\n", mirror_width);
     for (int i = 0; i < width_display; i++) {
         if (canDoCompression) {
             buffer[len_compressed++] = 0x75;
@@ -288,8 +317,17 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
             buffer[len_compressed++] = 0x00;
             buffer[len_compressed++] = 0x00;
         }
-        for (int b = 0; b < byte_per_line; b++) {
-            buffer[len_compressed++] = ~queueItem->data[curr_input_posi++];
+        if (mirror_width) {
+            for (int b = 0; b < byte_per_line; b++) {
+                Mirrorbuffer[b] = ~queueItem->data[curr_input_posi++];
+            }
+            for (int b = byte_per_line - 1; b >= 0; b--) {
+                buffer[len_compressed++] = swapBits(Mirrorbuffer[b]);
+            }
+        } else {
+            for (int b = 0; b < byte_per_line; b++) {
+                buffer[len_compressed++] = ~queueItem->data[curr_input_posi++];
+            }
         }
     }
     if (extra_color) {
@@ -303,11 +341,24 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
                 buffer[len_compressed++] = 0x00;
                 buffer[len_compressed++] = 0x00;
             }
-            for (int b = 0; b < byte_per_line; b++) {
-                if (queueItem->len <= curr_input_posi)
-                    buffer[len_compressed++] = 0x00;
-                else
-                    buffer[len_compressed++] = queueItem->data[curr_input_posi++];
+            if (mirror_width) {
+                for (int b = 0; b < byte_per_line; b++) {
+                    if (queueItem->len <= curr_input_posi)
+                        Mirrorbuffer[b] = 0x00;  // Do not anything outside of the buffer!
+                    else
+                        Mirrorbuffer[b] = queueItem->data[curr_input_posi++];
+                }
+                for (int b = byte_per_line - 1; b >= 0; b--) {
+                        buffer[len_compressed++] = swapBits(Mirrorbuffer[b]);
+                }
+            } else {
+                for (int b = 0; b < byte_per_line; b++) {
+                    if (queueItem->len <= curr_input_posi) {
+                        buffer[len_compressed++] = 0x00;  // Do not anything outside of the buffer!
+                    } else {
+                        buffer[len_compressed++] = queueItem->data[curr_input_posi++];
+                    }
+                }
             }
         }
     }
@@ -317,6 +368,7 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
         buffer[2] = (len_compressed >> 16) & 0xff;
         buffer[3] = (len_compressed >> 24) & 0xff;
     }
+    free(Mirrorbuffer);
     return len_compressed;
 }
 
