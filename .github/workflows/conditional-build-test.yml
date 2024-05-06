@@ -1,4 +1,4 @@
-name: FW Build / Test (Conditional Job PoC)
+name: FW Build / Test
 
 on: [push, pull_request]
 
