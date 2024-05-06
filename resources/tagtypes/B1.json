@@ -1,9 +1,9 @@
 {
-	"version": 3,
-	"name": "Gicisky BLE EPD BWR 2.1\"",
-	"width": 256,
+	"version": 4,
+	"name": "Gicisky BLE EPD BWR 2.13\"",
+	"width": 250,
 	"height": 128,
-	"rotatebuffer": 1,
+	"rotatebuffer": 3,
 	"bpp": 2,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
