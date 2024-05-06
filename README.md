@@ -1,21 +1,10 @@
 # OpenEPaperLink
 
-This is an alternative firmware and protocol for the ZBS243-based Electronic Shelf Labels - ESL / price tags by Solum / Samsung. It can be used to setup E-Paper tags and supply them with content.
+This is an alternative firmware and protocol for the multiple Electronic Shelf Labels. It can be used to setup E-Paper tags and supply them with content.
 
 The software in this project consists of two parts: Accesspoint-firmware and Tag firmware.
 Additionally, there are various hardware designs for accesspoints and flasher-interfaces to program the tags, preferably using programming jigs
  
-<img width="400" alt="board" src="https://user-images.githubusercontent.com/2544995/227208651-993d11a2-380f-44ae-847c-f8d90296c8cf.png">
-
-## Compatibility
-It is currently compatible with the following tags:
-* 4.2"
-* 2.9"
-* 1.54"
-* Segmented (work in progress)
-
-On the 2.9" tags, both the UC8151 and SSD1619 display variants are supported
-
 ## Aims
 - Low power (currently around 9µA with a minimum of 40 second latency)
 - Even lower power when there's no AP around
@@ -72,10 +61,10 @@ After programming the ESP32, make sure to also program the filesystem. This will
 Hats off to these legends!
  
 ## Automated Builds
-- After a PR gets merged to the main branch, the ESP32 code will automatically be compiled.
+- After a PR gets merged to the main branch, the changed code will be compiled.
 - On release, files are added to enable OTA
 
-![Test](https://github.com/jjwbruijn/OpenEPaperLink/actions/workflows/build-test.yml/badge.svg)
+![Test](https://github.com/jjwbruijn/OpenEPaperLink/actions/workflows/conditional-build-test.yml/badge.svg)
 
 ![Release](https://github.com/jjwbruijn/OpenEPaperLink/actions/workflows/release.yml/badge.svg)
 
