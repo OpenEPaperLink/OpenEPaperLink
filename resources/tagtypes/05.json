@@ -13,7 +13,7 @@
 	"shortlut": 1,
 	"zlib_compression": "27",
 	"options": [ ],
-	"contentids": [ 22, 23, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20 ],
+	"contentids": [ 22, 23, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20, 27 ],
 	"template": {
 		"1": {
 			"weekday": [ 320, -5, "Signika-SB.ttf", 100 ],
@@ -21,21 +21,21 @@
 			"day": [ 320, 60, "Signika-SB.ttf", 220 ]
 		},
 		"4": {
-			"location": [ 20, 20, "fonts/calibrib30" ],
-			"wind": [ 90, 83, "fonts/calibrib30" ],
-			"temp": [ 20, 170, "fonts/calibrib30" ],
-			"icon": [ 385, 0, 100, 2 ],
-			"dir": [ 40, 50, 80 ],
-			"umbrella": [ 325, 155, 78 ]
+			"location": [ 40, 20, "fonts/calibrib80" ],
+			"wind": [ 175, 180, "fonts/calibrib30" ],
+			"temp": [ 45, 240, "fonts/calibrib100" ],
+			"icon": [ 520, 80, 150, 2 ],
+			"dir": [ 120, 60, 180 ],
+			"umbrella": [ 575, 250, 102 ]
 		},
 		"8": {
-			"location": [ 10, 10, "fonts/calibrib30" ],
-			"column": [ 6, 66 ],
-			"day": [ 33, 60, "fonts/bahnschrift20", 104, 230 ],
-			"rain": [ 34, 260 ],
-			"icon": [ 32, 145, 30 ],
-			"wind": [ 17, 90 ],
-			"line": [ 50, 300 ]
+			"location": [ 10, 0, "fonts/calibrib80" ],
+			"column": [ 7, 91 ],
+			"day": [ 42, 110, "fonts/calibrib30", 150, 285 ],
+			"rain": [ 48, 340 ],
+			"icon": [ 45, 180, 60 ],
+			"wind": [ 17, 120 ],
+			"line": [ 95, 370 ]
 		},
 		"9": {
 			"title": [ 6, 0, "Signika-SB.ttf", 32 ],
@@ -52,6 +52,12 @@
 			"mode": 1,
 			"days": 7,
 			"gridparam": [ 3, 17, 30, "calibrib16.vlw", "tahoma9.vlw", 14 ]
+		},
+		"27": {
+				  "bars": [ 12, 630, 340, 20 ],
+				  "time": [ "calibrib16.vlw" ],
+				  "yaxis": [ "calibrib16.vlw", 1, 12 ],
+				  "head": [ "calibrib30.vlw" ]
 		}
 	}
 }
