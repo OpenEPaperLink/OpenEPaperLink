@@ -1,0 +1,34 @@
+name: Setup PlatformIO
+description: 'Installs PlatformIO and necessary dependencies.'
+
+inputs:
+  python-version:
+    description: 'Set Python version (optional)'
+    required: false
+    default: '3.9'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Cache pip
+      id: cache-pip
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.platformio/.cache
+        key: ${{ runner.os }}-${{ inputs.python-version }}-pio
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install PlatformIO Core
+      shell: bash
+      run: pip install --upgrade platformio
+
+    - name: Install intelhex
+      shell: bash
+      run: pip install --upgrade intelhex
+
