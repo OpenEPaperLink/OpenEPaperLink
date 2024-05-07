@@ -140,7 +140,7 @@ void APEnterEarlyReset() {
 void setAPstate(bool isOnline, uint8_t state) {
     apInfo.isOnline = isOnline;
     apInfo.state = state;
-
+#ifdef HAS_RGB_LED
     CRGB colorMap[7] = {
         CRGB::Orange,
         CRGB::Green,
@@ -150,10 +150,9 @@ void setAPstate(bool isOnline, uint8_t state) {
         CRGB::Red,
         CRGB::YellowGreen};
     rgbIdleColor = colorMap[state];
-#ifdef BLE_ONLY
-    rgbIdleColor = CRGB::Green;
-#endif
-#ifdef HAS_RGB_LED
+    #ifdef BLE_ONLY
+        rgbIdleColor = CRGB::Green;
+    #endif
     rgbIdlePeriod = (isOnline ? 767 : 255);
     if (isOnline) rgbIdle();
 #endif
