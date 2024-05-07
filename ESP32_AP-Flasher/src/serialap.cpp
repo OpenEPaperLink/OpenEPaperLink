@@ -140,7 +140,7 @@ void APEnterEarlyReset() {
 void setAPstate(bool isOnline, uint8_t state) {
     apInfo.isOnline = isOnline;
     apInfo.state = state;
-#ifdef HAS_RGB_LED
+
     CRGB colorMap[7] = {
         CRGB::Orange,
         CRGB::Green,
@@ -150,6 +150,10 @@ void setAPstate(bool isOnline, uint8_t state) {
         CRGB::Red,
         CRGB::YellowGreen};
     rgbIdleColor = colorMap[state];
+#ifdef BLE_ONLY
+    rgbIdleColor = CRGB::Green;
+#endif
+#ifdef HAS_RGB_LED
     rgbIdlePeriod = (isOnline ? 767 : 255);
     if (isOnline) rgbIdle();
 #endif
@@ -744,6 +748,9 @@ void segmentedShowIp() {
 }
 
 bool bringAPOnline() {
+    #ifndef BLE_ONLY
+    apInfo.state = AP_STATE_NORADIO;
+    #endif
     if (apInfo.state == AP_STATE_NORADIO) return true;
     if (apInfo.state == AP_STATE_FLASHING) return false;
     setAPstate(false, AP_STATE_OFFLINE);
@@ -788,11 +795,11 @@ bool bringAPOnline() {
 }
 
 bool checkRadio() {
+    #ifdef BLE_ONLY
+    return false;
+    #endif
     #ifndef C6_OTA_FLASHING
     return true;
-    #endif
-    #ifndef BLE_ONLY
-    return false;
     #endif
     // make a short between FLASHER_AP_TXD and FLASHER_AP_RXD to indicate that no radio is present
     // e.g. for flasher only, or just to use the S3 to generate images for smaller AP's
