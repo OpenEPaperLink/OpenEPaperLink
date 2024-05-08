@@ -7,7 +7,7 @@
 
 //sub-GHz 915 Mhz channels start at 200
 #define FIRST_915_CHAN              (200)
-#define NUM_915_CHANNELS            (25)
+#define NUM_915_CHANNELS            (6)
 
 typedef enum {
    SUBGIG_ERR_NONE,

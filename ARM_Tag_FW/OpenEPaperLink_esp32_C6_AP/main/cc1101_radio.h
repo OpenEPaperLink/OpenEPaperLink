@@ -111,6 +111,8 @@ bool CC1101_Tx(uint8_t *TxData);
 bool CC1101_Present(void);
 void CC1101_DumpRegs(void);
 void CC1101_reset(void);
+void CC1101_logState(void);
+void CC1101_setRxState(void);
 
 #endif   // __CC1101_RADIO_H_
 
