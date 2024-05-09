@@ -1,6 +1,0 @@
-#ifndef RTIMER_ARCH_INTERRUPT_H_P0PXG70757__
-#define RTIMER_ARCH_INTERRUPT_H_P0PXG70757__
-
-void rtimer_interrupt (void);
-
-#endif /* RTIMER_ARCH_INTERRUPT_H_P0PXG70757__ */

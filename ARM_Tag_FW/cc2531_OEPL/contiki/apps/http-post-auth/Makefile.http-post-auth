@@ -1,2 +1,0 @@
-http-post-auth_src = http-post-auth.c
-http-post-auth_dsc =

@@ -1,3 +1,0 @@
-TI_XXWARE_PATH = lib/cc26xxware
-
-include $(CONTIKI_CPU)/Makefile.cc26xx-cc13xx
