@@ -41,6 +41,16 @@ jobs:
         run: |
           mkdir espbinaries
 
+      - name: esp-idf build
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: latest
+          target: esp32c6
+          path: 'ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/'
+
+      - name: Add C6 files to release
+        run: |
+          cp /home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/build/OpenEPaperLink_esp32_C6.bin espbinaries/OpenEPaperLink_esp32_C6.bin
 #      - name: Zip web files
 #        run: | 
 #            cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_AP-Flasher
@@ -176,6 +186,24 @@ jobs:
           cp OpenEPaperLink_Mini_AP_v4/firmware.bin espbinaries/OpenEPaperLink_Mini_AP_v4.bin
           cp OpenEPaperLink_Mini_AP_v4/merged-firmware.bin espbinaries/OpenEPaperLink_Mini_AP_v4_full.bin
 
+      - name: Build firmware for BLE_ONLY_AP
+        run: |
+          cd ESP32_AP-Flasher
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          pio run --environment BLE_ONLY_AP
+          pio run --target buildfs --environment BLE_ONLY_AP
+          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/boot_app0.bin
+          cp .pio/build/BLE_ONLY_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/firmware.bin
+          cp .pio/build/BLE_ONLY_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/bootloader.bin
+          cp .pio/build/BLE_ONLY_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/partitions.bin
+          cp .pio/build/BLE_ONLY_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/littlefs.bin
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP
+          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+          cp BLE_ONLY_AP/firmware.bin espbinaries/BLE_ONLY_AP.bin
+          cp BLE_ONLY_AP/merged-firmware.bin espbinaries/BLE_ONLY_AP_full.bin
+          
       - name: generate release json file
         run: |
           mkdir jsonfiles

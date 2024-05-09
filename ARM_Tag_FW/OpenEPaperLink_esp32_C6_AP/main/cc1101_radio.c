@@ -39,12 +39,27 @@
 
 #define ENABLE_LOGGING  0
 
+// LOGA - generic logging, always enabled
+#define LOGA(format, ... ) printf(format,## __VA_ARGS__)
+// LOGE - error logging, always enabled
+#define LOGE(format, ... ) printf("%s: " format,__FUNCTION__,## __VA_ARGS__)
+
 #if ENABLE_LOGGING
 #define LOG(format, ... ) printf("%s: " format,__FUNCTION__,## __VA_ARGS__)
 #define LOG_RAW(format, ... ) printf(format,## __VA_ARGS__)
 #else
 #define LOG(format, ... )
 #define LOG_RAW(format, ... )
+#endif
+
+#define ENABLE_VERBOSE_LOGGING 0
+
+#if ENABLE_VERBOSE_LOGGING
+#define LOGV(format, ... ) printf("%s: " format,__FUNCTION__,## __VA_ARGS__)
+#define LOGV_RAW(format, ... ) printf(format,## __VA_ARGS__)
+#else
+#define LOGV(format, ... )
+#define LOGB_RAW(format, ... )
 #endif
 
 #include <string.h>
@@ -138,7 +153,7 @@ enum RFSTATE {
 
 // Masks for last byte read from RXFIFO
 #define CC1101_LQI_MASK                0x7f
-#define CC1101_CRC_OK_MASK             0x6f
+#define CC1101_CRC_OK_MASK             0x80
 
 // IOCFG2 GDO2: high when TX FIFO at or above the TX FIFO threshold
 #define CC1101_DEFVAL_IOCFG2           0x02
@@ -158,7 +173,8 @@ enum RFSTATE {
 #define CC1101_DEFVAL_AGCTEST          0x3F
 #define CC1101_DEFVAL_MCSM1            0x20
 #define CC1101_DEFVAL_WORCTRL          0xFB
-#define CC1101_DEFVAL_FSCTRL0          40    // Your value may be different!
+#define CC1101_DEFVAL_FSCTRL0          0
+
 #define CC1101_DEFVAL_PATABLE          0xc0  // full power
 
 RfSetting gFixedConfig[] = {
@@ -179,14 +195,14 @@ void CC1101_cmdStrobe(uint8_t cmd);
 void CC1101_wakeUp(void);
 uint8_t CC1101_readReg(uint8_t regAddr, uint8_t regType);
 void CC1101_writeReg(uint8_t regAddr, uint8_t value);
-void CC1101_setRxState(void);
 void CC1101_setTxState(void);
+
+void setIdleState(void);
 
 spi_device_handle_t gSpiHndl;
 
 #define readConfigReg(regAddr)   CC1101_readReg(regAddr, CC1101_CONFIG_REGISTER)
 #define readStatusReg(regAddr)   CC1101_readReg(regAddr, CC1101_STATUS_REGISTER)
-#define setIdleState()           CC1101_cmdStrobe(CC1101_SIDLE)
 #define flushRxFifo()            CC1101_cmdStrobe(CC1101_SFRX)
 #define flushTxFifo()            CC1101_cmdStrobe(CC1101_SFTX)
 
@@ -290,6 +306,10 @@ static uint8_t gRfState;
 #define LOW  0
 #define HIGH 1
 
+uint32_t gFreqErrSum;
+uint8_t  gFreqErrSumCount;
+int8_t  gFreqCorrection;
+
 bool spi_write_byte(uint8_t* Dataout,size_t DataLength)
 {
    spi_transaction_t SPITransaction;
@@ -361,10 +381,10 @@ void CC1101_wakeUp(void)
 void CC1101_writeReg(uint8_t regAddr, uint8_t value) 
 {
    if(regAddr < 0x3f) {
-      LOG("0x%x -> %s(0x%x)\n",value,RegNamesCC1101[regAddr],regAddr);
+      LOGV("0x%x -> %s(0x%x)\n",value,RegNamesCC1101[regAddr],regAddr);
    }
    else {
-      LOG("0x%x -> 0x%x\n",value,regAddr);
+      LOGV("0x%x -> 0x%x\n",value,regAddr);
    }
    cc1101_Select();                                // Select CC1101
    wait_Miso();                                       // Wait until MISO goes low
@@ -543,13 +563,13 @@ bool CC1101_Tx(uint8_t *TxData)
             }
             CanSend = readStatusReg(CC1101_TXBYTES);
             if(CanSend & 0x80) {
-               LOG("TX FIFO underflow, BytesSent %d\n",BytesSent);
+               LOGE("TX FIFO underflow, BytesSent %d\n",BytesSent);
                ErrLine = __LINE__;
                break;
             }
             CanSend = 64 - CanSend;
             if(CanSend == 0) {
-               LOG("CanSend == 0, GDO2 problem\n");
+               LOGE("CanSend == 0, GDO2 problem\n");
                ErrLine = __LINE__;
                break;
             }
@@ -565,7 +585,7 @@ bool CC1101_Tx(uint8_t *TxData)
          spi_transfer(CC1101_TXFIFO | WRITE_BURST);
          if((Err = spi_device_transmit(gSpiHndl,&SPITransaction)) != ESP_OK) {
             ErrLine = __LINE__;
-            LOG("spi_device_transmit failed %d\n",Err);
+            LOGE("spi_device_transmit failed %d\n",Err);
             break;
          }
          cc1101_Deselect();
@@ -591,56 +611,85 @@ bool CC1101_Tx(uint8_t *TxData)
    CC1101_setRxState();
 
    if(ErrLine != 0) {
-      LOG("%s#%d: failure\n",__FUNCTION__,ErrLine);
+      LOGE("%s#%d: failure\n",__FUNCTION__,ErrLine);
    }
 
    return Ret;
 }
 
+// Called when GDO0 goes low, i.e. end of packet.
+// Everything has been received.
+// NB: this means the entire packet must fit in the FIFO so maximum
+// message length is 64 bytes.
 int CC1101_Rx(uint8_t *RxBuf,size_t RxBufLen,uint8_t *pRssi,uint8_t *pLqi)
 {
    uint8_t rxBytes = readStatusReg(CC1101_RXBYTES);
    uint8_t Rssi;
    uint8_t Lqi;
    int Ret;
+   uint8_t FreqErr;
+   int8_t FreqCorrection;
 
-   Ret = rxBytes & CC1101_NUM_RXBYTES_MASK;
-// Any uint8_t waiting to be read and no overflow?
-   if(rxBytes & CC1101_RXFIFO_OVERFLOW_MASK) {
-      LOG("RxFifo overflow\n");
-      Ret = -2;
-   }
-   else if(Ret != 0) {
-   // Read RxBuf length
+// Any data waiting to be read and no overflow?
+   do {
+      if(rxBytes & CC1101_RXFIFO_OVERFLOW_MASK) {
+         LOGE("RxFifo overflow\n");
+         Ret = -2;
+         break;
+      }
+
+      if(rxBytes < 2) {
+      // should have at least 2 bytes, packet len and one byte of data
+         LOGE("Internal error, rxBytes = %d\n",rxBytes);
+         Ret = -2;
+         break;
+      }
+
+   // Get packet length
       Ret = readConfigReg(CC1101_RXFIFO);
-      // If TxData is too long
       if(Ret > RxBufLen) {
       // Toss the data
-         LOG("RxBuf too small %d < %d\n",RxBufLen,Ret);
+         LOGE("RxBuf too small %d < %d\n",RxBufLen,Ret);
          Ret = -1;
+         break;
       }
-      else {
-      // Read RxBuf TxData
-         CC1101_readBurstReg(RxBuf,CC1101_RXFIFO,Ret);
-      // Read RSSI
-         Rssi = readConfigReg(CC1101_RXFIFO);
-      // Read LQI and CRC_OK
-         Lqi = readConfigReg(CC1101_RXFIFO);
-         if(Lqi & CC1101_CRC_OK_MASK) {
-         // CRC is valid
-            if(pRssi != NULL) {
-               *pRssi = Rssi;
+   // Read the data
+      CC1101_readBurstReg(RxBuf,CC1101_RXFIFO,Ret);
+   // Read RSSI
+      Rssi = readConfigReg(CC1101_RXFIFO);
+   // Read LQI and CRC_OK
+      Lqi = readConfigReg(CC1101_RXFIFO);
+      if(!(Lqi & CC1101_CRC_OK_MASK)) {
+      // Crc error, ignore the packet
+         LOG("Ignoring %d byte packet, CRC error\n",Ret);
+         Ret = 0;
+         break;
+      }
+   // CRC is valid
+      if(pRssi != NULL) {
+         *pRssi = Rssi;
+      }
+      if(pLqi != NULL) {
+         *pLqi = Lqi & CC1101_LQI_MASK;
+      }
+      FreqErr = CC1101_readReg(CC1101_FREQEST,CC1101_STATUS_REGISTER);
+      if(FreqErr != 0) {
+         FreqErr += gFreqCorrection;
+         if(gFreqErrSumCount < 255) {
+            gFreqErrSum += FreqErr;
+            gFreqErrSumCount++;
+            FreqCorrection = (int8_t) (gFreqErrSum / gFreqErrSumCount);
+            if(gFreqCorrection != FreqCorrection) {
+               LOGA("FreqCorrection %d -> %d\n",gFreqCorrection,FreqCorrection);
+               gFreqCorrection = FreqCorrection;
+               CC1101_writeReg(CC1101_FSCTRL0,gFreqCorrection);
             }
-            if(pLqi != NULL) {
-               *pLqi = Lqi & CC1101_LQI_MASK;
+            if(gFreqErrSumCount == 255) {
+               LOGA("Final FreqCorrection %d\n",gFreqCorrection);
             }
          }
-         else {
-         // Crc error, ignore the packet
-            Ret = 0;
-         }
       }
-   } 
+   } while(false);
 
    setIdleState();
    flushRxFifo();
@@ -656,7 +705,7 @@ bool CC1101_Present()
    uint8_t ChipVersion = CC1101_readReg(CC1101_VERSION, CC1101_STATUS_REGISTER);
 
    if(PartNum == 0 && ChipVersion == 20) {
-      LOG("CC1101 detected\n");
+      LOGA("CC1101 detected\n");
       Ret = true;
    }
 
@@ -670,6 +719,7 @@ void CC1101_SetConfig(const RfSetting *pConfig)
    uint8_t Reg;
 
    memset(RegWasSet,0,sizeof(RegWasSet));
+   setIdleState();
 
    if(pConfig == NULL) {
 // Just set the fixed registers
@@ -705,6 +755,29 @@ void CC1101_SetConfig(const RfSetting *pConfig)
          }
       }
 #endif
+   }
+}
+
+void setIdleState()
+{
+   uint8_t MarcState;
+   CC1101_cmdStrobe(CC1101_SIDLE);
+// Wait for it
+   do {
+      MarcState = readStatusReg(CC1101_MARCSTATE);
+   } while(MarcState != CC1101_STATE_IDLE);
+}
+
+
+void CC1101_logState()
+{
+   static uint8_t LastMarcState = 0xff;
+   uint8_t MarcState;
+
+   MarcState = readStatusReg(CC1101_MARCSTATE);
+   if(LastMarcState != MarcState) {
+      LOG("MarcState 0x%x -> 0x%x\n",LastMarcState,MarcState);
+      LastMarcState = MarcState;
    }
 }
 
