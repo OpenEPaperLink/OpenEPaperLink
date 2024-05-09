@@ -381,6 +381,7 @@ SubGigErr SubGig_radioSetChannel(uint8_t ch)
          }
       }
       SubGig_CC1101_SetConfig(SetChannr);
+      CC1101_setRxState();
    } while(false);
 
    return Ret;
@@ -411,6 +412,8 @@ SubGigErr SubGig_radioTx(uint8_t *packet)
       if(CC1101_Tx(packet)) {
          Ret = SUBGIG_TX_FAILED;
       }
+   // Clear RxAvailable, in TX GDO0 deasserts on TX FIFO underflows
+      gSubGigData.RxAvailable = false;
    // restore original len just in case anyone cares
       packet[0] += RAW_PKT_PADDING;
    } while(false);
@@ -432,6 +435,8 @@ int8_t SubGig_commsRxUnencrypted(uint8_t *data)
       if(gSubGigData.FreqTest) {
          break;
       }
+      CC1101_logState();
+
       if(!gSubGigData.RxAvailable && gpio_get_level(CONFIG_GDO0_GPIO) == 1) {
       // Did we miss an interrupt?
          if(gpio_get_level(CONFIG_GDO0_GPIO) == 1) {
@@ -444,7 +449,7 @@ int8_t SubGig_commsRxUnencrypted(uint8_t *data)
       if(gSubGigData.RxAvailable){
          gSubGigData.RxAvailable = false;
          RxBytes = CC1101_Rx(data,128,NULL,NULL);
-
+         
          if(RxBytes >= 2) {
          // NB: RxBytes includes the CRC, deduct it
             Ret = (uint8_t) RxBytes - 2;
