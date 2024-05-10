@@ -747,7 +747,7 @@ void segmentedShowIp() {
 }
 
 bool bringAPOnline() {
-    #ifndef BLE_ONLY
+    #ifdef BLE_ONLY
     apInfo.state = AP_STATE_NORADIO;
     #endif
     if (apInfo.state == AP_STATE_NORADIO) return true;
