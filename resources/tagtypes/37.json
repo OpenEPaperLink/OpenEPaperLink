@@ -1,0 +1,41 @@
+{
+	"version": 1,
+	"name": "M3 11.6\"",
+	"width": 960,
+	"height": 640,
+	"rotatebuffer": 2,
+	"bpp": 2,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ]
+	},
+	"shortlut": 0,
+	"zlib_compression": "27",
+	"options": [ "button" ],
+	"contentids": [ 22, 23, 1, 5, 8, 9, 7, 19, 10, 11 ],
+	"usetemplate": 1,
+	"template": {
+		"1": {
+			"weekday": [ 480, -5, "Signika-SB.ttf", 160 ],
+			"month": [ 480, 480, "Signika-SB.ttf", 160 ],
+			"day": [ 480, 110, "Signika-SB.ttf", 380 ]
+		},
+		"9": {
+			"title": [ 6, 0, "Signika-SB.ttf", 32 ],
+			"items": 12,
+			"line": [ 9, 40, "calibrib16.vlw" ],
+			"desc": [ 2, 8, "REFSAN12.vlw", 1.2 ]
+		},
+		"10": {
+			"title": [ 480, 0, "Signika-SB.ttf", 50 ],
+			"pos": [ 480, 70 ]
+		},
+		"11": {
+			"rotate": 0,
+			"mode": 1,
+			"days": 7,
+			"gridparam": [ 7, 19, 30, "calibrib16.vlw", "REFSAN12.vlw", 16 ]
+		}
+	}
+}

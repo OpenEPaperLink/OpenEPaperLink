@@ -1,16 +1,18 @@
 import os
 import json
 
-version = "26"  # You can set your desired version here.
+version = "0027"  # You can set your desired version here.
 
 types = {
     0x00: "SOL_M2_154_SSD_" + version + ".bin",
     0x01: "SOL_M2_29_SSD_" + version + ".bin",
-    0x02: "SOL_M2_42_SSD_" + version + ".bin"
+    0x02: "SOL_M2_42_SSD_" + version + ".bin",
+    0x11: "SOL_M2_29_UC_" + version + ".bin",
+    0x21: "SOL_M2_29_LT_" + version + ".bin"
 }
 
 binpath = "../binaries/Tag"
-tocmaxsize = 512
+tocmaxsize = 1024
 
 toc = []
 output = b'\0' * tocmaxsize  # Initialize as bytes

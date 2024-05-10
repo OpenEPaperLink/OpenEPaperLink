@@ -1,3 +1,0 @@
-ipso-objects_src = ipso-temperature.c ipso-button.c ipso-leds-control.c \
-	ipso-light-control.c ipso-objects.c
-CFLAGS += -DWITH_IPSO=1

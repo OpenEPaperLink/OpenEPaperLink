@@ -1,1 +1,0 @@
-include $(CONTIKI_CPU)/Makefile.customrules-6502

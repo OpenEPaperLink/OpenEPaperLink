@@ -1,9 +1,9 @@
 {
-	"version": 4,
-	"name": "Gicisky BLE EPD BW 2.13\"",
+	"version": 3,
+	"name": "Gicisky BLE TFT 2.13\"",
 	"width": 250,
-	"height": 128,
-	"rotatebuffer": 3,
+	"height": 132,
+	"rotatebuffer": 1,
 	"bpp": 1,
 	"colortable": {
 		"white": [ 255, 255, 255 ],

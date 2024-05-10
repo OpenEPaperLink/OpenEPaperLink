@@ -16,5 +16,16 @@ The S3 and C6 are cooled by 20x20mm heatsinks that are stuck on with double-side
 This case is made by: Pål Hamre
 
 File: V2 NanoAP Case Pal Hamre.stl
+
 ![image](V2_Case_image_Pal_Hamre.jpg)
+
+
+#### Variant 2
+This case is made by: Viktor Knall
+
+File: V2_2 NanoAP Case.3mf
+
+![image](V2_2_Case_Image1_By_Viktor_Knall.png)
+
+![image](V2_2_Case_Image_By_Viktor_Knall.png)
 
