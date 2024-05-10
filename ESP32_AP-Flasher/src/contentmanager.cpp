@@ -1920,7 +1920,7 @@ String extractValueFromJson(JsonDocument &json, const String &path) {
             int index = atoi(segment);
             currentObj = currentObj.as<JsonArray>()[index];
         } else {
-            Serial.printf("Invalid JSON structure at path segment: %s\n", segment);
+            Serial.printf("Invalid JSON structure at path segment: %s\r\n", segment);
             return "";
         }
         segment = strtok(NULL, ".");

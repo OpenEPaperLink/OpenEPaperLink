@@ -191,9 +191,9 @@ uint16_t sendBlock(const void* data, const uint16_t len) {
         cmdReplyValue = CMD_REPLY_WAIT;
         AP_SERIAL_PORT.print(">D>");
         if (waitCmdReply()) goto blksend;
-        Serial.printf("block send failed in try %d\n", attempt);
+        Serial.printf("block send failed in try %d\r\n", attempt);
     }
-    Serial.print("Failed sending block...\n");
+    Serial.print("Failed sending block...\r\n");
     txEnd();
     return 0;
 blksend:
@@ -266,10 +266,10 @@ bool sendDataAvail(struct pendingData* pending) {
             txEnd();
             return true;
         }
-        Serial.printf("SDA send failed in try %d\n", attempt);
+        Serial.printf("SDA send failed in try %d\r\n", attempt);
         delay(200);
     }
-    Serial.print("SDA failed to send...\n");
+    Serial.print("SDA failed to send...\r\n");
     txEnd();
     return false;
 }
@@ -288,9 +288,9 @@ bool sendCancelPending(struct pendingData* pending) {
             txEnd();
             return true;
         }
-        Serial.printf("CXD send failed in try %d\n", attempt);
+        Serial.printf("CXD send failed in try %d\r\n", attempt);
     }
-    Serial.print("CXD failed to send...\n");
+    Serial.print("CXD failed to send...\r\n");
     txEnd();
     return false;
 }
@@ -311,9 +311,9 @@ bool sendChannelPower(struct espSetChannelPower* scp) {
             apInfo.power = scp->power;
             return true;
         }
-        Serial.printf("SCP send failed in try %d\n", attempt);
+        Serial.printf("SCP send failed in try %d\r\n", attempt);
     }
-    Serial.print("SCP failed to send...\n");
+    Serial.print("SCP failed to send...\r\n");
     txEnd();
     return false;
 }
@@ -328,7 +328,7 @@ bool sendPing() {
         AP_SERIAL_PORT.print("RDY?");
         if (waitCmdReply()) {
             txEnd();
-            Serial.printf(" ok, %dms\n", millis() - t);
+            Serial.printf(" ok, %dms\r\n", millis() - t);
             return true;
         }
     }
@@ -412,7 +412,7 @@ void rxCmdProcessor(void* parameter) {
                     processXferTimeout((struct espXferComplete*)rxcmd->data, true);
                     break;
                 case RX_CMD_RSET:
-                    Serial.println("AP did reset, resending pending\n");
+                    Serial.println("AP did reset, resending pending\r\n");
                     refreshAllPending();
                     sendChannelPower(&curChannel);
                     break;
@@ -701,11 +701,11 @@ void rxSerialTask2(void* parameter) {
 #endif
 
 void ShowAPInfo() {
-    Serial.printf("\n| AP Info - type %02X       |\n", apInfo.type);
-    Serial.printf("| Ch   |             0x%02X |\n", apInfo.channel);
-    Serial.printf("| Power|               %02X |\n", apInfo.power);
-    Serial.printf("| MAC  | %02X%02X%02X%02X%02X%02X%02X%02X |\n", apInfo.mac[7], apInfo.mac[6], apInfo.mac[5], apInfo.mac[4], apInfo.mac[3], apInfo.mac[2], apInfo.mac[1], apInfo.mac[0]);
-    Serial.printf("| Ver  |           0x%04X |\n", apInfo.version);
+    Serial.printf("\r\n| AP Info - type %02X       |\r\n", apInfo.type);
+    Serial.printf("| Ch   |             0x%02X |\r\n", apInfo.channel);
+    Serial.printf("| Power|               %02X |\r\n", apInfo.power);
+    Serial.printf("| MAC  | %02X%02X%02X%02X%02X%02X%02X%02X |\r\n", apInfo.mac[7], apInfo.mac[6], apInfo.mac[5], apInfo.mac[4], apInfo.mac[3], apInfo.mac[2], apInfo.mac[1], apInfo.mac[0]);
+    Serial.printf("| Ver  |           0x%04X |\r\n", apInfo.version);
 }
 
 void notifySegmentedFlash() {
@@ -723,7 +723,7 @@ void checkWaitPowerCycle() {
 #ifdef POWER_NO_SOFT_POWER
     setAPstate(false, AP_STATE_REQUIRED_POWER_CYCLE);
     // If we have no soft power control, we'll now wait until the device is power-cycled
-    Serial.printf("Please power-cycle your AP/device\n");
+    Serial.printf("Please power-cycle your AP/device\r\n");
 #ifdef HAS_RGB_LED
     showColorPattern(CRGB::Aqua, CRGB::Aqua, CRGB::Red);
 #endif
@@ -849,9 +849,9 @@ void APTask(void* parameter) {
         if (apInfo.type == SOLUM_SEG_UK && apInfo.isOnline) {
             notifySegmentedFlash();
         }
-        Serial.printf("We're going to try to perform an 'AP forced flash' in\n");
+        Serial.printf("We're going to try to perform an 'AP forced flash' in\r\n");
         flashCountDown(10);
-        Serial.printf("\nPerforming force flash of the AP\n");
+        Serial.printf("\r\nPerforming force flash of the AP\r\n");
         setAPstate(false, AP_STATE_FLASHING);
         doForcedAPFlash();
         checkWaitPowerCycle();
@@ -876,23 +876,23 @@ void APTask(void* parameter) {
         if (FLASHER_AP_MOSI != -1) {
             fsversion = getAPUpdateVersion(apInfo.type);
             if ((fsversion) && (apInfo.version != fsversion)) {
-                Serial.printf("Firmware version on LittleFS: %04X\n", fsversion);
+                Serial.printf("Firmware version on LittleFS: %04X\r\n", fsversion);
 
-                Serial.printf("We're going to try to update the AP's FW in\n");
+                Serial.printf("We're going to try to update the AP's FW in\r\n");
                 flashCountDown(30);
-                Serial.printf("\n");
+                Serial.printf("\r\n");
                 notifySegmentedFlash();
                 setAPstate(false, AP_STATE_FLASHING);
                 if (doAPUpdate(apInfo.type)) {
                     checkWaitPowerCycle();
-                    Serial.printf("Flash completed, let's try to boot the AP!\n");
+                    Serial.printf("Flash completed, let's try to boot the AP!\r\n");
                     if (bringAPOnline()) {
                         // AP works
                         ShowAPInfo();
                         setAPchannel();
                     } else {
-                        Serial.printf("Failed to bring up the AP after flashing seemed successful... That's not supposed to happen!\n");
-                        Serial.printf("This can be caused by a bad AP firmware, failed or failing hardware, or the inability to fully power-cycle the AP\n");
+                        Serial.printf("Failed to bring up the AP after flashing seemed successful... That's not supposed to happen!\r\n");
+                        Serial.printf("This can be caused by a bad AP firmware, failed or failing hardware, or the inability to fully power-cycle the AP\r\n");
                         setAPstate(false, AP_STATE_FAILED);
 #ifdef HAS_RGB_LED
                         showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
@@ -901,7 +901,7 @@ void APTask(void* parameter) {
                 } else {
                     setAPstate(false, AP_STATE_FAILED);
                     checkWaitPowerCycle();
-                    Serial.println("Failed to update version on the AP :(\n");
+                    Serial.println("Failed to update version on the AP :(\r\n");
 #ifdef HAS_RGB_LED
                     showColorPattern(CRGB::Red, CRGB::Red, CRGB::Red);
 #endif
@@ -917,8 +917,8 @@ void APTask(void* parameter) {
 #endif
 
         if (FLASHER_AP_MOSI == -1) {
-            Serial.printf("I wasn't able to connect to the AP radio. Did you flash it?\n");
-            Serial.printf("The build of this firmware expects an AP tag with TXD/RXD on ESP32 pins %d and %d, does this match with your wiring?\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
+            Serial.printf("I wasn't able to connect to the AP radio. Did you flash it?\r\n");
+            Serial.printf("The build of this firmware expects an AP tag with TXD/RXD on ESP32 pins %d and %d, does this match with your wiring?\r\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
 #ifdef HAS_RGB_LED
             showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
 #endif
@@ -929,11 +929,11 @@ void APTask(void* parameter) {
             // AP unavailable, maybe time to flash?
             setAPstate(false, AP_STATE_OFFLINE);
 
-            Serial.printf("I wasn't able to connect to a ZBS (AP) tag.\n");
-            Serial.printf("This could be the first time this AP is booted and the AP-tag may be unflashed.\n");
-            Serial.printf("If this tag was previously flashed succesfully but this message still shows up, there's probably something wrong with the serial connections.\n");
-            Serial.printf("The build of this firmware expects an AP tag with TXD/RXD on ESP32 pins %d and %d, does this match with your wiring?\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
-            Serial.printf("Performing firmware flash in about %d seconds!\n", FLASH_TIMEOUT);
+            Serial.printf("I wasn't able to connect to a ZBS (AP) tag.\r\n");
+            Serial.printf("This could be the first time this AP is booted and the AP-tag may be unflashed.\r\n");
+            Serial.printf("If this tag was previously flashed succesfully but this message still shows up, there's probably something wrong with the serial connections.\r\n");
+            Serial.printf("The build of this firmware expects an AP tag with TXD/RXD on ESP32 pins %d and %d, does this match with your wiring?\r\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
+            Serial.printf("Performing firmware flash in about %d seconds!\r\n", FLASH_TIMEOUT);
             flashCountDown(FLASH_TIMEOUT);
             if (doAPFlash()) {
                 checkWaitPowerCycle();
@@ -946,13 +946,13 @@ void APTask(void* parameter) {
                     }
                     refreshAllPending();
                 } else {
-                    Serial.printf("Failed to bring up the AP after successful flashing... That's not supposed to happen!\n");
-                    Serial.printf("This generally means that the flasher connections (MISO/MOSI/CLK/RESET/CS) are okay,\n");
-                    Serial.printf("but we can't (yet) talk to the AP over serial lines. Verify the pins mentioned above.\n\n");
+                    Serial.printf("Failed to bring up the AP after successful flashing... That's not supposed to happen!\r\n");
+                    Serial.printf("This generally means that the flasher connections (MISO/MOSI/CLK/RESET/CS) are okay,\r\n");
+                    Serial.printf("but we can't (yet) talk to the AP over serial lines. Verify the pins mentioned above.\r\n\r\n");
 
 #ifndef POWER_NO_SOFT_POWER
-                    Serial.printf("The firmware you're using expects soft power control over the AP tag; if it can't\n");
-                    Serial.printf("power-cycle the AP-tag using GPIO pin %d, this can cause this very same issue.\n", APpowerPins[0]);
+                    Serial.printf("The firmware you're using expects soft power control over the AP tag; if it can't\r\n");
+                    Serial.printf("power-cycle the AP-tag using GPIO pin %d, this can cause this very same issue.\r\n", APpowerPins[0]);
 #endif
 
 #ifdef HAS_RGB_LED
@@ -970,17 +970,17 @@ void APTask(void* parameter) {
                 Serial.println("Seems like you're running into some issues with the wiring, or (very small chance) the tag itself");
                 Serial.println("This ESP32-build expects the following pins connected to the ZBS243:");
                 Serial.println("---  ZBS243 based tag              ESP32  ---");
-                Serial.printf("       TXD     ----------------     %02d\n", FLASHER_AP_RXD);
-                Serial.printf("       RXD     ----------------     %02d\n", FLASHER_AP_TXD);
-                Serial.printf("       CS/SS   ----------------     %02d\n", FLASHER_AP_SS);
-                Serial.printf("       MOSI    ----------------     %02d\n", FLASHER_AP_MOSI);
-                Serial.printf("       MISO    ----------------     %02d\n", FLASHER_AP_MISO);
-                Serial.printf("       CLK     ----------------     %02d\n", FLASHER_AP_CLK);
-                Serial.printf("       RSET    ----------------     %02d\n", FLASHER_AP_RESET);
+                Serial.printf("       TXD     ----------------     %02d\r\n", FLASHER_AP_RXD);
+                Serial.printf("       RXD     ----------------     %02d\r\n", FLASHER_AP_TXD);
+                Serial.printf("       CS/SS   ----------------     %02d\r\n", FLASHER_AP_SS);
+                Serial.printf("       MOSI    ----------------     %02d\r\n", FLASHER_AP_MOSI);
+                Serial.printf("       MISO    ----------------     %02d\r\n", FLASHER_AP_MISO);
+                Serial.printf("       CLK     ----------------     %02d\r\n", FLASHER_AP_CLK);
+                Serial.printf("       RSET    ----------------     %02d\r\n", FLASHER_AP_RESET);
 #ifdef POWER_NO_SOFT_POWER
-                Serial.printf("Your firmware is configured without soft power control. This means you'll have to manually power-cycle the tag after flashing.\n");
+                Serial.printf("Your firmware is configured without soft power control. This means you'll have to manually power-cycle the tag after flashing.\r\n");
 #else
-                Serial.printf("       POWER   ----------------     %02d\n", APpowerPins[0]);
+                Serial.printf("       POWER   ----------------     %02d\r\n", APpowerPins[0]);
 #endif
                 Serial.println("Please verify your wiring and try again!");
             }
@@ -988,7 +988,7 @@ void APTask(void* parameter) {
             if (SD_CARD_CLK == FLASHER_AP_CLK ||
                 SD_CARD_MISO == FLASHER_AP_MISO ||
                 SD_CARD_MOSI == FLASHER_AP_MOSI) {
-                Serial.println("Reseting in 30 seconds to restore SPI state!\n");
+                Serial.println("Reseting in 30 seconds to restore SPI state!\r\n");
                 flashCountDown(30);
                 ESP.restart();
             }

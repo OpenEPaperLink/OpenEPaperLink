@@ -26,7 +26,7 @@ void TagData::loadParsers(const String& filename) {
                 const auto& id = parserDoc["id"];
                 const auto& name = parserDoc["name"];
                 if (!id || !name) {
-                    Serial.printf("Error: Parser must have name and id\n");
+                    Serial.printf("Error: Parser must have name and id\r\n");
                     continue;
                 }
 
@@ -36,7 +36,7 @@ void TagData::loadParsers(const String& filename) {
                 for (const auto& parserField : parserDoc["parser"].as<JsonArray>()) {
                     const uint8_t type = parserField["type"].as<uint8_t>();
                     if (type >= (uint8_t)Type::MAX) {
-                        Serial.printf("Error: Type %d is not a valid tag data parser data type\n", type);
+                        Serial.printf("Error: Type %d is not a valid tag data parser data type\r\n", type);
                         continue;
                     }
 
@@ -67,7 +67,7 @@ void TagData::loadParsers(const String& filename) {
     }
 
     file.close();
-    Serial.printf("Loaded %d parsers in %d ms\n", parsers.size(), millis() - start);
+    Serial.printf("Loaded %d parsers in %d ms\r\n", parsers.size(), millis() - start);
 }
 
 void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, const uint8_t len) {
@@ -141,7 +141,7 @@ void TagData::parse(const uint8_t src[8], const size_t id, const uint8_t* data, 
 
         const std::string varName = (mac + name).c_str();
         setVarDB(varName, value);
-        Serial.printf("Set %s to %s\n", varName.c_str(), value.c_str());
+        Serial.printf("Set %s to %s\r\n", varName.c_str(), value.c_str());
     }
 }
 

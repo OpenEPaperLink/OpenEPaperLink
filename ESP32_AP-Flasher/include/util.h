@@ -57,7 +57,7 @@ class DebugStream : public Stream {
 /// @brief Prints free heap, allocatbale heap and free stack
 static void printHeap() {
     const uint32_t freeStack = uxTaskGetStackHighWaterMark(NULL);
-    Serial.printf("Free heap: %d allocatable: %d stack: %d\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
+    Serial.printf("Free heap: %d allocatable: %d stack: %d\r\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), freeStack);
 }
 
 /// @brief Prints the maximum continuous heap space
@@ -91,7 +91,7 @@ static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout,
     }
     http.end();
     if (error) {
-        Serial.printf("[httpGetJson] JSON: %s\n", error.c_str());
+        Serial.printf("[httpGetJson] JSON: %s\r\n", error.c_str());
         wsErr("[httpGetJson] JSON: " + String(error.c_str()));
         return false;
     }
