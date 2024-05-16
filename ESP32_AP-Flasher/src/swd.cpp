@@ -169,16 +169,16 @@ bool nrfswd::init() {
     uint32_t temp = swd_Init();
     nrf_abort_all();
     if (temp == 0x2ba01477) {  // if core id is readable the connection is working
-        if (showDebug) Serial.printf("Connected to nRF\n");
+        if (showDebug) Serial.printf("Connected to nRF\r\n");
         isConnected = true;
         if (nrf_read_lock_state()) {  // nRF is unlocked so we can talk to the debugging interface
-            if (showDebug) Serial.printf("nRF is unlocked!\n");
+            if (showDebug) Serial.printf("nRF is unlocked!\r\n");
             isLocked = false;
             nrf_halt();
             nrf_read_ufcr();
             return true;
         } else {
-            if (showDebug) Serial.printf("nRF is locked ;_;\n");
+            if (showDebug) Serial.printf("nRF is locked ;_;\r\n");
             isLocked = true;
         }
     } else {
@@ -244,7 +244,7 @@ void nrfswd::nrf_read_ufcr() {
     nrf_info.ucir_lock = read_register(0x10001208);
 
     if (showDebug) {
-        Serial.printf("Device: nRF%8X\n", nrf_info.info_part);
+        Serial.printf("Device: nRF%8X\r\n", nrf_info.info_part);
         Serial.printf("Flash size: %i\r\n", nrf_info.flash_size);
     }
 }

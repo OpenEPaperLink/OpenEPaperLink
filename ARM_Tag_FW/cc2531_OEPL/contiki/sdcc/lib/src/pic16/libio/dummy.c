@@ -1,2 +1,0 @@
-static int __foo;
-

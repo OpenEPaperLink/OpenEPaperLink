@@ -246,7 +246,7 @@ size_t compressAndWrite(Miniz::tdefl_compressor *comp, const void *inbuf, size_t
 
     uint32_t t = millis();
     Miniz::tdefl_compressOEPL(comp, inbuf, &inbytes_compressed, zlibbuf, &outbytes_compressed, flush);
-    Serial.printf("zlib: compressed %d into %d bytes in %d ms\n", inbytes_compressed, outbytes_compressed, millis() - t);
+    Serial.printf("zlib: compressed %d into %d bytes in %d ms\r\n", inbytes_compressed, outbytes_compressed, millis() - t);
 
     f_out.write((const uint8_t *)zlibbuf, outbytes_compressed);
     return outbytes_compressed;

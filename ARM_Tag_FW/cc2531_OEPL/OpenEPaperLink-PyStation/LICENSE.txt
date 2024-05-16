@@ -1,3 +1,0 @@
-This codebase is copied from here: https://github.com/Westwoodlabs/WAMP2023-Badge/tree/main/OpenEPaperLink-PyStation
-
-All Credit belongs to the creator 

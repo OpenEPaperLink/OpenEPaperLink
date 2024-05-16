@@ -52,43 +52,43 @@ bool autoFlash(flasher* f) {
 
     if (f->findTagByMD5()) {
         // this tag currently contains original firmware, found its fingerprint
-        cmdSerial.printf("Found original firmware tag, recognized its fingerprint (%s)\n", f->md5char);
+        cmdSerial.printf("Found original firmware tag, recognized its fingerprint (%s)\r\n", f->md5char);
         f->readInfoBlock();
         f->getFirmwareMac();
         f->prepareInfoBlock();
         f->writeInfoBlock();
-        cmdSerial.printf("Attempting to perform a flash...\n");
+        cmdSerial.printf("Attempting to perform a flash...\r\n");
         if (f->writeFlashFromPack("/Tag_FW_Pack.bin", f->tagtype)) {
-            cmdSerial.printf("Successfully flashed the tag!\n");
+            cmdSerial.printf("Successfully flashed the tag!\r\n");
             return true;
         } else {
-            cmdSerial.printf("Couldn't flash the tag, for some reason...\n");
+            cmdSerial.printf("Couldn't flash the tag, for some reason...\r\n");
         }
     } else if (f->getInfoBlockMD5()) {
         // did find an infoblock MD5 that looks valid
         if (f->findTagByMD5()) {
             // did find the md5 in the database
-            cmdSerial.printf("Found an already-flashed tag, recognized its fingerprint (%s)\n", f->md5char);
+            cmdSerial.printf("Found an already-flashed tag, recognized its fingerprint (%s)\r\n", f->md5char);
             f->getInfoBlockMac();
             f->getInfoBlockType();
             f->readInfoBlock();
-            cmdSerial.printf("Attempting to perform a flash...\n");
+            cmdSerial.printf("Attempting to perform a flash...\r\n");
             if (f->writeFlashFromPack("/Tag_FW_Pack.bin", f->tagtype)) {
-                cmdSerial.printf("Successfully flashed the tag!\n");
+                cmdSerial.printf("Successfully flashed the tag!\r\n");
                 return true;
             } else {
-                cmdSerial.printf("Couldn't flash the tag, for some reason...\n");
+                cmdSerial.printf("Couldn't flash the tag, for some reason...\r\n");
             }
         } else {
             // couldn't find the md5 from the infoblock
-            cmdSerial.printf("Found an already-flashed tag, but we couldn't find its fingerprint (%s) in the database\n", f->md5char);
+            cmdSerial.printf("Found an already-flashed tag, but we couldn't find its fingerprint (%s) in the database\r\n", f->md5char);
             return false;
         }
     } else {
         // We couldn't recognize the tag from it's fingerprint...
-        cmdSerial.printf("Found a tag but didn't recognize its fingerprint\n", f->md5char);
+        cmdSerial.printf("Found a tag but didn't recognize its fingerprint\r\n", f->md5char);
         f->backupFlash();
-        cmdSerial.printf("Saved this MD5 binary to filesystem\n");
+        cmdSerial.printf("Saved this MD5 binary to filesystem\r\n");
     }
     return false;
 }
@@ -245,7 +245,7 @@ static void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t eve
                 resetFlasherState();
                 break;
             case ARDUINO_USB_SUSPEND_EVENT:
-                Serial.printf("USB SUSPENDED: remote_wakeup_en: %u\n", data->suspend.remote_wakeup_en);
+                Serial.printf("USB SUSPENDED: remote_wakeup_en: %u\r\n", data->suspend.remote_wakeup_en);
                 break;
             case ARDUINO_USB_RESUME_EVENT:
                 Serial.println("USB RESUMED");
@@ -416,7 +416,7 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
         case CMD_SELECT_PORT:
             wsSerial("> select port");
             selectedFlasherPort = cmd->data[0];
-            Serial.printf("Port selected = %d\n", cmd->data[0]);
+            Serial.printf("Port selected = %d\r\n", cmd->data[0]);
             break;
         case CMD_SELECT_ZBS243:
             wsSerial("> connect zbs");
@@ -526,14 +526,14 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
                         // very ugly and naive way to find out what page we're in, and erase all relevant pages before writing
                         if (c % nrfflasherp->nrf_info.codepage_size == 0) {
                             nrfflasherp->erase_page(c);
-                            Serial.printf("Erasing page %lu\n", c);
+                            Serial.printf("Erasing page %lu\r\n", c);
                             c += nrfflasherp->nrf_info.codepage_size;
                         } else {
                             c++;
                         }
                     }
                     uint8_t result = nrfflasherp->nrf_write_bank(currentFlasherOffset, (uint32_t*)cmd->data, cmd->len);
-                    Serial.printf("wrote page offset %lu to nrf\n", currentFlasherOffset);
+                    Serial.printf("wrote page offset %lu to nrf\r\n", currentFlasherOffset);
                     currentFlasherOffset += cmd->len;
                     if (result == 3) {
                         sendFlasherAnswer(CMD_WRITE_ERROR, NULL, 0, transportType);
@@ -560,7 +560,7 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
                     sendFlasherAnswer(CMD_COMPLETE, temp_buff, 1, transportType);
                 } else {
                     uint8_t result =  nrfflasherp->nrf_write_bank(0x10001000 + currentFlasherOffset, (uint32_t*)cmd->data, cmd->len);
-                    Serial.printf("wrote infopage to nrf\n");
+                    Serial.printf("wrote infopage to nrf\r\n");
                     currentFlasherOffset += cmd->len;
                     if (result == 3) {
                         sendFlasherAnswer(CMD_WRITE_ERROR, NULL, 0, transportType);
@@ -631,7 +631,7 @@ void tagDebugPassthrough() {
         Serial2.readBytes(buf, len);
         cmdSerial.printf("%d bytes: ", len);
         cmdSerial.write(buf, len);
-        cmdSerial.print("\n");
+        cmdSerial.print("\r\n");
         //String dataString((char*)buf, len);
         //wsSerial(dataString, "cyan");
         //  accumulatedData += dataString;

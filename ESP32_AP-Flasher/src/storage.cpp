@@ -122,7 +122,7 @@ void copyBetweenFS(FS& sourceFS, const char* source_path, FS& targetFS) {
 
 void copyIfNeeded(const char* path) {
     if (!contentFS->exists(path) && LittleFS.exists(path)) {
-        Serial.printf("SDCard does not contain %s, littleFS does, copying\n", path);
+        Serial.printf("SDCard does not contain %s, littleFS does, copying\r\n", path);
         copyBetweenFS(LittleFS, path, *contentFS);
     }
 }

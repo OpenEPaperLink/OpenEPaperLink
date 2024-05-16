@@ -1636,7 +1636,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
 #ifdef CONTENT_BUIENRADAR
 uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     uint8_t refresh = 60;
-    wsLog("get weather");
+    wsLog("get buienradar");
 
     getLocation(cfgobj);
     HTTPClient http;
@@ -1644,7 +1644,7 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
     String lat = cfgobj["#lat"];
     String lon = cfgobj["#lon"];
     // logLine("http drawBuienradar");
-    http.begin("https://gps.buienradar.nl/getrr.php?lat=" + lat + "&lon=" + lon);
+    http.begin("https://gadgets.buienradar.nl/data/raintext/?lat=" + lat + "&lon=" + lon);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setTimeout(5000);
     int httpCode = http.GET();
@@ -1683,7 +1683,7 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
         drawString(spr, "Buienradar", loc["title"][0], loc["title"][1], loc["title"][2]);
 
         for (int i = 0; i < 24; i++) {
-            const int startPos = i * 11;
+            const int startPos = i * 10;
             uint8_t value = response.substring(startPos, startPos + 3).toInt();
             const String timestring = response.substring(startPos + 4, startPos + 9);
             const int minutes = timestring.substring(3).toInt();
@@ -1920,7 +1920,7 @@ String extractValueFromJson(JsonDocument &json, const String &path) {
             int index = atoi(segment);
             currentObj = currentObj.as<JsonArray>()[index];
         } else {
-            Serial.printf("Invalid JSON structure at path segment: %s\n", segment);
+            Serial.printf("Invalid JSON structure at path segment: %s\r\n", segment);
             return "";
         }
         segment = strtok(NULL, ".");

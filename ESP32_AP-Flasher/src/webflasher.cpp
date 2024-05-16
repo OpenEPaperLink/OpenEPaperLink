@@ -221,7 +221,7 @@ void webFlasherTask(void* parameter) {
                 errors = 0;
 
                 if (!report(zbsflasherp->connectTag(FLASHER_EXT_PORT))) {
-                    Seriallog.printf("Sorry, failed to connect to this tag...\n");
+                    Seriallog.printf("Sorry, failed to connect to this tag...\r\n");
                     break;
 
                 } else {
@@ -231,7 +231,7 @@ void webFlasherTask(void* parameter) {
                     infoDisplay("Find tag", 0);
                     if (zbsflasherp->findTagByMD5()) {
                         // this tag currently contains original firmware, found its fingerprint
-                        Seriallog.printf("Found original firmware tag (fingerprint %s)\n", zbsflasherp->md5char);
+                        Seriallog.printf("Found original firmware tag (fingerprint %s)\r\n", zbsflasherp->md5char);
 
                         infoDisplay("Read info block", 0);
                         report(zbsflasherp->readInfoBlock());
@@ -256,7 +256,7 @@ void webFlasherTask(void* parameter) {
                             // did find the md5 in the database
 
                             infoDisplay("Found tag", 0);
-                            Seriallog.printf("Found an already-flashed tag (fingerprint %s)\n", zbsflasherp->md5char);
+                            Seriallog.printf("Found an already-flashed tag (fingerprint %s)\r\n", zbsflasherp->md5char);
 
                             infoDisplay("Get infoblock mac", 0);
                             report(zbsflasherp->getInfoBlockMac());
@@ -278,17 +278,17 @@ void webFlasherTask(void* parameter) {
                             infoDisplay("Unknown fingerprint", 0);
                             report(false);
                             // couldn't find the md5 from the infoblock
-                            Seriallog.printf("Found an already-flashed tag, but we couldn't find its fingerprint (%s) in the database\n", zbsflasherp->md5char);
+                            Seriallog.printf("Found an already-flashed tag, but we couldn't find its fingerprint (%s) in the database\r\n", zbsflasherp->md5char);
                             break;
                         }
                     } else {
                         // We couldn't recognize the tag from its fingerprint...
-                        Seriallog.printf("Found a tag but didn't recognize its fingerprint (%s)\n", zbsflasherp->md5char);
+                        Seriallog.printf("Found a tag but didn't recognize its fingerprint (%s)\r\n", zbsflasherp->md5char);
 
                         infoDisplay("Backup firmware", 0);
                         report(zbsflasherp->backupFlash());
 
-                        Seriallog.printf("Saved this MD5 binary to filesystem\n");
+                        Seriallog.printf("Saved this MD5 binary to filesystem\r\n");
 
                         infoDisplay("Unknown tag", 0);
                         report(false);
