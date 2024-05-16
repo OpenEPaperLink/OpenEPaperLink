@@ -285,7 +285,13 @@ function processTags(tagArray) {
 			$('#tag' + tagmac + ' .mac').innerHTML = tagmac;
 		}
 		let alias = element.alias;
-		if (!alias) alias = tagmac.replace(/^0{1,4}/, '');
+		if (!alias) {
+			alias = tagmac.replace(/^0{1,4}/, '');
+			if (alias.substring(0,6) == "446709") {
+				let model = "J" + String.fromCharCode(Number.parseInt(alias.substr(6,2)) + 65)
+				alias = model + alias.substr(8,8)
+			}
+		}
 		if ($('#tag' + tagmac + ' .alias').innerHTML != alias) {
 			$('#tag' + tagmac + ' .alias').innerHTML = alias;
 		}
