@@ -287,9 +287,14 @@ function processTags(tagArray) {
 		let alias = element.alias;
 		if (!alias) {
 			alias = tagmac.replace(/^0{1,4}/, '');
-			if (alias.match(/^4467.9/)) {
-				let model = "J" + String.fromCharCode(Number.parseInt(alias.substr(7,1)) + 65)
-				alias = model + alias.substr(8,8) + 'x'
+			if (alias.match(/^4467/)) {
+				let macdigit = Number.parseInt(alias.substr(4,2),16) & 0x1f;
+				let model = String.fromCharCode(macdigit + 65);
+				if (model == 'J'  || model == 'M') {
+					macdigit = Number.parseInt(alias.substr(6,2),16) & 0x1f;
+					model += String.fromCharCode(macdigit + 65);
+					alias = model + alias.substr(8,8) + 'x'
+				}
 			}
 		}
 		if ($('#tag' + tagmac + ' .alias').innerHTML != alias) {
