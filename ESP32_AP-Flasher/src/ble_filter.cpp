@@ -191,6 +191,7 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
     uint8_t canDoCompression = (giciType & 0x4000) ? 0 : 1;
 
     bool extra_color = false;
+    bool extra_tft_bitshifting = false;
     bool mirror_width = false;
     uint16_t width_display = 104;
     uint16_t height_display = 212;
@@ -244,7 +245,8 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
 
     switch (dispPtype) {
         case 0:  // TFT
-            mirror_width = true;
+            mirror_width = false;
+            extra_tft_bitshifting = true;  // Special case for the TFT Type
             break;
         case 1:  // EPA
             mirror_width = false;
@@ -349,7 +351,7 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
                         Mirrorbuffer[b] = queueItem->data[curr_input_posi++];
                 }
                 for (int b = byte_per_line - 1; b >= 0; b--) {
-                        buffer[len_compressed++] = swapBits(Mirrorbuffer[b]);
+                    buffer[len_compressed++] = swapBits(Mirrorbuffer[b]);
                 }
             } else {
                 for (int b = 0; b < byte_per_line; b++) {
