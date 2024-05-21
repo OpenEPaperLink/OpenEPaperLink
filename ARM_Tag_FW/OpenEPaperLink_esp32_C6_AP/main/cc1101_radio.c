@@ -306,7 +306,7 @@ static uint8_t gRfState;
 #define LOW  0
 #define HIGH 1
 
-uint32_t gFreqErrSum;
+int32_t gFreqErrSum;
 uint8_t  gFreqErrSumCount;
 int8_t  gFreqCorrection;
 
