@@ -1,5 +1,0 @@
---- /home/jonas/.platformio/packages/framework-arduinonordicnrf5/cores/nRF5/SDK/components/softdevice/none/hex/none_nrf51__softdevice.hex	2020-12-05 15:15:55.000000000 +0100
-+++ /home/jonas/Documents/OpenEPaperLink/ARM_Tag_FW/nrf52811_Platformio_2.9/core/packages/framework-arduinonordicnrf5/cores/nRF5/SDK/components/softdevice/none/hex/none_nrf51__softdevice.hex	1970-01-01 01:00:00.000000000 +0100
-@@ -1,2 +0,0 @@
--:020000040000FA
--:00000001FF

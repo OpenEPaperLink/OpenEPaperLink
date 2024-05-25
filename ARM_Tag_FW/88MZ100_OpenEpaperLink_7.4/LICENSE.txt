@@ -1,7 +1,0 @@
-Parts of this E-Paper firmware mod is based on Dmitry Grinbergs firmware which is available here:
-http://dmitry.gr/?r=05.Projects&proj=29.%20eInk%20Price%20Tags
-
-Many thanks to Dmitry for sharing such a wonderful work !
-
-The license is simple: 
-This code/data/waveforms are free for use in hobby and other non-commercial products. For commercial use, Dmitry: licensing@dmitry.gr
