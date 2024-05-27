@@ -380,6 +380,10 @@ def main():
 
                 if (answer[0] == 1):
                     print("Connection established to microcontroller")
+                elif (answer[0] == 2):
+                    print("Established connection to the microcontroller, but it is locked. Exiting.")
+                    send_cmd(CMD_SET_POWER, bytearray([0]))
+                    exit(0)
                 else:
                     print("Failed to establish a connection to the microcontroller")
                     send_cmd(CMD_SET_POWER, bytearray([0]))

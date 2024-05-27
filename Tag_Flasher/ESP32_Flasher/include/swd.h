@@ -18,7 +18,7 @@ class swd {
     bool DP_Write(unsigned addr, uint32_t data);
     bool DP_Read(unsigned addr, uint32_t &data);
 
-    uint32_t idCode;
+    uint32_t idCode = 0;
 
    protected:
     void swd_Begin();

@@ -513,7 +513,7 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             nrfflasherp = new nrfswd(FLASHER_EXT_MISO, FLASHER_EXT_CLK);
             nrfflasherp->showDebug = false;
             nrfflasherp->init();
-            temp_buff[0] = (nrfflasherp->isConnected && !nrfflasherp->isLocked);
+            temp_buff[0] = nrfflasherp->isConnected ? (nrfflasherp->isLocked ? 2 : 1) : 0;
             sendFlasherAnswer(CMD_SELECT_NRF82511, temp_buff, 1);
             currentFlasherOffset = 0;
             selectedController = CONTROLLER_NRF82511;
