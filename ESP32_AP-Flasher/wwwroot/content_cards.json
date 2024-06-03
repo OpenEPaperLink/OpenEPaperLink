@@ -103,7 +103,7 @@
         "type": "select",
         "options": {
           "0": "-Celcius / Beaufort / millimeters",
-          "1": "Fahrenheit / mph / millimeters"
+          "1": "Fahrenheit / mph / inches"
         }
       },
       {
@@ -144,7 +144,7 @@
         "type": "select",
         "options": {
           "0": "-Celcius / Beaufort / millimeters",
-          "1": "Fahrenheit / mph / millimeters"
+          "1": "Fahrenheit / mph / inches"
         }
       },
       {
