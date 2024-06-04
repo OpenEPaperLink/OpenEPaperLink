@@ -855,7 +855,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
     const String tz = cfgobj["#tz"];
     String units = "";
     if (cfgobj["units"] == "1") {
-        units += "&temperature_unit=fahrenheit&windspeed_unit=mph";
+        units += "&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch";
     }
 
     DynamicJsonDocument doc(1000);
@@ -940,7 +940,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
     String tz = cfgobj["#tz"];
     String units = "";
     if (cfgobj["units"] == "1") {
-        units += "&temperature_unit=fahrenheit&windspeed_unit=mph";
+        units += "&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch";
     }
 
     DynamicJsonDocument doc(2000);
@@ -990,10 +990,19 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
         }
 
         if (loc["rain"]) {
-            const int8_t rain = round(daily["precipitation_sum"][dag].as<double>());
-            if (rain > 0) {
-                drawString(spr, String(rain) + "mm", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], day[2], TC_DATUM, (rain > 10 ? imageParams.highlightColor : TFT_BLACK));
-            }
+           if (cfgobj["units"] == "0") {
+              const int8_t rain = round(daily["precipitation_sum"][dag].as<double>());
+              if (rain > 0) {
+                  drawString(spr, String(rain) + "mm", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], day[2], TC_DATUM, (rain > 10 ? imageParams.highlightColor : TFT_BLACK));
+              }
+           } else {
+              double fRain = daily["precipitation_sum"][dag].as<double>();
+              fRain = round(fRain*100.0) / 100.0;
+              if (fRain > 0.0) {
+                 // inch, display if > .01 inches
+                  drawString(spr, String(fRain) + "in", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], day[2], TC_DATUM, (fRain > 0.5 ? imageParams.highlightColor : TFT_BLACK));
+              }
+           }
         }
 
         drawString(spr, String(tmin) + " ", dag * column1 + day[0].as<int>(), day[4], day[2], TR_DATUM, (tmin < 0 ? imageParams.highlightColor : TFT_BLACK));
