@@ -268,6 +268,20 @@ void nrfswd::write_register(uint32_t address, uint32_t value) {
         Serial0.printf("%i%i%i Write Register: 0x%08x : 0x%08x\r\n", state1, state2, state3, address, value);
 }
 
+uint8_t nrfswd::nrf_erase_all() {
+    nrf_port_selection(1);
+    nrf_write_port(1, AP_NRF_ERASEALL, 1);
+    long timeout = millis();
+    while (nrf_read_port(1, AP_NRF_ERASEALLSTATUS)) {
+        if (millis() - timeout > 1000) return 1;
+    }
+    nrf_write_port(1, AP_NRF_ERASEALL, 0);
+    nrf_port_selection(0);
+    nrf_soft_reset();
+    init();
+    return 0;
+}
+
 uint8_t nrfswd::erase_all_flash() {
     write_register(0x4001e504, 2);
     long timeout = millis();

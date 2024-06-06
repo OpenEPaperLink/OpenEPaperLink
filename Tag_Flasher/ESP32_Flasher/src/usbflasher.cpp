@@ -296,6 +296,7 @@ typedef enum {
 
     CMD_ERASE_FLASH = 26,
     CMD_ERASE_INFOPAGE = 27,
+    CMD_ERASE_ALL = 28,
     CMD_SAVE_MAC_FROM_FW = 40,
     CMD_PASS_THROUGH = 50,
 
@@ -495,6 +496,13 @@ void processFlasherCommand(struct flasherCommand* cmd) {
                 zbsflasherp->zbs->erase_infoblock();
             }
             sendFlasherAnswer(CMD_ERASE_INFOPAGE, NULL, 0);
+            break;
+        case CMD_ERASE_ALL:
+            if (selectedController == CONTROLLER_NRF82511) {
+                if (nrfflasherp == nullptr) return;
+                nrfflasherp->nrf_erase_all();
+            }
+            sendFlasherAnswer(CMD_ERASE_ALL, NULL, 0);
             break;
         case CMD_SELECT_PORT:
             selectedFlasherPort = cmd->data[0];
