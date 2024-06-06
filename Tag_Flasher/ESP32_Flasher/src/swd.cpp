@@ -182,6 +182,7 @@ bool nrfswd::init() {
             isLocked = true;
         }
     } else {
+        if (showDebug) Serial0.printf("No nRF core ID found, got 0x%lx\n", temp);
         isConnected = false;
         isLocked = true;
     }
