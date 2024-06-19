@@ -306,7 +306,7 @@ static bool blockRxLoop(const uint32_t timeout)
     bool success = false;
     // radioRxEnable(true);
     uint32_t t = clock_time();
-    while (!clock_time_exceed(t, 2000 * 1000))
+    while (!clock_time_exceed(t, timeout * 1000)) // 300 ms is enough here
     {
         int8_t ret = commsRxUnencrypted(inBuffer);
         if (ret > 1)
@@ -611,7 +611,7 @@ static bool getDataBlock(const uint16_t blockSize)
         {
             // immediately start with the reception of the block data
         }
-        blockRxLoop(270); // BLOCK RX LOOP - receive a block, until the timeout has passed
+        blockRxLoop(300); // BLOCK RX LOOP - receive a block, until the timeout has passed
 
 #ifdef DEBUGBLOCKS
         printf("RX  %d[", curBlock.blockId);
