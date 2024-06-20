@@ -355,6 +355,7 @@ def main():
             cmd, answer = wait_for_command()
             send_cmd(CMD_SET_POWER, bytearray([1]))
             cmd, answer = wait_for_command()
+            time.sleep(0.2)
             send_cmd(CMD_RESET, bytearray([]))
             cmd, answer = wait_for_command()
             send_cmd(CMD_SELECT_EEPROM_PT, bytearray([])) ## selects eeprom serial loader mode
@@ -371,6 +372,7 @@ def main():
 
                 send_cmd(CMD_SET_POWER, bytearray([1]))
                 cmd, answer = wait_for_command()
+                time.sleep(0.2)
 
                 if args.nrf82511:
                     send_cmd(CMD_SELECT_NRF82511, bytearray([]))
