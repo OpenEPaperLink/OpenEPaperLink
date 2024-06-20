@@ -15,6 +15,7 @@ CMD_SET_TESTP = 14
 
 CMD_ERASE_FLASH = 26
 CMD_ERASE_INFOPAGE = 27
+CMD_ERASE_ALL = 28
 CMD_SAVE_MAC_FROM_FW = 40
 CMD_PASS_THROUGH = 50
 
@@ -281,7 +282,7 @@ def main():
             description="OpenEPaperLink Flasher for AP/Flasher board")
         parser.add_argument("-p", "--port", help="COM port to use")
         parser.add_argument("-t", "--ip", help="IP Address to use")
-        parser.add_argument("command", nargs="?", choices=["read", "write", "autoflash", "debug"], help="Command to execute")
+        parser.add_argument("command", nargs="?", choices=["read", "write", "erase", "autoflash", "debug"], help="Command to execute")
         parser.add_argument("filename", nargs="?",
                             help="Filename for read/write commands")
         parser.add_argument("-f", "--flash", action="store_true",
@@ -361,7 +362,7 @@ def main():
             send_cmd(CMD_SELECT_EEPROM_PT, bytearray([])) ## selects eeprom serial loader mode
             cmd, answer = wait_for_command()
 
-        elif (args.flash or args.infopage):
+        elif (args.flash or args.infopage or args.command == "erase"):
             if (args.command != "debug"):
                 if args.internalap:
                     send_cmd(CMD_SELECT_PORT, bytearray([0]))
@@ -383,9 +384,12 @@ def main():
                 if (answer[0] == 1):
                     print("Connection established to microcontroller")
                 elif (answer[0] == 2):
-                    print("Established connection to the microcontroller, but it is locked. Exiting.")
-                    send_cmd(CMD_SET_POWER, bytearray([0]))
-                    exit(0)
+                    print("Established connection to the microcontroller, but it is locked.")
+                    if args.command != "erase":
+                        print("Call with 'erase' command to remove protection and erase all data.")
+                        print("WARNING: This will render the tag unusable until a new firmware and matching UICR (infopage) are flashed!")
+                        send_cmd(CMD_SET_POWER, bytearray([0]))
+                        exit(0)
                 else:
                     print("Failed to establish a connection to the microcontroller")
                     send_cmd(CMD_SET_POWER, bytearray([0]))
@@ -395,6 +399,15 @@ def main():
             read_from_serial(args.filename, args)
         elif args.command == "write":
             write_to_serial(args.filename, args)
+        elif args.command == "erase":
+            print(f"\nErasing chip... ")
+            send_cmd(CMD_ERASE_ALL, bytearray([]))
+            cmd, answer = wait_for_command()
+            if (cmd == CMD_ERASE_ALL):
+                print("DONE!\n")
+            else:
+                print("\nFailed to erase the chip?")
+                exit(0)
         elif args.command == "autoflash":
             print("Starting automatic tag flash")
             send_cmd(CMD_AUTOFLASH, bytearray([]))
