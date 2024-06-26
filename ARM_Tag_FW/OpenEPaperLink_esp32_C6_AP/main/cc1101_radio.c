@@ -627,7 +627,7 @@ int CC1101_Rx(uint8_t *RxBuf,size_t RxBufLen,uint8_t *pRssi,uint8_t *pLqi)
    uint8_t Rssi;
    uint8_t Lqi;
    int Ret;
-   uint8_t FreqErr;
+   int8_t FreqErr;
    int8_t FreqCorrection;
 
 // Any data waiting to be read and no overflow?
@@ -672,22 +672,19 @@ int CC1101_Rx(uint8_t *RxBuf,size_t RxBufLen,uint8_t *pRssi,uint8_t *pLqi)
       if(pLqi != NULL) {
          *pLqi = Lqi & CC1101_LQI_MASK;
       }
-      FreqErr = CC1101_readReg(CC1101_FREQEST,CC1101_STATUS_REGISTER);
-      if(FreqErr != 0) {
-         FreqErr += gFreqCorrection;
-         if(gFreqErrSumCount < 255) {
-            gFreqErrSum += FreqErr;
-            gFreqErrSumCount++;
-            FreqCorrection = (int8_t) (gFreqErrSum / gFreqErrSumCount);
-            if(gFreqCorrection != FreqCorrection) {
-               LOGA("FreqCorrection %d -> %d\n",gFreqCorrection,FreqCorrection);
-               gFreqCorrection = FreqCorrection;
-               CC1101_writeReg(CC1101_FSCTRL0,gFreqCorrection);
-            }
-            if(gFreqErrSumCount == 255) {
-               LOGA("Final FreqCorrection %d\n",gFreqCorrection);
-            }
-         }
+      FreqErr = (int8_t) CC1101_readReg(CC1101_FREQEST,CC1101_STATUS_REGISTER);
+      if(FreqErr != 0 && gFreqErrSumCount < 255) {
+			gFreqErrSum += FreqErr + gFreqCorrection;
+			gFreqErrSumCount++;
+			FreqCorrection = (int8_t) (gFreqErrSum / gFreqErrSumCount);
+			if(gFreqCorrection != FreqCorrection) {
+				LOGA("FreqCorrection %d -> %d\n",gFreqCorrection,FreqCorrection);
+				gFreqCorrection = FreqCorrection;
+				CC1101_writeReg(CC1101_FSCTRL0,gFreqCorrection);
+			}
+			if(gFreqErrSumCount == 255) {
+				LOGA("Final FreqCorrection %d\n",gFreqCorrection);
+			}
       }
    } while(false);
 
