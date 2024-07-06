@@ -18,6 +18,7 @@ class UDPcomm {
 		void netTaginfo(struct TagInfo* taginfoitem);
     private:
 		AsyncUDP udp;
+		AsyncUDP udp2;
 		void processPacket(AsyncUDPPacket packet);
 };
 

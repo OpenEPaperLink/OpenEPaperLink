@@ -38,6 +38,13 @@ void UDPcomm::init() {
             }
         });
     }
+	if (udp2.listen(UDPPORT)) {
+		udp2.onPacket([this](AsyncUDPPacket packet) {
+			if (packet.isBroadcast() &&	packet.remoteIP() != WiFi.localIP()) {
+				this->processPacket(packet);
+			}
+		});
+	}
     setAPchannel();
 }
 
@@ -88,6 +95,7 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
             buffer[0] = PKT_APLIST_REPLY;
             memcpy(buffer + 1, &APitem, sizeof(struct APlist));
             udp.writeTo(buffer, sizeof(buffer), senderIP, UDPPORT);
+			udp2.broadcastTo(buffer, sizeof(buffer), UDPPORT);
             break;
         }
         case PKT_APLIST_REPLY: {
@@ -159,6 +167,7 @@ void UDPcomm::getAPList() {
     buffer[0] = PKT_APLIST_REQ;
     memcpy(buffer + 1, &APitem, sizeof(struct APlist));
     udp.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
+	udp2.broadcastTo(buffer, sizeof(buffer), UDPPORT);
 }
 
 void UDPcomm::netProcessDataReq(struct espAvailDataReq* eadr) {
@@ -166,6 +175,7 @@ void UDPcomm::netProcessDataReq(struct espAvailDataReq* eadr) {
     buffer[0] = PKT_AVAIL_DATA_INFO;
     memcpy(buffer + 1, eadr, sizeof(struct espAvailDataReq));
     udp.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
+	udp2.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
 }
 
 void UDPcomm::netProcessXferComplete(struct espXferComplete* xfc) {
@@ -173,6 +183,7 @@ void UDPcomm::netProcessXferComplete(struct espXferComplete* xfc) {
     buffer[0] = PKT_XFER_COMPLETE;
     memcpy(buffer + 1, xfc, sizeof(struct espXferComplete));
     udp.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
+	udp2.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
 }
 
 void UDPcomm::netProcessXferTimeout(struct espXferComplete* xfc) {
@@ -180,6 +191,7 @@ void UDPcomm::netProcessXferTimeout(struct espXferComplete* xfc) {
     buffer[0] = PKT_XFER_TIMEOUT;
     memcpy(buffer + 1, xfc, sizeof(struct espXferComplete));
     udp.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
+	udp2.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
 }
 
 void UDPcomm::netSendDataAvail(struct pendingData* pending) {
@@ -187,6 +199,7 @@ void UDPcomm::netSendDataAvail(struct pendingData* pending) {
     buffer[0] = PKT_AVAIL_DATA_REQ;
     memcpy(buffer + 1, pending, sizeof(struct pendingData));
     udp.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
+	udp2.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
 }
 
 void UDPcomm::netTaginfo(struct TagInfo* taginfoitem) {
@@ -194,4 +207,5 @@ void UDPcomm::netTaginfo(struct TagInfo* taginfoitem) {
     buffer[0] = PKT_TAGINFO;
     memcpy(buffer + 1, taginfoitem, sizeof(struct TagInfo));
     udp.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
+	udp2.writeTo(buffer, sizeof(buffer), UDPIP, UDPPORT);
 }
