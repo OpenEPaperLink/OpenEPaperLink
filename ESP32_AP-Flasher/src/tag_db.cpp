@@ -331,6 +331,7 @@ void initAPconfig() {
     config.sleepTime1 = APconfig.containsKey("sleeptime1") ? APconfig["sleeptime1"] : 0;
     config.sleepTime2 = APconfig.containsKey("sleeptime2") ? APconfig["sleeptime2"] : 0;
     config.ble = APconfig.containsKey("ble") ? APconfig["ble"] : 0;
+	config.discovery = APconfig.containsKey("discovery") ? APconfig["discovery"] : 0;
     #ifdef BLE_ONLY
     config.ble = true;
     #endif
@@ -367,6 +368,7 @@ void saveAPconfig() {
     APconfig["ble"] = config.ble;
     APconfig["repo"] = config.repo;
     APconfig["env"] = config.env;
+	APconfig["discovery"] = config.discovery;
     serializeJsonPretty(APconfig, configFile);
     configFile.close();
     xSemaphoreGive(fsMutex);

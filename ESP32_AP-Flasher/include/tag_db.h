@@ -72,6 +72,7 @@ struct Config {
     uint8_t sleepTime1;
     uint8_t sleepTime2;
     uint8_t ble;
+	uint8_t discovery;
     String repo;
     String env;
 };

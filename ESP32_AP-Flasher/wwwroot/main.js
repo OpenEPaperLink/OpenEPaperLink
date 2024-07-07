@@ -762,6 +762,7 @@ document.addEventListener("loadTab", function (event) {
 						$("#apctimezone").value = data.timezone;
 						$("#apcnight1").value = data.sleeptime1;
 						$("#apcnight2").value = data.sleeptime2;
+                        $("#apcdiscovery").value = data.discovery;
 					}
 				})
 			$('#apcfgmsg').innerHTML = '';

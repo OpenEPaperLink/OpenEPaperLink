@@ -1,9 +1,11 @@
 #include <Arduino.h>
 
 #include "AsyncUDP.h"
-
+#include "tag_db.h"
 #ifndef defudpcomm
 #define defudpcomm
+
+extern Config config;
 
 class UDPcomm {
 	public:
@@ -18,8 +20,8 @@ class UDPcomm {
 		void netTaginfo(struct TagInfo* taginfoitem);
     private:
 		AsyncUDP udp;
-		AsyncUDP udp2;
 		void processPacket(AsyncUDPPacket packet);
+		void writeUdpPacket(uint8_t *buffer, uint16_t len, IPAddress senderIP);
 };
 
 #endif
