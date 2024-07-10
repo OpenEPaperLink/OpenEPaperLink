@@ -32,7 +32,6 @@ static const char *TAG = "RADIO";
 uint8_t mSelfMac[8];
 volatile uint8_t isInTransmit = 0;
 QueueHandle_t packet_buffer = NULL;
-
 void esp_ieee802154_receive_done(uint8_t *frame, esp_ieee802154_frame_info_t *frame_info) {
     ESP_EARLY_LOGI(TAG, "RX %d", frame[0]);
     BaseType_t xHigherPriorityTaskWoken;
@@ -40,6 +39,7 @@ void esp_ieee802154_receive_done(uint8_t *frame, esp_ieee802154_frame_info_t *fr
     memcpy(inner_rxPKT, &frame[0], frame[0] + 1);
     xQueueSendFromISR(packet_buffer, (void *)&inner_rxPKT, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR_ARG(xHigherPriorityTaskWoken);
+    esp_ieee802154_receive_handle_done(frame);
 }
 
 void esp_ieee802154_transmit_failed(const uint8_t *frame, esp_ieee802154_tx_error_t error) {
@@ -50,12 +50,19 @@ void esp_ieee802154_transmit_failed(const uint8_t *frame, esp_ieee802154_tx_erro
 void esp_ieee802154_transmit_done(const uint8_t *frame, const uint8_t *ack, esp_ieee802154_frame_info_t *ack_frame_info) {
     isInTransmit = 0;
     ESP_EARLY_LOGI(TAG, "TX %d", frame[0]);
+    esp_ieee802154_receive_handle_done(frame);
 }
-
+static bool zigbee_is_enabled = false;
 void radio_init(uint8_t ch) {
     if (packet_buffer == NULL) packet_buffer = xQueueCreate(32, 130);
 
     // this will trigger a "IEEE802154 MAC sleep init failed" when called a second time, but it works
+    if(zigbee_is_enabled)
+    {
+        zigbee_is_enabled = false;
+        esp_ieee802154_disable();
+    }
+    zigbee_is_enabled = true;
     esp_ieee802154_enable();
     esp_ieee802154_set_channel(ch);
     // esp_ieee802154_set_txpower(int8_t power);
@@ -101,8 +108,6 @@ bool radioTx(uint8_t *packet) {
     static uint8_t txPKT[130];
 #endif
     led_flash(1);
-	while (isInTransmit) {
-	}
 	// while (getMillis() - lastZbTx < 6) {
 	// }
 	// lastZbTx = getMillis();
@@ -114,6 +119,8 @@ bool radioTx(uint8_t *packet) {
 		return SubGig_radioTx(packet);
 	}
 #endif
+	while (isInTransmit) {
+	}
 	isInTransmit = 1;
 	esp_ieee802154_transmit(txPKT, false);
 	return true;
