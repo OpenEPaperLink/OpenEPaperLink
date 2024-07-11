@@ -799,7 +799,7 @@ $('#apcfgsave').onclick = function () {
 	formData.append('timezone', $('#apctimezone').value);
 	formData.append('sleeptime1', $('#apcnight1').value);
 	formData.append('sleeptime2', $('#apcnight2').value);
-
+    formData.append('discovery', $('#apcdiscovery').value)
 	fetch("save_apcfg", {
 		method: "POST",
 		body: formData
