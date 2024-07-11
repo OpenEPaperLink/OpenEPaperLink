@@ -614,9 +614,9 @@ void init_web() {
             setenv("TZ", config.timeZone, 1);
             tzset();
         }
-		if (request->hasParam("discovery", true)) {
-			config.discovery = static_cast<uint8_t>(request->getParam("discovery", true)->value().toInt());
-		}
+        if (request->hasParam("discovery", true)) {
+            config.discovery = static_cast<uint8_t>(request->getParam("discovery", true)->value().toInt());
+        }
         if (request->hasParam("repo", true)) {
             config.repo = request->getParam("repo", true)->value();
         }

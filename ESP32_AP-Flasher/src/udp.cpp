@@ -31,23 +31,23 @@ UDPcomm::~UDPcomm() {
 }
 
 void UDPcomm::init() {
-	if (config.discovery == 0) {
-		if (udp.listenMulticast(UDPIP, UDPPORT)) {
-			udp.onPacket([this](AsyncUDPPacket packet) {
-				if (packet.remoteIP() != WiFi.localIP()) {
-					this->processPacket(packet);
-				}
-			});
-		}
-	} else {
-		if (udp.listen(UDPPORT)) {
-			udp.onPacket([this](AsyncUDPPacket packet) {
-				if (packet.isBroadcast() && packet.remoteIP() != WiFi.localIP()) {
-					this->processPacket(packet);
-				}
-			});
-		}
-	}
+    if (config.discovery == 0) {
+        if (udp.listenMulticast(UDPIP, UDPPORT)) {
+            udp.onPacket([this](AsyncUDPPacket packet) {
+                if (packet.remoteIP() != WiFi.localIP()) {
+                    this->processPacket(packet);
+                }
+            });
+        }
+    } else {
+        if (udp.listen(UDPPORT)) {
+            udp.onPacket([this](AsyncUDPPacket packet) {
+                if (packet.isBroadcast() && packet.remoteIP() != WiFi.localIP()) {
+                    this->processPacket(packet);
+                }
+            });
+        }
+    }
     setAPchannel();
 }
 
@@ -97,7 +97,7 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
             uint8_t buffer[sizeof(struct APlist) + 1];
             buffer[0] = PKT_APLIST_REPLY;
             memcpy(buffer + 1, &APitem, sizeof(struct APlist));
-			writeUdpPacket(buffer, sizeof(buffer), senderIP);
+            writeUdpPacket(buffer, sizeof(buffer), senderIP);
             break;
         }
         case PKT_APLIST_REPLY: {
@@ -168,48 +168,48 @@ void UDPcomm::getAPList() {
     uint8_t buffer[sizeof(struct APlist) + 1];
     buffer[0] = PKT_APLIST_REQ;
     memcpy(buffer + 1, &APitem, sizeof(struct APlist));
-	writeUdpPacket(buffer, sizeof(buffer), UDPIP);
+    writeUdpPacket(buffer, sizeof(buffer), UDPIP);
 }
 
 void UDPcomm::netProcessDataReq(struct espAvailDataReq* eadr) {
     uint8_t buffer[sizeof(struct espAvailDataReq) + 1];
     buffer[0] = PKT_AVAIL_DATA_INFO;
     memcpy(buffer + 1, eadr, sizeof(struct espAvailDataReq));
-	writeUdpPacket(buffer, sizeof(buffer), UDPIP);
+    writeUdpPacket(buffer, sizeof(buffer), UDPIP);
 }
 
 void UDPcomm::netProcessXferComplete(struct espXferComplete* xfc) {
     uint8_t buffer[sizeof(struct espXferComplete) + 1];
     buffer[0] = PKT_XFER_COMPLETE;
     memcpy(buffer + 1, xfc, sizeof(struct espXferComplete));
-	writeUdpPacket(buffer, sizeof(buffer), UDPIP);
+    writeUdpPacket(buffer, sizeof(buffer), UDPIP);
 }
 
 void UDPcomm::netProcessXferTimeout(struct espXferComplete* xfc) {
     uint8_t buffer[sizeof(struct espXferComplete) + 1];
     buffer[0] = PKT_XFER_TIMEOUT;
     memcpy(buffer + 1, xfc, sizeof(struct espXferComplete));
-	writeUdpPacket(buffer, sizeof(buffer), UDPIP);
+    writeUdpPacket(buffer, sizeof(buffer), UDPIP);
 }
 
 void UDPcomm::netSendDataAvail(struct pendingData* pending) {
     uint8_t buffer[sizeof(struct pendingData) + 1];
     buffer[0] = PKT_AVAIL_DATA_REQ;
     memcpy(buffer + 1, pending, sizeof(struct pendingData));
-	writeUdpPacket(buffer, sizeof(buffer), UDPIP);
+    writeUdpPacket(buffer, sizeof(buffer), UDPIP);
 }
 
 void UDPcomm::netTaginfo(struct TagInfo* taginfoitem) {
     uint8_t buffer[sizeof(struct TagInfo) + 1];
     buffer[0] = PKT_TAGINFO;
     memcpy(buffer + 1, taginfoitem, sizeof(struct TagInfo));
-	writeUdpPacket(buffer, sizeof(buffer), UDPIP);
+    writeUdpPacket(buffer, sizeof(buffer), UDPIP);
 }
 
 void UDPcomm::writeUdpPacket(uint8_t *buffer, uint16_t len, IPAddress senderIP) {
-	if (config.discovery == 0) {
-		udp.writeTo(buffer, len, senderIP, UDPPORT);
-	} else {
-		udp.broadcastTo(buffer, len, UDPPORT);
-	}
+    if (config.discovery == 0) {
+        udp.writeTo(buffer, len, senderIP, UDPPORT);
+    } else {
+        udp.broadcastTo(buffer, len, UDPPORT);
+    }
 }
