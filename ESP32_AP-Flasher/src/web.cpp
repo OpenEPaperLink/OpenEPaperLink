@@ -478,7 +478,7 @@ void init_web() {
     server.on("/led_flash", HTTP_GET, [](AsyncWebServerRequest *request) {
         //  color picker: https://roger-random.github.io/RGB332_color_wheel_three.js/
         //  http GET to /led_flash?mac=000000000000&pattern=000000000000000000000000
-        //  see https://github.com/jjwbruijn/OpenEPaperLink/wiki/Led-control
+        //  see https://github.com/OpenEPaperLink/OpenEPaperLink/wiki/Led-control
         if (request->hasParam("mac")) {
             String dst = request->getParam("mac")->value();
             uint8_t mac[8];

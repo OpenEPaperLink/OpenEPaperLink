@@ -154,7 +154,7 @@ async function checkTagFW() {
             print(`File ${fwfile} found`, "green");
         } else {
             print(`File ${fwfile} not found. Downloading...`, "red");
-            await fetchAndPost("https://raw.githubusercontent.com/jjwbruijn/OpenEPaperLink/master/binaries/Tag/Tag_FW_Pack.bin", "Tag_FW_Pack.bin", fwfile);
+            await fetchAndPost("https://raw.githubusercontent.com/OpenEPaperLink/OpenEPaperLink/master/binaries/Tag/Tag_FW_Pack.bin", "Tag_FW_Pack.bin", fwfile);
         }
     } else {
         print(`error checking file ${file.path}: ${response.status}`, "red");
