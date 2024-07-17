@@ -119,7 +119,7 @@ void wsSendSysteminfo() {
           ApChanString += "disabled";
        }
        else {
-          ApChanString += "Ch " + String(apInfo.SubGhzChannel);
+          ApChanString += String(apInfo.SubGhzChannel);
        }
     }
     setVarDB("ap_ch", ApChanString);
