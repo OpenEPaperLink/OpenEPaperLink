@@ -94,6 +94,24 @@
       "type": "SOL_M3_Uni_ota",
       "version": "0027",
       "md5": "55541b0f440e041d559c4d72c9dee524"
+    },
+    "80": {
+      "type": "chroma74y_ota",
+      "version": "0007",
+      "md5": "00616787b718375159a7ba709546bada"
+    },
+    "82": {
+      "type": "chroma29_ota",
+      "version": "0007",
+      "md5": "e583ec6bd715282dfbd4d9af0fb8c77c"
+    },
+    "83": {
+      "type": "chroma42_ota",
+      "version": "0007",
+      "md5": "ca1c7736bc327a779fe3269329db2a02",
+      "type_1": "chroma42_8176_ota",
+      "version_1": "0007",
+      "md5_1": "170a59e493fad0b630588186cee47274"
     }
   }
 ]
