@@ -667,10 +667,20 @@ $('#cfgautoupdate').onclick = async function () {
 		return false;
 	}
 	var version = info[0][tagtype]["version"];
+	var md5 = info[0][tagtype]["md5"];
+
+	if (name.substr(0,6) == "chroma") {
+		var variation = (Number.parseInt(mac.substr(4,2),16) >> 5).toString();
+		if (variation != '0') {
+			var name = info[0][tagtype]["type_" + variation];
+			version = info[0][tagtype]['version_' + variation];
+			md5 = info[0][tagtype]['md5_' + variation];
+		}
+	}
+
 	var currentversion = $('#tag' + mac).dataset.ver | 0;
 	if (confirm(`Current version: ${currentversion} 0x${currentversion.toString(16)}\nPending version: ${parseInt(version, 16)} 0x${parseInt(version, 16).toString(16)}\n\nNOTE: Every OTA update comes with a risk of bricking the tag, if it is bricked, it only can be recoverd with a tag flasher. Please only update if you need the new features.\n\nPress Cancel if you want to get out of here, or press OK if you want to proceed with the update.`)) {
 
-		var md5 = info[0][tagtype]["md5"];
 		var fullFilename = name + "_" + version + ".bin";
 		var filepath = "/" + fullFilename;
 		var binurl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/" + fullFilename;
