@@ -21,6 +21,7 @@ CMD_PASS_THROUGH = 50
 
 CMD_SELECT_ZBS243 = 60
 CMD_SELECT_NRF82511 = 61
+CMD_SELECT_CC = 62
 
 CMD_SELECT_EEPROM_PT = 69
 
@@ -140,8 +141,8 @@ def validate_arguments(args):
         list_available_com_ports()
         return False
     if args.command:
-        if not (args.nrf82511 or args.zbs243):
-            print("Either -nrf82511 or -zbs243 option is required.")
+        if not (args.nrf82511 or args.zbs243 or args.ccxxxx):
+            print("Either -nrf82511, -zbs243 or -ccxxxx option is required.")
             return False
     if not (args.internalap or args.external or args.altradio):
         print("Using external port")
@@ -161,6 +162,19 @@ def validate_arguments(args):
     if args.command == "read" and len(args.filename) < 2:
         print("Please specify a file to save read data")
         return False
+    if args.ccxxxx:
+        if args.infopage:
+            print("-ccxxxx does not support --infopage")
+            return False
+        if args.eeprom:
+            print("-ccxxxx does not support --eeprom argument");
+            return False
+        if args.command == "autoflash":
+            print("-ccxxxx does not support autoflash command.");
+            return False
+        if args.command == "debug":
+            print("-ccxxxx does not support debug command.");
+            return False
     return True
 
 
@@ -295,6 +309,9 @@ def main():
                             help="nRF82511 programming")
         parser.add_argument("-z", "--zbs243", action="store_true",
                             help="ZBS243 programming")
+        parser.add_argument("-c", "--ccxxxx", action="store_true",
+                            help="CCxxxx programming")
+
         parser.add_argument("--internalap", action="store_true",
                             help="Selects the internal accesspoint port")
         parser.add_argument("-e", "--external", action="store_true",
@@ -379,6 +396,9 @@ def main():
                     send_cmd(CMD_SELECT_NRF82511, bytearray([]))
                 if args.zbs243:
                     send_cmd(CMD_SELECT_ZBS243, bytearray([]))
+                if args.ccxxxx:
+                    send_cmd(CMD_SELECT_CC, bytearray([]))
+
                 cmd, answer = wait_for_command()
 
                 if (answer[0] == 1):
