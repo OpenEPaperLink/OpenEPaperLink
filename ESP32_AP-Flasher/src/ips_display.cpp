@@ -88,7 +88,12 @@ void yellow_ap_display_init(void) {
     digitalWrite(TFT_BACKLIGHT, LOW);
 
     tft2.init();
+    #ifdef ST7735_NANO_TLSR
+    YellowSense = 0;
+    tft2.setRotation(1);
+    #else
     tft2.setRotation(YellowSense == 1 ? 1 : 3);
+    #endif
     tft2.fillScreen(TFT_BLACK);
     tft2.setCursor(12, 0, (tft2.width() == 160 ? 1 : 2));
     tft2.setTextColor(TFT_WHITE);

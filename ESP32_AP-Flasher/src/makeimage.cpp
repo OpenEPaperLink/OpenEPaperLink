@@ -273,7 +273,11 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     if (fileout == "direct") {
         if (tftOverride == false) {
             TFT_eSprite spr2 = TFT_eSprite(&tft2);
+            #ifdef ST7735_NANO_TLSR
+            tft2.setRotation(1);
+            #else
             tft2.setRotation(YellowSense == 1 ? 1 : 3);
+            #endif
             spr2.createSprite(spr.width(), spr.height());
             spr2.setColorDepth(spr.getColorDepth());
 
