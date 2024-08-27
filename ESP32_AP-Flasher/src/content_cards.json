@@ -743,39 +743,5 @@
         "type": "binfile"
       }
     ]
-  },
-  {
-    "id": 250,
-    "name": "NOAA Tide Prediction",
-    "desc": "Tide Prediction for today (US only).",
-    "param": [ 
-      {
-        "key": "StationID",
-        "name": "Station ID",
-        "desc": "Station ID or location to search. See https://tidesandcurrents.noaa.gov/tide_predictions.html",
-        "type": "noaaselect"
-      },
-      {
-        "key": "title",
-        "name": "Title",
-        "desc": "Displayed title",
-        "type": "text"
-      },
-      {
-        "key": "PlotHeightValue",
-        "name": "Display height",
-        "desc": "Add water level height to graph",
-        "type": "select",
-        "options": {
-          "0": "no",
-          "1": "yes"
-        }
-      }
-    ]
-  },
-  {
-    "id": 251,
-    "name": "Adafruit Quote",
-    "desc": "Quotes from Adafruit quote API"
   }
 ]
