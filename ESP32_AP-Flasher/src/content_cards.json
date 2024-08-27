@@ -1,3 +1,6 @@
+// This file is processed by the C preprocessor to create the run time version.
+// This allows us to embed comments and #ifdefs which are not allowed in
+// Json files.
 [
   {
     "id": 0,
@@ -41,12 +44,14 @@
     "desc": "Image from Home Assistant",
     "param": [ ]
   },
+#ifdef CONTENT_BIGCAL
   {
     "id": 1,
     "name": "Current date",
     "desc": "Shows the current date",
     "param": [ ]
   },
+#endif
   {
     "id": 2,
     "name": "Count days",
@@ -178,6 +183,7 @@
       }
     ]
   },
+#ifdef CONTENT_BUIENRADAR
   {
     "id": 16,
     "name": "Buienradar",
@@ -203,6 +209,8 @@
       }
     ]
   },
+#endif
+#ifdef CONTENT_QR
   {
     "id": 9,
     "name": "RSS feed",
@@ -229,6 +237,7 @@
       }
     ]
   },
+#endif
   {
     "id": 7,
     "name": "Image URL",
@@ -248,6 +257,7 @@
       }
     ]
   },
+#ifdef CONTENT_QR
   {
     "id": 10,
     "name": "QR code",
@@ -268,6 +278,8 @@
       }
     ]
   },
+#endif
+#ifdef CONTENT_CAL
   {
     "id": 11,
     "name": "Google calendar",
@@ -293,6 +305,8 @@
       }
     ]
   },
+#endif
+#ifdef CONTENT_TIMESTAMP
   {
     "id": 26,
     "name": "Time Stamp",
@@ -347,6 +361,8 @@
       }
     ]
   },
+#endif
+#ifdef CONTENT_DAYAHEAD
   {
     "id": 27,
     "name": "Dayahead prices",
@@ -413,6 +429,7 @@
       }      
     ]
   },
+#endif
   {
     "id": 19,
     "name": "Json template",
@@ -557,6 +574,7 @@
       }
     ]
   },
+#ifdef CONTENT_NFCLUT
   {
     "id": 14,
     "name": "Set NFC URL",
@@ -572,6 +590,7 @@
       }
     ]
   },
+#endif
   {
     "id": 15,
     "name": "Send custom LUT",
@@ -600,6 +619,7 @@
       }
     ]
   },
+#ifdef CONTENT_TAGCFG
   {
     "id": 18,
     "name": "Set Tag Config",
@@ -710,6 +730,7 @@
       }
     ]
   },
+#endif
   {
     "id": 5,
     "name": "Firmware update",
@@ -722,5 +743,39 @@
         "type": "binfile"
       }
     ]
+  },
+  {
+    "id": 250,
+    "name": "NOAA Tide Prediction",
+    "desc": "Tide Prediction for today (US only).",
+    "param": [ 
+      {
+        "key": "StationID",
+        "name": "Station ID",
+        "desc": "Station ID or location to search. See https://tidesandcurrents.noaa.gov/tide_predictions.html",
+        "type": "noaaselect"
+      },
+      {
+        "key": "title",
+        "name": "Title",
+        "desc": "Displayed title",
+        "type": "text"
+      },
+      {
+        "key": "PlotHeightValue",
+        "name": "Display height",
+        "desc": "Add water level height to graph",
+        "type": "select",
+        "options": {
+          "0": "no",
+          "1": "yes"
+        }
+      }
+    ]
+  },
+  {
+    "id": 251,
+    "name": "Adafruit Quote",
+    "desc": "Quotes from Adafruit quote API"
   }
 ]
