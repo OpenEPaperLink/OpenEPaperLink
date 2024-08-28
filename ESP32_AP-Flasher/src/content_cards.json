@@ -44,14 +44,12 @@
     "desc": "Image from Home Assistant",
     "param": [ ]
   },
-#ifdef CONTENT_BIGCAL
   {
     "id": 1,
     "name": "Current date",
     "desc": "Shows the current date",
     "param": [ ]
   },
-#endif
   {
     "id": 2,
     "name": "Count days",
@@ -210,7 +208,7 @@
     ]
   },
 #endif
-#ifdef CONTENT_QR
+#ifdef CONTENT_RSS
   {
     "id": 9,
     "name": "RSS feed",
