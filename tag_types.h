@@ -19,6 +19,7 @@
 #define SOLUM_M3_BWR_16 0x30
 #define SOLUM_M3_BWY_16 0x38
 #define SOLUM_M3_BWR_22 0x31
+#define SOLUM_M3_BWR_22_LITE 0x47
 #define SOLUM_M3_BWY_22 0x39
 #define SOLUM_M3_BWR_26 0x32
 #define SOLUM_M3_BWY_26 0x3A
