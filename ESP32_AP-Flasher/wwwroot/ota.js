@@ -1,4 +1,4 @@
-var repo = apConfig.repo || 'jjwbruijn/OpenEPaperLink';
+var repo = apConfig.repo || 'OpenEPaperLink/OpenEPaperLink';
 var repoUrl = 'https://api.github.com/repos/' + repo + '/releases';
 
 const $ = document.querySelector.bind(document);

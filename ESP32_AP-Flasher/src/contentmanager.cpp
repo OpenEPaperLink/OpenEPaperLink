@@ -1171,7 +1171,7 @@ char *epoch_to_display(time_t utc) {
 #ifdef CONTENT_CAL
 bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     // google apps scripts method to retrieve calendar
-    // see https://github.com/jjwbruijn/OpenEPaperLink/wiki/Google-Apps-Scripts for description
+    // see https://github.com/OpenEPaperLink/OpenEPaperLink/wiki/Google-Apps-Scripts for description
 
     wsLog("get calendar");
 

@@ -701,9 +701,17 @@ bool CC1101_Present()
    uint8_t PartNum = CC1101_readReg(CC1101_PARTNUM, CC1101_STATUS_REGISTER);
    uint8_t ChipVersion = CC1101_readReg(CC1101_VERSION, CC1101_STATUS_REGISTER);
 
-   if(PartNum == 0 && ChipVersion == 20) {
+   if(PartNum == 0 && (ChipVersion == 20 || ChipVersion == 4)) {
       LOGA("CC1101 detected\n");
       Ret = true;
+   }
+   else {
+      if(PartNum != 0) {
+         LOGA("Invalid PartNum 0x%x\n",PartNum);
+      }
+      else {
+         LOGA("Invalid or unsupported ChipVersion 0x%x\n",ChipVersion);
+      }
    }
 
    return Ret;

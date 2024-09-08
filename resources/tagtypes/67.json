@@ -1,0 +1,51 @@
+{
+	"version": 1,
+	"name": "HS 2.00\" BWY",
+	"width": 152,
+	"height": 200,
+	"rotatebuffer": 1,
+	"bpp": 2,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"yellow": [ 255, 255, 0 ]
+	},
+	"highlight_color": 3,
+	"shortlut": 2,
+	"zlib_compression": "27",
+	"options": [ "button", "customlut" ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 10, 14, 15, 17, 18, 19, 20, 21 ],
+	"template": {
+		"1": {
+			"weekday": [ 76, 9, "fonts/calibrib30" ],
+			"month": [ 76, 120, "fonts/calibrib30" ],
+			"day": [ 76, 13, "Signika-SB.ttf", 100 ]
+		},
+		"2": {
+			"fonts": [ "Signika-SB.ttf", 150, 110, 80, 60, 50, 40 ],
+			"xy": [ 76, 65 ]
+		},
+		"4": {
+			"location": [ 10, 145, "t0_14b_tf" ],
+			"wind": [ 140, 10, "fonts/bahnschrift30" ],
+			"temp": [ 10, 10, "fonts/bahnschrift30" ],
+			"icon": [ 75, 26, 70, 1 ],
+			"dir": [ 110, -12, 40 ],
+			"umbrella": [ 125, 110, 30 ]
+		},
+		"10": {
+			"title": [ 76, 15, "t0_14b_tf" ],
+			"pos": [ 76, 20 ]
+		},
+		"21": [
+			{ "text": [ 2, 5, "OpenEpaperLink", "bahnschrift20", 1, 0, 0 ] },
+			{ "text": [ 2, 25, "Access Point", "bahnschrift20", 1, 0, 0 ] },
+			{ "text": [ 3, 65, "IP address:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 80, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 3, 95, "Channel:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 110, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 3, 125, "Tag count:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 140, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
+		]
+	}
+}
