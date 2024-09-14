@@ -1,0 +1,429 @@
+/*
+ * start rewrite from:
+ * https://github.com/adafruit/Adafruit-GFX-Library.git
+ * https://github.com/daumemo/IPS_LCD_NT35310_FT6236_Arduino_eSPI_Test
+ * Data Sheet:
+ * http://read.pudn.com/downloads648/ebook/2620902/NT35310.pdf
+ */
+#ifndef _ARDUINO_NT35310_H_
+#define _ARDUINO_NT35310_H_
+
+#include <Arduino.h>
+#include <Print.h>
+#include "../Arduino_GFX.h"
+#include "../Arduino_TFT.h"
+
+#define NT35310_TFTWIDTH 320  // NT35310 max width
+#define NT35310_TFTHEIGHT 480 // NT35310 max height
+
+#define NT35310_RST_DELAY 100    // delay ms wait for reset finish
+#define NT35310_SLPIN_DELAY 100  // delay ms wait for sleep in finish
+#define NT35310_SLPOUT_DELAY 100 // delay ms wait for sleep out finish
+
+// User Command
+#define NT35310_NOP 0x00                       // No Operation
+#define NT35310_SOFT_RESET 0x01                // Software Reset
+#define NT35310_RDID 0x04                      // Read Display ID
+#define NT35310_RDNUMED 0x05                   // Read Number of the Errors on DSI
+#define NT35310_GET_POWER_MODE 0x0A            // Read Display Power Mode
+#define NT35310_GET_ADDRESS_MODE 0x0B          // Get the Frame Memory to the Display Panel Read Order
+#define NT35310_GET_PIXEL_MODE 0x0C            // Read Input Pixel Format
+#define NT35310_GET_DISPLAY_MODE 0x0D          // Read the Current Display Mode
+#define NT35310_GET_SIGNAL_MODE 0x0E           // Get Display Module Signaling Mode
+#define NT35310_RDDSDR1 0x0F                   // Read Display Self-Diagnostic Result
+#define NT35310_ENTER_SLEEP_MODE 0x10          // Enter the Sleep-In Mode
+#define NT35310_EXIT_SLEEP_MODE 0x11           // Exit the Sleep-In Mode
+#define NT35310_ENTER_PARTIAL_MODE 0x12        // Partial Display Mode On
+#define NT35310_ENTER_NORMAL_MODE 0x13         // Normal Display Mode On
+#define NT35310_EXIT_INVERT_MODE 0x20          // Display Inversion Off
+#define NT35310_ENTER_INVERT_MODE 0x21         // Display Inversion On
+#define NT35310_ALLPOFF 0x22                   // All Pixel Off
+#define NT35310_ALLPON 0x23                    // All Pixel On
+#define NT35310_GMASET 0x26                    // Gamma Curves Selection
+#define NT35310_SET_DISPLAY_OFF 0x28           // Display Off
+#define NT35310_SET_DISPLAY_ON 0x29            // Display On
+#define NT35310_SET_HORIZONTAL_ADDRESS 0x2A    // Set the Column Address
+#define NT35310_SET_VERTICAL_ADDRESS 0x2B      // Set Page Address
+#define NT35310_WRITE_MEMORY_START 0x2C        // Memory Write Start Command
+#define NT35310_SET_MDDI_RAM_READ_ADDRESS 0x2D // Set the RAM Horizontal and Vertical Address
+#define NT35310_READ_MEMORY_START 0x2E         // Memory Read Start Command
+#define NT35310_SET_PARTIAL_AREA 0x30          // Defines the Partial Display Area
+#define NT35310_SCRLAR 0x33                    // Set Scroll Area
+#define NT35310_SET_TEAR_ON 0x35               // Tearing Effect Line ON
+#define NT35310_SET_ADDRESS_MODE 0x36          // Memory Data Access Control
+#define NT35310_VSCSAD 0x37                    // Vertical Scroll Start Address of RAM
+#define NT35310_EXIT_IDLE_MODE 0x38            // Idle Mode Off
+#define NT35310_ENTER_IDLE_MODE 0x39           // Idle Mode On
+#define NT35310_SET_PIXEL_FORMAT 0x3A          // Set the Interface Pixel Format
+#define NT35310_RGBCTRL 0x3B                   // RGB Interface Signal Control
+#define NT35310_RAMWRC 0x3C                    // Memory Write Continuously
+#define NT35310_RAMRDC 0x3E                    // RAM Read Continuously
+#define NT35310_SET_TEAR_SCANLINE 0x44         // Set Tear Line
+#define NT35310_RDSCL 0x45                     // Read Scan Line
+#define NT35310_ENTER_DSTB_MODE 0x4F           // Enter the Deep Standby Mode
+#define NT35310_WRDISBV 0x51                   // Write Display Brightness
+#define NT35310_RDDISBV 0x52                   // Read Display Brightness
+#define NT35310_WRCTRLD1 0x53                  // Write CTRL Display
+#define NT35310_RDCTRLD 0x54                   // Read CTRL Display
+#define NT35310_WRCTRLD2 0x55                  // Write CTRL Display
+#define NT35310_RDCABC 0x56                    // Read Content Adaptive Brightness Control (CABC) Mode
+#define NT35310_RDCABCMB 0x5F                  // Read CABC Minimum Brightness
+#define NT35310_RDDSDR2 0x68                   // Read Display Self-Diagnostic Result
+#define NT35310_SET_MDDI 0x8F
+#define NT35310_RDDDBS 0xA1           // Read DDB Start
+#define NT35310_RDDDBC 0xA8           // Read DDB Continue
+#define NT35310_RDFCS 0xAA            // Read First Checksum
+#define NT35310_MDDI_WAKE_TOGGLE 0xAD // MDDI VSYNC BASED LINK WAKE-UP
+#define NT35310_STB_EDGE_POSITION 0xAE
+#define NT35310_RDCCS 0xAF             // Read Continue Checksum
+#define NT35310_RDID1 0xDA             // Read ID1
+#define NT35310_RDID2 0xDB             // Read ID2
+#define NT35310_RDID3 0xDC             // Read ID3
+#define NT35310_WRITE_IDLEMODE_BL 0xE1 // Write IDLEMODE_BL_Control
+#define NT35310_READ_IDLEMODE_BL 0xE2  // Read IDLEMODE_BL_Control
+#define NT35310_PAGE_CTRL 0xED         // Unlock CMD2
+#define NT35310_PAGE_STATUS 0xFF       // PAGE unlock status
+
+// 6.2 CMD2_P0 REGISTER LIST
+#define NT35310_DISPLAY_CTRL 0xB0
+#define NT35310_PORCH_CTRL 0xB1 // Front & Back Porch Setting
+#define NT35310_FRAMERATE_CTRL 0xB2
+#define NT35310_SPI_RGB_IF_SETTING 0xB3 // SPI&RGB INTERFACE SETTING
+#define NT35310_INVCTRL 0xB4            // Inversion Control
+#define NT35310_PMTCTL 0xB5             // Partial and Idle Mode Timing Control
+#define NT35310_DISPLAY_CTRL_NORM 0xB6
+#define NT35310_DISPLAY_CTRL2 0xB7 // Set the States for LED Control
+#define NT35310_MTP_SELECTION 0xB8
+#define NT35310_PWR_CTRL1 0xC0
+#define NT35310_PWR_CTRL2 0xC1
+#define NT35310_PWR_CTRL3 0xC2
+#define NT35310_PWR_CTRL5 0xC3
+#define NT35310_PWR_CTRL6 0xC4
+#define NT35310_PWR_CTRL7 0xC5
+#define NT35310_PWR_CTRL8 0xC6
+#define NT35310_WID_CTRL1 0xD1  // WID1
+#define NT35310_WID_CTRL2 0xD2  // WID2
+#define NT35310_WID_CTRL3 0xD3  // WID3
+#define NT35310_READID4 0xD4    // Read ID4
+#define NT35310_DDB_CTRL 0xD5   // Write DDB Info
+#define NT35310_RDVNT 0xDD      // Read NV Memory Flag Status
+#define NT35310_EPWRITE 0xDE    // NV Memory Write Command
+#define NT35310_MTPPWR 0xDF     // MTP Write function enable
+#define NT35310_RDREGEXT1 0xEB  // Register read command in SPI interface
+#define NT35310_RDREGEXT2 0xEC  // Register read command in SPI interface
+#define NT35310_PAGE_LOCK1 0xEF // Set the Register to command1
+#define NT35310_PAGE_LOCK2 0xBF // Set the Register to command2
+
+// 6.3 CMD2_P1 REGISTER LIST
+#define NT35310_3GAMMAR_CTRL_RED_P 0xE0
+#define NT35310_3GAMAR_CTRL_RED_N 0xE1
+#define NT35310_3GAMMAR_CTRL_GREEN_P 0xE2
+#define NT35310_3GAMMAR_CTRL_GREEN_N 0xE3
+#define NT35310_3GAMMAR_CTRL_BLUE_P 0xE4
+#define NT35310_3GAMMAR_CTRL_BLUE_N 0xE5
+#define NT35310_CABC_GAMMA1 0xE6
+#define NT35310_CABC_GAMMA2 0xE7
+#define NT35310_CABC_GAMMA3 0xE8
+#define NT35310_PAGE_LOCK3 0x00 // Set the Register to command2 Page 0
+
+// parameters
+#define NT35310_MADCTL_MY 0x80  // Bottom to top
+#define NT35310_MADCTL_MX 0x40  // Right to left
+#define NT35310_MADCTL_MV 0x20  // Reverse Mode
+#define NT35310_MADCTL_ML 0x10  // LCD refresh Bottom to top
+#define NT35310_MADCTL_RGB 0x00 // Red-Green-Blue pixel order
+#define NT35310_MADCTL_BGR 0x08 // Blue-Green-Red pixel order
+#define NT35310_MADCTL_MH 0x04  // LCD refresh right to left
+
+static const uint8_t nt35310_init_operations[] = {
+    BEGIN_WRITE,
+    WRITE_C8_D16, NT35310_PAGE_CTRL, 0x01, 0xFE,
+
+    WRITE_C8_D16, 0xEE, 0xDE, 0x21, // PAGE_CTRL Into CMD3
+
+    WRITE_C8_D8, 0xF1, 0x01,
+    WRITE_C8_D8, 0xDF, 0x10,
+
+    // VCOMvoltage//
+    WRITE_C8_D8, NT35310_PWR_CTRL6, 0x8F, // 5f
+
+    WRITE_COMMAND_8, NT35310_PWR_CTRL8,
+    WRITE_BYTES, 4, 0x00, 0xE2, 0xE2, 0xE2,
+
+    WRITE_C8_D8, NT35310_PAGE_LOCK2, 0xAA,
+
+    WRITE_COMMAND_8, 0xB0,
+    WRITE_BYTES, 18,
+    0x0D, 0x00, 0x0D, 0x00, 0x11,
+    0x00, 0x19, 0x00, 0x21, 0x00,
+    0x2D, 0x00, 0x3D, 0x00, 0x5D,
+    0x00, 0x5D, 0x00,
+
+    WRITE_COMMAND_8, 0xB1,
+    WRITE_BYTES, 6,
+    0x80, 0x00, 0x8B, 0x00, 0x96,
+    0x00,
+
+    WRITE_COMMAND_8, 0xB2,
+    WRITE_BYTES, 6,
+    0x00, 0x00, 0x02, 0x00, 0x03,
+    0x00,
+
+    WRITE_COMMAND_8, 0xB3,
+    WRITE_BYTES, 24,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00,
+
+    WRITE_COMMAND_8, 0xB4,
+    WRITE_BYTES, 6,
+    0x8B, 0x00, 0x96, 0x00, 0xA1,
+    0x00,
+
+    WRITE_COMMAND_8, 0xB5,
+    WRITE_BYTES, 6,
+    0x02, 0x00, 0x03, 0x00, 0x04,
+    0x00,
+
+    WRITE_C8_D16, 0xB6, 0x00, 0x00,
+
+    WRITE_COMMAND_8, 0xB7,
+    WRITE_BYTES, 22,
+    0x00, 0x00, 0x3F, 0x00, 0x5E,
+    0x00, 0x64, 0x00, 0x8C, 0x00,
+    0xAC, 0x00, 0xDC, 0x00, 0x70,
+    0x00, 0x90, 0x00, 0xEB, 0x00,
+    0xDC, 0x00,
+
+    WRITE_COMMAND_8, 0xB8,
+    WRITE_BYTES, 8,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00,
+
+    WRITE_COMMAND_8, 0xBA,
+    WRITE_BYTES, 4,
+    0x24, 0x00, 0x00, 0x00,
+
+    WRITE_COMMAND_8, 0xC1,
+    WRITE_BYTES, 6,
+    0x20, 0x00, 0x54, 0x00, 0xFF,
+    0x00,
+
+    WRITE_COMMAND_8, 0xC2,
+    WRITE_BYTES, 4,
+    0x0A, 0x00, 0x04, 0x00,
+
+    WRITE_COMMAND_8, 0xC3,
+    WRITE_BYTES, 48,
+    0x3C, 0x00, 0x3A, 0x00, 0x39,
+    0x00, 0x37, 0x00, 0x3C, 0x00,
+    0x36, 0x00, 0x32, 0x00, 0x2F,
+    0x00, 0x2C, 0x00, 0x29, 0x00,
+    0x26, 0x00, 0x24, 0x00, 0x24,
+    0x00, 0x23, 0x00, 0x3C, 0x00,
+    0x36, 0x00, 0x32, 0x00, 0x2F,
+    0x00, 0x2C, 0x00, 0x29, 0x00,
+    0x26, 0x00, 0x24, 0x00, 0x24,
+    0x00, 0x23, 0x00,
+
+    WRITE_COMMAND_8, 0xC4,
+    WRITE_BYTES, 26,
+    0x62, 0x00, 0x05, 0x00, 0x84,
+    0x00, 0xF0, 0x00, 0x18, 0x00,
+    0xA4, 0x00, 0x18, 0x00, 0x50,
+    0x00, 0x0C, 0x00, 0x17, 0x00,
+    0x95, 0x00, 0xF3, 0x00, 0xE6,
+    0x00,
+
+    WRITE_COMMAND_8, 0xC5,
+    WRITE_BYTES, 10,
+    0x32, 0x00, 0x44, 0x00, 0x65,
+    0x00, 0x76, 0x00, 0x88, 0x00,
+
+    WRITE_COMMAND_8, 0xC6,
+    WRITE_BYTES, 6,
+    0x20, 0x00, 0x17, 0x00, 0x01,
+    0x00,
+
+    WRITE_COMMAND_8, 0xC7,
+    WRITE_BYTES, 4,
+    0x00, 0x00, 0x00, 0x00,
+
+    WRITE_COMMAND_8, 0xC8,
+    WRITE_BYTES, 4,
+    0x00, 0x00, 0x00, 0x00,
+
+    WRITE_COMMAND_8, 0xC9,
+    WRITE_BYTES, 16,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00,
+
+    WRITE_COMMAND_8, NT35310_3GAMMAR_CTRL_RED_P,
+    WRITE_BYTES, 36,
+    0x16, 0x00, 0x1C, 0x00, 0x21,
+    0x00, 0x36, 0x00, 0x46, 0x00,
+    0x52, 0x00, 0x64, 0x00, 0x7A,
+    0x00, 0x8B, 0x00, 0x99, 0x00,
+    0xA8, 0x00, 0xB9, 0x00, 0xC4,
+    0x00, 0xCA, 0x00, 0xD2, 0x00,
+    0xD9, 0x00, 0xE0, 0x00, 0xF3,
+    0x00,
+
+    // WRITE_COMMAND_8, NT35310_3GAMAR_CTRL_RED_N,
+    // WRITE_BYTES, 36,
+    // 0x16, 0x00, 0x1C, 0x00, 0x22,
+    // 0x00, 0x36, 0x00, 0x45, 0x00,
+    // 0x52, 0x00, 0x64, 0x00, 0x7A,
+    // 0x00, 0x8B, 0x00, 0x99, 0x00,
+    // 0xA8, 0x00, 0xB9, 0x00, 0xC4,
+    // 0x00, 0xCA, 0x00, 0xD2, 0x00,
+    // 0xD8, 0x00, 0xE0, 0x00, 0xF3,
+    // 0x00,
+
+    WRITE_COMMAND_8, NT35310_3GAMMAR_CTRL_GREEN_P,
+    WRITE_BYTES, 36,
+    0x05, 0x00, 0x0B, 0x00, 0x1B,
+    0x00, 0x34, 0x00, 0x44, 0x00,
+    0x4F, 0x00, 0x61, 0x00, 0x79,
+    0x00, 0x88, 0x00, 0x97, 0x00,
+    0xA6, 0x00, 0xB7, 0x00, 0xC2,
+    0x00, 0xC7, 0x00, 0xD1, 0x00,
+    0xD6, 0x00, 0xDD, 0x00, 0xF3,
+    0x00,
+
+    // WRITE_COMMAND_8, NT35310_3GAMMAR_CTRL_GREEN_N,
+    // WRITE_BYTES, 36,
+    // 0x05, 0x00, 0x0A, 0x00, 0x1C,
+    // 0x00, 0x33, 0x00, 0x44, 0x00,
+    // 0x50, 0x00, 0x62, 0x00, 0x78,
+    // 0x00, 0x88, 0x00, 0x97, 0x00,
+    // 0xA6, 0x00, 0xB7, 0x00, 0xC2,
+    // 0x00, 0xC7, 0x00, 0xD1, 0x00,
+    // 0xD5, 0x00, 0xDD, 0x00, 0xF3,
+    // 0x00,
+
+    WRITE_COMMAND_8, NT35310_3GAMMAR_CTRL_BLUE_P,
+    WRITE_BYTES, 36,
+    // 0x01, 0x00, 0x01, 0x00, 0x02,
+    // 0x00, 0x2A, 0x00, 0x3C, 0x00,
+    // 0x4B, 0x00, 0x5D, 0x00, 0x74,
+    // 0x00, 0x84, 0x00, 0x93, 0x00,
+    // 0xA2, 0x00, 0xB3, 0x00, 0xBE,
+    // 0x00, 0xC4, 0x00, 0xCD, 0x00,
+    // 0xD3, 0x00, 0xDD, 0x00, 0xF3,
+    // 0x00,
+    0x05, 0x00, 0x0B, 0x00, 0x1B,
+    0x00, 0x34, 0x00, 0x44, 0x00,
+    0x4F, 0x00, 0x61, 0x00, 0x79,
+    0x00, 0x88, 0x00, 0x97, 0x00,
+    0xA6, 0x00, 0xB7, 0x00, 0xC2,
+    0x00, 0xC7, 0x00, 0xD1, 0x00,
+    0xD6, 0x00, 0xDD, 0x00, 0xF3,
+    0x00,
+
+    // WRITE_COMMAND_8, NT35310_3GAMMAR_CTRL_BLUE_N,
+    // WRITE_BYTES, 36,
+    // 0x00, 0x00, 0x00, 0x00, 0x02,
+    // 0x00, 0x29, 0x00, 0x3C, 0x00,
+    // 0x4B, 0x00, 0x5D, 0x00, 0x74,
+    // 0x00, 0x84, 0x00, 0x93, 0x00,
+    // 0xA2, 0x00, 0xB3, 0x00, 0xBE,
+    // 0x00, 0xC4, 0x00, 0xCD, 0x00,
+    // 0xD3, 0x00, 0xDC, 0x00, 0xF3,
+    // 0x00,
+
+    WRITE_COMMAND_8, 0xE6,
+    WRITE_BYTES, 32,
+    0x11, 0x00, 0x34, 0x00, 0x56,
+    0x00, 0x76, 0x00, 0x77, 0x00,
+    0x66, 0x00, 0x88, 0x00, 0x99,
+    0x00, 0xBB, 0x00, 0x99, 0x00,
+    0x66, 0x00, 0x55, 0x00, 0x55,
+    0x00, 0x45, 0x00, 0x43, 0x00,
+    0x44, 0x00,
+
+    WRITE_COMMAND_8, 0xE7,
+    WRITE_BYTES, 32,
+    0x32, 0x00, 0x55, 0x00, 0x76,
+    0x00, 0x66, 0x00, 0x67, 0x00,
+    0x67, 0x00, 0x87, 0x00, 0x99,
+    0x00, 0xBB, 0x00, 0x99, 0x00,
+    0x77, 0x00, 0x44, 0x00, 0x56,
+    0x00, 0x23, 0x00, 0x33, 0x00,
+    0x45, 0x00,
+
+    WRITE_COMMAND_8, 0xE8,
+    WRITE_BYTES, 32,
+    0x00, 0x00, 0x99, 0x00, 0x87,
+    0x00, 0x88, 0x00, 0x77, 0x00,
+    0x66, 0x00, 0x88, 0x00, 0xAA,
+    0x00, 0xBB, 0x00, 0x99, 0x00,
+    0x66, 0x00, 0x55, 0x00, 0x55,
+    0x00, 0x44, 0x00, 0x44, 0x00,
+    0x55, 0x00,
+
+    WRITE_COMMAND_8, 0xE9,
+    WRITE_BYTES, 4,
+    0xAA, 0x00, 0x00, 0x00,
+
+    WRITE_C8_D8, 0x00, 0xAA,
+
+    WRITE_COMMAND_8, 0xCF,
+    WRITE_BYTES, 17,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00,
+
+    WRITE_COMMAND_8, 0xF0,
+    WRITE_BYTES, 5,
+    0x00, 0x50, 0x00, 0x00, 0x00,
+
+    WRITE_C8_D8, 0xF3, 0x00,
+
+    WRITE_COMMAND_8, 0xF9,
+    WRITE_BYTES, 4,
+    0x06, 0x10, 0x29, 0x00,
+
+    WRITE_C8_D8, NT35310_SET_PIXEL_FORMAT, 0x55, // 66
+
+    WRITE_COMMAND_8, NT35310_EXIT_SLEEP_MODE,
+    END_WRITE,
+
+    DELAY, NT35310_SLPOUT_DELAY,
+
+    BEGIN_WRITE,
+    WRITE_COMMAND_8, NT35310_SET_DISPLAY_ON,
+    WRITE_C8_D8, NT35310_SET_TEAR_ON, 0x00,
+
+    WRITE_C8_D8, NT35310_WRDISBV, 0xFF,
+    WRITE_C8_D8, NT35310_WRCTRLD1, 0x2C,
+    WRITE_C8_D8, NT35310_WRCTRLD2, 0x82,
+    END_WRITE};
+
+class Arduino_NT35310 : public Arduino_TFT
+{
+public:
+  Arduino_NT35310(
+      Arduino_DataBus *bus, int8_t rst = GFX_NOT_DEFINED, uint8_t r = 0,
+      bool ips = false, int16_t w = NT35310_TFTWIDTH, int16_t h = NT35310_TFTHEIGHT,
+      uint8_t col_offset1 = 0, uint8_t row_offset1 = 0, uint8_t col_offset2 = 0, uint8_t row_offset2 = 0);
+
+  bool begin(int32_t speed = GFX_NOT_DEFINED) override;
+  void writeAddrWindow(int16_t x, int16_t y, uint16_t w, uint16_t h) override;
+  void setRotation(uint8_t r) override;
+  void invertDisplay(bool) override;
+  void displayOn() override;
+  void displayOff() override;
+
+protected:
+  void tftInit() override;
+
+private:
+};
+
+#endif // _ARDUINO_NT35310_H_
