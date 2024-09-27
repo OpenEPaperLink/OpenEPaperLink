@@ -61,7 +61,7 @@ jobs:
 
       - name: Add H2 files to release
         run: |
-          cp /home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_H2_AP/build/OpenEPaperLink_esp32_H2.bin espbinaries/OpenEPaperLink_esp32_H2.bin
+          cp /home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_H2_AP/build/OpenEPaperLink_esp32_C6.bin espbinaries/OpenEPaperLink_esp32_H2.bin
 
 #      - name: Zip web files
 #        run: | 
