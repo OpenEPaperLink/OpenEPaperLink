@@ -48,9 +48,21 @@ jobs:
           target: esp32c6
           path: 'ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/'
 
+      - name: esp-idf build
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: latest
+          target: esp32h2
+          path: 'ARM_Tag_FW/OpenEPaperLink_esp32_H2_AP/'
+
       - name: Add C6 files to release
         run: |
           cp /home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/build/OpenEPaperLink_esp32_C6.bin espbinaries/OpenEPaperLink_esp32_C6.bin
+
+      - name: Add H2 files to release
+        run: |
+          cp /home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_H2_AP/build/OpenEPaperLink_esp32_H2.bin espbinaries/OpenEPaperLink_esp32_H2.bin
+
 #      - name: Zip web files
 #        run: | 
 #            cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_AP-Flasher
