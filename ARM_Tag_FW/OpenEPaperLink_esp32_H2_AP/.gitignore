@@ -1,0 +1,8 @@
+build
+*.axf
+# Allow 
+!*.bin
+
+.vscode
+sdkconfig
+sdkconfig.old
