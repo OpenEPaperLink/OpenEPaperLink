@@ -64,7 +64,7 @@ jobs:
           cd ARM_Tag_FW/OpenEPaperLink_esp32_H2_AP/
           dir build
           esptool.py --chip esp32h2  merge_bin -o merged-firmware.bin --flash_mode dio --flash_size 4MB --flash_freq 48m 0x0 build/bootloader/bootloader.bin 0x8000 build/partition_table/partition-table.bin 0x10000 build/OpenEPaperLink_esp32_C6.bin
-          cp merged-firmware.bin espbinaries/OpenEPaperLink_esp32_H2.bin
+          cp merged-firmware.bin ../../espbinaries/OpenEPaperLink_esp32_H2.bin
 
 #      - name: Zip web files
 #        run: | 
