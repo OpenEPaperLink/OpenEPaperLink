@@ -1,3 +1,0 @@
-(fp_lib_table
-  (lib (name "esl")(type "KiCad")(uri "${KIPRJMOD}/esl.pretty")(options "")(descr ""))
-)
