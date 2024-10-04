@@ -373,7 +373,8 @@ void yellow_ap_display_loop(void) {
 		      }
 		    }
 			gfx->draw16bitRGBBitmap(0, 0, (uint16_t *)spriteData, dx, dy);
-			#else            
+			spr.deleteSprite();
+			#else
             spr.pushSprite(0, 0);
             #endif
             
