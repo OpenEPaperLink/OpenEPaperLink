@@ -278,6 +278,11 @@ void yellow_ap_display_init(void) {
     pinMode(LCD_BL, OUTPUT);
     digitalWrite(LCD_BL, HIGH);
 
+    ledcAttachPin(LCD_BL, 1);
+    ledcSetup(1, 1000, 8);
+
+    ledcWrite(1, config.tft); // brightness
+
     Wire.begin(IIC_SDA, IIC_SCL);
 
     gfx->begin();
