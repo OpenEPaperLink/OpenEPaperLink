@@ -3,6 +3,7 @@
 
 #include "Arduino_DataBus.h"
 #include "databus/Arduino_ESP32RGBPanel.h"
+#include "databus/Arduino_SWSPI.h"
 #include "databus/Arduino_XL9535SWSPI.h"
 
 #include "Arduino_GFX.h" // Core graphics library
