@@ -1,3 +1,0 @@
-(sym_lib_table
-  (lib (name "ESLCONN")(type "KiCad")(uri "${KIPRJMOD}/ESLCONN.kicad_sym")(options "")(descr ""))
-)
