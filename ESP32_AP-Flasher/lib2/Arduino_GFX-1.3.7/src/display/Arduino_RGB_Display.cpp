@@ -482,11 +482,6 @@ uint16_t *Arduino_RGB_Display::getFramebuffer()
 
 #endif // #if defined(ESP32) && (CONFIG_IDF_TARGET_ESP32S3)
 
-void Arduino_RGB_Display::XL_pinMode(uint8_t pin, uint8_t mode)
-{
-    _bus->pinMode(pin, mode);
-}
-
 void Arduino_RGB_Display::XL_digitalWrite(uint8_t pin, uint8_t val)
 {
     _bus->digitalWrite(pin, val);

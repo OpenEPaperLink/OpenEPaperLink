@@ -30,7 +30,6 @@ public:
 
     uint16_t *getFramebuffer();
 
-    void XL_pinMode(uint8_t pin, uint8_t mode);
     void XL_digitalWrite(uint8_t pin, uint8_t val);
     int XL_digitalRead(uint8_t pin);
 
