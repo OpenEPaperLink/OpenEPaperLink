@@ -281,7 +281,6 @@ public:
   virtual void writeIndexedPixelsDouble(uint8_t *data, uint16_t *idx, uint32_t len);
 #endif // !defined(LITTLE_FOOT_PRINT)
 
-  virtual void pinMode(uint8_t pin, uint8_t mode);
   virtual void digitalWrite(uint8_t pin, uint8_t val);
   virtual int digitalRead(uint8_t pin);
 

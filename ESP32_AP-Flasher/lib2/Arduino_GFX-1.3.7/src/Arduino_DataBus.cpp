@@ -153,10 +153,6 @@ void Arduino_DataBus::writeIndexedPixelsDouble(uint8_t *data, uint16_t *idx, uin
 }
 #endif // !defined(LITTLE_FOOT_PRINT)
 
-void Arduino_DataBus::pinMode(uint8_t pin, uint8_t mode)
-{
-}
-
 void Arduino_DataBus::digitalWrite(uint8_t pin, uint8_t val)
 {
 }

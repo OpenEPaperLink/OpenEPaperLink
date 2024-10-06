@@ -35,7 +35,7 @@ public:
   void writeBytes(uint8_t *data, uint32_t len) override;
 #endif // !defined(LITTLE_FOOT_PRINT)
 
-  void pinMode(uint8_t pin, uint8_t mode)override;
+  void pinMode(uint8_t pin, uint8_t mode);
   void pinMode8(uint8_t port, uint8_t pin, uint8_t mode);
 
   void digitalWrite(uint8_t pin, uint8_t val) override;

@@ -306,6 +306,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
 			      }
 			    }
 				gfx->draw16bitRGBBitmap(0, 0, (uint16_t *)spriteData2, dx, dy);
+				spr2.deleteSprite();
 			}
 			#else
             spr2.pushSprite(0, 0);

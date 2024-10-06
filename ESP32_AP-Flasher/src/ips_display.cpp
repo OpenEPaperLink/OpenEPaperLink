@@ -278,6 +278,11 @@ void yellow_ap_display_init(void) {
     pinMode(LCD_BL, OUTPUT);
     digitalWrite(LCD_BL, HIGH);
 
+    ledcAttachPin(LCD_BL, 1);
+    ledcSetup(1, 1000, 8);
+
+    ledcWrite(1, config.tft); // brightness
+
     Wire.begin(IIC_SDA, IIC_SCL);
 
     gfx->begin();
@@ -368,7 +373,8 @@ void yellow_ap_display_loop(void) {
 		      }
 		    }
 			gfx->draw16bitRGBBitmap(0, 0, (uint16_t *)spriteData, dx, dy);
-			#else            
+			spr.deleteSprite();
+			#else
             spr.pushSprite(0, 0);
             #endif
             

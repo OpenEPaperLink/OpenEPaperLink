@@ -132,8 +132,13 @@ void rgbIdleStep() {
 
 void setBrightness(int brightness) {
     maxledbrightness = brightness;
-#ifdef HAS_TFT
+    
+#ifdef HAS_LILYGO_TPANEL
+    ledcWrite(1, config.tft);
+#else
+  #ifdef HAS_TFT
     ledcWrite(6, config.tft);
+  #endif
 #endif
 #ifdef HAS_RGB_LED
     FastLED.setBrightness(maxledbrightness);
@@ -145,8 +150,12 @@ void updateBrightnessFromConfig() {
     if (newbrightness != maxledbrightness) {
         setBrightness(newbrightness);
     }
-#ifdef HAS_TFT
+#ifdef HAS_LILYGO_TPANEL
+    ledcWrite(1, config.tft);
+#else
+  #ifdef HAS_TFT
     ledcWrite(6, config.tft);
+  #endif
 #endif
     if (apInfo.state == AP_STATE_NORADIO) addFadeMono(config.led);
 }
