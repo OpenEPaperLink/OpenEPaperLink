@@ -1,18 +1,5 @@
 #include "contentmanager.h"
 
-// possibility to turn off, to save space if needed
-#ifndef SAVE_SPACE
-#define CONTENT_QR
-#define CONTENT_RSS
-#define CONTENT_BIGCAL
-#define CONTENT_NFCLUT
-#define CONTENT_DAYAHEAD
-#define CONTENT_TIMESTAMP
-#endif
-#define CONTENT_CAL
-#define CONTENT_BUIENRADAR
-#define CONTENT_TAGCFG
-
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>

@@ -1,3 +1,6 @@
+// This file is processed by the C preprocessor to create the run time version.
+// This allows us to embed comments and #ifdefs which are not allowed in
+// Json files.
 [
   {
     "id": 0,
@@ -178,6 +181,7 @@
       }
     ]
   },
+#ifdef CONTENT_BUIENRADAR
   {
     "id": 16,
     "name": "Buienradar",
@@ -203,6 +207,8 @@
       }
     ]
   },
+#endif
+#ifdef CONTENT_RSS
   {
     "id": 9,
     "name": "RSS feed",
@@ -229,6 +235,7 @@
       }
     ]
   },
+#endif
   {
     "id": 7,
     "name": "Image URL",
@@ -248,6 +255,7 @@
       }
     ]
   },
+#ifdef CONTENT_QR
   {
     "id": 10,
     "name": "QR code",
@@ -268,6 +276,8 @@
       }
     ]
   },
+#endif
+#ifdef CONTENT_CAL
   {
     "id": 11,
     "name": "Google calendar",
@@ -293,6 +303,8 @@
       }
     ]
   },
+#endif
+#ifdef CONTENT_TIMESTAMP
   {
     "id": 26,
     "name": "Time Stamp",
@@ -347,6 +359,8 @@
       }
     ]
   },
+#endif
+#ifdef CONTENT_DAYAHEAD
   {
     "id": 27,
     "name": "Dayahead prices",
@@ -413,6 +427,7 @@
       }      
     ]
   },
+#endif
   {
     "id": 19,
     "name": "Json template",
@@ -557,6 +572,7 @@
       }
     ]
   },
+#ifdef CONTENT_NFCLUT
   {
     "id": 14,
     "name": "Set NFC URL",
@@ -572,6 +588,7 @@
       }
     ]
   },
+#endif
   {
     "id": 15,
     "name": "Send custom LUT",
@@ -600,6 +617,7 @@
       }
     ]
   },
+#ifdef CONTENT_TAGCFG
   {
     "id": 18,
     "name": "Set Tag Config",
@@ -710,6 +728,7 @@
       }
     ]
   },
+#endif
   {
     "id": 5,
     "name": "Firmware update",
