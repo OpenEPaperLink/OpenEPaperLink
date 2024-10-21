@@ -1,8 +1,8 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "M2 2.2\"",
-	"width": 250,
-	"height": 128,
+	"width": 212,
+	"height": 104,
 	"rotatebuffer": 1,
 	"bpp": 2,
 	"colortable": {
