@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"name": "M2 2.2\"",
 	"width": 212,
 	"height": 104,
@@ -16,12 +16,12 @@
 
 	"template": {
 		"1": {
-			"weekday": [ 128, 3, "Signika-SB.ttf", 50 ],
-			"date": [ 128, 62, "Signika-SB.ttf", 40 ]
+			"weekday": [ 106, 2, "Signika-SB.ttf", 40 ],
+			"date": [ 106, 60, "Signika-SB.ttf", 30 ]
 		},
 		"2": {
 			"fonts": [ "Signika-SB.ttf", 150, 150, 150, 115, 90, 70 ],
-			"xy": [ 128, 53 ]
+			"xy": [ 106, 52 ]
 		},
 		"16": {
 			"location": [ 7, 15, "t0_14b_tf" ],
@@ -52,8 +52,8 @@
 			"desc": [ 0, 5, "", 1 ]
 		},
 		"10": {
-			"title": [ 128, 2, "calibrib16.vlw" ],
-			"pos": [ 128, 16 ]
+			"title": [ 106, 2, "calibrib16.vlw" ],
+			"pos": [ 106, 16 ]
 		},
 		"11": {
 			"mode": 0,
