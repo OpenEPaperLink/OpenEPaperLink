@@ -336,8 +336,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             // https://github.com/erikflowers/weather-icons
 
             drawWeather(filename, cfgobj, taginfo, imageParams);
-            taginfo->nextupdate = now + 1800;
-            updateTagImage(filename, mac, 15, taginfo, imageParams);
+            taginfo->nextupdate = now + interval;
+            updateTagImage(filename, mac, interval / 60, taginfo, imageParams);
             break;
 
         case 8:  // Forecast
