@@ -1,0 +1,64 @@
+{
+	"version": 1,
+	"name": "LILYGO TPANEL 4\"",
+	"width": 480,
+	"height": 480,
+	"rotatebuffer": 0,
+	"bpp": 16,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ]
+	},
+	"shortlut": 0,
+	"options": [ ],
+	"contentids": [ 22, 1, 2, 3, 4, 8, 7, 19, 10, 11, 21 ],
+	"template": {
+	     "21": [
+			{ "box": [ 0, 0, 480, 480, 1 ] },
+			{ "text": [ 10, 15, "OpenEpaperLink AP", "calibrib30", 2, 0, 0, 1 ] },
+			{ "text": [ 10, 70, "IP address:", "bahnschrift30", "#888888", 0, 0, 1 ] },
+			{ "text": [ 180, 70, "{ap_ip}", "bahnschrift30", 0, 0, 0, 1 ] },
+			{ "text": [ 10, 110, "Channel:", "bahnschrift30", "#888888", 0, 0, 1 ] },
+			{ "text": [ 180, 110, "{ap_ch}", "bahnschrift30", 0, 0, 0, "1" ] },
+			{ "text": [ 10, 150, "Tag count:", "bahnschrift30", "#888888", 0, 0, 1 ] },
+			{ "text": [ 180, 150, "{ap_tagcount}", "bahnschrift30", 0, 0, 0, "1" ] }
+		],		
+		"1": {
+			"weekday": [ 240, 30, "Signika-SB.ttf", 90 ],
+			"month": [ 240, 330, "Signika-SB.ttf", 90 ],
+			"day": [ 240, 80, "Signika-SB.ttf", 250 ]
+		},
+		"4": {
+			"location": [ 20, 20, "fonts/calibrib30" ],
+			"wind": [ 90, 95, "fonts/calibrib50" ],
+			"temp": [ 20, 200, "fonts/calibrib100" ],
+			"icon": [ 400, 30, 150, 2 ],
+			"dir": [ 40, 70, 80 ],
+			"umbrella": [ 325, 250, 150 ]
+		},
+		"2": {
+			"fonts": [ "Signika-SB.ttf", 150, 150, 110, 80, 60, 50 ],
+			"xy": [ 240, 240 ]
+		},
+		"8": {
+			"location": [ 10, 20, "fonts/calibrib50" ],
+			"column": [ 6, 80 ],
+			"day": [ 40, 100, "fonts/bahnschrift30", 144, 270 ],
+			"rain": [ 40, 320 ],
+			"icon": [ 40, 180, 50 ],
+			"wind": [ 17, 120 ],
+			"line": [ 100, 340 ]			
+		},
+		"10": {
+			"title": [ 240, 10, "fonts/bahnschrift20" ],
+			"pos": [ 240, 35 ]
+		},
+		"11": {
+			"rotate": 0,
+			"mode": 1,
+			"days": 4,
+			"gridparam": [ 5, 17, 20, "calibrib16.vlw", "tahoma9.vlw", 14 ]
+		}		
+	}
+}

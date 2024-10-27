@@ -80,6 +80,7 @@ uint32_t colorDistance(Color &c1, Color &c2, Error &e1) {
 }
 
 void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t buffer_size, bool is_red) {
+	
     uint8_t rotate = imageParams.rotate;
     long bufw = spr.width(), bufh = spr.height();
 
@@ -286,7 +287,30 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
             size_t dataSize = spr.width() * spr.height() * (spr.getColorDepth() / 8);
             memcpy(spriteData2, spriteData, dataSize);
 
+			#ifdef HAS_LILYGO_TPANEL
+			if (spr.getColorDepth() == 16)
+			{
+				long dy = spr.height();
+				long dx = spr.width();
+								
+	            uint16_t* data = static_cast<uint16_t*>(const_cast<void*>(spriteData2));
+				
+			    for (int16_t j = 0; j < dy; j++)
+			    {
+			      for (int16_t i = 0; i < dx; i++)
+			      {
+			        uint16_t color = *data;
+			        color = color<<8 | color>>8;
+                    *data = color;
+			        data++;
+			      }
+			    }
+				gfx->draw16bitRGBBitmap(0, 0, (uint16_t *)spriteData2, dx, dy);
+				spr2.deleteSprite();
+			}
+			#else
             spr2.pushSprite(0, 0);
+            #endif
         }
         return;
     }

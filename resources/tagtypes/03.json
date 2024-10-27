@@ -1,0 +1,83 @@
+{
+	"version": 3,
+	"name": "M2 2.2\"",
+	"width": 212,
+	"height": 104,
+	"rotatebuffer": 1,
+	"bpp": 2,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ]
+	},
+	"shortlut": 2,
+	"options": [ "button", "customlut" ],
+	"contentids": [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 19, 20, 21, 22, 23, 27 ],
+
+	"template": {
+		"1": {
+			"weekday": [ 106, 2, "Signika-SB.ttf", 40 ],
+			"date": [ 106, 60, "Signika-SB.ttf", 30 ]
+		},
+		"2": {
+			"fonts": [ "Signika-SB.ttf", 150, 150, 150, 115, 90, 70 ],
+			"xy": [ 106, 52 ]
+		},
+		"16": {
+			"location": [ 7, 15, "t0_14b_tf" ],
+			"title": [ 210, 11, "glasstown_nbp_tf" ],
+			"cols": [ 4, 121, 10, "glasstown_nbp_tf" ],
+			"bars": [ 10, 110, 8 ]
+		},
+		"4": {
+			"location": [ 5, 3, "fonts/bahnschrift30" ],
+			"wind": [ 245, 3, "fonts/bahnschrift30" ],
+			"temp": [ 10, 60, "fonts/bahnschrift70" ],
+			"icon": [ 240, 20, 70, 2 ],
+			"dir": [ 210, -12, 40 ],
+			"umbrella": [ 175, -50, 25 ]
+		},
+		"8": {
+			"location": [ 5, 12, "t0_14b_tf" ],
+			"column": [ 5, 51 ],
+			"day": [ 28, 18, "fonts/twcondensed20", 41, 108 ],
+			"icon": [ 28, 55, 30 ],
+			"wind": [ 18, 26 ],
+			"line": [ 20, 128 ]
+		},
+		"9": {
+			"title": [ 8, 2, "bahnschrift20.vlw", 25 ],
+			"items": 5,
+			"line": [ 8, 25, "REFSAN12.vlw" ],
+			"desc": [ 0, 5, "", 1 ]
+		},
+		"10": {
+			"title": [ 106, 2, "calibrib16.vlw" ],
+			"pos": [ 106, 16 ]
+		},
+		"11": {
+			"mode": 0,
+			"days": 1,
+			"title": [ 10, 2, "fonts/bahnschrift20" ],
+			"date": [ 245, 2 ],
+			"items": 7,
+			"red": [ 0, 21, 256, 14 ],
+			"line": [ 10, 32, 15, "t0_14b_tf", 50 ]
+		},
+		"21": [
+			{ "text": [ 10, 5, "OpenEpaperLink AP", "bahnschrift20", 1, 0, 0 ] },
+			{ "text": [ 10, 50, "IP address:", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 110, 50, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 70, "Channel:", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 110, 70, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 90, "Tag count:", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 110, 90, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
+		],
+		"27": {
+			"bars": [ 26, 216, 80, 20 ],
+			"time": [ "tahoma9.vlw" ],
+			"yaxis": [ "tahoma9.vlw", 6, 6 ],
+			"head": [ "bahnschrift20.vlw" ]
+		}
+	}
+}

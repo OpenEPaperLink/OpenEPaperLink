@@ -1,0 +1,104 @@
+menu "OEPL Hardware config"
+
+  choice OEPL_HARDWARE_PROFILE
+    prompt "Hardware profile"
+    default OEPL_HARDWARE_PROFILE_DEFAULT
+
+    config OEPL_HARDWARE_PROFILE_DEFAULT
+      bool "Default"
+
+    config OEPL_HARDWARE_PROFILE_POE_AP
+      bool "PoE-AP"
+
+    config OEPL_HARDWARE_PROFILE_CUSTOM
+      bool "Custom"
+
+  endchoice
+
+  config OEPL_HARDWARE_UART_TX
+    depends on OEPL_HARDWARE_PROFILE_CUSTOM
+    int "GPIO - UART TX"
+    default 3
+
+  config OEPL_HARDWARE_UART_RX
+    depends on OEPL_HARDWARE_PROFILE_CUSTOM
+    int "GPIO - UART RX"
+    default 2
+
+  config OEPL_SUBGIG_SUPPORT
+    bool "Enable SubGhz Support"
+    default "n"    
+
+  menu "CC1101 Configuration" 
+    depends on OEPL_SUBGIG_SUPPORT
+
+    config GPIO_RANGE_MAX
+            int
+            default 33 if IDF_TARGET_ESP32
+            default 46 if IDF_TARGET_ESP32S2
+            default 48 if IDF_TARGET_ESP32S3
+            default 18 if IDF_TARGET_ESP32C2
+            default 19 if IDF_TARGET_ESP32C3
+            default 30 if IDF_TARGET_ESP32C6
+            default 30 if IDF_TARGET_ESP32H2
+
+    config MISO_GPIO
+            int "CC1101 MISO GPIO"
+            range 0 GPIO_RANGE_MAX
+            default 7
+            help
+                    Pin Number to be used as the MISO SPI signal.
+
+    config SCK_GPIO
+            int "CC1101 SCK GPIO"
+            range 0 GPIO_RANGE_MAX
+            default 0
+            help
+                    Pin Number to be used as the SCK SPI signal.
+
+    config MOSI_GPIO
+            int "CC1101 MOSI GPIO"
+            default 1
+            help
+                    Pin Number to be used as the MOSI SPI signal.
+
+    config CSN_GPIO
+            int "CC1101 CSN GPIO"
+            range 0 GPIO_RANGE_MAX
+            default 4
+            help
+                    Pin Number to be used as the CSN SPI signal.
+
+    config GDO0_GPIO
+            int "CC1101 GDO0 GPIO"
+            range 0 GPIO_RANGE_MAX
+            default 5
+            help
+                    Pin Number to be used as the GDO0 signal.
+
+    config GDO2_GPIO
+            int "CC1101 GDO2 GPIO"
+            range 0 GPIO_RANGE_MAX
+            default 6
+            help
+                    Pin Number to be used as the GDO2 signal.
+
+    choice SPI_HOST
+            prompt "SPI peripheral that controls this bus"
+            default SPI2_HOST
+            help
+                    Select SPI peripheral that controls this bus.
+            config SPI2_HOST
+                    bool "SPI2_HOST"
+                    help
+                            Use SPI2_HOST. This is also called HSPI_HOST.
+            config SPI3_HOST
+                    depends on IDF_TARGET_ESP32 || IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+                    bool "SPI3_HOST"
+                    help
+                            USE SPI3_HOST. This is also called VSPI_HOST
+    endchoice
+  endmenu
+endmenu
+
+

@@ -66,8 +66,8 @@ jobs:
     strategy:
       matrix:
         environment:
-          - OpenEPaperLink_Mini_AP
-          - OpenEPaperLink_AP_and_Flasher
+          #- OpenEPaperLink_Mini_AP
+          #- OpenEPaperLink_AP_and_Flasher
           - ESP32_S3_16_8_YELLOW_AP
           - OpenEPaperLink_Mini_AP_v4
     runs-on: ubuntu-22.04

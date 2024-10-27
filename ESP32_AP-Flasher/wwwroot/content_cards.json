@@ -107,6 +107,17 @@
         }
       },
       {
+        "key": "interval",
+        "name": "Interval",
+        "desc": "How often the info is being refreshed.",
+        "type": "select",
+        "options": {
+          "30": "-Every 30 minutes",
+          "60": "Every hour",
+          "180": "Every three hours"
+        }
+      },
+      {
         "key": "#lat",
         "name": "Lat",
         "desc": "Latitude (set automatic when generating image)",
