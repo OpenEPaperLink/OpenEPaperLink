@@ -352,14 +352,20 @@ void init_web() {
             if (hex2mac(dst, mac)) {
                 tagRecord *taginfo = tagRecord::findByMAC(mac);
                 if (taginfo != nullptr) {
-                    uint16_t newContentMode = atoi(request->getParam("contentmode", true)->value().c_str());
-                    if (newContentMode != taginfo->contentMode && (newContentMode == 5 || newContentMode == 17 || newContentMode == 18)) {
-                        // temporary content, restore after sending
-                        pushTagInfo(taginfo);
+                    if (request->hasParam("contentmode", true)) {
+                        uint16_t newContentMode = atoi(request->getParam("contentmode", true)->value().c_str());
+                        if (newContentMode != taginfo->contentMode && (newContentMode == 5 || newContentMode == 17 || newContentMode == 18)) {
+                            // temporary content, restore after sending
+                            pushTagInfo(taginfo);
+                        }
+                        taginfo->contentMode = newContentMode;
                     }
-                    taginfo->alias = request->getParam("alias", true)->value();
-                    taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
-                    taginfo->contentMode = newContentMode;
+                    if (request->hasParam("alias", true)) {
+                        taginfo->alias = request->getParam("alias", true)->value();
+                    }
+                    if (request->hasParam("modecfgjson", true)) {
+                        taginfo->modeConfigJson = request->getParam("modecfgjson", true)->value();
+                    }
                     taginfo->nextupdate = 0;
                     if (request->hasParam("rotate", true)) {
                         taginfo->rotate = atoi(request->getParam("rotate", true)->value().c_str());
