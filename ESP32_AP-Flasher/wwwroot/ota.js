@@ -594,13 +594,12 @@ async function fetchAndCheckTagtypes(cleanup) {
         for (const file of fileList) {
             const filename = file.name;
             print(filename, "green");
-            let check = true;
+            let check = filename.endsWith('.json');
             let hwtype = parseInt(filename, 16);
 
-            if (cleanup) {
+            if (check && cleanup) {
                 let isInUse = Array.from(gridItems).some(element => element.dataset.hwtype == hwtype);
                 if (!isInUse) {
-
                     isInUse = Array.from(gridItems).some(element => element.dataset.usetemplate == hwtype);
                 }
                 if (!isInUse) {

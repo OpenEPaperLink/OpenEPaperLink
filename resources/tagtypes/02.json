@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 4,
 	"name": "M2 4.2\"",
 	"width": 400,
 	"height": 300,
@@ -53,7 +53,7 @@
 			"gridparam": [ 5, 17, 20, "calibrib16.vlw", "tahoma9.vlw", 14 ]
 		},
 		"27": {
-			"bars": [ 15, 385, 240, 20 ],
+			"bars": [ 15, 385, 225, 20, 22 ],
 			"time": [ "calibrib16.vlw" ],
 			"yaxis": [ "tahoma9.vlw", 3, 6 ],
 			"head": [ "calibrib30.vlw" ]

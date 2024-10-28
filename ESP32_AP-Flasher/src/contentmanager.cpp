@@ -1541,18 +1541,37 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
 
     int units = cfgobj["units"].as<int>();
     if (units == 0) units = 1;
-    double tarifkwh = cfgobj["tariffkwh"].as<double>();
+    double tarifkwh;
     double tariftax = cfgobj["tarifftax"].as<double>();
-    double minPrice = (doc[0]["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
-    double maxPrice = minPrice;
+    double minPrice = std::numeric_limits<double>::max();
+    double maxPrice = std::numeric_limits<double>::lowest();
     double prices[n];
 
+    DynamicJsonDocument doc2(500);
+    JsonArray tariffArray;
+    std::string tariffString = cfgobj["tariffkwh"].as<std::string>();
+    if (tariffString.front() == '[') {
+        if (deserializeJson(doc2, tariffString) == DeserializationError::Ok) {
+            tariffArray = doc2.as<JsonArray>();
+        } else {
+            Serial.println("Error in tariffkwh array");
+        }
+    }
     for (int i = 0; i < n; i++) {
         const JsonObject &obj = doc[i];
-        const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
-        minPrice = min(minPrice, price);
-        maxPrice = max(maxPrice, price);
-        prices[i] = price;
+
+        if (tariffArray.size() == 24) {
+            const time_t item_time = obj["time"];
+            struct tm item_timeinfo;
+            localtime_r(&item_time, &item_timeinfo);
+
+            tarifkwh = tariffArray[item_timeinfo.tm_hour].as<double>();
+        } else {
+            tarifkwh = cfgobj["tariffkwh"].as<double>();
+        }
+        prices[i] = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
+        minPrice = std::min(minPrice, prices[i]);
+        maxPrice = std::max(maxPrice, prices[i]);
     }
     std::sort(prices, prices + n);
 
@@ -1565,14 +1584,17 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     for (double i = minPrice; i <= maxPrice; i += yAxisScale.step) {
         int y = mapDouble(i, minPrice, maxPrice, spr.height() - barBottom, spr.height() - barBottom - loc["bars"][2].as<int>());
         spr.drawLine(0, y, spr.width(), y, TFT_BLACK);
-        drawString(spr, String(int(i * units)), yAxisX, y - 9, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
+        if (loc["yaxis"][0]) drawString(spr, String(int(i * units)), yAxisX, y - 9, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
     }
 
     uint16_t barwidth = loc["bars"][1].as<int>() / n;
     uint16_t barheight = loc["bars"][2].as<int>() / (maxPrice - minPrice);
-
+    uint16_t arrowY = 0;
+    if (loc["bars"].size() >= 5) arrowY = loc["bars"][4].as<int>();
     uint16_t barX = loc["bars"][0].as<int>();
     double pricenow = std::numeric_limits<double>::quiet_NaN();
+    bool showcurrent = true;
+    if (cfgobj["showcurr"] && cfgobj["showcurr"] == "0") showcurrent = false;
 
     for (int i = 0; i < n; i++) {
         const JsonObject &obj = doc[i];
@@ -1580,27 +1602,40 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
         struct tm item_timeinfo;
         localtime_r(&item_time, &item_timeinfo);
 
+        if (tariffArray.size() == 24) {
+            tarifkwh = tariffArray[item_timeinfo.tm_hour].as<double>();
+        } else {
+            tarifkwh = cfgobj["tariffkwh"].as<double>();
+        }
+
         const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
 
         uint16_t barcolor = getPercentileColor(prices, n, price, imageParams.hwdata);
         uint16_t thisbarh = mapDouble(price, minPrice, maxPrice, 0, loc["bars"][2].as<int>());
         spr.fillRect(barX + i * barwidth, spr.height() - barBottom - thisbarh, barwidth - 1, thisbarh, barcolor);
-        if (i % 2 == 0) {
+        if (i % 2 == 0 && loc["time"][0]) {
             drawString(spr, String(item_timeinfo.tm_hour), barX + i * barwidth + barwidth / 3 + 1, spr.height() - barBottom + 3, loc["time"][0], TC_DATUM, TFT_BLACK);
         }
 
-        if (now - item_time < 3600 && std::isnan(pricenow)) {
-            spr.fillRect(barX + i * barwidth + 3, 5, barwidth - 6, 10, imageParams.highlightColor);
-            spr.fillTriangle(barX + i * barwidth, 15,
-                             barX + i * barwidth + barwidth - 1, 15,
-                             barX + i * barwidth + (barwidth - 1) / 2, 15 + barwidth, imageParams.highlightColor);
-            spr.drawLine(barX + i * barwidth + (barwidth - 1) / 2, 20 + barwidth, barX + i * barwidth + (barwidth - 1) / 2, spr.height(), getColor("pink"));
+        if (now - item_time < 3600 && std::isnan(pricenow) && showcurrent) {
+            spr.fillRect(barX + i * barwidth + (barwidth > 6 ? 3 : 1), 5 + arrowY, (barwidth > 6 ? barwidth - 6 : barwidth - 2), 10, imageParams.highlightColor);
+            spr.fillTriangle(barX + i * barwidth, 15 + arrowY,
+                             barX + i * barwidth + barwidth - 1, 15 + arrowY,
+                             barX + i * barwidth + (barwidth - 1) / 2, 15 + barwidth + arrowY, imageParams.highlightColor);
+            spr.drawLine(barX + i * barwidth + (barwidth - 1) / 2, 20 + barwidth + arrowY, barX + i * barwidth + (barwidth - 1) / 2, spr.height(), getColor("pink"));
             pricenow = price;
         }
     }
 
-    drawString(spr, String(timeinfo.tm_hour) + ":00", barX, 5, loc["head"][0], TL_DATUM, TFT_BLACK, 30);
-    drawString(spr, String(pricenow) + "/kWh", spr.width() - barX, 5, loc["head"][0], TR_DATUM, TFT_BLACK, 30);
+    if (showcurrent) {
+        if (barwidth < 5) {
+            drawString(spr, String(timeinfo.tm_hour) + ":00", spr.width() / 2, 5, "calibrib16.vlw", TC_DATUM, TFT_BLACK, 30);
+            drawString(spr, String(pricenow) + "/kWh", spr.width() / 2, 25, loc["head"][0], TC_DATUM, TFT_BLACK, 30);
+        } else {
+            drawString(spr, String(timeinfo.tm_hour) + ":00", barX, 5, loc["head"][0], TL_DATUM, TFT_BLACK, 30);
+            drawString(spr, String(pricenow) + "/kWh", spr.width() - barX, 5, loc["head"][0], TR_DATUM, TFT_BLACK, 30);
+        }
+    }
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();

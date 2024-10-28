@@ -147,8 +147,10 @@ void wsSendSysteminfo() {
         uint32_t tagcount = getTagCount(timeoutcount);
         char result[40];
         if (timeoutcount > 0) {
+            sys["timeoutcount"] = timeoutcount;
             snprintf(result, sizeof(result), "%lu/%lu, %lu timeout", tagcount, tagDB.size(), timeoutcount);
         } else {
+            sys["timeoutcount"] = 0;
             snprintf(result, sizeof(result), "%lu / %lu", tagcount, tagDB.size());
         }
         setVarDB("ap_tagcount", result);

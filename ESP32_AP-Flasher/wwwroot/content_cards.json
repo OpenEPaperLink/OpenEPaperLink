@@ -403,7 +403,7 @@
       {
         "key": "tariffkwh",
         "name": "Fixed surcharge",
-        "desc": "Fixed surcharge per kWh, in 1/100 units (cents/öre/øre)",
+        "desc": "Fixed surcharge per kWh, in 1/100 units (cents/öre/øre). Enter one value, or an array of exactly 24 elements for each hour in the form of '[n,n,...,n]'",
         "type": "text"
       },
       {
@@ -421,7 +421,17 @@
           "100": "1/1 units (EUR/NOK/DKK)",
           "1": "1/100 units (cents/öre/øre)"
         }
-      }      
+      },
+      {
+        "key": "showcurr",
+        "name": "Show current",
+        "desc": "Hourly refresh to show current price (less battery friendly)",
+        "type": "select",
+        "options": {
+          "0": "No",
+          "1": "-Yes"
+        }
+      }
     ]
   },
   {
