@@ -68,7 +68,7 @@ size_t dbSize() {
 }
 
 void wsSendSysteminfo() {
-    DynamicJsonDocument doc(250);
+    DynamicJsonDocument doc(300);
     JsonObject sys = doc.createNestedObject("sys");
     time_t now;
     time(&now);
@@ -128,7 +128,7 @@ void wsSendSysteminfo() {
 #endif
 
     // reboot once at night
-    if (timeinfo.tm_hour == 4 && timeinfo.tm_min == 0 && millis() > 2 * 3600 * 1000) {
+    if (timeinfo.tm_hour == 3 && timeinfo.tm_min == 56 && millis() > 2 * 3600 * 1000 && config.nightlyreboot == 1) {
         logLine("Nightly reboot");
         wsErr("REBOOTING");
         config.runStatus = RUNSTATUS_STOP;
@@ -143,14 +143,14 @@ void wsSendSysteminfo() {
 
     static uint32_t tagcounttimer = 0;
     if (millis() - tagcounttimer > 60000 || tagcounttimer == 0) {
-        uint32_t timeoutcount = 0;
-        uint32_t tagcount = getTagCount(timeoutcount);
+        uint32_t timeoutcount = 0, lowbattcount = 0;
+        uint32_t tagcount = getTagCount(timeoutcount, lowbattcount);
+        sys["lowbattcount"] = lowbattcount;
+        sys["timeoutcount"] = timeoutcount;
         char result[40];
         if (timeoutcount > 0) {
-            sys["timeoutcount"] = timeoutcount;
             snprintf(result, sizeof(result), "%lu/%lu, %lu timeout", tagcount, tagDB.size(), timeoutcount);
         } else {
-            sys["timeoutcount"] = 0;
             snprintf(result, sizeof(result), "%lu / %lu", tagcount, tagDB.size());
         }
         setVarDB("ap_tagcount", result);
@@ -601,6 +601,9 @@ void init_web() {
         }
         if (request->hasParam("preview", true)) {
             config.preview = static_cast<uint8_t>(request->getParam("preview", true)->value().toInt());
+        }
+        if (request->hasParam("nightlyreboot", true)) {
+            config.preview = static_cast<uint8_t>(request->getParam("nightlyreboot", true)->value().toInt());
         }
         if (request->hasParam("lock", true)) {
             config.lock = static_cast<uint8_t>(request->getParam("lock", true)->value().toInt());

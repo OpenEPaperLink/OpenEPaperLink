@@ -66,6 +66,7 @@ struct Config {
     uint8_t stopsleep;
     uint8_t runStatus;
     uint8_t preview;
+    uint8_t nightlyreboot;
     uint8_t lock;
     uint8_t wifiPower;
     char timeZone[52];
@@ -111,7 +112,7 @@ extern void saveDB(const String& filename);
 extern bool loadDB(const String& filename);
 extern void destroyDB();
 extern uint32_t getTagCount();
-extern uint32_t getTagCount(uint32_t& timeoutcount);
+extern uint32_t getTagCount(uint32_t& timeoutcount, uint32_t& lowbattcount);
 extern void mac2hex(const uint8_t* mac, char* hexBuffer);
 extern bool hex2mac(const String& hexString, uint8_t* mac);
 extern void clearPending(tagRecord* taginfo);

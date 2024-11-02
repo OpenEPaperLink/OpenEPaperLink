@@ -14,6 +14,7 @@ const WAKEUP_REASON_WDT_RESET = 0xFE;
 let tagTypes = {};
 let apConfig = {};
 let tagDB = {};
+const previewWindows = [];
 
 const apstate = [
 	{ state: "offline", color: "red" },
@@ -288,12 +289,12 @@ function processTags(tagArray) {
 		if (!alias) {
 			alias = tagmac.replace(/^0{1,4}/, '');
 			if (alias.match(/^4467/)) {
-				let macdigit = Number.parseInt(alias.substr(4,2),16) & 0x1f;
+				let macdigit = Number.parseInt(alias.substr(4, 2), 16) & 0x1f;
 				let model = String.fromCharCode(macdigit + 65);
-				if (model == 'J'  || model == 'M') {
-					macdigit = Number.parseInt(alias.substr(6,2),16) & 0x1f;
+				if (model == 'J' || model == 'M') {
+					macdigit = Number.parseInt(alias.substr(6, 2), 16) & 0x1f;
 					model += String.fromCharCode(macdigit + 65);
-					alias = model + alias.substr(8,8) + 'x'
+					alias = model + alias.substr(8, 8) + 'x'
 				}
 			}
 		}
@@ -424,6 +425,16 @@ function processTags(tagArray) {
 			setTimeout(function () { $('#tag' + tagmac).classList.remove("tagflash"); }, 1400);
 		})(tagmac);
 		if (element.pending) div.classList.add("tagpending");
+
+		previewWindows.forEach((previewWindow, index) => {
+			if (previewWindow && !previewWindow.closed) {
+				if (previewWindow.mac === tagmac) {
+					previewWindow.updateMessage(element);
+				}
+			} else {
+				previewWindows.splice(index, 1);
+			}
+		});
 	}
 	GroupSortFilter();
 }
@@ -669,8 +680,8 @@ $('#cfgautoupdate').onclick = async function () {
 	var version = info[0][tagtype]["version"];
 	var md5 = info[0][tagtype]["md5"];
 
-	if (name.substr(0,6) == "chroma") {
-		var variation = (Number.parseInt(mac.substr(4,2),16) >> 5).toString();
+	if (name.substr(0, 6) == "chroma") {
+		var variation = (Number.parseInt(mac.substr(4, 2), 16) >> 5).toString();
 		if (variation != '0') {
 			var name = info[0][tagtype]["type_" + variation];
 			version = info[0][tagtype]['version_' + variation];
@@ -759,7 +770,7 @@ document.addEventListener("loadTab", function (event) {
 						apConfig = data;
 						$('#apcfgalias').value = data.alias;
 						$('#apcfgchid').value = data.channel;
-            $('#apcfgsubgigchid').value = data.subghzchannel;
+						$('#apcfgsubgigchid').value = data.subghzchannel;
 						$('#apcfgble').value = data.ble;
 						$("#apcfgledbrightness").value = data.led;
 						$("#apcfgtftbrightness").value = data.tft;
@@ -767,6 +778,7 @@ document.addEventListener("loadTab", function (event) {
 						$("#apclatency").value = data.maxsleep;
 						$("#apcpreventsleep").value = data.stopsleep;
 						$("#apcpreview").value = data.preview;
+						$("#apcnightlyreboot").value = data.nightlyreboot;
 						$("#apclock").value = data.lock;
 						$("#apcwifipower").value = data.wifipower;
 						$("#apctimezone").value = data.timezone;
@@ -795,7 +807,7 @@ $('#apcfgsave').onclick = function () {
 	let formData = new FormData();
 	formData.append("alias", $('#apcfgalias').value);
 	formData.append("channel", $('#apcfgchid').value);
-  formData.append("subghzchannel", $('#apcfgsubgigchid').value);
+	formData.append("subghzchannel", $('#apcfgsubgigchid').value);
 	formData.append('ble', $('#apcfgble').value);
 	formData.append('led', $('#apcfgledbrightness').value);
 	formData.append('tft', $('#apcfgtftbrightness').value);
@@ -803,6 +815,7 @@ $('#apcfgsave').onclick = function () {
 	formData.append('maxsleep', $('#apclatency').value);
 	formData.append('stopsleep', $('#apcpreventsleep').value);
 	formData.append('preview', $('#apcpreview').value);
+	formData.append('nightlyreboot', $('#apcnightlyreboot').value);
 	formData.append('lock', $('#apclock').value);
 	formData.append('wifipower', $('#apcwifipower').value);
 	formData.append('timezone', $('#apctimezone').value);
@@ -995,8 +1008,8 @@ function contentselected() {
 				case 'chanselect':
 					input = document.createElement("select");
 					let options;
-					if(element.type == 'chanselect') {
-						if($('#cfgmac').dataset.ch < 100) {
+					if (element.type == 'chanselect') {
+						if ($('#cfgmac').dataset.ch < 100) {
 							options = element.chans;
 						}
 						else {
@@ -1171,60 +1184,78 @@ function processQueue() {
 		.then(response => response.arrayBuffer())
 		.then(buffer => {
 
-			data = new Uint8ClampedArray(buffer);
-			if (data.length > 0 && tagTypes[hwtype].zlib > 0 && $('#tag' + id).dataset.ver >= tagTypes[hwtype].zlib) {
-				data = processZlib(data);
-			}
-
-			[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
-			if (tagTypes[hwtype].rotatebuffer%2) [canvas.width, canvas.height] = [canvas.height, canvas.width];
-			if (tagTypes[hwtype].rotatebuffer>=2) canvas.style.transform='rotate(180deg)';
-			const ctx = canvas.getContext('2d');
-			const imageData = ctx.createImageData(canvas.width, canvas.height);
-			if (data.length == 0) {
-				canvas.style.display = 'none';
-			}
-
-			if (tagTypes[hwtype].bpp == 16) {
-				const is16Bit = data.length == tagTypes[hwtype].width * tagTypes[hwtype].height * 2;
-				for (let i = 0; i < min(tagTypes[hwtype].width * tagTypes[hwtype].height, data.length); i++) {
-					const dataIndex = is16Bit ? i * 2 : i;
-					const rgb = is16Bit ? (data[dataIndex] << 8) | data[dataIndex + 1] : data[dataIndex];
-
-					imageData.data[i * 4] = is16Bit ? ((rgb >> 11) & 0x1F) << 3 : (((rgb >> 5) & 0x07) << 5) * 1.13;
-					imageData.data[i * 4 + 1] = is16Bit ? ((rgb >> 5) & 0x3F) << 2 : (((rgb >> 2) & 0x07) << 5) * 1.13;
-					imageData.data[i * 4 + 2] = is16Bit ? (rgb & 0x1F) << 3 : ((rgb & 0x03) << 6) * 1.3;
-					imageData.data[i * 4 + 3] = 255;
-				}
-
-			} else {
-
-				const offsetRed = (data.length >= (canvas.width * canvas.height / 8) * 2) ? canvas.width * canvas.height / 8 : 0;
-				let pixelValue = 0;
-				const colorTable = tagTypes[hwtype].colortable;
-				for (let i = 0; i < data.length; i++) {
-					for (let j = 0; j < 8; j++) {
-						const pixelIndex = i * 8 + j;
-						if (offsetRed) {
-							pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0) | (((data[i + offsetRed] & (1 << (7 - j))) ? 1 : 0) << 1);
-						} else {
-							pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0);
-						}
-						imageData.data[pixelIndex * 4] = colorTable[pixelValue][0];
-						imageData.data[pixelIndex * 4 + 1] = colorTable[pixelValue][1];
-						imageData.data[pixelIndex * 4 + 2] = colorTable[pixelValue][2];
-						imageData.data[pixelIndex * 4 + 3] = 255;
-					}
-				}
-			}
-
-			ctx.putImageData(imageData, 0, 0);
+			drawCanvas(buffer, canvas, hwtype, id, true);
 			processQueue();
 		})
 		.catch(error => {
 			console.error('processQueue error:', error);
 			processQueue();
 		});
+}
+
+function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
+	data = new Uint8ClampedArray(buffer);
+	if (data.length > 0 && tagTypes[hwtype].zlib > 0 && $('#tag' + tagmac).dataset.ver >= tagTypes[hwtype].zlib) {
+		data = processZlib(data);
+	}
+
+	[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
+	if (tagTypes[hwtype].rotatebuffer % 2) [canvas.width, canvas.height] = [canvas.height, canvas.width];
+	if (tagTypes[hwtype].rotatebuffer >= 2) canvas.style.transform = 'rotate(180deg)';
+	if (doRotate == false && tagTypes[hwtype].rotatebuffer == 1) {
+		canvas.style.transform = 'rotate(90deg)';
+		canvas.style.transformOrigin = 'top left';
+		canvas.style.position = 'absolute';
+		canvas.style.left = canvas.height + 15;
+		canvas.style.top = 15;
+	}
+	if (doRotate == false && tagTypes[hwtype].rotatebuffer == 3) {
+		canvas.style.transform = 'rotate(270deg)';
+		canvas.style.transformOrigin = 'top left';
+		canvas.style.position = 'absolute';
+		canvas.style.top = (canvas.width + 15) + 'px';
+		canvas.style.left = 15;
+	}
+	const ctx = canvas.getContext('2d');
+	const imageData = ctx.createImageData(canvas.width, canvas.height);
+	if (data.length == 0) {
+		canvas.style.display = 'none';
+	}
+
+	if (tagTypes[hwtype].bpp == 16) {
+		const is16Bit = data.length == tagTypes[hwtype].width * tagTypes[hwtype].height * 2;
+		for (let i = 0; i < min(tagTypes[hwtype].width * tagTypes[hwtype].height, data.length); i++) {
+			const dataIndex = is16Bit ? i * 2 : i;
+			const rgb = is16Bit ? (data[dataIndex] << 8) | data[dataIndex + 1] : data[dataIndex];
+
+			imageData.data[i * 4] = is16Bit ? ((rgb >> 11) & 0x1F) << 3 : (((rgb >> 5) & 0x07) << 5) * 1.13;
+			imageData.data[i * 4 + 1] = is16Bit ? ((rgb >> 5) & 0x3F) << 2 : (((rgb >> 2) & 0x07) << 5) * 1.13;
+			imageData.data[i * 4 + 2] = is16Bit ? (rgb & 0x1F) << 3 : ((rgb & 0x03) << 6) * 1.3;
+			imageData.data[i * 4 + 3] = 255;
+		}
+
+	} else {
+
+		const offsetRed = (data.length >= (canvas.width * canvas.height / 8) * 2) ? canvas.width * canvas.height / 8 : 0;
+		let pixelValue = 0;
+		const colorTable = tagTypes[hwtype].colortable;
+		for (let i = 0; i < data.length; i++) {
+			for (let j = 0; j < 8; j++) {
+				const pixelIndex = i * 8 + j;
+				if (offsetRed) {
+					pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0) | (((data[i + offsetRed] & (1 << (7 - j))) ? 1 : 0) << 1);
+				} else {
+					pixelValue = ((data[i] & (1 << (7 - j))) ? 1 : 0);
+				}
+				imageData.data[pixelIndex * 4] = colorTable[pixelValue][0];
+				imageData.data[pixelIndex * 4 + 1] = colorTable[pixelValue][1];
+				imageData.data[pixelIndex * 4 + 2] = colorTable[pixelValue][2];
+				imageData.data[pixelIndex * 4 + 3] = 255;
+			}
+		}
+	}
+
+	ctx.putImageData(imageData, 0, 0);
 }
 
 function processZlib(data) {
@@ -1461,7 +1492,7 @@ async function getTagtype(hwtype) {
 			zlib: parseInt(jsonData.zlib_compression || "0", 16),
 			shortlut: parseInt(jsonData.shortlut),
 			busy: false,
-			usetemplate:parseInt(jsonData.usetemplate || "0",10)
+			usetemplate: parseInt(jsonData.usetemplate || "0", 10)
 		};
 		tagTypes[hwtype] = data;
 		localStorage.setItem("tagTypes", JSON.stringify(tagTypes));
@@ -1632,6 +1663,16 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 			);
 		}
 		contextMenu.innerHTML = '';
+
+		const li = document.createElement('li');
+		li.textContent = "Tag preview";
+		li.addEventListener('click', (e) => {
+			e.preventDefault();
+			openPreview(mac, tagTypes[hwtype].width, tagTypes[hwtype].height);
+			contextMenu.style.display = 'none';
+		});
+		contextMenu.appendChild(li);
+
 		contextMenuOptions.forEach(option => {
 			const li = document.createElement('li');
 			li.textContent = option.label;
@@ -1642,6 +1683,7 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 			});
 			contextMenu.appendChild(li);
 		});
+
 		const contextMenuPosition = {
 			left: e.clientX + window.scrollX,
 			top: e.clientY + window.scrollY
@@ -1804,3 +1846,73 @@ function backupTagDB() {
 	localStorage.setItem("tagDB", JSON.stringify(tagDB));
 }
 
+function openPreview(mac, w, h) {
+	const previewWindow = window.open("", `PreviewWindow_${mac}`, `width=${w + 30},height=${h + 30},menubar=no,toolbar=no,location=no,status=no,resizable=no,scrollbars=no`);
+
+	if (previewWindow) {
+		previewWindow.mac = mac;
+		previewWindows.push(previewWindow);
+		const element = tagDB[mac];
+
+		previewWindow.hash = "";
+		previewWindow.pending = 0;
+		previewWindow.focus();
+
+		console.log(element);
+		console.log(tagTypes[element.hwType]);
+		previewWindow.document.head.innerHTML = `<title>${tagTypes[element.hwType].name + ' ' + mac}</title>`;
+		previewWindow.document.body.style.backgroundColor = "#dddddd";
+		previewWindow.document.body.style.margin = "15px";
+		previewWindow.document.body.style.overflow = "hidden";
+		previewWindow.document.body.innerHTML = `<canvas id="preview" style="border:1px solid #888888;"></canvas>`;
+
+		showPreview(previewWindow, element);
+
+		previewWindow.updateMessage = function (data) {
+			//const messageDisplay = previewWindow.document.getElementById('messageDisplay');
+			showPreview(previewWindow, data);
+		};
+
+	} else {
+		console.error("Failed to open preview window.");
+	}
+}
+
+function showPreview(previewWindow, element) {
+	let imageSrc = "";
+	const canvas = previewWindow.document.getElementById('preview');
+
+	if (element.pending != previewWindow.pending && element.pending != 0) {
+		console.log('refresh ' + element.mac);
+		previewWindow.pending = element.pending;
+		previewWindow.hash = "";
+
+		if (element.isexternal && element.contentMode == 12) {
+			imageSrc = 'http://' + tagDB[element.mac].apip + '/getdata?mac=' + element.mac + '&md5=0000000000000000';
+		} else {
+			imageSrc = '/getdata?mac=' + element.mac + '&md5=0000000000000000';
+		}
+
+	} else if (element.hash != previewWindow.hash) {
+
+		let cachetag = element.hash;
+		previewWindow.hash = cachetag;
+		previewWindow.pending = 0;
+		if (element.isexternal && element.contentMode == 12) {
+			imageSrc = 'http://' + tagDB[element.mac].apip + '/current/' + element.mac + '.raw?' + cachetag;
+		} else {
+			imageSrc = 'current/' + element.mac + '.raw?' + cachetag;
+		}
+	}
+
+	if (imageSrc) {
+		fetch(imageSrc)
+			.then(response => response.arrayBuffer())
+			.then(buffer => {
+				drawCanvas(buffer, canvas, element.hwType, element.mac, false);
+			})
+			.catch(error => {
+				console.error('fetch preview image error:', error);
+			});
+	}
+}
