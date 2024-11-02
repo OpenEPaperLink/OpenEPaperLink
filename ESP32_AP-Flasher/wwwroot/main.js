@@ -924,10 +924,10 @@ $('#paintbutton').onclick = function () {
 		const hwtype = $('#tag' + mac).dataset.hwtype;
 		const [width, height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
 		if (paintLoaded) {
-			startPainter(mac, width, height);
+			startPainter(mac, width, height, tagTypes[hwtype]);
 		} else {
 			loadScript('painter.js', function () {
-				startPainter(mac, width, height);
+				startPainter(mac, width, height, tagTypes[hwtype]);
 			});
 		}
 	}

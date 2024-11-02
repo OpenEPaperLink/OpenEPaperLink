@@ -1,4 +1,4 @@
-function startPainter(mac, width, height) {
+function startPainter(mac, width, height, tagtype) {
 	let isDrawing = false;
 	let lastX = 0;
 	let lastY = 0;
@@ -46,29 +46,36 @@ function startPainter(mac, width, height) {
 	txtButton.style.fontStyle = 'italic';
 	txtButton.addEventListener('click', addText);
 
-	const blackButton = document.createElement('button');
-	blackButton.innerHTML = '&#65103;&#128396';
-	blackButton.style.color = 'black';
-	blackButton.addEventListener('click', () => {
-		color = 'black';
-		linewidth = 3;
-		cursor = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'2\' cy=\'2\' r=\'2\' opacity=\'0.5\'/></svg>") 2 2, auto';
-		blackButton.classList.add('active');
-		redButton.classList.remove('active');
-		whiteButton.classList.remove('active');
-	});
-	blackButton.classList.add('active');
+	console.log(tagtype.colortable);
+	const rgbToCSSColor = (rgbArray) => `rgb(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]})`;
 
-	const redButton = document.createElement('button');
-	redButton.innerHTML = '&#65103;&#128396';
-	redButton.style.color = 'red';
-	redButton.addEventListener('click', () => {
-		color = 'red';
-		linewidth = 3;
-		cursor = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'2\' cy=\'2\' r=\'2\' opacity=\'0.5\'/></svg>") 2 2, auto';
-		blackButton.classList.remove('active');
-		redButton.classList.add('active');
-		whiteButton.classList.remove('active');
+	let activeButton = null;
+
+	tagtype.colortable.forEach((thiscolor, index) => {
+		if (thiscolor[0] === 255 && thiscolor[1] === 255 && thiscolor[2] === 255) return;
+
+		const colorButton = document.createElement('button');
+		colorButton.innerHTML = '&#65103;&#128396';
+		colorButton.style.color = rgbToCSSColor(thiscolor);
+		colorButton.classList.add('colorbutton');
+
+		colorButton.addEventListener('click', () => {
+			color = rgbToCSSColor(thiscolor);
+			linewidth = 3;
+			cursor = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'2\' cy=\'2\' r=\'2\' opacity=\'0.5\'/></svg>") 2 2, auto';
+
+			if (activeButton) activeButton.classList.remove('active');
+			colorButton.classList.add('active');
+			activeButton = colorButton;
+		});
+
+		if (!activeButton) {
+			colorButton.classList.add('active');
+			activeButton = colorButton;
+			color = rgbToCSSColor(thiscolor);
+		}
+
+		$("#buttonbar").appendChild(colorButton);
 	});
 
 	const whiteButton = document.createElement('button');
@@ -78,9 +85,9 @@ function startPainter(mac, width, height) {
 		color = 'white';
 		linewidth = 20;
 		cursor = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'10\' cy=\'10\' r=\'10\' opacity=\'0.5\'/></svg>") 10 10, auto';
-		blackButton.classList.remove('active');
-		redButton.classList.remove('active');
+		if (activeButton) activeButton.classList.remove('active');
 		whiteButton.classList.add('active');
+		activeButton = whiteButton;
 	});
 
 	const clearButton = document.createElement('button');
@@ -110,8 +117,6 @@ function startPainter(mac, width, height) {
 		$('#configbox').close();
 	});
 
-	$("#buttonbar").appendChild(blackButton);
-	$("#buttonbar").appendChild(redButton);
 	$("#buttonbar").appendChild(whiteButton);
 	$("#buttonbar").appendChild(txtButton);
 	$("#buttonbar").appendChild(clearButton);
@@ -259,12 +264,17 @@ function startPainter(mac, width, height) {
 
 		isAddingText = true;
 		//cursor = 'move';
-		blackButton.innerHTML = 'aA'
-		redButton.innerHTML = 'aA'
+		//blackButton.innerHTML = 'aA'
+		//redButton.innerHTML = 'aA'
+		const colorButtons = document.querySelectorAll('.colorbutton');
+		colorButtons.forEach(button => {
+			button.innerHTML = 'aA';
+		});		
 		if (color=='white') {
-			whiteButton.classList.remove('active');
-			blackButton.classList.add('active');
-			color='black';
+			//whiteButton.classList.remove('active');
+			//blackButton.classList.add('active');
+			//color='black';
+			document.querySelector('.colorbutton').click();
 		}
 	}
 
@@ -283,8 +293,12 @@ function startPainter(mac, width, height) {
 		showCursor = false;
 		if (apply) drawText(input.value, textX, textY);
 		txtButton.classList.remove('active');
-		blackButton.innerHTML = '&#65103;&#128396'
-		redButton.innerHTML = '&#65103;&#128396'
+		//blackButton.innerHTML = '&#65103;&#128396'
+		//redButton.innerHTML = '&#65103;&#128396'
+		const colorButtons = document.querySelectorAll('.colorbutton');
+		colorButtons.forEach(button => {
+			button.innerHTML = '&#65103;&#128396';
+		});		
 	}
 
 	function drawText(text, x, y) {
