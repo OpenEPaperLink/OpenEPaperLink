@@ -312,7 +312,7 @@ void init_web() {
                                 Serial.println("getQueueItem: no queue item");
                                 request->send(404, "text/plain", "File not found");
                                 return;
-                            } 
+                            }
                             if (queueItem->data == nullptr) {
                                 fs::File file = contentFS->open(queueItem->filename);
                                 if (file) {
@@ -517,7 +517,7 @@ void init_web() {
         udpsync.getAPList();
         AsyncResponseStream *response = request->beginResponseStream("application/json");
 
-        response->print("{");        
+        response->print("{");
 #ifdef C6_OTA_FLASHING
         response->print("\"C6\": \"1\", ");
 #else
@@ -624,6 +624,9 @@ void init_web() {
             config.timeZone[sizeof(config.timeZone) - 1] = '\0';
             setenv("TZ", config.timeZone, 1);
             tzset();
+        }
+        if (request->hasParam("discovery", true)) {
+            config.discovery = static_cast<uint8_t>(request->getParam("discovery", true)->value().toInt());
         }
         if (request->hasParam("repo", true)) {
             config.repo = request->getParam("repo", true)->value();

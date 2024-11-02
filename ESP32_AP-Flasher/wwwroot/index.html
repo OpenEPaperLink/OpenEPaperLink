@@ -234,7 +234,7 @@
 						<h4>Mode</h4>
 						<div style="max-width:400px;">
 							<button class="button" id="doAutoflash">Automatic flash</button><br><br>
-							With automatic flash, a tag is flashed to the latest firmware as soon as you connect it. 
+							With automatic flash, a tag is flashed to the latest firmware as soon as you connect it.
 							It sets the mac automatically, tries to recognize the type, and starts flashing. Currently, Solum M2 tags only.
 							<br><br>
 							<button class="button" id="doUSBflash">Command line</button><br><br>
@@ -375,7 +375,7 @@ options:
 					</select>
 				</p>
 				<p
-				   title="Stops updates at night, and put the tags to sleep. 
+				   title="Stops updates at night, and put the tags to sleep.
 			During the configured night time, this overrides the maximum sleep time.">
 					<label for="apcnight1">No updates between</label>
 					<select id="apcnight1"></select>
@@ -400,7 +400,7 @@ options:
 				<p
 				   title="* Work in progress * When locking the tag inventory, the AP will only
 			show tags that are already in the database.	For now, the AP will still keep answering
-			new tags, because that needs to be fixed in the radio firmware. 
+			new tags, because that needs to be fixed in the radio firmware.
 			This will probably change in the future.">
 					<label for="apclock">Lock tag inventory</label>
 					<select id="apclock">
@@ -469,6 +469,13 @@ options:
 							<option value="UTC+3">Argentina</option>
 							<option value="CST+6">Central America</option>
 						</optgroup>
+					</select>
+				</p>
+				<p title="Set to Broadcast if using a multi WiFi AP setup that does not support IGMP sniffing">
+					<label for="apcdiscovery">AP discovery method</label>
+					<select id="apcdiscovery">
+						<option value="0" selected>Multicast</option>
+						<option value="1">Broadcast</option>
 					</select>
 				</p>
 				<p>
