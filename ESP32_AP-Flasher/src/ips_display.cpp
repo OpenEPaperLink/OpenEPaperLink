@@ -162,7 +162,7 @@ Arduino_ESP32RGBPanel *rgbpanel = new Arduino_ESP32RGBPanel(
   LCD_R0 /* R0 */, LCD_R1 /* R1 */, LCD_R2 /* R2 */, LCD_R3 /* R3 */, LCD_R4 /* R4 */,
   1 /* hsync_polarity */, 20 /* hsync_front_porch */, 2 /* hsync_pulse_width */, 0 /* hsync_back_porch */,
   1 /* vsync_polarity */, 30 /* vsync_front_porch */, 8 /* vsync_pulse_width */, 1 /* vsync_back_porch */,
-  10 /* pclk_active_neg */, 6000000L /* prefer_speed */, false /* useBigEndian */,
+  10 /* pclk_active_neg */, 6000000L /* prefer_speed */, true /* useBigEndian */,
   0 /* de_idle_high*/, 0 /* pclk_idle_high */);
 Arduino_RGB_Display *gfx = new Arduino_RGB_Display(
   LCD_WIDTH /* width */, LCD_HEIGHT /* height */, rgbpanel, 0 /* rotation */, true /* auto_flush */,
@@ -182,24 +182,7 @@ void TFTLog(String text) {
         tftLogscreen = true;
     } 
     if (text.isEmpty()) return;
-    gfx->setTextColor(LIGHTGREY);
-    if (text.startsWith("!")) {
-        gfx->setTextColor(RED);
-        text = text.substring(1);
-    } else if (text.indexOf("http") != -1) {
-        int httpIndex = text.indexOf("http");
-        gfx->print(text.substring(0, httpIndex));
-        gfx->setTextColor(YELLOW);
-        text = text.substring(httpIndex);
-    } else if (text.indexOf(":") != -1) {
-        int colonIndex = text.indexOf(":");
-        gfx->setTextColor(LIGHTGREY);
-        gfx->print(text.substring(0, colonIndex + 1));
-        gfx->setTextColor(WHITE);
-        text = text.substring(colonIndex + 1);
-    } else if (text.endsWith("!")) {
-        gfx->setTextColor(GREEN);
-    }
+    gfx->setTextColor(WHITE);
     gfx->println(text);
 	
 	#else
@@ -361,17 +344,7 @@ void yellow_ap_display_loop(void) {
 			long dx = spr.width();
 			
             uint16_t* data = static_cast<uint16_t*>(const_cast<void*>(spriteData));
-			
-		    for (int16_t j = 0; j < dy; j++)
-		    {
-		      for (int16_t i = 0; i < dx; i++)
-		      {
-		        uint16_t color = *data;
-		        color = color<<8 | color>>8;
-                *data = color;
-		        data++;
-		      }
-		    }
+
 			gfx->draw16bitRGBBitmap(0, 0, (uint16_t *)spriteData, dx, dy);
 			spr.deleteSprite();
 			#else
