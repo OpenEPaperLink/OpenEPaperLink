@@ -182,24 +182,7 @@ void TFTLog(String text) {
         tftLogscreen = true;
     } 
     if (text.isEmpty()) return;
-    gfx->setTextColor(LIGHTGREY);
-    if (text.startsWith("!")) {
-        gfx->setTextColor(RED);
-        text = text.substring(1);
-    } else if (text.indexOf("http") != -1) {
-        int httpIndex = text.indexOf("http");
-        gfx->print(text.substring(0, httpIndex));
-        gfx->setTextColor(YELLOW);
-        text = text.substring(httpIndex);
-    } else if (text.indexOf(":") != -1) {
-        int colonIndex = text.indexOf(":");
-        gfx->setTextColor(LIGHTGREY);
-        gfx->print(text.substring(0, colonIndex + 1));
-        gfx->setTextColor(WHITE);
-        text = text.substring(colonIndex + 1);
-    } else if (text.endsWith("!")) {
-        gfx->setTextColor(GREEN);
-    }
+    gfx->setTextColor(WHITE);
     gfx->println(text);
 	
 	#else
