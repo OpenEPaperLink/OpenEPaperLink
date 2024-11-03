@@ -26,7 +26,9 @@
 #include "udp.h"
 #include "util.h"
 #include "web.h"
+#ifdef HAS_BLE_WRITER
 #include "ble_writer.h"
+#endif
 
 util::Timer intervalContentRunner(seconds(1));
 util::Timer intervalSysinfo(seconds(5));

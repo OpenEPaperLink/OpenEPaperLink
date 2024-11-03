@@ -263,17 +263,11 @@ function startPainter(mac, width, height, tagtype) {
 		input.focus();
 
 		isAddingText = true;
-		//cursor = 'move';
-		//blackButton.innerHTML = 'aA'
-		//redButton.innerHTML = 'aA'
 		const colorButtons = document.querySelectorAll('.colorbutton');
 		colorButtons.forEach(button => {
 			button.innerHTML = 'aA';
 		});		
 		if (color=='white') {
-			//whiteButton.classList.remove('active');
-			//blackButton.classList.add('active');
-			//color='black';
 			document.querySelector('.colorbutton').click();
 		}
 	}
@@ -293,8 +287,6 @@ function startPainter(mac, width, height, tagtype) {
 		showCursor = false;
 		if (apply) drawText(input.value, textX, textY);
 		txtButton.classList.remove('active');
-		//blackButton.innerHTML = '&#65103;&#128396'
-		//redButton.innerHTML = '&#65103;&#128396'
 		const colorButtons = document.querySelectorAll('.colorbutton');
 		colorButtons.forEach(button => {
 			button.innerHTML = '&#65103;&#128396';

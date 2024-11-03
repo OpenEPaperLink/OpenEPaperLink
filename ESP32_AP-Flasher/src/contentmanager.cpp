@@ -8,9 +8,9 @@
 #define CONTENT_NFCLUT
 #define CONTENT_DAYAHEAD
 #define CONTENT_TIMESTAMP
-#endif
-#define CONTENT_CAL
 #define CONTENT_BUIENRADAR
+#define CONTENT_CAL
+#endif
 #define CONTENT_TAGCFG
 
 #include <Arduino.h>

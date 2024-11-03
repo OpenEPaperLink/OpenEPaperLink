@@ -76,7 +76,8 @@ export async function initUpdate() {
                 const assets = release.assets;
                 const filesJsonAsset = assets.find(asset => asset.name === 'filesystem.json');
                 const binariesJsonAsset = assets.find(asset => asset.name === 'binaries.json');
-                if (filesJsonAsset && binariesJsonAsset) {
+                const containsEnv = assets.find(asset => asset.name === env + '.bin');
+                if (filesJsonAsset && binariesJsonAsset && containsEnv) {
                     return {
                         html_url: release.html_url,
                         tag_name: release.tag_name,
