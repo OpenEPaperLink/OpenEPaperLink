@@ -603,7 +603,7 @@ void init_web() {
             config.preview = static_cast<uint8_t>(request->getParam("preview", true)->value().toInt());
         }
         if (request->hasParam("nightlyreboot", true)) {
-            config.preview = static_cast<uint8_t>(request->getParam("nightlyreboot", true)->value().toInt());
+            config.nightlyreboot = static_cast<uint8_t>(request->getParam("nightlyreboot", true)->value().toInt());
         }
         if (request->hasParam("lock", true)) {
             config.lock = static_cast<uint8_t>(request->getParam("lock", true)->value().toInt());
