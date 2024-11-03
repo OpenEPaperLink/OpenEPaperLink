@@ -57,7 +57,7 @@ export async function initUpdate() {
 
             if (sdata.env) {
                 let matchtest = '';
-                if (sdata.buildversion != filesystemversion && filesystemversion != "custom" && sdata.buildversion != "custom") matchtest = " <- not matching!"
+                if (parseInt(sdata.buildversion) != parseInt(filesystemversion) && filesystemversion != "custom" && sdata.buildversion != "custom") matchtest = " <- not matching!"
                 print(`env:                ${sdata.env}`);
                 print(`build date:         ${formatEpoch(sdata.buildtime)}`);
                 print(`esp32 version:      ${sdata.buildversion}`);
@@ -96,9 +96,9 @@ export async function initUpdate() {
             } else {
                 const release = releaseDetails[0];
                 if (release?.tag_name) {
-                    if (release.tag_name == currentVer) {
+                    if (parseInt(release.tag_name) == parseInt(currentVer)) {
                         easyupdate.innerHTML = `Version ${currentVer}. You are up to date`;
-                    } else if (release.date < formatEpoch(currentBuildtime)) {
+                    } else if (release.date < formatEpoch(currentBuildtime - 30 * 60)) {
                         easyupdate.innerHTML = `Your version is newer than the latest release date.<br>Are you the developer? :-)`;
                     } else {
                         easyupdate.innerHTML = `An update from version ${currentVer} to version ${release.tag_name} is available.<button onclick="otamodule.updateAll('${release.bin_url}','${release.file_url}','${release.tag_name}')">Update now!</button>`;
