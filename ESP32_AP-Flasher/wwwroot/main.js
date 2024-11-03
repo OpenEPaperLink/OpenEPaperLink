@@ -17,14 +17,14 @@ let tagDB = {};
 const previewWindows = [];
 
 const apstate = [
-	{ state: "offline", color: "red" },
-	{ state: "online", color: "green" },
-	{ state: "flashing", color: "orange" },
-	{ state: "wait for reset", color: "blue" },
-	{ state: "requires power cycle", color: "purple" },
-	{ state: "failed", color: "red" },
-	{ state: "coming online", color: "yellow" },
-	{ state: "AP without radio", color: "green" }
+	{ state: "offline, please wait...", color: "orange", icon: "warning" },
+	{ state: "online", color: "green", icon: "check_circle" },
+	{ state: "flashing", color: "orange", icon: "flash_on" },
+	{ state: "wait for reset", color: "blue", icon: "hourglass" },
+	{ state: "AP requires power cycle", color: "purple", icon: "refresh" },
+	{ state: "failed", color: "red", icon: "error" },
+	{ state: "coming online...", color: "orange", icon: "hourglass" },
+	{ state: "AP without radio", color: "green", icon: "wifi_off" }
 ];
 const runstate = [
 	{ state: "⏹︎ stopped" },
@@ -71,9 +71,13 @@ window.addEventListener("loadConfig", function () {
 			if (data.savespace) {
 			}
 			if (data.apstate) {
+				$("#apstatecolor").innerHTML = apstate[data.apstate].icon;
 				$("#apstatecolor").style.color = apstate[data.apstate].color;
 				$("#apstate").innerHTML = apstate[data.apstate].state;
 				$('#dashboardStatus').innerHTML = apstate[data.apstate].state;
+				$('#dashboardStatus').style.color = apstate[data.apstate].color;
+				$('#dashboardStatusIcon').innerHTML = apstate[data.apstate].icon;
+				$('#dashboardStatusIcon').style.color = apstate[data.apstate].color;
 			}
 		});
 });
@@ -215,10 +219,14 @@ function connect() {
 			$("#sysinfo").innerHTML = str;
 
 			if (msg.sys.apstate) {
+				$("#runstate").innerHTML = runstate[msg.sys.runstate].state;
+				$("#apstatecolor").innerHTML = apstate[msg.sys.apstate].icon;
 				$("#apstatecolor").style.color = apstate[msg.sys.apstate].color;
 				$("#apstate").innerHTML = apstate[msg.sys.apstate].state;
-				$("#runstate").innerHTML = runstate[msg.sys.runstate].state;
 				$('#dashboardStatus').innerHTML = apstate[msg.sys.apstate].state;
+				$('#dashboardStatus').style.color = apstate[msg.sys.apstate].color;
+				$('#dashboardStatusIcon').innerHTML = apstate[msg.sys.apstate].icon;
+				$('#dashboardStatusIcon').style.color = apstate[msg.sys.apstate].color;				
 			}
 			servertimediff = (Date.now() / 1000) - msg.sys.currtime;
 		}
