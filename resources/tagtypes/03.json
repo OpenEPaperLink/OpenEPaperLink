@@ -30,10 +30,10 @@
 		},
 		"4": {
 			"location": [ 5, 3, "fonts/calibrib16.vlw" ],
-			"wind": [ 190, 3, "fonts/bahnschrift30" ],
+			"wind": [ 190, 5, "fonts/bahnschrift30" ],
 			"temp": [ 5, 30, "fonts/calibrib70" ],
-			"icon": [ 180, 25, 50, 2 ],
-			"dir": [ 170, -12, 40 ],
+			"icon": [ 190, 25, 50, 2 ],
+			"dir": [ 165, -12, 40 ],
 			"umbrella": [ 175, -50, 25 ]
 		},
 		"8": {
