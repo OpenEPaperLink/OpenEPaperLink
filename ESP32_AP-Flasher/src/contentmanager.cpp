@@ -681,7 +681,7 @@ void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy
     switch (processFontPath(font)) {
         case 2: {
             // truetype
-            Serial.println("truetype font not implemented for drawStringBox");
+            Serial.println("truetype font not implemented for drawTextBox");
         } break;
         case 3: {
             // vlw bitmap font

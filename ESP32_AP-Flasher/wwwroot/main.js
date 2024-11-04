@@ -1895,11 +1895,12 @@ function showPreview(previewWindow, element) {
 		console.log('refresh ' + element.mac);
 		previewWindow.pending = element.pending;
 		previewWindow.hash = "";
+		let cachetag = Date.now();
 
 		if (element.isexternal && element.contentMode == 12) {
-			imageSrc = 'http://' + tagDB[element.mac].apip + '/getdata?mac=' + element.mac + '&md5=0000000000000000';
+			imageSrc = 'http://' + tagDB[element.mac].apip + '/getdata?mac=' + element.mac + '&md5=0000000000000000&c=' + cachetag;
 		} else {
-			imageSrc = '/getdata?mac=' + element.mac + '&md5=0000000000000000';
+			imageSrc = '/getdata?mac=' + element.mac + '&md5=0000000000000000&c=' + cachetag;
 		}
 
 	} else if (element.hash != previewWindow.hash) {

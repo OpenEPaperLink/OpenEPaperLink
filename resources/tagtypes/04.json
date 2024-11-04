@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "M2 2.6\"",
 	"width": 296,
 	"height": 152,
@@ -15,39 +15,40 @@
 	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 15, 16, 17, 18, 19, 20, 21, 27 ],
 	"template": {
 		"1": {
-			"weekday": [ 148, -3, "Signika-SB.ttf", 60 ],
-			"date": [ 148, 65, "Signika-SB.ttf", 48 ]
+			"weekday": [ 148, 9, "Signika-SB.ttf", 60 ],
+			"date": [ 148, 73, "Signika-SB.ttf", 48 ]
 		},
 		"2": {
-			"fonts": [ "Signika-SB.ttf", 150, 150, 150, 120, 100, 80 ],
-			"xy": [ 148, 53 ]
+			"fonts": [ "Signika-SB.ttf", 170, 170, 170, 120, 100, 80 ],
+			"xy": [ 148, 62 ]
 		},
 		"16": {
 			"location": [ 5, 5, "fonts/bahnschrift30" ],
 			"title": [ 247, 11, "glasstown_nbp_tf" ],
-			"cols": [ 1, 125, 12, "glasstown_nbp_tf" ],
-			"bars": [ 5, 111, 10 ]
+			"cols": [ 1, 149, 12, "glasstown_nbp_tf" ],
+			"bars": [ 5, 135, 10 ]
 		},
 		"4": {
 			"location": [ 5, 5, "fonts/bahnschrift30" ],
 			"wind": [ 280, 5, "fonts/bahnschrift30" ],
-			"temp": [ 5, 65, "fonts/bahnschrift70" ],
-			"icon": [ 285, 20, 70, 2 ],
+			"temp": [ 5, 58, "fonts/calibrib90" ],
+			"icon": [ 280, 35, 80, 2 ],
 			"dir": [ 235, -12, 40 ],
-			"umbrella": [ 190, -50, 25 ]
+			"umbrella": [ 190, -30, 25 ]
 		},
 		"8": {
 			"location": [ 5, 12, "t0_14b_tf" ],
 			"column": [ 5, 59 ],
-			"day": [ 30, 18, "fonts/twcondensed20", 41, 108 ],
+			"day": [ 30, 20, "fonts/twcondensed20", 41, 105 ],
+	  "rain": [ 34, 130 ],
 			"icon": [ 30, 55, 30 ],
 			"wind": [ 18, 26 ],
-			"line": [ 20, 128 ]
+			"line": [ 20, 150 ]
 		},
 		"9": {
-			"title": [ 2, 0, "bahnschrift20.vlw", 25 ],
+			"title": [ 3, 2, "bahnschrift20.vlw", 25 ],
 			"items": 8,
-			"line": [ 1, 25, "REFSAN12.vlw" ],
+			"line": [ 3, 25, "REFSAN12.vlw" ],
 			"desc": [ 0, 5, "", 1 ]
 		},
 		"10": {
@@ -59,7 +60,7 @@
 			"days": 1,
 			"title": [ 5, 2, "fonts/bahnschrift20" ],
 			"date": [ 290, 2 ],
-			"items": 7,
+			"items": 9,
 			"red": [ 0, 21, 296, 14 ],
 			"line": [ 5, 32, 15, "t0_14b_tf", 50 ]
 		},
@@ -73,7 +74,7 @@
 			{ "text": [ 120, 90, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
 		],
 		"27": {
-			"bars": [ 9, 288, 90, 11 ],
+			"bars": [ 9, 288, 90, 11, 15 ],
 			"time": [ "tahoma9.vlw" ],
 			"yaxis": [ "tahoma9.vlw", 0, 6 ],
 			"head": [ "calibrib30.vlw" ]

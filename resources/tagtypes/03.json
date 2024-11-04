@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 4,
 	"name": "M2 2.2\"",
 	"width": 212,
 	"height": 104,
@@ -12,43 +12,42 @@
 	},
 	"shortlut": 2,
 	"options": [ "button", "customlut" ],
-	"contentids": [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 19, 20, 21, 22, 23, 27 ],
-
+	"contentids": [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 19, 20, 21, 22, 23, 27 ],
 	"template": {
 		"1": {
-			"weekday": [ 106, 2, "Signika-SB.ttf", 40 ],
-			"date": [ 106, 60, "Signika-SB.ttf", 30 ]
+			"weekday": [ 106, 5, "fonts/calibrib40", 40 ],
+			"date": [ 106, 55, "fonts/calibrib30", 30 ]
 		},
 		"2": {
-			"fonts": [ "Signika-SB.ttf", 150, 150, 150, 115, 90, 70 ],
-			"xy": [ 106, 52 ]
+			"fonts": [ "Signika-SB.ttf", 135, 135, 100, 90, 70, 50 ],
+			"xy": [ 106, 44 ]
 		},
 		"16": {
-			"location": [ 7, 15, "t0_14b_tf" ],
-			"title": [ 210, 11, "glasstown_nbp_tf" ],
-			"cols": [ 4, 121, 10, "glasstown_nbp_tf" ],
-			"bars": [ 10, 110, 8 ]
+			"location": [ 4, 10, "glasstown_nbp_tf" ],
+			"title": [ 165, 10, "glasstown_nbp_tf" ],
+			"cols": [ 4, 101, 8, "glasstown_nbp_tf" ],
+			"bars": [ 5, 90, 6 ]
 		},
 		"4": {
-			"location": [ 5, 3, "fonts/bahnschrift30" ],
-			"wind": [ 245, 3, "fonts/bahnschrift30" ],
-			"temp": [ 10, 60, "fonts/bahnschrift70" ],
-			"icon": [ 240, 20, 70, 2 ],
-			"dir": [ 210, -12, 40 ],
+			"location": [ 5, 3, "fonts/calibrib16.vlw" ],
+			"wind": [ 190, 3, "fonts/bahnschrift30" ],
+			"temp": [ 5, 30, "fonts/calibrib70" ],
+			"icon": [ 180, 25, 50, 2 ],
+			"dir": [ 170, -12, 40 ],
 			"umbrella": [ 175, -50, 25 ]
 		},
 		"8": {
 			"location": [ 5, 12, "t0_14b_tf" ],
-			"column": [ 5, 51 ],
-			"day": [ 28, 18, "fonts/twcondensed20", 41, 108 ],
-			"icon": [ 28, 55, 30 ],
-			"wind": [ 18, 26 ],
-			"line": [ 20, 128 ]
+			"column": [ 4, 53 ],
+			"day": [ 28, 18, "fonts/twcondensed20", 38, 88 ],
+			"icon": [ 28, 48, 25 ],
+			"wind": [ 18, 24 ],
+			"line": [ 20, 100 ]
 		},
 		"9": {
-			"title": [ 8, 2, "bahnschrift20.vlw", 25 ],
-			"items": 5,
-			"line": [ 8, 25, "REFSAN12.vlw" ],
+			"title": [ 3, 2, "fonts/calibrib16", 25 ],
+			"items": 4,
+			"line": [ 3, 20, "tahoma9.vlw" ],
 			"desc": [ 0, 5, "", 1 ]
 		},
 		"10": {
@@ -58,26 +57,26 @@
 		"11": {
 			"mode": 0,
 			"days": 1,
-			"title": [ 10, 2, "fonts/bahnschrift20" ],
-			"date": [ 245, 2 ],
-			"items": 7,
-			"red": [ 0, 21, 256, 14 ],
-			"line": [ 10, 32, 15, "t0_14b_tf", 50 ]
+			"title": [ 5, 2, "fonts/calibrib16.vlw" ],
+			"date": [ 205, 2 ],
+			"items": 8,
+			"red": [ 0, 21, 211, 10 ],
+			"line": [ 5, 21, 11, "tahoma9.vlw", 50 ]
 		},
 		"21": [
 			{ "text": [ 10, 5, "OpenEpaperLink AP", "bahnschrift20", 1, 0, 0 ] },
 			{ "text": [ 10, 50, "IP address:", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 110, 50, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 100, 50, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
 			{ "text": [ 10, 70, "Channel:", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 110, 70, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 100, 70, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
 			{ "text": [ 10, 90, "Tag count:", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 110, 90, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
+			{ "text": [ 100, 90, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
 		],
 		"27": {
-			"bars": [ 26, 216, 80, 20 ],
+			"bars": [ 20, 180, 65, 12, 10 ],
 			"time": [ "tahoma9.vlw" ],
-			"yaxis": [ "tahoma9.vlw", 6, 6 ],
-			"head": [ "bahnschrift20.vlw" ]
+			"yaxis": [ "tahoma9.vlw", 2, 6 ],
+			"head": [ "fonts/calibrib16.vlw" ]
 		}
 	}
 }

@@ -56,12 +56,10 @@ export async function initUpdate() {
         .then(([sdata, rdata]) => {
 
             if (sdata.env) {
-                let matchtest = '';
-                if (parseInt(sdata.buildversion) != parseInt(filesystemversion) && filesystemversion != "custom" && sdata.buildversion != "custom") matchtest = " <- not matching!"
                 print(`env:                ${sdata.env}`);
                 print(`build date:         ${formatEpoch(sdata.buildtime)}`);
                 print(`esp32 version:      ${sdata.buildversion}`);
-                print(`filesystem version: ${filesystemversion}` + matchtest);
+                print(`filesystem version: ${filesystemversion}`);
                 print(`psram size:         ${sdata.psramsize}`);
                 print(`flash size:         ${sdata.flashsize}`);
                 print("--------------------------", "gray");
