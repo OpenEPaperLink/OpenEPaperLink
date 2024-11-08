@@ -1746,7 +1746,7 @@ function populateAPCard(msg) {
 
 function populateAPInfo(apip) {
 	let apid = apip.replace(/\./g, "-");
-	fetch('sysinfo')
+	fetch('http://' + apip + '/sysinfo')
 		.then(response => {
 			if (response.status != 200) {
 				$('#ap' + apid + ' .apswversion').innerHTML = "Error fetching sysinfo: " + response.status;

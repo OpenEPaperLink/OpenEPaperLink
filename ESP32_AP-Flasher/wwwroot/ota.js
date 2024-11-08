@@ -56,14 +56,17 @@ export async function initUpdate() {
         .then(([sdata, rdata]) => {
 
             if (sdata.env) {
-                print(`env:                ${sdata.env}`);
+                print(`current env:        ${sdata.env}`);
                 print(`build date:         ${formatEpoch(sdata.buildtime)}`);
                 print(`esp32 version:      ${sdata.buildversion}`);
                 print(`filesystem version: ${filesystemversion}`);
                 print(`psram size:         ${sdata.psramsize}`);
                 print(`flash size:         ${sdata.flashsize}`);
                 print("--------------------------", "gray");
-                env = sdata.env;
+                env = apConfig.env || sdata.env;
+                if (sdata.env != env) {
+                    print(`Warning: you selected a build environment ${env} which is\ndifferent than the currently used ${sdata.env}.\nOnly update the firmware with a mismatched build environment if\nyou know what you're doing.`, "yellow");
+                }
                 currentVer = sdata.buildversion;
                 currentBuildtime = sdata.buildtime;
                 if (sdata.rollback) $("#rollbackOption").style.display = 'block';
