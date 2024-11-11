@@ -1,0 +1,17 @@
+{
+	"version": 1,
+	"name": "Opticon 4.2\"",
+	"width": 400,
+	"height": 300,
+	"rotatebuffer": 2,
+	"bpp": 2,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ]
+	},
+	"shortlut": 1,
+	"options": [ ],
+	"contentids": [ 22, 23, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20, 27 ],
+	"usetemplate": 2
+}
