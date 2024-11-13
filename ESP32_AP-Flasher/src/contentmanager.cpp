@@ -277,7 +277,10 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                     imageParams.lut = EPD_LUT_DEFAULT;
                 }
 
-                if (imageParams.zlib) {
+                if (imageParams.bpp == 3) {
+                    imageParams.dataType = DATATYPE_IMG_RAW_3BPP;
+                    Serial.println("datatype: DATATYPE_IMG_RAW_3BPP");
+                } else if (imageParams.zlib) {
                     imageParams.dataType = DATATYPE_IMG_ZLIB;
                     Serial.println("datatype: DATATYPE_IMG_ZLIB");
                 } else if (imageParams.hasRed) {
@@ -557,7 +560,10 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
             imageParams.lut = EPD_LUT_DEFAULT;
         }
 
-        if (imageParams.zlib) {
+        if (imageParams.bpp == 3) {
+            imageParams.dataType = DATATYPE_IMG_RAW_3BPP;
+            Serial.println("datatype: DATATYPE_IMG_RAW_3BPP");
+        } else if (imageParams.zlib) {
             imageParams.dataType = DATATYPE_IMG_ZLIB;
             Serial.println("datatype: DATATYPE_IMG_ZLIB");
         } else if (imageParams.hasRed) {
@@ -1439,18 +1445,32 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 
 #ifdef CONTENT_DAYAHEAD
 uint16_t getPercentileColor(const double *prices, int numPrices, double price, HwType hwdata) {
-    double percentile = 100.0;
-    int colorIndex = 3;
-    const char *colors[] = {"black", "darkgray", "pink", "red"};
-    if (hwdata.highlightColor == 3) {
-        // yellow
-        colors[2] = "brown";
-        colors[3] = "yellow";
-    }
-    const int numColors = sizeof(colors) / sizeof(colors[0]);
+    const char *colorsDefault[] = {"black", "darkgray", "pink", "red"};
+    const double boundariesDefault[] = {40.0, 80.0, 90.0};
 
-    const double boundaries[] = {40.0, 80.0, 90.0};
-    const int numBoundaries = sizeof(boundaries) / sizeof(boundaries[0]);
+    const char *colors3bpp[] = {"blue", "green", "yellow", "orange", "red"};
+    const double boundaries3bpp[] = {20.0, 50.0, 70.0, 90.0};
+
+    const char **colors;
+    const double *boundaries;
+    int numColors, numBoundaries;
+
+    if (hwdata.bpp == 3) {
+        colors = colors3bpp;
+        boundaries = boundaries3bpp;
+        numColors = sizeof(colors3bpp) / sizeof(colors3bpp[0]);
+        numBoundaries = sizeof(boundaries3bpp) / sizeof(boundaries3bpp[0]);
+    } else {
+        colors = colorsDefault;
+        boundaries = boundariesDefault;
+        numColors = sizeof(colorsDefault) / sizeof(colorsDefault[0]);
+        numBoundaries = sizeof(boundariesDefault) / sizeof(boundariesDefault[0]);
+        if (hwdata.highlightColor == 3) {
+            colors[2] = "brown";
+            colors[3] = "yellow";
+        }
+    }
+    int colorIndex = numColors - 1;
 
     for (int i = 0; i < numBoundaries; i++) {
         if (price < prices[int(numPrices * boundaries[i] / 100.0)]) {
@@ -1622,7 +1642,7 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
             spr.fillTriangle(barX + i * barwidth, 15 + arrowY,
                              barX + i * barwidth + barwidth - 1, 15 + arrowY,
                              barX + i * barwidth + (barwidth - 1) / 2, 15 + barwidth + arrowY, imageParams.highlightColor);
-            spr.drawLine(barX + i * barwidth + (barwidth - 1) / 2, 20 + barwidth + arrowY, barX + i * barwidth + (barwidth - 1) / 2, spr.height(), getColor("pink"));
+            spr.drawLine(barX + i * barwidth + (barwidth - 1) / 2, 20 + barwidth + arrowY, barX + i * barwidth + (barwidth - 1) / 2, spr.height(), TFT_BLACK);
             pricenow = price;
         }
     }
@@ -2217,6 +2237,9 @@ uint16_t getColor(const String &color) {
     if (color == "5" || color == "darkgray") return TFT_DARKGREY;
     if (color == "6" || color == "pink") return 0xFBCF;
     if (color == "7" || color == "brown") return 0x8400;
+    if (color == "8" || color == "green") return TFT_GREEN;
+    if (color == "9" || color == "blue") return TFT_BLUE;
+    if (color == "10" || color == "orange") return 0xFBE0;
     uint16_t r, g, b;
     if (color.length() == 7 && color[0] == '#' &&
         sscanf(color.c_str(), "#%2hx%2hx%2hx", &r, &g, &b) == 3) {

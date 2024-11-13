@@ -1243,6 +1243,28 @@ function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
 			imageData.data[i * 4 + 3] = 255;
 		}
 
+	} else if (tagTypes[hwtype].bpp == 3) {
+		const colorTable = tagTypes[hwtype].colortable;
+
+		let pixelIndex = 0;
+		for (let i = 0; i < data.length; i += 3) {
+			for (let j = 0; j < 8; j++) {
+				let bitPos = j * 3;
+				let bytePos = Math.floor(bitPos / 8);
+				let bitOffset = bitPos % 8;
+				let pixelValue = (data[i + bytePos] >> (5 - bitOffset)) & 0x07;
+				if (bitOffset > 5) {
+					pixelValue = ((data[i + bytePos] & (0xFF >> bitOffset)) << (bitOffset - 5)) |
+						(data[i + bytePos + 1] >> (13 - bitOffset));
+				}
+				imageData.data[pixelIndex * 4] = colorTable[pixelValue][0];
+				imageData.data[pixelIndex * 4 + 1] = colorTable[pixelValue][1];
+				imageData.data[pixelIndex * 4 + 2] = colorTable[pixelValue][2];
+				imageData.data[pixelIndex * 4 + 3] = 255;
+				pixelIndex++;
+			}
+		}
+
 	} else {
 
 		const offsetRed = (data.length >= (canvas.width * canvas.height / 8) * 2) ? canvas.width * canvas.height / 8 : 0;

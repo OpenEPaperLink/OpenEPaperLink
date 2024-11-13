@@ -273,7 +273,8 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
             case DATATYPE_IMG_DIFF:
             case DATATYPE_IMG_ZLIB:
             case DATATYPE_IMG_RAW_1BPP:
-            case DATATYPE_IMG_RAW_2BPP: {
+            case DATATYPE_IMG_RAW_2BPP:
+            case DATATYPE_IMG_RAW_3BPP: {
                 char hexmac[17];
                 mac2hex(pending->targetMac, hexmac);
                 String filename = "/current/" + String(hexmac) + "_" + String(millis() % 1000000) + ".pending";
@@ -445,7 +446,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
             contentFS->remove(dst_path);
         }
         if (contentFS->exists(queueItem->filename)) {
-            if (config.preview && (queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_ZLIB)) {
+            if (config.preview && (queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_3BPP ||  queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP || queueItem->pendingdata.availdatainfo.dataType == DATATYPE_IMG_ZLIB)) {
                 contentFS->rename(queueItem->filename, String(dst_path));
             } else {
                 if (queueItem->pendingdata.availdatainfo.dataType != DATATYPE_FW_UPDATE) contentFS->remove(queueItem->filename);
@@ -966,7 +967,7 @@ bool queueDataAvail(struct pendingData* pending, bool local) {
     }
     newPending.len = taginfo->len;
 
-    if ((pending->availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP || pending->availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || pending->availdatainfo.dataType == DATATYPE_IMG_ZLIB) && (pending->availdatainfo.dataTypeArgument & 0xF8) == 0x00) {
+    if ((pending->availdatainfo.dataType == DATATYPE_IMG_RAW_1BPP || pending->availdatainfo.dataType == DATATYPE_IMG_RAW_2BPP || pending->availdatainfo.dataType == DATATYPE_IMG_RAW_3BPP || pending->availdatainfo.dataType == DATATYPE_IMG_ZLIB) && (pending->availdatainfo.dataTypeArgument & 0xF8) == 0x00) {
         // in case of an image (no preload), remove already queued images
         pendingQueue.erase(std::remove_if(pendingQueue.begin(), pendingQueue.end(),
                                           [pending](const PendingItem& item) {

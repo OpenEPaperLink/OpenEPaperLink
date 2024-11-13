@@ -112,6 +112,7 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
         {12, 5, 14, 6},
         {3, 11, 1, 8},
         {15, 7, 13, 4}};
+    size_t bitOffset = 0;
 
     memset(error_bufferold, 0, bufw * sizeof(Error));
     for (uint16_t y = 0; y < bufh; y++) {
@@ -134,10 +135,10 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
 
             if (imageParams.dither == 2) {
                 // Ordered dithering
-                uint8_t ditherValue = ditherMatrix[y % 4][x % 4];
-                error_bufferold[x].r = (ditherValue << 4) - 120;  // * 256 / 16 - 128 + 8
-                error_bufferold[x].g = (ditherValue << 4) - 120;
-                error_bufferold[x].b = (ditherValue << 4) - 120;
+                uint8_t ditherValue = ditherMatrix[y % 4][x % 4] << (imageParams.bpp == 3 ? 2 : 4);
+                error_bufferold[x].r = ditherValue - (imageParams.bpp == 3 ? 30 : 120);  // * 256 / 16 - 128 + 8
+                error_bufferold[x].g = ditherValue - (imageParams.bpp == 3 ? 30 : 120);
+                error_bufferold[x].b = ditherValue - (imageParams.bpp == 3 ? 30 : 120);
             }
 
             int best_color_index = 0;
@@ -151,24 +152,40 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                     best_color_index = i;
                 }
             }
-            uint8_t bitIndex = 7 - (x % 8);
-            uint32_t byteIndex = (y * bufw + x) / 8;
 
-            // this looks a bit ugly, but it's performing better than shorter notations
-            switch (best_color_index) {
-                case 1:
-                    if (!is_red)
+            if (imageParams.bpp == 3) {
+                size_t byteIndex = bitOffset / 8;
+                uint8_t bitIndex = bitOffset % 8;
+
+                if (bitIndex + imageParams.bpp <= 8) {
+                    buffer[byteIndex] |= best_color_index << (8 - bitIndex - imageParams.bpp);
+                } else {
+                    uint8_t highPart = best_color_index >> (bitIndex + imageParams.bpp - 8);
+                    uint8_t lowPart = best_color_index & ((1 << (bitIndex + imageParams.bpp - 8)) - 1);
+                    buffer[byteIndex] |= highPart;
+                    buffer[byteIndex + 1] |= lowPart << (8 - (bitIndex + imageParams.bpp - 8));
+                }
+                bitOffset += imageParams.bpp;
+            } else {
+                uint8_t bitIndex = 7 - (x % 8);
+                uint32_t byteIndex = (y * bufw + x) / 8;
+
+                // this looks a bit ugly, but it's performing better than shorter notations
+                switch (best_color_index) {
+                    case 1:
+                        if (!is_red)
+                            buffer[byteIndex] |= (1 << bitIndex);
+                        break;
+                    case 2:
+                        imageParams.hasRed = true;
+                        if (is_red)
+                            buffer[byteIndex] |= (1 << bitIndex);
+                        break;
+                    case 3:
+                        imageParams.hasRed = true;
                         buffer[byteIndex] |= (1 << bitIndex);
-                    break;
-                case 2:
-                    imageParams.hasRed = true;
-                    if (is_red)
-                        buffer[byteIndex] |= (1 << bitIndex);
-                    break;
-                case 3:
-                    imageParams.hasRed = true;
-                    buffer[byteIndex] |= (1 << bitIndex);
-                    break;
+                        break;
+                }
             }
 
             if (imageParams.dither == 1) {
@@ -226,7 +243,10 @@ size_t prepareHeader(uint8_t headerbuf[], uint16_t bufw, uint16_t bufh, imgParam
     memcpy(headerbuf + (imageParams.rotatebuffer % 2 == 1 ? 3 : 1), &bufw, sizeof(uint16_t));
     memcpy(headerbuf + (imageParams.rotatebuffer % 2 == 1 ? 1 : 3), &bufh, sizeof(uint16_t));
 
-    if (imageParams.hasRed && imageParams.bpp > 1) {
+    if (imageParams.bpp == 3) {
+        totalbytes = buffer_size * 3 + headersize;
+        headerbuf[5] = 3;
+    } else if (imageParams.hasRed && imageParams.bpp > 1) {
         totalbytes = buffer_size * 2 + headersize;
         headerbuf[5] = 2;
     } else {
@@ -366,6 +386,23 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                     f_out.write(buffer, buffer_size);
                 }
             }
+
+            free(buffer);
+        } break;
+
+        case 3: {
+            long bufw = spr.width(), bufh = spr.height();
+            size_t buffer_size = (bufw * bufh) / 8 * 3;
+            uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
+            if (!buffer) {
+                Serial.println("Failed to allocate buffer");
+                util::printLargestFreeBlock();
+                f_out.close();
+                xSemaphoreGive(fsMutex);
+                return;
+            }
+            spr2color(spr, imageParams, buffer, buffer_size, false);
+            f_out.write(buffer, buffer_size);
 
             free(buffer);
         } break;
