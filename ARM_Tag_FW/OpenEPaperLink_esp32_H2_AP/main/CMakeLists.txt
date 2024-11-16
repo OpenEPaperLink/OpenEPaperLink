@@ -1,9 +1,3 @@
 idf_component_register(	SRCS 
-						SRCS "utils.c"
-						SRCS "second_uart.c"
-						SRCS "radio.c"
-						SRCS "SubGigRadio.c"
-						SRCS "cc1101_radio.c"
-						SRCS "led.c"
-						SRCS "main.c"
-						INCLUDE_DIRS ".")
+	SRC_DIRS "../../OpenEPaperLink_esp32_C6_AP/main"
+	INCLUDE_DIRS "../../OpenEPaperLink_esp32_C6_AP/main")

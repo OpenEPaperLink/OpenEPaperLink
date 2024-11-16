@@ -19,10 +19,12 @@
 #include "proto.h"
 #include "sdkconfig.h"
 #include "soc/uart_struct.h"
+#ifdef CONFIG_IDF_TARGET_ESP32C6
 #include "soc/lp_uart_reg.h"
+static const char *TAG = "SECOND_UART";
+#endif
 #include "second_uart.h"
 
-static const char *TAG = "SECOND_UART";
 
 #define BUF_SIZE    (1024)
 #define RD_BUF_SIZE (BUF_SIZE)

@@ -3,7 +3,11 @@
 #include <stdint.h>
 
 #define LED1 22
+#ifdef CONFIG_IDF_TARGET_ESP32C6
 #define LED2 23
+#elif CONFIG_IDF_TARGET_ESP32H2
+#define LED2 25
+#endif
 
 #define PROTO_PAN_ID (0x4447)  // PAN ID compression shall be used
 #define PROTO_PAN_ID_SUBGHZ   (0x1337)  // PAN ID compression shall be used

@@ -3,4 +3,4 @@
 cmake_minimum_required(VERSION 3.16)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(OpenEPaperLink_esp32_C6)
+project(OpenEPaperLink_esp32_H2)

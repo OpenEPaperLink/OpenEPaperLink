@@ -13,6 +13,9 @@ menu "OEPL Hardware config"
     config OEPL_HARDWARE_PROFILE_CUSTOM
       bool "Custom"
 
+    config OEPL_HARDWARE_PROFILE_LILYGO
+      bool "LILYGO-AP"
+
   endchoice
 
   config OEPL_HARDWARE_UART_TX
@@ -40,6 +43,7 @@ menu "OEPL Hardware config"
             default 18 if IDF_TARGET_ESP32C2
             default 19 if IDF_TARGET_ESP32C3
             default 30 if IDF_TARGET_ESP32C6
+            default 30 if IDF_TARGET_ESP32H2
 
     config MISO_GPIO
             int "CC1101 MISO GPIO"

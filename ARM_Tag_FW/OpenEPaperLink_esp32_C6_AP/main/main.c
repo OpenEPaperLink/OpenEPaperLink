@@ -17,7 +17,9 @@
 #include "radio.h"
 #include "sdkconfig.h"
 #include "second_uart.h"
+#ifdef CONFIG_IDF_TARGET_ESP32C6
 #include "soc/lp_uart_reg.h"
+#endif
 #include "soc/uart_struct.h"
 #include "utils.h"
 #include <esp_mac.h>
@@ -752,7 +754,11 @@ void app_main(void) {
 
     pr("RES>");
     pr("RDY>");
+#ifdef CONFIG_IDF_TARGET_ESP32C6
     ESP_LOGI(TAG, "C6 ready!");
+#else
+    ESP_LOGI(TAG, "H2 ready!");
+#endif
 
     housekeepingTimer = getMillis();
     while (1) {

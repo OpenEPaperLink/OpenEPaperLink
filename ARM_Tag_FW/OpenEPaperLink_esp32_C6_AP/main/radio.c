@@ -17,7 +17,9 @@
 #include "sdkconfig.h"
 // if you get an error about soc/lp_uart_reg.h not being found,
 // you didn't choose the right build target. :-)
+#ifdef CONFIG_IDF_TARGET_ESP32C6
 #include "soc/lp_uart_reg.h"
+#endif
 #include "soc/uart_struct.h"
 #include "utils.h"
 #include <esp_mac.h>

@@ -13,6 +13,9 @@ menu "OEPL Hardware config"
     config OEPL_HARDWARE_PROFILE_CUSTOM
       bool "Custom"
 
+    config OEPL_HARDWARE_PROFILE_LILYGO
+      bool "LILYGO-AP"
+
   endchoice
 
   config OEPL_HARDWARE_UART_TX

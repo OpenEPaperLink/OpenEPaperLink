@@ -17,7 +17,9 @@
 #include "proto.h"
 #include "sdkconfig.h"
 #include "soc/uart_struct.h"
+#ifdef CONFIG_IDF_TARGET_ESP32C6
 #include "soc/lp_uart_reg.h"
+#endif
 #include "nvs_flash.h"
 
 void delay(int ms) { vTaskDelay(pdMS_TO_TICKS(ms)); }
