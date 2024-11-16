@@ -7,6 +7,7 @@
 #include "settings.h"
 #include "swd.h"
 #include "zbs_interface.h"
+#include "cc_interface.h"
 
 USBCDC USBSerial;
 
@@ -302,6 +303,7 @@ typedef enum {
 
     CMD_SELECT_ZBS243 = 60,
     CMD_SELECT_NRF82511 = 61,
+    CMD_SELECT_CC = 62,
     CMD_SELECT_EEPROM_PT = 69,
 
     CMD_SELECT_PORT = 70,
@@ -316,15 +318,17 @@ typedef enum {
     CMD_WRITE_EEPROM = 91
 
 } ZBS_UART_PROTO;
-uint32_t FLASHER_VERSION = 0x00000030;
+uint32_t FLASHER_VERSION = 0x00000032;
 
 #define CONTROLLER_ZBS243 0
 #define CONTROLLER_NRF82511 1
+#define CONTROLLER_CC      2
 uint8_t selectedController = 0;
 uint8_t selectedFlasherPort;
 uint32_t currentFlasherOffset = 0;
 flasher* zbsflasherp;
 nrfswd* nrfflasherp;
+CC_interface *ccflasherp;
 
 uint8_t waitSerialReply() {
     uint8_t cmd[4] = {0};
@@ -472,6 +476,10 @@ void processFlasherCommand(struct flasherCommand* cmd) {
                 nrfflasherp->nrf_soft_reset();
                 delete nrfflasherp;
                 nrfflasherp = nullptr;
+            } else if (ccflasherp != nullptr) {
+                ccflasherp->reset_cc();
+                delete ccflasherp;
+                ccflasherp = nullptr;
             } else {
                 pinMode(FLASHER_EXT_RESET, OUTPUT);
                 digitalWrite(FLASHER_EXT_RESET, LOW);
@@ -485,6 +493,9 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             } else if (selectedController == CONTROLLER_ZBS243) {
                 if (zbsflasherp == nullptr) return;
                 zbsflasherp->zbs->erase_flash();
+            } else if (selectedController == CONTROLLER_CC) {
+                if (ccflasherp == nullptr) return;
+                ccflasherp->erase_chip();
             }
             sendFlasherAnswer(CMD_ERASE_FLASH, NULL, 0);
             break;
@@ -501,6 +512,9 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             if (selectedController == CONTROLLER_NRF82511) {
                 if (nrfflasherp == nullptr) return;
                 nrfflasherp->nrf_erase_all();
+            } else if (selectedController == CONTROLLER_CC) {
+               if (ccflasherp == nullptr) return;
+                ccflasherp->erase_chip();
             }
             sendFlasherAnswer(CMD_ERASE_ALL, NULL, 0);
             break;
@@ -515,8 +529,15 @@ void processFlasherCommand(struct flasherCommand* cmd) {
             currentFlasherOffset = 0;
             selectedController = CONTROLLER_ZBS243;
             break;
+        case CMD_SELECT_CC:
+            ccflasherp = new CC_interface;
+            ccflasherp->begin(FLASHER_EXT_CLK,FLASHER_EXT_MISO,FLASHER_EXT_RESET);
+            temp_buff[0] = 1;
+            sendFlasherAnswer(CMD_SELECT_CC, temp_buff, 1);
+            currentFlasherOffset = 0;
+            selectedController = CONTROLLER_CC;
+            break;
         case CMD_SELECT_NRF82511:
-
             // powerControl(true, (uint8_t*)powerPins2, 4);
             nrfflasherp = new nrfswd(FLASHER_EXT_MISO, FLASHER_EXT_CLK);
             nrfflasherp->showDebug = false;
@@ -566,6 +587,19 @@ void processFlasherCommand(struct flasherCommand* cmd) {
                     currentFlasherOffset += cur_len;
                     sendFlasherAnswer(CMD_READ_FLASH, bufferp, cur_len);
                     if (bufferp != nullptr) free(bufferp);
+                }
+            } else if (selectedController == CONTROLLER_CC) {
+                if (ccflasherp == nullptr) return;
+                if (currentFlasherOffset >= 32768) {
+                    sendFlasherAnswer(CMD_COMPLETE, temp_buff, 1);
+                } else {
+                   bufferp = (uint8_t*)malloc(256);
+                   if (bufferp == nullptr) return;
+                   cur_len = (32768 - currentFlasherOffset >= 256) ? 256 : 32768 - currentFlasherOffset;
+                   ccflasherp->read_code_memory(currentFlasherOffset,cur_len,bufferp);
+                   currentFlasherOffset += cur_len;
+                   sendFlasherAnswer(CMD_READ_FLASH, bufferp, cur_len);
+                   free(bufferp);
                 }
             } else {
                 Serial0.printf("No controller type selected\n");
@@ -632,6 +666,15 @@ void processFlasherCommand(struct flasherCommand* cmd) {
                     currentFlasherOffset += cmd->len;
                     sendFlasherAnswer(CMD_WRITE_FLASH, NULL, 0);
                 }
+            } else if (selectedController == CONTROLLER_CC) {
+               if (currentFlasherOffset >= 32768) {
+                   sendFlasherAnswer(CMD_COMPLETE, temp_buff, 1);
+               } else {
+                  if (ccflasherp == nullptr) return;
+                   ccflasherp->write_code_memory(currentFlasherOffset, cmd->data, cmd->len);
+                   currentFlasherOffset += cmd->len;
+                   sendFlasherAnswer(CMD_WRITE_FLASH, NULL, 0);
+               }
             }
             break;
         case CMD_WRITE_INFOPAGE:
@@ -686,6 +729,10 @@ void flasherCommandTimeout() {
     if (nrfflasherp != nullptr) {
         delete nrfflasherp;
         nrfflasherp = nullptr;
+    }
+    if (ccflasherp != nullptr) {
+        delete ccflasherp;
+        ccflasherp = nullptr;
     }
     lastCmdTimeStamp = 0;
 }

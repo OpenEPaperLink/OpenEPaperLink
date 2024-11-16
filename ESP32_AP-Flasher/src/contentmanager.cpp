@@ -8,9 +8,9 @@
 #define CONTENT_NFCLUT
 #define CONTENT_DAYAHEAD
 #define CONTENT_TIMESTAMP
-#endif
-#define CONTENT_CAL
 #define CONTENT_BUIENRADAR
+#define CONTENT_CAL
+#endif
 #define CONTENT_TAGCFG
 
 #include <Arduino.h>
@@ -277,7 +277,10 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                     imageParams.lut = EPD_LUT_DEFAULT;
                 }
 
-                if (imageParams.zlib) {
+                if (imageParams.bpp == 3) {
+                    imageParams.dataType = DATATYPE_IMG_RAW_3BPP;
+                    Serial.println("datatype: DATATYPE_IMG_RAW_3BPP");
+                } else if (imageParams.zlib) {
                     imageParams.dataType = DATATYPE_IMG_ZLIB;
                     Serial.println("datatype: DATATYPE_IMG_ZLIB");
                 } else if (imageParams.hasRed) {
@@ -336,8 +339,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             // https://github.com/erikflowers/weather-icons
 
             drawWeather(filename, cfgobj, taginfo, imageParams);
-            taginfo->nextupdate = now + 1800;
-            updateTagImage(filename, mac, 15, taginfo, imageParams);
+            taginfo->nextupdate = now + interval;
+            updateTagImage(filename, mac, interval / 60, taginfo, imageParams);
             break;
 
         case 8:  // Forecast
@@ -557,7 +560,10 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
             imageParams.lut = EPD_LUT_DEFAULT;
         }
 
-        if (imageParams.zlib) {
+        if (imageParams.bpp == 3) {
+            imageParams.dataType = DATATYPE_IMG_RAW_3BPP;
+            Serial.println("datatype: DATATYPE_IMG_RAW_3BPP");
+        } else if (imageParams.zlib) {
             imageParams.dataType = DATATYPE_IMG_ZLIB;
             Serial.println("datatype: DATATYPE_IMG_ZLIB");
         } else if (imageParams.hasRed) {
@@ -681,7 +687,7 @@ void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy
     switch (processFontPath(font)) {
         case 2: {
             // truetype
-            Serial.println("truetype font not implemented for drawStringBox");
+            Serial.println("truetype font not implemented for drawTextBox");
         } break;
         case 3: {
             // vlw bitmap font
@@ -1171,7 +1177,7 @@ char *epoch_to_display(time_t utc) {
 #ifdef CONTENT_CAL
 bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     // google apps scripts method to retrieve calendar
-    // see https://github.com/jjwbruijn/OpenEPaperLink/wiki/Google-Apps-Scripts for description
+    // see https://github.com/OpenEPaperLink/OpenEPaperLink/wiki/Google-Apps-Scripts for description
 
     wsLog("get calendar");
 
@@ -1439,18 +1445,32 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 
 #ifdef CONTENT_DAYAHEAD
 uint16_t getPercentileColor(const double *prices, int numPrices, double price, HwType hwdata) {
-    double percentile = 100.0;
-    int colorIndex = 3;
-    const char *colors[] = {"black", "darkgray", "pink", "red"};
-    if (hwdata.highlightColor == 3) {
-        // yellow
-        colors[2] = "brown";
-        colors[3] = "yellow";
-    }
-    const int numColors = sizeof(colors) / sizeof(colors[0]);
+    const char *colorsDefault[] = {"black", "darkgray", "pink", "red"};
+    const double boundariesDefault[] = {40.0, 80.0, 90.0};
 
-    const double boundaries[] = {40.0, 80.0, 90.0};
-    const int numBoundaries = sizeof(boundaries) / sizeof(boundaries[0]);
+    const char *colors3bpp[] = {"blue", "green", "yellow", "orange", "red"};
+    const double boundaries3bpp[] = {20.0, 50.0, 70.0, 90.0};
+
+    const char **colors;
+    const double *boundaries;
+    int numColors, numBoundaries;
+
+    if (hwdata.bpp == 3) {
+        colors = colors3bpp;
+        boundaries = boundaries3bpp;
+        numColors = sizeof(colors3bpp) / sizeof(colors3bpp[0]);
+        numBoundaries = sizeof(boundaries3bpp) / sizeof(boundaries3bpp[0]);
+    } else {
+        colors = colorsDefault;
+        boundaries = boundariesDefault;
+        numColors = sizeof(colorsDefault) / sizeof(colorsDefault[0]);
+        numBoundaries = sizeof(boundariesDefault) / sizeof(boundariesDefault[0]);
+        if (hwdata.highlightColor == 3) {
+            colors[2] = "brown";
+            colors[3] = "yellow";
+        }
+    }
+    int colorIndex = numColors - 1;
 
     for (int i = 0; i < numBoundaries; i++) {
         if (price < prices[int(numPrices * boundaries[i] / 100.0)]) {
@@ -1541,18 +1561,37 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
 
     int units = cfgobj["units"].as<int>();
     if (units == 0) units = 1;
-    double tarifkwh = cfgobj["tariffkwh"].as<double>();
+    double tarifkwh;
     double tariftax = cfgobj["tarifftax"].as<double>();
-    double minPrice = (doc[0]["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
-    double maxPrice = minPrice;
+    double minPrice = std::numeric_limits<double>::max();
+    double maxPrice = std::numeric_limits<double>::lowest();
     double prices[n];
 
+    DynamicJsonDocument doc2(500);
+    JsonArray tariffArray;
+    std::string tariffString = cfgobj["tariffkwh"].as<std::string>();
+    if (tariffString.front() == '[') {
+        if (deserializeJson(doc2, tariffString) == DeserializationError::Ok) {
+            tariffArray = doc2.as<JsonArray>();
+        } else {
+            Serial.println("Error in tariffkwh array");
+        }
+    }
     for (int i = 0; i < n; i++) {
         const JsonObject &obj = doc[i];
-        const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
-        minPrice = min(minPrice, price);
-        maxPrice = max(maxPrice, price);
-        prices[i] = price;
+
+        if (tariffArray.size() == 24) {
+            const time_t item_time = obj["time"];
+            struct tm item_timeinfo;
+            localtime_r(&item_time, &item_timeinfo);
+
+            tarifkwh = tariffArray[item_timeinfo.tm_hour].as<double>();
+        } else {
+            tarifkwh = cfgobj["tariffkwh"].as<double>();
+        }
+        prices[i] = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
+        minPrice = std::min(minPrice, prices[i]);
+        maxPrice = std::max(maxPrice, prices[i]);
     }
     std::sort(prices, prices + n);
 
@@ -1565,14 +1604,17 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     for (double i = minPrice; i <= maxPrice; i += yAxisScale.step) {
         int y = mapDouble(i, minPrice, maxPrice, spr.height() - barBottom, spr.height() - barBottom - loc["bars"][2].as<int>());
         spr.drawLine(0, y, spr.width(), y, TFT_BLACK);
-        drawString(spr, String(int(i * units)), yAxisX, y - 9, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
+        if (loc["yaxis"][0]) drawString(spr, String(int(i * units)), yAxisX, y - 9, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
     }
 
     uint16_t barwidth = loc["bars"][1].as<int>() / n;
     uint16_t barheight = loc["bars"][2].as<int>() / (maxPrice - minPrice);
-
+    uint16_t arrowY = 0;
+    if (loc["bars"].size() >= 5) arrowY = loc["bars"][4].as<int>();
     uint16_t barX = loc["bars"][0].as<int>();
     double pricenow = std::numeric_limits<double>::quiet_NaN();
+    bool showcurrent = true;
+    if (cfgobj["showcurr"] && cfgobj["showcurr"] == "0") showcurrent = false;
 
     for (int i = 0; i < n; i++) {
         const JsonObject &obj = doc[i];
@@ -1580,27 +1622,40 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
         struct tm item_timeinfo;
         localtime_r(&item_time, &item_timeinfo);
 
+        if (tariffArray.size() == 24) {
+            tarifkwh = tariffArray[item_timeinfo.tm_hour].as<double>();
+        } else {
+            tarifkwh = cfgobj["tariffkwh"].as<double>();
+        }
+
         const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
 
         uint16_t barcolor = getPercentileColor(prices, n, price, imageParams.hwdata);
         uint16_t thisbarh = mapDouble(price, minPrice, maxPrice, 0, loc["bars"][2].as<int>());
         spr.fillRect(barX + i * barwidth, spr.height() - barBottom - thisbarh, barwidth - 1, thisbarh, barcolor);
-        if (i % 2 == 0) {
+        if (i % 2 == 0 && loc["time"][0]) {
             drawString(spr, String(item_timeinfo.tm_hour), barX + i * barwidth + barwidth / 3 + 1, spr.height() - barBottom + 3, loc["time"][0], TC_DATUM, TFT_BLACK);
         }
 
-        if (now - item_time < 3600 && std::isnan(pricenow)) {
-            spr.fillRect(barX + i * barwidth + 3, 5, barwidth - 6, 10, imageParams.highlightColor);
-            spr.fillTriangle(barX + i * barwidth, 15,
-                             barX + i * barwidth + barwidth - 1, 15,
-                             barX + i * barwidth + (barwidth - 1) / 2, 15 + barwidth, imageParams.highlightColor);
-            spr.drawLine(barX + i * barwidth + (barwidth - 1) / 2, 20 + barwidth, barX + i * barwidth + (barwidth - 1) / 2, spr.height(), getColor("pink"));
+        if (now - item_time < 3600 && std::isnan(pricenow) && showcurrent) {
+            spr.fillRect(barX + i * barwidth + (barwidth > 6 ? 3 : 1), 5 + arrowY, (barwidth > 6 ? barwidth - 6 : barwidth - 2), 10, imageParams.highlightColor);
+            spr.fillTriangle(barX + i * barwidth, 15 + arrowY,
+                             barX + i * barwidth + barwidth - 1, 15 + arrowY,
+                             barX + i * barwidth + (barwidth - 1) / 2, 15 + barwidth + arrowY, imageParams.highlightColor);
+            spr.drawLine(barX + i * barwidth + (barwidth - 1) / 2, 20 + barwidth + arrowY, barX + i * barwidth + (barwidth - 1) / 2, spr.height(), TFT_BLACK);
             pricenow = price;
         }
     }
 
-    drawString(spr, String(timeinfo.tm_hour) + ":00", barX, 5, loc["head"][0], TL_DATUM, TFT_BLACK, 30);
-    drawString(spr, String(pricenow) + "/kWh", spr.width() - barX, 5, loc["head"][0], TR_DATUM, TFT_BLACK, 30);
+    if (showcurrent) {
+        if (barwidth < 5) {
+            drawString(spr, String(timeinfo.tm_hour) + ":00", spr.width() / 2, 5, "calibrib16.vlw", TC_DATUM, TFT_BLACK, 30);
+            drawString(spr, String(pricenow) + "/kWh", spr.width() / 2, 25, loc["head"][0], TC_DATUM, TFT_BLACK, 30);
+        } else {
+            drawString(spr, String(timeinfo.tm_hour) + ":00", barX, 5, loc["head"][0], TL_DATUM, TFT_BLACK, 30);
+            drawString(spr, String(pricenow) + "/kWh", spr.width() - barX, 5, loc["head"][0], TR_DATUM, TFT_BLACK, 30);
+        }
+    }
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
@@ -2182,6 +2237,9 @@ uint16_t getColor(const String &color) {
     if (color == "5" || color == "darkgray") return TFT_DARKGREY;
     if (color == "6" || color == "pink") return 0xFBCF;
     if (color == "7" || color == "brown") return 0x8400;
+    if (color == "8" || color == "green") return TFT_GREEN;
+    if (color == "9" || color == "blue") return TFT_BLUE;
+    if (color == "10" || color == "orange") return 0xFBE0;
     uint16_t r, g, b;
     if (color.length() == 7 && color[0] == '#' &&
         sscanf(color.c_str(), "#%2hx%2hx%2hx", &r, &g, &b) == 3) {

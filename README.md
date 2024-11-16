@@ -1,6 +1,6 @@
 # OpenEPaperLink
 
-This is an alternative firmware and protocol for the multiple Electronic Shelf Labels. It can be used to setup E-Paper tags and supply them with content.
+This is an alternative firmware and protocol for the multiple Electronic Shelf Labels. It can be used to set up E-Paper tags and supply them with content.
 
 The software in this project consists of two parts: Accesspoint-firmware and Tag firmware.
 Additionally, there are various hardware designs for accesspoints and flasher-interfaces to program the tags, preferably using programming jigs
@@ -16,25 +16,25 @@ Additionally, there are various hardware designs for accesspoints and flasher-in
 
 On the [Wiki](https://github.com/jjwbruijn/OpenEPaperLink/wiki) there is a ton of information regarding all kinds of tags and building the access points.
 
-The entire setup requires a few tags, and an ESP32. A tag is used as an 802.15.4 radio for the ESP32. You'll need a ZBS_Flasher in order to flash the tags. Using the 'mac' option on ZBS_Flasher makes sure a tag flashed with a custom firmware has a valid mac address; it used the stock mac address assigned to the tag if it hasn't been flashed before. If you want to set it yourself, you can edit the mac address in the infopage.
+The entire setup requires a few tags and an ESP32. A tag is used as an 802.15.4 radio for the ESP32. You'll need a ZBS_Flasher in order to flash the tags. Using the 'mac' option on ZBS_Flasher makes sure a tag flashed with a custom firmware has a valid mac address; it uses the stock mac address assigned to the tag if it hasn't been flashed before. If you want to set it yourself, you can edit the mac address in the infopage.
 
-You can hook the AP tag up to the ESP32 with mod wires or a flex pcb. The esp will flash the AP firmware to the Tag automatically. In some cases, a power off/on cycle is required. Please check the serial console output for status information.
+You can hook the AP tag up to the ESP32 with mod wires or a flex PCB. The esp will flash the AP firmware to the Tag automatically. In some cases, a power off/on cycle is required. Please check the serial console output for status information.
 
 After programming the ESP32, make sure to also program the filesystem. This will upload the 'data' folder to the ESP32, with the webinterface.
 
 ## OpenEPaperLink Parts and links
-* [Mini AP](https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Hardware/OpenEPaperLink%20Mini%20AP)
-* [Combined Flasher and AP](https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Hardware/OpenEPaperLink%20AP%20and%20Flasher)
+* [Mini AP](https://github.com/OpenEPaperLink/Hardware/tree/main/OpenEPaperLink%20Mini%20AP)
+* [Combined Flasher and AP](https://github.com/OpenEPaperLink/Hardware/tree/main/OpenEPaperLink%20AP%20and%20Flasher)
 * [ATC1441's ZBS flasher page](https://github.com/atc1441/ZBS_Flasher)
 * [Tags specs](https://github.com/jjwbruijn/OpenEPaperLink/wiki#tags)
 * [Tags troubleshooting](https://github.com/jjwbruijn/OpenEPaperLink/wiki/Troubleshooting-Tags)
 
 ## The protocol explained
 - The tag checks in with the AP every 40+ seconds. Actual check-in interval is highly dependent on RF conditions, or if the AP tells the tag to delay the next check-in
-- The AP holds a list with tag MAC's that have pending transfers.
+- The AP holds a list with tag MACs that have pending transfers.
 - If a tag checks in, the AP replies with either no data, or information about a pending transfer
 - The tag checks if this information is already downloaded to EEPROM, or is already displayed. If this is the case, the transfer is immediately cancelled by issuing a 'transfer complete' packet to the AP.
-- The tag then proceeds to request data in 'blocks' of 4096 bytes. The AP responds with an ACK on the request, and specifies how long it will spend to gather the data. The tag sleeps until the AP will send the data
+- The tag then proceeds to request data in 'blocks' of 4096 bytes. The AP responds with an ACK on the request, and specifies how long it will take to gather the data. The tag sleeps until the AP will send the data
 - The AP requests its block-buffer to be filled by the ESP32, specifying MD5 and blockID
 - Datablock is sent by the AP, which will take about 42 packets for a full block. The tag will keep track of which blocks it has seen
 - After a block has been received with missing parts, the tag will request the same block, with a bitmask of blocks that are missing
@@ -45,11 +45,11 @@ After programming the ESP32, make sure to also program the filesystem. This will
 - The AP will report the completed transfer to the ESP32, and removes the pendingData for this transfer from the queue
 
 ## Known issues:
-- Some tags work better as AP's than others. Your range may suck. The boards on these tags are tiny and fragile. For instance, a dab of hot-glue on a board is enough to warp it pretty severely, and will damage the components that are soldered on there. Reportedly, segmented-display Solum tags work well. 
+- Some tags work better as APs than others. Your range may suck. The boards on these tags are tiny and fragile. For instance, a dab of hot-glue on a board is enough to warp it pretty severely, and will damage the components that are soldered on there. Reportedly, segmented-display Solum tags work well. 
 
 ## Hints and excuses:
 - There is no warranty whatsoever. Nothing. Not implied or otherwise suggested. This code isn't fit for anything. Please don't use this code to do nasty things.
-- Do a ```make clean``` between building for different boards. It really helps!
+- Do a ```make clean``` between buildings for different boards. It really helps!
 - This repo builds on SDCC 4.2.0 for Linux. Different SDCC versions can behave VERY differently.  Source sdcc/setup.sh to setup build a local copy and use it for compiling.
 - We are happy and honored to see your pull requests! But please, no code/indent style changes :)
 

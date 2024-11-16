@@ -5,6 +5,7 @@ You can use the following flasher-scripts to program various types of tags with 
 * ZBS243-based tags
 * nRF52-based tags
 * 88MZ100-based tags
+* cc1110-based tags
 
 This is the schematic for the flasher, including a pinout for the debug-header that is used by quite a few Solum tags. This flasher is also compatible with the OEPL-AP-Flasher jig/programming boards.
 ![image](https://github.com/jjwbruijn/OpenEPaperLink/assets/2544995/1fa5bef8-6624-4e53-9caa-aeaaf4dbdc55)
@@ -18,18 +19,18 @@ This is what it looks like with the wires connected. I've chosen to use 0.635mm 
 * R - required
 * O - optional
 
-| Flasher Pin | Cable Pin |  ESP32-S2 Pin  |  ZBS  |  nRF  | 88mz100 |
-| :---------: | :-------: | :------------: | :---: | :---: | :-----: |
-|     VCC     |     1     | 16, 17, 18, 21 |   R   |   R   |    R    |
-|     CS      |     2     |       34       |   R   |       |         |
-|     GND     |     3     |      GND       |   R   |   R   |    R    |
-|     CLK     |     4     |       33       |   R   |   R   |         |
-|     TXD     |     5     |       36       |   O   |   O   |    R    |
-|    MISO     |     6     |       35       |   R   |   R   |         |
-|    TEST     |     7     |       38       |       |       |         |
-|    MOSI     |     8     |       37       |   R   |       |         |
-|     RXD     |     9     |       40       |   O   |   O   |    R    |
-|    RSET     |    10     |       39       |   R   |       |    O    |
+| Flasher Pin | Cable Pin |  ESP32-S2 Pin  |  ZBS  |  nRF  | 88mz100 | CC1110 |
+| :---------: | :-------: | :------------: | :---: | :---: | :-----: | :----: |
+|     VCC     |     1     | 16, 17, 18, 21 |   R   |   R   |    R    |    R   |
+|     CS      |     2     |       34       |   R   |       |         |        |
+|     GND     |     3     |      GND       |   R   |   R   |    R    |    R   |
+|     CLK     |     4     |       33       |   R   |   R   |         | (DC) R |
+|     TXD     |     5     |       36       |   O   |   O   |    R    |        |
+|    MISO     |     6     |       35       |   R   |   R   |         | (DD) R |
+|    TEST     |     7     |       38       |       |       |         |        |
+|    MOSI     |     8     |       37       |   R   |       |         |        |
+|     RXD     |     9     |       40       |   O   |   O   |    R    |        |
+|    RESET    |    10     |       39       |   R   |       |    O    |    R   |
 
 Not all connections are required by all tags! If you want to solder fewer wires, skip the optional and unused ones.
 
@@ -43,7 +44,7 @@ Also, the precompiled binaries are part of any [release](https://github.com/jjwb
 This script connects to the S2-mini's serial port and enables flashing to ZBS243 and nRF52811-based tags.
 
 ```shell
-usage: OEPL-Flasher.py [-h] [-p PORT] [-f] [-i] [-n] [-z] [--internalap] [-e] [--altradio] [--pt] {read,write,autoflash,debug} [filename]
+usage: OEPL-Flasher.py [-h] [-p PORT] [-f] [-i] [-n] [-z] [-c] [--internalap] [-e] [--altradio] [--pt] {read,write,autoflash,debug} [filename]
 
 OpenEPaperLink Flasher for AP/Flasher board
 
@@ -59,6 +60,7 @@ options:
   -i, --infopage        Write to the infopage/UICR
   -n, --nrf82511        nRF82511 programming
   -z, --zbs243          ZBS243 programming
+  -c, --ccxxxx          CCxxxx programming
   --internalap          Selects the internal accesspoint port
   -e, --external        Selects the external(side) port
   --altradio            Selects the alternate radio port
@@ -102,9 +104,24 @@ The Tag-Flasher is used in serial passthrough-mode in order to flash the 88MZ100
 python3 .\88MZ100-OEPL-Flasher.py COM31 write_flash '0130c8144117.bin'
 ```
 
+## TI CC1110-based
+
+Use with the -c option for CC1110. Neigher Autoflash is currently not implemented on the Tag_Flasher/S2 version.
+
+The CC1110 does not have an infopage nor is the Tag's EEPROM accessable.
+
+```shell
+python3 OEPL-Flasher.py -e -c -p COM31 read blaat.bin --flash
+```
+
+See this [page](https://github.com/OpenEPaperLink/OpenEPaperLink/wiki/Chroma-Series-SubGhz-Tags#flashing-cc1110-based-chroma-tags) 
+on the Wiki for additional information.
+
 ## Credits
 
 Much code was reused from ATC1441's various flashers
 * [ATC1441's ESP32-NRF52-SWD](https://github.com/atc1441/ESP32_nRF52_SWD)
 * [ATC1441's ZBS-Flasher](https://github.com/atc1441/ZBS_Flasher)
 * [ATC1441's 88MZ100 Flasher](https://github.com/atc1441/88MZ100/tree/master/88MZ100_Flasher)
+* [ATC1441's ESP_CC_Flasher](https://github.com/atc1441/ESP_CC_Flasher)
+

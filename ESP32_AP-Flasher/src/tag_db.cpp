@@ -268,10 +268,10 @@ void destroyDB() {
 
 uint32_t getTagCount() {
     uint32_t temp = 0;
-    return getTagCount(temp);
+    return getTagCount(temp, temp);
 }
 
-uint32_t getTagCount(uint32_t& timeoutcount) {
+uint32_t getTagCount(uint32_t& timeoutcount, uint32_t& lowbattcount) {
     uint32_t tagcount = 0;
     time_t now;
     time(&now);
@@ -285,6 +285,7 @@ uint32_t getTagCount(uint32_t& timeoutcount) {
             // expected checkin is behind, timeout if not seen last 10 minutes
             if (timeout > 600) timeoutcount++;
         }
+        if (taginfo->batteryMv < 2400 && taginfo->batteryMv != 0 && taginfo->batteryMv != 1337) lowbattcount++;
     }
     return tagcount;
 }
@@ -307,7 +308,7 @@ void clearPending(tagRecord* taginfo) {
 }
 
 void initAPconfig() {
-    DynamicJsonDocument APconfig(500);
+    DynamicJsonDocument APconfig(768);
     File configFile = contentFS->open("/current/apconfig.json", "r");
     if (configFile) {
         DeserializationError error = deserializeJson(APconfig, configFile);
@@ -327,17 +328,19 @@ void initAPconfig() {
     config.maxsleep = APconfig.containsKey("maxsleep") ? APconfig["maxsleep"] : 10;
     config.stopsleep = APconfig.containsKey("stopsleep") ? APconfig["stopsleep"] : 1;
     config.preview = APconfig.containsKey("preview") ? APconfig["preview"] : 1;
+    config.nightlyreboot = APconfig.containsKey("nightlyreboot") ? APconfig["nightlyreboot"] : 1;
     config.lock = APconfig.containsKey("lock") ? APconfig["lock"] : 0;
     config.sleepTime1 = APconfig.containsKey("sleeptime1") ? APconfig["sleeptime1"] : 0;
     config.sleepTime2 = APconfig.containsKey("sleeptime2") ? APconfig["sleeptime2"] : 0;
     config.ble = APconfig.containsKey("ble") ? APconfig["ble"] : 0;
+    config.discovery = APconfig.containsKey("discovery") ? APconfig["discovery"] : 0;
     #ifdef BLE_ONLY
     config.ble = true;
     #endif
     // default wifi power 8.5 dbM
     // see https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/src/WiFiGeneric.h#L111
     config.wifiPower = APconfig.containsKey("wifipower") ? APconfig["wifipower"] : 34;
-    config.repo = APconfig.containsKey("repo") ? APconfig["repo"].as<String>() : String("jjwbruijn/OpenEPaperLink");
+    config.repo = APconfig.containsKey("repo") ? APconfig["repo"].as<String>() : String("OpenEPaperLink/OpenEPaperLink");
     config.env = APconfig.containsKey("env") ? APconfig["env"].as<String>() : String(STR(BUILD_ENV_NAME));
     if (APconfig["timezone"]) {
         strlcpy(config.timeZone, APconfig["timezone"], sizeof(config.timeZone));
@@ -359,6 +362,7 @@ void saveAPconfig() {
     APconfig["maxsleep"] = config.maxsleep;
     APconfig["stopsleep"] = config.stopsleep;
     APconfig["preview"] = config.preview;
+    APconfig["nightlyreboot"] = config.nightlyreboot;
     APconfig["lock"] = config.lock;
     APconfig["wifipower"] = config.wifiPower;
     APconfig["timezone"] = config.timeZone;
@@ -367,6 +371,7 @@ void saveAPconfig() {
     APconfig["ble"] = config.ble;
     APconfig["repo"] = config.repo;
     APconfig["env"] = config.env;
+    APconfig["discovery"] = config.discovery;
     serializeJsonPretty(APconfig, configFile);
     configFile.close();
     xSemaphoreGive(fsMutex);

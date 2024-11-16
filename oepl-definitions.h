@@ -57,6 +57,8 @@
 #define SOLUM_M3_BW_58 0x42
 #define SOLUM_M3_PEGHOOK_BWR_13 0x43
 
+// Types using modchip
+#define MODCHIP_HD150_BWR_58 0x50
 
 // Hanshow Nebular types
 #define HS_NEBULAR_BWY_35 0x60
@@ -115,6 +117,7 @@
 #define DATATYPE_IMG_DIFF 0x10             // always 1BPP ** deprecated
 #define DATATYPE_IMG_RAW_1BPP 0x20         // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
 #define DATATYPE_IMG_RAW_2BPP 0x21         // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2"
+#define DATATYPE_IMG_RAW_3BPP 0x22         // ACEP
 #define DATATYPE_IMG_ZLIB 0x30             // compressed format.
                                                     // [uint32_t uncompressed size][2 byte zlib header][zlib compressed image]
                                                     // image format: [uint8_t header length][uint16_t width][uint16_t height][uint8_t bpp (lower 4)][img data]

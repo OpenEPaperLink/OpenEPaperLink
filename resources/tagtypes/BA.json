@@ -1,8 +1,8 @@
 {
-	"version": 3,
+	"version": 4,
 	"name": "Gicisky BLE TFT 2.13\"",
 	"width": 250,
-	"height": 132,
+	"height": 136,
 	"rotatebuffer": 1,
 	"bpp": 1,
 	"colortable": {

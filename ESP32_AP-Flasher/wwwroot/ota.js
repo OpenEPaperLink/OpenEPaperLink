@@ -1,4 +1,4 @@
-var repo = apConfig.repo || 'jjwbruijn/OpenEPaperLink';
+var repo = apConfig.repo || 'OpenEPaperLink/OpenEPaperLink';
 var repoUrl = 'https://api.github.com/repos/' + repo + '/releases';
 
 const $ = document.querySelector.bind(document);
@@ -56,16 +56,17 @@ export async function initUpdate() {
         .then(([sdata, rdata]) => {
 
             if (sdata.env) {
-                let matchtest = '';
-                if (sdata.buildversion != filesystemversion && filesystemversion != "custom" && sdata.buildversion != "custom") matchtest = " <- not matching!"
-                print(`env:                ${sdata.env}`);
+                print(`current env:        ${sdata.env}`);
                 print(`build date:         ${formatEpoch(sdata.buildtime)}`);
                 print(`esp32 version:      ${sdata.buildversion}`);
-                print(`filesystem version: ${filesystemversion}` + matchtest);
+                print(`filesystem version: ${filesystemversion}`);
                 print(`psram size:         ${sdata.psramsize}`);
                 print(`flash size:         ${sdata.flashsize}`);
                 print("--------------------------", "gray");
-                env = sdata.env;
+                env = apConfig.env || sdata.env;
+                if (sdata.env != env) {
+                    print(`Warning: you selected a build environment ${env} which is\ndifferent than the currently used ${sdata.env}.\nOnly update the firmware with a mismatched build environment if\nyou know what you're doing.`, "yellow");
+                }
                 currentVer = sdata.buildversion;
                 currentBuildtime = sdata.buildtime;
                 if (sdata.rollback) $("#rollbackOption").style.display = 'block';
@@ -76,7 +77,8 @@ export async function initUpdate() {
                 const assets = release.assets;
                 const filesJsonAsset = assets.find(asset => asset.name === 'filesystem.json');
                 const binariesJsonAsset = assets.find(asset => asset.name === 'binaries.json');
-                if (filesJsonAsset && binariesJsonAsset) {
+                const containsEnv = assets.find(asset => asset.name === env + '.bin');
+                if (filesJsonAsset && binariesJsonAsset && containsEnv) {
                     return {
                         html_url: release.html_url,
                         tag_name: release.tag_name,
@@ -95,9 +97,9 @@ export async function initUpdate() {
             } else {
                 const release = releaseDetails[0];
                 if (release?.tag_name) {
-                    if (release.tag_name == currentVer) {
+                    if (parseInt(release.tag_name) == parseInt(currentVer)) {
                         easyupdate.innerHTML = `Version ${currentVer}. You are up to date`;
-                    } else if (release.date < formatEpoch(currentBuildtime)) {
+                    } else if (release.date < formatEpoch(currentBuildtime - 30 * 60)) {
                         easyupdate.innerHTML = `Your version is newer than the latest release date.<br>Are you the developer? :-)`;
                     } else {
                         easyupdate.innerHTML = `An update from version ${currentVer} to version ${release.tag_name} is available.<button onclick="otamodule.updateAll('${release.bin_url}','${release.file_url}','${release.tag_name}')">Update now!</button>`;
@@ -594,13 +596,12 @@ async function fetchAndCheckTagtypes(cleanup) {
         for (const file of fileList) {
             const filename = file.name;
             print(filename, "green");
-            let check = true;
+            let check = filename.endsWith('.json');
             let hwtype = parseInt(filename, 16);
 
-            if (cleanup) {
+            if (check && cleanup) {
                 let isInUse = Array.from(gridItems).some(element => element.dataset.hwtype == hwtype);
                 if (!isInUse) {
-
                     isInUse = Array.from(gridItems).some(element => element.dataset.usetemplate == hwtype);
                 }
                 if (!isInUse) {
