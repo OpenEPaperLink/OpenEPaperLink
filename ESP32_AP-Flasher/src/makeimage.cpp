@@ -15,6 +15,9 @@
 #include "ips_display.h"
 #endif
 
+#include "g5/Group5.h"
+#include "g5/g5enc.inl"
+
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
 
@@ -80,12 +83,11 @@ uint32_t colorDistance(Color &c1, Color &c2, Error &e1) {
 }
 
 void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t buffer_size, bool is_red) {
-	
     uint8_t rotate = imageParams.rotate;
     long bufw = spr.width(), bufh = spr.height();
 
     if (imageParams.rotatebuffer % 2) {
-        //turn the image 90 or 270
+        // turn the image 90 or 270
         rotate = (rotate + 3) % 4;
         rotate = (rotate + (imageParams.rotatebuffer - 1)) % 4;
         bufw = spr.height();
@@ -286,6 +288,33 @@ void rewriteHeader(File &f_out) {
     f_out.write(flg);
 }
 
+uint8_t *g5Compress(uint16_t width, uint16_t height, uint8_t *buffer, uint16_t buffersize, uint16_t &outBufferSize) {
+    G5ENCIMAGE g5enc;
+    int rc;
+    uint8_t *outbuffer = (uint8_t *)ps_malloc(buffersize + 16384);
+    if (outbuffer == NULL) {
+        Serial.println("Failed to allocate the output buffer for the G5 encoder");
+        return nullptr;
+    }
+
+    printf("G5 Compress: %d x %d\n", width, height);
+
+    rc = g5_encode_init(&g5enc, width, height, outbuffer, buffersize + 16384);
+    for (int y = 0; y < height && rc == G5_SUCCESS; y++) {
+        rc = g5_encode_encodeLine(&g5enc, buffer);
+        buffer += (width / 8);
+    }
+    if (rc == G5_ENCODE_COMPLETE) {
+        printf("Encode succeeded!\n");
+        outBufferSize = g5_encode_getOutSize(&g5enc);
+    } else {
+        printf("Encode failed! rc=%d\n", rc);
+        free(outbuffer);
+        return nullptr;
+    }
+    return outbuffer;
+}
+
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     long t = millis();
 
@@ -294,11 +323,11 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     if (fileout == "direct") {
         if (tftOverride == false) {
             TFT_eSprite spr2 = TFT_eSprite(&tft2);
-            #ifdef ST7735_NANO_TLSR
+#ifdef ST7735_NANO_TLSR
             tft2.setRotation(1);
-            #else
+#else
             tft2.setRotation(YellowSense == 1 ? 1 : 3);
-            #endif
+#endif
             spr2.createSprite(spr.width(), spr.height());
             spr2.setColorDepth(spr.getColorDepth());
 
@@ -307,20 +336,19 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
             size_t dataSize = spr.width() * spr.height() * (spr.getColorDepth() / 8);
             memcpy(spriteData2, spriteData, dataSize);
 
-			#ifdef HAS_LILYGO_TPANEL
-			if (spr.getColorDepth() == 16)
-			{
-				long dy = spr.height();
-				long dx = spr.width();
-								
-	            uint16_t* data = static_cast<uint16_t*>(const_cast<void*>(spriteData2));
+#ifdef HAS_LILYGO_TPANEL
+            if (spr.getColorDepth() == 16) {
+                long dy = spr.height();
+                long dx = spr.width();
 
-				gfx->draw16bitRGBBitmap(0, 0, (uint16_t *)spriteData2, dx, dy);
-				spr2.deleteSprite();
-			}
-			#else
+                uint16_t *data = static_cast<uint16_t *>(const_cast<void *>(spriteData2));
+
+                gfx->draw16bitRGBBitmap(0, 0, (uint16_t *)spriteData2, dx, dy);
+                spr2.deleteSprite();
+            }
+#else
             spr2.pushSprite(0, 0);
-            #endif
+#endif
         }
         return;
     }
@@ -339,6 +367,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
 #else
             uint8_t *buffer = (uint8_t *)malloc(buffer_size);
             imageParams.zlib = 0;
+            imageParams.g5 = 0;
 #endif
             if (!buffer) {
                 Serial.println("Failed to allocate buffer");
@@ -379,6 +408,44 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                 free(comp);
 
                 rewriteHeader(f_out);
+            } else if (imageParams.g5) {
+                // handling for G5-compressed image data
+                uint16_t height = imageParams.height;  // spr.height();
+                uint16_t width = imageParams.width;
+                spr.width();
+                // uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
+                if (imageParams.hasRed && imageParams.bpp > 1) {
+                    uint8_t *newbuffer = (uint8_t *)ps_realloc(buffer, 2 * buffer_size);
+                    if (newbuffer == NULL) {
+                        Serial.println("Failed to allocate larger buffer for 2bpp G5");
+                        free(buffer);
+                        f_out.close();
+                        xSemaphoreGive(fsMutex);
+                        return;
+                    }
+                    buffer = newbuffer;
+                    spr2color(spr, imageParams, buffer + buffer_size, buffer_size, true);
+                    buffer_size *= 2;
+                    if (imageParams.rotatebuffer % 2) {
+                        width *= 2;
+                    } else {
+                        height *= 2;
+                    }
+                }
+                uint16_t outbufferSize = 0;
+                uint8_t *outBuffer;
+                if (imageParams.rotatebuffer % 2) {
+                    outBuffer = g5Compress(height, width, buffer, buffer_size, outbufferSize);
+                } else {
+                    outBuffer = g5Compress(width, height, buffer, buffer_size, outbufferSize);
+                }
+                if (outBuffer == NULL) {
+                    Serial.println("Failed to compress G5");
+                } else {
+                    printf("Compressed %d to %d bytes\n", buffer_size, outbufferSize);
+                    f_out.write(outBuffer, outbufferSize);
+                    free(outBuffer);
+                }
             } else {
                 f_out.write(buffer, buffer_size);
                 if (imageParams.hasRed && imageParams.bpp > 1) {

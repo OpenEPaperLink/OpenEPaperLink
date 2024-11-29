@@ -93,6 +93,7 @@ struct HwType {
     uint8_t bpp;
     uint8_t shortlut;
     uint8_t zlib;
+    uint8_t g5;
     uint16_t highlightColor;
     std::vector<Color> colortable;
 };
