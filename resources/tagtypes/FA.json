@@ -1,0 +1,14 @@
+{
+	"version": 1,
+	"name": "ConfigMode",
+	"width": 0,
+	"height": 0,
+	"rotatebuffer": 0,
+	"bpp": 1,
+	"colortable": { },
+	"shortlut": 0,
+	"options": [ ],
+	"contentids": [ 17 ],
+	"template": {
+	}
+}
