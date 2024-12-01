@@ -15,6 +15,7 @@
 #include "ips_display.h"
 #endif
 
+#include "commstructs.h"
 #include "g5/Group5.h"
 #include "g5/g5enc.inl"
 
@@ -297,15 +298,12 @@ uint8_t *g5Compress(uint16_t width, uint16_t height, uint8_t *buffer, uint16_t b
         return nullptr;
     }
 
-    printf("G5 Compress: %d x %d\n", width, height);
-
     rc = g5_encode_init(&g5enc, width, height, outbuffer, buffersize + 16384);
     for (int y = 0; y < height && rc == G5_SUCCESS; y++) {
         rc = g5_encode_encodeLine(&g5enc, buffer);
         buffer += (width / 8);
     }
     if (rc == G5_ENCODE_COMPLETE) {
-        printf("Encode succeeded!\n");
         outBufferSize = g5_encode_getOutSize(&g5enc);
     } else {
         printf("Encode failed! rc=%d\n", rc);
@@ -413,7 +411,6 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                 uint16_t height = imageParams.height;  // spr.height();
                 uint16_t width = imageParams.width;
                 spr.width();
-                // uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
                 if (imageParams.hasRed && imageParams.bpp > 1) {
                     uint8_t *newbuffer = (uint8_t *)ps_realloc(buffer, 2 * buffer_size);
                     if (newbuffer == NULL) {
@@ -426,14 +423,17 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                     buffer = newbuffer;
                     spr2color(spr, imageParams, buffer + buffer_size, buffer_size, true);
                     buffer_size *= 2;
+                    // double the height, to do two layers sequentially
                     if (imageParams.rotatebuffer % 2) {
                         width *= 2;
                     } else {
                         height *= 2;
                     }
+
                 }
                 uint16_t outbufferSize = 0;
                 uint8_t *outBuffer;
+                bool compressionSuccessful = true;
                 if (imageParams.rotatebuffer % 2) {
                     outBuffer = g5Compress(height, width, buffer, buffer_size, outbufferSize);
                 } else {
@@ -441,10 +441,26 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                 }
                 if (outBuffer == NULL) {
                     Serial.println("Failed to compress G5");
+                    compressionSuccessful = false;
                 } else {
                     printf("Compressed %d to %d bytes\n", buffer_size, outbufferSize);
-                    f_out.write(outBuffer, outbufferSize);
-                    free(outBuffer);
+                    if (outbufferSize > buffer_size) {
+                        printf("That wasn't very useful, falling back to raw\n");
+                        free(outBuffer);
+                        compressionSuccessful = false;
+                    } else {
+                        f_out.write(outBuffer, outbufferSize);
+                    }
+                }
+                if (!compressionSuccessful) {
+                    // if we failed to compress the image, or the resulting image was larger than a raw file, fallback
+                    imageParams.g5 = false;
+                    if (imageParams.hasRed && imageParams.bpp > 1) {
+                        imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
+                    } else {
+                        imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
+                    }
+                    f_out.write(buffer, buffer_size);
                 }
             } else {
                 f_out.write(buffer, buffer_size);
