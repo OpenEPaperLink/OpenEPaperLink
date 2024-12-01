@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "HS BW 2.13\"",
 	"width": 256,
 	"height": 128,
@@ -10,6 +10,7 @@
 		"black": [ 0, 0, 0 ]
 	},
 	"shortlut": 0,
+	"zlib_compression": "27",
 	"options": [ "led" ],
 	"contentids": [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 19, 20, 21, 22, 23, 27 ],
 

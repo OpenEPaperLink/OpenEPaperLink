@@ -1,4 +1,5 @@
 {
+	"version": 2,
 	"name": "TLSR BWR 2.13\"",
 	"width": 264,
 	"height": 136,
@@ -12,6 +13,7 @@
 		"gray": [150, 150, 150]
 	},
 	"shortlut": 0,
+	"zlib_compression": "27",
 	"options": ["led"],
 	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19, 20 ],
 	"template": {
