@@ -9,6 +9,7 @@
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ]
 	},
+	"g5_compression": "29",
 	"highlight_color": 5,
 	"shortlut": 0,
 	"options": [ "button", "customlut" ],

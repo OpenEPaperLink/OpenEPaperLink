@@ -43,6 +43,10 @@
 // a maximum of 7 color changes
 // You can define this in your compiler macros to override the default vlaue
 //
+
+
+#define MAX_IMAGE_FLIPS 640
+
 #ifndef MAX_IMAGE_FLIPS
 #ifdef __AVR__
 #define MAX_IMAGE_FLIPS 32
