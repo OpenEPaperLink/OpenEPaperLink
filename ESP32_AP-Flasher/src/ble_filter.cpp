@@ -64,6 +64,16 @@ uint8_t gicToOEPLtype(uint8_t gicType) {
     }
 }
 
+struct BleAdvDataStruct {
+    uint16_t manu_id;  // 0x1337 for us
+    uint8_t version;
+    uint16_t hw_type;
+    uint16_t fw_version;
+    uint16_t capabilities;
+    uint16_t battery_mv;
+    uint8_t counter;
+} __packed;
+
 bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
     Serial.print("BLE Advertised Device found: ");
     Serial.println(advertisedDevice.toString().c_str());
@@ -103,10 +113,46 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.src[7] = manuData[6];
             theAdvData.adr.batteryMv = manuData[3] * 100;
             theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
+            theAdvData.adr.lastPacketLQI = advertisedDevice.getRSSI();
             theAdvData.adr.hwType = gicToOEPLtype(manuData[2]);
             theAdvData.adr.tagSoftwareVersion = manuData[4] << 8 | manuData[5];
             theAdvData.adr.capabilities = 0x00;
 
+            processDataReq(&theAdvData, true);
+            return true;
+        } else if (manuDatalen >= sizeof(BleAdvDataStruct) && manuData[0] == 0x37 && manuData[1] == 0x13) {  // Lets check for a Gicisky E-Paper display
+            Serial.printf("ATC BLE OEPL Detected\r\n");
+            struct espAvailDataReq theAdvData;
+            struct BleAdvDataStruct inAdvData;
+
+            memset((uint8_t*)&theAdvData, 0x00, sizeof(espAvailDataReq));
+            memcpy(&inAdvData, manuData, sizeof(BleAdvDataStruct));
+            /*Serial.printf("manu_id %04X\r\n", inAdvData.manu_id);
+            Serial.printf("version %04X\r\n", inAdvData.version);
+            Serial.printf("hw_type %04X\r\n", inAdvData.hw_type);
+            Serial.printf("fw_version %04X\r\n", inAdvData.fw_version);
+            Serial.printf("capabilities %04X\r\n", inAdvData.capabilities);
+            Serial.printf("battery_mv %u\r\n", inAdvData.battery_mv);
+            Serial.printf("counter %u\r\n", inAdvData.counter);*/
+            if (inAdvData.version != 1) {
+                printf("Version currently not supported!\r\n");
+                return false;
+            }
+            uint8_t macReversed[6];
+            memcpy(&macReversed, (uint8_t*)advertisedDevice.getAddress().getNative(), 6);
+            theAdvData.src[0] = macReversed[5];
+            theAdvData.src[1] = macReversed[4];
+            theAdvData.src[2] = macReversed[3];
+            theAdvData.src[3] = macReversed[2];
+            theAdvData.src[4] = macReversed[1];
+            theAdvData.src[5] = macReversed[0];
+            theAdvData.src[6] = manuData[0];  // We use this do find out what type of display we got for compression^^
+            theAdvData.src[7] = manuData[1];
+            theAdvData.adr.batteryMv = inAdvData.battery_mv;
+            theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
+            theAdvData.adr.hwType = inAdvData.hw_type & 0xff;
+            theAdvData.adr.tagSoftwareVersion = inAdvData.fw_version;
+            theAdvData.adr.capabilities = inAdvData.capabilities & 0xff;
             processDataReq(&theAdvData, true);
             return true;
         }
@@ -133,7 +179,6 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.adr.hwType = ATC_MI_THERMOMETER;
             theAdvData.adr.tagSoftwareVersion = 0x00;
             theAdvData.adr.capabilities = 0x00;
-
             processDataReq(&theAdvData, true);
             Serial.printf("We got an ATC_MiThermometer via BLE\r\n");
             return true;
@@ -147,6 +192,14 @@ bool BLE_is_image_pending(uint8_t address[8]) {
         tagRecord* taginfo = tagDB.at(c);
         if (taginfo->pendingCount > 0 && taginfo->version == 0 && ((taginfo->hwType & 0xB0) == 0xB0)) {
             memcpy(address, taginfo->mac, 8);
+            return true;
+        }
+    }
+    for (int16_t c = 0; c < tagDB.size(); c++) {
+        tagRecord* taginfo = tagDB.at(c);
+        if (taginfo->pendingCount > 0 && taginfo->version == 0 && (taginfo->mac[7] == 0x13) && (taginfo->mac[6] == 0x37)) {
+            memcpy(address, taginfo->mac, 8);
+            Serial.printf("ATC BLE OEPL data Waiting\r\n");
             return true;
         }
     }
@@ -372,6 +425,39 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
     }
     free(Mirrorbuffer);
     return len_compressed;
+}
+
+uint32_t get_ATC_BLE_OEPL_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len, uint8_t* dataType, uint8_t* dataTypeArgument, uint16_t* nextCheckIn) {
+    uint32_t t = millis();
+    PendingItem* queueItem = getQueueItem(address, 0);
+    if (queueItem == nullptr) {
+        prepareCancelPending(address);
+        Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\r\n", address[7], address[6], address[5], address[4], address[3], address[2], address[1], address[0]);
+        return 0;
+    }
+    if (queueItem->data == nullptr) {
+        fs::File file = contentFS->open(queueItem->filename);
+        if (!file) {
+            Serial.print("No current file. " + String(queueItem->filename) + " Canceling request\r\n");
+            prepareCancelPending(address);
+            return 0;
+        }
+        queueItem->data = getDataForFile(file);
+        Serial.println("Reading file " + String(queueItem->filename) + " in  " + String(millis() - t) + "ms");
+        file.close();
+    }
+    if (queueItem->len > max_len) {
+        Serial.print("The upload is too big better cencel it\r\n");
+        prepareCancelPending(address);
+        return 0;
+    }
+    *dataType = queueItem->pendingdata.availdatainfo.dataType;
+    *dataTypeArgument = queueItem->pendingdata.availdatainfo.dataTypeArgument;
+    *nextCheckIn = queueItem->pendingdata.availdatainfo.nextCheckIn;
+    uint32_t len_compressed = queueItem->len;
+    memcpy(buffer, queueItem->data, queueItem->len);
+    Serial.print("Data is prepared Len: " + String(queueItem->len) + "\r\n");
+    return queueItem->len;
 }
 
 #endif
