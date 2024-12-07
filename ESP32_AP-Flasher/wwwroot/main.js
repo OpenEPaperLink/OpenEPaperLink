@@ -1207,6 +1207,11 @@ function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
 	if (data.length > 0 && tagTypes[hwtype].zlib > 0 && $('#tag' + tagmac).dataset.ver >= tagTypes[hwtype].zlib) {
 		data = processZlib(data);
 	}
+	if (data.length > 0 && tagTypes[hwtype].g5 > 0 && $('#tag' + tagmac).dataset.ver >= tagTypes[hwtype].g5) {
+		console.log("calling G5 decoder");
+		console.log(tagTypes[hwtype].width);
+		data = processG5(data, tagTypes[hwtype].height, tagTypes[hwtype].width * 2);
+	}
 
 	[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
 	if (tagTypes[hwtype].rotatebuffer % 2) [canvas.width, canvas.height] = [canvas.height, canvas.width];
@@ -1521,6 +1526,7 @@ async function getTagtype(hwtype) {
 			contentids: Object.values(jsonData.contentids ?? []),
 			options: Object.values(jsonData.options ?? []),
 			zlib: parseInt(jsonData.zlib_compression || "0", 16),
+			g5: parseInt(jsonData.g5_compression || "0", 16),
 			shortlut: parseInt(jsonData.shortlut),
 			busy: false,
 			usetemplate: parseInt(jsonData.usetemplate || "0", 10)
