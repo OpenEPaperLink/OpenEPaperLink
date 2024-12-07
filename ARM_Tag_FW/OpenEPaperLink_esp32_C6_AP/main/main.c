@@ -44,7 +44,7 @@ const uint8_t channelList[6] = {11, 15, 20, 25, 26, 27};
 struct pendingData pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t version = 0x001d;
+uint16_t version = 0x001e;
 
 #define RAW_PKT_PADDING 2
 

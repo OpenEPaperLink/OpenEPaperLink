@@ -41,7 +41,9 @@ void esp_ieee802154_receive_done(uint8_t *frame, esp_ieee802154_frame_info_t *fr
     memcpy(inner_rxPKT, &frame[0], frame[0] + 1);
     xQueueSendFromISR(packet_buffer, (void *)&inner_rxPKT, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR_ARG(xHigherPriorityTaskWoken);
-    esp_ieee802154_receive_sfd_done();
+    if(esp_ieee802154_receive_handle_done(frame)) {
+        ESP_EARLY_LOGI(TAG, "esp_ieee802154_receive_handle_done() failed");
+    }
 }
 
 void esp_ieee802154_transmit_failed(const uint8_t *frame, esp_ieee802154_tx_error_t error) {
@@ -52,7 +54,7 @@ void esp_ieee802154_transmit_failed(const uint8_t *frame, esp_ieee802154_tx_erro
 void esp_ieee802154_transmit_done(const uint8_t *frame, const uint8_t *ack, esp_ieee802154_frame_info_t *ack_frame_info) {
     isInTransmit = 0;
     ESP_EARLY_LOGI(TAG, "TX %d", frame[0]);
-    esp_ieee802154_receive_sfd_done();
+   esp_ieee802154_receive_handle_done(ack);
 }
 static bool zigbee_is_enabled = false;
 void radio_init(uint8_t ch) {
