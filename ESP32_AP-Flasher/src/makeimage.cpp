@@ -408,6 +408,11 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                 rewriteHeader(f_out);
             } else if (imageParams.g5) {
                 // handling for G5-compressed image data
+
+                uint8_t headerbuf[6];
+                prepareHeader(headerbuf, bufw, bufh, imageParams, buffer_size);
+                f_out.write(headerbuf, sizeof(headerbuf));
+
                 uint16_t height = imageParams.height;  // spr.height();
                 uint16_t width = imageParams.width;
                 spr.width();
@@ -446,11 +451,12 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                     printf("Compressed %d to %d bytes\n", buffer_size, outbufferSize);
                     if (outbufferSize > buffer_size) {
                         printf("That wasn't very useful, falling back to raw\n");
-                        free(outBuffer);
                         compressionSuccessful = false;
+                        f_out.seek(0);
                     } else {
                         f_out.write(outBuffer, outbufferSize);
                     }
+                    free(outBuffer);
                 }
                 if (!compressionSuccessful) {
                     // if we failed to compress the image, or the resulting image was larger than a raw file, fallback

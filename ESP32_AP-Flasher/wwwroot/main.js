@@ -1208,9 +1208,14 @@ function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
 		data = processZlib(data);
 	}
 	if (data.length > 0 && tagTypes[hwtype].g5 > 0 && $('#tag' + tagmac).dataset.ver >= tagTypes[hwtype].g5) {
-		console.log("calling G5 decoder");
-		console.log(tagTypes[hwtype].width);
-		data = processG5(data, tagTypes[hwtype].height, tagTypes[hwtype].width * 2);
+		const headerSize = data[0];
+		let bufw = (data[2] << 8) | data[1];
+		let bufh = (data[4] << 8) | data[3];
+		if ((bufw == tagTypes[hwtype].width || bufw == tagTypes[hwtype].height) && (bufh == tagTypes[hwtype].width || bufh == tagTypes[hwtype].height) && (data[5] <= 3)) {
+			// valid header for g5 compression
+			if (data[5] == 2) bufh *= 2;
+			data = processG5(data.subarray(headerSize), bufw, bufh);
+		}
 	}
 
 	[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];

@@ -143,8 +143,6 @@ function G5DrawLine(pPage, pCurFlips, pOut) {
         let visibleX = Math.max(0, startX);
         let visibleRun = Math.min(xright, startX + run) - visibleX;
 
-        if (pPage.y > 580) console.log("line " + visibleX + "-" + visibleRun);
-
         if (visibleRun > 0) {
             const startByte = visibleX >> 3;
             const endByte = (visibleX + visibleRun) >> 3;
@@ -221,13 +219,10 @@ function DecodeLine(pPage) {
         if (ulBitOff > (REGISTER_WIDTH - 8)) {
             pBufIndex += (ulBitOff >> 3);
             ulBitOff &= 7;
-            if (pPage.y > 580) console.log("ix: " + pBufIndex + " bit " + ulBitOff);
             ulBits = TIFFMOTOLONG(pBuf, pBufIndex);
         }
-        if (pPage.y > 580) console.log(ulBits.toString(2).padStart(32, '0') + " offset " + ulBitOff);
 
         if (((ulBits << ulBitOff) & 0x80000000) !== 0) {
-            if (pPage.y > 580) console.log("1> a0: " + pRef[pRefIndex] + " prefindex " + pRefIndex);
             a0 = pRef[pRefIndex++];
             pCur[pCurIndex++] = a0;
             ulBitOff++;
@@ -235,22 +230,17 @@ function DecodeLine(pPage) {
             const lBits = (ulBits >> (REGISTER_WIDTH - 8 - ulBitOff)) & 0xfe;
             const sCode = code_table[lBits];
             ulBitOff += code_table[lBits + 1];
-            if (pPage.y > 580) console.log("s: " + sCode);
             switch (sCode) {
                 case 1: case 2: case 3: // V(-1), V(-2), V(-3)
                     a0 = pRef[pRefIndex] - sCode;  // A0 = B1 - x
-                    if (pPage.y > 580) console.log("01> a0: " + pRef[pRefIndex] + " scode " + sCode + " prefindex " + pRefIndex);
                     pCur[pCurIndex++] = a0;
                     if (pRefIndex == 0) {
                         pRefIndex += 2;
-                        if (pPage.y > 580) console.log("01>   =0  new prefindex " + pRefIndex);
                     }
                     pRefIndex--;
                     while (a0 >= pRef[pRefIndex]) {
                         pRefIndex += 2;
-                        if (pPage.y > 580) console.log("01>   >=  new prefindex " + pRefIndex);
                     }
-                    if (pPage.y > 580) console.log("01>     new prefindex " + pRefIndex);
                     break;
 
                 case 0x11: case 0x12: case 0x13: // V(1), V(2), V(3)
@@ -313,7 +303,6 @@ function DecodeLine(pPage) {
                             ulBitOff += u32HLen;
                             break;
                     }
-                    if (pPage.y > 580) console.log("H: " + tot_run + " - " + tot_run1);
                     a0 = a0_p + tot_run;
                     pCur[pCurIndex++] = a0;
                     a0 += tot_run1;
@@ -332,7 +321,6 @@ function DecodeLine(pPage) {
                     break;
 
                 default: // ERROR
-                    console.log("scode " + sCode);
                     pPage.iError = G5_DECODE_ERROR;
                     return pPage.iError;
                     break;
@@ -365,7 +353,6 @@ function processG5(data, width, height) {
         let outputBuffer = new Uint8Array(height * ((width + 7) >> 3)); // Adjust for byte alignment
 
         for (let y = 0; y < height; y++) {
-            console.log(y + "    " + decoder.pBufIndex + "   " + data.length);
             let lineBuffer = outputBuffer.subarray(y * ((width + 7) >> 3), (y + 1) * ((width + 7) >> 3));
             decoder.y = y;
             let decodeResult = DecodeLine(decoder);
@@ -374,14 +361,12 @@ function processG5(data, width, height) {
                 console.log("Decoding error on line " + y + ": " + decoder.iError);
             }
 
-            if (y > 580) console.log("draw line " + y);
             G5DrawLine(decoder, decoder.pCur, lineBuffer);
             const temp = decoder.pRef;
             decoder.pRef = decoder.pCur;
             decoder.pCur = temp;
         }
 
-        console.log("Decoding complete.");
         return outputBuffer;
     } catch (error) {
         console.error("Error during G5 decoding:", error.message);
