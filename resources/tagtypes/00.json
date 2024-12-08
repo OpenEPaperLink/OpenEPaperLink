@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"name": "M2 1.54\"",
 	"width": 152,
 	"height": 152,
@@ -10,6 +10,7 @@
 		"black": [ 0, 0, 0 ],
 		"red": [ 255, 0, 0 ]
 	},
+	"g5_compression": "29",
 	"shortlut": 2,
 	"options": [ "button", "customlut" ],
 	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 10, 14, 15, 17, 18, 19, 20, 21, 27 ],

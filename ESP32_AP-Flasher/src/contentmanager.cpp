@@ -222,6 +222,11 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     } else {
         imageParams.zlib = 0;
     }
+    if (hwdata.g5 != 0 && taginfo->tagSoftwareVersion >= hwdata.g5) {
+        imageParams.g5 = 1;
+    } else {
+        imageParams.g5 = 0;
+    }
 
     imageParams.lut = EPD_LUT_NO_REPEATS;
     if (taginfo->lut == 2) imageParams.lut = EPD_LUT_FAST_NO_REDS;
@@ -283,6 +288,9 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 } else if (imageParams.zlib) {
                     imageParams.dataType = DATATYPE_IMG_ZLIB;
                     Serial.println("datatype: DATATYPE_IMG_ZLIB");
+                } else if (imageParams.g5) {
+                    imageParams.dataType = DATATYPE_IMG_G5;
+                    Serial.println("datatype: DATATYPE_IMG_G5");
                 } else if (imageParams.hasRed) {
                     imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                     Serial.println("datatype: DATATYPE_IMG_RAW_2BPP");
@@ -566,6 +574,9 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
         } else if (imageParams.zlib) {
             imageParams.dataType = DATATYPE_IMG_ZLIB;
             Serial.println("datatype: DATATYPE_IMG_ZLIB");
+        } else if (imageParams.g5) {
+            imageParams.dataType = DATATYPE_IMG_G5;
+            Serial.println("datatype: DATATYPE_IMG_G5");
         } else if (imageParams.hasRed) {
             imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
             Serial.println("datatype: DATATYPE_IMG_RAW_2BPP");
@@ -996,19 +1007,19 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
         }
 
         if (loc["rain"]) {
-           if (cfgobj["units"] == "0") {
-              const int8_t rain = round(daily["precipitation_sum"][dag].as<double>());
-              if (rain > 0) {
-                  drawString(spr, String(rain) + "mm", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], day[2], TC_DATUM, (rain > 10 ? imageParams.highlightColor : TFT_BLACK));
-              }
-           } else {
-              double fRain = daily["precipitation_sum"][dag].as<double>();
-              fRain = round(fRain*100.0) / 100.0;
-              if (fRain > 0.0) {
-                 // inch, display if > .01 inches
-                  drawString(spr, String(fRain) + "in", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], day[2], TC_DATUM, (fRain > 0.5 ? imageParams.highlightColor : TFT_BLACK));
-              }
-           }
+            if (cfgobj["units"] == "0") {
+                const int8_t rain = round(daily["precipitation_sum"][dag].as<double>());
+                if (rain > 0) {
+                    drawString(spr, String(rain) + "mm", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], day[2], TC_DATUM, (rain > 10 ? imageParams.highlightColor : TFT_BLACK));
+                }
+            } else {
+                double fRain = daily["precipitation_sum"][dag].as<double>();
+                fRain = round(fRain * 100.0) / 100.0;
+                if (fRain > 0.0) {
+                    // inch, display if > .01 inches
+                    drawString(spr, String(fRain) + "in", dag * column1 + loc["rain"][0].as<int>(), loc["rain"][1], day[2], TC_DATUM, (fRain > 0.5 ? imageParams.highlightColor : TFT_BLACK));
+                }
+            }
         }
 
         drawString(spr, String(tmin) + " ", dag * column1 + day[0].as<int>(), day[4], day[2], TR_DATUM, (tmin < 0 ? imageParams.highlightColor : TFT_BLACK));
@@ -1217,7 +1228,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
         int temp = imageParams.height;
         imageParams.height = imageParams.width;
         imageParams.width = temp;
-        imageParams.rotatebuffer = 1 - (imageParams.rotatebuffer%2);
+        imageParams.rotatebuffer = 1 - (imageParams.rotatebuffer % 2);
         initSprite(spr, imageParams.width, imageParams.height, imageParams);
     } else {
         initSprite(spr, imageParams.width, imageParams.height, imageParams);
@@ -1829,14 +1840,18 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
         drawString(spr, "Well done!", spr.width() / 2, 90, "calibrib30.vlw", TC_DATUM, TFT_BLACK);
         spr2buffer(spr, filename2, imageParams);
 
-        if (imageParams.zlib) imageParams.dataType = DATATYPE_IMG_ZLIB;
+        if (imageParams.zlib) {
+            imageParams.dataType = DATATYPE_IMG_ZLIB;
+        } else if (imageParams.g5) {
+            imageParams.dataType = DATATYPE_IMG_G5;
+        }
 
         struct imageDataTypeArgStruct arg = {0};
         arg.preloadImage = 1;
         arg.specialType = 17;  // button 2
         arg.lut = 0;
 
-        prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 5 | 0x8000 );
+        prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 5 | 0x8000);
 
         spr.fillRect(0, 0, spr.width(), spr.height(), TFT_WHITE);
 
@@ -1848,7 +1863,7 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
         arg.preloadImage = 1;
         arg.specialType = 16;  // button 1
         arg.lut = 0;
-        prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 5 | 0x8000 );
+        prepareDataAvail(filename2, imageParams.dataType, *((uint8_t *)&arg), taginfo->mac, 5 | 0x8000);
 
         cfgobj["#init"] = "1";
     }
@@ -2185,7 +2200,7 @@ void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &sp
             initSprite(spr, sprCpy.width(), sprCpy.height(), imageParams);
             sprCpy.pushToSprite(&spr, 0, 0);
             sprCpy.deleteSprite();
-            imageParams.rotatebuffer = 1 - (imageParams.rotatebuffer%2);
+            imageParams.rotatebuffer = 1 - (imageParams.rotatebuffer % 2);
         }
         currentOrientation = rotation;
     }

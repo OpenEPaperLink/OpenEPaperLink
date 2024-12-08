@@ -334,9 +334,9 @@ void initAPconfig() {
     config.sleepTime2 = APconfig.containsKey("sleeptime2") ? APconfig["sleeptime2"] : 0;
     config.ble = APconfig.containsKey("ble") ? APconfig["ble"] : 0;
     config.discovery = APconfig.containsKey("discovery") ? APconfig["discovery"] : 0;
-    #ifdef BLE_ONLY
+#ifdef BLE_ONLY
     config.ble = true;
-    #endif
+#endif
     // default wifi power 8.5 dbM
     // see https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/src/WiFiGeneric.h#L111
     config.wifiPower = APconfig.containsKey("wifipower") ? APconfig["wifipower"] : 34;
@@ -395,6 +395,7 @@ HwType getHwType(const uint8_t id) {
             filter["bpp"] = true;
             filter["shortlut"] = true;
             filter["zlib_compression"] = true;
+            filter["g5_compression"] = true;
             filter["highlight_color"] = true;
             filter["colortable"] = true;
             StaticJsonDocument<1000> doc;
@@ -415,6 +416,11 @@ HwType getHwType(const uint8_t id) {
                     hwType.zlib = strtol(doc["zlib_compression"], nullptr, 16);
                 } else {
                     hwType.zlib = 0;
+                }
+                if (doc.containsKey("g5_compression")) {
+                    hwType.g5 = strtol(doc["g5_compression"], nullptr, 16);
+                } else {
+                    hwType.g5 = 0;
                 }
                 hwType.highlightColor = doc.containsKey("highlight_color") ? doc["highlight_color"].as<uint16_t>() : 2;
                 JsonObject colorTable = doc["colortable"];

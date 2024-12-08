@@ -425,13 +425,23 @@
 
 						const canvas = $('#previewimg');
 						canvas.style.display = 'block';
-						fetch(path)
+						fetch(path + "?r=" + Math.random())
 							.then(response => response.arrayBuffer())
 							.then(buffer => {
 
 								data = new Uint8ClampedArray(buffer);
 								if (tagTypes[hwtype].zlib > 0 && targetDiv.dataset.ver >= tagTypes[hwtype].zlib) {
 									data = window.opener.processZlib(data);
+								}
+								if (data.length > 0 && tagTypes[hwtype].g5 > 0 && targetDiv.dataset.ver >= tagTypes[hwtype].g5) {
+									const headerSize = data[0];
+									let bufw = (data[2] << 8) | data[1];
+									let bufh = (data[4] << 8) | data[3];
+									if ((bufw == tagTypes[hwtype].width || bufw == tagTypes[hwtype].height) && (bufh == tagTypes[hwtype].width || bufh == tagTypes[hwtype].height) && (data[5] <= 3)) {
+										// valid header for g5 compression
+										if (data[5] == 2) bufh *= 2;
+										data = window.opener.processG5(data.subarray(headerSize), bufw, bufh);
+									}
 								}
 
 								[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];

@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "ST‐GM29MT1 2.9\"",
 	"width": 296,
 	"height": 128,
@@ -9,6 +9,7 @@
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ]
 	},
+	"g5_compression": "29",
 	"highlight_color": 5,
 	"shortlut": 0,
 	"options": [ "button", "customlut" ],

@@ -123,8 +123,7 @@
                                                     // [uint32_t uncompressed size][2 byte zlib header][zlib compressed image]
                                                     // image format: [uint8_t header length][uint16_t width][uint16_t height][uint8_t bpp (lower 4)][img data]
 
-#define DATATYPE_IMG_G5_1BPP 0x31          // G5 compressed 1BPP
-#define DATATYPE_IMG_G5_2BPP 0x32          // G5 compressed 2BPP
+#define DATATYPE_IMG_G5 0x31          // G5 compressed 1BPP
 
 #define DATATYPE_UK_SEGMENTED 0x51         // Segmented data for the UK Segmented display type (contained in availableData Reply)
 #define DATATYPE_EU_SEGMENTED 0x52         // Segmented data for the EU/DE Segmented display type (contained in availableData Reply)
