@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "M3 1.6\"",
 	"width": 200,
 	"height": 200,
@@ -14,7 +14,7 @@
 	"shortlut": 0,
 	"zlib_compression": "27",
 	"options": [ "button" ],
-	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 10, 14, 15, 17, 18, 19, 20, 21 ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 10, 14, 17, 18, 19, 20, 21 ],
 	"template": {
 		"1": {
 			"weekday": [ 100, 5, "fonts/calibrib40" ],

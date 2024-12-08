@@ -1,0 +1,21 @@
+{
+	"version": 1,
+	"name": "ACeP 4.01",
+	"width": 640,
+	"height": 400,
+	"rotatebuffer": 0,
+	"bpp": 3,
+	"colortable": {
+		"black": [ 0, 0, 0 ],
+		"white": [ 255, 255, 255 ],
+		"green": [ 0, 255, 0 ],
+		"blue": [ 0, 0, 255 ],
+		"red": [ 255, 0, 0 ],
+		"yellow": [ 255, 255, 0 ],
+		"orange": [ 255, 128, 0 ]
+	},
+	"highlight_color": 8,
+	"shortlut": 0,
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 16, 17, 18, 19, 20, 26, 27 ],
+ "usetemplate": 5
+}

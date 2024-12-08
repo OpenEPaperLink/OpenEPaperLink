@@ -16,8 +16,10 @@
 #endif
 
 #include "commstructs.h"
+#ifndef SAVE_SPACE
 #include "g5/Group5.h"
 #include "g5/g5enc.inl"
+#endif
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
@@ -138,10 +140,10 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
 
             if (imageParams.dither == 2) {
                 // Ordered dithering
-                uint8_t ditherValue = ditherMatrix[y % 4][x % 4] << (imageParams.bpp == 3 ? 2 : 4);
-                error_bufferold[x].r = ditherValue - (imageParams.bpp == 3 ? 30 : 120);  // * 256 / 16 - 128 + 8
-                error_bufferold[x].g = ditherValue - (imageParams.bpp == 3 ? 30 : 120);
-                error_bufferold[x].b = ditherValue - (imageParams.bpp == 3 ? 30 : 120);
+                uint8_t ditherValue = ditherMatrix[y % 4][x % 4] << (imageParams.bpp >= 3 ? 2 : 4);
+                error_bufferold[x].r = ditherValue - (imageParams.bpp >= 3 ? 30 : 120);  // * 256 / 16 - 128 + 8
+                error_bufferold[x].g = ditherValue - (imageParams.bpp >= 3 ? 30 : 120);
+                error_bufferold[x].b = ditherValue - (imageParams.bpp >= 3 ? 30 : 120);
             }
 
             int best_color_index = 0;
@@ -156,7 +158,7 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                 }
             }
 
-            if (imageParams.bpp == 3) {
+            if (imageParams.bpp == 3 || imageParams.bpp == 4) {
                 size_t byteIndex = bitOffset / 8;
                 uint8_t bitIndex = bitOffset % 8;
 
@@ -246,9 +248,9 @@ size_t prepareHeader(uint8_t headerbuf[], uint16_t bufw, uint16_t bufh, imgParam
     memcpy(headerbuf + (imageParams.rotatebuffer % 2 == 1 ? 3 : 1), &bufw, sizeof(uint16_t));
     memcpy(headerbuf + (imageParams.rotatebuffer % 2 == 1 ? 1 : 3), &bufh, sizeof(uint16_t));
 
-    if (imageParams.bpp == 3) {
-        totalbytes = buffer_size * 3 + headersize;
-        headerbuf[5] = 3;
+    if (imageParams.bpp == 3 || imageParams.bpp == 4) {
+        totalbytes = buffer_size * imageParams.bpp + headersize;
+        headerbuf[5] = imageParams.bpp;
     } else if (imageParams.hasRed && imageParams.bpp > 1) {
         totalbytes = buffer_size * 2 + headersize;
         headerbuf[5] = 2;
@@ -289,6 +291,7 @@ void rewriteHeader(File &f_out) {
     f_out.write(flg);
 }
 
+#ifndef SAVE_SPACE
 uint8_t *g5Compress(uint16_t width, uint16_t height, uint8_t *buffer, uint16_t buffersize, uint16_t &outBufferSize) {
     G5ENCIMAGE g5enc;
     int rc;
@@ -312,6 +315,7 @@ uint8_t *g5Compress(uint16_t width, uint16_t height, uint8_t *buffer, uint16_t b
     }
     return outbuffer;
 }
+#endif
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     long t = millis();
@@ -406,6 +410,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                 free(comp);
 
                 rewriteHeader(f_out);
+#ifndef SAVE_SPACE
             } else if (imageParams.g5) {
                 // handling for G5-compressed image data
 
@@ -468,6 +473,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                     }
                     f_out.write(buffer, buffer_size);
                 }
+#endif
             } else {
                 f_out.write(buffer, buffer_size);
                 if (imageParams.hasRed && imageParams.bpp > 1) {
@@ -479,9 +485,10 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
             free(buffer);
         } break;
 
-        case 3: {
+        case 3:
+        case 4: {
             long bufw = spr.width(), bufh = spr.height();
-            size_t buffer_size = (bufw * bufh) / 8 * 3;
+            size_t buffer_size = (bufw * bufh) / 8 * imageParams.bpp;
             uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
             if (!buffer) {
                 Serial.println("Failed to allocate buffer");

@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "HS 2.00\" BWY",
 	"width": 152,
 	"height": 200,
@@ -14,7 +14,7 @@
 	"shortlut": 2,
 	"zlib_compression": "27",
 	"options": [ "button", "customlut" ],
-	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 10, 14, 15, 17, 18, 19, 20, 21 ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 10, 14, 17, 18, 19, 20, 21 ],
 	"template": {
 		"1": {
 			"weekday": [ 76, 9, "fonts/calibrib30" ],

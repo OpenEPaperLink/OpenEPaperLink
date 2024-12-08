@@ -222,11 +222,15 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     } else {
         imageParams.zlib = 0;
     }
+#ifdef SAVE_SPACE
+    imageParams.g5 = 0;
+#else
     if (hwdata.g5 != 0 && taginfo->tagSoftwareVersion >= hwdata.g5) {
         imageParams.g5 = 1;
     } else {
         imageParams.g5 = 0;
     }
+#endif
 
     imageParams.lut = EPD_LUT_NO_REPEATS;
     if (taginfo->lut == 2) imageParams.lut = EPD_LUT_FAST_NO_REDS;
@@ -285,6 +289,9 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 if (imageParams.bpp == 3) {
                     imageParams.dataType = DATATYPE_IMG_RAW_3BPP;
                     Serial.println("datatype: DATATYPE_IMG_RAW_3BPP");
+                } else if (imageParams.bpp == 4) {
+                    imageParams.dataType = DATATYPE_IMG_RAW_4BPP;
+                    Serial.println("datatype: DATATYPE_IMG_RAW_4BPP");
                 } else if (imageParams.zlib) {
                     imageParams.dataType = DATATYPE_IMG_ZLIB;
                     Serial.println("datatype: DATATYPE_IMG_ZLIB");
@@ -448,13 +455,6 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             taginfo->nextupdate = 3216153600;
             prepareNFCReq(mac, cfgobj["url"].as<const char *>());
             break;
-
-        case 15:  // send gray LUT
-
-            taginfo->nextupdate = 3216153600;
-            prepareLUTreq(mac, cfgobj["bytes"]);
-            taginfo->hasCustomLUT = true;
-            break;
 #endif
 
 #ifdef CONTENT_BUIENRADAR
@@ -571,6 +571,9 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
         if (imageParams.bpp == 3) {
             imageParams.dataType = DATATYPE_IMG_RAW_3BPP;
             Serial.println("datatype: DATATYPE_IMG_RAW_3BPP");
+        } else if (imageParams.bpp == 4) {
+            imageParams.dataType = DATATYPE_IMG_RAW_4BPP;
+            Serial.println("datatype: DATATYPE_IMG_RAW_4BPP");
         } else if (imageParams.zlib) {
             imageParams.dataType = DATATYPE_IMG_ZLIB;
             Serial.println("datatype: DATATYPE_IMG_ZLIB");
@@ -1466,7 +1469,7 @@ uint16_t getPercentileColor(const double *prices, int numPrices, double price, H
     const double *boundaries;
     int numColors, numBoundaries;
 
-    if (hwdata.bpp == 3) {
+    if (hwdata.bpp == 3 || hwdata.bpp == 4) {
         colors = colors3bpp;
         boundaries = boundaries3bpp;
         numColors = sizeof(colors3bpp) / sizeof(colors3bpp[0]);
@@ -2352,20 +2355,6 @@ void prepareNFCReq(const uint8_t *dst, const char *url) {
     data[len] = 0xFE;
     len = 1 + len;
     prepareDataAvail(data, len, DATATYPE_NFC_RAW_CONTENT, dst);
-}
-
-void prepareLUTreq(const uint8_t *dst, const String &input) {
-    constexpr const char *delimiters = ", \t";
-    constexpr const int maxValues = 76;
-    uint8_t waveform[maxValues];
-    char *ptr = strtok(const_cast<char *>(input.c_str()), delimiters);
-    int i = 0;
-    while (ptr != nullptr && i < maxValues) {
-        waveform[i++] = static_cast<uint8_t>(strtol(ptr, nullptr, 16));
-        ptr = strtok(nullptr, delimiters);
-    }
-    const size_t waveformLen = sizeof(waveform);
-    prepareDataAvail(waveform, waveformLen, DATATYPE_CUSTOM_LUT_OTA, dst);
 }
 #endif
 

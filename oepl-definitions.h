@@ -7,12 +7,6 @@
 #define SOLUM_42_SSD1619 0x02
 #define SOLUM_SEG_UK 0xF0
 #define SOLUM_SEG_EU 0xF1
-#define RESERVED_TESTING 0xFE
-#define SOLUM_NODISPLAY 0xFF
-#define ESP32_C6 0xC6
-
-
-
 
 // overflow
 #define SOLUM_M2_BWR_16 0x20
@@ -23,8 +17,6 @@
 #define SOLUM_M2_BW_16  0x25
 #define SOLUM_M2_BW_75 0x26
 #define SOLUM_M2_BW_29 0x27
-
-
 
 #define SOLUM_M3_BWR_97 0x2E
 #define SOLUM_M3_BWR_43 0x2F
@@ -49,7 +41,6 @@
 #define SOLUM_M3_BWY_75 0x3E
 #define SOLUM_M3_BWR_116 0x37
 #define SOLUM_M3_BWY_116 0x3F
-
 
 // M3 Tags overflow
 #define SOLUM_M3_BW_29 0x40
@@ -80,7 +71,6 @@
 #define GICI_BLE_TFT_21_BW 0xBA
 #define GICI_BLE_EPD_BWR_29_SILABS 0xBD
 #define GICI_BLE_UNKNOWN 0xBF
-#define ATC_MI_THERMOMETER 0xBE
 
 // Solum types - customer data byte 16 in M3 (nRF) UICR
 #define STYPE_SIZE_016 0x40
@@ -97,6 +87,16 @@
 #define STYPE_SIZE_075 0x4C
 #define STYPE_SIZE_097 0x64
 #define STYPE_SIZE_013 0x4D
+
+// Various types
+#define ATC_MI_THERMOMETER 0xBE
+#define RESERVED_TESTING 0xFE
+#define SOLUM_NODISPLAY 0xFF
+#define ESP32_C6 0xC6
+
+#define BWRY_29 0xC0
+#define ACEP_40 0xC1
+#define SPECTRA_73 0xC2
 
 
 
@@ -119,6 +119,7 @@
 #define DATATYPE_IMG_RAW_1BPP 0x20         // 2888 bytes for 1.54"  / 4736 2.9" / 15000 4.2"
 #define DATATYPE_IMG_RAW_2BPP 0x21         // 5776 bytes for 1.54"  / 9472 2.9" / 30000 4.2"
 #define DATATYPE_IMG_RAW_3BPP 0x22         // ACEP
+#define DATATYPE_IMG_RAW_4BPP 0x23         // Spectra
 #define DATATYPE_IMG_ZLIB 0x30             // compressed format.
                                                     // [uint32_t uncompressed size][2 byte zlib header][zlib compressed image]
                                                     // image format: [uint8_t header length][uint16_t width][uint16_t height][uint8_t bpp (lower 4)][img data]

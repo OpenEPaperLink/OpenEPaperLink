@@ -594,21 +594,6 @@
     ]
   },
   {
-    "id": 15,
-    "name": "Send custom LUT",
-    "desc": "EXPERIMENTAL. Don't use. YOU RISK DAMAGING YOUR SCREEN.",
-    "capabilities": 4,
-    "properties": [ "savespace" ],
-    "param": [
-      {
-        "key": "bytes",
-        "name": "bytes",
-        "desc": "76 bytes, formatted as 0x00,0x00,...",
-        "type": "text"
-      }
-    ]
-  },
-  {
     "id": 17,
     "name": "Send Command",
     "desc": "Send a command to a tag to execute; only to be used for tests during development",

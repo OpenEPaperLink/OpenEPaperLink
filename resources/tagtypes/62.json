@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "HS BW 3.5\"",
 	"width": 384,
 	"height": 184,
@@ -12,6 +12,6 @@
 	"highlight_color": 5,
 	"shortlut": 0,
 	"options": [ "led" ],
-	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19, 20 ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 17, 18, 19, 20 ],
 	"usetemplate": 51
 }
