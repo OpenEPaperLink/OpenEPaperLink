@@ -1843,7 +1843,7 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
         if (imageParams.zlib) {
             imageParams.dataType = DATATYPE_IMG_ZLIB;
         } else if (imageParams.g5) {
-            imageParams.dataType = DATATYPE_IMG_G5_1BPP;
+            imageParams.dataType = DATATYPE_IMG_G5;
         }
 
         struct imageDataTypeArgStruct arg = {0};
