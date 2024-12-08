@@ -2,18 +2,33 @@
   {
     "00": {
       "type": "SOL_M2_154_SSD",
-      "version": "0027",
-      "md5": "0cf7b60327ff2b0318185be2e8ba82a0"
+      "version": "0029",
+      "md5": "dafaaffbeefa29f16e9941bb531868d2"
     },
     "01": {
       "type": "SOL_M2_29_SSD",
-      "version": "0027",
-      "md5": "a051ee5d5517b3e8d3d09ae1e076eabc"
+      "version": "0029",
+      "md5": "6f5eae3a7d96eb8e15a3fa15353ec75b"
     },
     "02": {
       "type": "SOL_M2_42_SSD",
-      "version": "0027",
-      "md5": "94aa727296a4c480a6702ea612288b4c"
+      "version": "0029",
+      "md5": "fa8ac165ac0a9a1855ffdc2fa7c66528"
+    },
+    "12": {
+      "type": "SOL_M2_42_UC",
+      "version": "0029",
+      "md5": "b2b50c89add8f94c2b445c387609e212"
+    },
+    "03": {
+      "type": "SOL_M2_22_SSD",
+      "version": "0029",
+      "md5": "14662c9bc79d36316e5becd201537f59"
+    },
+    "04": {
+      "type": "SOL_M2_26_SSD",
+      "version": "0029",
+      "md5": "5caafca1428359b9516747f9a6c7fb45"
     },
     "05": {
       "type": "SOL_M2_75_ota",
@@ -22,8 +37,8 @@
     },
     "11": {
       "type": "SOL_M2_29_UC",
-      "version": "0027",
-      "md5": "aba3e35ef2bb63066d47e924bccd64f0"
+      "version": "0029",
+      "md5": "804c8613d87a3917237ce138e77e1ba4"
     },
     "21": {
       "type": "SOL_M2_29_LT",
