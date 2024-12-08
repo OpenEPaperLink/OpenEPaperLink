@@ -97,7 +97,7 @@ export async function initUpdate() {
             } else {
                 const release = releaseDetails[0];
                 if (release?.tag_name) {
-                    if (parseInt(release.tag_name) == parseInt(currentVer)) {
+                    if (normalizeVersion(release.tag_name) === normalizeVersion(currentVer)) {
                         easyupdate.innerHTML = `Version ${currentVer}. You are up to date`;
                     } else if (release.date < formatEpoch(currentBuildtime - 30 * 60)) {
                         easyupdate.innerHTML = `Your version is newer than the latest release date.<br>Are you the developer? :-)`;
@@ -637,4 +637,8 @@ async function fetchAndCheckTagtypes(cleanup) {
     } catch (error) {
         print("Error: " + error, "red");
     }
+}
+
+function normalizeVersion(version) {
+    return version.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 }
