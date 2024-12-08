@@ -289,13 +289,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                     imageParams.dataType = DATATYPE_IMG_ZLIB;
                     Serial.println("datatype: DATATYPE_IMG_ZLIB");
                 } else if (imageParams.g5) {
-                    if (imageParams.hasRed) {
-                        imageParams.dataType = DATATYPE_IMG_G5_2BPP;
-                        Serial.println("datatype: DATATYPE_IMG_G5_2BPP");
-                    } else {
-                        imageParams.dataType = DATATYPE_IMG_G5_1BPP;
-                        Serial.println("datatype: DATATYPE_IMG_G5_1BPP");
-                    }
+                    imageParams.dataType = DATATYPE_IMG_G5;
+                    Serial.println("datatype: DATATYPE_IMG_G5");
                 } else if (imageParams.hasRed) {
                     imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
                     Serial.println("datatype: DATATYPE_IMG_RAW_2BPP");
@@ -580,13 +575,8 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
             imageParams.dataType = DATATYPE_IMG_ZLIB;
             Serial.println("datatype: DATATYPE_IMG_ZLIB");
         } else if (imageParams.g5) {
-            if (imageParams.hasRed) {
-                imageParams.dataType = DATATYPE_IMG_G5_2BPP;
-                Serial.println("datatype: DATATYPE_IMG_G5_2BPP");
-            } else {
-                imageParams.dataType = DATATYPE_IMG_G5_1BPP;
-                Serial.println("datatype: DATATYPE_IMG_G5_1BPP");
-            }
+            imageParams.dataType = DATATYPE_IMG_G5;
+            Serial.println("datatype: DATATYPE_IMG_G5");
         } else if (imageParams.hasRed) {
             imageParams.dataType = DATATYPE_IMG_RAW_2BPP;
             Serial.println("datatype: DATATYPE_IMG_RAW_2BPP");
