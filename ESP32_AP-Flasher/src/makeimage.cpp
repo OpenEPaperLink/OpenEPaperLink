@@ -295,16 +295,17 @@ void rewriteHeader(File &f_out) {
 uint8_t *g5Compress(uint16_t width, uint16_t height, uint8_t *buffer, uint16_t buffersize, uint16_t &outBufferSize) {
     G5ENCIMAGE g5enc;
     int rc;
-    uint8_t *outbuffer = (uint8_t *)ps_malloc(buffersize + 16384);
+    uint8_t *outbuffer = (uint8_t *)ps_malloc(buffersize+16384);
     if (outbuffer == NULL) {
         Serial.println("Failed to allocate the output buffer for the G5 encoder");
         return nullptr;
     }
 
-    rc = g5_encode_init(&g5enc, width, height, outbuffer, buffersize + 16384);
+    rc = g5_encode_init(&g5enc, width, height, outbuffer, buffersize);
     for (int y = 0; y < height && rc == G5_SUCCESS; y++) {
         rc = g5_encode_encodeLine(&g5enc, buffer);
         buffer += (width / 8);
+        if (rc != G5_SUCCESS) break;
     }
     if (rc == G5_ENCODE_COMPLETE) {
         outBufferSize = g5_encode_getOutSize(&g5enc);
@@ -439,7 +440,6 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                     } else {
                         height *= 2;
                     }
-
                 }
                 uint16_t outbufferSize = 0;
                 uint8_t *outBuffer;
@@ -457,7 +457,6 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                     if (outbufferSize > buffer_size) {
                         printf("That wasn't very useful, falling back to raw\n");
                         compressionSuccessful = false;
-                        f_out.seek(0);
                     } else {
                         f_out.write(outBuffer, outbufferSize);
                     }
@@ -471,6 +470,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                     } else {
                         imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
                     }
+                    f_out.seek(0);
                     f_out.write(buffer, buffer_size);
                 }
 #endif
