@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "BWRY example",
 	"width": 360,
 	"height": 184,
@@ -9,6 +9,12 @@
 		"black": [ 0, 0, 0 ],
 		"white": [ 255, 255, 255 ],
 		"yellow": [ 255, 255, 0 ],
+		"red": [ 255, 0, 0 ]
+	},
+	"perceptual": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"yellow": [ 200, 200, 0 ],
 		"red": [ 255, 0, 0 ]
 	},
 	"shortlut": 0,

@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 4,
 	"name": "Opticon 2.9\"",
 	"width": 296,
 	"height": 128,
@@ -10,6 +10,11 @@
 		"black": [ 0, 0, 0 ],
 		"red": [ 255, 0, 0 ],
 		"yellow": [ 255, 255, 0 ]
+	},
+	"perceptual": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"yellow": [ 200, 200, 0 ]
 	},
 	"g5_compression": "29",
 	"shortlut": 2,

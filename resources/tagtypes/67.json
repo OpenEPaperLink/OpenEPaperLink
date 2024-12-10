@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"name": "HS 2.00\" BWY",
 	"width": 152,
 	"height": 200,
@@ -9,6 +9,11 @@
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
 		"yellow": [ 255, 255, 0 ]
+	},
+	"perceptual": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"yellow": [ 200, 200, 0 ]
 	},
 	"highlight_color": 3,
 	"shortlut": 2,

@@ -133,6 +133,7 @@ function initTabs() {
 			tabLinks.forEach(link => {
 				link.classList.remove("active");
 			});
+			if (targetId == "logtab") document.getElementById(targetId).scrollTop = 0;
 			document.getElementById(targetId).style.display = "block";
 			this.classList.add("active");
 		});
@@ -1253,28 +1254,24 @@ function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
 			imageData.data[i * 4 + 3] = 255;
 		}
 
-	} else if (tagTypes[hwtype].bpp == 3) {
+	} else if ([3, 4].includes(tagTypes[hwtype].bpp)) {
+		const bpp = tagTypes[hwtype].bpp;
 		const colorTable = tagTypes[hwtype].colortable;
-
 		let pixelIndex = 0;
-		for (let i = 0; i < data.length; i += 3) {
-			for (let j = 0; j < 8; j++) {
-				let bitPos = j * 3;
-				let bytePos = Math.floor(bitPos / 8);
-				let bitOffset = bitPos % 8;
-				let pixelValue = (data[i + bytePos] >> (5 - bitOffset)) & 0x07;
-				if (bitOffset > 5) {
-					pixelValue = ((data[i + bytePos] & (0xFF >> bitOffset)) << (bitOffset - 5)) |
-						(data[i + bytePos + 1] >> (13 - bitOffset));
-				}
-				imageData.data[pixelIndex * 4] = colorTable[pixelValue][0];
-				imageData.data[pixelIndex * 4 + 1] = colorTable[pixelValue][1];
-				imageData.data[pixelIndex * 4 + 2] = colorTable[pixelValue][2];
-				imageData.data[pixelIndex * 4 + 3] = 255;
-				pixelIndex++;
-			}
-		}
+		let bitOffset = 0;
 
+		while (bitOffset < data.length * 8) {
+			let byteIndex = bitOffset >> 3; 
+			let startBit = bitOffset & 7; 
+			let pixelValue = (data[byteIndex] << 8 | data[byteIndex + 1] || 0) >> (16 - bpp - startBit) & ((1 << bpp) - 1);
+			let color = colorTable[pixelValue];
+			imageData.data[pixelIndex * 4] = color[0];
+			imageData.data[pixelIndex * 4 + 1] = color[1];
+			imageData.data[pixelIndex * 4 + 2] = color[2];
+			imageData.data[pixelIndex * 4 + 3] = 255;
+			pixelIndex++;
+			bitOffset += bpp;
+		}
 	} else {
 
 		const offsetRed = (data.length >= (canvas.width * canvas.height / 8) * 2) ? canvas.width * canvas.height / 8 : 0;
@@ -1527,7 +1524,7 @@ async function getTagtype(hwtype) {
 			height: parseInt(jsonData.height),
 			bpp: parseInt(jsonData.bpp),
 			rotatebuffer: jsonData.rotatebuffer,
-			colortable: Object.values(jsonData.colortable),
+			colortable: Object.values(jsonData.perceptual ?? jsonData.colortable),
 			contentids: Object.values(jsonData.contentids ?? []),
 			options: Object.values(jsonData.options ?? []),
 			zlib: parseInt(jsonData.zlib_compression || "0", 16),
@@ -1571,6 +1568,7 @@ function dropUpload() {
 
 	dropZone.addEventListener('drop', (event) => {
 		event.preventDefault();
+		const shiftKey = event.shiftKey;
 		const file = event.dataTransfer.files[0];
 		const tagCard = event.target.closest('.tagcard');
 		const mac = tagCard.dataset.mac;
@@ -1604,6 +1602,7 @@ function dropUpload() {
 					canvas.toBlob(async (blob) => {
 						const formData = new FormData();
 						formData.append('mac', mac);
+						if (shiftKey) formData.append('dither', '2');
 						formData.append('file', blob, 'image.jpg');
 
 						try {
@@ -1906,7 +1905,7 @@ function openPreview(mac, w, h) {
 		previewWindow.document.body.style.backgroundColor = "#dddddd";
 		previewWindow.document.body.style.margin = "15px";
 		previewWindow.document.body.style.overflow = "hidden";
-		previewWindow.document.body.innerHTML = `<canvas id="preview" style="border:1px solid #888888;"></canvas>`;
+		previewWindow.document.body.innerHTML = `<canvas id="preview" style="border:1px solid #888888;image-rendering: pixelated;"></canvas>`;
 
 		showPreview(previewWindow, element);
 

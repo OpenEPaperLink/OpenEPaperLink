@@ -75,14 +75,43 @@ struct Error {
     int32_t b;
 };
 
-uint32_t colorDistance(Color &c1, Color &c2, Error &e1) {
-    e1.r = constrain(e1.r, -255, 255);
-    e1.g = constrain(e1.g, -255, 255);
-    e1.b = constrain(e1.b, -255, 255);
+uint32_t colorDistance(const Color &c1, const Color &c2, const Error &e1) {
     int32_t r_diff = c1.r + e1.r - c2.r;
     int32_t g_diff = c1.g + e1.g - c2.g;
     int32_t b_diff = c1.b + e1.b - c2.b;
-    return 3 * r_diff * r_diff + 6 * g_diff * g_diff + b_diff * b_diff;
+    if (abs(c1.r - c1.g) < 20 && abs(c1.b - c1.g) < 20) {
+        if (abs(c2.r - c2.g) > 20 || abs(c2.b - c2.g) > 20) return 4294967295;  // don't select color pixels on black and white
+    }
+    return 3 * r_diff * r_diff + 5.47 * g_diff * g_diff + 1.53 * b_diff * b_diff;
+}
+
+std::tuple<int, int, float, float> findClosestColors(const Color &pixel, const std::vector<Color> &palette) {
+    int closestIndex = -1, secondClosestIndex = -1;
+    float closestDist = std::numeric_limits<float>::max();
+    float secondClosestDist = std::numeric_limits<float>::max();
+    for (size_t i = 0; i < palette.size(); ++i) {
+        float dist = colorDistance(pixel, palette[i], (Error){0, 0, 0});
+        if (dist < closestDist) {
+            secondClosestIndex = closestIndex;
+            secondClosestDist = closestDist;
+            closestIndex = i;
+            closestDist = dist;
+        } else if (dist < secondClosestDist) {
+            secondClosestIndex = i;
+            secondClosestDist = dist;
+        }
+    }
+    if (closestIndex != -1 && secondClosestIndex != -1) {
+        auto rgbValue = [](const Color &color) {
+            return (color.r << 16) | (color.g << 8) | color.b;
+        };
+
+        if (rgbValue(palette[secondClosestIndex]) > rgbValue(palette[closestIndex])) {
+            std::swap(closestIndex, secondClosestIndex);
+            std::swap(closestDist, secondClosestDist);
+        }
+    }
+    return { closestIndex, secondClosestIndex, closestDist, secondClosestDist};
 }
 
 void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t buffer_size, bool is_red) {
@@ -112,11 +141,6 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
     Error *error_bufferold = new Error[bufw + 4];
     Error *error_buffernew = new Error[bufw + 4];
 
-    const uint8_t ditherMatrix[4][4] = {
-        {0, 9, 2, 10},
-        {12, 5, 14, 6},
-        {3, 11, 1, 8},
-        {15, 7, 13, 4}};
     size_t bitOffset = 0;
 
     memset(error_bufferold, 0, bufw * sizeof(Error));
@@ -138,23 +162,36 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                     break;
             }
 
+            int best_color_index = 0;
             if (imageParams.dither == 2) {
-                // Ordered dithering
-                uint8_t ditherValue = ditherMatrix[y % 4][x % 4] << (imageParams.bpp >= 3 ? 2 : 4);
-                error_bufferold[x].r = ditherValue - (imageParams.bpp >= 3 ? 30 : 120);  // * 256 / 16 - 128 + 8
-                error_bufferold[x].g = ditherValue - (imageParams.bpp >= 3 ? 30 : 120);
-                error_bufferold[x].b = ditherValue - (imageParams.bpp >= 3 ? 30 : 120);
+                // special ordered dithering
+                auto [c1Index, c2Index, distC1, distC2] = findClosestColors(color, palette);
+                Color c1 = palette[c1Index];
+                Color c2 = palette[c2Index];
+                float weight = distC1 / (distC1 + distC2);
+                if (weight <= 0.03) {
+                    best_color_index = c1Index;
+                } else if (weight < 0.30) {
+                    best_color_index = ((y % 2 && ((y / 2 + x) % 2)) ? c2Index : c1Index);
+                } else if (weight < 0.70) {
+                    best_color_index = ((x + y) % 2 ? c2Index : c1Index);
+                } else if (weight < 0.97) {
+                    best_color_index = ((y % 2 && ((y / 2 + x) % 2)) % 2 ? c1Index : c2Index);
+                } else {
+                    best_color_index = c2Index;
+                }
             }
 
-            int best_color_index = 0;
-            uint32_t best_color_distance = colorDistance(color, palette[0], error_bufferold[x]);
+            if (imageParams.dither == 1 || imageParams.dither == 0) {
+                uint32_t best_color_distance = colorDistance(color, palette[0], error_bufferold[x]);
 
-            for (int i = 1; i < num_colors; i++) {
-                if (best_color_distance == 0) break;
-                uint32_t distance = colorDistance(color, palette[i], error_bufferold[x]);
-                if (distance < best_color_distance) {
-                    best_color_distance = distance;
-                    best_color_index = i;
+                for (int i = 1; i < num_colors; i++) {
+                    if (best_color_distance == 0) break;
+                    uint32_t distance = colorDistance(color, palette[i], error_bufferold[x]);
+                    if (distance < best_color_distance) {
+                        best_color_distance = distance;
+                        best_color_index = i;
+                    }
                 }
             }
 
@@ -201,34 +238,44 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                     color.g + error_bufferold[x].g - palette[best_color_index].g,
                     color.b + error_bufferold[x].b - palette[best_color_index].b};
 
-                error_buffernew[x].r += error.r >> 2;
-                error_buffernew[x].g += error.g >> 2;
-                error_buffernew[x].b += error.b >> 2;
+                float scaling_factor = 255.0f / std::max(std::abs(error.r), std::max(std::abs(error.g), std::abs(error.b)));
+                if (scaling_factor < 1.0f) {
+                    error.r *= scaling_factor;
+                    error.g *= scaling_factor;
+                    error.b *= scaling_factor;
+                }
+
+                error_buffernew[x].r += error.r / 4;
+                error_buffernew[x].g += error.g / 4;
+                error_buffernew[x].b += error.b / 4;
+
                 if (x > 0) {
-                    error_buffernew[x - 1].r += error.r >> 3;
-                    error_buffernew[x - 1].g += error.g >> 3;
-                    error_buffernew[x - 1].b += error.b >> 3;
+                    error_buffernew[x - 1].r += error.r / 8;
+                    error_buffernew[x - 1].g += error.g / 8;
+                    error_buffernew[x - 1].b += error.b / 8;
                 }
+
                 if (x > 1) {
-                    error_buffernew[x - 2].r += error.r >> 4;
-                    error_buffernew[x - 2].g += error.g >> 4;
-                    error_buffernew[x - 2].b += error.b >> 4;
+                    error_buffernew[x - 2].r += error.r / 16;
+                    error_buffernew[x - 2].g += error.g / 16;
+                    error_buffernew[x - 2].b += error.b / 16;
                 }
-                error_buffernew[x + 1].r += error.r >> 3;
-                error_buffernew[x + 1].g += error.g >> 3;
-                error_buffernew[x + 1].b += error.b >> 3;
 
-                error_bufferold[x + 1].r += error.r >> 2;
-                error_bufferold[x + 1].g += error.g >> 2;
-                error_bufferold[x + 1].b += error.b >> 2;
+                error_buffernew[x + 1].r += error.r / 8;
+                error_buffernew[x + 1].g += error.g / 8;
+                error_buffernew[x + 1].b += error.b / 8;
 
-                error_buffernew[x + 2].r += error.r >> 4;
-                error_buffernew[x + 2].g += error.g >> 4;
-                error_buffernew[x + 2].b += error.b >> 4;
+                error_bufferold[x + 1].r += error.r / 4;
+                error_bufferold[x + 1].g += error.g / 4;
+                error_bufferold[x + 1].b += error.b / 4;
 
-                error_bufferold[x + 2].r += error.r >> 3;
-                error_bufferold[x + 2].g += error.g >> 3;
-                error_bufferold[x + 2].b += error.b >> 3;
+                error_buffernew[x + 2].r += error.r / 16;
+                error_buffernew[x + 2].g += error.g / 16;
+                error_buffernew[x + 2].b += error.b / 16;
+
+                error_bufferold[x + 2].r += error.r / 8;
+                error_bufferold[x + 2].g += error.g / 8;
+                error_bufferold[x + 2].b += error.b / 8;
             }
         }
         memcpy(error_bufferold, error_buffernew, bufw * sizeof(Error));

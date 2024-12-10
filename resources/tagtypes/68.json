@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 4,
 	"name": "HS BWY 3.46\"",
 	"width": 480,
 	"height": 176,
@@ -9,6 +9,11 @@
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
 		"yellow": [ 255, 255, 0 ]
+	},
+	"perceptual": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"yellow": [ 200, 200, 0 ]
 	},
 	"highlight_color": 3,
 	"shortlut": 0,

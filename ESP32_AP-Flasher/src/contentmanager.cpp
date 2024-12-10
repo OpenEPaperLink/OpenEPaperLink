@@ -21,6 +21,7 @@
 #ifdef CONTENT_RSS
 #include <rssClass.h>
 #endif
+#include <TJpg_Decoder.h>
 #include <time.h>
 
 #include <map>
@@ -212,7 +213,6 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     imageParams.hasRed = false;
     imageParams.dataType = DATATYPE_IMG_RAW_1BPP;
     imageParams.dither = 2;
-    // if (taginfo->hasCustomLUT && taginfo->lut != 1) imageParams.grayLut = true;
 
     imageParams.invert = taginfo->invert;
     imageParams.symbols = 0;
@@ -239,10 +239,6 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     if (imageParams.shortlut == SHORTLUT_DISABLED || taginfo->lastfullupdate < last_midnight || taginfo->lut == 1) {
         imageParams.lut = EPD_LUT_DEFAULT;
         taginfo->lastfullupdate = now;
-    }
-    if (taginfo->hasCustomLUT && taginfo->capabilities & CAPABILITY_SUPPORTS_CUSTOM_LUTS && taginfo->lut != 1) {
-        Serial.println("using custom LUT");
-        imageParams.lut = EPD_LUT_OTA;
     }
 
     int32_t interval = cfgobj["interval"].as<int>() * 60;
@@ -696,7 +692,7 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
     }
 }
 
-void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy, int16_t boxwidth, int16_t boxheight, String font, uint16_t color, uint16_t bgcolor, float lineheight) {
+void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy, int16_t boxwidth, int16_t boxheight, String font, uint16_t color, uint16_t bgcolor, float lineheight, byte align) {
     replaceVariables(content);
     switch (processFontPath(font)) {
         case 2: {
@@ -706,7 +702,7 @@ void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy
         case 3: {
             // vlw bitmap font
             // spr.drawRect(posx, posy, boxwidth, boxheight, TFT_BLACK);
-            spr.setTextDatum(TL_DATUM);
+            spr.setTextDatum(align);
             if (font != "") spr.loadFont(font.substring(1), *contentFS);
             spr.setTextWrap(false, false);
             spr.setTextColor(color, bgcolor);
@@ -1195,7 +1191,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 
     wsLog("get calendar");
 
-    StaticJsonDocument<512> loc;
+    StaticJsonDocument<1024> loc;
     getTemplate(loc, 11, taginfo->hwType);
 
     String URL = cfgobj["apps_script_url"].as<String>() + "?days=" + loc["days"].as<String>();
@@ -1293,6 +1289,13 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
             int calYOffset = loc["gridparam"][1].as<int>();
             int lineHeight = loc["gridparam"][5].as<int>();
 
+            uint16_t backgroundLight = getColor("lightgray");
+            uint16_t backgroundDark = getColor("darkgray");
+            if (imageParams.hwdata.bpp >= 3) {
+                backgroundLight = getColor("#BEFAFF");
+                backgroundDark = getColor("#79FAFF");
+            }
+
             // drawString(spr, String(timeinfo.tm_mday), calWidth / 2, -calHeight/5, "Signika-SB.ttf", TC_DATUM, imageParams.highlightColor, calHeight * 1.2);
 
             for (int i = 0; i < calDays; i++) {
@@ -1306,9 +1309,9 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                 drawString(spr, String(languageDaysShort[dayInfo->tm_wday]) + " " + String(dayInfo->tm_mday), colStart + colWidth / 2, calTop, loc["gridparam"][3], TC_DATUM, TFT_BLACK);
 
                 if (dayInfo->tm_wday == 0 || dayInfo->tm_wday == 6) {
-                    spr.fillRect(colStart + 1, calTop + calYOffset, colWidth - 1, calHeight - 1, getColor("darkgray"));
+                    spr.fillRect(colStart + 1, calTop + calYOffset, colWidth - 1, calHeight - 1, backgroundDark);
                 } else {
-                    spr.fillRect(colStart + 1, calTop + calYOffset, colWidth - 1, calHeight - 1, getColor("lightgray"));
+                    spr.fillRect(colStart + 1, calTop + calYOffset, colWidth - 1, calHeight - 1, backgroundLight);
                 }
             }
 
@@ -1329,6 +1332,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                 const time_t startdatetime = obj["start"];
                 const time_t enddatetime = obj["end"];
                 const bool isallday = obj["isallday"];
+                const int calendarId = obj["calendar"];
 
                 if (!isallday) {
                     localtime_r(&startdatetime, &timeinfo);
@@ -1360,8 +1364,15 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 
                         int16_t eventX = colLeft + fulldaystart * colWidth + 3;
                         int16_t eventY = calTop + calYOffset + (line - 1) * lineHeight + 3;
-                        spr.drawRect(eventX - 2, eventY - 3, colWidth * (fulldayend - fulldaystart) - 1, lineHeight + 1, TFT_BLACK);
-                        spr.fillRect(eventX - 1, eventY - 2, colWidth * (fulldayend - fulldaystart) - 3, lineHeight - 1, TFT_WHITE);
+                        uint16_t background = TFT_WHITE;
+                        uint16_t border = TFT_BLACK;
+                        if (imageParams.hwdata.bpp >= 3 && loc["colors1"].is<JsonArray>() && loc["colors1"].size() > calendarId) {
+                            background = getColor(loc["colors1"][calendarId]);
+                            border = getColor(loc["colors2"][calendarId]);
+                            Serial.println("cal " + String(calendarId) + ": " + String(loc["colors2"][calendarId]));
+                        }
+                        spr.fillRect(eventX - 1, eventY - 2, colWidth * (fulldayend - fulldaystart) - 3, lineHeight - 1, background);
+                        spr.drawRect(eventX - 2, eventY - 3, colWidth * (fulldayend - fulldaystart) - 1, lineHeight + 1, border);
                         drawTextBox(spr, eventtitle, eventX, eventY, colWidth * (fulldayend - fulldaystart) - 3, 15, loc["gridparam"][4], TFT_BLACK);
 
                         block[i] = line;
@@ -1393,6 +1404,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                 const time_t startdatetime = obj["start"];
                 const time_t enddatetime = obj["end"];
                 const bool isallday = obj["isallday"];
+                const int calendarId = obj["calendar"];
 
                 if (!isallday) {
                     int fulldaystart = constrain((startdatetime - midnightEpoch) / (24 * 3600), 0, calDays);
@@ -1431,12 +1443,22 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                         block[i] = indent;
                         int16_t eventX = colLeft + day * colWidth + (indent - 1) * 5;
                         int16_t eventY = calTop + calYOffset + (starttime * hourHeight / 60);
-                        spr.drawRect(eventX + 1, eventY, colWidth - 1, (duration * hourHeight / 60) + 1, TFT_BLACK);
-                        spr.fillRect(eventX + 2, eventY + 1, colWidth - 3, (duration * hourHeight / 60) - 1, TFT_WHITE);
+                        uint16_t background = TFT_WHITE;
+                        uint16_t border = TFT_BLACK;
+                        if (imageParams.hwdata.bpp >= 3 && loc["colors1"].is<JsonArray>() && loc["colors1"].size() > calendarId) {
+                            background = getColor(loc["colors1"][calendarId]);
+                            border = getColor(loc["colors2"][calendarId]);
+                            Serial.println("cal " + String(calendarId) + ": " + String(loc["colors2"][calendarId]));
+                        }
+                        spr.fillRect(eventX + 2, eventY + 1, colWidth - 3, (duration * hourHeight / 60) - 1, background);
+                        spr.drawRect(eventX + 1, eventY, colWidth - 1, (duration * hourHeight / 60) + 1, border);
                         eventX += 2;
                         eventY += 2;
                         if (day == fulldaystart) {
                             eventtitle = formattedTimeString + " " + String(eventtitle);
+                            drawTextBox(spr, formattedTimeString, eventX, eventY, colWidth - 1, (duration * hourHeight / 60) - 1, loc["gridparam"][4], TFT_BLACK, TFT_WHITE, 1);
+                            eventX++;
+                            eventY = calTop + calYOffset + (starttime * hourHeight / 60) + 2;
                         } else {
                             eventtitle = obj["title"].as<String>();
                         }
@@ -1613,12 +1635,13 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     minPrice = yAxisScale.min;
 
     uint16_t yAxisX = loc["yaxis"][1].as<int>();
+    uint16_t yAxisY = loc["yaxis"][3].as<int>() | 9;
     uint16_t barBottom = loc["bars"][3].as<int>();
 
     for (double i = minPrice; i <= maxPrice; i += yAxisScale.step) {
         int y = mapDouble(i, minPrice, maxPrice, spr.height() - barBottom, spr.height() - barBottom - loc["bars"][2].as<int>());
         spr.drawLine(0, y, spr.width(), y, TFT_BLACK);
-        if (loc["yaxis"][0]) drawString(spr, String(int(i * units)), yAxisX, y - 9, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
+        if (loc["yaxis"][0]) drawString(spr, String(int(i * units)), yAxisX, y - yAxisY, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
     }
 
     uint16_t barwidth = loc["bars"][1].as<int>() / n;
@@ -2209,6 +2232,11 @@ void rotateBuffer(uint8_t rotation, uint8_t &currentOrientation, TFT_eSprite &sp
     }
 }
 
+TFT_eSprite sprDraw = TFT_eSprite(&tft);
+bool spr_draw(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) {
+    sprDraw.pushImage(x, y, w, h, bitmap);
+    return 1;
+}
 void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imageParams, uint8_t &currentOrientation) {
     if (element.containsKey("text")) {
         const JsonArray &textArray = element["text"];
@@ -2218,13 +2246,15 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
         const uint16_t bgcolor = (bgcolorstr.length() > 0) ? getColor(bgcolorstr) : TFT_WHITE;
         drawString(spr, textArray[2], textArray[0].as<int>(), textArray[1].as<int>(), textArray[3], align, getColor(textArray[4]), size, bgcolor);
     } else if (element.containsKey("textbox")) {
+        // posx, posy, width, height, text, font, color, lineheight, align  
         const JsonArray &textArray = element["textbox"];
         float lineheight = textArray[7].as<float>();
         if (lineheight == 0) lineheight = 1;
         int16_t posx = textArray[0] | 0;
         int16_t posy = textArray[1] | 0;
         String text = textArray[4];
-        drawTextBox(spr, text, posx, posy, textArray[2], textArray[3], textArray[5], getColor(textArray[6]), TFT_WHITE, lineheight);
+        const uint16_t align = textArray[8] | 0;
+        drawTextBox(spr, text, posx, posy, textArray[2], textArray[3], textArray[5], getColor(textArray[6]), TFT_WHITE, lineheight, align);
     } else if (element.containsKey("box")) {
         const JsonArray &boxArray = element["box"];
         spr.fillRect(boxArray[0].as<int>(), boxArray[1].as<int>(), boxArray[2].as<int>(), boxArray[3].as<int>(), getColor(boxArray[4]));
@@ -2240,6 +2270,33 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
     } else if (element.containsKey("circle")) {
         const JsonArray &circleArray = element["circle"];
         spr.fillCircle(circleArray[0].as<int>(), circleArray[1].as<int>(), circleArray[2].as<int>(), getColor(circleArray[3]));
+    } else if (element.containsKey("image")) {
+        const JsonArray &imgArray = element["image"];
+
+        TJpgDec.setSwapBytes(true);
+        TJpgDec.setJpgScale(1);
+        TJpgDec.setCallback(spr_draw);
+        uint16_t w = 0, h = 0;
+        String filename = imgArray[0];
+        if (filename[0] != '/') {
+            filename = "/" + filename;
+        }
+        TJpgDec.getFsJpgSize(&w, &h, filename, *contentFS);
+        if (w == 0 && h == 0) {
+            wsErr("invalid jpg");
+            return;
+        }
+        Serial.println("jpeg conversion " + String(w) + "x" + String(h));
+        sprDraw.setColorDepth(16);
+        sprDraw.createSprite(w, h);
+        if (sprDraw.getPointer() == nullptr) {
+            wsErr("Failed to create sprite in contentmanager");
+        } else {
+            TJpgDec.drawFsJpg(0, 0, filename, *contentFS);
+            sprDraw.pushToSprite(&spr, imgArray[1].as<int>(), imgArray[2].as<int>());
+            sprDraw.deleteSprite();
+        }
+
     } else if (element.containsKey("rotate")) {
         uint8_t rotation = element["rotate"].as<int>();
         rotateBuffer(rotation, currentOrientation, spr, imageParams);
@@ -2379,7 +2436,7 @@ void prepareConfigFile(const uint8_t *dst, const JsonObject &config) {
 
 void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
     StaticJsonDocument<80> filter;
-    DynamicJsonDocument doc(2048);
+    DynamicJsonDocument doc(4096);
 
     const String idstr = String(id);
     constexpr const char *templateKey = "template";

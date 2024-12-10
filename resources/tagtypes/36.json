@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"name": "M3 7.5\"",
 	"width": 800,
 	"height": 480,
@@ -51,7 +51,13 @@
 			"rotate": 0,
 			"mode": 1,
 			"days": 7,
-			"gridparam": [ 3, 17, 30, "calibrib16.vlw", "tahoma9.vlw", 14 ]
+			"gridparam": [ 3, 17, 30, "calibrib16.vlw", "tahoma11.vlw", 14 ]
+		},
+		"27": {
+			"bars": [ 40, 690, 380, 25, 50 ],
+			"time": [ "fonts/bahnschrift20" ],
+			"yaxis": [ "fonts/bahnschrift20", 5, 12, 14 ],
+			"head": [ "fonts/calibrib50.vlw" ]
 		}
 	}
 }
