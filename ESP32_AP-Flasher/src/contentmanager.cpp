@@ -2262,9 +2262,22 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
     } else if (element.containsKey("box")) {
         const JsonArray &boxArray = element["box"];
         spr.fillRect(boxArray[0].as<int>(), boxArray[1].as<int>(), boxArray[2].as<int>(), boxArray[3].as<int>(), getColor(boxArray[4]));
+        if (boxArray.size()>=7) {
+            for (int i=0; i < boxArray[6].as<int>(); i++) {
+                spr.drawRect(boxArray[0].as<int>() + i, boxArray[1].as<int>() + i, boxArray[2].as<int>() - 2 * i, boxArray[3].as<int>() - 2 * i, getColor(boxArray[5]));
+            }
+        }
     } else if (element.containsKey("rbox")) {
         const JsonArray &rboxArray = element["rbox"];
         spr.fillRoundRect(rboxArray[0].as<int>(), rboxArray[1].as<int>(), rboxArray[2].as<int>(), rboxArray[3].as<int>(), rboxArray[4].as<int>(), getColor(rboxArray[5]));
+        if (rboxArray.size() >= 8) {
+            for (int i = 0; i < rboxArray[7].as<int>(); i++) {
+                spr.drawRoundRect(rboxArray[0].as<int>() + i, rboxArray[1].as<int>() + i, rboxArray[2].as<int>() - 2 * i, rboxArray[3].as<int>() - 2 * i, rboxArray[4].as<int>() - i / 1.41, getColor(rboxArray[6]));
+                if (i > 0) {
+                    spr.drawRoundRect(rboxArray[0].as<int>() + i - 1, rboxArray[1].as<int>() + i, rboxArray[2].as<int>() - 2 * i + 2, rboxArray[3].as<int>() - 2 * i, rboxArray[4].as<int>() - i / 1.41, getColor(rboxArray[6]));
+                }
+            }
+        }
     } else if (element.containsKey("line")) {
         const JsonArray &lineArray = element["line"];
         spr.drawLine(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), getColor(lineArray[4]));
