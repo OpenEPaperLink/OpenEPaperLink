@@ -1366,14 +1366,16 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                         int16_t eventY = calTop + calYOffset + (line - 1) * lineHeight + 3;
                         uint16_t background = TFT_WHITE;
                         uint16_t border = TFT_BLACK;
-                        if (imageParams.hwdata.bpp >= 3 && loc["colors1"].is<JsonArray>() && loc["colors1"].size() > calendarId) {
+                        uint16_t textcolor = TFT_BLACK;
+                        if (loc["colors1"].is<JsonArray>() && loc["colors1"].size() > calendarId) {
                             background = getColor(loc["colors1"][calendarId]);
                             border = getColor(loc["colors2"][calendarId]);
+                            textcolor = getColor(loc["colors3"][calendarId]);
                             Serial.println("cal " + String(calendarId) + ": " + String(loc["colors2"][calendarId]));
                         }
                         spr.fillRect(eventX - 1, eventY - 2, colWidth * (fulldayend - fulldaystart) - 3, lineHeight - 1, background);
                         spr.drawRect(eventX - 2, eventY - 3, colWidth * (fulldayend - fulldaystart) - 1, lineHeight + 1, border);
-                        drawTextBox(spr, eventtitle, eventX, eventY, colWidth * (fulldayend - fulldaystart) - 3, 15, loc["gridparam"][4], TFT_BLACK);
+                        drawTextBox(spr, eventtitle, eventX, eventY, colWidth * (fulldayend - fulldaystart) - 3, 15, loc["gridparam"][4], textcolor);
 
                         block[i] = line;
                         if (line > maxBlock) maxBlock = line;
@@ -1445,9 +1447,11 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                         int16_t eventY = calTop + calYOffset + (starttime * hourHeight / 60);
                         uint16_t background = TFT_WHITE;
                         uint16_t border = TFT_BLACK;
-                        if (imageParams.hwdata.bpp >= 3 && loc["colors1"].is<JsonArray>() && loc["colors1"].size() > calendarId) {
+                        uint16_t textcolor = TFT_BLACK;
+                        if (loc["colors1"].is<JsonArray>() && loc["colors1"].size() > calendarId) {
                             background = getColor(loc["colors1"][calendarId]);
                             border = getColor(loc["colors2"][calendarId]);
+                            textcolor = getColor(loc["colors3"][calendarId]);
                             Serial.println("cal " + String(calendarId) + ": " + String(loc["colors2"][calendarId]));
                         }
                         spr.fillRect(eventX + 2, eventY + 1, colWidth - 3, (duration * hourHeight / 60) - 1, background);
@@ -1456,13 +1460,13 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                         eventY += 2;
                         if (day == fulldaystart) {
                             eventtitle = formattedTimeString + " " + String(eventtitle);
-                            drawTextBox(spr, formattedTimeString, eventX, eventY, colWidth - 1, (duration * hourHeight / 60) - 1, loc["gridparam"][4], TFT_BLACK, TFT_WHITE, 1);
+                            drawTextBox(spr, formattedTimeString, eventX, eventY, colWidth - 1, (duration * hourHeight / 60) - 1, loc["gridparam"][4], textcolor, TFT_WHITE, 1);
                             eventX++;
                             eventY = calTop + calYOffset + (starttime * hourHeight / 60) + 2;
                         } else {
                             eventtitle = obj["title"].as<String>();
                         }
-                        drawTextBox(spr, eventtitle, eventX, eventY, colWidth - 1, (duration * hourHeight / 60) - 1, loc["gridparam"][4], TFT_BLACK, TFT_WHITE, 1);
+                        drawTextBox(spr, eventtitle, eventX, eventY, colWidth - 1, (duration * hourHeight / 60) - 1, loc["gridparam"][4], textcolor, TFT_WHITE, 1);
                     }
                 }
             }
