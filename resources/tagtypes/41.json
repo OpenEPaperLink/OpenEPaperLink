@@ -17,8 +17,26 @@
 	"usetemplate": 51,
 	"template": {
 		"1": {
-			"weekday": [ 400, 20, "Signika-SB.ttf", 90 ],
-			"date": [ 400, 150, "Signika-SB.ttf", 70 ]
+			"weekday": [ 396, 20, "Signika-SB.ttf", 90 ],
+			"date": [ 396, 150, "Signika-SB.ttf", 70 ]
+		},
+		"2": {
+			"fonts": [ "Signika-SB.ttf", 250, 250, 250, 250, 250, 250 ],
+			"xy": [ 396, 120 ]
+		},
+    		"8": {
+			"location": [ 10, 10, "fonts/calibrib16" ],
+			"column": [ 5, 158 ],
+			"day": [ 79, 40, "fonts/bahnschrift30", 79, 230 ],
+			"icon": [ 79, 100, 80 ],
+			"wind": [ 40, 34 ],
+			"line": [ 20, 252 ]
+		},
+		"11": {
+			"rotate": 0,
+			"mode": 1,
+			"days": 7,
+			"gridparam": [ 7, 19, 30, "calibrib16.vlw", "REFSAN12.vlw", 16 ]
 		}
 	}
 }
