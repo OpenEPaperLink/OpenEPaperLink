@@ -1,6 +1,6 @@
 # Tag Flasher
 
-You can use the following flasher-scripts to program various types of tags with the Tag-Flasher or AP-Flasher. The Tag-Flasher is the easiest to build; it uses only a Wemos S2-Mini or clone to program quite a few different tags. The tags below are the tags that can be programmed with this flasher.
+You can use the following flasher-scripts to program various types of tags with the Tag-Flasher or AP-Flasher. The Tag-Flasher is the easiest to build; it uses only a Wemos S2-Mini or clone to program quite a few different tags. The tags below can be programmed with this flasher.
 
 * ZBS243-based tags
 * nRF52-based tags
@@ -36,7 +36,7 @@ Not all connections are required by all tags! If you want to solder fewer wires,
 
 ## Flashing the flasher
 
-Clone the [Tag_Flasher repo](https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Tag_Flasher/ESP32_Flasher) and open into PlatformIO. Choose the correct COM-port and hit 'Upload'.
+Clone the [Tag_Flasher repo](https://github.com/jjwbruijn/OpenEPaperLink/tree/master/Tag_Flasher/ESP32_Flasher) and open it into PlatformIO. Choose the correct COM-port and hit 'Upload'.
 Also, the precompiled binaries are part of any [release](https://github.com/jjwbruijn/OpenEPaperLink/releases), and to make it even easier, you can use the web flasher on [https://install.openepaperlink.de](https://install.openepaperlink.de) to even flash it without installing any extra software.
 
 ## OEPL-Flasher.py
@@ -106,9 +106,9 @@ python3 .\88MZ100-OEPL-Flasher.py COM31 write_flash '0130c8144117.bin'
 
 ## TI CC1110-based
 
-Use with the -c option for CC1110. Neigher Autoflash is currently not implemented on the Tag_Flasher/S2 version.
+Use the -c option for CC1110. Neigher Autoflash is currently not implemented on the Tag_Flasher/S2 version.
 
-The CC1110 does not have an infopage nor is the Tag's EEPROM accessable.
+The CC1110 does not have an infopage nor is the Tag's EEPROM accessible.
 
 ```shell
 python3 OEPL-Flasher.py -e -c -p COM31 read blaat.bin --flash
