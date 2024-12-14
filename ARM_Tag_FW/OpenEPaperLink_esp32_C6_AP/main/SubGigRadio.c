@@ -13,13 +13,15 @@
 
 #include "radio.h"
 #include "proto.h"
+#include "utils.h"
+#include "second_uart.h"
 #include "cc1101_radio.h"
 #include "SubGigRadio.h"
 
 void DumpHex(void *AdrIn,int Len);
+bool CC1101_QuickCheck(void);
 
-#define LOGE(format, ... ) \
-   printf("%s#%d: " format,__FUNCTION__,__LINE__,## __VA_ARGS__)
+#define wait_Miso(level) CC1101_WaitMISO(__FUNCTION__,__LINE__,level)
 
 #if 0
 #define LOG(format, ... ) printf("%s: " format,__FUNCTION__,## __VA_ARGS__)
@@ -31,13 +33,15 @@ void DumpHex(void *AdrIn,int Len);
 #define LOG_HEX(x,y)
 #endif
 
-
 // SPI Stuff
 #if CONFIG_SPI2_HOST
    #define HOST_ID SPI2_HOST
 #elif CONFIG_SPI3_HOST
    #define HOST_ID SPI3_HOST
 #endif
+
+// Wait for up to 2 milliseconds for MISO to go low
+#define MISO_WAIT_TIMEOUT  2
 
 // Address Config = No address check 
 // Base Frequency = xxx.xxx
@@ -247,10 +251,10 @@ SubGigErr SubGig_radio_init(uint8_t ch)
    SubGigErr Ret = SUBGIG_ERR_NONE;
 
    do {
-      gpio_reset_pin(CONFIG_CSN_GPIO);
-      gpio_set_direction(CONFIG_CSN_GPIO, GPIO_MODE_OUTPUT);
-      gpio_set_level(CONFIG_CSN_GPIO, 1);
-
+      if(!CC1101_QuickCheck()) {
+         Ret = SUBGIG_CC1101_NOT_FOUND;
+         break;
+      }
       spi_bus_config_t buscfg = {
          .sclk_io_num = CONFIG_SCK_GPIO,
          .mosi_io_num = CONFIG_MOSI_GPIO,
@@ -297,6 +301,7 @@ SubGigErr SubGig_radio_init(uint8_t ch)
       }
       // Check Chip ID
       if(!CC1101_Present()) {
+         LOGE("CC1101 not detected\n");
          Ret = SUBGIG_CC1101_NOT_FOUND;
          break;
       }
@@ -314,7 +319,7 @@ SubGigErr SubGig_radio_init(uint8_t ch)
    } while(false);
 
    if(ErrLine != 0) {
-      LOG("%s#%d: failed %d\n",__FUNCTION__,ErrLine,Err);
+      LOGA("%s#%d: failed %d\n",__FUNCTION__,ErrLine,Err);
       if(Err == 0) {
          Ret = ESP_FAIL;
       }
@@ -477,7 +482,7 @@ int CheckSubGigState()
    }
 
    if(Err != SUBGIG_ERR_NONE) {
-      LOG("CheckSubGigState: returing %d\n",Err);
+      LOGE("Returning %d\n",Err);
    }
 
    return Err;
@@ -557,6 +562,97 @@ void DumpHex(void *AdrIn,int Len)
       i += 16;
       LOG_RAW("\n");
    }
+}
+
+
+// Quick and hopefully safe check if a CC1101 is present.
+// Only the CSN and MISO GPIOs are configured for this test.
+// If they are and there's a CC1101 then MISO should go low when
+// CSN is low
+bool CC1101_QuickCheck()
+{
+// Init CSn and MISO
+   esp_err_t Err = ESP_OK;
+   bool Ret = false;
+   int Line = 0;
+   int MisoLevel;
+
+   do {
+      Err = gpio_reset_pin(CONFIG_MISO_GPIO);
+      if(Err != ESP_OK) {
+         Line = __LINE__;
+         break;
+      }
+      
+      Err = gpio_set_direction(CONFIG_MISO_GPIO,GPIO_MODE_INPUT);
+      if(Err != ESP_OK) {
+         Line = __LINE__;
+         break;
+      }
+
+      Err = gpio_set_pull_mode(CONFIG_MISO_GPIO,GPIO_PULLUP_ONLY);
+      if(Err != ESP_OK) {
+         Line = __LINE__;
+         break;
+      }
+
+      Err = gpio_reset_pin(CONFIG_CSN_GPIO);
+      if(Err != ESP_OK) {
+         Line = __LINE__;
+         break;
+      }
+      Err = gpio_set_direction(CONFIG_CSN_GPIO,GPIO_MODE_OUTPUT);
+      if(Err != ESP_OK) {
+         Line = __LINE__;
+         break;
+      }
+      Err = gpio_set_level(CONFIG_CSN_GPIO,1);
+      if(Err != ESP_OK) {
+         Line = __LINE__;
+         break;
+      }
+
+   // The CC1101 is not selected and MISO has a pullup so it should be high
+      if(wait_Miso(1) != 1) {
+         LOGA("Error: SubGhz MISO stuck low\n");
+         break;
+      }
+   // Select the CC1101
+      Err = gpio_set_level(CONFIG_CSN_GPIO,0);
+      if(Err != ESP_OK) {
+         Line = __LINE__;
+         break;
+      }
+      MisoLevel = wait_Miso(0);
+
+   // Deselect the CC1101
+      Err = gpio_set_level(CONFIG_CSN_GPIO,1);
+      if(Err != ESP_OK) {
+         Line = __LINE__;
+         break;
+      }
+
+      if(MisoLevel == 0) {
+         Ret = true;
+      }
+   } while(false);
+
+
+   if(Line != 0) {
+      LOGA("%s#%d: gpio call failed (0x%x)\n",__FUNCTION__,__LINE__,Err);
+   }
+
+   if(Ret) {
+   // Disable pullup, it's no longer needed
+      gpio_set_pull_mode(CONFIG_MISO_GPIO,GPIO_FLOATING);
+   }
+   else {
+   // CC1101 not present, deinit MISO and CSn GPIOs
+      LOGE("CC1101 not detected\n");
+      gpio_reset_pin(CONFIG_MISO_GPIO);
+      gpio_reset_pin(CONFIG_CSN_GPIO);
+   }
+   return Ret;
 }
 #endif // CONFIG_OEPL_SUBGIG_SUPPORT
 

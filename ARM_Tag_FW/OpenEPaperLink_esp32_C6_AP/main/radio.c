@@ -54,7 +54,11 @@ void esp_ieee802154_transmit_failed(const uint8_t *frame, esp_ieee802154_tx_erro
 void esp_ieee802154_transmit_done(const uint8_t *frame, const uint8_t *ack, esp_ieee802154_frame_info_t *ack_frame_info) {
     isInTransmit = 0;
     ESP_EARLY_LOGI(TAG, "TX %d", frame[0]);
-   esp_ieee802154_receive_handle_done(ack);
+    if(ack != NULL) {
+       if(esp_ieee802154_receive_handle_done(ack)) {
+          ESP_EARLY_LOGI(TAG, "esp_ieee802154_receive_handle_done() failed");
+       }
+    }
 }
 static bool zigbee_is_enabled = false;
 void radio_init(uint8_t ch) {

@@ -34,15 +34,12 @@
 #include <stdbool.h>
 #include <driver/spi_master.h>
 #include "proto.h"
+#include "utils.h"
+#include "second_uart.h"
 #include "cc1101_radio.h"
 #include "radio.h"
 
 #define ENABLE_LOGGING  0
-
-// LOGA - generic logging, always enabled
-#define LOGA(format, ... ) printf(format,## __VA_ARGS__)
-// LOGE - error logging, always enabled
-#define LOGE(format, ... ) printf("%s: " format,__FUNCTION__,## __VA_ARGS__)
 
 #if ENABLE_LOGGING
 #define LOG(format, ... ) printf("%s: " format,__FUNCTION__,## __VA_ARGS__)
@@ -197,7 +194,7 @@ uint8_t CC1101_readReg(uint8_t regAddr, uint8_t regType);
 void CC1101_writeReg(uint8_t regAddr, uint8_t value);
 void CC1101_setTxState(void);
 
-void setIdleState(void);
+static void setIdleState(void);
 
 spi_device_handle_t gSpiHndl;
 
@@ -288,7 +285,7 @@ static uint8_t gRfState;
 
 #define cc1101_Select()    gpio_set_level(CONFIG_CSN_GPIO, LOW)
 #define cc1101_Deselect()  gpio_set_level(CONFIG_CSN_GPIO, HIGH)
-#define wait_Miso()        while(gpio_get_level(CONFIG_MISO_GPIO)>0)
+#define wait_Miso()        CC1101_WaitMISO(__FUNCTION__,__LINE__,0)
 #define getGDO0state()     gpio_get_level(CONFIG_GDO0_GPIO)
 #define wait_GDO0_high()   while(!getGDO0state())
 #define wait_GDO0_low()    while(getGDO0state())
@@ -633,7 +630,7 @@ int CC1101_Rx(uint8_t *RxBuf,size_t RxBufLen,uint8_t *pRssi,uint8_t *pLqi)
 // Any data waiting to be read and no overflow?
    do {
       if(rxBytes & CC1101_RXFIFO_OVERFLOW_MASK) {
-         LOGE("RxFifo overflow\n");
+      // This occurs occasionally due to random noise, so do don't log
          Ret = -2;
          break;
       }
@@ -784,6 +781,25 @@ void CC1101_logState()
       LOG("MarcState 0x%x -> 0x%x\n",LastMarcState,MarcState);
       LastMarcState = MarcState;
    }
+}
+
+
+// Wait for up to 2 milliseconds for MISO to go low
+#define MISO_WAIT_TIMEOUT  2
+int CC1101_WaitMISO(const char *Func,int Line,int level)
+{
+   uint32_t Start = getMillis();
+   int MisoLevel;
+   
+   while((MisoLevel = gpio_get_level(CONFIG_MISO_GPIO)) != level) {
+      if((getMillis() - Start) >= MISO_WAIT_TIMEOUT) {
+         LOGA("%s#%d: timeout waiting for MISO to go %s\n",
+              Func,Line,level ? "high" : "low");
+         break;
+      }
+   }
+
+   return MisoLevel;
 }
 
 #endif // CONFIG_OEPL_SUBGIG_SUPPORT
