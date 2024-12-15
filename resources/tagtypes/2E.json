@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"name": "M3 9.7\"",
 	"width": 960,
 	"height": 672,
@@ -35,7 +35,7 @@
 			"rotate": 0,
 			"mode": 1,
 			"days": 7,
-			"gridparam": [ 7, 19, 30, "calibrib16.vlw", "REFSAN12.vlw", 16 ]
+			"gridparam": [ 0, 50, 50, "fonts/calibrib40", "REFSAN12.vlw", 20 ]
 		}
 	}
 }
