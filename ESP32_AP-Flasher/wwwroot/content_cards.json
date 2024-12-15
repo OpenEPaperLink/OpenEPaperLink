@@ -607,6 +607,19 @@
     ]
   },
   {
+    "id": 28,
+    "name": "Set Tag Mac",
+    "desc": "Sets the tags mac-address to a specific value. Must be 16 characters, hexdecimal (8 bytes)",
+    "param": [
+      {
+        "key": "mac",
+        "name": "MAC",
+        "desc": "Set Mac address",
+        "type": "text"
+      }
+    ]
+  },
+  {
     "id": 18,
     "name": "Set Tag Config",
     "desc": "Sets tag options. The options you see below are the default options. This may or may not match current tag settings",

@@ -752,6 +752,35 @@ bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* 
     }
 }
 
+bool sendTagMac(const uint8_t* dst, const uint64_t newmac, bool local) {
+    struct pendingData pending = {0};
+    memcpy(pending.targetMac, dst, 8);
+    pending.availdatainfo.dataType = DATATYPE_COMMAND_DATA;
+    pending.availdatainfo.dataTypeArgument = 0x23;
+    pending.availdatainfo.nextCheckIn = 0;
+    
+
+    pending.availdatainfo.dataVer = newmac;
+    pending.availdatainfo.dataSize = 0;
+
+    pending.attemptsLeft = MAX_XFER_ATTEMPTS;
+    Serial.printf(">Tag %02X%02X%02X%02X%02X%02X%02X%02X Mac set\r\n\0", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0]);
+
+    tagRecord* taginfo = tagRecord::findByMAC(dst);
+    if (taginfo != nullptr) {
+        taginfo->pendingCount++;
+        wsSendTaginfo(taginfo->mac, SYNC_TAGSTATUS);
+    }
+
+    if (local) {
+        return queueDataAvail(&pending, true);
+    } else {
+        queueDataAvail(&pending, false);
+        udpsync.netSendDataAvail(&pending);
+        return true;
+    }
+}
+
 void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP) {
     tagRecord* taginfo = tagRecord::findByMAC(taginfoitem->mac);
 
