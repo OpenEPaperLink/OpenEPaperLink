@@ -474,7 +474,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
             lastBlockRequest = getMillis();
         } else {
             // we're talking to another mac, let this mac know we can't accomodate another request right now
-            pr("BUSY!\n");
+            pr("BUSY!\n\r");
             sendCancelXfer(rxHeader->src);
             return;
         }
@@ -496,9 +496,9 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
         if (forceBlockDownload) {
             if ((getMillis() - nextBlockAttempt) > 380) {
                 requestDataDownload = true;
-                pr("FORCED\n");
+                pr("FORCED\n\r");
             } else {
-                pr("IGNORED\n");
+                pr("IGNORED\n\r");
             }
         }
     }
@@ -647,7 +647,7 @@ void sendPart(uint8_t partNo) {
 }
 void sendBlockData() {
     if (getBlockDataLength() == 0) {
-        pr("Invalid block request received, 0 parts..\n");
+        pr("Invalid block request received, 0 parts..\n\r");
         requestedData.requestedParts[0] |= 0x01;
     }
 
@@ -660,7 +660,7 @@ void sendBlockData() {
             pr(".");
         }
     }
-    pr("\n");
+    pr("\n\r");
 
     uint8_t partNo = 0;
     while (partNo < BLOCK_MAX_PARTS) {

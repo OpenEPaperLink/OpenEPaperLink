@@ -42,7 +42,7 @@
 #define ENABLE_LOGGING  0
 
 #if ENABLE_LOGGING
-#define LOG(format, ... ) printf("%s: " format,__FUNCTION__,## __VA_ARGS__)
+#define LOG(format, ... ) printf("%s: " format "\r",__FUNCTION__,## __VA_ARGS__)
 #define LOG_RAW(format, ... ) printf(format,## __VA_ARGS__)
 #else
 #define LOG(format, ... )
@@ -637,7 +637,6 @@ int CC1101_Rx(uint8_t *RxBuf,size_t RxBufLen,uint8_t *pRssi,uint8_t *pLqi)
 
       if(rxBytes < 2) {
       // should have at least 2 bytes, packet len and one byte of data
-         LOGE("Internal error, rxBytes = %d\n",rxBytes);
          Ret = -2;
          break;
       }

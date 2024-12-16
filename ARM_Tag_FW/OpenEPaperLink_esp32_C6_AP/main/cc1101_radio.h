@@ -31,11 +31,11 @@
 
 // Log to all
 #define LOGA(format, ... ) \
-   uart_printf(format,## __VA_ARGS__)
+   uart_printf(format "\r",## __VA_ARGS__)
 
 // Error log to all
 #define LOGE(format, ... ) \
-   uart_printf("%s#%d: " format,__FUNCTION__,__LINE__,## __VA_ARGS__)
+   uart_printf("%s#%d: " format "\r",__FUNCTION__,__LINE__,## __VA_ARGS__)
 
 /**
  * CC1101 configuration registers
