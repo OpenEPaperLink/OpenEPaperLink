@@ -26,6 +26,7 @@ extern void processDataReq(struct espAvailDataReq* adr, bool local, IPAddress re
 extern void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local);
 
 extern bool sendTagCommand(const uint8_t* dst, uint8_t cmd, bool local, const uint8_t* payload = nullptr);
+bool sendTagMac(const uint8_t* dst, const uint64_t newmac, bool local);
 extern bool sendAPSegmentedData(const uint8_t* dst, String data, uint16_t icons, bool inverted, bool local);
 extern bool showAPSegmentedInfo(const uint8_t* dst, bool local);
 extern void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP);
