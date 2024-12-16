@@ -551,6 +551,14 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             }
             break;
 #endif
+        case 28:  // tag command
+        {
+            uint64_t newmac;
+            sscanf(cfgobj["mac"].as<String>().c_str(), "%llx", &newmac);
+            sendTagMac(mac, newmac, (taginfo->isExternal == false));
+            taginfo->nextupdate = 3216153600;
+            break;
+        }
     }
 
     taginfo->modeConfigJson = doc.as<String>();
