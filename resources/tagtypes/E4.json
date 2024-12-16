@@ -1,0 +1,55 @@
+{
+	"version": 1,
+	"name": "BLE TFT 128x128",
+	"width": 128,
+	"height": 128,
+	"rotatebuffer": 0,
+	"bpp": 2,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ]
+	},
+	"shortlut": 0,
+	"options": [ ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 10, 14, 17, 18, 19, 20, 21, 27 ],
+	"template": {
+		"1": {
+			"weekday": [ 64, 4, "fonts/calibrib30" ],
+			"month": [ 64, 101, "fonts/calibrib30" ],
+			"day": [ 64, 11, "Signika-SB.ttf", 94 ]
+		},
+		"2": {
+			"fonts": [ "Signika-SB.ttf", 150, 110, 80, 60, 50, 40 ],
+			"xy": [ 64, 55 ]
+		},
+		"4": {
+			"location": [ 8, 122, "t0_14b_tf" ],
+			"wind": [ 118, 8, "fonts/bahnschrift30" ],
+			"temp": [ 8, 8, "fonts/bahnschrift30" ],
+			"icon": [ 63, 22, 59, 1 ],
+			"dir": [ 93, -10, 34 ],
+			"umbrella": [ 105, 93, 25 ]
+		},
+		"10": {
+			"title": [ 64, 13, "t0_14b_tf" ],
+			"pos": [ 64, 17 ]
+		},
+		"21": [
+			{ "text": [ 2, 4, "OpenEpaperLink", "bahnschrift20", 1, 0, 0 ] },
+			{ "text": [ 2, 21, "Access Point", "bahnschrift20", 1, 0, 0 ] },
+			{ "text": [ 3, 55, "IP address:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 67, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 3, 80, "Channel:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 93, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 3, 105, "Tag count:", "glasstown_nbp_tf", 1, 0, 0 ] },
+			{ "text": [ 10, 118, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
+		],
+		"27": {
+			"bars": [ 3, 128, 59, 1, 42 ],
+			"time": [ "" ],
+			"yaxis": [ "tahoma9.vlw", 3, 6 ],
+			"head": [ "calibrib30.vlw" ]
+		}
+	}
+}
