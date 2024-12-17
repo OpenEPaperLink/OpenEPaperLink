@@ -29,6 +29,14 @@
 #ifndef __CC1101_RADIO_H_
 #define __CC1101_RADIO_H_
 
+// Log to all
+#define LOGA(format, ... ) \
+   uart_printf(format "\r",## __VA_ARGS__)
+
+// Error log to all
+#define LOGE(format, ... ) \
+   uart_printf("%s#%d: " format "\r",__FUNCTION__,__LINE__,## __VA_ARGS__)
+
 /**
  * CC1101 configuration registers
  */
@@ -113,6 +121,7 @@ void CC1101_DumpRegs(void);
 void CC1101_reset(void);
 void CC1101_logState(void);
 void CC1101_setRxState(void);
+int CC1101_WaitMISO(const char *Func,int Line,int level);
 
 #endif   // __CC1101_RADIO_H_
 
