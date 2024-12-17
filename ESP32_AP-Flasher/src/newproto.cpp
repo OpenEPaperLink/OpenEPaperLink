@@ -986,15 +986,17 @@ bool queueDataAvail(struct pendingData* pending, bool local) {
         taginfo->data = nullptr;
     } else {
         newPending.data = nullptr;
-
-        // optional: read data early, don't wait for block request.
-        fs::File file = contentFS->open(newPending.filename);
-        if (file) {
-            newPending.data = getDataForFile(file);
-            Serial.println("Reading file " + String(newPending.filename));
-            file.close();
-        } else {
-            Serial.println("Warning: not found: " + String(newPending.filename));
+        
+        if (pendingQueue.size() < 5) {   // maximized to 5 to save some memory
+            // optional: read data early, don't wait for block request.
+            fs::File file = contentFS->open(newPending.filename);
+            if (file) {
+                newPending.data = getDataForFile(file);
+                Serial.println("Reading file " + String(newPending.filename));
+                file.close();
+            } else {
+                Serial.println("Warning: not found: " + String(newPending.filename));
+            }
         }
     }
     newPending.len = taginfo->len;

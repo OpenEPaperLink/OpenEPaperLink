@@ -31,8 +31,6 @@
 #include "webflasher.h"
 #endif
 
-extern uint8_t data_to_send[];
-
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 WifiManager wm;

@@ -62,6 +62,9 @@ export async function initUpdate() {
                 print(`filesystem version: ${filesystemversion}`);
                 print(`psram size:         ${sdata.psramsize}`);
                 print(`flash size:         ${sdata.flashsize}`);
+                if (sdata.hasC6) {
+                    print(`ESP-C6/H2 version:  0x${parseInt(sdata.C6version).toString(16).toUpperCase()}`);
+                }
                 print("--------------------------", "gray");
                 env = apConfig.env || sdata.env;
                 if (sdata.env != env) {

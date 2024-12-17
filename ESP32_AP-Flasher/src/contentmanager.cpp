@@ -1378,8 +1378,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                         if (loc["colors1"].is<JsonArray>() && loc["colors1"].size() > calendarId) {
                             background = getColor(loc["colors1"][calendarId]);
                             border = getColor(loc["colors2"][calendarId]);
-                            textcolor = getColor(loc["colors3"][calendarId]);
-                            Serial.println("cal " + String(calendarId) + ": " + String(loc["colors2"][calendarId]));
+                            if (loc["colors3"][calendarId]) textcolor = getColor(loc["colors3"][calendarId]);
                         }
                         spr.fillRect(eventX - 1, eventY - 2, colWidth * (fulldayend - fulldaystart) - 3, lineHeight - 1, background);
                         spr.drawRect(eventX - 2, eventY - 3, colWidth * (fulldayend - fulldaystart) - 1, lineHeight + 1, border);
@@ -1459,8 +1458,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
                         if (loc["colors1"].is<JsonArray>() && loc["colors1"].size() > calendarId) {
                             background = getColor(loc["colors1"][calendarId]);
                             border = getColor(loc["colors2"][calendarId]);
-                            textcolor = getColor(loc["colors3"][calendarId]);
-                            Serial.println("cal " + String(calendarId) + ": " + String(loc["colors2"][calendarId]));
+                            if (loc["colors3"][calendarId]) textcolor = getColor(loc["colors3"][calendarId]);
                         }
                         spr.fillRect(eventX + 2, eventY + 1, colWidth - 3, (duration * hourHeight / 60) - 1, background);
                         spr.drawRect(eventX + 1, eventY, colWidth - 1, (duration * hourHeight / 60) + 1, border);
@@ -2295,6 +2293,14 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
     } else if (element.containsKey("circle")) {
         const JsonArray &circleArray = element["circle"];
         spr.fillCircle(circleArray[0].as<int>(), circleArray[1].as<int>(), circleArray[2].as<int>(), getColor(circleArray[3]));
+        if (circleArray.size() >= 6) {
+            for (int i = 0; i < circleArray[5].as<int>(); i++) {
+                spr.drawCircle(circleArray[0].as<int>(), circleArray[1].as<int>(), circleArray[2].as<int>() - i, getColor(circleArray[4]));
+                if (i > 0) {
+                    spr.drawCircle(circleArray[0].as<int>(), circleArray[1].as<int>(), circleArray[2].as<int>() - i - 0.5, getColor(circleArray[4]));
+                }
+            }
+        }
     } else if (element.containsKey("image")) {
         const JsonArray &imgArray = element["image"];
 

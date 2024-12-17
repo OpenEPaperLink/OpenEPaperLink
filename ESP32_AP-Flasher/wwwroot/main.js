@@ -1795,6 +1795,9 @@ function populateAPInfo(apip) {
 				version += `esp32 version:      ${data.buildversion}<br>`;
 				version += `psram size:         ${data.psramsize}<br>`;
 				version += `flash size:         ${data.flashsize}<br>`;
+				if (data.hasC6) {
+					version += `ESP-C6/H2 version: 0x${parseInt(data.C6version).toString(16).toUpperCase()}<br>`;
+				}
 				$('#ap' + apid + ' .apswversion').innerHTML = version;
 			}
 		})

@@ -43,6 +43,7 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["rollback"] = Update.canRollBack();
 #if defined C6_OTA_FLASHING
     doc["hasC6"] = 1;
+    doc["C6version"] = apInfo.version;
 #else
     doc["hasC6"] = 0;
 #endif
