@@ -1,0 +1,38 @@
+{
+	"version": 1,
+	"name": "GDEM1085Z51 10.85\"",
+	"width": 1360,
+	"height": 480,
+	"rotatebuffer": 0,
+	"bpp": 2,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ]
+	},
+	"shortlut": 0,
+	"options": [  ],
+	"contentids": [ 21, 1 ],
+	"template": {
+		"21": [
+			{ "line": [ 0, 0, 1359, 0, 2 ] },
+			{ "line": [ 0, 0, 0, 479, 2 ] },
+			{ "line": [ 1359, 0, 1359, 479, 2 ] },
+			{ "line": [ 0, 479, 1359, 479, 2 ] },
+
+			{ "text": [ 10, 15, "OpenEpaperLink AP", "calibrib30", 2 ] },
+			{ "text": [ 10, 70, "IP address:", "bahnschrift20",  1 ] },
+			{ "text": [ 120, 70, "{ap_ip}", "bahnschrift20",  2] },
+			{ "text": [ 10, 95, "Channel:", "bahnschrift20",  1 ] },
+			{ "text": [ 120, 95, "{ap_ch}", "bahnschrift20",   2 ] },
+			{ "text": [ 10, 120, "Tag count:", "bahnschrift20",   1] },
+			{ "text": [ 120, 120, "{ap_tagcount}", "bahnschrift20",  2 ] }
+		],
+		"1": {
+			"weekday": [ 680, -20, "Signika-SB.ttf", 240 ],
+			"date": [ 680, 240, "Signika-SB.ttf", 220 ]		  
+			}
+		}
+	
+}
+
