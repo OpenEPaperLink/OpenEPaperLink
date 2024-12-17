@@ -35,7 +35,7 @@
 			"rotate": 0,
 			"mode": 1,
 			"days": 7,
-			"gridparam": [ 0, 50, 50, "fonts/calibrib40", "REFSAN12.vlw", 20 ]
+			"gridparam": [ 3, 25, 40, "fonts/calibrib30", "REFSAN12.vlw", 16 ]
 		}
 	}
 }
