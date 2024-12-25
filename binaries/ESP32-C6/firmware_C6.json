@@ -10,6 +10,6 @@
 },
 {
 	"filename": "OpenEPaperLink_esp32_C6.bin",
-	"address": "0x10000"
-	"versoin": "001f"
+	"address": "0x10000",
+	"version": "001f"
 }]
