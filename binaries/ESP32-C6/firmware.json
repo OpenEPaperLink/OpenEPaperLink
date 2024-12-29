@@ -1,0 +1,15 @@
+[{
+	"filename": "bootloader.bin",
+	"address": "0x0",
+	"version": "0001"
+},
+{
+	"filename": "partition-table.bin",
+	"address": "0x8000",
+	"version": "0001"
+},
+{
+	"filename": "OpenEPaperLink_esp32_C6.bin",
+	"address": "0x10000",
+	"version": "001f"
+}]
