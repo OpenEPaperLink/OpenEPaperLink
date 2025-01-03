@@ -901,6 +901,18 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
                         if (request->hasParam("dither", true)) {
                             dither = request->getParam("dither", true)->value().toInt();
                         }
+                        if (request->hasParam("alias", true)) {
+                            taginfo->alias = request->getParam("alias", true)->value();
+                        }
+                        if (request->hasParam("rotate", true)) {
+                            taginfo->rotate = atoi(request->getParam("rotate", true)->value().c_str());
+                        }
+                        if (request->hasParam("lut", true)) {
+                            taginfo->lut = atoi(request->getParam("lut", true)->value().c_str());
+                        }
+                        if (request->hasParam("invert", true)) {
+                            taginfo->invert = atoi(request->getParam("invert", true)->value().c_str());
+                        }
                         uint32_t ttl = 0;
                         if (request->hasParam("ttl", true)) {
                             ttl = request->getParam("ttl", true)->value().toInt();
