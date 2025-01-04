@@ -117,7 +117,7 @@ export async function initUpdate() {
     } else {
         const release = releaseDetails[0];
         if (release?.tag_name) {
-            if (parseInt(release.tag_name) == parseInt(currentVer)) {
+            if (release.tag_name == currentVer) {
                 easyupdate.innerHTML = `Version ${currentVer}. You are up to date`;
             } else if (release.date < formatEpoch(currentBuildtime - 30 * 60)) {
                 easyupdate.innerHTML = `Your version is newer than the latest release date.<br>Are you the developer? :-)`;
