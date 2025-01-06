@@ -204,7 +204,7 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
 }
 
 bool FlashC6_H2(const char *RepoUrl) {
-    String JasonFilename = "/firmware_" SHORT_CHIP_NAME ".json" ;
+    String JsonFilename = "/firmware_" SHORT_CHIP_NAME ".json" ;
     bool Ret = false;
     bool bLoaderInit = false;
     bool bDownload = strlen(RepoUrl) > 0;
@@ -215,22 +215,22 @@ bool FlashC6_H2(const char *RepoUrl) {
 
     do {
         if(bDownload) {
-           String FileUrl = RepoUrl + JasonFilename;
-            if(!downloadAndWriteBinary(JasonFilename, FileUrl.c_str())) {
+           String FileUrl = RepoUrl + JsonFilename;
+            if(!downloadAndWriteBinary(JsonFilename, FileUrl.c_str())) {
                LOG("%s#%d: ",__FUNCTION__,__LINE__); util::printHeap();
                 break;
             }
         }
 
-        File readfile = contentFS->open(JasonFilename, "r");
+        File readfile = contentFS->open(JsonFilename, "r");
         if(!readfile) {
-            Serial.println("load " + JasonFilename + ": Failed to open file");
+            Serial.println("load " + JsonFilename + ": Failed to open file");
             break;
         }
         DeserializationError jsonError = deserializeJson(jsonDoc, readfile);
 
         if(jsonError) {
-            wsSerial(String("json error parsing") + JasonFilename);
+            wsSerial(String("json error parsing") + JsonFilename);
             break;
         }
 
