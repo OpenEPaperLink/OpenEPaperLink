@@ -386,7 +386,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
             size_t dataSize = spr.width() * spr.height() * (spr.getColorDepth() / 8);
             memcpy(spriteData2, spriteData, dataSize);
 
-#ifdef HAS_LILYGO_TPANEL
+#if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
             if (spr.getColorDepth() == 16) {
                 long dy = spr.height();
                 long dx = spr.width();

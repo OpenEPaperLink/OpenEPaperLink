@@ -93,6 +93,46 @@ extern Arduino_RGB_Display *gfx;
 
 #endif
 
+#ifdef HAS_4inch_TPANEL
+
+#define LV_ATTRIBUTE_TICK_INC IRAM_ATTR
+#define TOUCH_MODULES_CST_MUTUAL
+
+// esp32-4848S040
+#define LCD_WIDTH 480
+#define LCD_HEIGHT 480
+#define LCD_VSYNC 17
+#define LCD_HSYNC 16
+#define LCD_PCLK 21
+#define LCD_R0 11
+#define LCD_R1 12
+#define LCD_R2 13
+#define LCD_R3 14
+#define LCD_R4 0
+#define LCD_G0 8
+#define LCD_G1 20
+#define LCD_G2 3
+#define LCD_G3 46
+#define LCD_G4 9
+#define LCD_G5 10
+#define LCD_B0 4
+#define LCD_B1 5
+#define LCD_B2 6
+#define LCD_B3 7
+#define LCD_B4 15
+#define LCD_BL 38
+#define LCD_DE 18
+
+#define SPI_LCD_CS 39
+#define SPI_LCD_SCLK 48
+#define SPI_LCD_MOSI 47
+
+#include "Arduino_GFX_Library.h"
+
+extern Arduino_RGB_Display *gfx;
+
+#endif
+
 #ifdef HAS_TFT
 
 extern TFT_eSPI tft2;
