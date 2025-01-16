@@ -136,12 +136,13 @@ void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_
                     file.write(uploadInfo->buffer, uploadInfo->bufferSize);
                     file.close();
                     uploadInfo->bufferSize = 0;
+                    xSemaphoreGive(fsMutex);
                 } else {
+                    xSemaphoreGive(fsMutex);
                     logLine("Failed to open file for appending: " + uploadfilename);
                     final = true;
                     error = true;
                 }
-                xSemaphoreGive(fsMutex);
 
                 memcpy(uploadInfo->buffer, data, len);
                 uploadInfo->bufferSize = len;
@@ -154,11 +155,12 @@ void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_
                 if (file) {
                     file.write(uploadInfo->buffer, uploadInfo->bufferSize);
                     file.close();
+                    xSemaphoreGive(fsMutex);
                 } else {
+                    xSemaphoreGive(fsMutex);
                     logLine("Failed to open file for appending: " + uploadfilename);
                     error = true;
                 }
-                xSemaphoreGive(fsMutex);
                 request->_tempObject = nullptr;
                 delete uploadInfo;
             }
@@ -317,7 +319,7 @@ void C6firmwareUpdateTask(void* parameter) {
         Serial1.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
         rxSerialStopTask2 = false;
 #ifdef FLASHER_DEBUG_RXD
-        xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, 2, NULL);
+        xTaskCreate(rxSerialTask2, "rxSerialTask2", 1850, NULL, 2, NULL);
 #endif
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
