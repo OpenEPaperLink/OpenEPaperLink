@@ -128,7 +128,10 @@
     "82": {
       "type": "chroma29_ota",
       "version": "0010",
-      "md5": "0d4af3e5285ca20ac56926e6fdd71dbc"
+      "md5": "0d4af3e5285ca20ac56926e6fdd71dbc",
+      "type_1": "chroma29_8151_ota",
+      "version_1": "0013",
+      "md5_1": "b3dffd044829449998edc1c91d537004"
     },
     "83": {
       "type": "chroma42_ota",

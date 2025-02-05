@@ -514,13 +514,21 @@ void init_web() {
         UDPcomm udpsync;
         udpsync.getAPList();
         AsyncResponseStream *response = request->beginResponseStream("application/json");
+        String HasC6 = "0";
+        String HasH2 = "0";
+        String HasTSLR = "0";
 
         response->print("{");
-#ifdef C6_OTA_FLASHING
-        response->print("\"C6\": \"1\", ");
-#else
-        response->print("\"C6\": \"0\", ");
+#ifdef HAS_H2
+        HasH2 = "1";
+#elif defined(HAS_TSLR)
+        HasTSLR = "1";
+#elif defined(C6_OTA_FLASHING)
+        HasC6 = "1";
 #endif
+        response->print("\"C6\": \"" + HasC6 + "\", ");
+        response->print("\"H2\": \"" + HasH2 + "\", ");
+        response->print("\"TLSR\": \"" + HasTSLR + "\", ");
 #ifdef SAVE_SPACE
         response->print("\"savespace\": \"1\", ");
 #else
@@ -900,6 +908,18 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
                         uint8_t dither = 1;
                         if (request->hasParam("dither", true)) {
                             dither = request->getParam("dither", true)->value().toInt();
+                        }
+                        if (request->hasParam("alias", true)) {
+                            taginfo->alias = request->getParam("alias", true)->value();
+                        }
+                        if (request->hasParam("rotate", true)) {
+                            taginfo->rotate = atoi(request->getParam("rotate", true)->value().c_str());
+                        }
+                        if (request->hasParam("lut", true)) {
+                            taginfo->lut = atoi(request->getParam("lut", true)->value().c_str());
+                        }
+                        if (request->hasParam("invert", true)) {
+                            taginfo->invert = atoi(request->getParam("invert", true)->value().c_str());
                         }
                         uint32_t ttl = 0;
                         if (request->hasParam("ttl", true)) {

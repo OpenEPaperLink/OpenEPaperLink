@@ -488,6 +488,14 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 if (!util::isEmptyOrNull(configUrl)) {
                     DynamicJsonDocument json(1000);
                     Serial.println("Get json url + file");
+
+                    int index = configUrl.indexOf("{mac}");
+                    if (index != -1) {
+                        char macStr[17];
+                        mac2hex(mac, macStr);
+                        configUrl.replace("{mac}", macStr);
+                    }
+
                     if (util::httpGetJson(configUrl, json, 1000)) {
                         taginfo->nextupdate = now + interval;
                         if (getJsonTemplateFileExtractVariables(filename, configFilename, json, taginfo, imageParams)) {

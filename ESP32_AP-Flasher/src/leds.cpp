@@ -133,7 +133,7 @@ void rgbIdleStep() {
 void setBrightness(int brightness) {
     maxledbrightness = brightness;
     
-#ifdef HAS_LILYGO_TPANEL
+#if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
     ledcWrite(1, config.tft);
 #else
   #ifdef HAS_TFT
@@ -150,7 +150,7 @@ void updateBrightnessFromConfig() {
     if (newbrightness != maxledbrightness) {
         setBrightness(newbrightness);
     }
-#ifdef HAS_LILYGO_TPANEL
+#if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
     ledcWrite(1, config.tft);
 #else
   #ifdef HAS_TFT
