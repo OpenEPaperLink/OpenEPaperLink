@@ -322,7 +322,7 @@ void init_web() {
                                     return;
                                 }
                             }
-                            request->send_P(200, "application/octet-stream", queueItem->data, queueItem->len);
+                            request->send(200, "application/octet-stream", queueItem->data, queueItem->len);
                             return;
                         }
                     } else {
@@ -336,7 +336,7 @@ void init_web() {
                             taginfo->data = getDataForFile(file);
                             file.close();
                         }
-                        request->send_P(200, "application/octet-stream", taginfo->data, taginfo->len);
+                        request->send(200, "application/octet-stream", taginfo->data, taginfo->len);
                         return;
                     }
                 }
