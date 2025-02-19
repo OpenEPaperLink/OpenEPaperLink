@@ -1,8 +1,8 @@
 {
-	"version": 4,
+	"version": 5,
 	"name": "TLSR BWR 4.2\"",
 	"width": 400,
-	"height": 304,
+	"height": 300,
 	"rotatebuffer": 0,
 	"bpp": 2,
 	"colortable": {
