@@ -18,6 +18,9 @@ menu "OEPL Hardware config"
 
     config OEPL_HARDWARE_PROFILE_4inch
       bool "4inchAP"
+      
+    config OEPL_HARDWARE_PROFILE_ELECROW_C6
+      bool "ELECROW-C6-AP"
 
   endchoice
 

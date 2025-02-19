@@ -791,6 +791,12 @@ bool bringAPOnline() {
     if (apInfo.state == AP_STATE_FLASHING) return false;
 
     if(gSerialTaskState != SERIAL_STATE_INITIALIZED) {
+#ifdef HAS_ELECROW_ADV_2_8
+    // Set GPIO45 low to connect the wireless interface to the multiplexed pins
+       pinMode(45, OUTPUT);
+       digitalWrite(45, LOW);
+#endif
+
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
        AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 #elif defined(HAS_EXT_FLASHER)
