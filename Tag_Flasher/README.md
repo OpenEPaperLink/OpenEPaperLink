@@ -106,9 +106,12 @@ python3 .\88MZ100-OEPL-Flasher.py COM31 write_flash '0130c8144117.bin'
 
 ## TI CC1110-based
 
-Use with the -c option for CC1110. Neigher Autoflash is currently not implemented on the Tag_Flasher/S2 version.
+> [!IMPORTANT]
+> Tag flasher version 50 or later is required for CC1110 support.
+> 
+Use with the -c option for CC1110. 
 
-The CC1110 does not have an infopage nor is the Tag's EEPROM accessable.
+The CC1110 does not have an infopage nor is the Tag's EEPROM accessable. Autoflash is currently not implemented for the CC1110.
 
 ```shell
 python3 OEPL-Flasher.py -e -c -p COM31 read blaat.bin --flash
