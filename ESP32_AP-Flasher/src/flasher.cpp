@@ -10,6 +10,7 @@
 #include "storage.h"
 #include "time.h"
 #include "zbs_interface.h"
+#include <WiFi.h>
 
 #ifdef HAS_EXT_FLASHER
 #include "webflasher.h"
@@ -265,7 +266,7 @@ bool flasher::getFirmwareMac() {
 void flasher::getMacFromWiFi() {
     mac[0] = 0x00;
     mac[1] = 0x00;
-    esp_read_mac(mac + 2, ESP_MAC_WIFI_SOFTAP);
+    WiFi.softAPmacAddress(mac + 2);
 }
 
 bool flasher::backupFlash() {
