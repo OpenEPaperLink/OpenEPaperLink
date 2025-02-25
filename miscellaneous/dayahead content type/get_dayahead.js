@@ -69,7 +69,7 @@ function doGet(e) {
   var root = document.getRootElement();
 
   var timeSeriesList = getDescendantsByTagName(root, 'TimeSeries');
-
+  
   if (timeSeriesList.length > 0) {
     var jsonData = [];
 
@@ -81,15 +81,18 @@ function doGet(e) {
 
       if (period) {
         var startTime = period.getChild('timeInterval').getChildText('start');
+        var resolution = period.getChildText('resolution');
+	      var stepSeconds = resolution === "PT15M" ? 900 : 3600;
+        logger("Resolution: " + resolution + " (" + stepSeconds + " seconds per step)");
         logger(startTime);
         var points = period.getChildren('Point');
 
         for (var i = 0; i < points.length; i++) {
-          var position = points[i].getChildText('position');
+          var position = parseInt(points[i].getChildText('position'), 10);
           var priceAmount = points[i].getChildText('price.amount') * factor;
 
           // Convert ISO date to epoch time (in seconds)
-          var epochTime = new Date(startTime).getTime() / 1000 + (position - 1) * 3600;
+          var epochTime = new Date(startTime).getTime() / 1000 + (position - 1) * stepSeconds;
 
           jsonData.push({
             time: epochTime,
