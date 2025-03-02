@@ -165,7 +165,7 @@ Arduino_ESP32RGBPanel* rgbpanel = new Arduino_ESP32RGBPanel(
     0 /* de_idle_high*/, 0 /* pclk_idle_high */);
 Arduino_RGB_Display* gfx = new Arduino_RGB_Display(
     LCD_WIDTH /* width */, LCD_HEIGHT /* height */, rgbpanel, 0 /* rotation */, true /* auto_flush */,
-    bus, -1 /* RST */, st7701_4848S040_init, sizeof(st7701_4848S040_init));
+    bus, -1 /* RST */, st7701_type9_init_operations_lilygo, sizeof(st7701_type9_init_operations_lilygo));
 
 #else
 static const uint8_t st7701_4848S040_init[] = {
