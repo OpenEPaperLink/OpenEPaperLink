@@ -21,6 +21,15 @@
 			"month": [ 480, 480, "Signika-SB.ttf", 160 ],
 			"day": [ 480, 110, "Signika-SB.ttf", 380 ]
 		},
+		"8": {
+			"location": [ 15, 0, "fonts/calibrib80" ],
+			"column": [ 7, 137 ],
+			"day": [ 63, 165, "fonts/calibrib40", 225, 468 ],
+			"rain": [ 72, 540 ],
+			"icon": [ 67, 310, 90 ],
+			"wind": [ 25, 180 ],
+			"line": [ 143, 672 ]
+		},
 		"9": {
 			"title": [ 6, 0, "Signika-SB.ttf", 32 ],
 			"items": 12,
