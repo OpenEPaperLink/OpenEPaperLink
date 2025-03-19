@@ -1660,7 +1660,10 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     for (double i = minPrice; i <= maxPrice; i += yAxisScale.step) {
         int y = mapDouble(i, minPrice, maxPrice, spr.height() - barBottom, spr.height() - barBottom - loc["bars"][2].as<int>());
         spr.drawLine(0, y, spr.width(), y, TFT_BLACK);
-        if (loc["yaxis"][0]) drawString(spr, String(int(i * units)), yAxisX, y - yAxisY, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
+        if (loc["yaxis"][0]) {
+            String label = (maxPrice * units < 10) ? String(i * units, 1) : String(int(i * units));
+            drawString(spr, label, yAxisX, y - yAxisY, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
+        }
     }
 
     uint16_t barwidth = loc["bars"][1].as<int>() / n;
