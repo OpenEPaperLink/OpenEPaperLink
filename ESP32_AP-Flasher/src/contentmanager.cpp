@@ -1059,6 +1059,7 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
     http.begin(URL);
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
     http.addHeader("X-ESL-MAC", MAC);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setTimeout(5000);  // timeout in ms
     const int httpCode = http.GET();
     if (httpCode == 200) {
