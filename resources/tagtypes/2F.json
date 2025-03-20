@@ -1,5 +1,5 @@
 {
-    "version": 3,
+    "version": 4,
     "name": "M3 4.3\"",
     "width": 522,
     "height": 152,
@@ -31,7 +31,7 @@
             "day": [ 37, 20, "fonts/twcondensed20", 41, 105 ],
             "rain": [ 34, 130 ],
             "icon": [ 30, 55, 30 ],
-            "wind": [ 18, 26 ],
+            "wind": [ 27, 26 ],
             "line": [ 20, 150 ]
         },
         "9": {

@@ -877,6 +877,53 @@ const String getWeatherIcon(const uint8_t id, const bool isNight = false) {
     return weatherIcons[id];
 }
 
+void drawWeatherContent(JsonDocument &doc, JsonDocument &loc, TFT_eSprite &spr, JsonObject &cfgobj, imgParam &imageParams, bool isForecast = false) {
+    const auto &currentWeather = doc["current_weather"];
+    const double temperature = currentWeather["temperature"].as<double>();
+    float windspeed = currentWeather["windspeed"].as<float>();
+    int windval = 0;
+    const int winddirection = currentWeather["winddirection"].as<int>();
+    const bool isNight = currentWeather["is_day"].as<int>() == 0;
+    uint8_t weathercode = currentWeather["weathercode"].as<int>();
+    if (weathercode > 40) weathercode -= 40;
+
+    const uint8_t beaufort = windSpeedToBeaufort(windspeed);
+    if (cfgobj["units"] != "1") {
+        windval = beaufort;
+    } else {
+        windval = int(windspeed);
+    }
+
+    if (!isForecast) {
+        const auto &location = loc["location"];
+        drawString(spr, cfgobj["location"], location[0], location[1], location[2]);
+    }
+    const auto &wind = isForecast ? loc["currentwind"] : loc["wind"];
+    drawString(spr, String(windval), wind[0], wind[1], wind[2], TR_DATUM, (beaufort > 4 ? imageParams.highlightColor : TFT_BLACK));
+
+    char tmpOutput[5];
+    dtostrf(temperature, 2, 1, tmpOutput);
+    const auto &temp = loc["temp"];
+
+    String temperatureStr = String(tmpOutput);
+    if (temp[3] && temp[3] == 1) {
+        temperatureStr += (cfgobj["units"] == "1") ? "°" : "°";
+    }
+    drawString(spr, temperatureStr, temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? imageParams.highlightColor : TFT_BLACK));
+
+    const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99)
+                              ? imageParams.highlightColor
+                              : TFT_BLACK;
+    const auto &icon = isForecast ? loc["currenticon"] : loc["icon"];
+    drawString(spr, getWeatherIcon(weathercode, isNight), icon[0], icon[1], "/fonts/weathericons.ttf", icon[3], iconcolor, icon[2]);
+    const auto &dir = loc["dir"];
+    drawString(spr, windDirectionIcon(winddirection), dir[0], dir[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, dir[2]);
+    if (weathercode > 10) {
+        const auto &umbrella = loc["umbrella"];
+        drawString(spr, "\uf084", umbrella[0], umbrella[1], "/fonts/weathericons.ttf", TC_DATUM, imageParams.highlightColor, umbrella[2]);
+    }
+}
+
 void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams) {
     wsLog("get weather");
 
@@ -895,69 +942,14 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
     if (!success) {
         return;
     }
-
-    const auto &currentWeather = doc["current_weather"];
-    const double temperature = currentWeather["temperature"].as<double>();
-    float windspeed = currentWeather["windspeed"].as<float>();
-    int windval = 0;
-    const int winddirection = currentWeather["winddirection"].as<int>();
-    const bool isNight = currentWeather["is_day"].as<int>() == 0;
-    uint8_t weathercode = currentWeather["weathercode"].as<int>();
-    if (weathercode > 40) weathercode -= 40;
-
-    const uint8_t beaufort = windSpeedToBeaufort(windspeed);
-    if (cfgobj["units"] != "1") {
-        windval = beaufort;
-    } else {
-        windval = int(windspeed);
-    }
-
-    doc.clear();
-
-    if (taginfo->hwType == SOLUM_SEG_UK) {
-        const String weatherText[] = {"sun", "sun", "sun", "CLDY", "CLDY", "FOG", "", "", "FOG", "", "",
-                                      "DRZL", "", "DRZL", "", "DRZL", "ice", "ice", "", "", "",
-                                      "rain", "", "rain", "", "rain", "ice", "ice", "", "", "",
-                                      "SNOW", "", "SNOW", "", "SNOW", "", "SNOW", "", "", "rain",
-                                      "rain", "rain", "", "", "SNOW", "SNOW", "", "", "", "",
-                                      "", "", "", "", "STRM", "HAIL", "", "", "HAIL"};
-        if (temperature < -9.9) {
-            sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature), windval, weatherText[weathercode].c_str());
-            imageParams.symbols = 0x00;
-        } else {
-            sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature * 10), windval, weatherText[weathercode].c_str());
-            imageParams.symbols = 0x04;
-        }
-        return;
-    }
-
-    getTemplate(doc, 4, taginfo->hwType);
+    JsonDocument loc;
+    getTemplate(loc, 4, taginfo->hwType);
 
     TFT_eSprite spr = TFT_eSprite(&tft);
     tft.setTextWrap(false, false);
-
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
-    const auto &location = doc["location"];
-    drawString(spr, cfgobj["location"], location[0], location[1], location[2]);
-    const auto &wind = doc["wind"];
-    drawString(spr, String(windval), wind[0], wind[1], wind[2], TR_DATUM, (beaufort > 4 ? imageParams.highlightColor : TFT_BLACK));
 
-    char tmpOutput[5];
-    dtostrf(temperature, 2, 1, tmpOutput);
-    const auto &temp = doc["temp"];
-    drawString(spr, String(tmpOutput), temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? imageParams.highlightColor : TFT_BLACK));
-
-    const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99)
-                              ? imageParams.highlightColor
-                              : TFT_BLACK;
-    const auto &icon = doc["icon"];
-    drawString(spr, getWeatherIcon(weathercode, isNight), icon[0], icon[1], "/fonts/weathericons.ttf", icon[3], iconcolor, icon[2]);
-    const auto &dir = doc["dir"];
-    drawString(spr, windDirectionIcon(winddirection), dir[0], dir[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, dir[2]);
-    if (weathercode > 10) {
-        const auto &umbrella = doc["umbrella"];
-        drawString(spr, "\uf084", umbrella[0], umbrella[1], "/fonts/weathericons.ttf", TC_DATUM, imageParams.highlightColor, umbrella[2]);
-    }
+    drawWeatherContent(doc, loc, spr, cfgobj, imageParams);
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
@@ -976,7 +968,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
     }
 
     JsonDocument doc;
-    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant&windspeed_unit=ms&timeformat=unixtime&timezone=" + tz + units, doc, 5000);
+    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant&current_weather=true&windspeed_unit=ms&timeformat=unixtime&timezone=" + tz + units, doc, 5000);
     if (!success) {
         return;
     }
@@ -987,6 +979,8 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
     JsonDocument loc;
     getTemplate(loc, 8, taginfo->hwType);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
+
+    if (loc["temp"]) drawWeatherContent(doc, loc, spr, cfgobj, imageParams, true);
 
     const auto &location = loc["location"];
     drawString(spr, cfgobj["location"], location[0], location[1], location[2], TL_DATUM, TFT_BLACK);
@@ -1039,7 +1033,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
 
         drawString(spr, String(tmin) + " ", dag * column1 + day[0].as<int>(), day[4], day[2], TR_DATUM, (tmin < 0 ? imageParams.highlightColor : TFT_BLACK));
         drawString(spr, String(" ") + String(tmax), dag * column1 + day[0].as<int>(), day[4], day[2], TL_DATUM, (tmax < 0 ? imageParams.highlightColor : TFT_BLACK));
-        drawString(spr, String(wind), dag * column1 + column1 - 10, day[3], day[2], TR_DATUM, (beaufort > 5 ? imageParams.highlightColor : TFT_BLACK));
+        drawString(spr, " " + String(wind), dag * column1 + column1 / 2, day[3], day[2], TL_DATUM, (beaufort > 5 ? imageParams.highlightColor : TFT_BLACK));
         if (dag > 0) {
             for (int i = loc["line"][0]; i < loc["line"][1]; i += 3) {
                 spr.drawPixel(dag * column1, i, TFT_BLACK);

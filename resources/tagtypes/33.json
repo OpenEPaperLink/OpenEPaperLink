@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"name": "M3 2.9\"",
 	"width": 384,
 	"height": 168,
@@ -30,14 +30,22 @@
 			"cols": [ 1, 157, 16, "glasstown_nbp_tf" ],
 			"bars": [ 5, 141, 14 ]
 		},
-		"8": {
-			"location": [ 5, 12, "t0_14b_tf" ],
-			"column": [ 5, 76 ],
-			"day": [ 39, 23, "bahnschrift20.vlw", 48, 140 ],
-			"icon": [ 39, 65, 45 ],
-			"wind": [ 23, 26 ],
-			"line": [ 20, 168 ]
-		},
+        "4": {
+            "location": [ 10, 0, "fonts/calibrib36" ],
+            "wind": [ 80, 45, "fonts/calibrib40" ],
+            "temp": [ 10, 63, "fonts/calibrib100" ],
+            "icon": [ 375, 0, 100, 2 ],
+            "dir": [ 30, 20, 70 ],
+            "umbrella": [ 325, 100, 78 ]
+        },
+        "8": {
+            "location": [ 5, -3, "fonts/calibrib24" ],
+            "column": [ 5, 76 ],
+            "day": [ 39, 30, "bahnschrift20.vlw", 56, 147 ],
+            "icon": [ 39, 72, 45 ],
+            "wind": [ 23, 34 ],
+            "line": [ 20, 168 ]
+        },
 		"9": {
 			"title": [ 5, 4, "bahnschrift20.vlw", 25 ],
 			"items": 8,
