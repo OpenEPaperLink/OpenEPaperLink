@@ -1,13 +1,14 @@
 {
-	"version": 2,
-	"name": "M3 5.81\" BW",
+	"version": 1,
+	"name": "M3 5.81\" BWR",
 	"width": 720,
 	"height": 256,
 	"rotatebuffer": 1,
-	"bpp": 1,
+	"bpp": 2,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
-		"black": [ 0, 0, 0 ]
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ]
 	},
 	"shortlut": 0,
 	"zlib_compression": "27",

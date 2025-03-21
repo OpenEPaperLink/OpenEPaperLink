@@ -93,7 +93,7 @@ void contentRunner() {
 }
 
 void checkVars() {
-    DynamicJsonDocument cfgobj(500);
+    JsonDocument cfgobj;
     for (tagRecord *tag : tagDB) {
         if (tag->contentMode == 19) {
             deserializeJson(cfgobj, tag->modeConfigJson);
@@ -169,14 +169,14 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             taginfo->contentMode = 21;
             taginfo->nextupdate = 0;
         } else if (contentFS->exists("/tag_defaults.json")) {
-            DynamicJsonDocument doc(1000);
+            JsonDocument doc;
             fs::File tagDefaults = contentFS->open("/tag_defaults.json", "r");
             DeserializationError err = deserializeJson(doc, tagDefaults);
             if (!err) {
-                if (doc.containsKey("contentMode")) {
+                if (doc["contentMode"].is<uint8_t>()) {
                     taginfo->contentMode = doc["contentMode"];
                 }
-                if (doc.containsKey("modecfgjson")) {
+                if (doc["modecfgjson"].is<String>()) {
                     taginfo->modeConfigJson = doc["modecfgjson"].as<String>();
                 }
             }
@@ -193,7 +193,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     }
 #endif
 
-    DynamicJsonDocument doc(500);
+    JsonDocument doc;
     deserializeJson(doc, taginfo->modeConfigJson);
     JsonObject cfgobj = doc.as<JsonObject>();
     char buffer[64];
@@ -486,7 +486,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             if (!util::isEmptyOrNull(configFilename)) {
                 String configUrl = cfgobj["url"].as<String>();
                 if (!util::isEmptyOrNull(configUrl)) {
-                    DynamicJsonDocument json(1000);
+                    JsonDocument json;
                     Serial.println("Get json url + file");
 
                     int index = configUrl.indexOf("{mac}");
@@ -791,7 +791,7 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
         return;
     }
 
-    StaticJsonDocument<512> loc;
+    JsonDocument loc;
     getTemplate(loc, 1, taginfo->hwType);
 
     TFT_eSprite spr = TFT_eSprite(&tft);
@@ -838,7 +838,7 @@ void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord
 
     TFT_eSprite spr = TFT_eSprite(&tft);
 
-    StaticJsonDocument<512> loc;
+    JsonDocument loc;
     getTemplate(loc, 2, taginfo->hwType);
 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
@@ -877,25 +877,7 @@ const String getWeatherIcon(const uint8_t id, const bool isNight = false) {
     return weatherIcons[id];
 }
 
-void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams) {
-    wsLog("get weather");
-
-    getLocation(cfgobj);
-
-    const String lat = cfgobj["#lat"];
-    const String lon = cfgobj["#lon"];
-    const String tz = cfgobj["#tz"];
-    String units = "";
-    if (cfgobj["units"] == "1") {
-        units += "&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch";
-    }
-
-    DynamicJsonDocument doc(1000);
-    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true&windspeed_unit=ms&timezone=" + tz + units, doc, 5000);
-    if (!success) {
-        return;
-    }
-
+void drawWeatherContent(JsonDocument &doc, JsonDocument &loc, TFT_eSprite &spr, JsonObject &cfgobj, imgParam &imageParams, bool isForecast = false) {
     const auto &currentWeather = doc["current_weather"];
     const double temperature = currentWeather["temperature"].as<double>();
     float windspeed = currentWeather["windspeed"].as<float>();
@@ -912,52 +894,62 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
         windval = int(windspeed);
     }
 
-    doc.clear();
-
-    if (taginfo->hwType == SOLUM_SEG_UK) {
-        const String weatherText[] = {"sun", "sun", "sun", "CLDY", "CLDY", "FOG", "", "", "FOG", "", "",
-                                      "DRZL", "", "DRZL", "", "DRZL", "ice", "ice", "", "", "",
-                                      "rain", "", "rain", "", "rain", "ice", "ice", "", "", "",
-                                      "SNOW", "", "SNOW", "", "SNOW", "", "SNOW", "", "", "rain",
-                                      "rain", "rain", "", "", "SNOW", "SNOW", "", "", "", "",
-                                      "", "", "", "", "STRM", "HAIL", "", "", "HAIL"};
-        if (temperature < -9.9) {
-            sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature), windval, weatherText[weathercode].c_str());
-            imageParams.symbols = 0x00;
-        } else {
-            sprintf(imageParams.segments, "%3d^%2d%-4.4s", static_cast<int>(temperature * 10), windval, weatherText[weathercode].c_str());
-            imageParams.symbols = 0x04;
-        }
-        return;
+    if (!isForecast) {
+        const auto &location = loc["location"];
+        drawString(spr, cfgobj["location"], location[0], location[1], location[2]);
     }
-
-    getTemplate(doc, 4, taginfo->hwType);
-
-    TFT_eSprite spr = TFT_eSprite(&tft);
-    tft.setTextWrap(false, false);
-
-    initSprite(spr, imageParams.width, imageParams.height, imageParams);
-    const auto &location = doc["location"];
-    drawString(spr, cfgobj["location"], location[0], location[1], location[2]);
-    const auto &wind = doc["wind"];
+    const auto &wind = isForecast ? loc["currentwind"] : loc["wind"];
     drawString(spr, String(windval), wind[0], wind[1], wind[2], TR_DATUM, (beaufort > 4 ? imageParams.highlightColor : TFT_BLACK));
 
     char tmpOutput[5];
     dtostrf(temperature, 2, 1, tmpOutput);
-    const auto &temp = doc["temp"];
-    drawString(spr, String(tmpOutput), temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? imageParams.highlightColor : TFT_BLACK));
+    const auto &temp = loc["temp"];
+
+    String temperatureStr = String(tmpOutput);
+    if (temp[3] && temp[3] == 1) {
+        temperatureStr += (cfgobj["units"] == "1") ? "°" : "°";
+    }
+    drawString(spr, temperatureStr, temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? imageParams.highlightColor : TFT_BLACK));
 
     const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99)
                               ? imageParams.highlightColor
                               : TFT_BLACK;
-    const auto &icon = doc["icon"];
+    const auto &icon = isForecast ? loc["currenticon"] : loc["icon"];
     drawString(spr, getWeatherIcon(weathercode, isNight), icon[0], icon[1], "/fonts/weathericons.ttf", icon[3], iconcolor, icon[2]);
-    const auto &dir = doc["dir"];
+    const auto &dir = loc["dir"];
     drawString(spr, windDirectionIcon(winddirection), dir[0], dir[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, dir[2]);
     if (weathercode > 10) {
-        const auto &umbrella = doc["umbrella"];
+        const auto &umbrella = loc["umbrella"];
         drawString(spr, "\uf084", umbrella[0], umbrella[1], "/fonts/weathericons.ttf", TC_DATUM, imageParams.highlightColor, umbrella[2]);
     }
+}
+
+void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams) {
+    wsLog("get weather");
+
+    getLocation(cfgobj);
+
+    const String lat = cfgobj["#lat"];
+    const String lon = cfgobj["#lon"];
+    const String tz = cfgobj["#tz"];
+    String units = "";
+    if (cfgobj["units"] == "1") {
+        units += "&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch";
+    }
+
+    JsonDocument doc;
+    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current_weather=true&windspeed_unit=ms&timezone=" + tz + units, doc, 5000);
+    if (!success) {
+        return;
+    }
+    JsonDocument loc;
+    getTemplate(loc, 4, taginfo->hwType);
+
+    TFT_eSprite spr = TFT_eSprite(&tft);
+    tft.setTextWrap(false, false);
+    initSprite(spr, imageParams.width, imageParams.height, imageParams);
+
+    drawWeatherContent(doc, loc, spr, cfgobj, imageParams);
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
@@ -975,8 +967,8 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
         units += "&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch";
     }
 
-    DynamicJsonDocument doc(2000);
-    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant&windspeed_unit=ms&timeformat=unixtime&timezone=" + tz + units, doc, 5000);
+    JsonDocument doc;
+    const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant&current_weather=true&windspeed_unit=ms&timeformat=unixtime&timezone=" + tz + units, doc, 5000);
     if (!success) {
         return;
     }
@@ -984,9 +976,11 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
     TFT_eSprite spr = TFT_eSprite(&tft);
     tft.setTextWrap(false, false);
 
-    StaticJsonDocument<512> loc;
+    JsonDocument loc;
     getTemplate(loc, 8, taginfo->hwType);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
+
+    if (loc["temp"]) drawWeatherContent(doc, loc, spr, cfgobj, imageParams, true);
 
     const auto &location = loc["location"];
     drawString(spr, cfgobj["location"], location[0], location[1], location[2], TL_DATUM, TFT_BLACK);
@@ -1039,7 +1033,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
 
         drawString(spr, String(tmin) + " ", dag * column1 + day[0].as<int>(), day[4], day[2], TR_DATUM, (tmin < 0 ? imageParams.highlightColor : TFT_BLACK));
         drawString(spr, String(" ") + String(tmax), dag * column1 + day[0].as<int>(), day[4], day[2], TL_DATUM, (tmax < 0 ? imageParams.highlightColor : TFT_BLACK));
-        drawString(spr, String(wind), dag * column1 + column1 - 10, day[3], day[2], TR_DATUM, (beaufort > 5 ? imageParams.highlightColor : TFT_BLACK));
+        drawString(spr, " " + String(wind), dag * column1 + column1 / 2, day[3], day[2], TL_DATUM, (beaufort > 5 ? imageParams.highlightColor : TFT_BLACK));
         if (dag > 0) {
             for (int i = loc["line"][0]; i < loc["line"][1]; i += 3) {
                 spr.drawPixel(dag * column1, i, TFT_BLACK);
@@ -1059,6 +1053,7 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
     http.begin(URL);
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
     http.addHeader("X-ESL-MAC", MAC);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setTimeout(5000);  // timeout in ms
     const int httpCode = http.GET();
     if (httpCode == 200) {
@@ -1133,7 +1128,7 @@ bool getRssFeed(String &filename, String URL, String title, tagRecord *&taginfo,
 
     TFT_eSprite spr = TFT_eSprite(&tft);
 
-    StaticJsonDocument<512> loc;
+    JsonDocument loc;
     getTemplate(loc, 9, taginfo->hwType);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     // stampTime(spr);
@@ -1207,7 +1202,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 
     wsLog("get calendar");
 
-    StaticJsonDocument<1024> loc;
+    JsonDocument loc;
     getTemplate(loc, 11, taginfo->hwType);
 
     String URL = cfgobj["apps_script_url"].as<String>() + "?days=" + loc["days"].as<String>();
@@ -1230,7 +1225,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
         return false;
     }
 
-    DynamicJsonDocument doc(5000);
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, http.getString());
     if (error) {
         wsErr(error.c_str());
@@ -1575,7 +1570,7 @@ YAxisScale calculateYAxisScale(double priceMin, double priceMax, int divisions) 
 bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     wsLog("get dayahead prices");
 
-    StaticJsonDocument<512> loc;
+    JsonDocument loc;
     getTemplate(loc, 27, taginfo->hwType);
 
     // This is a link to a Google Apps Script script, which fetches (and caches) the tariff from https://transparency.entsoe.eu/
@@ -1600,7 +1595,7 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
         return false;
     }
 
-    DynamicJsonDocument doc(5000);
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, http.getString());
     if (error) {
         wsErr(error.c_str());
@@ -1621,7 +1616,7 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     double maxPrice = std::numeric_limits<double>::lowest();
     double prices[n];
 
-    DynamicJsonDocument doc2(500);
+    JsonDocument doc2;
     JsonArray tariffArray;
     std::string tariffString = cfgobj["tariffkwh"].as<std::string>();
     if (tariffString.front() == '[') {
@@ -1659,7 +1654,10 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     for (double i = minPrice; i <= maxPrice; i += yAxisScale.step) {
         int y = mapDouble(i, minPrice, maxPrice, spr.height() - barBottom, spr.height() - barBottom - loc["bars"][2].as<int>());
         spr.drawLine(0, y, spr.width(), y, TFT_BLACK);
-        if (loc["yaxis"][0]) drawString(spr, String(int(i * units)), yAxisX, y - yAxisY, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
+        if (loc["yaxis"][0]) {
+            String label = (maxPrice * units < 10) ? String(i * units, 1) : String(int(i * units));
+            drawString(spr, label, yAxisX, y - yAxisY, loc["yaxis"][0], TL_DATUM, TFT_BLACK);
+        }
     }
 
     uint16_t barwidth = loc["bars"][1].as<int>() / n;
@@ -1729,7 +1727,7 @@ void drawQR(String &filename, String qrcontent, String title, tagRecord *&taginf
     // https://github.com/ricmoo/QRCode
     qrcode_initText(&qrcode, qrcodeData, version, ECC_MEDIUM, text);
 
-    StaticJsonDocument<512> loc;
+    JsonDocument loc;
     getTemplate(loc, 10, taginfo->hwType);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     drawString(spr, title, loc["title"][0], loc["title"][1], loc["title"][2], TC_DATUM, TFT_BLACK, loc["title"][3]);
@@ -1771,7 +1769,7 @@ uint8_t drawBuienradar(String &filename, JsonObject &cfgobj, tagRecord *&taginfo
     if (httpCode == 200) {
         TFT_eSprite spr = TFT_eSprite(&tft);
 
-        StaticJsonDocument<512> loc;
+        JsonDocument loc;
         getTemplate(loc, 16, taginfo->hwType);
         initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
@@ -1845,7 +1843,7 @@ void drawAPinfo(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     }
 
     TFT_eSprite spr = TFT_eSprite(&tft);
-    DynamicJsonDocument loc(2048);
+    JsonDocument loc;
     uint8_t screenCurrentOrientation = 0;
     getTemplate(loc, 21, taginfo->hwType);
 
@@ -1866,7 +1864,7 @@ void drawTimestamp(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, im
     time(&now);
     struct tm timeinfo;
 
-    StaticJsonDocument<512> loc;
+    JsonDocument loc;
     getTemplate(loc, 1, taginfo->hwType);
 
     TFT_eSprite spr = TFT_eSprite(&tft);
@@ -2202,7 +2200,7 @@ void drawJsonStream(Stream &stream, String &filename, tagRecord *&taginfo, imgPa
     TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
     uint8_t screenCurrentOrientation = 0;
-    DynamicJsonDocument doc(500);
+    JsonDocument doc;
     if (stream.find("[")) {
         do {
             DeserializationError error = deserializeJson(doc, stream);
@@ -2256,14 +2254,14 @@ bool spr_draw(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) {
     return 1;
 }
 void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imageParams, uint8_t &currentOrientation) {
-    if (element.containsKey("text")) {
+    if (element["text"].is<JsonArray>()) {
         const JsonArray &textArray = element["text"];
         const uint16_t align = textArray[5] | 0;
         const uint16_t size = textArray[6] | 0;
         const String bgcolorstr = textArray[7].as<String>();
         const uint16_t bgcolor = (bgcolorstr.length() > 0) ? getColor(bgcolorstr) : TFT_WHITE;
         drawString(spr, textArray[2], textArray[0].as<int>(), textArray[1].as<int>(), textArray[3], align, getColor(textArray[4]), size, bgcolor);
-    } else if (element.containsKey("textbox")) {
+    } else if (element["textbox"].is<JsonArray>()) {
         // posx, posy, width, height, text, font, color, lineheight, align  
         const JsonArray &textArray = element["textbox"];
         float lineheight = textArray[7].as<float>();
@@ -2273,7 +2271,7 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
         String text = textArray[4];
         const uint16_t align = textArray[8] | 0;
         drawTextBox(spr, text, posx, posy, textArray[2], textArray[3], textArray[5], getColor(textArray[6]), TFT_WHITE, lineheight, align);
-    } else if (element.containsKey("box")) {
+    } else if (element["box"].is<JsonArray>()) {
         const JsonArray &boxArray = element["box"];
         spr.fillRect(boxArray[0].as<int>(), boxArray[1].as<int>(), boxArray[2].as<int>(), boxArray[3].as<int>(), getColor(boxArray[4]));
         if (boxArray.size()>=7) {
@@ -2281,7 +2279,7 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
                 spr.drawRect(boxArray[0].as<int>() + i, boxArray[1].as<int>() + i, boxArray[2].as<int>() - 2 * i, boxArray[3].as<int>() - 2 * i, getColor(boxArray[5]));
             }
         }
-    } else if (element.containsKey("rbox")) {
+    } else if (element["rbox"].is<JsonArray>()) {
         const JsonArray &rboxArray = element["rbox"];
         spr.fillRoundRect(rboxArray[0].as<int>(), rboxArray[1].as<int>(), rboxArray[2].as<int>(), rboxArray[3].as<int>(), rboxArray[4].as<int>(), getColor(rboxArray[5]));
         if (rboxArray.size() >= 8) {
@@ -2292,13 +2290,13 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
                 }
             }
         }
-    } else if (element.containsKey("line")) {
+    } else if (element["line"].is<JsonArray>()) {
         const JsonArray &lineArray = element["line"];
         spr.drawLine(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), getColor(lineArray[4]));
-    } else if (element.containsKey("triangle")) {
+    } else if (element["triangle"].is<JsonArray>()) {
         const JsonArray &lineArray = element["triangle"];
         spr.fillTriangle(lineArray[0].as<int>(), lineArray[1].as<int>(), lineArray[2].as<int>(), lineArray[3].as<int>(), lineArray[4].as<int>(), lineArray[5].as<int>(), getColor(lineArray[6]));
-    } else if (element.containsKey("circle")) {
+    } else if (element["circle"].is<JsonArray>()) {
         const JsonArray &circleArray = element["circle"];
         spr.fillCircle(circleArray[0].as<int>(), circleArray[1].as<int>(), circleArray[2].as<int>(), getColor(circleArray[3]));
         if (circleArray.size() >= 6) {
@@ -2309,7 +2307,7 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
                 }
             }
         }
-    } else if (element.containsKey("image")) {
+    } else if (element["image"].is<JsonArray>()) {
         const JsonArray &imgArray = element["image"];
 
         TJpgDec.setSwapBytes(true);
@@ -2336,7 +2334,7 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
             sprDraw.deleteSprite();
         }
 
-    } else if (element.containsKey("rotate")) {
+    } else if (element["rotate"].is<uint8_t>()) {
         uint8_t rotation = element["rotate"].as<int>();
         rotateBuffer(rotation, currentOrientation, spr, imageParams);
     }
@@ -2417,11 +2415,11 @@ void getLocation(JsonObject &cfgobj) {
 
     if (util::isEmptyOrNull(lat) || util::isEmptyOrNull(lon)) {
         wsLog("get location");
-        StaticJsonDocument<80> filter;
+        JsonDocument filter;
         filter["results"][0]["latitude"] = true;
         filter["results"][0]["longitude"] = true;
         filter["results"][0]["timezone"] = true;
-        DynamicJsonDocument doc(1000);
+        JsonDocument doc;
         if (util::httpGetJson("https://geocoding-api.open-meteo.com/v1/search?name=" + urlEncode(cfgobj["location"]) + "&count=1", doc, 5000, &filter)) {
             cfgobj["#lat"] = doc["results"][0]["latitude"].as<String>();
             cfgobj["#lon"] = doc["results"][0]["longitude"].as<String>();
@@ -2474,8 +2472,8 @@ void prepareConfigFile(const uint8_t *dst, const JsonObject &config) {
 #endif
 
 void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
-    StaticJsonDocument<80> filter;
-    DynamicJsonDocument doc(4096);
+    JsonDocument filter;
+    JsonDocument doc;
 
     const String idstr = String(id);
     constexpr const char *templateKey = "template";
@@ -2489,11 +2487,11 @@ void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
         filter["usetemplate"] = true;
         const DeserializationError error = deserializeJson(doc, jsonFile, DeserializationOption::Filter(filter));
         jsonFile.close();
-        if (!error && doc.containsKey(templateKey) && doc[templateKey].containsKey(idstr)) {
+        if (!error && doc[templateKey].is<JsonVariant>() && doc[templateKey][idstr].is<JsonVariant>()) {
             json.set(doc[templateKey][idstr]);
             return;
         }
-        if (!error && doc.containsKey("usetemplate")) {
+        if (!error && doc["usetemplate"].is<uint8_t>()) {
             getTemplate(json, id, doc["usetemplate"]);
             return;
         }

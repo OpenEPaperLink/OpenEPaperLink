@@ -4,9 +4,12 @@ function doGet(e) {
   var country = e?.parameter?.country || 'NL';
   var cache = CacheService.getScriptCache();
 
+  ExchangeApp.setRatesEndpoint("https://openexchangerates.org/api/latest.json?app_id=*************", 3600)
+
   var cachedData = cache.get("output" + country);
-  if (false && cachedData != null) {
+  if (cachedData != null) {
     logger('from cache');
+    logger('All Data: ' + JSON.stringify(cachedData));
     return ContentService.createTextOutput(cachedData)
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -16,8 +19,8 @@ function doGet(e) {
     // https://github.com/bkper/exchange-app
     factor = cache.get("currencyNOK");
     if (factor == null) {
-      // factor = ExchangeApp.convert(1, 'EUR', 'NOK');
-      factor = 11.4;
+      factor = ExchangeApp.convert(1, 'EUR', 'NOK');
+      // factor = 11.79;
       cache.put("currencyNOK", factor, 3600 * 24);
     }
   }
@@ -26,8 +29,8 @@ function doGet(e) {
     // https://github.com/bkper/exchange-app
     factor = cache.get("currencyDKK");
     if (factor == null) {
-      // factor = ExchangeApp.convert(1, 'EUR', 'DKK');
-      factor = 7.45;
+      factor = ExchangeApp.convert(1, 'EUR', 'DKK');
+      // factor = 7.46;
       cache.put("currencyDKK", factor, 3600 * 24);
     }
   }
@@ -36,8 +39,8 @@ function doGet(e) {
     // https://github.com/bkper/exchange-app
     factor = cache.get("currencySEK");
     if (factor == null) {
-      // factor = ExchangeApp.convert(1, 'EUR', 'SEK');
-      factor = 11.25;
+      factor = ExchangeApp.convert(1, 'EUR', 'SEK');
+      // factor = 11.59;
       cache.put("currencySEK", factor, 3600 * 24);
     }
   }
@@ -45,10 +48,11 @@ function doGet(e) {
   var domain = lookupValue(country);
   logger(country + ': ' + domain + ' currency: ' + factor);
 
-  var xmlUrl = 'https://web-api.tp.entsoe.eu/api?documentType=A44&out_Domain=' + domain + '&in_Domain=' + domain + '&periodStart=' + getFormattedMidnightUTC(-1) + '&periodEnd=' + getFormattedMidnightUTC(2) + '&securityToken=*********';
+  var xmlUrl = 'https://web-api.tp.entsoe.eu/api?documentType=A44&out_Domain=' + domain + '&in_Domain=' + domain + '&periodStart=' + getFormattedMidnightUTC(-1) + '&periodEnd=' + getFormattedMidnightUTC(2) + '&securityToken=57ba8658-37a5-4e23-9bee-e60fc3f954db';
+  logger(xmlUrl);
   var cachedXml = cache.get(xmlUrl);
 
-  if (cachedXml) {
+  if (true && cachedXml) {
     logger('Using cached XML content.');
     var xmlContent = cachedXml;
   } else {
@@ -65,7 +69,7 @@ function doGet(e) {
   var root = document.getRootElement();
 
   var timeSeriesList = getDescendantsByTagName(root, 'TimeSeries');
-
+  
   if (timeSeriesList.length > 0) {
     var jsonData = [];
 
@@ -77,15 +81,18 @@ function doGet(e) {
 
       if (period) {
         var startTime = period.getChild('timeInterval').getChildText('start');
+        var resolution = period.getChildText('resolution');
+	      var stepSeconds = resolution === "PT15M" ? 900 : 3600;
+        logger("Resolution: " + resolution + " (" + stepSeconds + " seconds per step)");
         logger(startTime);
         var points = period.getChildren('Point');
 
         for (var i = 0; i < points.length; i++) {
-          var position = points[i].getChildText('position');
+          var position = parseInt(points[i].getChildText('position'), 10);
           var priceAmount = points[i].getChildText('price.amount') * factor;
 
           // Convert ISO date to epoch time (in seconds)
-          var epochTime = new Date(startTime).getTime() / 1000 + (position - 1) * 3600;
+          var epochTime = new Date(startTime).getTime() / 1000 + (position - 1) * stepSeconds;
 
           jsonData.push({
             time: epochTime,
@@ -137,7 +144,6 @@ function getFormattedMidnightUTC(offsetDays) {
   var localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays, 0, 0, 0, 0);
 
   var utcMidnight = new Date(localMidnight.getTime());
-
   var year = utcMidnight.getUTCFullYear();
   var month = ('0' + (utcMidnight.getUTCMonth() + 1)).slice(-2); // Months are zero-based
   var day = ('0' + utcMidnight.getUTCDate()).slice(-2);
@@ -149,6 +155,7 @@ function getFormattedMidnightUTC(offsetDays) {
 }
 
 // https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html#_areas
+// https://transparencyplatform.zendesk.com/hc/en-us/articles/15885757676308-Area-List-with-Energy-Identification-Code-EIC
 
 function lookupValue(country) {
   var countryValues = {
@@ -173,6 +180,7 @@ function lookupValue(country) {
     'NO4': '10YNO-4--------9',
     'NO5': '10Y1001A1001A48H',
     'PL': '10YPL-AREA-----S',
+    'PT': '10YPT-REN------W',
     'RO': '10YRO-TEL------P',
     'SE1': '10Y1001A1001A44P',
     'SE2': '10Y1001A1001A45N',
@@ -184,6 +192,3 @@ function lookupValue(country) {
   var value = countryValues[country] || '10YNL----------L';
   return value;
 }
-
-
-

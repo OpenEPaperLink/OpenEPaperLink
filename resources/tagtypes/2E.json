@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 5,
 	"name": "M3 9.7\"",
 	"width": 960,
 	"height": 672,
@@ -20,6 +20,21 @@
 			"weekday": [ 480, -5, "Signika-SB.ttf", 160 ],
 			"month": [ 480, 480, "Signika-SB.ttf", 160 ],
 			"day": [ 480, 110, "Signika-SB.ttf", 380 ]
+		},
+		"8": {
+			"location": [ 25, 0, "fonts/calibrib60" ],
+			"column": [ 7, 137 ],
+			"day": [ 68, 245, "fonts/calibrib42", 335, 540 ],
+			"rain": [ 72, 610 ],
+			"icon": [ 67, 390, 90 ],
+			"wind": [ 45, 300 ],
+			"line": [ 240, 672 ],
+
+			"currentwind": [ 470, 130, "fonts/calibrib60" ],
+			"temp": [ 25, 70, "fonts/calibrib120", 1 ],
+			"currenticon": [ 900, 0, 160, 2 ],
+			"dir": [ 400, 100, 90 ],
+			"umbrella": [ 390, 50, 60 ]
 		},
 		"9": {
 			"title": [ 6, 0, "Signika-SB.ttf", 32 ],

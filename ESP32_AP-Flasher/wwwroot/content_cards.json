@@ -140,7 +140,7 @@
   {
     "id": 8,
     "name": "Weather forecast",
-    "desc": "Weather forecast for the next five days. Weather data by Open-Meteo.com. Parameters Lat, Lon and Time Zone are filled automatically from the entered location. In case of an ambiguous location, you can alter those manually.",
+    "desc": "Weather forecast for the next five days. Weather data by Open-Meteo.com. Parameters Lat, Lon and Time Zone are filled automatically from the entered location. In case of an ambiguous location, choose from the drop down list.",
     "param": [
       {
         "key": "location",

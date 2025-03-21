@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 4,
 	"name": "M3 7.5\"",
 	"width": 800,
 	"height": 480,
@@ -29,13 +29,19 @@
 			"umbrella": [ 325, 155, 78 ]
 		},
 		"8": {
-			"location": [ 10, 10, "fonts/calibrib30" ],
-			"column": [ 6, 66 ],
-			"day": [ 33, 60, "fonts/bahnschrift20", 104, 230 ],
-			"rain": [ 34, 260 ],
-			"icon": [ 32, 145, 30 ],
-			"wind": [ 17, 90 ],
-			"line": [ 50, 300 ]
+			"location": [ 10, 0, "fonts/calibrib50" ],
+			"column": [ 7, 114 ],
+			"day": [ 55, 210, "fonts/calibrib30", 250, 385 ],
+			"rain": [ 58, 440 ],
+			"icon": [ 55, 280, 60 ],
+			"wind": [ 37, 220 ],
+			"line": [ 195, 470 ],
+
+			"currentwind": [ 460, 130, "fonts/calibrib40" ],
+			"temp": [ 10, 50, "fonts/calibrib120", 1 ],
+			"currenticon": [ 770, 0, 140, 2 ],
+			"dir": [ 410, 100, 80 ],
+			"umbrella": [ 390, 50, 60 ]
 		},
 		"9": {
 			"title": [ 6, 0, "Signika-SB.ttf", 32 ],
