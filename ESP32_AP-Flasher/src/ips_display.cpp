@@ -285,6 +285,52 @@ Arduino_RGB_Display* gfx = new Arduino_RGB_Display(
 #endif
 #endif
 
+#if defined HAS_GT911_TOUCH
+#include <Wire.h>
+#include <Touch_GT911.h>
+#define TOUCH_GT911_SCL 45
+#define TOUCH_GT911_SDA 19
+int touch_last_x = 0, touch_last_y = 0;
+uint32_t last_touch_read = 0;
+uint8_t is_new_touch_checked = false;
+Touch_GT911 ts = Touch_GT911(TOUCH_GT911_SDA, TOUCH_GT911_SCL, max(480, 0), max(480, 0));
+
+void touch_init()
+{
+    ts.begin();
+}
+void touch_loop()
+{
+    if (millis() - last_touch_read >= 50) {
+        last_touch_read = millis();
+        ts.read();
+        if (ts.isTouched)
+        {            
+            touch_last_x = map(ts.points[0].x, 480, 0, 0, 480 - 1);
+            touch_last_y = map(ts.points[0].y, 480, 0, 0, 480 - 1);
+            Serial.printf("Touch position X: %i Y: %i\r\n", touch_last_x, touch_last_y);
+            if(is_new_touch_checked == false)
+            {
+                is_new_touch_checked = true;
+                if(touch_last_x <= 240)
+                    sendAvail(WAKEUP_REASON_BUTTON1);
+                else
+                    sendAvail(WAKEUP_REASON_BUTTON2);
+            }
+        }else{
+            is_new_touch_checked = false;
+        }
+    }
+}
+#else
+void touch_init()
+{
+}
+void touch_loop()
+{
+}
+#endif
+
 void TFTLog(String text) {
 #if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
 
@@ -421,6 +467,7 @@ void yellow_ap_display_init(void) {
     if (tft2.width() == 160) ledcOutputInvert(TFT_BACKLIGHT, true);
 #endif
 #endif
+    touch_init();
 }
 
 void yellow_ap_display_loop(void) {
@@ -483,6 +530,7 @@ void yellow_ap_display_loop(void) {
         }
         last_update = millis();
     }
+    touch_loop();
 }
 
 #endif
