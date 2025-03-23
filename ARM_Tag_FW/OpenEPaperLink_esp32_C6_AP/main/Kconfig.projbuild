@@ -16,6 +16,9 @@ menu "OEPL Hardware config"
     config OEPL_HARDWARE_PROFILE_LILYGO
       bool "LILYGO-AP"
 
+    config OEPL_HARDWARE_PROFILE_4inch
+      bool "4inchAP"
+
   endchoice
 
   config OEPL_HARDWARE_UART_TX
@@ -27,6 +30,16 @@ menu "OEPL Hardware config"
     depends on OEPL_HARDWARE_PROFILE_CUSTOM
     int "GPIO - UART RX"
     default 2
+
+  config OEPL_HARDWARE_UART_TX
+    depends on OEPL_HARDWARE_PROFILE_4inch
+    int "GPIO - UART TX"
+    default 16
+
+  config OEPL_HARDWARE_UART_RX
+    depends on OEPL_HARDWARE_PROFILE_4inch
+    int "GPIO - UART RX"
+    default 17
 
   config OEPL_SUBGIG_SUPPORT
     bool "Enable SubGhz Support"
