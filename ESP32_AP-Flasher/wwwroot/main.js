@@ -299,7 +299,7 @@ function processTags(tagArray) {
 			if (alias.match(/^4467/)) {
 				let macdigit = Number.parseInt(alias.substr(4, 2), 16) & 0x1f;
 				let model = String.fromCharCode(macdigit + 65);
-				if (model == 'J' || model == 'M') {
+				if (model >= 'A' && model <= 'Z') {
 					macdigit = Number.parseInt(alias.substr(6, 2), 16) & 0x1f;
 					model += String.fromCharCode(macdigit + 65);
 					alias = model + alias.substr(8, 8) + 'x'
