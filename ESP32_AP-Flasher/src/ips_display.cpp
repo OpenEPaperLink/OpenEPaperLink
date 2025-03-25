@@ -12,7 +12,12 @@
 #include "ips_display.h"
 
 #define YELLOW_SENSE 8  // sense AP hardware
+
+#ifdef HAS_ELECROW_ADV_2_8
+#define TFT_BACKLIGHT 38
+#else
 #define TFT_BACKLIGHT 14
+#endif
 
 TFT_eSPI tft2 = TFT_eSPI();
 uint8_t YellowSense = 0;
@@ -400,7 +405,9 @@ void sendAvail(uint8_t wakeupReason) {
     memcpy(&eadr.src, mac, 6);
     eadr.adr.lastPacketRSSI = WiFi.RSSI();
     eadr.adr.currentChannel = config.channel;
-#if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
+#ifdef TFT_HW_TYPE
+    eadr.adr.hwType = TFT_HW_TYPE;
+#elif defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
     eadr.adr.hwType = 0xE2;
 #else
     eadr.adr.hwType = (tft2.width() == 160 ? 0xE1 : 0xE0);
@@ -436,9 +443,13 @@ void yellow_ap_display_init(void) {
     gfx->fillScreen(BLACK);
 
 #else
+#ifdef HAS_ELECROW_C6
+    YellowSense = 0;
+#else
     pinMode(YELLOW_SENSE, INPUT_PULLDOWN);
     vTaskDelay(100 / portTICK_PERIOD_MS);
     if (digitalRead(YELLOW_SENSE) == HIGH) YellowSense = 1;
+#endif
     pinMode(TFT_BACKLIGHT, OUTPUT);
     digitalWrite(TFT_BACKLIGHT, LOW);
 
