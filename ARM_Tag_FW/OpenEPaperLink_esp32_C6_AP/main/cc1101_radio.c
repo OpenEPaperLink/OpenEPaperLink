@@ -37,27 +37,8 @@
 #include "utils.h"
 #include "second_uart.h"
 #include "cc1101_radio.h"
+#include "logging.h"
 #include "radio.h"
-
-#define ENABLE_LOGGING  0
-
-#if ENABLE_LOGGING
-#define LOG(format, ... ) printf("%s: " format "\r",__FUNCTION__,## __VA_ARGS__)
-#define LOG_RAW(format, ... ) printf(format,## __VA_ARGS__)
-#else
-#define LOG(format, ... )
-#define LOG_RAW(format, ... )
-#endif
-
-#define ENABLE_VERBOSE_LOGGING 0
-
-#if ENABLE_VERBOSE_LOGGING
-#define LOGV(format, ... ) printf("%s: " format,__FUNCTION__,## __VA_ARGS__)
-#define LOGV_RAW(format, ... ) printf(format,## __VA_ARGS__)
-#else
-#define LOGV(format, ... )
-#define LOGB_RAW(format, ... )
-#endif
 
 #include <string.h>
 

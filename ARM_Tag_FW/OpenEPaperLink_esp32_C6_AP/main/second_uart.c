@@ -21,8 +21,8 @@
 #include "soc/uart_struct.h"
 #ifdef CONFIG_IDF_TARGET_ESP32C6
 #include "soc/lp_uart_reg.h"
-static const char *TAG = "SECOND_UART";
 #endif
+static const char *TAG = "SECOND_UART";
 #include "second_uart.h"
 
 
