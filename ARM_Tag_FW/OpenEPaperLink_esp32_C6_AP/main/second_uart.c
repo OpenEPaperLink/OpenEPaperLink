@@ -21,8 +21,8 @@
 #include "soc/uart_struct.h"
 #ifdef CONFIG_IDF_TARGET_ESP32C6
 #include "soc/lp_uart_reg.h"
-static const char *TAG = "SECOND_UART";
 #endif
+static const char *TAG = "SECOND_UART";
 #include "second_uart.h"
 
 
@@ -45,6 +45,8 @@ void init_second_uart() {
         .flow_ctrl  = UART_HW_FLOWCTRL_DISABLE,
         .source_clk = UART_SCLK_DEFAULT,
     };
+    ESP_LOGI(TAG, "HARDWARE_UART_TX %d, CONFIG_OEPL_HARDWARE_UART_RX %d", 
+             CONFIG_OEPL_HARDWARE_UART_TX,CONFIG_OEPL_HARDWARE_UART_RX);
     ESP_ERROR_CHECK(uart_driver_install(1, BUF_SIZE * 2, BUF_SIZE * 2, 20, &uart0_queue, 0));
     ESP_ERROR_CHECK(uart_param_config(1, &uart_config));
 	ESP_ERROR_CHECK(uart_set_pin(1, CONFIG_OEPL_HARDWARE_UART_TX, CONFIG_OEPL_HARDWARE_UART_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));

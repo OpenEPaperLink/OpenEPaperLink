@@ -28,12 +28,37 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include "logging.h"
 #include "SubGigRadio.h"
 
 
 static const char *TAG = "MAIN";
 
 const uint8_t channelList[6] = {11, 15, 20, 25, 26, 27};
+
+#if CONFIG_OEPL_VERBOSE_DEBUG
+const struct {
+   uint8_t Type;
+   const char *Name;
+} gPktTypeLookupTbl[] = {
+   {PKT_TAG_RETURN_DATA, "TAG_RETURN_DATA"},
+   {PKT_TAG_RETURN_DATA_ACK, "TAG_RETURN_DATA_ACK"},
+   {PKT_AVAIL_DATA_SHORTREQ, "AVAIL_DATA_SHORTREQ"},
+   {PKT_AVAIL_DATA_REQ, "AVAIL_DATA_REQ"},
+   {PKT_AVAIL_DATA_INFO, "AVAIL_DATA_INFO"},
+   {PKT_BLOCK_PARTIAL_REQUEST, "BLOCK_PARTIAL_REQUEST"},
+   {PKT_BLOCK_REQUEST_ACK, "BLOCK_REQUEST_ACK"},
+   {PKT_BLOCK_REQUEST, "BLOCK_REQUEST"},
+   {PKT_BLOCK_PART, "BLOCK_PART"},
+   {PKT_XFER_COMPLETE, "XFER_COMPLETE"},
+   {PKT_XFER_COMPLETE_ACK, "XFER_COMPLETE_ACK"},
+   {PKT_CANCEL_XFER, "CANCEL_XFER"},
+   {PKT_PING, "PING"},
+   {PKT_PONG, "PONG"},
+   {0,NULL} // End of table
+};
+#endif
+
 
 #define DATATYPE_NOUPDATE 0
 #define HW_TYPE           0xC6
@@ -766,8 +791,24 @@ void app_main(void) {
             int8_t ret = commsRxUnencrypted(radiorxbuffer);
             if (ret > 1) {
                 led_flash(0);
+
+                uint8_t PktType = getPacketType(radiorxbuffer);
+#if CONFIG_OEPL_VERBOSE_DEBUG
+                LOGV_RAW("Received %d byte ",ret);
+                for(uint8_t i = 0; gPktTypeLookupTbl[i].Name != NULL; i++) {
+                   if(gPktTypeLookupTbl[i].Type == PktType) {
+                      LOGV_RAW("%s",gPktTypeLookupTbl[i].Name);
+                      break;
+                   }
+                   if(gPktTypeLookupTbl[i].Name == NULL) {
+                      LOGV_RAW("undefined (0x%02x)",PktType);
+                   }
+                }
+                LOGV_RAW(" packet:\n");
+                LOGV_HEX(radiorxbuffer,ret);
+#endif
                 // received a packet, lets see what it is
-                switch (getPacketType(radiorxbuffer)) {
+                switch (PktType) {
                     case PKT_AVAIL_DATA_REQ:
                         if (ret == 28) {
                             // old version of the AvailDataReq struct, set all the new fields to zero, so it will pass the CRC

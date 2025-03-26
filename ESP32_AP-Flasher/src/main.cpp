@@ -48,7 +48,12 @@ void delayedStart(void* parameter) {
 }
 
 void setup() {
+#ifdef UART_LOGGING_TX_ONLY_PIN
+    Serial.begin(115200, SERIAL_8N1, -1, UART_LOGGING_TX_ONLY_PIN);
+    gpio_set_drive_capability((gpio_num_t)FLASHER_AP_RXD, GPIO_DRIVE_CAP_0);
+#else
     Serial.begin(115200);
+#endif
 #if ARDUINO_USB_CDC_ON_BOOT == 1
     Serial.setTxTimeoutMs(0); // workaround bug in USB CDC that slows down serial output when no usb connected
 #endif

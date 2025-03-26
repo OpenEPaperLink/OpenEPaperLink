@@ -16,22 +16,13 @@
 #include "utils.h"
 #include "second_uart.h"
 #include "cc1101_radio.h"
+#include "logging.h"
 #include "SubGigRadio.h"
 
 void DumpHex(void *AdrIn,int Len);
 bool CC1101_QuickCheck(void);
 
 #define wait_Miso(level) CC1101_WaitMISO(__FUNCTION__,__LINE__,level)
-
-#if 0
-#define LOG(format, ... ) printf("%s: " format,__FUNCTION__,## __VA_ARGS__)
-#define LOG_RAW(format, ... ) printf(format,## __VA_ARGS__)
-#define LOG_HEX(x,y) DumpHex(x,y)
-#else
-#define LOG(format, ... )
-#define LOG_RAW(format, ... )
-#define LOG_HEX(x,y)
-#endif
 
 // SPI Stuff
 #if CONFIG_SPI2_HOST
@@ -458,8 +449,6 @@ int8_t SubGig_commsRxUnencrypted(uint8_t *data)
          if(RxBytes >= 2) {
          // NB: RxBytes includes the CRC, deduct it
             Ret = (uint8_t) RxBytes - 2;
-            LOG("Received %d byte subgig frame:\n",Ret);
-            LOG_HEX(data,Ret);
          }
       }
    } while(false);

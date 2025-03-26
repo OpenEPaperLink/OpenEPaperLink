@@ -1,14 +1,8 @@
-menu "OEPL Hardware config"
+menu "OEPL config"
 
   choice OEPL_HARDWARE_PROFILE
     prompt "Hardware profile"
-    default OEPL_HARDWARE_PROFILE_DEFAULT
-
-    config OEPL_HARDWARE_PROFILE_DEFAULT
-      bool "Default"
-
-    config OEPL_HARDWARE_PROFILE_POE_AP
-      bool "PoE-AP"
+    default OEPL_HARDWARE_PROFILE_LILYGO
 
     config OEPL_HARDWARE_PROFILE_CUSTOM
       bool "Custom"
@@ -102,6 +96,16 @@ menu "OEPL Hardware config"
                             USE SPI3_HOST. This is also called VSPI_HOST
     endchoice
   endmenu
+
+  config OEPL_DEBUG_PRINT
+    bool "Enable OEPL Debug logging"
+    default "n"    
+
+  config OEPL_VERBOSE_DEBUG
+    depends on OEPL_DEBUG_PRINT
+    bool "Enable OEPL Verbose Debug logging"
+    default "n"    
+
 endmenu
 
 
