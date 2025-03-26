@@ -288,7 +288,7 @@ jobs:
           esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode qio --flash_freq 80m --flash_size 4MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xD000 boot_app0.bin 0x10000 firmware.bin 0x3D0000 littlefs.bin
           cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
           cp OpenEPaperLink_ESP32-PoE-ISO_AP/firmware.bin espbinaries/OpenEPaperLink_ESP32-PoE-ISO_AP.bin
-          cp OpenEPaperLink_ESP32-PoE-ISO_AP/merged-firmware.bin espbinaries/BLE_ONLY_AP_full.bin
+          cp OpenEPaperLink_ESP32-PoE-ISO_AP/merged-firmware.bin espbinaries/OpenEPaperLink_ESP32-PoE-ISO_AP_full.bin
 
       - name: generate release json file
         run: |
