@@ -306,22 +306,25 @@ void handleRollback(AsyncWebServerRequest* request) {
 
 #ifdef C6_OTA_FLASHING
 void C6firmwareUpdateTask(void* parameter) {
-   String *Url = reinterpret_cast<String *>(parameter);
-   LOG("C6firmwareUpdateTask: url '%s'\n",Url->c_str());
+    char* urlPtr = reinterpret_cast<char*>(parameter);
+
+    LOG("C6firmwareUpdateTask: url '%s'\n", urlPtr);
     wsSerial("Stopping AP service");
 
-    setAPstate(false, AP_STATE_FLASHING);
+    gSerialTaskState = SERIAL_STATE_STOP;
     config.runStatus = RUNSTATUS_STOP;
+    setAPstate(false, AP_STATE_FLASHING);
 #ifndef FLASHER_DEBUG_SHARED
     extern bool rxSerialStopTask2;
     rxSerialStopTask2 = true;
 #endif
     vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial1.end();
+    setAPstate(false, AP_STATE_FLASHING);
 
     wsSerial(SHORT_CHIP_NAME " flash starting");
 
-    bool result = FlashC6_H2(Url->c_str());
+    bool result = FlashC6_H2(urlPtr);
 
     wsSerial(SHORT_CHIP_NAME " flash end");
 
@@ -340,15 +343,15 @@ void C6firmwareUpdateTask(void* parameter) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
         apInfo.version = 0;
-        wsSerial("resetting AP");
-        APTagReset();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-
         wsSerial("bringing AP online");
-        if (bringAPOnline()) config.runStatus = RUNSTATUS_RUN;
+        // if (bringAPOnline(AP_STATE_REQUIRED_POWER_CYCLE)) config.runStatus = RUNSTATUS_STOP;
+        if (bringAPOnline(AP_STATE_ONLINE)) {
+            config.runStatus = RUNSTATUS_RUN;
+            setAPstate(true, AP_STATE_ONLINE);
+        }
 
-     // Wait for version info to arrive
-        vTaskDelay(50 / portTICK_PERIOD_MS);
+        // Wait for version info to arrive
+        vTaskDelay(500 / portTICK_PERIOD_MS);
         if(apInfo.version == 0) {
            result = false;
         }
@@ -358,16 +361,19 @@ void C6firmwareUpdateTask(void* parameter) {
        wsSerial("Finished!");
        char buffer[50];
        snprintf(buffer,sizeof(buffer),
-                "ESP32-" SHORT_CHIP_NAME " version is now %04x",apInfo.version);
+                "ESP32-" SHORT_CHIP_NAME " version is now %04x", apInfo.version);
        wsSerial(String(buffer));
     }
     else if(apInfo.version == 0) {
-       wsSerial("AP failed failed to come online. :-(");
+       wsSerial("AP failed to come online. :-(");
     }
     else {
        wsSerial("Flashing failed. :-(");
     }
-    delete Url;
+    // wsSerial("Reboot system now");
+    // wsSerial("[reboot]");
+    free(urlPtr);
+    vTaskDelay(30000 / portTICK_PERIOD_MS);
     vTaskDelete(NULL);
 }
 #endif
@@ -376,9 +382,10 @@ void C6firmwareUpdateTask(void* parameter) {
 void handleUpdateC6(AsyncWebServerRequest* request) {
 #if defined C6_OTA_FLASHING
     if (request->hasParam("url",true)) {
-       String *Url = new String(request->getParam("url",true)->value());
-       xTaskCreate(C6firmwareUpdateTask, "OTAUpdateTask", 6400, Url, 10, NULL);
-       request->send(200, "Ok");
+        const char* urlStr = request->getParam("url", true)->value().c_str();
+        char* urlCopy = strdup(urlStr);
+        xTaskCreate(C6firmwareUpdateTask, "OTAUpdateTask", 6400, urlCopy, 10, NULL);
+        request->send(200, "Ok");
     }
     else {
        LOG("Sending bad request");

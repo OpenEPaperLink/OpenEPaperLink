@@ -21,7 +21,7 @@ const apstate = [
 	{ state: "online", color: "green", icon: "check_circle" },
 	{ state: "flashing", color: "orange", icon: "flash_on" },
 	{ state: "wait for reset", color: "blue", icon: "hourglass" },
-	{ state: "AP requires power cycle", color: "purple", icon: "refresh" },
+	{ state: "AP requires reboot", color: "purple", icon: "refresh" },
 	{ state: "failed", color: "red", icon: "error" },
 	{ state: "coming online...", color: "orange", icon: "hourglass" },
 	{ state: "AP without radio", color: "green", icon: "wifi_off" }
@@ -370,6 +370,11 @@ function processTags(tagArray) {
 			$('#tag' + tagmac + ' .nextupdate').innerHTML = "<span>next update</span>" + date.toLocaleString('nl-NL', options);
 		} else {
 			$('#tag' + tagmac + ' .nextupdate').innerHTML = "";
+		}
+		if (element.nextupdate < (Date.now() / 1000) - servertimediff) {
+			$('#tag' + tagmac + ' .waitingicon').style.display = 'inline-block';
+		} else {
+			$('#tag' + tagmac + ' .waitingicon').style.display = 'none';
 		}
 
 		if (element.nextcheckin > 1672531200) {

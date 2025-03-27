@@ -185,13 +185,13 @@ export async function initUpdate() {
                  if(firmwareVer != 'unknown') {
                      let Ver = Number('0x' + firmwareVer);
                      if(Ver > gCurrentRfVer) {
-                         tablerow += 'Newer';
+                         tablerow += 'newer';
                      }
                      else if (Ver < gCurrentRfVer) {
-                         tablerow += 'Older';
+                         tablerow += 'older';
                      }
                      else if(!Number.isNaN(Ver)){
-                         tablerow += 'Same';
+                         tablerow += 'current version';
                      }
                  }
                  tablerow += '</td>';
@@ -211,7 +211,7 @@ export async function initUpdate() {
 		tableHeader2.innerHTML = '<th>Firmware</th><th><center>Update</center></th>';
 		table2.appendChild(tableHeader2);
 		const tableRow = document.createElement('tr');
-		tablerow = '<td>Last uploaded version</td>';
+        tablerow = '<td title="manual upload, make sure all four files are present">Binaries from <a href="/edit" target="littlefs">file system</a></td>';
 		tablerow += `<td><button type="button" onclick="otamodule.updateC6H2('')">${gModuleType}</button></td>`;
 		tableRow.innerHTML = tablerow;
 		table2.appendChild(tableRow);
@@ -222,7 +222,7 @@ export async function initUpdate() {
 					"/master/binaries/ESP32-" + gShortName + 
 					"/firmware_" + gShortName + ".json";
 
-		tablerow = `<td><a href="https://github.com/${repo}" target="_new">Latest version from repo</a></td>`;
+        tablerow = `<td><a href="https://github.com/${repo}/tree/master/binaries/ESP32-${gShortName}/" target="_new">Latest version from repo</a></td>`;
 		tablerow += `<td><button type="button" onclick="otamodule.updateC6H2('${Url}')">${gModuleType}</button></td>`;
 		tableRow.innerHTML = tablerow;
 		table2.appendChild(tableRow);

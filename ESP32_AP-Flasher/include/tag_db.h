@@ -63,7 +63,7 @@ struct Config {
     uint8_t language;
     uint8_t maxsleep;
     uint8_t stopsleep;
-    uint8_t runStatus;
+    volatile uint8_t runStatus;
     uint8_t preview;
     uint8_t nightlyreboot;
     uint8_t lock;

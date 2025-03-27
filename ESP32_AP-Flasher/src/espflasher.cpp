@@ -224,8 +224,8 @@ bool FlashC6_H2(const char *RepoUrl) {
 
         File readfile = contentFS->open(JsonFilename, "r");
         if(!readfile) {
-            Serial.println("load " + JsonFilename + ": Failed to open file");
-            break;
+            wsSerial("load " + JsonFilename + ": Failed to open file");
+            return true;
         }
         DeserializationError jsonError = deserializeJson(jsonDoc, readfile);
 

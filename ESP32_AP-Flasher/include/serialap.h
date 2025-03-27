@@ -12,8 +12,8 @@ extern struct espSetChannelPower curChannel;
 #define AP_STATE_NORADIO 7
 
 struct APInfoS {
-    bool isOnline = false;
-    uint8_t state = AP_STATE_OFFLINE;
+    volatile bool isOnline = false;
+    volatile uint8_t state = AP_STATE_OFFLINE;
     uint8_t type;
     uint16_t version = 0;
     uint8_t channel;
@@ -29,6 +29,17 @@ struct APInfoS {
 
 extern struct APInfoS apInfo;
 
+enum ApSerialState {
+    SERIAL_STATE_NONE,
+    SERIAL_STATE_INITIALIZED,
+    SERIAL_STATE_STARTING,
+    SERIAL_STATE_RUNNING,
+    SERIAL_STATE_STOP,
+    SERIAL_STATE_STOPPED
+};
+
+extern volatile ApSerialState gSerialTaskState;
+
 void APTask(void* parameter);
 
 bool sendCancelPending(struct pendingData* pending);
@@ -38,5 +49,5 @@ void APEnterEarlyReset();
 bool sendChannelPower(struct espSetChannelPower* scp);
 void rxSerialTask2(void* parameter);
 void APTagReset();
-bool bringAPOnline();
+bool bringAPOnline(uint8_t newState = AP_STATE_ONLINE);
 void setAPstate(bool isOnline, uint8_t state);
