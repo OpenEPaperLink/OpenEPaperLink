@@ -634,6 +634,9 @@ void init_web() {
         if (request->hasParam("discovery", true)) {
             config.discovery = static_cast<uint8_t>(request->getParam("discovery", true)->value().toInt());
         }
+        if (request->hasParam("showtimestamp", true)) {
+            config.showtimestamp = static_cast<uint8_t>(request->getParam("showtimestamp", true)->value().toInt());
+        }
         if (request->hasParam("repo", true)) {
             config.repo = request->getParam("repo", true)->value();
         }

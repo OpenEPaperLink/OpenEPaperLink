@@ -75,6 +75,7 @@ struct Config {
     uint8_t discovery;
     String repo;
     String env;
+    uint8_t showtimestamp;
 };
 
 struct Color {

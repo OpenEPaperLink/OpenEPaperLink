@@ -211,7 +211,7 @@ bool loadDB(const String& filename) {
                     taginfo->nextupdate = (uint32_t)tag["nextupdate"];
                     taginfo->expectedNextCheckin = (uint32_t)tag["nextcheckin"];
                     if (taginfo->expectedNextCheckin < now) {
-                        taginfo->expectedNextCheckin = now + 1800;
+                        taginfo->expectedNextCheckin = now + 60;
                     }
                     taginfo->pendingCount = 0;
                     taginfo->alias = tag["alias"].as<String>();
@@ -280,11 +280,11 @@ uint32_t getTagCount(uint32_t& timeoutcount, uint32_t& lowbattcount) {
         if (!taginfo->isExternal) tagcount++;
         const int32_t timeout = now - taginfo->lastseen;
         if (taginfo->expectedNextCheckin < 3600) {
-            // not initialised, timeout if not seen last 10 minutes
-            if (timeout > 600) timeoutcount++;
-        } else if (now - taginfo->expectedNextCheckin > 600) {
-            // expected checkin is behind, timeout if not seen last 10 minutes
-            if (timeout > 600) timeoutcount++;
+            // not initialised, timeout if not seen last 5 minutes
+            if (timeout > config.maxsleep * 60 + 300) timeoutcount++;
+        } else if (now - static_cast<time_t>(taginfo->expectedNextCheckin) > 600) {
+            // expected checkin is behind, timeout if not seen last 5 minutes
+            if (timeout > config.maxsleep * 60 + 300) timeoutcount++;
         }
         if (taginfo->batteryMv < 2400 && taginfo->batteryMv != 0 && taginfo->batteryMv != 1337) lowbattcount++;
     }
@@ -335,8 +335,9 @@ void initAPconfig() {
     config.sleepTime2 = APconfig["sleeptime2"].is<uint8_t>() ? APconfig["sleeptime2"] : 0;
     config.ble = APconfig["ble"].is<uint8_t>() ? APconfig["ble"] : 0;
     config.discovery = APconfig["discovery"].is<uint8_t>() ? APconfig["discovery"] : 0;
+    config.showtimestamp = APconfig["showtimestamp"].is<uint8_t>() ? APconfig["showtimestamp"] : 0;
 #ifdef BLE_ONLY
-    config.ble = true;
+        config.ble = true;
 #endif
     // default wifi power 8.5 dbM
     // see https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/src/WiFiGeneric.h#L111
@@ -373,6 +374,7 @@ void saveAPconfig() {
     APconfig["repo"] = config.repo;
     APconfig["env"] = config.env;
     APconfig["discovery"] = config.discovery;
+    APconfig["showtimestamp"] = config.showtimestamp;
     serializeJsonPretty(APconfig, configFile);
     configFile.close();
     xSemaphoreGive(fsMutex);
