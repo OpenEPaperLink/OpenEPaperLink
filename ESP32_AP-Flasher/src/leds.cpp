@@ -41,7 +41,7 @@ void ledcSet(uint8_t channel, uint8_t brightness) {
     ledcWrite(channel, brightness);
 #else
     ledcWriteChannel(channel, brightness);
-#endif 
+#endif
 }
 
 #ifdef HAS_RGB_LED
@@ -176,7 +176,9 @@ void addFadeMono(uint8_t value) {
 }
 
 void showMono(uint8_t brightness) {
-    ledcSet(7, gamma8[brightness]);
+    if (FLASHER_LED != -1) {
+        ledcSet(7, gamma8[brightness]);
+    }
 }
 
 void quickBlink(uint8_t repeat) {
@@ -295,7 +297,7 @@ void ledTask(void* parameter) {
                 if (monoled->fadeTime <= 1) {
                     showMono(monoled->value);
                 }
-            } 
+            }
         } else {
             if (monoled->fadeTime) {
                 monoled->fadeTime--;

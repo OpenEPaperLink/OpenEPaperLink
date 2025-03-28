@@ -21,7 +21,7 @@ const apstate = [
 	{ state: "online", color: "green", icon: "check_circle" },
 	{ state: "flashing", color: "orange", icon: "flash_on" },
 	{ state: "wait for reset", color: "blue", icon: "hourglass" },
-	{ state: "AP requires power cycle", color: "purple", icon: "refresh" },
+	{ state: "AP requires reboot", color: "purple", icon: "refresh" },
 	{ state: "failed", color: "red", icon: "error" },
 	{ state: "coming online...", color: "orange", icon: "hourglass" },
 	{ state: "AP without radio", color: "green", icon: "wifi_off" }
@@ -371,11 +371,16 @@ function processTags(tagArray) {
 		} else {
 			$('#tag' + tagmac + ' .nextupdate').innerHTML = "";
 		}
+		if (element.nextupdate < (Date.now() / 1000) - servertimediff) {
+			$('#tag' + tagmac + ' .waitingicon').style.display = 'inline-block';
+		} else {
+			$('#tag' + tagmac + ' .waitingicon').style.display = 'none';
+		}
 
 		if (element.nextcheckin > 1672531200) {
 			div.dataset.nextcheckin = element.nextcheckin;
 		} else {
-			div.dataset.nextcheckin = element.lastseen + 1800;
+			div.dataset.nextcheckin = element.lastseen + 60;
 		}
 
 		div.style.opacity = '1';
@@ -461,7 +466,7 @@ function updatecards() {
 		if (item.dataset.lastseen && item.dataset.lastseen > (Date.now() / 1000) - servertimediff - 30 * 24 * 3600 * 60) {
 			let idletime = (Date.now() / 1000) - servertimediff - item.dataset.lastseen;
 			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>" + displayTime(Math.floor(idletime)) + " ago";
-			if ((Date.now() / 1000) - servertimediff - 600 > item.dataset.nextcheckin) {
+			if ((Date.now() / 1000) - servertimediff - apConfig.maxsleep * 60 - 300 > item.dataset.nextcheckin) {
 				$('#tag' + tagmac + ' .warningicon').style.display = 'inline-block';
 				$('#tag' + tagmac).classList.remove("tagpending")
 				$('#tag' + tagmac).style.background = '#e0e0a0';
@@ -793,6 +798,7 @@ document.addEventListener("loadTab", function (event) {
 						$("#apcnight1").value = data.sleeptime1;
 						$("#apcnight2").value = data.sleeptime2;
 						$("#apcdiscovery").value = data.discovery;
+						$("#apcshowtimestamp").value = data.showtimestamp;
 					}
 				})
 			$('#apcfgmsg').innerHTML = '';
@@ -830,7 +836,8 @@ $('#apcfgsave').onclick = function () {
 	formData.append('timezone', $('#apctimezone').value);
 	formData.append('sleeptime1', $('#apcnight1').value);
 	formData.append('sleeptime2', $('#apcnight2').value);
-	formData.append('discovery', $('#apcdiscovery').value)
+	formData.append('discovery', $('#apcdiscovery').value);
+	formData.append('showtimestamp', $('#apcshowtimestamp').value);
 	fetch("save_apcfg", {
 		method: "POST",
 		body: formData
@@ -1788,14 +1795,24 @@ function populateAPInfo(apip) {
 		})
 		.then(data => {
 			if (data.env) {
+				let gModuleType = "";
+				if (data.hasC6 == 1) {
+					gModuleType = "esp32-C6";
+				}
+				if (data.hasH2 == 1) {
+					gModuleType = "esp32-H2";
+				}
+				if (data.hasTslr == 1) {
+					gModuleType = "TSLR";
+				}
 				let version = '';
 				version += `env:                ${data.env}<br>`;
 				version += `build date:         ${formatEpoch(data.buildtime)}<br>`;
 				version += `esp32 version:      ${data.buildversion}<br>`;
 				version += `psram size:         ${data.psramsize}<br>`;
 				version += `flash size:         ${data.flashsize}<br>`;
-				if (data.hasC6) {
-					version += `ESP-C6/H2 version: 0x${parseInt(data.C6version).toString(16).toUpperCase()}<br>`;
+				if (gModuleType) {
+					version += `${gModuleType} version: 0x${parseInt(data.ap_version).toString(16).toUpperCase()}<br>`;
 				}
 				$('#ap' + apid + ' .apswversion').innerHTML = version;
 			}

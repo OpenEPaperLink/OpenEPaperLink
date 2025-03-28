@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
+#include <system.h>
 
 #include "commstructs.h"
 #include "contentmanager.h"
@@ -14,7 +15,7 @@
 #include "web.h"
 #include "zbs_interface.h"
 
-#define LOG(format, ... ) printf(format,## __VA_ARGS__)
+#define LOG(format, ...) printf(format, ##__VA_ARGS__)
 
 QueueHandle_t rxCmdQueue;
 SemaphoreHandle_t txActive;
@@ -45,15 +46,6 @@ struct espSetChannelPower curChannel = {0, 11, 10};
 #define AP_ACTIVITY_MAX_INTERVAL 30 * 1000
 volatile uint32_t lastAPActivity = 0;
 struct APInfoS apInfo;
-
-enum ApSerialState {
-   SERIAL_STATE_NONE,
-   SERIAL_STATE_INITIALIZED,
-   SERIAL_STATE_STARTING,
-   SERIAL_STATE_RUNNING,
-   SERIAL_STATE_STOP,
-   SERIAL_STATE_STOPPED
-};
 
 volatile ApSerialState gSerialTaskState;
 
@@ -165,27 +157,28 @@ void setAPstate(bool isOnline, uint8_t state) {
         CRGB::Red,
         CRGB::YellowGreen};
     rgbIdleColor = colorMap[state];
-    #ifdef BLE_ONLY
-        rgbIdleColor = CRGB::Green;
-    #endif
+#ifdef BLE_ONLY
+    rgbIdleColor = CRGB::Green;
+#endif
     rgbIdlePeriod = (isOnline ? 767 : 255);
     if (isOnline) rgbIdle();
 #endif
 #ifdef FLASHER_DEBUG_SHARED
-// Flasher shares port with AP comms
-    if(state == AP_STATE_FLASHING) {
-        LOG("Shared COM port, gSerialTaskState %d\n",gSerialTaskState);
+    // Flasher shares port with AP comms
+    if (state == AP_STATE_FLASHING) {
+        LOG("Shared COM port, gSerialTaskState %d\n", gSerialTaskState);
         gSerialTaskState = SERIAL_STATE_STOP;
-        for(int i = 0; i < 100; i++) {
+        for (int i = 0; i < 100; i++) {
             vTaskDelay(1 / portTICK_RATE_MS);
-            if(gSerialTaskState == SERIAL_STATE_STOPPED) {
+            if (gSerialTaskState == SERIAL_STATE_STOPPED) {
                 gSerialTaskState = SERIAL_STATE_NONE;
                 break;
             }
         }
-        LOG("gSerialTaskState %d\n",gSerialTaskState);
+        LOG("gSerialTaskState %d\n", gSerialTaskState);
     }
 #endif
+    wsSendSysteminfo();
 }
 
 // Reset the tag
@@ -414,46 +407,49 @@ void rxCmdProcessor(void* parameter) {
     txActive = xSemaphoreCreateBinary();
     xSemaphoreGive(txActive);
     while (1) {
-        struct rxCmd* rxcmd = nullptr;
-        BaseType_t q = xQueueReceive(rxCmdQueue, &rxcmd, 10);
-        if (q == pdTRUE) {
-            switch (rxcmd->type) {
-                case RX_CMD_RQB:
-                    processBlockRequest((struct espBlockRequest*)rxcmd->data);
+        if (apInfo.isOnline) {
+            struct rxCmd* rxcmd = nullptr;
+            BaseType_t q = xQueueReceive(rxCmdQueue, &rxcmd, 10);
+            if (q == pdTRUE) {
+                switch (rxcmd->type) {
+                    case RX_CMD_RQB:
+                        processBlockRequest((struct espBlockRequest*)rxcmd->data);
 #ifdef HAS_RGB_LED
-                    // shortBlink(CRGB::Blue);
+                        // shortBlink(CRGB::Blue);
 #endif
-                    quickBlink(3);
-                    break;
-                case RX_CMD_ADR:
-                    processDataReq((struct espAvailDataReq*)rxcmd->data, true);
+                        quickBlink(3);
+                        break;
+                    case RX_CMD_ADR:
+                        processDataReq((struct espAvailDataReq*)rxcmd->data, true);
 #ifdef HAS_RGB_LED
-                    // shortBlink(CRGB::Aqua);
+                        // shortBlink(CRGB::Aqua);
 #endif
-                    quickBlink(1);
-                    break;
-                case RX_CMD_XFC:
-                    processXferComplete((struct espXferComplete*)rxcmd->data, true);
+                        quickBlink(1);
+                        break;
+                    case RX_CMD_XFC:
+                        processXferComplete((struct espXferComplete*)rxcmd->data, true);
 #ifdef HAS_RGB_LED
-                    // shortBlink(CRGB::Purple);
+                        // shortBlink(CRGB::Purple);
 #endif
-                    break;
-                case RX_CMD_XTO:
-                    processXferTimeout((struct espXferComplete*)rxcmd->data, true);
-                    break;
-                case RX_CMD_RSET:
-                    Serial.println("AP did reset, resending pending\r\n");
-                    refreshAllPending();
-                    sendChannelPower(&curChannel);
-                    break;
-                case RX_CMD_TRD:
-                    // received tag return data
-                    processTagReturnData((struct espTagReturnData*)rxcmd->data, rxcmd->len, true);
-                    break;
+                        break;
+                    case RX_CMD_XTO:
+                        processXferTimeout((struct espXferComplete*)rxcmd->data, true);
+                        break;
+                    case RX_CMD_RSET:
+                        Serial.println("AP did reset, resending pending\r\n");
+                        refreshAllPending();
+                        sendChannelPower(&curChannel);
+                        break;
+                    case RX_CMD_TRD:
+                        // received tag return data
+                        processTagReturnData((struct espTagReturnData*)rxcmd->data, rxcmd->len, true);
+                        break;
+                }
+                if (rxcmd->data) free(rxcmd->data);
+                if (rxcmd) free(rxcmd);
             }
-            if (rxcmd->data) free(rxcmd->data);
-            if (rxcmd) free(rxcmd);
         }
+        vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
 void rxSerialTask(void* parameter) {
@@ -538,8 +534,8 @@ void rxSerialTask(void* parameter) {
                         packetp = (uint8_t*)calloc(sizeof(struct espBlockRequest) + 8, 1);
                         memset(cmdbuffer, 0x00, 4);
                         lastAPActivity = millis();
-                        if (apInfo.isOnline == false)
-                            setAPstate(true, AP_STATE_ONLINE);
+                        // don't set APstate heree, as it interferes with the flashing process
+                        // if (apInfo.isOnline == false && config.runStatus == RUNSTATUS_RUN) setAPstate(true, AP_STATE_ONLINE);
                     }
                     if (strncmp(cmdbuffer, "ADR>", 4) == 0) {
                         RXState = ZBS_RX_WAIT_DATA_REQ;
@@ -548,8 +544,8 @@ void rxSerialTask(void* parameter) {
                         packetp = (uint8_t*)calloc(sizeof(struct espAvailDataReq) + 8, 1);
                         memset(cmdbuffer, 0x00, 4);
                         lastAPActivity = millis();
-                        if (apInfo.isOnline == false)
-                            setAPstate(true, AP_STATE_ONLINE);
+                        // don't set APstate heree, as it interferes with the flashing process
+                        // if (apInfo.isOnline == false && config.runStatus == RUNSTATUS_RUN) setAPstate(true, AP_STATE_ONLINE);
                     }
                     if (strncmp(cmdbuffer, "XFC>", 4) == 0) {
                         RXState = ZBS_RX_WAIT_XFERCOMPLETE;
@@ -572,8 +568,6 @@ void rxSerialTask(void* parameter) {
                         packetp = (uint8_t*)calloc(sizeof(struct espTagReturnData) + 8, 1);
                         memset(cmdbuffer, 0x00, 4);
                         lastAPActivity = millis();
-                        if (apInfo.isOnline == false)
-                            setAPstate(true, AP_STATE_ONLINE);
                     }
                     break;
                 case ZBS_RX_BLOCK_REQUEST:
@@ -706,7 +700,18 @@ void rxSerialTask(void* parameter) {
 }
 
 #if defined(FLASHER_DEBUG_RXD) && !defined(FLASHER_DEBUG_SHARED)
+uint32_t millisDiff(uint32_t m) {
+    uint32_t ms = millis();
+    if (ms >= m)
+        return ms - m;
+    else
+        return UINT32_MAX - m + ms + 1;
+}
+
 void rxSerialTask2(void* parameter) {
+    char rxStr[100] = {0};
+    int rxStrCount = 0;
+    uint32_t modemResetHoldoff = millis();
     char lastchar = 0;
     time_t startTime = millis();
     int charCount = 0;
@@ -718,6 +723,33 @@ void rxSerialTask2(void* parameter) {
 
             // debug info
             Serial.write(lastchar);
+
+            rxStr[rxStrCount] = lastchar;
+            if (lastchar == '\n' || lastchar == '\r') {
+                if (strncmp(rxStr, "receive buffer full, drop the current frame", 43) == 0 && millisDiff(modemResetHoldoff) > 20000) {
+                    modemResetHoldoff = millis();
+                    vTaskDelay(100 / portTICK_PERIOD_MS);
+                    config.runStatus = RUNSTATUS_STOP;
+                    Serial.println("IEEE802.15.4 modem stuck case detected, resetting...");
+                    APTagReset();
+                    vTaskDelay(1000 / portTICK_PERIOD_MS);
+                    Serial.println("bringing AP online again");
+                    if (bringAPOnline()) {
+                        config.runStatus = RUNSTATUS_RUN;
+                        Serial.println("Finished!");
+                    } else {
+                        Serial.println("Failed!");
+                    }
+                    logLine("IEEE802.15.4 modem reset " + (config.runStatus == RUNSTATUS_RUN) ? ("ok") : ("failed"));
+                }
+                rxStrCount = 0;
+                memset(rxStr, 0, sizeof(rxStr));
+            } else if (rxStrCount < sizeof(rxStr) - 2) {
+                rxStrCount++;
+            } else {
+                rxStrCount = 0;
+                memset(rxStr, 0, sizeof(rxStr));
+            }
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
 
@@ -725,7 +757,7 @@ void rxSerialTask2(void* parameter) {
         if (currentTime - startTime >= 1000) {
             if (charCount > 6000) {
                 rxSerialStopTask2 = true;
-                Serial.println("Serial monitor stopped because of flooding (" + String(charCount) + " characters per second");
+                Serial.println("Serial monitor stopped because of flooding (" + String(charCount) + " characters per second)");
             }
             startTime = currentTime;
             charCount = 0;
@@ -783,35 +815,35 @@ void segmentedShowIp() {
     vTaskDelay(2000 / portTICK_PERIOD_MS);
 }
 
-bool bringAPOnline() {
+bool bringAPOnline(uint8_t newState) {
 #ifdef BLE_ONLY
     apInfo.state = AP_STATE_NORADIO;
 #endif
     if (apInfo.state == AP_STATE_NORADIO) return true;
     if (apInfo.state == AP_STATE_FLASHING) return false;
 
-    if(gSerialTaskState != SERIAL_STATE_INITIALIZED) {
+    if (gSerialTaskState != SERIAL_STATE_INITIALIZED) {
 #ifdef HAS_ELECROW_ADV_2_8
-    // Set GPIO45 low to connect the wireless interface to the multiplexed pins
-       pinMode(45, OUTPUT);
-       digitalWrite(45, LOW);
+        // Set GPIO45 low to connect the wireless interface to the multiplexed pins
+        pinMode(45, OUTPUT);
+        digitalWrite(45, LOW);
 #endif
 
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
-       AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
+        AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 #elif defined(HAS_EXT_FLASHER)
-   #if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
-       AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
-   #elif (AP_PROCESS_PORT == FLASHER_ALTRADIO_PORT)
-       AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
-   #endif
+#if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
+        AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
+#elif (AP_PROCESS_PORT == FLASHER_ALTRADIO_PORT)
+        AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 #endif
-       gSerialTaskState = SERIAL_STATE_INITIALIZED;
+#endif
+        gSerialTaskState = SERIAL_STATE_INITIALIZED;
     }
-    if(gSerialTaskState != SERIAL_STATE_RUNNING) {
-       gSerialTaskState = SERIAL_STATE_STARTING;
-       xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, 11, NULL);
-       vTaskDelay(500 / portTICK_PERIOD_MS);
+    if (gSerialTaskState != SERIAL_STATE_RUNNING) {
+        gSerialTaskState = SERIAL_STATE_STARTING;
+        xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, 11, NULL);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
     setAPstate(false, AP_STATE_OFFLINE);
     // try without rebooting
@@ -849,18 +881,18 @@ bool bringAPOnline() {
         }
 
         vTaskDelay(200 / portTICK_PERIOD_MS);
-        setAPstate(true, AP_STATE_ONLINE);
+        setAPstate(newState == AP_STATE_ONLINE ? true : false, newState);
         return true;
     }
 }
 
 bool checkRadio() {
-    #ifdef BLE_ONLY
+#ifdef BLE_ONLY
     return false;
-    #endif
-    #ifndef C6_OTA_FLASHING
+#endif
+#ifndef C6_OTA_FLASHING
     return true;
-    #endif
+#endif
     // make a short between FLASHER_AP_TXD and FLASHER_AP_RXD to indicate that no radio is present
     // e.g. for flasher only, or just to use the S3 to generate images for smaller AP's
     pinMode(FLASHER_AP_TXD, OUTPUT);
@@ -884,10 +916,9 @@ void APTask(void* parameter) {
         return;
     }
 
-
     xTaskCreate(rxCmdProcessor, "rxCmdProcessor", 6000, NULL, 15, NULL);
 #if defined(FLASHER_DEBUG_RXD) && !defined(FLASHER_DEBUG_SHARED)
-    xTaskCreate(rxSerialTask2, "rxSerialTask2", 1750, NULL, 2, NULL);
+    xTaskCreate(rxSerialTask2, "rxSerialTask2", 1850, NULL, 2, NULL);
     vTaskDelay(500 / portTICK_PERIOD_MS);
 #endif
     bringAPOnline();
@@ -924,7 +955,7 @@ void APTask(void* parameter) {
         if (FLASHER_AP_MOSI != -1) {
             fsversion = getAPUpdateVersion(apInfo.type);
             if ((fsversion) && (apInfo.version != fsversion)) {
-                Serial.printf("Firmware version on LittleFS: %04X\r\n", fsversion);
+                Serial.printf("Firmware version on FS: %04X\r\n", fsversion);
 
                 Serial.printf("We're going to try to update the AP's FW in\r\n");
                 flashCountDown(30);

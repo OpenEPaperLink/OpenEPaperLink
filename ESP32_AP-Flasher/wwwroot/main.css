@@ -651,6 +651,16 @@ select {
 	text-align: center;
 }
 
+.waitingicon {
+    display: none;
+    font-size: 1.2em;
+    background-color: lightgreen;
+    color: black;
+    height: 20px;
+    width: 20px;
+    vertical-align: top;
+    text-align: center;
+}
 ul.messages {
 	padding: 5px;
 }

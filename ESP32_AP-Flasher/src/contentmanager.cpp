@@ -54,17 +54,22 @@ void contentRunner() {
 
     time_t now;
     time(&now);
+    uint8_t wifimac[8];
+    WiFi.macAddress(wifimac);
+    memset(&wifimac[6], 0, 2);
 
     for (tagRecord *taginfo : tagDB) {
+
+        const bool isAp = memcmp(taginfo->mac, wifimac, 8) == 0;
         if (taginfo->RSSI &&
             (now >= taginfo->nextupdate || needRedraw(taginfo->contentMode, taginfo->wakeupReason)) &&
-            config.runStatus == RUNSTATUS_RUN &&
-            Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
+            config.runStatus == RUNSTATUS_RUN && (taginfo->expectedNextCheckin < now + 300 || isAp) &&
+             Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
             drawNew(taginfo->mac, taginfo);
             taginfo->wakeupReason = 0;
         }
 
-        if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pendingCount == 0) {
+        if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pendingCount == 0 && !isAp) {
             int32_t minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
             if (minutesUntilNextUpdate > config.maxsleep) {
                 minutesUntilNextUpdate = config.maxsleep;
@@ -82,6 +87,7 @@ void contentRunner() {
             }
             if (minutesUntilNextUpdate > 1 && (wsClientCount() == 0 || config.stopsleep == 0)) {
                 taginfo->pendingIdle = minutesUntilNextUpdate * 60;
+                taginfo->expectedNextCheckin = now + taginfo->pendingIdle;
                 if (taginfo->isExternal == false) {
                     prepareIdleReq(taginfo->mac, minutesUntilNextUpdate);
                 }

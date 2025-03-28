@@ -507,9 +507,9 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
     if (taginfo != nullptr) {
         taginfo->pendingIdle = 60;
         clearPending(taginfo);
-        while (dequeueItem(xfc->src)) {
-        };
     }
+    while (dequeueItem(xfc->src)) {
+    };
 
     checkQueue(xfc->src);
 
@@ -560,15 +560,14 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         taginfo->apIp = IPAddress(0, 0, 0, 0);
     }
 
-    if (taginfo->pendingIdle == 0) {
-        taginfo->expectedNextCheckin = now + 60;
+    if (taginfo->pendingIdle == 0 || countQueueItem(eadr->src) > 0) {
+        if (taginfo->expectedNextCheckin < now + 60) taginfo->expectedNextCheckin = now + 60;
     } else if (taginfo->pendingIdle == 9999) {
         taginfo->expectedNextCheckin = 3216153600;
-        taginfo->pendingIdle = 0;
     } else {
         taginfo->expectedNextCheckin = now + taginfo->pendingIdle;
-        taginfo->pendingIdle = 0;
     }
+    taginfo->pendingIdle = 0;
     taginfo->lastseen = now;
 
     if (eadr->adr.lastPacketRSSI != 0) {
@@ -607,6 +606,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     if (local) {
         sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\r\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
         Serial.print(buffer);
+        checkQueue(eadr->src);   // experiemental 3/26/25: redundant check
     }
 
     if (local) {
