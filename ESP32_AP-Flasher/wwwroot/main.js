@@ -494,6 +494,12 @@ function updatecards() {
 		} else {
 			// $('#tag' + tagmac + ' .nextcheckin').innerHTML = "";
 		}
+
+		if (item.dataset.nextupdate < (Date.now() / 1000) - servertimediff) {
+			$('#tag' + tagmac + ' .waitingicon').style.display = 'inline-block';
+		} else {
+			$('#tag' + tagmac + ' .waitingicon').style.display = 'none';
+		}
 	})
 
 	$('#dashboardTagCount').innerHTML = tagcount;
