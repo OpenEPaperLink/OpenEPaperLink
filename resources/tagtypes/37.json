@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 3,
 	"name": "M3 11.6\"",
 	"width": 960,
 	"height": 640,
@@ -14,12 +14,26 @@
 	"zlib_compression": "27",
 	"options": [ "button" ],
 	"contentids": [ 22, 23, 1, 5, 8, 9, 7, 19, 10, 11 ],
-	"usetemplate": 1,
 	"template": {
 		"1": {
 			"weekday": [ 480, -5, "Signika-SB.ttf", 160 ],
-			"month": [ 480, 480, "Signika-SB.ttf", 160 ],
-			"day": [ 480, 110, "Signika-SB.ttf", 380 ]
+			"month": [ 480, 440, "Signika-SB.ttf", 160 ],
+			"day": [ 480, 85, "Signika-SB.ttf", 380 ]
+		},
+		"8": {
+			"location": [ 25, 0, "fonts/calibrib60" ],
+			"column": [ 7, 137 ],
+			"day": [ 68, 245, "fonts/calibrib42", 325, 540 ],
+			"rain": [ 72, 585 ],
+			"icon": [ 67, 390, 90 ],
+			"wind": [ 45, 290 ],
+			"line": [ 240, 672 ],
+
+			"currentwind": [ 670, 130, "fonts/calibrib60" ],
+			"temp": [ 25, 45, "fonts/calibrib150", 1 ],
+			"currenticon": [ 900, 0, 160, 2 ],
+			"dir": [ 600, 100, 90 ],
+			"umbrella": [ 630, 50, 60 ]
 		},
 		"9": {
 			"title": [ 6, 0, "Signika-SB.ttf", 32 ],
@@ -35,7 +49,7 @@
 			"rotate": 0,
 			"mode": 1,
 			"days": 7,
-			"gridparam": [ 7, 19, 30, "calibrib16.vlw", "REFSAN12.vlw", 16 ]
+			"gridparam": [ 3, 25, 40, "fonts/calibrib30", "REFSAN12.vlw", 16 ]
 		}
 	}
 }
