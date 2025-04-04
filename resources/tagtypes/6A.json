@@ -1,0 +1,41 @@
+{
+	"version": 1,
+	"name": "HS BWR 5,83\"",
+	"width": 648,
+	"height": 480,
+	"rotatebuffer": 0,
+	"bpp": 2,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ]
+	},
+	"shortlut": 0,
+	"zlib_compression": "27",
+	"options": [ "button", "led" ],
+	"contentids": [ 22, 23, 1, 4, 5, 8, 9, 7, 19, 10, 11 ],
+	"usetemplate": 1,
+	"template": {
+		"1": {
+			"weekday": [ 300, 0, "Signika-SB.ttf", 110 ],
+			"month": [ 300, 310, "Signika-SB.ttf", 110 ],
+			"day": [ 300, 75, "Signika-SB.ttf", 250 ]
+		},
+		"10": {
+			"title": [ 300, 10, "fonts/bahnschrift30" ],
+			"pos": [ 300, 50 ]
+		},
+		"9": {
+			"title": [ 6, 0, "Signika-SB.ttf", 32 ],
+			"items": 6,
+			"line": [ 9, 40, "calibrib16.vlw" ],
+			"desc": [ 2, 8, "REFSAN12.vlw", 1.2 ]
+		},
+		"11": {
+			"rotate": 0,
+			"mode": 1,
+			"days": 7,
+			"gridparam": [ 7, 17, 30, "calibrib16.vlw", "tahoma9.vlw", 14 ]
+		}
+	}
+}
