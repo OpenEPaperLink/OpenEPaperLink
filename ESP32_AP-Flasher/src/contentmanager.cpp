@@ -1613,6 +1613,10 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
     int n = doc.size();
+    if (n == 0) {
+        wsErr("No data in dayahead feed");
+        return false;
+    }
 
     int units = cfgobj["units"].as<int>();
     if (units == 0) units = 1;
