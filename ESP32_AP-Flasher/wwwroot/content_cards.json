@@ -742,5 +742,12 @@
         "type": "binfile"
       }
     ]
+  },
+  {
+    "id": 29,
+    "name": "Current Time",
+    "desc": "Displays the current time on the tag, only rarely supported even if shown here! It uses a fast LUT when possible otherwise a full refresh which is not very battery friendly and will anoy by flickering every minute",
+    "param": [
+    ]
   }
 ]

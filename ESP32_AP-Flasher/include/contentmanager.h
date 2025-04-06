@@ -48,4 +48,5 @@ void getLocation(JsonObject &cfgobj);
 void prepareNFCReq(const uint8_t *dst, const char *url);
 void prepareLUTreq(const uint8_t *dst, const String &input);
 void prepareConfigFile(const uint8_t *dst, const JsonObject &config);
+void prepareTIME_RAW(const uint8_t *dst, time_t now);
 void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype);
