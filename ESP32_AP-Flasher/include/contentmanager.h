@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <LittleFS.h>
 #include <TFT_eSPI.h>
+#include <time.h>
 
 #include "makeimage.h"
 #include "tag_db.h"
@@ -21,7 +22,7 @@ bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, 
 void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align = 0, uint16_t color = TFT_BLACK, uint16_t size = 30, uint16_t bgcolor = TFT_WHITE);
 void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy, int16_t boxwidth, int16_t boxheight, String font, uint16_t color = TFT_BLACK, uint16_t bgcolor = TFT_WHITE, float lineheight = 1, byte align = TL_DATUM);
 void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams);
-void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams);
+void drawDate(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams);
 void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo, imgParam &imageParams);
 void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams);
 void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams);
