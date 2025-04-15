@@ -1,9 +1,9 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "M3 5.81\" V2 BWR",
 	"width": 720,
 	"height": 256,
-	"rotatebuffer": 2,
+	"rotatebuffer": 0,
 	"bpp": 2,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
