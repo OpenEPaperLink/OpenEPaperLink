@@ -133,7 +133,9 @@
 #define DATATYPE_TAG_CONFIG_DATA 0xA8      // Config data for tag
 #define DATATYPE_COMMAND_DATA 0xAF         // Command for the tag to execute  (contained in availableData Reply)
 #define DATATYPE_CUSTOM_LUT_OTA 0xB0       // Custom OTA updated LUT
-#define DATATYPE_TIME_RAW_DATA 0xC0       // Used for showning the time and preparation for more data
+#define DATATYPE_TIME_RAW_DATA 0xC0        // Used for showning the time and preparation for more data
+#define DATATYPE_CONFIG_DATA_TEST 0xC1	   // Used to receive Display configurations to test
+#define DATATYPE_CONFIG_DATA_SAVE 0xC2	   // Used to receive Display configurations to save in flash an reboot
 
 #define CMD_DO_REBOOT 0
 #define CMD_DO_SCAN 1
