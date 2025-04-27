@@ -876,7 +876,7 @@ h4 {
 .console {
 	width: 450px;
 	background-color: black;
-	font-family: 'lucida console', 'ui-monospace';
+	font-family: 'lucida console', 'ui-monospace', 'monospace';
 	color: white;
 	padding: 5px 10px;
 	padding-bottom: 25px;
