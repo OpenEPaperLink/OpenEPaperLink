@@ -1,0 +1,32 @@
+{
+	"version": 1,
+	"name": "HS BWRY 3,5\"",
+	"width": 384,
+	"height": 184,
+	"rotatebuffer": 1,
+	"bpp": 2,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ],
+		"yellow": [ 255, 255, 0 ]
+	},
+	"perceptual": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"yellow": [ 200, 200, 0 ]
+	},
+	"shortlut": 0,
+	"zlib_compression": "27",
+	"options": [ "led" ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 17, 18, 19, 20, 27, 29 ],
+	"usetemplate": 51,
+	"template": {
+		"27": {
+			"bars": [ 12, 360, 125, 20 ],
+			"time": [ "calibrib16.vlw" ],
+			"yaxis": [ "tahoma9.vlw", 1, 6 ],
+			"head": [ "calibrib30.vlw" ]
+		}
+	}
+}
