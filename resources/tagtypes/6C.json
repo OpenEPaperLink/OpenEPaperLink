@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "HS BWRY 2,00\"",
 	"width": 152,
 	"height": 200,
@@ -18,7 +18,7 @@
 	},
 	"shortlut": 0,
 	"zlib_compression": "27",
-	"options": [ "button" ],
+	"options": [ "button", "led" ],
 	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 10, 14, 17, 18, 19, 20, 21 ],
 	"template": {
 		"1": {
