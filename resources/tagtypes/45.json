@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"name": "M3 2.2 Lite\"",
 	"width": 250,
 	"height": 128,
@@ -17,7 +17,7 @@
 	
 	"template": {
 		"1": {
-			"weekday": [ 128, 3, "Signika-SB.ttf", 50 ],
+			"weekday": [ 128, 3, "Signika-SB.ttf", 40 ],
 			"date": [ 128, 62, "Signika-SB.ttf", 40 ]
 		},
 		"2": {
