@@ -123,7 +123,10 @@
     "80": {
       "type": "chroma74y_ota",
       "version": "0010",
-      "md5": "4baff1e9eba6949c26ea11dbbd105039"
+      "md5": "4baff1e9eba6949c26ea11dbbd105039",
+      "type_1": "chroma74r_ota",
+      "version_1": "0014",
+      "md5_1": "3c69d4414a1447b071f0628529a3e3c7"
     },
     "82": {
       "type": "chroma29_ota",
