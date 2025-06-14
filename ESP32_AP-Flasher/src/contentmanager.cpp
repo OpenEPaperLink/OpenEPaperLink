@@ -46,7 +46,7 @@
 
 bool needRedraw(uint8_t contentMode, uint8_t wakeupReason) {
     // contentmode 26, timestamp
-    if ((wakeupReason == WAKEUP_REASON_BUTTON1 || wakeupReason == WAKEUP_REASON_BUTTON2) && contentMode == 26) return true;
+    if ((wakeupReason == WAKEUP_REASON_BUTTON1 || wakeupReason == WAKEUP_REASON_BUTTON2 || wakeupReason == WAKEUP_REASON_BUTTON3) && contentMode == 26) return true;
     return false;
 }
 
@@ -2264,7 +2264,7 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
     http.addHeader("X-ESL-MAC", MAC);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    http.setTimeout(5000);
+    http.setTimeout(20000);
     const int httpCode = http.GET();
     if (httpCode == 200) {
         drawJsonStream(http.getStream(), filename, taginfo, imageParams);
