@@ -6,6 +6,7 @@ const WAKEUP_REASON_GPIO = 2;
 const WAKEUP_REASON_NFC = 3;
 const WAKEUP_REASON_BUTTON1 = 4;
 const WAKEUP_REASON_BUTTON2 = 5;
+const WAKEUP_REASON_BUTTON3 = 6;
 const WAKEUP_REASON_FAILED_OTA_FW = 0xE0;
 const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
@@ -394,7 +395,9 @@ function processTags(tagArray) {
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
 		$('#tag' + tagmac).style.background = "#ffffff";
 		if (element.contentMode == 12 || element.nextcheckin == 3216153600) $('#tag' + tagmac).style.background = "#e4e4e0";
+
 		switch (parseInt(element.wakeupReason)) {
+
 			case WAKEUP_REASON_TIMED:
 				break;
 			case WAKEUP_REASON_BOOT:
@@ -412,6 +415,10 @@ function processTags(tagArray) {
 				break;
 			case WAKEUP_REASON_BUTTON2:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Button 2 pressed"
+				$('#tag' + tagmac).style.background = "#c8f1bb";
+				break;
+			case WAKEUP_REASON_BUTTON3:
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Button 3 pressed"
 				$('#tag' + tagmac).style.background = "#c8f1bb";
 				break;
 			case WAKEUP_REASON_NFC:
