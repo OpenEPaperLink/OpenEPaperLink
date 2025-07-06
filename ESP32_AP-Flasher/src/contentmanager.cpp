@@ -1409,7 +1409,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
 
             int minHour = loc["period"][0] | 9;
             int maxHour = loc["period"][1] | 17;
-            
+
             int n = doc.size();
             int maxBlock = 0;
             int *block = new int[n];
