@@ -64,10 +64,11 @@ void contentRunner() {
         const bool isAp = memcmp(taginfo->mac, wifimac, 8) == 0;
         if (taginfo->RSSI &&
             (now >= taginfo->nextupdate || needRedraw(taginfo->contentMode, taginfo->wakeupReason)) &&
-            config.runStatus == RUNSTATUS_RUN && (taginfo->expectedNextCheckin < now + 300 || isAp) &&
-             Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
-            drawNew(taginfo->mac, taginfo);
-            taginfo->wakeupReason = 0;
+            config.runStatus == RUNSTATUS_RUN && 
+            (taginfo->expectedNextCheckin < now + 300 || isAp || (wsClientCount() && config.stopsleep == 1)) &&
+            Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
+                drawNew(taginfo->mac, taginfo);
+                taginfo->wakeupReason = 0;
         }
 
         if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pendingCount == 0 && !isAp) {
