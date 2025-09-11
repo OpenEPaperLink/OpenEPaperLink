@@ -83,6 +83,34 @@ window.addEventListener("loadConfig", function () {
 });
 
 window.addEventListener("load", function () {
+    const themeToggle = $('#theme-toggle');
+    if (themeToggle) {
+        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+        const setTheme = (theme) => {
+            if (theme === 'dark') {
+                document.body.classList.add('dark-mode');
+                themeToggle.innerHTML = 'dark_mode';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.body.classList.remove('dark-mode');
+                themeToggle.innerHTML = 'light_mode';
+                localStorage.setItem('theme', 'light');
+            }
+        };
+
+        themeToggle.addEventListener('click', () => {
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            setTheme(isDarkMode ? 'light' : 'dark');
+        });
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            setTheme(savedTheme);
+        } else {
+            setTheme(prefersDarkScheme.matches ? 'dark' : 'light');
+        }
+    }
 	window.dispatchEvent(loadConfig);
 	initTabs();
 	fetch('content_cards.json')
@@ -267,6 +295,17 @@ function convertSize(bytes) {
 	return bytes;
 }
 
+function clearTagStateClasses(tagElement) {
+	tagElement.classList.remove(
+		'state-deepsleep',
+		'state-boot',
+		'state-wakeup',
+		'state-scan',
+		'state-reset',
+		'state-failed-ota'
+	);
+}
+
 function processTags(tagArray) {
 	for (const element of tagArray) {
 		const tagmac = element.mac;
@@ -385,7 +424,7 @@ function processTags(tagArray) {
 		}
 
 		div.style.opacity = '1';
-		$('#tag' + tagmac + ' .lastseen').style.color = "black";
+		$('#tag' + tagmac + ' .lastseen').style.color = "";
 		div.classList.remove("tagpending");
 		div.dataset.lastseen = element.lastseen;
 		div.dataset.wakeupreason = element.wakeupReason;
@@ -393,51 +432,56 @@ function processTags(tagArray) {
 		div.dataset.channel = element.ch;
 		div.dataset.isexternal = element.isexternal;
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
-		$('#tag' + tagmac).style.background = "#ffffff";
-		if (element.contentMode == 12 || element.nextcheckin == 3216153600) $('#tag' + tagmac).style.background = "#e4e4e0";
-
+		
+		div.style.background = '';
+		div.classList.remove('state-timeout');
+		clearTagStateClasses(div);
+		
+		let stateClassSet = false;
 		switch (parseInt(element.wakeupReason)) {
-
 			case WAKEUP_REASON_TIMED:
 				break;
 			case WAKEUP_REASON_BOOT:
 			case WAKEUP_REASON_FIRSTBOOT:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>First boot</font>"
-				$('#tag' + tagmac).style.background = "#b0d0b0";
+				div.classList.add("state-boot");
+				stateClassSet = true;
 				break;
 			case WAKEUP_REASON_GPIO:
-				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "GPIO wakeup"
-				$('#tag' + tagmac).style.background = "#c8f1bb";
-				break;
 			case WAKEUP_REASON_BUTTON1:
-				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Button 1 pressed"
-				$('#tag' + tagmac).style.background = "#c8f1bb";
-				break;
 			case WAKEUP_REASON_BUTTON2:
-				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Button 2 pressed"
-				$('#tag' + tagmac).style.background = "#c8f1bb";
-				break;
 			case WAKEUP_REASON_BUTTON3:
-				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Button 3 pressed"
-				$('#tag' + tagmac).style.background = "#c8f1bb";
-				break;
 			case WAKEUP_REASON_NFC:
-				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "NFC wakeup"
-				$('#tag' + tagmac).style.background = "#c8f1bb";
+				let reasonText = {
+					[WAKEUP_REASON_GPIO]: "GPIO wakeup",
+					[WAKEUP_REASON_BUTTON1]: "Button 1 pressed",
+					[WAKEUP_REASON_BUTTON2]: "Button 2 pressed",
+					[WAKEUP_REASON_BUTTON3]: "Button 3 pressed",
+					[WAKEUP_REASON_NFC]: "NFC wakeup"
+				}[parseInt(element.wakeupReason)];
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = reasonText;
+				div.classList.add("state-wakeup");
+				stateClassSet = true;
 				break;
 			case WAKEUP_REASON_NETWORK_SCAN:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>Network scan</font>"
-				$('#tag' + tagmac).style.background = "#c0c0d0";
+				div.classList.add("state-scan");
+				stateClassSet = true;
 				break;
 			case WAKEUP_REASON_WDT_RESET:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Watchdog reset!"
-				$('#tag' + tagmac).style.background = "#d0a0a0";
+				div.classList.add("state-reset");
+				stateClassSet = true;
 				break;
 			case WAKEUP_REASON_FAILED_OTA_FW:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Firmware update rejected!"
-				$('#tag' + tagmac).style.background = "#f0a0a0";
+				div.classList.add("state-failed-ota");
+				stateClassSet = true;
 				break;
-		}
+		}		
+		if (!stateClassSet && (element.contentMode == 12 || element.nextcheckin == 3216153600)) {
+			div.classList.add("state-deepsleep");
+		}		
 		$('#tag' + tagmac + ' .pendingicon').style.display = (element.pending ? 'inline-block' : 'none');
 		$('#tag' + tagmac + ' .pendingicon').innerHTML = element.pending;
 		div.classList.add("tagflash");
@@ -472,18 +516,24 @@ function updatecards() {
 		if (tagDB[tagmac].batteryMv < 2400 && tagDB[tagmac].batteryMv != 0 && tagDB[tagmac].batteryMv != 1337) lowbattcount++;
 		if (item.dataset.lastseen && item.dataset.lastseen > (Date.now() / 1000) - servertimediff - 30 * 24 * 3600 * 60) {
 			let idletime = (Date.now() / 1000) - servertimediff - item.dataset.lastseen;
-			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>" + displayTime(Math.floor(idletime)) + " ago";
+			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>" + displayTime(Math.floor(idletime)) + " ago";	
 			if ((Date.now() / 1000) - servertimediff - apConfig.maxsleep * 60 - 300 > item.dataset.nextcheckin) {
-				$('#tag' + tagmac + ' .warningicon').style.display = 'inline-block';
-				$('#tag' + tagmac).classList.remove("tagpending")
-				$('#tag' + tagmac).style.background = '#e0e0a0';
+				item.querySelector('.warningicon').style.display = 'inline-block';
+				item.classList.remove("tagpending");
+				item.classList.add('state-timeout');
 				timeoutcount++;
 			} else {
+				item.classList.remove('state-timeout');
 				if (tagDB[tagmac].pending) pendingcount++;
 			}
+			
+			const lastseenEl = item.querySelector('.lastseen');
 			if (idletime > 24 * 3600) {
-				$('#tag' + tagmac).style.opacity = '.5';
-				$('#tag' + tagmac + ' .lastseen').style.color = "red";
+				item.style.opacity = '.5';
+				lastseenEl.classList.add('error');
+			} else {
+				item.style.opacity = '1';
+				lastseenEl.classList.remove('error');
 			}
 		} else {
 			if ($('#tag' + tagmac + ' .lastseen')) {

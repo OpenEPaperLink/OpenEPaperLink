@@ -1,3 +1,110 @@
+/* CSS Variables for Theming */
+:root {
+	--color-background: #e4e4e0;
+	--color-text: #000000;
+	--color-text-light: #444;
+	--color-text-error: red;
+	--color-header-bg: #646260;
+	--color-header-text: #ffffff;
+	--color-nav-bg: #ffffff;
+	--color-tab-bg: #f2f2f2;
+	--color-tab-hover-bg: #ddd;
+	--color-tab-active-bg: #ccc;
+	--color-tab-border: #ccc;
+	--color-card-bg: #ffffff;
+	--color-card-border: #cccccc;
+	--color-card-hover-shadow: rgba(0, 0, 0, 0.63);
+	--color-dialog-bg: #f0e6d3;
+	--color-button-bg: #ccc;
+	--color-button-text: black;
+	--color-button-hover-bg: #aaaaaa;
+	--color-input-bg: #ffffff;
+	--color-input-text: #000000;
+	--color-input-border: #cccccc;
+	--color-console-bg: black;
+	--color-console-text: white;
+	--color-console-mono-bg: #666;
+	--color-console-mono-text: #ccc;
+	--color-console-quote-text: white;
+	--color-tag-pending-anim-bg: #d4d4f5;
+	--color-tag-group-bg: #6d6e6e;
+	--color-tag-group-text: white;
+	--color-tag-group-border: #c0c0c0;
+	--color-context-menu-bg: white;
+	--color-context-menu-border: gray;
+	--color-context-menu-hover-bg: #e0e0e0;
+	--color-link: #0000ee;
+	--color-readonly-bg: #ccc;
+	--color-tag-deepsleep-bg: #e4e4e0;
+	--color-tag-boot-bg: #b0d0b0;
+	--color-tag-wakeup-bg: #c8f1bb;
+	--color-tag-scan-bg: #c0c0d0;
+	--color-tag-reset-bg: #d0a0a0;
+	--color-tag-failed-ota-bg: #f0a0a0;
+	--color-tag-timeout-bg: #e0e0a0;
+	--color-log-new-bg-start: rgba(255, 255, 204, 1);
+	--color-log-new-bg-mid: rgba(255, 255, 204, 0.5);
+	--color-log-new-bg-end: rgba(255, 255, 204, 0);
+}
+
+body.dark-mode {
+	--color-background: #1c1c1e;
+	--color-text: #f0f0f0;
+	--color-text-light: #cccccc;
+	--color-text-error: #ff8a8a;
+	--color-header-bg: #2a2a2d;
+	--color-header-text: #f0f0f0;
+	--color-nav-bg: #1f1f22;
+	--color-tab-bg: #3a3a3c;
+	--color-tab-hover-bg: #4a4a4c;
+	--color-tab-active-bg: #5a5a5c;
+	--color-tab-border: #5a5a5c;
+	--color-card-bg: #2c2c2e;
+	--color-card-border: #444444;
+	--color-card-hover-shadow: rgba(255, 255, 255, 0.2);
+	--color-dialog-bg: #3a3a3c;
+	--color-button-bg: #5a5a5c;
+	--color-button-text: #f0f0f0;
+	--color-button-hover-bg: #6a6a6c;
+	--color-input-bg: #3a3a3c;
+	--color-input-text: #f0f0f0;
+	--color-input-border: #555555;
+	--color-console-bg: #1e1e1e;
+	--color-console-text: #f0f0f0;
+	--color-console-mono-bg: #444;
+	--color-console-mono-text: #ddd;
+	--color-console-quote-text: #ffffff;
+	--color-tag-pending-anim-bg: #3c3c5c;
+	--color-tag-group-bg: #4a4a4c;
+	--color-tag-group-text: #f0f0f0;
+	--color-tag-group-border: #555555;
+	--color-context-menu-bg: #2c2c2e;
+	--color-context-menu-border: #555;
+	--color-context-menu-hover-bg: #4a4a4c;
+	--color-link: #58a6ff;
+	--color-readonly-bg: #4a4a4c;
+	--color-tag-deepsleep-bg: #3a3a3c;
+	--color-tag-boot-bg: #3a5c3a;
+	--color-tag-wakeup-bg: #4a6c4a;
+	--color-tag-scan-bg: #4c4c5c;
+	--color-tag-reset-bg: #6c4c4c;
+	--color-tag-failed-ota-bg: #7c4c4c;
+	--color-tag-timeout-bg: #6c6c4c;
+	--color-log-new-bg-start: rgba(88, 166, 255, 0.3);
+	--color-log-new-bg-mid: rgba(88, 166, 255, 0.15);
+	--color-log-new-bg-end: rgba(88, 166, 255, 0);
+}
+
+/* Tag State Classes */
+.tagcard.state-deepsleep { background-color: var(--color-tag-deepsleep-bg); }
+.tagcard.state-boot { background-color: var(--color-tag-boot-bg); }
+.tagcard.state-wakeup { background-color: var(--color-tag-wakeup-bg); }
+.tagcard.state-scan { background-color: var(--color-tag-scan-bg); }
+.tagcard.state-reset { background-color: var(--color-tag-reset-bg); }
+.tagcard.state-failed-ota { background-color: var(--color-tag-failed-ota-bg); }
+.tagcard.state-timeout { background-color: var(--color-tag-timeout-bg); }
+
+
 * {
 	margin: 0;
 	padding: 0;
@@ -16,11 +123,12 @@ body {
 	font-size: 12px;
 	font-family: Helvetica, Arial, Verdana, sans-serif;
 	line-height: 1.5;
-	background-color: #e4e4e0;
+	background-color: var(--color-background);
+	color: var(--color-text);
 }
 
 header {
-	background-color: #646260;
+	background-color: var(--color-header-bg);
 	z-index: 999;
 	position: sticky;
 	top: 0px;
@@ -35,7 +143,7 @@ nav>div {
 	display: flex;
 	gap: 20px;
 	padding: 10px;
-	background-color: white;
+	background-color: var(--color-nav-bg);
 }
 
 nav label {
@@ -50,11 +158,13 @@ footer {
 	position: fixed;
 	bottom: 0;
 	width: 100%;
-	background-color: white;
+	background-color: var(--color-nav-bg);
+	border-top: 1px solid var(--color-card-border);
+	color: var(--color-text);
+}
 
-	#sysinfo {
-		float: right;
-	}
+footer #sysinfo {
+	float: right;
 }
 
 .logo {
@@ -63,12 +173,13 @@ footer {
 	text-indent: 12px;
 	overflow: hidden;
 	font-size: 2.5em;
-	color: white;
+	color: var(--color-header-text);
 }
 
 h3 {
 	padding-bottom: 10px;
 	font-size: 1.5em;
+	color: var(--color-text);
 }
 
 /* tabs */
@@ -79,7 +190,8 @@ h3 {
 }
 
 .tablinks {
-	background-color: #f2f2f2;
+	background-color: var(--color-tab-bg);
+	color: var(--color-text);
 	padding: 5px 10px;
 	border: none;
 	cursor: pointer;
@@ -87,12 +199,12 @@ h3 {
 	transition: all 0.2s ease-in-out;
 
 	&:hover {
-		background-color: #ddd;
+		background-color: var(--color-tab-hover-bg);
 	}
 }
 
 .tab-container .active {
-	background-color: #ccc;
+	background-color: var(--color-tab-active-bg);
 	margin-top: 10px;
 	margin-bottom: -10px;
 	padding-bottom: 0px;
@@ -100,7 +212,7 @@ h3 {
 
 .tabcontent {
 	display: none;
-	border-top: 1px solid #ccc;
+	border-top: 1px solid var(--color-tab-border);
 }
 
 
@@ -109,11 +221,11 @@ label {
 	display: inline-block;
 	vertical-align: top;
 	padding: 4px 20px;
+	color: var(--color-text);
 }
 
 .container {
 	padding-bottom: 20px;
-	;
 }
 
 #hometab {
@@ -121,9 +233,10 @@ label {
 
 	& table {
 		margin: 20px;
-		background: #fff;
+		background: var(--color-card-bg);
 		padding: 5px 20px;
 		border-spacing: 0px;
+		color: var(--color-text);
 	}
 
 	& td {
@@ -136,7 +249,7 @@ label {
 	}
 
 	& tr:hover {
-		background-color: #ccc;
+		background-color: var(--color-tab-active-bg);
 		cursor: pointer;
 	}
 
@@ -167,14 +280,14 @@ label {
 }
 
 .tabheader {
-	background-color: white;
+	background-color: var(--color-nav-bg);
 	padding: 5px 10px;
 	display: flex;
 	gap: 2em;
 }
 
 #filterOptions {
-	background-color: white;
+	background-color: var(--color-nav-bg);
 	max-height: 0;
 	padding: 0px 10px;
 	overflow: hidden;
@@ -205,6 +318,9 @@ label {
 	& p {
 		padding: 3px;
 	}
+	& a {
+		color: var(--color-link);
+	}
 }
 
 #updatetab, #flashtab {
@@ -226,7 +342,7 @@ label {
 		margin: 0px 5px;
 	}
 	& input:read-only {
-		background-color: #ccc;
+		background-color: var(--color-readonly-bg);
 	}
 	& .warning {
 		padding: 5px;
@@ -243,10 +359,15 @@ label {
 }
 
 .apcard {
-	background-color: #fff;
-	border: 1px solid #ccc;
+	background-color: var(--color-card-bg);
+	border: 1px solid var(--color-card-border);
 	padding: 10px;
 	width: 300px;
+	color: var(--color-text);
+	
+	& .apip a {
+		color: var(--color-link);
+	}
 
 	& .apalias {
 		font-size: 1.5em;
@@ -278,15 +399,15 @@ label {
 	padding: 5px 10px;
 	margin-bottom: 0px;
 	margin-top: -1px;
-	background-color: #ccc;
+	background-color: var(--color-button-bg);
 	text-decoration: none;
-	color: black;
+	color: var(--color-button-text);
 	cursor: pointer;
 	white-space: nowrap;
 	text-align: center;
 
 	&:hover {
-		background-color: #aaa;
+		background-color: var(--color-button-hover-bg);
 	}
 }
 
@@ -296,9 +417,9 @@ label {
 #uploadButton,
 .wifibutton {
 	padding: 4px 5px;
-	background-color: #ccc;
+	background-color: var(--color-button-bg);
 	text-decoration: none;
-	color: black;
+	color: var(--color-button-text);
 	cursor: pointer;
 	white-space: nowrap;
 	width: 120px;
@@ -307,7 +428,7 @@ label {
 	text-align: center;
 
 	&:hover {
-		background-color: #aaa;
+		background-color: var(--color-button-hover-bg);
 	}
 }
 
@@ -327,10 +448,13 @@ input[type="submit"],
 button {
 	appearance: none;
 	border-radius: 0;
+	color: var(--color-input-text);
 }
 
-input {
-	border: solid 1px #cccccc;
+input, textarea, select {
+	border: solid 1px var(--color-input-border);
+	background-color: var(--color-input-bg);
+	color: var(--color-input-text);
 	padding: 4px;
 	border-radius: 0px;
 }
@@ -340,18 +464,21 @@ button {
 	border: 0px;
 	padding: 4px 10px;
 	cursor: pointer;
-	background-color: #ccc;
+	background-color: var(--color-button-bg);
+	color: var(--color-button-text);
 }
 
 input[type=button]:hover,
 button:hover {
-	background-color: #aaaaaa;
+	background-color: var(--color-button-hover-bg);
 }
 
 input[type=file] {
 	padding: 0px;
 	margin-left: 20px;
 	width: 200px;
+	background: none;
+	border: none;
 }
 
 input[type=checkbox] {
@@ -361,7 +488,6 @@ input[type=checkbox] {
 select {
 	padding: 3px 4px;
 	border-radius: 0px;
-	border: solid 1px #cccccc;
 	max-width: 180px;
 }
 
@@ -375,7 +501,7 @@ select {
 	padding: 15px;
 	background-color: #f0e6d3;
 	z-index: 999;
-	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
+	box-shadow: 7px 10px 52px -19px var(--color-card-hover-shadow);
 	overflow: auto;
 	max-height: calc(100vh - 75px);
 }
@@ -384,11 +510,12 @@ select {
 	margin: auto;
 	min-width: 380px;
 	padding: 15px;
-	background-color: #f0e6d3;
+	background-color: var(--color-dialog-bg);
 	z-index: 999;
-	box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
+	box-shadow: 7px 10px 52px -19px var(--color-card-hover-shadow);
 	overflow: auto;
 	max-height: calc(100vh - 75px);
+	color: var(--color-text);
 
 	& label {
 			width: 150px;
@@ -414,7 +541,7 @@ select {
 
 #configbox input,
 #apconfigbox input {
-	border: solid 1px #cccccc;
+	border: solid 1px var(--color-input-border);
 }
 
 #configbox input[type=number] {
@@ -475,7 +602,7 @@ select {
 
 .closebtn,
 .closebtn2 {
-	border: 1px solid black;
+	border: 1px solid var(--color-text);
 	float: right;
 	width: 19px;
 	height: 20px;
@@ -483,6 +610,7 @@ select {
 	text-align: center;
 	margin: 5px;
 	cursor: pointer;
+	color: var(--color-text);
 }
 
 #logtab {
@@ -523,13 +651,14 @@ select {
 	min-height: 170px;
 	margin: 3px;
 	padding: 4px 5px 5px 8px;
-	background-color: #ffffff;
-	border: 1px solid #cccccc;
-	transition: box-shadow 0.3s ease;
+	background-color: var(--color-card-bg);
+	border: 1px solid var(--color-card-border);
+	transition: box-shadow 0.3s ease, background-color 0.3s ease;
+	color: var(--color-text);
 
 	&:hover {
 		cursor: pointer;
-		box-shadow: 7px 10px 52px -19px rgba(0, 0, 0, 0.63);
+		box-shadow: 7px 10px 52px -19px var(--color-card-hover-shadow);
 		filter: brightness(1.02);
 	}
 }
@@ -549,10 +678,10 @@ select {
 }
 
 .taggroup {
-	border: 1px solid #c0c0c0;
+	border: 1px solid var(--color-tag-group-border);
 	width: 100%;
-	background-color: #6d6e6e;
-	color: white;
+	background-color: var(--color-tag-group-bg);
+	color: var(--color-tag-group-text);
 	padding: 5px;
 	margin: 0px 3px;
 }
@@ -564,7 +693,7 @@ select {
 .currimg img,
 .currimg canvas {
 	max-width: 50px;
-	border: 1px solid #c0c0c0;
+	border: 1px solid var(--color-tag-group-border);
 }
 
 .mac {
@@ -621,6 +750,15 @@ select {
 	display: inline-block;
 }
 
+.lastseen {
+	color: var(--color-text);
+}
+
+.lastseen.error {
+	color: var(--color-text-error);
+}
+
+
 .corner {
 	position: absolute;
 	right: 0px;
@@ -667,6 +805,7 @@ ul.messages {
 
 ul.messages li {
 	position: relative;
+	color: var(--color-text);
 }
 
 ul.messages li.new {
@@ -677,40 +816,41 @@ ul.messages li.new {
 }
 
 .error {
-	color: red;
+	color: var(--color-text-error);
 }
 
 .mono {
 	font-family: monospace;
 	word-break: break-all;
-	background-color: #666;
-	color: #ccc;
+	background-color: var(--color-console-mono-bg);
+	color: var(--color-console-mono-text);
 	padding: 2px;
 }
 
 .quote {
-	color: white;
+	color: var(--color-console-quote-text);
 }
 
 #georesults {
 	position: absolute;
-	background: white;
+	background: var(--color-nav-bg);
 	cursor: pointer;
 	width: 240px;
 	max-height: 115px;
 	overflow-y: scroll;
 	padding: 0px 2px 0px 2px;
+	border: 1px solid var(--color-card-border);
 	& div {
 		display:flex;
 	}
 	& div:hover {
-		background-color: #e0e0e0;
+		background-color: var(--color-tab-hover-bg);
 	}
 }
 
 #paintbutton {
 	padding: 1px 3px;
-	border: 1px solid black;
+	border: 1px solid var(--color-text);
 	font-size: 1.3em;
 	vertical-align: top;
 	margin-left: 12px;
@@ -719,7 +859,7 @@ ul.messages li.new {
 }
 
 #paintbutton:hover {
-	background-color: #aaaaaa;
+	background-color: var(--color-button-hover-bg);
 }
 
 .drophighlight {
@@ -730,8 +870,8 @@ ul.messages li.new {
 #context-menu {
 	display: none;
 	position: absolute;
-	background: white;
-	border: 1px solid gray;
+	background: var(--color-context-menu-bg);
+	border: 1px solid var(--color-context-menu-border);
 	list-style: none;
 	z-index: 999;
 	padding: 2px 5px;
@@ -740,10 +880,11 @@ ul.messages li.new {
 #context-menu li {
 	cursor: pointer;
 	padding: 1px 5px;
+	color: var(--color-text);
 }
 
 #context-menu li:hover {
-	background-color: #e0e0e0;
+	background-color: var(--color-context-menu-hover-bg);
 }
 
 /* painter */
@@ -753,7 +894,7 @@ ul.messages li.new {
 }
 
 #canvasdiv canvas {
-	border: 1px solid black;
+	border: 1px solid var(--color-text);
 }
 
 #buttonbar {
@@ -765,8 +906,8 @@ ul.messages li.new {
 #buttonbar button,
 #layersdiv button {
 	padding: 1px 2px;
-	border: 1px solid #cccccc;
-	background-color: #dddddd;
+	border: 1px solid var(--color-input-border);
+	background-color: var(--color-button-bg);
 	width: 40px;
 }
 
@@ -776,13 +917,13 @@ ul.messages li.new {
 }
 
 #buttonbar .active {
-	background-color: #ffffff;
+	background-color: var(--color-input-bg);
 	cursor: pointer;
 }
 
 #buttonbar button:hover,
 #layersdiv button:hover {
-	background-color: #cccccc;
+	background-color: var(--color-button-hover-bg);
 	cursor: pointer;
 }
 
@@ -806,14 +947,14 @@ ul.messages li.new {
 }
 
 #savebar button {
-	border: solid 1px #666666;
+	border: solid 1px var(--color-text-light);
 }
 
 /* updatescreens */
 
 #easyupdate {
 	padding: 10px;
-	background-color: white;
+	background-color: var(--color-nav-bg);
 	width: 400px;
 	margin-bottom: 20px;
 }
@@ -845,12 +986,12 @@ h4 {
 
 .releasetable th {
 	text-align: left;
-	background-color: #ffffff;
+	background-color: var(--color-nav-bg);
 	padding: 1px 5px;
 }
 
 .releasetable td {
-	background-color: #ffffff;
+	background-color: var(--color-nav-bg);
 	padding: 1px 5px;
 	min-width: 70px;
 	vertical-align: baseline;
@@ -862,11 +1003,11 @@ h4 {
 
 .releasetable button {
 	padding: 3px 10px;
-	background-color: #e0e0e0;
+	background-color: var(--color-button-bg);
 }
 
 .releasetable button:hover {
-	background-color: #a0a0a0;
+	background-color: var(--color-button-hover-bg);
 }
 
 .updateCol1, .flashCol1 {
@@ -875,9 +1016,9 @@ h4 {
 
 .console {
 	width: 450px;
-	background-color: black;
+	background-color: var(--color-console-bg);
 	font-family: 'lucida console', 'ui-monospace', 'monospace';
-	color: white;
+	color: var(--color-console-text);
 	padding: 5px 10px;
 	padding-bottom: 25px;
 	height: calc(100vh - 200px);
@@ -916,15 +1057,15 @@ h4 {
 
 @keyframes new {
 	0% {
-		background-color: rgba(255, 255, 204, 1);
+		background-color: var(--color-log-new-bg-start);
 	}
 
 	50% {
-		background-color: rgba(255, 255, 204, .5);
+		background-color: var(--color-log-new-bg-mid);
 	}
 
 	100% {
-		background-color: rgba(255, 255, 204, 0);
+		background-color: var(--color-log-new-bg-end);
 	}
 }
 
@@ -946,14 +1087,13 @@ h4 {
 	0% {}
 
 	50% {
-		background-color: #d4d4f5;
+		background-color: var(--color-tag-pending-anim-bg);
 	}
 
 	100% {}
 }
 
 @media screen and (max-width: 480px) {
-	/* styles for mobile devices in portrait mode */
 
 	body {
 		font-size: 13px;
@@ -1006,6 +1146,24 @@ h4 {
 		font-size: 1.1em;
 		overflow: hidden;
 		padding: 1px 1px;
+	}
+
+	.theme-toggle-btn {
+	background-color: transparent;
+	border: none;
+	color: var(--color-header-text);
+	cursor: pointer;
+	align-self: center;
+	transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;	
+	margin-left: auto; 	
+	border-left: 1px solid var(--color-tab-border);	
+	padding: 6px 1rem;
+	border-radius: 4px;
+	margin-right: 1rem;
+	}
+
+	.theme-toggle-btn:hover {
+		background-color: var(--color-tab-hover-bg);
 	}
 
 }
