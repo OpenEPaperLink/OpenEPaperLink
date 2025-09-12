@@ -153,6 +153,18 @@ function initTabs() {
 		tabLink.addEventListener("click", function (event) {
 			event.preventDefault();
 			const targetId = this.getAttribute("data-target");
+			const url = new URL(window.location);
+			if (targetId === 'tagtab') {
+				if (url.searchParams.get('tab') !== 'tagtab') {
+					url.searchParams.set('tab', 'tagtab');
+					history.replaceState(null, '', url);
+				}
+			} else {
+				if (url.searchParams.has('tab')) {
+					url.searchParams.delete('tab');
+					history.replaceState(null, '', url);
+				}
+			}
 			const loadTabEvent = new CustomEvent('loadTab', { detail: targetId });
 			document.dispatchEvent(loadTabEvent);
 			tabContents.forEach(tabContent => {
