@@ -166,7 +166,15 @@ function initTabs() {
 			this.classList.add("active");
 		});
 	});
-	tabLinks[0].click();
+
+	const urlParams = new URLSearchParams(window.location.search);
+	const tabToOpen = urlParams.get('tab');
+	const targetTabLink = document.querySelector(`.tablinks[data-target="${tabToOpen}"]`);
+	if (targetTabLink) {
+		targetTabLink.click();
+	} else {
+		tabLinks[0].click();
+	}
 };
 
 function loadTags(pos) {
