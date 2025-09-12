@@ -2,6 +2,7 @@
 :root {
 	--color-background: #e4e4e0;
 	--color-text: #000000;
+	--color-module-bg: #ffffff;
 	--color-text-light: #444;
 	--color-text-error: red;
 	--color-header-bg: #646260;
@@ -50,6 +51,7 @@
 body.dark-mode {
 	--color-background: #1c1c1e;
 	--color-text: #f0f0f0;
+	--color-module-bg: #3a3a3c;
 	--color-text-light: #cccccc;
 	--color-text-error: #ff8a8a;
 	--color-header-bg: #2a2a2d;
@@ -69,7 +71,7 @@ body.dark-mode {
 	--color-input-bg: #3a3a3c;
 	--color-input-text: #f0f0f0;
 	--color-input-border: #555555;
-	--color-console-bg: #1e1e1e;
+	--color-console-bg: #3a3a3c;
 	--color-console-text: #f0f0f0;
 	--color-console-mono-bg: #444;
 	--color-console-mono-text: #ddd;
@@ -318,7 +320,7 @@ label {
 	& p {
 		padding: 3px;
 	}
-	& a {
+	& a:not(#downloadDBbutton):not(.wifibutton) {
 		color: var(--color-link);
 	}
 }
@@ -426,6 +428,7 @@ label {
 	margin: 2px 5px 2px 20px;
 	display: inline-block;
 	text-align: center;
+	transition: none;
 
 	&:hover {
 		background-color: var(--color-button-hover-bg);
@@ -954,7 +957,7 @@ ul.messages li.new {
 
 #easyupdate {
 	padding: 10px;
-	background-color: var(--color-nav-bg);
+	background-color: var(--color-module-bg);
 	width: 400px;
 	margin-bottom: 20px;
 }
@@ -986,12 +989,12 @@ h4 {
 
 .releasetable th {
 	text-align: left;
-	background-color: var(--color-nav-bg);
+	background-color: var(--color-module-bg);
 	padding: 1px 5px;
 }
 
 .releasetable td {
-	background-color: var(--color-nav-bg);
+	background-color: var(--color-module-bg);
 	padding: 1px 5px;
 	min-width: 70px;
 	vertical-align: baseline;
