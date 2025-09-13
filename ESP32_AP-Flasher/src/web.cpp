@@ -26,6 +26,7 @@
 #include "tag_db.h"
 #include "udp.h"
 #include "wifimanager.h"
+#include <sys/time.h>
 
 #ifdef HAS_EXT_FLASHER
 #include "webflasher.h"
@@ -646,6 +647,28 @@ void init_web() {
         saveAPconfig();
         setAPchannel();
         request->send(200, "text/plain", "Ok, saved");
+    });
+
+    // Allow external time sync (e.g., from Home Assistant) without Internet
+    // Usage: POST /set_time with form field 'epoch' (UNIX time seconds)
+    server.on("/set_time", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("epoch", true)) {
+            time_t epoch = static_cast<time_t>(request->getParam("epoch", true)->value().toInt());
+            if (epoch > 1600000000) { // basic sanity check (~2020-09-13)
+                struct timeval tv;
+                tv.tv_sec = epoch;
+                tv.tv_usec = 0;
+                settimeofday(&tv, nullptr);
+                logLine("Time set via /set_time");
+                wsSendSysteminfo();
+                request->send(200, "text/plain", "ok");
+                return;
+            } else {
+                request->send(400, "text/plain", "invalid epoch");
+                return;
+            }
+        }
+        request->send(400, "text/plain", "missing 'epoch'");
     });
 
     server.on("/set_var", HTTP_POST, [](AsyncWebServerRequest *request) {

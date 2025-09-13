@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include <system.h>
+#include <WiFi.h>
 
 #include "commstructs.h"
 #include "contentmanager.h"
