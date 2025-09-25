@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   determine-builds:
     name: Evaluate Required Builds
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     timeout-minutes: 1
     # Map a step output to job output
     outputs:
@@ -26,7 +26,7 @@ jobs:
   tag-build:
     name: Build Tag FW
     needs: [determine-builds]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code (with submodules)
         uses: actions/checkout@v4
@@ -71,7 +71,7 @@ jobs:
           - ESP32_S3_16_8_YELLOW_AP
           - OpenEPaperLink_Mini_AP_v4
           - OpenEPaperLink_ESP32-PoE-ISO_AP
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

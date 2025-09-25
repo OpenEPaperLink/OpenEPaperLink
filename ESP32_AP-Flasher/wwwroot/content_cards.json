@@ -44,8 +44,27 @@
   {
     "id": 1,
     "name": "Current date",
-    "desc": "Shows the current date",
-    "param": [ ]
+    "desc": "Shows the current date. In some templates, the sunrise and sunset times are shown as well, when you fill in your location.",
+    "param": [
+      {
+        "key": "location",
+        "name": "Location",
+        "desc": "Name of the city. This is used to lookup the lat/long data, and to display as the title",
+        "type": "geoselect"
+      },
+      {
+        "key": "#lat",
+        "name": "Lat",
+        "desc": "Latitude (set automatic when generating image)",
+        "type": "ro"
+      },
+      {
+        "key": "#lon",
+        "name": "Lon",
+        "desc": "Longitude (set automatic when generating image)",
+        "type": "ro"
+      }
+    ]
   },
   {
     "id": 2,
@@ -741,6 +760,13 @@
         "desc": "Local file on littlefs partition",
         "type": "binfile"
       }
+    ]
+  },
+  {
+    "id": 29,
+    "name": "Current Time",
+    "desc": "Displays the current time on the tag, only rarely supported even if shown here! It uses a fast LUT when possible otherwise a full refresh which is not very battery friendly and will anoy by flickering every minute",
+    "param": [
     ]
   }
 ]

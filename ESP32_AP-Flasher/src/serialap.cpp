@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include <system.h>
+#include <WiFi.h>
 
 #include "commstructs.h"
 #include "contentmanager.h"
@@ -14,6 +15,7 @@
 #include "storage.h"
 #include "web.h"
 #include "zbs_interface.h"
+#include "wifimanager.h"
 
 #define LOG(format, ...) printf(format, ##__VA_ARGS__)
 
@@ -802,7 +804,7 @@ void checkWaitPowerCycle() {
 #endif
 }
 void segmentedShowIp() {
-    IPAddress IP = WiFi.localIP();
+    IPAddress IP = wm.localIP();
     char temp[12];
     vTaskDelay(2000 / portTICK_PERIOD_MS);
     sendAPSegmentedData(apInfo.mac, (String) "IP    Addr", 0x0200, true, true);

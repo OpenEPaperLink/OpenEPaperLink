@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 4,
 	"name": "TLSR BW 2.13\"",
 	"width": 250,
 	"height": 136,
@@ -12,7 +12,7 @@
 	"shortlut": 0,
 	"zlib_compression": "27",
 	"options": [ "led" ],
-	"contentids": [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 16, 17, 19, 20, 21, 22, 23, 27 ],
+	"contentids": [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 16, 17, 19, 20, 21, 22, 23, 27, 29 ],
 
 	"template": {
 		"1": {

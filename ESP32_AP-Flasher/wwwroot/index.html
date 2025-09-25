@@ -25,11 +25,11 @@
 					<div class="tablinks material-symbols-outlined" data-target="hometab" title="Dashboard">home</div>
 					<div class="tablinks material-symbols-outlined" data-target="tagtab" title="Tags">sell</div>
 					<div class="tablinks material-symbols-outlined" data-target="aptab" title="Access Points">cell_tower</div>
-					<!--<div class="tablinks material-symbols-outlined" data-target="templatetab" title="Templates">browse
-					</div>-->
+					<!--<div class="tablinks material-symbols-outlined" data-target="templatetab" title="Templates">browse</div>-->
 					<div class="tablinks material-symbols-outlined" data-target="flashtab" title="Tag flasher" style="display:none;">flash_on</div>
 					<div class="tablinks material-symbols-outlined" data-target="configtab" title="Settings">settings</div>
 					<div class="tablinks material-symbols-outlined" data-target="logtab" title="Logging">text_snippet</div>
+					<button id="theme-toggle" class="theme-toggle-btn material-symbols-outlined" title="Toggle Theme">light_mode</button>
 				</div>
 				<!-- /tabs -->
 				<div><span id="runstate"></div>
@@ -530,6 +530,9 @@ options:
 							<button id="confirmSelectRepo">Confirm</button><button id="cancelSelectRepo">Cancel</button>
 						</div>
 						<h4>Releases</h4>
+                        To update to the latest version, use the big 'update now' button if it is shown on top of this screen.<br>
+                        To up/downgrade to other versions: for the smoothest experience, first update the ESP32 part and<br>
+                        without rebooting, update the filesystem, then reboot the AP and reload the webpage.<br>
 						<div id="releasetable" class="releasetable"></div>
 						<h4 id="radio_release_title"></h4>
 						<div id="radio_releasetable" class="releasetable"></div>
@@ -620,8 +623,7 @@ options:
 		</p>
 	</dialog>
 
-	<ul id="context-menu"
-		style="display: none; position: absolute; background: white; border: 1px solid gray; padding: 0; list-style: none;">
+	<ul id="context-menu" style="display: none; position: absolute;">
 	</ul>
 
 </body>

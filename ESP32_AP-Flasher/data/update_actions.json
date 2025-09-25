@@ -10,6 +10,7 @@
         "/www/painter.js",
         "/www/setup.html",
         "/www/setup.js",
+        "/www/flash.js",
         "/www/upload-demo.html"
     ]
 }

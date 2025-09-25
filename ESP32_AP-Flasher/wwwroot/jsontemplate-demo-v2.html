@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>JSON Template Publisher - Flat Dark</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            margin: 0;
+            padding: 20px;
+            background-color: #1e1e1e;
+            color: #dcdcdc;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .main-wrapper {
+            display: flex;
+            gap: 25px;
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
+        }
+        .input-column, .preview-column { 
+            flex: 1;
+            display: flex; 
+            flex-direction: column;
+        }
+        .preview-column {
+            position: sticky; 
+            top: 20px; 
+            align-self: flex-start; 
+        }
+
+        .container { 
+            background-color: #2a2a2a;
+            padding: 25px;
+            border-radius: 8px; 
+            border: 1px solid #383838;
+            width: 100%; 
+            box-sizing: border-box;
+        }
+        .input-column .container { 
+            
+        }
+
+
+        h3 {
+            color: #4dabf7; 
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.6em;
+            font-weight: 600;
+        }
+        p, label {
+            line-height: 1.6;
+        }
+        a {
+            color: #4dabf7;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+            color: #74c0fc;
+        }
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 15px;
+            border: 1px solid #4a4a4a; 
+            border-radius: 4px; 
+            box-sizing: border-box;
+            font-size: 0.95rem;
+            background-color: #303030; 
+            color: #dcdcdc; 
+        }
+        input[type="text"]:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #4dabf7;
+            box-shadow: 0 0 0 2px rgba(77, 171, 247, 0.3);
+        }
+        textarea {
+            min-height: 140px;
+            resize: vertical;
+        }
+        input[type="submit"], button {
+            background-color: #0078d4; 
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background-color 0.15s ease-in-out;
+        }
+        input[type="submit"]:hover, button:hover {
+            background-color: #005a9e;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #b0b0b0; 
+        }
+        #previewArea {
+            margin-top: 0; 
+            padding: 20px;
+            border: 1px solid #383838;
+            border-radius: 8px;
+            background-color: #2a2a2a; 
+            text-align: center;
+            overflow: auto;
+            width: 100%; 
+            box-sizing: border-box;
+        }
+        #previewArea h4 {
+            margin-top: 0;
+            color: #4dabf7;
+        }
+        #previewCanvas {
+            border: 1px solid #4f4f4f; 
+            max-width: 100%;
+            max-height: 450px; 
+            height: auto;
+            display: block;
+            margin: 12px auto;
+            transform-origin: center center;
+            background-color: #fff; 
+        }
+        .info-text {
+            font-size: 0.85em;
+            color: #999; 
+            margin-bottom: 15px;
+        }
+        .status-message {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            word-break: break-word;
+            border: 1px solid transparent;
+            font-size: 0.9em;
+        }
+        .error-message { color: #ffcdd2; background-color: #c62828; border-color: #b71c1c; }
+        .success-message { color: #c8e6c9; background-color: #2e7d32; border-color: #1b5e20; }
+        .warning-message { color: #fff9c4; background-color: #f9a825; border-color: #f57f17; }
+        .info-message { color: #bbdefb; background-color: #1565c0; border-color: #0d47a1; }
+
+        .flex-group { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+        .flex-group > div { flex: 1; min-width: 180px; }
+        .flex-group > button { flex-shrink: 0; margin-bottom: 15px; padding: 10px 15px; }
+        #clearMacHistoryBtn { background-color: #d32f2f; }
+        #clearMacHistoryBtn:hover { background-color: #b71c1c; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <script>
+        
+        const MAX_IMAGE_FLIPS=640,HORIZ_SHORT_SHORT=0,HORIZ_SHORT_LONG=1,HORIZ_LONG_SHORT=2,HORIZ_LONG_LONG=3,G5_SUCCESS=0,G5_INVALID_PARAMETER=1,G5_DECODE_ERROR=2,REGISTER_WIDTH=32;const code_table=[0x90,0,0x40,0,3,7,0x13,7,2,6,2,6,0x12,6,0x12,6,0x30,4,0x30,4,0x30,4,0x30,4,0x30,4,0x30,4,0x30,4,0x30,4,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,0x20,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3,0x11,3];
+        function TIFFMOTOLONG(p,ix){let val=0;if(ix<p.length)val|=p[ix]<<24;if(ix+1<p.length)val|=p[ix+1]<<16;if(ix+2<p.length)val|=p[ix+2]<<8;if(ix+3<p.length)val|=p[ix+3];return val>>>0}
+        class G5DECIMAGE{constructor(){this.iWidth=0;this.iHeight=0;this.iError=0;this.y=0;this.iVLCSize=0;this.iHLen=0;this.iPitch=0;this.u32Accum=0;this.ulBitOff=0;this.ulBits=0;this.pSrc=null;this.pBuf=null;this.pBufIndex=0;this.pCur=new Int16Array(MAX_IMAGE_FLIPS);this.pRef=new Int16Array(MAX_IMAGE_FLIPS)}}
+        function g5_decode_init(pImage,iWidth,iHeight,pData,iDataSize){if(!pImage||iWidth<1||iHeight<1||!pData||iDataSize<1)return G5_INVALID_PARAMETER;pImage.iVLCSize=iDataSize;pImage.pSrc=pData;pImage.ulBitOff=0;pImage.y=0;pImage.ulBits=TIFFMOTOLONG(pData,0);pImage.iWidth=iWidth;pImage.iHeight=iHeight;return G5_SUCCESS}
+        function G5DrawLine(pPage,pCurFlips,pOut){const xright=pPage.iWidth;let pCurIndex=0;const len=(xright+7)>>3;pOut.fill(255,0,len);let x=0;while(x<xright){const startX=pCurFlips[pCurIndex++],run=pCurFlips[pCurIndex++]-startX;if(startX>=xright||run<=0)break;let visibleX=Math.max(0,startX),visibleRun=Math.min(xright,startX+run)-visibleX;if(visibleRun>0){const startByte=visibleX>>3,endByte=(visibleX+visibleRun-1)>>3,lBit=255<<8-(visibleX&7)&255,rBit=255>>(visibleX+visibleRun&7);if(endByte===startByte)pOut[startByte]&=lBit|rBit;else{pOut[startByte]&=lBit;for(let i=startByte+1;i<endByte;i++)pOut[i]=0;if(endByte>startByte)pOut[endByte]&=rBit}}x=startX+run}}
+        function Decode_Begin(pPage){const xsize=pPage.iWidth;for(let i=0;i<MAX_IMAGE_FLIPS-2;i++)pPage.pRef[i]=pPage.pCur[i]=xsize;pPage.pCur[MAX_IMAGE_FLIPS-2]=pPage.pRef[MAX_IMAGE_FLIPS-2]=32767;pPage.pCur[MAX_IMAGE_FLIPS-1]=pPage.pRef[MAX_IMAGE_FLIPS-1]=32767;pPage.pBuf=pPage.pSrc;pPage.pBufIndex=0;pPage.ulBits=TIFFMOTOLONG(pPage.pSrc,0);pPage.ulBitOff=0;pPage.iHLen=xsize>0?32-Math.clz32(xsize):0}
+        function DecodeLine(pPage){let a0=-1,a0_p,b1,pCurIndex=0,pRefIndex=0;const pCur=pPage.pCur,pRef=pPage.pRef;let ulBits=pPage.ulBits,ulBitOff=pPage.ulBitOff,pBufIndex=pPage.pBufIndex;const pBuf=pPage.pBuf,xsize=pPage.iWidth,u32HLen=pPage.iHLen,u32HMask=(1<<u32HLen)-1;let tot_run,tot_run1;while(a0<xsize){if(pBufIndex+(ulBitOff>>3)>=pPage.iVLCSize&&ulBitOff>REGISTER_WIDTH-8)return pPage.iError=G5_DECODE_ERROR;if(ulBitOff>REGISTER_WIDTH-8){pBufIndex+=ulBitOff>>3;ulBitOff&=7;ulBits=TIFFMOTOLONG(pBuf,pBufIndex)}if((ulBits<<ulBitOff&2147483648)!==0){a0=pRef[pRefIndex++];pCur[pCurIndex++]=a0;ulBitOff++}else{const lBits=ulBits>>(REGISTER_WIDTH-8-ulBitOff)&254,sCode=code_table[lBits];ulBitOff+=code_table[lBits+1];switch(sCode){case 1:case 2:case 3:a0=pRef[pRefIndex]-sCode;pCur[pCurIndex++]=a0;if(pRefIndex==0)pRefIndex+=2;pRefIndex--;while(a0>=pRef[pRefIndex])pRefIndex+=2;break;case 17:case 18:case 19:a0=pRef[pRefIndex++];b1=a0;a0+=sCode&7;if(b1!==xsize&&a0<xsize)while(a0>=pRef[pRefIndex])pRefIndex+=2;if(a0>xsize)a0=xsize;pCur[pCurIndex++]=a0;break;case 32:if(ulBitOff>REGISTER_WIDTH-16){pBufIndex+=ulBitOff>>3;ulBitOff&=7;ulBits=TIFFMOTOLONG(pBuf,pBufIndex)}a0_p=Math.max(0,a0);const lBitsH=ulBits>>(REGISTER_WIDTH-2-ulBitOff)&3;ulBitOff+=2;switch(lBitsH){case HORIZ_SHORT_SHORT:tot_run=ulBits>>(REGISTER_WIDTH-3-ulBitOff)&7;ulBitOff+=3;tot_run1=ulBits>>(REGISTER_WIDTH-3-ulBitOff)&7;ulBitOff+=3;break;case HORIZ_SHORT_LONG:tot_run=ulBits>>(REGISTER_WIDTH-3-ulBitOff)&7;ulBitOff+=3;tot_run1=ulBits>>(REGISTER_WIDTH-u32HLen-ulBitOff)&u32HMask;ulBitOff+=u32HLen;break;case HORIZ_LONG_SHORT:tot_run=ulBits>>(REGISTER_WIDTH-u32HLen-ulBitOff)&u32HMask;ulBitOff+=u32HLen;tot_run1=ulBits>>(REGISTER_WIDTH-3-ulBitOff)&7;ulBitOff+=3;break;case HORIZ_LONG_LONG:tot_run=ulBits>>(REGISTER_WIDTH-u32HLen-ulBitOff)&u32HMask;ulBitOff+=u32HLen;if(ulBitOff>REGISTER_WIDTH-u32HLen&&u32HLen>0){pBufIndex+=ulBitOff>>3;ulBitOff&=7;ulBits=TIFFMOTOLONG(pBuf,pBufIndex)}tot_run1=ulBits>>(REGISTER_WIDTH-u32HLen-ulBitOff)&u32HMask;ulBitOff+=u32HLen;break}a0=a0_p+tot_run;pCur[pCurIndex++]=a0;a0+=tot_run1;if(a0<xsize)while(a0>=pRef[pRefIndex])pRefIndex+=2;pCur[pCurIndex++]=a0;break;case 48:pRefIndex++;a0=pRef[pRefIndex++];break;default:return pPage.iError=G5_DECODE_ERROR}}}pCur[pCurIndex++]=xsize;pCur[pCurIndex++]=xsize;pPage.ulBits=ulBits;pPage.ulBitOff=ulBitOff;pPage.pBufIndex=pBufIndex;return pPage.iError}
+        function processG5(data,width,height){try{let decoder=new G5DECIMAGE,initResult=g5_decode_init(decoder,width,height,data,data.length);if(initResult!==G5_SUCCESS)throw new Error("G5 Init failed: "+initResult);Decode_Begin(decoder);let outputBuffer=new Uint8Array(height*((width+7)>>3));for(let y=0;y<height;y++){let lineBuffer=outputBuffer.subarray(y*((width+7)>>3),(y+1)*((width+7)>>3));decoder.y=y;let decodeResult=DecodeLine(decoder);if(decodeResult!==G5_SUCCESS)console.warn("G5 Decode error line "+y+": "+decoder.iError);G5DrawLine(decoder,decoder.pCur,lineBuffer);const temp=decoder.pRef;decoder.pRef=decoder.pCur;decoder.pCur=temp}return outputBuffer}catch(error){console.error("Error in processG5:",error.message);return new Uint8Array(0)}}
+        
+    </script>
+</head>
+<body>
+    <div class="main-wrapper">
+        <div class="input-column">
+            <div class="container">
+                <h3>JSON Template Publisher</h3>
+                <p class="info-text">Use this form to push JSON templates to an E-Paper Tag. Ensure your JSON is valid. Check syntax at <a href="https://jsonlint.com/" target="_blank">jsonlint.com</a>.<br>
+                    Documentation: <a href="https://github.com/OpenEPaperLink/OpenEPaperLink/wiki/Json-template" target="_blank">OpenEPaperLink JSON Template Wiki</a>
+                </p>
+                
+                <form id="jsonUploadForm" method="POST" action="/jsonupload">
+                    <div class="form-group flex-group">
+                        <div>
+                            <label for="macInput">MAC Address:</label>
+                            <input type="text" id="macInput" name="mac" pattern="[0-9a-fA-F]{12,16}" title="12 or 16 Hex characters" required>
+                        </div>
+                        <button type="button" id="refreshTagDbBtn" title="Reload Tag Database from AP">↻</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="macSelect">Available Tags (grouped by type):</label>
+                        <select id="macSelect" style="margin-bottom: 5px;"></select>
+                        <button type="button" id="clearMacHistoryBtn" title="Clear locally stored MAC history">Clear History</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="jsonInput">JSON String:</label>
+                        <textarea id="jsonInput" name="json">
+[
+    { "text": [5, 5, "Bahnschrift 20", "fonts/bahnschrift20", 1] },
+    { "box": [10, 30, 20, 20, 2] }
+]
+                        </textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="submit" value="Upload JSON & Generate Preview">
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="preview-column">
+            <div class="container">
+                 <div id="globalStatus" class="status-message" style="display:none;"></div>
+                <div id="previewArea" style="display:none;">
+                    <h4>Image Preview</h4>
+                    <canvas id="previewCanvas"></canvas>
+                    <p id="previewStatus" class="status-message" style="display:none;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ge=id=>document.getElementById(id);
+        const macInputEl=ge('macInput'),macSelectEl=ge('macSelect'),jsonInputEl=ge('jsonInput'),previewAreaEl=ge('previewArea'),previewCanvasEl=ge('previewCanvas'),previewStatusEl=ge('previewStatus'),jsonUploadFormEl=ge('jsonUploadForm'),clearMacHistoryBtnEl=ge('clearMacHistoryBtn'),globalStatusEl=ge('globalStatus'),refreshTagDbBtnEl=ge('refreshTagDbBtn');
+        const MAX_HISTORY_ITEMS=10,BASE_SERVER_URL='';
+        let localTagDB={},localTagTypes={},currentPreviewMac=null,currentPreviewHwType=null,currentPreviewVersion=null,currentPreviewTagTypeDef=null;
+        let offscreenCanvas = document.createElement('canvas');
+        let offscreenCtx = offscreenCanvas.getContext('2d');
+        let socket;
+
+        if (typeof window.processZlib === 'undefined' && typeof pako !== 'undefined') {
+            window.processZlib = function(rawDataFromDotRawFile) {
+                try {
+                    const EXTERNAL_HEADER_SIZE = 4; 
+                    if (rawDataFromDotRawFile.length <= EXTERNAL_HEADER_SIZE) {setStatus(previewStatusEl, `Zlib error: Raw data too short.`, 'error',true); return new Uint8ClampedArray(0);}
+                    const zlibStream = rawDataFromDotRawFile.subarray(EXTERNAL_HEADER_SIZE); 
+                    const inflatedBuffer = pako.inflate(zlibStream);
+                    if (!inflatedBuffer || inflatedBuffer.length === 0) {setStatus(previewStatusEl, 'Zlib error: Inflation resulted in empty data.', 'error',true); return new Uint8ClampedArray(0);}
+                    const internalHeaderSize = inflatedBuffer[0]; 
+                    if (internalHeaderSize >= 0 && inflatedBuffer.length > internalHeaderSize) {return inflatedBuffer.subarray(internalHeaderSize);}
+                    else if (internalHeaderSize === 0) {return inflatedBuffer;}
+                    else {console.warn("Zlib: Unusual internal header. Length:", inflatedBuffer.length, "Header byte:", internalHeaderSize); return inflatedBuffer;}
+                } catch (err) {
+                    let msg = (err && err.message) ? err.message : (typeof err === 'string' ? err : 'Unknown Zlib error');
+                    console.error('pako.inflate error:', err); setStatus(previewStatusEl, `Zlib error: ${msg}`, 'error',true); return new Uint8ClampedArray(0);
+                }
+            };
+        } else if (typeof window.processZlib === 'undefined') {
+            window.processZlib = function(data) {setStatus(previewStatusEl, "Zlib (pako) not loaded.",'warning',true); return data;};
+        }
+        
+        function setStatus(element, message, type = 'info', append = false) {
+            element.classList.remove('error-message', 'success-message', 'warning-message', 'info-message'); 
+            element.classList.add(`${type}-message`, 'info-message'); 
+
+            if (append) {
+                let currentBaseHTML = element.innerHTML.split("<br>")[0]; 
+                element.innerHTML = `${currentBaseHTML}<br>${message}`;
+            } else {
+                element.innerHTML = message;
+            }
+            element.style.display = message ? 'block' : 'none';
+        }
+
+
+        function connectWebSocket() {
+            const protocol = location.protocol === "https:" ? "wss://" : "ws://";
+            let basePath = location.pathname;
+            if (basePath.includes('.')) { basePath = basePath.substring(0, basePath.lastIndexOf('/'));}
+            if (!basePath.endsWith('/')) { basePath += '/';}
+            if (basePath === '//') basePath = '/';
+            const wsUrl = `${protocol}${location.host}${basePath}ws`;
+            
+            socket = new WebSocket(wsUrl);
+            socket.onopen = () => { console.log("WebSocket connected."); setStatus(globalStatusEl, "WebSocket connected.", 'success');};
+            socket.onmessage = event => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.logMsg && typeof msg.logMsg === 'string') {
+                        const log = msg.logMsg;
+                        if (log.startsWith("Updating ") && log.length === ("Updating ".length + 16) ) {
+                            const macFromMsg = log.substring("Updating ".length).toUpperCase();
+                            if (macFromMsg === currentPreviewMac) {
+                                setStatus(previewStatusEl, `Server is updating tag ${macFromMsg}. Waiting for .pending file notification...`, 'info', false);
+                            }
+                        } else if (log.startsWith("new image: /current/") && log.endsWith(".pending")) {
+                            const pendingFileWithPath = log.substring("new image: ".length);
+                            const pendingFilename = pendingFileWithPath.substring(pendingFileWithPath.lastIndexOf('/') + 1);
+                            const macInFilename = pendingFilename.substring(0, pendingFilename.indexOf('_')); 
+                            
+                            if (macInFilename.toUpperCase() === currentPreviewMac && currentPreviewTagTypeDef) {
+                                console.log(`.pending file reported for ${currentPreviewMac}: ${pendingFilename}`);
+                                const pendingImagePath = `${BASE_SERVER_URL}/current/${pendingFilename}`; 
+                                setStatus(previewStatusEl, `Loading pending image: ${pendingFilename}...`, 'info', false);
+                                loadAndRenderImage(pendingImagePath, currentPreviewMac, currentPreviewHwType, currentPreviewVersion, currentPreviewTagTypeDef);
+                            }
+                        } else if (log === "new image is the same as current image. not updating tag.") {
+                            if (currentPreviewMac && currentPreviewTagTypeDef) {
+                                console.log("Image is the same. Loading .raw for " + currentPreviewMac);
+                                setStatus(previewStatusEl, `Image is same as current. Loading existing .raw file for ${currentPreviewMac}...`, 'info', false);
+                                const tagData = localTagDB[currentPreviewMac];
+                                if (tagData) {
+                                    const cacheTag = tagData.hash !== '00000000000000000000000000000000' ? tagData.hash : Date.now();
+                                    let imagePath = '';
+                                    if(tagData.isexternal && tagData.apip && tagData.apip !== '0.0.0.0'){imagePath = `http://${tagData.apip}/current/${currentPreviewMac}.raw?${cacheTag}`}
+                                    else{imagePath = `${BASE_SERVER_URL}/current/${currentPreviewMac}.raw?${cacheTag}`}
+                                    loadAndRenderImage(imagePath, currentPreviewMac, currentPreviewHwType, currentPreviewVersion, currentPreviewTagTypeDef);
+                                } else {
+                                    setStatus(previewStatusEl, `Cannot load .raw for ${currentPreviewMac}: Tag data not found.`, 'error', false);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) { console.error("Error processing WebSocket message:", e, event.data); }
+            };
+            socket.onclose = event => { console.log("WebSocket disconnected. Code:", event.code); setStatus(globalStatusEl, "WebSocket disconnected. Reconnecting in 5s...", 'warning'); setTimeout(connectWebSocket, 5000);};
+            socket.onerror = error => { console.error("WebSocket error:", error); setStatus(globalStatusEl, "WebSocket connection error.", 'error');};
+        }
+
+        async function fetchTagDB(pos=0){if(pos===0)localTagDB={};setStatus(globalStatusEl,'Loading Tag Database...','info');try{const response=await fetch(`${BASE_SERVER_URL}/get_db?pos=${pos}`);if(!response.ok)throw new Error(`Failed to load Tag DB: ${response.status}`);const data=await response.json();(data.tags||[]).forEach(tag=>{localTagDB[tag.mac.toUpperCase()]={hwType:tag.hwType,ver:tag.ver,alias:tag.alias,hash:tag.hash,isexternal:tag.isexternal||false,apip:tag.apip||'0.0.0.0'}});if(data.continu&&data.continu>pos){await fetchTagDB(data.continu)}else{setStatus(globalStatusEl,`Tag DB loaded. ${Object.keys(localTagDB).length} tags. Refreshing types...`,'success');await refreshTagTypeDefinitionsForDropdown();populateMacDropdown()}}catch(error){console.error("Error fetchTagDB:",error);setStatus(globalStatusEl,`Error Tag DB: ${error.message}`,'error')}}
+        async function getTagTypeDefinition(hwType){if(localTagTypes[hwType]&&!localTagTypes[hwType].busy)return localTagTypes[hwType];if(localTagTypes[hwType]?.busy){await new Promise(resolve=>{const interval=setInterval(()=>{if(!localTagTypes[hwType]?.busy){clearInterval(interval);resolve(localTagTypes[hwType])}},100)});return localTagTypes[hwType]}localTagTypes[hwType]={busy:true};try{let response;try{response=await fetch(`${BASE_SERVER_URL}/tagtypes/${Number(hwType).toString(16).padStart(2,'0').toUpperCase()}.json`)}catch(e){}if(!response||!response.ok){const repo='OpenEPaperLink/OpenEPaperLink',ghUrl=`https://raw.githubusercontent.com/${repo}/master/resources/tagtypes/${Number(hwType).toString(16).padStart(2,'0').toUpperCase()}.json`;response=await fetch(ghUrl)}if(!response.ok)throw new Error(`Def for ${hwType} not found (Status: ${response.status})`);const jsonData=await response.json();const definition={name:jsonData.name,width:parseInt(jsonData.width),height:parseInt(jsonData.height),bpp:parseInt(jsonData.bpp),rotatebuffer:jsonData.rotatebuffer||0,colortable:Object.values(jsonData.perceptual??jsonData.colortable??[]),zlib:parseInt(jsonData.zlib_compression||"0",16),g5:parseInt(jsonData.g5_compression||"0",16),busy:false};localTagTypes[hwType]=definition;localStorage.setItem("localTagTypesCache",JSON.stringify(localTagTypes));return definition}catch(error){console.error(`Error getTagTypeDef ${hwType}:`,error);localTagTypes[hwType]={busy:false,name:`Unknown (${hwType})`,width:0,height:0,bpp:0,colortable:[]};return localTagTypes[hwType]}}
+        function loadCachedTagTypeDefinitions(){try{const cached=localStorage.getItem("localTagTypesCache");if(cached)localTagTypes=JSON.parse(cached)}catch(e){console.warn("Error loading Tag Type Defs from cache:",e)}}
+        async function refreshTagTypeDefinitionsForDropdown(){const hwTypesInDb=new Set(Object.values(localTagDB).map(tag=>tag.hwType));for(const hwType of hwTypesInDb){if(!localTagTypes[hwType]||localTagTypes[hwType].name?.startsWith("Unknown")){await getTagTypeDefinition(hwType)}}}
+        function populateMacDropdown(){macSelectEl.innerHTML='<option value="">Select a Tag...</option>';const groupedByHwType={};for(const mac in localTagDB){const tag=localTagDB[mac];if(!groupedByHwType[tag.hwType])groupedByHwType[tag.hwType]=[];groupedByHwType[tag.hwType].push({mac,alias:tag.alias})}const sortedHwTypes=Object.keys(groupedByHwType).sort((a,b)=>{const nameA=localTagTypes[a]?.name||`Type ${a}`;const nameB=localTagTypes[b]?.name||`Type ${b}`;return nameA.localeCompare(nameB)});for(const hwType of sortedHwTypes){const group=document.createElement('optgroup');const typeDef=localTagTypes[hwType];group.label=typeDef?.name?`${typeDef.name} (${typeDef.width}x${typeDef.height}, Type ${hwType})`:`Type ${hwType}`;groupedByHwType[hwType].sort((a,b)=>(a.alias||a.mac).localeCompare(b.alias||b.mac));groupedByHwType[hwType].forEach(tag=>{const option=document.createElement('option');option.value=tag.mac;option.textContent=tag.alias?`${tag.alias} (${tag.mac})`:tag.mac;group.appendChild(option)});macSelectEl.appendChild(group)}}
+        function saveToMacHistory(mac){if(!mac||!/^[0-9a-fA-F]{12,16}$/.test(mac))return;let history=JSON.parse(localStorage.getItem('macStorageHistory'))||[];const upperMac=mac.toUpperCase();history=history.filter(item=>item.toUpperCase()!==upperMac);history.unshift(upperMac);if(history.length>MAX_HISTORY_ITEMS)history=history.slice(0,MAX_HISTORY_ITEMS);localStorage.setItem('macStorageHistory',JSON.stringify(history))}
+        macSelectEl.addEventListener('change',()=>{if(macSelectEl.value){macInputEl.value=macSelectEl.value;const tagInfo=localTagDB[macSelectEl.value.toUpperCase()];if(tagInfo)setStatus(globalStatusEl,`Selected: ${tagInfo.alias||macSelectEl.value}, HW: ${tagInfo.hwType}, FW: ${tagInfo.ver}`,'info')}});
+        macInputEl.addEventListener('change',()=>{const mac=macInputEl.value.toUpperCase();const tagInfo=localTagDB[mac];if(tagInfo)setStatus(globalStatusEl,`Tag: ${tagInfo.alias||mac}, HW: ${tagInfo.hwType}, FW: ${tagInfo.ver}`,'info');else if(mac.length===12||mac.length===16)setStatus(globalStatusEl,`Details for ${mac} not in local DB.`,'warning');else setStatus(globalStatusEl,'','info');macSelectEl.value=mac});
+        clearMacHistoryBtnEl.addEventListener('click',()=>{if(confirm("Clear MAC history from browser storage?")){localStorage.removeItem('macStorageHistory');macInputEl.value='';setStatus(globalStatusEl,'Local MAC history cleared.','info')}});
+        function loadLastMacUsed(){const lastMac=localStorage.getItem('lastMacUsed');if(lastMac)macInputEl.value=lastMac}
+        function saveLastMacUsed(mac){if(mac&&/^[0-9a-fA-F]{12,16}$/.test(mac)){localStorage.setItem('lastMacUsed',mac.toUpperCase());saveToMacHistory(mac.toUpperCase())}}
+        
+        jsonUploadFormEl.addEventListener('submit',async event=>{event.preventDefault();const mac=macInputEl.value.trim().toUpperCase();if(!mac||!/^[0-9a-fA-F]{12,16}$/.test(mac)){alert("Please enter a valid MAC address.");return}saveLastMacUsed(mac);let tagInfo=localTagDB[mac];if(!tagInfo){setStatus(globalStatusEl,`Info for MAC ${mac} not in local DB. Reloading...`,'warning');await fetchTagDB();tagInfo=localTagDB[mac];if(!tagInfo){setStatus(previewStatusEl,`Could not load hardware info for MAC ${mac}.`,'error',false);previewAreaEl.style.display='block';previewCanvasEl.style.display='none';return}}currentPreviewMac=mac;currentPreviewHwType=tagInfo.hwType;currentPreviewVersion=tagInfo.ver;currentPreviewTagTypeDef=await getTagTypeDefinition(currentPreviewHwType);if(!currentPreviewTagTypeDef||currentPreviewTagTypeDef.width===0){setStatus(previewStatusEl,`Could not load Tag Type Definition for hwType ${currentPreviewHwType}.`,'error',false);previewAreaEl.style.display='block';previewCanvasEl.style.display='none';return}previewAreaEl.style.display='block';setStatus(previewStatusEl,'Sending JSON... Waiting for image update status via WebSocket...','info',false);previewCanvasEl.style.display='none';if(offscreenCanvas)offscreenCtx.clearRect(0,0,offscreenCanvas.width,offscreenCanvas.height);else{const ctx=previewCanvasEl.getContext('2d');if(ctx)ctx.clearRect(0,0,previewCanvasEl.width,previewCanvasEl.height)}try{const formData=new FormData(jsonUploadFormEl);formData.set('mac',mac);const response=await fetch(jsonUploadFormEl.action,{method:'POST',body:formData});if(!response.ok){const errorText=await response.text();throw new Error(`JSON Upload Error: ${response.status} ${errorText}`)}setStatus(previewStatusEl,'JSON sent. Waiting for image update notification via WebSocket...','success', false);
+        }catch(error){console.error("Error JSON submission:",error);setStatus(previewStatusEl,`Error: ${error.message}`,'error',false);}});
+        
+        refreshTagDbBtnEl.addEventListener('click',()=>fetchTagDB());
+
+        async function loadAndRenderImage(path,mac,hwType,ver,tagTypeDef){
+            setStatus(previewStatusEl,`Loading image: ${path.substring(path.lastIndexOf('/')+1)}...`,'info', false);
+            
+            if(!tagTypeDef||tagTypeDef.width===0){setStatus(previewStatusEl,`Error: Tag Type Def for hwType '${hwType}' invalid.`,'error', false);return false}
+            
+            let offscreenDrawWidth = tagTypeDef.width; let offscreenDrawHeight = tagTypeDef.height;
+            const rotateBuffer = tagTypeDef.rotatebuffer || 0;
+            if (rotateBuffer % 2 !== 0) {[offscreenDrawWidth, offscreenDrawHeight] = [tagTypeDef.height, tagTypeDef.width];}
+
+            if (offscreenCanvas.width !== offscreenDrawWidth || offscreenCanvas.height !== offscreenDrawHeight) {
+                offscreenCanvas.width = offscreenDrawWidth; offscreenCanvas.height = offscreenDrawHeight;
+            }
+            offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+
+            try{const response=await fetch(path);
+                if(!response.ok){throw new Error(`Image not found or server error: ${response.status} on ${path}`);}
+                const buffer=await response.arrayBuffer();let data=new Uint8ClampedArray(buffer);
+                if(data.length===0){setStatus(previewStatusEl,"Received image data empty.",'error', true);previewCanvasEl.style.display='none';return false}
+                
+                let originalDataLength = data.length;
+                if(tagTypeDef.zlib>0&&ver>=tagTypeDef.zlib){
+                    let decompressedZlib = window.processZlib(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+                    if (decompressedZlib && decompressedZlib.length > 0 && decompressedZlib.length !== originalDataLength) {
+                        data = new Uint8ClampedArray(decompressedZlib.buffer, decompressedZlib.byteOffset, decompressedZlib.byteLength);
+                    } else if (decompressedZlib && decompressedZlib.length === originalDataLength && originalDataLength > 0) { 
+                    } else { setStatus(previewStatusEl,"Zlib error: Empty result.",'error', true); return false; }
+                }
+
+                originalDataLength = data.length;
+                if(data.length>0&&tagTypeDef.g5>0&&ver>=tagTypeDef.g5){
+                    const headerSize=data[0];
+                    if (data.length > headerSize) {
+                        let bufw=(data[2]<<8)|data[1],bufh=(data[4]<<8)|data[3];
+                        if((bufw==tagTypeDef.width||bufw==tagTypeDef.height)&&(bufh==tagTypeDef.width||bufh==tagTypeDef.height)&&(data[5]<=3)){
+                            if(data[5]==2)bufh*=2; let g5Stream = data.subarray(headerSize);
+                            let decompressedG5 = window.processG5(g5Stream, bufw, bufh);
+                            if (decompressedG5 && decompressedG5.length > 0 && decompressedG5.length !== originalDataLength) {
+                                data = new Uint8ClampedArray(decompressedG5.buffer, decompressedG5.byteOffset, decompressedG5.byteLength);
+                            } else if (decompressedG5 && decompressedG5.length === originalDataLength && originalDataLength > 0) { 
+                            } else { setStatus(previewStatusEl,"G5 error: Empty result.",'error', true); return false; }
+                        } else {  }
+                    } else {  }
+                }
+
+                if(data.length===0){setStatus(previewStatusEl,"Image data empty post-decompression.",'error', true);previewCanvasEl.style.display='none';return false}
+                
+                const offscreenImageData = offscreenCtx.createImageData(offscreenCanvas.width, offscreenCanvas.height);
+                const bpp=tagTypeDef.bpp,colorTable=tagTypeDef.colortable;
+                if(!colorTable||colorTable.length===0){setStatus(previewStatusEl,`Error: No color table for hwType ${hwType}.`,'error', true);return false}
+                if(bpp==16){const is16Bit=data.length===offscreenCanvas.width*offscreenCanvas.height*2;for(let i=0;i<Math.min(offscreenCanvas.width*offscreenCanvas.height,data.length/(is16Bit?2:1));i++){const dIdx=is16Bit?i*2:i,rgb=is16Bit?(data[dIdx]<<8)|data[dIdx+1]:data[dIdx];offscreenImageData.data[i*4]=is16Bit?((rgb>>11)&31)<<3:(((rgb>>5)&7)<<5)*1.13;offscreenImageData.data[i*4+1]=is16Bit?((rgb>>5)&63)<<2:(((rgb>>2)&7)<<5)*1.13;offscreenImageData.data[i*4+2]=is16Bit?(rgb&31)<<3:((rgb&3)<<6)*1.3;offscreenImageData.data[i*4+3]=255}}
+                else if([3,4].includes(bpp)){let pxIdx=0,bitOff=0,totalPx=offscreenCanvas.width*offscreenCanvas.height;while(bitOff<data.length*8&&pxIdx<totalPx){let byteIdx=bitOff>>3,startBit=bitOff&7,pxVal=0;if(startBit+bpp<=8)pxVal=(data[byteIdx]>>(8-startBit-bpp))&((1<<bpp)-1);else{let bitsFirst=8-startBit;pxVal=(data[byteIdx]&((1<<bitsFirst)-1))<<(bpp-bitsFirst);if(byteIdx+1<data.length)pxVal|=data[byteIdx+1]>>(8-(bpp-bitsFirst))}if(pxVal<colorTable.length){let c=colorTable[pxVal];offscreenImageData.data[pxIdx*4]=c[0];offscreenImageData.data[pxIdx*4+1]=c[1];offscreenImageData.data[pxIdx*4+2]=c[2];offscreenImageData.data[pxIdx*4+3]=255}else{offscreenImageData.data[pxIdx*4]=255;offscreenImageData.data[pxIdx*4+1]=0;offscreenImageData.data[pxIdx*4+2]=0;offscreenImageData.data[pxIdx*4+3]=255}pxIdx++;bitOff+=bpp}}
+                else{const offsetR=(bpp>=2&&data.length>=(offscreenCanvas.width*offscreenCanvas.height/8)*2)?offscreenCanvas.width*offscreenCanvas.height/8:0;let pxVal=0,totalPx=offscreenCanvas.width*offscreenCanvas.height,currPxIdx=0;let bytesIter=offsetR?offsetR:Math.ceil(totalPx/8);for(let i=0;i<bytesIter&&i<data.length;i++){for(let j=0;j<8;j++){if(currPxIdx>=totalPx)break;if(offsetR&&(i+offsetR>=data.length))pxVal=(data[i]&(1<<(7-j)))?1:0;else if(offsetR)pxVal=((data[i]&(1<<(7-j)))?1:0)|(((data[i+offsetR]&(1<<(7-j)))?1:0)<<1);else pxVal=(data[i]&(1<<(7-j)))?1:0;if(pxVal<colorTable.length){offscreenImageData.data[currPxIdx*4]=colorTable[pxVal][0];offscreenImageData.data[currPxIdx*4+1]=colorTable[pxVal][1];offscreenImageData.data[currPxIdx*4+2]=colorTable[pxVal][2];offscreenImageData.data[currPxIdx*4+3]=255}else{offscreenImageData.data[currPxIdx*4]=0;offscreenImageData.data[currPxIdx*4+1]=255;offscreenImageData.data[currPxIdx*4+2]=0;offscreenImageData.data[currPxIdx*4+3]=255}currPxIdx++}if(currPxIdx>=totalPx)break}}
+                offscreenCtx.putImageData(offscreenImageData,0,0);
+                
+                previewCanvasEl.width = offscreenCanvas.width; 
+                previewCanvasEl.height = offscreenCanvas.height;
+                previewCanvasEl.style.transform = (rotateBuffer >= 2) ? 'rotate(180deg)' : 'none';
+                
+                const visibleCtx=previewCanvasEl.getContext('2d');
+                visibleCtx.drawImage(offscreenCanvas,0,0);
+                previewCanvasEl.style.display='block';
+
+                setStatus(previewStatusEl,`Image ${path.substring(path.lastIndexOf('/')+1)} rendered.`,'success', true);
+                return true;
+            }catch(error){
+                console.error("Error loading/rendering image:",error);
+                setStatus(previewStatusEl,`Error loading ${path.substring(path.lastIndexOf('/')+1)}: ${error.message}`,'error', true);
+                previewCanvasEl.style.display='none';
+                return false;
+            }
+        }
+        document.addEventListener('DOMContentLoaded',async()=>{loadCachedTagTypeDefinitions();await fetchTagDB();loadLastMacUsed(); connectWebSocket();});
+    </script>
+</body>
+</html>

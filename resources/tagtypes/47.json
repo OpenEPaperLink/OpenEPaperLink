@@ -1,83 +1,91 @@
 {
-	"version": 1,
+	"version": 4,
 	"name": "M3 2.7\"",
 	"width": 300,
 	"height": 200,
-	"rotatebuffer": 1,
+	"rotatebuffer": 3,
 	"bpp": 2,
 	"colortable": {
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
 		"red": [ 255, 0, 0 ]
 	},
-	"g5_compression": "29",
+	"zlib_compression": "27",
 	"shortlut": 0,
 	"options": [ "button" ],
-	"contentids": [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 16, 17, 19, 20, 21, 22, 23, 27 ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20, 21, 27 ],
 	"template": {
 		"1": {
-			"weekday": [ 106, 5, "fonts/calibrib40", 40 ],
-			"date": [ 106, 55, "fonts/calibrib30", 30 ]
+			"weekday": [ 150, -5, "Signika-SB.ttf", 60 ],
+			"day": [ 150, 37, "Signika-SB.ttf", 100 ],
+			"month": [ 150, 125, "Signika-SB.ttf", 60 ],
+
+			"altweekday": [ 150, -5, "Signika-SB.ttf", 60 ],
+			"altdate": [ 150, 65, "Signika-SB.ttf", 54 ],
+			"moonicon": [ 150, 115, 62 ],
+			"sunrise": [ 50, 140, "Signika-SB.ttf", 28 ],
+			"sunset": [ 220, 140, "Signika-SB.ttf", 28 ]
 		},
 		"2": {
-			"fonts": [ "Signika-SB.ttf", 135, 135, 100, 90, 70, 50 ],
-			"xy": [ 106, 44 ]
-		},
-		"16": {
-			"location": [ 4, 10, "glasstown_nbp_tf" ],
-			"title": [ 165, 10, "glasstown_nbp_tf" ],
-			"cols": [ 4, 101, 8, "glasstown_nbp_tf" ],
-			"bars": [ 5, 90, 6 ]
+			"fonts": [ "Signika-SB.ttf", 200, 200, 170, 120, 100, 80 ],
+			"xy": [ 150, 85 ]
 		},
 		"4": {
-			"location": [ 5, 3, "fonts/calibrib16.vlw" ],
-			"wind": [ 190, 5, "fonts/bahnschrift30" ],
-			"temp": [ 5, 30, "fonts/calibrib70" ],
-			"icon": [ 190, 25, 50, 2 ],
-			"dir": [ 165, -12, 40 ],
-			"umbrella": [ 175, -50, 25 ]
+			"location": [ 5, 15, "fonts/bahnschrift30" ],
+			"wind": [ 280, 15, "fonts/bahnschrift30" ],
+			"temp": [ 5, 96, "fonts/calibrib90" ],
+			"icon": [ 280, 65, 80, 2 ],
+			"dir": [ 235, -2, 40 ],
+			"umbrella": [ 190, -30, 25 ]
 		},
 		"8": {
-			"location": [ 5, 12, "t0_14b_tf" ],
-			"column": [ 4, 53 ],
-			"day": [ 28, 18, "fonts/twcondensed20", 38, 88 ],
-			"icon": [ 28, 48, 25 ],
-			"wind": [ 18, 24 ],
-			"line": [ 20, 100 ]
+			"location": [ 5, 10, "calibrib16.vlw" ],
+			"column": [ 5, 60 ],
+			"day": [ 30, 70, "bahnschrift20.vlw", 91, 155 ],
+			"rain": [ 34, 176 ],
+			"icon": [ 30, 106, 30 ],
+			"wind": [ 18, 76 ],
+			"line": [ 70, 200 ],
+
+			"currentwind": [ 195, 35, "fonts/calibrib24" ],
+			"temp": [ 5, 11, "fonts/calibrib50", 1 ],
+			"currenticon": [ 290, -3, 45, 2 ],
+			"dir": [ 207, 25, 36 ],
+			"umbrella": [ 200, 5, 25 ]
 		},
 		"9": {
-			"title": [ 3, 2, "fonts/calibrib16", 25 ],
-			"items": 4,
-			"line": [ 3, 20, "tahoma9.vlw" ],
+			"title": [ 3, 2, "bahnschrift20.vlw", 25 ],
+			"items": 8,
+			"line": [ 3, 25, "REFSAN12.vlw" ],
 			"desc": [ 0, 5, "", 1 ]
 		},
 		"10": {
-			"title": [ 106, 2, "calibrib16.vlw" ],
-			"pos": [ 106, 16 ]
+			"title": [ 150, 5, "fonts/bahnschrift20" ],
+			"pos": [ 150, 27 ]
 		},
 		"11": {
 			"mode": 0,
 			"days": 1,
-			"title": [ 5, 2, "fonts/calibrib16.vlw" ],
-			"date": [ 205, 2 ],
-			"items": 8,
-			"red": [ 0, 21, 211, 10 ],
-			"line": [ 5, 21, 11, "tahoma9.vlw", 50 ]
+			"title": [ 5, 2, "fonts/bahnschrift20" ],
+			"date": [ 290, 2 ],
+			"items": 12,
+			"red": [ 0, 21, 296, 14 ],
+			"line": [ 5, 32, 15, "t0_14b_tf", 50 ]
 		},
 		"21": [
-			{ "text": [ 10, 5, "OpenEpaperLink AP", "bahnschrift20", 1, 0, 0 ] },
-			{ "text": [ 10, 50, "IP address:", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 100, 50, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 10, 70, "Channel:", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 100, 70, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 10, 90, "Tag count:", "t0_14b_tf", 1, 0, 0 ] },
-			{ "text": [ 100, 90, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
+			{ "text": [ 5, 5, "OpenEpaperLink AP", "bahnschrift20", 1, 0, 0 ] },
+			{ "text": [ 5, 50, "IP address:", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 120, 50, "{ap_ip}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 5, 70, "Channel:", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 120, 70, "{ap_ch}", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 5, 90, "Tag count:", "t0_14b_tf", 1, 0, 0 ] },
+			{ "text": [ 120, 90, "{ap_tagcount}", "t0_14b_tf", 1, 0, 0 ] }
 		],
 		"27": {
-			"bars": [ 20, 180, 65, 12, 10 ],
+			"bars": [ 12, 288, 130, 23, 20 ],
 			"time": [ "tahoma9.vlw" ],
-			"yaxis": [ "tahoma9.vlw", 2, 6 ],
-			"head": [ "fonts/calibrib16.vlw" ]
+			"yaxis": [ "tahoma9.vlw", 0, 6 ],
+			"head": [ "calibrib30.vlw" ]
 		}
 	}
 }

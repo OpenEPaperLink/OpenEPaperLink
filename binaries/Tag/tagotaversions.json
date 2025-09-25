@@ -123,12 +123,15 @@
     "80": {
       "type": "chroma74y_ota",
       "version": "0010",
-      "md5": "4baff1e9eba6949c26ea11dbbd105039"
+      "md5": "4baff1e9eba6949c26ea11dbbd105039",
+      "type_1": "chroma74r_ota",
+      "version_1": "0014",
+      "md5_1": "3c69d4414a1447b071f0628529a3e3c7"
     },
     "82": {
       "type": "chroma29_ota",
-      "version": "0010",
-      "md5": "0d4af3e5285ca20ac56926e6fdd71dbc",
+      "version": "0015",
+      "md5": "293bb70fc5d8c6e2174cbb9b76943e4b",
       "type_1": "chroma29_8151_ota",
       "version_1": "0013",
       "md5_1": "b3dffd044829449998edc1c91d537004"

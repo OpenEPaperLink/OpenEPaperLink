@@ -10,6 +10,7 @@
 #define CONTENT_TIMESTAMP
 #define CONTENT_BUIENRADAR
 #define CONTENT_CAL
+#define CONTENT_TIME_RAWDATA
 #endif
 #define CONTENT_TAGCFG
 
@@ -45,7 +46,7 @@
 
 bool needRedraw(uint8_t contentMode, uint8_t wakeupReason) {
     // contentmode 26, timestamp
-    if ((wakeupReason == WAKEUP_REASON_BUTTON1 || wakeupReason == WAKEUP_REASON_BUTTON2) && contentMode == 26) return true;
+    if ((wakeupReason == WAKEUP_REASON_BUTTON1 || wakeupReason == WAKEUP_REASON_BUTTON2 || wakeupReason == WAKEUP_REASON_BUTTON3) && contentMode == 26) return true;
     return false;
 }
 
@@ -63,10 +64,11 @@ void contentRunner() {
         const bool isAp = memcmp(taginfo->mac, wifimac, 8) == 0;
         if (taginfo->RSSI &&
             (now >= taginfo->nextupdate || needRedraw(taginfo->contentMode, taginfo->wakeupReason)) &&
-            config.runStatus == RUNSTATUS_RUN && (taginfo->expectedNextCheckin < now + 300 || isAp) &&
-             Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
-            drawNew(taginfo->mac, taginfo);
-            taginfo->wakeupReason = 0;
+            config.runStatus == RUNSTATUS_RUN && 
+            (taginfo->expectedNextCheckin < now + 300 || isAp || (wsClientCount() && config.stopsleep == 1)) &&
+            Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
+                drawNew(taginfo->mac, taginfo);
+                taginfo->wakeupReason = 0;
         }
 
         if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pendingCount == 0 && !isAp) {
@@ -335,7 +337,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
 
         case 1:  // Today
 
-            drawDate(filename, taginfo, imageParams);
+            drawDate(filename, cfgobj, taginfo, imageParams);
             taginfo->nextupdate = util::getMidnightTime();
             updateTagImage(filename, mac, (taginfo->nextupdate - now) / 60 - 10, taginfo, imageParams);
             break;
@@ -573,6 +575,13 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             taginfo->nextupdate = 3216153600;
             break;
         }
+#ifdef CONTENT_TIME_RAWDATA
+        case 29:  // Time and raw data like strings etc. in the future
+        
+            taginfo->nextupdate = now + 1800;
+            prepareTIME_RAW(mac, now);
+            break;
+#endif
     }
 
     taginfo->modeConfigJson = doc.as<String>();
@@ -782,7 +791,41 @@ void initSprite(TFT_eSprite &spr, int w, int h, imgParam &imageParams) {
     spr.fillSprite(TFT_WHITE);
 }
 
-void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
+String utf8FromCodepoint(uint16_t cp) {
+    char buf[4] = {0}; 
+    if (cp < 0x80) {
+        buf[0] = cp;
+    } else if (cp < 0x800) {
+        buf[0] = 0xC0 | (cp >> 6);
+        buf[1] = 0x80 | (cp & 0x3F);
+    } else {
+        buf[0] = 0xE0 | ((cp >> 12) & 0x0F);
+        buf[1] = 0x80 | ((cp >> 6) & 0x3F);
+        buf[2] = 0x80 | (cp & 0x3F);
+    }
+    return String(buf);
+}
+
+String formatUtcToLocal(const String &s) {
+    int h, m, ss = 0;
+    if (sscanf(s.c_str(), "%d:%d:%d", &h, &m, &ss) < 2 || h > 23 || m > 59 || ss > 59)
+        return "-";
+
+    time_t n = time(nullptr);
+    struct tm tm = *localtime(&n);
+    tm.tm_hour = h;
+    tm.tm_min = m;
+    tm.tm_sec = ss;
+
+    time_t utc = mktime(&tm) - _timezone + (tm.tm_isdst ? 3600 : 0);
+    localtime_r(&utc, &tm);
+
+    char buf[6];
+    snprintf(buf, 6, "%02d:%02d", tm.tm_hour, tm.tm_min);
+    return buf;
+}
+
+void drawDate(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     time_t now;
     time(&now);
     struct tm timeinfo;
@@ -803,19 +846,48 @@ void drawDate(String &filename, tagRecord *&taginfo, imgParam &imageParams) {
     TFT_eSprite spr = TFT_eSprite(&tft);
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
-    const auto &date = loc["date"];
-    const auto &weekday = loc["weekday"];
-    if (date) {
+    auto date = loc["date"];
+    auto weekday = loc["weekday"];
+    const auto &month = loc["month"];
+    const auto &day = loc["day"];
+
+    if (cfgobj["location"]) {
+        const String lat = cfgobj["#lat"];
+        const String lon = cfgobj["#lon"];
+        JsonDocument doc;
+
+        const bool success = util::httpGetJson("https://api.farmsense.net/v1/daylengths/?d=" + String(now) + "&lat=" + lat + "&lon=" + lon + "&tz=UTC", doc, 5000);
+        if (success && loc["sunrise"].is<JsonArray>()) {
+            String sunrise = formatUtcToLocal(doc[0]["Sunrise"]);
+            String sunset = formatUtcToLocal(doc[0]["Sunset"]);
+            const auto &sunriseicon = loc["sunrise"];
+            const auto &sunseticon = loc["sunset"];
+            drawString(spr, String("\uF046 "), sunriseicon[0], sunriseicon[1].as<int>(), "/fonts/weathericons.ttf", TR_DATUM, TFT_BLACK, sunriseicon[3]);
+            drawString(spr, String("\uF047 "), sunseticon[0], sunseticon[1].as<int>(), "/fonts/weathericons.ttf", TR_DATUM, TFT_BLACK, sunseticon[3]);
+            drawString(spr, sunrise, sunriseicon[0], sunriseicon[1], sunriseicon[2], TL_DATUM, TFT_BLACK, sunriseicon[3]);
+            drawString(spr, sunset, sunseticon[0], sunseticon[1], sunseticon[2], TL_DATUM, TFT_BLACK, sunseticon[3]);
+
+            const bool success = util::httpGetJson("https://api.farmsense.net/v1/moonphases/?d=" + String(now), doc, 5000);
+            if (success && loc["moonicon"].is<JsonArray>()) {
+                uint8_t moonage = doc[0]["Index"].as<int>();
+                const auto &moonicon = loc["moonicon"];
+                uint16_t moonIconId = 0xf095 + moonage;
+                String moonIcon = utf8FromCodepoint(moonIconId);
+                drawString(spr, moonIcon, moonicon[0], moonicon[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, moonicon[2]);
+            }
+
+            date = loc["altdate"];
+            weekday = loc["altweekday"];
+        }
+    }
+    if (date.is<JsonArray>()) {
         drawString(spr, languageDays[timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, imageParams.highlightColor, weekday[3]);
         drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[timeinfo.tm_mon], date[0], date[1], date[2], TC_DATUM, TFT_BLACK, date[3]);
     } else {
-        const auto &month = loc["month"];
-        const auto &day = loc["day"];
         drawString(spr, languageDays[timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, TFT_BLACK, weekday[3]);
         drawString(spr, String(languageMonth[timeinfo.tm_mon]), month[0], month[1], month[2], TC_DATUM, TFT_BLACK, month[3]);
         drawString(spr, String(timeinfo.tm_mday), day[0], day[1], day[2], TC_DATUM, imageParams.highlightColor, day[3]);
     }
-
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
 }
@@ -1613,6 +1685,10 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
     int n = doc.size();
+    if (n == 0) {
+        wsErr("No data in dayahead feed");
+        return false;
+    }
 
     int units = cfgobj["units"].as<int>();
     if (units == 0) units = 1;
@@ -2189,7 +2265,7 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
     http.addHeader("If-Modified-Since", formatHttpDate(fetched));
     http.addHeader("X-ESL-MAC", MAC);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    http.setTimeout(5000);
+    http.setTimeout(20000);
     const int httpCode = http.GET();
     if (httpCode == 200) {
         drawJsonStream(http.getStream(), filename, taginfo, imageParams);
@@ -2474,6 +2550,60 @@ void prepareConfigFile(const uint8_t *dst, const JsonObject &config) {
     tagSettings.fixedChannel = config["fixedchannel"].as<int>();
     tagSettings.batLowVoltage = config["lowvoltage"].as<int>();
     prepareDataAvail((uint8_t *)&tagSettings, sizeof(tagSettings), 0xA8, dst);
+}
+#endif
+
+#ifdef CONTENT_TIME_RAWDATA
+bool is_leap_year(int year) {// Somehow mktime did not return the local unix time so lets to it in a manual way
+    year += 1900;
+    return (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+}
+int days_in_month(int month, int year) {
+    static const int days[] = { 31, 28, 31, 30, 31, 30,
+                                31, 31, 30, 31, 30, 31 };
+    if (month == 1 && is_leap_year(year)) {
+        return 29;
+    }
+    return days[month];
+}
+uint32_t convert_tm_to_seconds(struct tm *t) {
+    const int SECONDS_PER_MINUTE = 60;
+    const int SECONDS_PER_HOUR = 3600;
+    const int SECONDS_PER_DAY = 86400;
+    long long total_days = 0;
+    for (int year = 70; year < t->tm_year; year++) {
+        total_days += is_leap_year(year) ? 366 : 365;
+    }
+    for (int month = 0; month < t->tm_mon; month++) {
+        total_days += days_in_month(month, t->tm_year);
+    }
+    total_days += (t->tm_mday - 1);
+    long long total_seconds = total_days * SECONDS_PER_DAY;
+    total_seconds += t->tm_hour * SECONDS_PER_HOUR;
+    total_seconds += t->tm_min * SECONDS_PER_MINUTE;
+    total_seconds += t->tm_sec;
+    return total_seconds;
+}
+
+void prepareTIME_RAW(const uint8_t *dst, time_t now) {
+    uint8_t *data;
+    size_t len = 1 + 4 + 4;
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+    uint32_t local_time = convert_tm_to_seconds(&timeinfo) + 20;// Adding 20 seconds for the average of upload time
+    uint32_t unix_time = now + 20;
+    data = new uint8_t[len + 1];
+    data[0] = len;// Length all
+    data[1] = 0x01;// Version of Time and RAW
+    data[2] = ((uint8_t*)&local_time)[0];
+    data[3] = ((uint8_t*)&local_time)[1];
+    data[4] = ((uint8_t*)&local_time)[2];
+    data[5] = ((uint8_t*)&local_time)[3];
+    data[6] = ((uint8_t*)&unix_time)[0];
+    data[7] = ((uint8_t*)&unix_time)[1];
+    data[8] = ((uint8_t*)&unix_time)[2];
+    data[9] = ((uint8_t*)&unix_time)[3];
+    prepareDataAvail(data, len + 1, DATATYPE_TIME_RAW_DATA, dst);
 }
 #endif
 
