@@ -451,6 +451,29 @@
           "0": "No",
           "1": "-Yes"
         }
+      },
+      {
+        "key": "interval",
+        "name": "Display interval",
+        "desc": "Data averaging interval for better readability on smaller displays",
+        "type": "select",
+        "options": {
+          "0": "-Native (15-min or hourly)",
+          "30": "30 minutes",
+          "60": "1 hour"
+        }
+      },
+      {
+        "key": "cheapblock",
+        "name": "Cheap block hours",
+        "desc": "Number of hours for cheapest consecutive block (e.g., 3 for dishwasher, 2.5 for 2h30m). Set to 0 to disable. Shows up to 2 non-overlapping blocks.",
+        "type": "text"
+      },
+      {
+        "key": "updatefreq",
+        "name": "Update frequency",
+        "desc": "Tag refresh interval in minutes (e.g., 15, 30, 60). Default is 15 minutes to match 15-minute data intervals. Higher values save battery.",
+        "type": "text"
       }
     ]
   },
