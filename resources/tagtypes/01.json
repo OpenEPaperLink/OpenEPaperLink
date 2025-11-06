@@ -1,5 +1,5 @@
 {
-	"version": 4,
+	"version": 5,
 	"name": "M2 2.9\"",
 	"width": 296,
 	"height": 128,
@@ -43,7 +43,8 @@
 			"day": [ 30, 18, "fonts/twcondensed20", 41, 108 ],
 			"icon": [ 30, 55, 30 ],
 			"wind": [ 18, 26 ],
-			"line": [ 20, 128 ]
+			"line": [ 20, 128 ],
+			"ts_option": 10
 		},
 		"9": {
 			"title": [ 2, 0, "bahnschrift20.vlw", 25 ],

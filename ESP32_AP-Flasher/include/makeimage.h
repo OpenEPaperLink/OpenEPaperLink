@@ -39,6 +39,7 @@ struct imgParam {
 
     uint8_t zlib;
     uint8_t g5;
+    uint8_t ts_option;
 };
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams);

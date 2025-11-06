@@ -259,6 +259,27 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     } else if (interval < 180)
         interval = 60 * 60;
 
+    imageParams.ts_option = config.showtimestamp;
+    if(imageParams.ts_option) {
+       JsonDocument loc;
+       getTemplate(loc, taginfo->contentMode, taginfo->hwType);
+
+       if(loc["ts_option"].is<int>()) {
+       // Overide ts_option if present in template
+          imageParams.ts_option = loc["ts_option"];
+       }
+       else {
+          const JsonArray jsonArray = loc.as<JsonArray>();
+          for (const JsonVariant &elem : jsonArray) {
+             if(elem["ts_option"].is<int>()) {
+             // Overide ts_option if present in template
+                imageParams.ts_option = elem["ts_option"];
+                break;
+             }
+          }
+       }
+    }
+
     switch (taginfo->contentMode) {
         case 0:   // Not configured
         case 22:  // Static image
