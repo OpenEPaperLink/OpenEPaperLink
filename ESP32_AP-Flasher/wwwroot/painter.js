@@ -215,7 +215,7 @@ function startPainter(mac, width, height, tagtype) {
 		canvas.addEventListener('touchend', handleTouchEnd);
 		canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
 
-		var sizes = [10,11,12,13,14,16,18,20,24,28,32,36,40,48,56,64,72,84];
+		var sizes = [10,11,12,13,14,16,18,20,24,28,32,36,40,48,56,64,72,84,96,108,120,144,168,192,256,320,384,480,512];
 
 		const fontSelect = document.createElement('select');
 		fontSelect.id = 'font-select';
