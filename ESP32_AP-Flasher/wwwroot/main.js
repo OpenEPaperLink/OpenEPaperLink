@@ -1084,7 +1084,7 @@ function contentselected() {
 					fetch('edit?list=%2F&recursive=1')
 						.then(response => response.json())
 						.then(data => {
-							let files = data.filter(item => item.type === "file" && item.name.endsWith(".jpg"));
+							let files = data.filter(item => item.type === "file" && (item.name.toLowerCase().endsWith(".jpg") || item.name.toLowerCase().endsWith(".jpeg")));
 							if (element.type == 'binfile') files = data.filter(item => item.type === "file" && item.name.endsWith(".bin"));
 							if (element.type == 'jsonfile') files = data.filter(item => item.type === "file" && item.name.endsWith(".json"));
 							const optionElement = document.createElement("option");
