@@ -124,6 +124,8 @@ window.addEventListener("load", function () {
 				})
 				.catch(error => showMessage('loadTags error: ' + error));
 			setInterval(updatecards, 1000);
+			updateWireGuardStatus(); // Initial load
+			setInterval(updateWireGuardStatus, 5000); // Update every 5 seconds
 		})
 		.catch(error => {
 			console.error('Error:', error);
@@ -521,6 +523,49 @@ function processTags(tagArray) {
 		});
 	}
 	GroupSortFilter();
+}
+
+function updateWireGuardStatus() {
+	fetch('/wg_status')
+		.then(response => response.json())
+		.then(data => {
+			const container = $('#wg-status-container');
+			const icon = $('#wg-status-icon');
+			const text = $('#wg-status-text');
+			
+			if (!data.enabled) {
+				container.style.display = 'none';
+				return;
+			}
+			
+			container.style.display = 'block';
+			
+			const statusLower = data.status.toLowerCase();
+			if (statusLower === 'connected') {
+				icon.style.color = 'green';
+				icon.textContent = 'vpn_lock';
+				text.textContent = 'WireGuard';
+				text.style.color = 'green';
+			} else if (statusLower === 'connecting' || statusLower === 'initializing') {
+				icon.style.color = 'orange';
+				icon.textContent = 'sync';
+				text.textContent = 'Connecting...';
+				text.style.color = 'orange';
+			} else if (statusLower === 'error') {
+				icon.style.color = 'red';
+				icon.textContent = 'error';
+				text.textContent = 'Error';
+				text.style.color = 'red';
+			} else {
+				icon.style.color = 'gray';
+				icon.textContent = 'vpn_key_off';
+				text.textContent = 'Disconnected';
+				text.style.color = 'gray';
+			}
+		})
+		.catch(error => {
+			console.log('WireGuard status check failed (expected if disabled):', error);
+		});
 }
 
 function updatecards() {
