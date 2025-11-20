@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "TFT 320x172",
 	"width": 320,
 	"height": 172,
@@ -23,7 +23,8 @@
 			{ "text": [ 10, 95, "Channel:", "bahnschrift20", "#888888", 0, 0, 1 ] },
 			{ "text": [ 120, 95, "{ap_ch}", "bahnschrift20", 0, 0, 0, "1" ] },
 			{ "text": [ 10, 120, "Tag count:", "bahnschrift20", "#888888", 0, 0, 1 ] },
-			{ "text": [ 120, 120, "{ap_tagcount}", "bahnschrift20", 0, 0, 0, "1" ] }
+			{ "text": [ 120, 120, "{ap_tagcount}", "bahnschrift20", 0, 0, 0, "1" ] },
+			{ "ts_option": 17}
 		]
 	}
 }

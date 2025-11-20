@@ -259,6 +259,27 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     } else if (interval < 180)
         interval = 60 * 60;
 
+    imageParams.ts_option = config.showtimestamp;
+    if(imageParams.ts_option) {
+       JsonDocument loc;
+       getTemplate(loc, taginfo->contentMode, taginfo->hwType);
+
+       if(loc["ts_option"].is<int>()) {
+       // Overide ts_option if present in template
+          imageParams.ts_option = loc["ts_option"];
+       }
+       else {
+          const JsonArray jsonArray = loc.as<JsonArray>();
+          for (const JsonVariant &elem : jsonArray) {
+             if(elem["ts_option"].is<int>()) {
+             // Overide ts_option if present in template
+                imageParams.ts_option = elem["ts_option"];
+                break;
+             }
+          }
+       }
+    }
+
     switch (taginfo->contentMode) {
         case 0:   // Not configured
         case 22:  // Static image
@@ -560,10 +581,26 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
         case 27:  // Day Ahead:
 
             if (getDayAheadFeed(filename, cfgobj, taginfo, imageParams)) {
-                taginfo->nextupdate = now + (3600 - now % 3600);
+                // Get user-configured update frequency in minutes, default to 15 minutes (matching 15-min data intervals)
+                int updateFreqMinutes = 15;
+                if (cfgobj["updatefreq"].is<String>()) {
+                    String freqStr = cfgobj["updatefreq"].as<String>();
+                    freqStr.trim();
+                    if (freqStr.length() > 0) {
+                        updateFreqMinutes = freqStr.toInt();
+                        if (updateFreqMinutes < 1) {
+                            wsErr("Invalid update frequency, defaulting to 15 minutes");
+                            updateFreqMinutes = 15;
+                        }
+                    }
+                }
+                int updateInterval = updateFreqMinutes * 60;  // Convert to seconds
+
+                // Schedule next update (align to interval boundary for consistent timing)
+                taginfo->nextupdate = now + (updateInterval - now % updateInterval);
                 updateTagImage(filename, mac, 0, taginfo, imageParams);
             } else {
-                taginfo->nextupdate = now + 300;
+                taginfo->nextupdate = now + 300;  // Retry in 5 minutes on failure
             }
             break;
 #endif
@@ -1645,8 +1682,276 @@ YAxisScale calculateYAxisScale(double priceMin, double priceMax, int divisions) 
     return {minY, maxY, roundedStepSize};
 }
 
-bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
+// Helper function: calculate data range and align to interval boundaries
+// Returns: DataRange struct
+struct DataRange {
+    int startIndex;
+    int endIndex;
+    int numAveragedSamples;
+    int availableSamples;
+};
+
+DataRange calculateDataRangeAndAlignment(const JsonDocument& doc, int originalDataSize, time_t now,
+                                         int avgFactor, int targetIntervalMinutes, int barAreaWidth) {
+    DataRange result;
+
+    // Step 1: Find data range - start at now-1h, trim far future if needed
+    time_t targetStart = now - 3600;  // 1 hour ago
+
+    // Find first data point at/before now-1h
+    result.startIndex = 0;
+    for (int i = originalDataSize - 1; i >= 0; i--) {
+        time_t dataTime = doc[i]["time"];
+        if (dataTime <= targetStart) {
+            result.startIndex = i;
+            break;
+        }
+    }
+
+    // Calculate maximum bars that can fit on display
+    int maxBars = barAreaWidth;  // 1px per bar minimum
+
+    // Calculate how many samples we'll have after averaging
+    result.availableSamples = originalDataSize - result.startIndex;
+    result.numAveragedSamples = result.availableSamples / avgFactor;
+
+    // Step 2: Trim from far future if needed (prioritize now and near future)
+    result.endIndex = originalDataSize;
+    if (result.numAveragedSamples > maxBars) {
+        // Too many samples - limit the range
+        int maxSamplesNeeded = maxBars * avgFactor;
+        result.endIndex = result.startIndex + maxSamplesNeeded;
+        if (result.endIndex > originalDataSize) result.endIndex = originalDataSize;
+        result.availableSamples = result.endIndex - result.startIndex;
+        result.numAveragedSamples = result.availableSamples / avgFactor;
+    }
+
+    // Step 3: Align to interval boundary if averaging
+    if (avgFactor > 1) {
+        // Find first data point that aligns with target interval
+        for (int i = result.startIndex; i < result.endIndex; i++) {
+            time_t dataTime = doc[i]["time"];
+            struct tm dt;
+            localtime_r(&dataTime, &dt);
+
+            // Check if this timestamp aligns with target interval
+            if (targetIntervalMinutes == 30) {
+                if (dt.tm_min == 0 || dt.tm_min == 30) {
+                    result.startIndex = i;
+                    break;
+                }
+            } else if (targetIntervalMinutes == 60) {
+                if (dt.tm_min == 0) {
+                    result.startIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // Recalculate after alignment
+        result.availableSamples = result.endIndex - result.startIndex;
+        result.numAveragedSamples = result.availableSamples / avgFactor;
+    }
+
+    return result;
+}
+
+// Helper function: Perform historic data backfill to optimize bar width
+// Returns: BackfillResult struct
+struct BackfillResult {
+    int startIndex;
+    int numAveragedSamples;
+    int availableSamples;
+    int addedHistoricCount;
+    double barwidthBefore;
+    double barwidthAfter;
+};
+
+BackfillResult performHistoricBackfill(int startIndex, int endIndex, int numAveragedSamples,
+                                       int avgFactor, int barAreaWidth, double targetBarwidth) {
+    BackfillResult result;
+    result.startIndex = startIndex;
+    result.numAveragedSamples = numAveragedSamples;
+    result.availableSamples = endIndex - startIndex;
+    result.addedHistoricCount = 0;
+
+    int futureRawCount = endIndex - startIndex;  // Raw samples (before averaging)
+    int historicRawCount = startIndex;           // Raw samples available before startIndex
+
+    // Calculate barwidth BEFORE backfill
+    result.barwidthBefore = (double)barAreaWidth / numAveragedSamples;
+
+    if (historicRawCount > 0) {
+        // Calculate current bar width
+        double pixelsPerBar = (double)barAreaWidth / numAveragedSamples;
+        int currentSpacing = (pixelsPerBar >= 3.0) ? 1 : 0;
+        double currentBarWidth = pixelsPerBar - currentSpacing;
+
+        // Scenario 2: Bars > 5px target - add data to reduce toward target
+        if (currentBarWidth > targetBarwidth) {
+            // Target: 5px bars with 1px spacing = 6px total per bar
+            int targetBars = barAreaWidth / (targetBarwidth + 1.0);
+            int barsToAdd = targetBars - numAveragedSamples;
+
+            if (barsToAdd > 0) {
+                int samplesToAdd = barsToAdd * avgFactor;
+                result.addedHistoricCount = std::min(samplesToAdd, historicRawCount);
+                result.startIndex -= result.addedHistoricCount;
+
+                // Bounds safety: ensure startIndex never goes negative
+                if (result.startIndex < 0) {
+                    result.addedHistoricCount += result.startIndex;  // Reduce by overflow amount
+                    result.startIndex = 0;
+                }
+
+                result.availableSamples = endIndex - result.startIndex;
+                result.numAveragedSamples = result.availableSamples / avgFactor;
+            }
+        }
+        // Scenario 1: Bars <= 5px - fill empty space with historic data
+        else {
+            double currentPixelsPerBar = pixelsPerBar;        // Use pixelsPerBar (not barwidth)
+            int currentPixelsInt = (int)currentPixelsPerBar;  // e.g., 3 from 3.05px
+
+            // Keep adding bars as long as pixelsPerBar doesn't drop below next integer
+            while (historicRawCount > 0) {
+                // Try adding avgFactor more raw samples (= 1 more bar after averaging)
+                int testAveragedBars = result.numAveragedSamples + 1;
+                double testPixelsPerBar = (double)barAreaWidth / testAveragedBars;
+                int testPixelsInt = (int)testPixelsPerBar;
+
+                // Check if pixelsPerBar stays at or above current integer value
+                // This ensures bars don't shrink (e.g., stay at 3px, don't drop to 2px)
+                if (testPixelsInt >= currentPixelsInt) {
+                    // Pixels per bar still >= current integer - add this bar
+                    result.numAveragedSamples = testAveragedBars;
+                    historicRawCount -= avgFactor;  // Consume raw samples
+                    result.addedHistoricCount += avgFactor;
+                    result.startIndex -= avgFactor;  // Move start backwards into historic data
+
+                    // Bounds safety: ensure startIndex never goes negative
+                    if (result.startIndex < 0) {
+                        result.addedHistoricCount += result.startIndex;          // Reduce by overflow amount
+                        result.numAveragedSamples = (endIndex - 0) / avgFactor;  // Recalculate with startIndex=0
+                        result.startIndex = 0;
+                        break;  // Stop backfill
+                    }
+                } else {
+                    // Next bar would drop below current integer, done
+                    break;
+                }
+            }
+
+            // Update availableSamples after backfill
+            if (result.addedHistoricCount > 0) {
+                result.availableSamples = endIndex - result.startIndex;
+            }
+        }
+    }
+
+    // Calculate barwidth after backfill
+    result.barwidthAfter = (double)barAreaWidth / result.numAveragedSamples;
+
+    return result;
+}
+
+// Data structure for averaged price points
+struct AveragedDataPoint {
+    time_t time;
+    double price;
+    int hour;
+    int minute;
+};
+
+// Helper function: Find cheapest consecutive blocks for appliance scheduling
+// Returns: CheapBlock struct
+struct CheapBlock {
+    int start;
+    int end;
+};
+
+struct CheapBlocks {
+    CheapBlock block1;
+    CheapBlock block2;
+};
+
+CheapBlocks findCheapestConsecutiveBlocks(const AveragedDataPoint* avgData, int numSamples,
+                                          int blockSamples, time_t now) {
+    CheapBlocks result;
+    result.block1.start = -1;
+    result.block1.end = -1;
+    result.block2.start = -1;
+    result.block2.end = -1;
+
+    if (blockSamples <= 0 || blockSamples > numSamples) {
+        return result;  // Invalid or disabled
+    }
+
+    // Find all candidate blocks (simple: sum all prices in each block)
+    struct BlockCandidate {
+        int start;
+        int end;
+        double sum;
+    };
+    std::vector<BlockCandidate> candidates;
+
+    // Scan through visible data to find all valid consecutive blocks
+    for (int i = 0; i <= numSamples - blockSamples; i++) {
+        const time_t block_start_time = avgData[i].time;
+
+        // Only consider future blocks (skip past data)
+        if (block_start_time < now) continue;
+
+        // Calculate sum for this block
+        double blockSum = 0;
+        for (int j = 0; j < blockSamples; j++) {
+            blockSum += avgData[i + j].price;
+        }
+
+        BlockCandidate candidate;
+        candidate.start = i;
+        candidate.end = i + blockSamples - 1;
+        candidate.sum = blockSum;
+        candidates.push_back(candidate);
+    }
+
+    // Sort candidates by sum (cheapest first)
+    std::sort(candidates.begin(), candidates.end(),
+              [](const BlockCandidate& a, const BlockCandidate& b) { return a.sum < b.sum; });
+
+    // Pick up to 2 non-overlapping cheap blocks
+    if (candidates.size() > 0) {
+        result.block1.start = candidates[0].start;
+        result.block1.end = candidates[0].end;
+
+        // Find second block that doesn't overlap with first
+        for (size_t i = 1; i < candidates.size(); i++) {
+            bool overlaps = (candidates[i].start <= result.block1.end && candidates[i].end >= result.block1.start);
+            if (!overlaps) {
+                result.block2.start = candidates[i].start;
+                result.block2.end = candidates[i].end;
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, imgParam& imageParams) {
     wsLog("get dayahead prices");
+
+    // Magic number constants for bar width calculations
+    const double TARGET_BARWIDTH = 5.0;  // Optimal bar width in pixels (good visibility)
+    const double MIN_BARWIDTH = 2.0;     // Minimum bar width (below this, bars hard to see)
+    const int MIN_LABEL_SPACING = 30;    // Minimum pixels between label centers
+    const int DASH_LENGTH = 3;           // Dashed line segment length
+    const int GAP_LENGTH = 2;            // Gap between dashed line segments
+    const int STEM_WIDTH = 3;            // Current time arrow stem width
+    const int ARROW_WIDTH = 8;           // Current time arrow head width
+    const int ARROW_HEIGHT = 6;          // Current time arrow head height
+    const int STEM_HEIGHT = 10;          // Current time arrow stem height
+    const int GAP_AFTER_ARROW = 2;       // Gap between arrow tip and vertical line
 
     JsonDocument loc;
     getTemplate(loc, 27, taginfo->hwType);
@@ -1657,11 +1962,6 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
 
     time_t now;
     time(&now);
-    struct tm timeinfo;
-    localtime_r(&now, &timeinfo);
-
-    char dateString[40];
-    strftime(dateString, sizeof(dateString), languageDateFormat[0].c_str(), &timeinfo);
 
     HTTPClient http;
     http.begin(URL);
@@ -1684,20 +1984,80 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
 
     initSprite(spr, imageParams.width, imageParams.height, imageParams);
 
-    int n = doc.size();
-    if (n == 0) {
+    int originalDataSize = doc.size();
+    if (originalDataSize == 0) {
         wsErr("No data in dayahead feed");
         return false;
     }
+
+    // Detect native data interval (15-min, hourly, etc.)
+    int nativeIntervalMinutes = 15;  // Default to 15 minutes (most common in Europe)
+    if (originalDataSize >= 2) {
+        time_t time0 = doc[0]["time"];
+        time_t time1 = doc[1]["time"];
+        nativeIntervalMinutes = (time1 - time0) / 60;
+    }
+
+    // Get user's preferred display interval (0 = native, 30 = 30 minutes, 60 = 1 hour)
+    int targetIntervalMinutes = cfgobj["interval"] ? cfgobj["interval"].as<int>() : 0;
+    if (targetIntervalMinutes == 0) {
+        targetIntervalMinutes = nativeIntervalMinutes;  // Use native interval
+    }
+
+    // Calculate averaging factor (how many native samples per target interval)
+    int avgFactor = targetIntervalMinutes / nativeIntervalMinutes;
+    if (avgFactor < 1) avgFactor = 1;  // Safety: no upsampling
+
+    // Get bar area width for calculations
+    int barAreaWidth = loc["bars"][1].as<int>();
+
+    // Store RAW current price BEFORE averaging (for accurate "now" display)
+    // We'll calculate this after we have units/tariff variables below
+    double rawCurrentPrice = std::numeric_limits<double>::quiet_NaN();
+    int rawCurrentIndex = -1;
+    int rawCurrentHour = 0;    // Hour from the native interval containing "now"
+    int rawCurrentMinute = 0;  // Minute from the native interval containing "now"
+
+    // Calculate data range and align to interval boundaries (Steps 1-3)
+    DataRange range = calculateDataRangeAndAlignment(doc, originalDataSize, now, avgFactor,
+                                                     targetIntervalMinutes, barAreaWidth);
+    int startIndex = range.startIndex;
+    int endIndex = range.endIndex;
+    int numAveragedSamples = range.numAveragedSamples;
+    int availableSamples = range.availableSamples;
+
+    // Safety check
+    if (numAveragedSamples == 0) {
+        wsErr("Not enough data for selected interval");
+        return false;
+    }
+
+    // Perform historic data backfill to optimize bar width (Step 4)
+    BackfillResult backfill = performHistoricBackfill(startIndex, endIndex, numAveragedSamples,
+                                                      avgFactor, barAreaWidth, TARGET_BARWIDTH);
+    startIndex = backfill.startIndex;
+    numAveragedSamples = backfill.numAveragedSamples;
+    availableSamples = backfill.availableSamples;
+
+    // Debug logging (always visible in web console)
+    int futureRawCount = endIndex - (startIndex + backfill.addedHistoricCount);
+    int historicRawCount = startIndex + backfill.addedHistoricCount;
+    wsLog("Day-ahead bar sizing: future_raw=" + String(futureRawCount) +
+          " (incl now), historic_raw=" + String(historicRawCount) +
+          ", barwidth_before=" + String(backfill.barwidthBefore, 1) +
+          "px, added_historic=" + String(backfill.addedHistoricCount) +
+          ", barwidth_after=" + String(backfill.barwidthAfter, 1) +
+          "px (target=" + String(TARGET_BARWIDTH, 1) + "px)");
 
     int units = cfgobj["units"].as<int>();
     if (units == 0) units = 1;
     double tarifkwh;
     double tariftax = cfgobj["tarifftax"].as<double>();
-    double minPrice = std::numeric_limits<double>::max();
-    double maxPrice = std::numeric_limits<double>::lowest();
-    double prices[n];
 
+    // Create averaged data array
+    AveragedDataPoint avgData[numAveragedSamples];
+
+    // Parse tariff array if provided
     JsonDocument doc2;
     JsonArray tariffArray;
     std::string tariffString = cfgobj["tariffkwh"].as<std::string>();
@@ -1708,19 +2068,84 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
             Serial.println("Error in tariffkwh array");
         }
     }
-    for (int i = 0; i < n; i++) {
-        const JsonObject &obj = doc[i];
 
-        if (tariffArray.size() == 24) {
+    // Average the data according to selected interval
+    for (int i = 0; i < numAveragedSamples; i++) {
+        double priceSum = 0;
+        time_t blockTime = doc[startIndex + i * avgFactor]["time"];
+
+        // Average prices across the interval
+        for (int j = 0; j < avgFactor; j++) {
+            int idx = startIndex + i * avgFactor + j;
+            if (idx >= endIndex) break;  // Safety check - respect endIndex
+
+            const JsonObject& obj = doc[idx];
             const time_t item_time = obj["time"];
             struct tm item_timeinfo;
             localtime_r(&item_time, &item_timeinfo);
 
-            tarifkwh = tariffArray[item_timeinfo.tm_hour].as<double>();
-        } else {
-            tarifkwh = cfgobj["tariffkwh"].as<double>();
+            if (tariffArray.size() == 24) {
+                tarifkwh = tariffArray[item_timeinfo.tm_hour].as<double>();
+            } else {
+                tarifkwh = cfgobj["tariffkwh"].as<double>();
+            }
+
+            double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
+            priceSum += price;
         }
-        prices[i] = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
+
+        // Store averaged data
+        avgData[i].price = priceSum / avgFactor;
+        avgData[i].time = blockTime;
+        struct tm blockTimeInfo;
+        localtime_r(&blockTime, &blockTimeInfo);
+        avgData[i].hour = blockTimeInfo.tm_hour;
+        avgData[i].minute = blockTimeInfo.tm_min;
+    }
+
+    // Now work with averaged data (n becomes numAveragedSamples)
+    int n = numAveragedSamples;
+
+    // Calculate RAW current price (find closest PAST/CURRENT data point, never future)
+    if (std::isnan(rawCurrentPrice)) {
+        time_t closestTimeDiff = std::numeric_limits<time_t>::max();
+
+        for (int i = 0; i < originalDataSize; i++) {
+            time_t dataTime = doc[i]["time"];
+
+            // Skip future timestamps - only consider past and current
+            if (dataTime > now) continue;
+
+            time_t diff = now - dataTime;
+
+            if (diff < closestTimeDiff) {
+                closestTimeDiff = diff;
+                rawCurrentIndex = i;
+
+                // Calculate raw price with tariff (same logic as averaging loop)
+                struct tm item_timeinfo;
+                localtime_r(&dataTime, &item_timeinfo);
+
+                if (tariffArray.size() == 24) {
+                    tarifkwh = tariffArray[item_timeinfo.tm_hour].as<double>();
+                } else {
+                    tarifkwh = cfgobj["tariffkwh"].as<double>();
+                }
+
+                rawCurrentPrice = (doc[i]["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
+                rawCurrentHour = item_timeinfo.tm_hour;   // Store the native interval's hour
+                rawCurrentMinute = item_timeinfo.tm_min;  // Store the native interval's minute
+            }
+        }
+    }
+
+    // Calculate min/max and create sorted price array for percentiles
+    double minPrice = std::numeric_limits<double>::max();
+    double maxPrice = std::numeric_limits<double>::lowest();
+    double prices[n];
+
+    for (int i = 0; i < n; i++) {
+        prices[i] = avgData[i].price;
         minPrice = std::min(minPrice, prices[i]);
         maxPrice = std::max(maxPrice, prices[i]);
     }
@@ -1742,7 +2167,25 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
         }
     }
 
-    uint16_t barwidth = loc["bars"][1].as<int>() / n;
+    // Step 4: Calculate optimal bar width and spacing
+    // Goal: Fill entire width with bars, using spacing when room allows
+    int availableWidth = loc["bars"][1].as<int>();
+    int pixelsPerBar = availableWidth / n;  // How many pixels each bar+spacing can use
+    int barwidth;
+    int barSpacing;
+
+    if (pixelsPerBar >= 3) {
+        // Room for spacing - use 1px gap between bars
+        barSpacing = 1;
+        barwidth = pixelsPerBar - barSpacing;  // Remaining pixels for bar itself
+    } else {
+        // Tight fit - no room for spacing
+        barSpacing = 0;
+        barwidth = pixelsPerBar;  // Use all available pixels for bar
+    }
+
+    // Result: n × (barwidth + barSpacing) ≈ availableWidth (within rounding)
+
     uint16_t barheight = loc["bars"][2].as<int>() / (maxPrice - minPrice);
     uint16_t arrowY = 0;
     if (loc["bars"].size() >= 5) arrowY = loc["bars"][4].as<int>();
@@ -1751,43 +2194,148 @@ bool getDayAheadFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, 
     bool showcurrent = true;
     if (cfgobj["showcurr"] && cfgobj["showcurr"] == "0") showcurrent = false;
 
+    // Calculate label interval based on display width and number of bars
+    // Goal: Space labels far enough apart to avoid overlap
+    // Note: availableWidth already declared above, reuse it here
+    int maxLabels = availableWidth / MIN_LABEL_SPACING;
+    int labelInterval = (n + maxLabels - 1) / maxLabels;  // Round up division
+
+    // Ensure labelInterval is at least 1
+    if (labelInterval < 1) labelInterval = 1;
+
+    // For better aesthetics, round to nearest multiple based on target interval
+    int labelsPerHour = 60 / targetIntervalMinutes;
+    if (labelsPerHour > 0) {
+        // Try to show labels at nice intervals (every hour, every 2 hours, etc.)
+        int hoursPerLabel = (labelInterval + labelsPerHour - 1) / labelsPerHour;  // Round up
+        if (hoursPerLabel < 1) hoursPerLabel = 1;
+        labelInterval = hoursPerLabel * labelsPerHour;
+
+        // But don't exceed our max labels constraint
+        if (n / labelInterval > maxLabels) {
+            // Fall back to spacing-based calculation
+            labelInterval = (n + maxLabels - 1) / maxLabels;
+        }
+    }
+
+    // Find cheapest consecutive block(s) for appliance scheduling (Step 5)
+    double cheapBlockHoursRaw = cfgobj["cheapblock"] ? cfgobj["cheapblock"].as<double>() : 3.0;
+    int blockSamples = (int)(cheapBlockHoursRaw * labelsPerHour);  // Convert hours to sample count
+
+    CheapBlocks cheapBlocks = findCheapestConsecutiveBlocks(avgData, n, blockSamples, now);
+    int cheapBlockStart1 = cheapBlocks.block1.start;
+    int cheapBlockEnd1 = cheapBlocks.block1.end;
+    int cheapBlockStart2 = cheapBlocks.block2.start;
+    int cheapBlockEnd2 = cheapBlocks.block2.end;
+
+    // Store pointer position for drawing after all bars
+    int pointerX = -1;         // -1 means no pointer to draw
+    int currentHour = 0;       // Hour of the current interval
+    int currentMinute = 0;     // Minute of the current interval
+    int currentBarHeight = 0;  // Height of the current bar (for narrow bar line skipping)
+
+    // Draw light grey background for cheapest blocks (BEFORE labels/ticks so they draw on top)
+    int baselineY = spr.height() - barBottom;
+    int xAxisHeight = 20;  // Height of X-axis area (ticks + labels)
+
+    if (cheapBlockStart1 >= 0 && cheapBlockEnd1 >= 0) {
+        int rectX = barX + cheapBlockStart1 * (barwidth + barSpacing);
+        int rectWidth = (cheapBlockEnd1 - cheapBlockStart1 + 1) * (barwidth + barSpacing);
+        spr.fillRect(rectX, baselineY + 1, rectWidth, xAxisHeight - 1, TFT_LIGHTGREY);
+    }
+    if (cheapBlockStart2 >= 0 && cheapBlockEnd2 >= 0) {
+        int rectX = barX + cheapBlockStart2 * (barwidth + barSpacing);
+        int rectWidth = (cheapBlockEnd2 - cheapBlockStart2 + 1) * (barwidth + barSpacing);
+        spr.fillRect(rectX, baselineY + 1, rectWidth, xAxisHeight - 1, TFT_LIGHTGREY);
+    }
+
     for (int i = 0; i < n; i++) {
-        const JsonObject &obj = doc[i];
-        const time_t item_time = obj["time"];
-        struct tm item_timeinfo;
-        localtime_r(&item_time, &item_timeinfo);
+        // Get data from avgData array (already trimmed to visible range)
+        const time_t item_time = avgData[i].time;
+        const int item_hour = avgData[i].hour;
+        const int item_minute = avgData[i].minute;
+        const double price = avgData[i].price;
 
-        if (tariffArray.size() == 24) {
-            tarifkwh = tariffArray[item_timeinfo.tm_hour].as<double>();
-        } else {
-            tarifkwh = cfgobj["tariffkwh"].as<double>();
-        }
-
-        const double price = (obj["price"].as<double>() / 10 + tarifkwh) * (1 + tariftax / 100) / units;
-
-        uint16_t barcolor = getPercentileColor(prices, n, price, imageParams.hwdata);
+        uint16_t barcolor = getPercentileColor(prices, numAveragedSamples, price, imageParams.hwdata);
         uint16_t thisbarh = mapDouble(price, minPrice, maxPrice, 0, loc["bars"][2].as<int>());
-        spr.fillRect(barX + i * barwidth, spr.height() - barBottom - thisbarh, barwidth - 1, thisbarh, barcolor);
-        if (i % 2 == 0 && loc["time"][0]) {
-            drawString(spr, String(item_timeinfo.tm_hour), barX + i * barwidth + barwidth / 3 + 1, spr.height() - barBottom + 3, loc["time"][0], TC_DATUM, TFT_BLACK);
+        spr.fillRect(barX + i * (barwidth + barSpacing), spr.height() - barBottom - thisbarh, barwidth, thisbarh, barcolor);
+
+        // Draw tickmarks and labels at appropriate intervals
+        int labelX = barX + i * (barwidth + barSpacing) + barwidth / 2;
+        int tickY = spr.height() - barBottom;
+
+        // Check if this bar represents the start of an hour (minute = 0)
+        bool isHourStart = (item_minute == 0);
+        // Check if this bar represents a half-hour (minute = 30)
+        bool isHalfHour = (item_minute == 30);
+
+        // Skip tick marks on displays with limited vertical space (height < 150px)
+        // to prevent labels from being pushed off the bottom edge
+        bool skipTicks = (spr.height() < 150);
+
+        // Every 2 hours: Black tick (4px) + label
+        if (i % labelInterval == 0 && loc["time"][0]) {
+            if (!skipTicks) {
+                spr.drawLine(labelX, tickY, labelX, tickY + 4, TFT_BLACK);
+            }
+            drawString(spr, String(item_hour), labelX, tickY + (skipTicks ? 3 : 6), loc["time"][0], TC_DATUM, TFT_BLACK);
+        }
+        // Every hour (not already labeled): Dark grey tick (3px)
+        else if (isHourStart && !skipTicks) {
+            spr.drawLine(labelX, tickY, labelX, tickY + 3, getColor("darkgray"));
+        }
+        // Every half hour: Very short dark grey tick (1px)
+        else if (isHalfHour && !skipTicks) {
+            spr.drawPixel(labelX, tickY + 1, getColor("darkgray"));
         }
 
-        if (now - item_time < 3600 && std::isnan(pricenow) && showcurrent) {
-            spr.fillRect(barX + i * barwidth + (barwidth > 6 ? 3 : 1), 5 + arrowY, (barwidth > 6 ? barwidth - 6 : barwidth - 2), 10, imageParams.highlightColor);
-            spr.fillTriangle(barX + i * barwidth, 15 + arrowY,
-                             barX + i * barwidth + barwidth - 1, 15 + arrowY,
-                             barX + i * barwidth + (barwidth - 1) / 2, 15 + barwidth + arrowY, imageParams.highlightColor);
-            spr.drawLine(barX + i * barwidth + (barwidth - 1) / 2, 20 + barwidth + arrowY, barX + i * barwidth + (barwidth - 1) / 2, spr.height(), TFT_BLACK);
-            pricenow = price;
+        // Store pointer position for drawing after all bars
+        // Use RAW current price (stored before averaging) for accurate display
+        // Find the bar that contains "now" by checking if now falls within this bar's time interval
+        // Important: Use targetIntervalMinutes (the actual bar interval after averaging/display)
+        if (std::isnan(pricenow) && showcurrent) {
+            time_t barEndTime = item_time + (targetIntervalMinutes * 60);  // End of this bar's time range
+            if (now >= item_time && now < barEndTime) {
+                pointerX = barX + i * (barwidth + barSpacing) + barwidth / 2;  // Center of the bar
+                pricenow = rawCurrentPrice;                                    // Use raw price, not averaged
+                currentHour = rawCurrentHour;                                  // Use native interval's hour (not averaged block)
+                currentMinute = rawCurrentMinute;                              // Use native interval's minute (not averaged block)
+                currentBarHeight = thisbarh;                                   // Store bar height for line drawing
+            }
         }
+    }
+
+    // Draw current hour pointer AFTER all bars (so it won't be chopped off)
+    // Use constant narrow stem with wider arrow head for a proper arrow shape
+    if (pointerX >= 0 && showcurrent) {
+        // Arrow stem (narrow rectangle)
+        spr.fillRect(pointerX - STEM_WIDTH / 2, 5 + arrowY, STEM_WIDTH, STEM_HEIGHT, imageParams.highlightColor);
+        // Arrow head (wider triangle)
+        spr.fillTriangle(pointerX - ARROW_WIDTH / 2, 15 + arrowY,
+                         pointerX + ARROW_WIDTH / 2, 15 + arrowY,
+                         pointerX, 15 + arrowY + ARROW_HEIGHT, imageParams.highlightColor);
+
+        // Vertical line: dashed from arrow to bar, solid from baseline to bottom
+        int lineStartY = 21 + arrowY + GAP_AFTER_ARROW;
+        int baselineY = spr.height() - barBottom;
+        int barTopY = baselineY - currentBarHeight;
+
+        // Draw DASHED line from arrow to top of bar (with gap) - for visual clarity
+        for (int y = lineStartY; y < barTopY - 2; y += DASH_LENGTH + GAP_LENGTH) {
+            int segmentEnd = min(y + DASH_LENGTH, barTopY - 2);
+            spr.drawLine(pointerX, y, pointerX, segmentEnd, TFT_BLACK);
+        }
+
+        // Draw solid line from baseline to bottom (for time indication in X-axis area)
+        spr.drawLine(pointerX, baselineY, pointerX, spr.height(), TFT_BLACK);
     }
 
     if (showcurrent) {
         if (barwidth < 5) {
-            drawString(spr, String(timeinfo.tm_hour) + ":00", spr.width() / 2, 5, "calibrib16.vlw", TC_DATUM, TFT_BLACK, 30);
+            drawString(spr, String(currentHour) + ":" + (currentMinute < 10 ? "0" : "") + String(currentMinute), spr.width() / 2, 5, "calibrib16.vlw", TC_DATUM, TFT_BLACK, 30);
             drawString(spr, String(pricenow) + "/kWh", spr.width() / 2, 25, loc["head"][0], TC_DATUM, TFT_BLACK, 30);
         } else {
-            drawString(spr, String(timeinfo.tm_hour) + ":00", barX, 5, loc["head"][0], TL_DATUM, TFT_BLACK, 30);
+            drawString(spr, String(currentHour) + ":" + (currentMinute < 10 ? "0" : "") + String(currentMinute), barX, 5, loc["head"][0], TL_DATUM, TFT_BLACK, 30);
             drawString(spr, String(pricenow) + "/kWh", spr.width() - barX, 5, loc["head"][0], TR_DATUM, TFT_BLACK, 30);
         }
     }

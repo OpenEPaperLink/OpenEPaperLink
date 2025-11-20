@@ -365,23 +365,59 @@ uint8_t *g5Compress(uint16_t width, uint16_t height, uint8_t *buffer, uint16_t b
 }
 #endif
 
-void doTimestamp(TFT_eSprite *spr) {
+// The "ts_option" is a bitmapped variable with a default value of 1 
+// which is black on white, long format @ bottom right.
+// 
+// b2, b1, b0: 
+//    0 - no timestamp
+//    1 - bottom right
+//    2 - top right
+//    3 - bottom left
+//    4 - top left
+//    5 -> 7 reserved
+// b3:
+//    0 - long format (year-month-day hr:min)
+//    1 - short format (month-day hr:min)
+// b4:
+//    0 - black on white
+//    1 - white on black
+// b5 -> b7: reserved
+//
+void doTimestamp(TFT_eSprite *spr, uint8_t ts_option) {
     time_t now = time(nullptr);
     struct tm *timeinfo = localtime(&now);
     char buffer[20];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", timeinfo);
+    strftime(buffer, sizeof(buffer),
+             (ts_option & 0x8) ? "%m-%d %H:%M" : "%Y-%m-%d %H:%M",timeinfo);
+    int ts_chars = strlen(buffer);
 
-    // spr->drawRect(spr->width() - 16 * 6 - 4, spr->height() - 10 - 2, 16 * 6 + 3, 11, TFT_BLACK);
-    spr->drawRect(spr->width() - 16 * 6 - 3, spr->height() - 10 - 1, 16 * 6 + 1, 9, TFT_WHITE);
-    spr->setTextColor(TFT_BLACK, TFT_WHITE);
-    spr->setCursor(spr->width() - 16 * 6 - 2, spr->height() - 10, 1);
+    uint16_t char_color;
+    uint16_t bg_color;
+
+    if(ts_option & 0x10) {
+       char_color = TFT_WHITE;
+       bg_color= TFT_BLACK;
+    }
+    else {
+       char_color = TFT_BLACK;
+       bg_color = TFT_WHITE;
+    }
+    
+    ts_option = (ts_option & 0x3) - 1;
+
+    int32_t ts_x = (ts_option & 2) ? 1 : spr->width() - ts_chars * 6 - 2;
+    int32_t ts_y = (ts_option & 1) ? 1 : spr->height() - 10;
+
+    spr->drawRect(ts_x - 1, ts_y - 1, ts_chars * 6 + 1, 9, bg_color);
+    spr->setTextColor(char_color, bg_color);
+    spr->setCursor(ts_x,ts_y);
     spr->print(buffer);
 }
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     long t = millis();
 
-    if (config.showtimestamp) doTimestamp(&spr);
+    if (imageParams.ts_option) doTimestamp(&spr,imageParams.ts_option);
 #ifdef HAS_TFT
     extern uint8_t YellowSense;
     if (fileout == "direct") {

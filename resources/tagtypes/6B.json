@@ -1,5 +1,5 @@
 {
-	"version": 2,
+	"version": 3,
 	"name": "HS BWRY 7,5\"",
 	"width": 800,
 	"height": 480,
@@ -14,7 +14,8 @@
 	"perceptual": {
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
-		"yellow": [ 200, 200, 0 ]
+		"red": [ 255, 0, 0 ],
+		"yellow": [ 255, 255, 0 ]
 	},
 	"shortlut": 0,
 	"zlib_compression": "27",
