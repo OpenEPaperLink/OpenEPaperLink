@@ -29,6 +29,7 @@
 #include "udp.h"
 #include "util.h"
 #include "web.h"
+#include "wireguard_manager.h"
 #ifdef HAS_BLE_WRITER
 #include "ble_writer.h"
 #endif
@@ -127,6 +128,9 @@ void setup() {
 
     updateLanguageFromConfig();
     updateBrightnessFromConfig();
+    
+    // WireGuard initialisieren (verbindet nur wenn enabled=true in Config)
+    wgManager.begin();
 
     config.runStatus = RUNSTATUS_INIT;
     init_web();
@@ -185,7 +189,7 @@ void setup() {
 
 void loop() {
     ws.cleanupClients();
-    wm.poll();
+    wm.poll();  // WiFiManager prüft Verbindung und startet WireGuard automatisch
 
     if (intervalSysinfo.doRun()) {
         wsSendSysteminfo();

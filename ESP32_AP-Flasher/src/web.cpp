@@ -23,6 +23,7 @@
 #include "settings.h"
 #include "storage.h"
 #include "system.h"
+#include "wireguard_manager.h"
 #include "tag_db.h"
 #include "udp.h"
 #include "wifimanager.h"
@@ -721,6 +722,93 @@ void init_web() {
         doc["mac"] = WiFi.macAddress();
         serializeJson(doc, *response);
         request->send(response);
+    });
+
+    // WireGuard API endpoints
+    server.on("/get_wg_config", HTTP_GET, [](AsyncWebServerRequest *request) {
+        WireGuardConfig wgConfig = wgManager.getConfig();
+        JsonDocument doc;
+        doc["enabled"] = wgConfig.enabled;
+        doc["localIP"] = wgConfig.localIP;
+        doc["endpointAddress"] = wgConfig.endpointAddress;
+        doc["endpointPort"] = wgConfig.endpointPort;
+        doc["publicKey"] = wgConfig.publicKey;
+        doc["allowedIPs"] = wgConfig.allowedIPs;
+        doc["persistentKeepalive"] = wgConfig.persistentKeepalive;
+        doc["status"] = wgManager.getStatusString();
+        doc["connected"] = wgManager.isConnected();
+        // Private Key und PSK werden aus Sicherheitsgründen nicht übertragen
+        String json;
+        serializeJson(doc, json);
+        request->send(200, "application/json", json);
+    });
+
+    server.on("/save_wg_config", HTTP_POST, [](AsyncWebServerRequest *request) {
+        WireGuardConfig wgConfig = wgManager.getConfig();
+        
+        if (request->hasParam("enabled", true)) {
+            wgConfig.enabled = request->getParam("enabled", true)->value() == "1";
+        }
+        if (request->hasParam("localIP", true)) {
+            wgConfig.localIP = request->getParam("localIP", true)->value();
+        }
+        if (request->hasParam("privateKey", true)) {
+            String key = request->getParam("privateKey", true)->value();
+            if (key.length() > 0 && key != "***HIDDEN***") {
+                wgConfig.privateKey = key;
+            }
+        }
+        if (request->hasParam("endpointAddress", true)) {
+            wgConfig.endpointAddress = request->getParam("endpointAddress", true)->value();
+        }
+        if (request->hasParam("endpointPort", true)) {
+            wgConfig.endpointPort = request->getParam("endpointPort", true)->value().toInt();
+        }
+        if (request->hasParam("publicKey", true)) {
+            wgConfig.publicKey = request->getParam("publicKey", true)->value();
+        }
+        if (request->hasParam("presharedKey", true)) {
+            String key = request->getParam("presharedKey", true)->value();
+            if (key.length() > 0 && key != "***HIDDEN***") {
+                wgConfig.presharedKey = key;
+            }
+        }
+        if (request->hasParam("allowedIPs", true)) {
+            wgConfig.allowedIPs = request->getParam("allowedIPs", true)->value();
+        }
+        if (request->hasParam("persistentKeepalive", true)) {
+            wgConfig.persistentKeepalive = request->getParam("persistentKeepalive", true)->value().toInt();
+        }
+        
+        if (wgManager.setConfig(wgConfig)) {
+            request->send(200, "text/plain", "WireGuard configuration saved");
+        } else {
+            request->send(400, "text/plain", "Invalid WireGuard configuration");
+        }
+    });
+
+    server.on("/wg_connect", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (wgManager.connect()) {
+            request->send(200, "text/plain", "WireGuard connecting...");
+        } else {
+            request->send(500, "text/plain", "Failed to connect WireGuard");
+        }
+    });
+
+    server.on("/wg_disconnect", HTTP_POST, [](AsyncWebServerRequest *request) {
+        wgManager.disconnect();
+        request->send(200, "text/plain", "WireGuard disconnected");
+    });
+
+    server.on("/wg_status", HTTP_GET, [](AsyncWebServerRequest *request) {
+        JsonDocument doc;
+        doc["status"] = wgManager.getStatusString();
+        doc["connected"] = wgManager.isConnected();
+        doc["enabled"] = wgManager.isEnabled();
+        doc["error"] = wgManager.getErrorMessage();
+        String json;
+        serializeJson(doc, json);
+        request->send(200, "application/json", json);
     });
 
     server.on("/get_ssid_list", HTTP_GET, [](AsyncWebServerRequest *request) {
