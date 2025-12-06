@@ -72,6 +72,7 @@ void contentRunner() {
         }
 
         if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pendingCount == 0 && !isAp) {
+            if (config.maxsleep == 255) continue;  // ultra short mode: skip idle sleep
             int32_t minutesUntilNextUpdate = (taginfo->nextupdate - now) / 60;
             if (minutesUntilNextUpdate > config.maxsleep) {
                 minutesUntilNextUpdate = config.maxsleep;
