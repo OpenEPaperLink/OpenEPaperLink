@@ -21,5 +21,5 @@
 	"zlib_compression": "27",
 	"options": [ "led" ],
 	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 14, 16, 17, 18, 19, 20, 21, 27 ],
-	"usetemplate": 1
+	"usetemplate": 51
 }

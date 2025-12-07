@@ -21,56 +21,5 @@
 	"zlib_compression": "27",
 	"options": [ "led" ],
 	"contentids": [ 22, 23, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20 ],
-	"template": {
-		"1": {
-			"weekday": [ 400, -5, "Signika-SB.ttf", 130 ],
-			"month": [ 400, 330, "Signika-SB.ttf", 130 ],
-			"day": [ 400, 70, "Signika-SB.ttf", 280 ]
-		},
-		"4": {
-			"location": [ 20, 20, "fonts/calibrib50" ],
-			"icon": [ 580, 20, 200, 2 ],
-			"temp": [ 40, 180, "fonts/calibrib120" ],
-			"wind": [ 40, 370, "fonts/calibrib40" ],
-			"dir": [ 250, 360, 80 ],
-			"umbrella": [ 400, 360, 80 ]
-		},
-		"8": {
-			"location": [ 10, 0, "fonts/calibrib50" ],
-			"column": [ 7, 114 ],
-			"day": [ 55, 210, "fonts/calibrib30", 250, 385 ],
-			"rain": [ 58, 440 ],
-			"icon": [ 55, 280, 60 ],
-			"wind": [ 37, 220 ],
-			"line": [ 195, 470 ],
-
-			"currentwind": [ 460, 130, "fonts/calibrib40" ],
-			"temp": [ 10, 50, "fonts/calibrib120", 1 ],
-			"currenticon": [ 770, 0, 140, 2 ],
-			"dir": [ 410, 100, 80 ],
-			"umbrella": [ 390, 50, 60 ]
-		},
-		"9": {
-			"title": [ 6, 0, "Signika-SB.ttf", 32 ],
-			"items": 10,
-			"line": [ 9, 40, "calibrib16.vlw" ],
-			"desc": [ 2, 8, "REFSAN12.vlw", 1.2 ]
-		},
-		"10": {
-			"title": [ 400, 10, "fonts/bahnschrift20" ],
-			"pos": [ 400, 40 ]
-		},
-		"11": {
-			"rotate": 0,
-			"mode": 1,
-			"days": 7,
-			"gridparam": [ 3, 17, 30, "calibrib16.vlw", "tahoma11.vlw", 14 ]
-		},
-		"27": {
-			"bars": [ 40, 690, 380, 25, 50 ],
-			"time": [ "fonts/bahnschrift20" ],
-			"yaxis": [ "fonts/bahnschrift20", 5, 12, 14 ],
-			"head": [ "fonts/calibrib50.vlw" ]
-		}
-	}
+	"usetemplate": 54
 }
