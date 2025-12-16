@@ -25,6 +25,7 @@
 #include "system.h"
 #include "tag_db.h"
 #include "udp.h"
+#include "user_cfg.h"
 #include "wifimanager.h"
 #include <sys/time.h>
 
@@ -38,6 +39,10 @@ WifiManager wm;
 
 SemaphoreHandle_t wsMutex;
 uint32_t lastssidscan = 0;
+String sessionToken;
+unsigned long sessionUntil = 0;
+
+const unsigned long SESSION_TIMEOUT = 30UL * 60UL * 1000UL;
 
 void wsLog(const String &text) {
     JsonDocument doc;
@@ -242,6 +247,61 @@ uint8_t wsClientCount() {
     return ws.count();
 }
 
+String makeSessionToken() {
+    uint64_t r1 = esp_random();
+    uint64_t r2 = esp_random();
+    char buf[33];
+    snprintf(buf, sizeof(buf), "%08lx%08lx%08lx%08lx",
+             (uint32_t)r1, (uint32_t)(r1 >> 32),
+             (uint32_t)r2, (uint32_t)(r2 >> 32));
+    return String(buf);
+}
+
+bool checkSession(AsyncWebServerRequest *request) {
+    if (!request->hasHeader("Cookie")) return false;
+
+    const AsyncWebHeader* h = request->getHeader("Cookie");
+    String cookies = h->value();
+
+    int p = cookies.indexOf("SESSION=");
+    if (p < 0) return false;
+
+    p += 8;
+    int e = cookies.indexOf(';', p);
+    if (e < 0) e = cookies.length();
+
+    String token = cookies.substring(p, e);
+
+    if (token == sessionToken && millis() < sessionUntil) {
+        sessionUntil = millis() + SESSION_TIMEOUT;
+        return true;
+    }
+    return false;
+}
+
+bool requireBasicAuthWithSession(AsyncWebServerRequest *request) {
+    if (checkSession(request)) return true;
+
+    if (!request->authenticate(userconfig.user, userconfig.password)) {
+        request->requestAuthentication();
+        return false;
+    }
+
+    sessionToken = makeSessionToken();
+    sessionUntil = millis() + SESSION_TIMEOUT;
+
+    AsyncWebServerResponse* res = request->beginResponse(302);
+    res->addHeader("Location", "/"); 
+    res->addHeader(
+        "Set-Cookie",
+        "SESSION=" + sessionToken +
+        "; Path=/; HttpOnly; SameSite=Strict"
+    );
+    request->send(res);
+
+    return false;
+}
+
 void init_web() {
     wsMutex = xSemaphoreCreateMutex();
     WiFi.mode(WIFI_STA);
@@ -254,6 +314,10 @@ void init_web() {
     server.addHandler(&ws);
 
     server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         request->send(200, "text/plain", "OK Reboot");
         logLine("Reboot request by user");
         wsErr("REBOOTING");
@@ -271,12 +335,25 @@ void init_web() {
 
     server.on(
         "/imgupload", HTTP_POST, [](AsyncWebServerRequest *request) {
+            if (userconfig.enable) {
+                if (!requireBasicAuthWithSession(request)) return;
+            }
             request->send(200);
         },
         doImageUpload);
-    server.on("/jsonupload", HTTP_POST, doJsonUpload);
+
+    server.on("/jsonupload", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+        doJsonUpload(request);
+    });
 
     server.on("/get_db", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         String json = "";
         if (request->hasParam("mac")) {
             String dst = request->getParam("mac")->value();
@@ -297,6 +374,10 @@ void init_web() {
     });
 
     server.on("/getdata", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         if (request->hasParam("mac")) {
             String dst = request->getParam("mac")->value();
             uint8_t mac[8];
@@ -347,6 +428,10 @@ void init_web() {
     });
 
     server.on("/save_cfg", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         if (request->hasParam("mac", true)) {
             String dst = request->getParam("mac", true)->value();
             uint8_t mac[8];
@@ -389,6 +474,10 @@ void init_web() {
     });
 
     server.on("/tag_cmd", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         if (request->hasParam("mac", true) && request->hasParam("cmd", true)) {
             uint8_t mac[8];
             if (hex2mac(request->getParam("mac", true)->value(), mac)) {
@@ -486,6 +575,10 @@ void init_web() {
         //  color picker: https://roger-random.github.io/RGB332_color_wheel_three.js/
         //  http GET to /led_flash?mac=000000000000&pattern=000000000000000000000000
         //  see https://github.com/OpenEPaperLink/OpenEPaperLink/wiki/Led-control
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         if (request->hasParam("mac")) {
             String dst = request->getParam("mac")->value();
             uint8_t mac[8];
@@ -512,6 +605,10 @@ void init_web() {
     });
 
     server.on("/get_ap_config", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         UDPcomm udpsync;
         udpsync.getAPList();
         AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -573,6 +670,10 @@ void init_web() {
     });
 
     server.on("/save_apcfg", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         if (request->hasParam("alias", true)) {
             String aliasValue = request->getParam("alias", true)->value();
             size_t aliasLength = aliasValue.length();
@@ -652,6 +753,10 @@ void init_web() {
     // Allow external time sync (e.g., from Home Assistant) without Internet
     // Usage: POST /set_time with form field 'epoch' (UNIX time seconds)
     server.on("/set_time", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         if (request->hasParam("epoch", true)) {
             time_t epoch = static_cast<time_t>(request->getParam("epoch", true)->value().toInt());
             if (epoch > 1600000000) { // basic sanity check (~2020-09-13)
@@ -672,6 +777,10 @@ void init_web() {
     });
 
     server.on("/set_var", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         if (request->hasParam("key", true) && request->hasParam("val", true)) {
             std::string key = request->getParam("key", true)->value().c_str();
             String val = request->getParam("val", true)->value();
@@ -683,6 +792,10 @@ void init_web() {
         }
     });
     server.on("/set_vars", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         if (request->hasParam("json", true)) {
             JsonDocument jsonDocument;
             DeserializationError error = deserializeJson(jsonDocument, request->getParam("json", true)->value());
@@ -705,10 +818,18 @@ void init_web() {
     // setup
 
     server.on("/setup", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         request->send(*contentFS, "/www/setup.html");
     });
 
     server.on("/get_wifi_config", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         Preferences preferences;
         AsyncResponseStream *response = request->beginResponseStream("application/json");
         JsonDocument doc;
@@ -724,6 +845,10 @@ void init_web() {
     });
 
     server.on("/get_ssid_list", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         AsyncResponseStream *response = request->beginResponseStream("application/json");
         JsonDocument doc;
 
@@ -747,6 +872,67 @@ void init_web() {
 
         serializeJson(doc, *response);
         request->send(response);
+    });
+
+    server.on("/get_usercfg", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+        
+        JsonDocument config = getUserConfig();
+
+        String jsonString; 
+        serializeJsonPretty(config, jsonString);
+
+        request->send(200, "application/json", jsonString);
+    });
+
+    server.on("/save_usercfg", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
+        bool enableFlag = false;
+        if (request->hasParam("enable", true)) {
+            enableFlag = (request->getParam("enable", true)->value() == "true");
+        }
+        userconfig.enable = enableFlag;
+
+        String userValue;
+        String passwordValue;
+
+        if (request->hasParam("user", true)) { 
+            userValue = request->getParam("user", true)->value(); 
+        } 
+        if (request->hasParam("password", true)) { 
+            passwordValue = request->getParam("password", true)->value(); 
+        }
+
+        if (userconfig.enable) {
+            if (userValue.isEmpty()) { 
+                request->send(200, "text/plain", "missing user"); 
+                return; 
+            } 
+            if (passwordValue.isEmpty()) { 
+                request->send(200, "text/plain", "missing password"); 
+                return; 
+            }
+
+            size_t userLength = std::min(userValue.length(), static_cast<size_t>(31));
+            userValue.toCharArray(userconfig.user, userLength + 1);
+
+            size_t passwordLength = std::min(passwordValue.length(), static_cast<size_t>(31));
+            passwordValue.toCharArray(userconfig.password, passwordLength + 1);
+
+            saveUserConfig();
+            request->send(200, "text/plain", "Ok, saved");
+        } else {
+            userconfig.user[0] = '\0';
+            userconfig.password[0] = '\0';
+
+            saveUserConfig();
+            request->send(200, "text/plain", "Ok, disabled");
+        }
     });
 
     AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/save_wifi_config", [](AsyncWebServerRequest *request, JsonVariant &json) {
@@ -804,27 +990,77 @@ void init_web() {
     // end of setup
 
     server.on("/backup_db", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         saveDB("/current/tagDB.json");
         request->send(*contentFS, "/current/tagDB.json", String(), true);
     });
     server.on(
         "/restore_db", HTTP_POST, [](AsyncWebServerRequest *request) {
+            if (userconfig.enable) {
+                if (!requireBasicAuthWithSession(request)) return;
+            }
             request->send(200);
         },
         dotagDBUpload);
 
     // OTA related calls
 
-    server.on("/sysinfo", HTTP_GET, handleSysinfoRequest);
-    server.on("/check_file", HTTP_GET, handleCheckFile);
-    server.on("/rollback", HTTP_POST, handleRollback);
-    server.on("/update_c6", HTTP_POST, handleUpdateC6);
-    server.on("/update_actions", HTTP_POST, handleUpdateActions);
+    server.on("/sysinfo", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
+        handleSysinfoRequest(request);
+    });
+
+    server.on("/check_file", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
+        handleCheckFile(request);
+    });
+
+    server.on("/rollback", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
+        handleRollback(request);
+    });
+
+    server.on("/update_c6", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
+        handleUpdateC6(request);
+    });
+
+    server.on("/update_actions", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
+        handleUpdateActions(request);
+    });
+
     server.on("/update_ota", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         handleUpdateOTA(request);
     });
+
     server.on(
         "/littlefs_put", HTTP_POST, [](AsyncWebServerRequest *request) {
+            if (userconfig.enable) {
+                if (!requireBasicAuthWithSession(request)) return;
+            }
             request->send(200);
         },
         handleLittleFSUpload);
@@ -839,14 +1075,39 @@ void init_web() {
 #endif
 
     server.onNotFound([](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
         if (request->url() == "/" || request->url() == "index.htm") {
             request->send(200, "text/html", "index.html not found. Did you forget to upload the littlefs partition?");
             return;
         }
+
+        String path = request->url();
+
+        if (path.indexOf("..") >= 0) {
+            request->send(400, "text/plain", "bad request");
+            return;
+        }
+
+        String filePath = "/www" + path;
+
+        if (contentFS->exists(filePath)) {
+            request->send(*contentFS, filePath);
+            return;
+        }
+
         request->send(404);
     });
 
-    server.serveStatic("/", *contentFS, "/www/").setDefaultFile("index.html");
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (userconfig.enable) {
+            if (!requireBasicAuthWithSession(request)) return;
+        }
+
+        request->send(*contentFS, "/www/index.html");
+    });
 
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "content-type");

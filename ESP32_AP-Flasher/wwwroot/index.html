@@ -490,6 +490,18 @@ options:
 				<p>
 					<input type="button" value="Save" id="apcfgsave"><span id="apcfgmsg"></span>
 				</p>
+				<h3>Authentication<input id="authEnable" type="checkbox"></h3>
+				<p>
+					<label for="authUser">User</label>
+					<input id="authUser" type="text" class="grayed-out" disabled>
+				</p>
+				<p>
+					<label for="authPwd">Password</label>
+					<input id="authPwd" type="password" class="grayed-out" disabled><input type="button" value="Show Password" id="showPwd">
+				</p>
+				<p>
+					<input type="button" value="Save" id="authSave"><span id="authSaveMsg"></span>
+				</p>
 				<h3>Manage</h3>
 				<p>
 					<button type="button" id="rebootbutton">Reboot AP</button> Saves the tagDB and instantly reboots the Access Point

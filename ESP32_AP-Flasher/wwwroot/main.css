@@ -396,6 +396,23 @@ label {
 	margin: 20px 205px;
 }
 
+#authSave {
+	margin: 20px 205px;
+}
+
+#showPwd {
+	margin: 0px 20px;
+}
+
+#authEnable {
+	margin-left: 92px;
+}
+
+.grayed-out {
+    background-color: #eee;
+    color: #888;
+}
+
 .filebutton {
 	width: inherit;
 	padding: 5px 10px;

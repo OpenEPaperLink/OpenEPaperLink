@@ -1,4 +1,6 @@
 #include "SPIFFSEditor.h"
+#include "user_cfg.h"
+#include "web.h"
 
 #include <FS.h>
 
@@ -74,6 +76,10 @@ String SPIFFSEditor::listFilesRecursively(String path, bool recursive) {
 }
 
 void SPIFFSEditor::handleRequest(AsyncWebServerRequest *request) {
+    if (userconfig.enable) {
+        if (!requireBasicAuthWithSession(request)) return;
+    }
+
     if (_username.length() && _password.length() && !request->authenticate(_username.c_str(), _password.c_str())) {
         return request->requestAuthentication();
     }

@@ -45,6 +45,8 @@ let finishedInitialLoading = false;
 let getTagtypeBusy = false;
 
 const loadConfig = new Event("loadConfig");
+const loadUserConfig = new Event("loadUserConfig");
+
 window.addEventListener("loadConfig", function () {
 	fetch("get_ap_config")
 		.then(response => response.json())
@@ -82,6 +84,24 @@ window.addEventListener("loadConfig", function () {
 		});
 });
 
+window.addEventListener("loadUserConfig", function () {
+	fetch("get_usercfg")
+		.then(response => response.json())
+		.then(data => {
+
+			if (data.enable) {
+				$("#authEnable").checked = data.enable;
+			}
+			if (data.user) {
+				$("#authUser").value = data.user;
+			}
+			if (data.password) {
+				$("#authPwd").value = data.password;
+			}
+			toggleAuthFields();
+		});
+});
+
 window.addEventListener("load", function () {
     const themeToggle = $('#theme-toggle');
     if (themeToggle) {
@@ -112,6 +132,7 @@ window.addEventListener("load", function () {
         }
     }
 	window.dispatchEvent(loadConfig);
+	window.dispatchEvent(loadUserConfig);
 	initTabs();
 	fetch('content_cards.json')
 		.then(response => response.json())
@@ -900,6 +921,26 @@ document.addEventListener("loadTab", function (event) {
 	}
 	previousTab = activeTab;
 });
+
+$('#authSave').onclick = function () {
+	let formData = new FormData();
+	let isActive = $('#authEnable').checked;
+
+	formData.append("enable", isActive);
+	formData.append("user", isActive ? $('#authUser').value : "");
+	formData.append("password", isActive ? $('#authPwd').value : "");
+	fetch("save_usercfg", {
+		method: "POST",
+		body: formData
+	})
+		.then(response => response.text())
+		.then(data => {
+			showMessage(data);
+			window.dispatchEvent(loadUserConfig);
+			$('#authSaveMsg').innerHTML = data;
+		})
+		.catch(error => showMessage('Error: ' + error, true));
+}
 
 $('#apcfgsave').onclick = function () {
 	let formData = new FormData();
@@ -2060,3 +2101,36 @@ function showPreview(previewWindow, element) {
 			});
 	}
 }
+
+function toggleAuthFields() {
+    const authEnable = $('#authEnable').checked;
+    const authUser = $('#authUser');
+    const authPwd = $('#authPwd');
+
+    authUser.disabled = !authEnable;
+    authPwd.disabled = !authEnable;
+
+    if (!authEnable) {
+        authUser.classList.add('grayed-out');
+        authPwd.classList.add('grayed-out');
+    } else {
+        authUser.classList.remove('grayed-out');
+        authPwd.classList.remove('grayed-out');
+    }
+}
+
+$('#authEnable').addEventListener('change', toggleAuthFields);
+
+$('#showPwd').addEventListener('click', (e) => {
+    e.preventDefault();
+    const pwdInput = $('#authPwd');
+    const button = $('#showPwd');
+
+    if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        button.textContent = 'Hide Password';
+    } else {
+        pwdInput.type = 'password';
+        button.textContent = 'Show Password';
+    }
+});
