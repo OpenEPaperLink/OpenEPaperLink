@@ -162,7 +162,8 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8
 }
 
 bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgument, const uint8_t* dst, uint16_t nextCheckin, bool resend) {
-    if ((nextCheckin & 0x8000) == 0 && nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
+    if ((nextCheckin & 0x8000) == 0 && config.maxsleep == 255) nextCheckin = 5 | 0x8000;  // ultra short: 5 seconds
+    else if ((nextCheckin & 0x8000) == 0 && nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
     if ((nextCheckin & 0x8000) == 0 && wsClientCount() && (config.stopsleep == 1)) nextCheckin = 0;
 #ifdef HAS_TFT
     if (filename == "direct") {
