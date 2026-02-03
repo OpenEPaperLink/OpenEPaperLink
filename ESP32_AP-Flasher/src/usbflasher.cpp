@@ -306,6 +306,7 @@ typedef enum {
 
     CMD_ERASE_FLASH = 26,
     CMD_ERASE_INFOPAGE = 27,
+    CMD_ERASE_ALL = 28, 
     CMD_SAVE_MAC_FROM_FW = 40,
     CMD_PASS_THROUGH = 50,
 
@@ -420,6 +421,16 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
             }
             sendFlasherAnswer(CMD_ERASE_INFOPAGE, NULL, 0, transportType);
             break;
+        case CMD_ERASE_ALL:
+            if (selectedController == CONTROLLER_NRF82511) {
+                if (nrfflasherp == nullptr) return;
+                nrfflasherp->nrf_erase_all();
+            } else if (selectedController == CONTROLLER_CC) {
+               if (ccflasherp == nullptr) return;
+                ccflasherp->erase_chip();
+            }
+            sendFlasherAnswer(CMD_ERASE_ALL, NULL, 0, transportType);              
+            break;
         case CMD_SELECT_PORT:
             wsSerial("> select port");
             selectedFlasherPort = cmd->data[0];
@@ -453,7 +464,7 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
                     break;
             }
             nrfflasherp->init();
-            temp_buff[0] = (nrfflasherp->isConnected && !nrfflasherp->isLocked);
+            temp_buff[0] = nrfflasherp->isConnected ? (nrfflasherp->isLocked ? 2 : 1) : 0;
             sendFlasherAnswer(CMD_SELECT_NRF82511, temp_buff, 1, transportType);
             currentFlasherOffset = 0;
             selectedController = CONTROLLER_NRF82511;
