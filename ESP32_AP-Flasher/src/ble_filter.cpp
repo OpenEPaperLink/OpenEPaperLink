@@ -64,13 +64,23 @@ uint8_t gicToOEPLtype(uint8_t gicType) {
     }
 }
 
-struct BleAdvDataStruct {
+struct BleAdvDataStructV1 {
     uint16_t manu_id;  // 0x1337 for us
     uint8_t version;
     uint16_t hw_type;
     uint16_t fw_version;
     uint16_t capabilities;
     uint16_t battery_mv;
+    uint8_t counter;
+} __packed;
+struct BleAdvDataStructV2 {
+    uint16_t manu_id;  // 0x1337 for us
+    uint8_t version;
+    uint16_t hw_type;
+    uint16_t fw_version;
+    uint16_t capabilities;
+    uint16_t battery_mv;
+    int8_t temperature;
     uint8_t counter;
 } __packed;
 
@@ -91,16 +101,16 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
         uint8_t manuData[100];
         if (manuDatalen > sizeof(manuData))
             return false;  // Manu data too big, could never happen but better make sure here
+#if ESP_ARDUINO_VERSION_MAJOR == 2
+        memcpy(&manuData, (uint8_t*)advertisedDevice.getManufacturerData().data(), manuDatalen);
+#else
+        // [Nic] suggested fix for arduino 3.x by copilot, but I cannot test it
+        memcpy(&manuData, (uint8_t*)advertisedDevice.getManufacturerData().c_str(), manuDatalen);
+#endif
         Serial.printf(" Address type: %02X Manu data: ", advertisedDevice.getAddressType());
         for (int i = 0; i < advertisedDevice.getManufacturerData().length(); i++)
             Serial.printf("%02X", manuData[i]);
         Serial.printf("\r\n");
-#if ESP_ARDUINO_VERSION_MAJOR == 2
-        memcpy(&manuData, (uint8_t*)advertisedDevice.getManufacturerData().data(), manuDatalen);
-#else
-        // [Nic] suggested fix for arduino 3.x by copilot, but I cannot test it 
-        memcpy(&manuData, (uint8_t*)advertisedDevice.getManufacturerData().c_str(), manuDatalen);
-#endif
         if (manuDatalen == 7 && manuData[0] == 0x53 && manuData[1] == 0x50) {  // Lets check for a Gicisky E-Paper display
 
             struct espAvailDataReq theAdvData;
@@ -125,23 +135,63 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
 
             processDataReq(&theAdvData, true);
             return true;
-        } else if (manuDatalen >= sizeof(BleAdvDataStruct) && manuData[0] == 0x37 && manuData[1] == 0x13) {  // Lets check for a Gicisky E-Paper display
+        } else if (manuDatalen >= 3 && manuData[0] == 0x37 && manuData[1] == 0x13) {  // Lets check for a Gicisky E-Paper display
             Serial.printf("ATC BLE OEPL Detected\r\n");
             struct espAvailDataReq theAdvData;
-            struct BleAdvDataStruct inAdvData;
-
             memset((uint8_t*)&theAdvData, 0x00, sizeof(espAvailDataReq));
-            memcpy(&inAdvData, manuData, sizeof(BleAdvDataStruct));
-            /*Serial.printf("manu_id %04X\r\n", inAdvData.manu_id);
-            Serial.printf("version %04X\r\n", inAdvData.version);
-            Serial.printf("hw_type %04X\r\n", inAdvData.hw_type);
-            Serial.printf("fw_version %04X\r\n", inAdvData.fw_version);
-            Serial.printf("capabilities %04X\r\n", inAdvData.capabilities);
-            Serial.printf("battery_mv %u\r\n", inAdvData.battery_mv);
-            Serial.printf("counter %u\r\n", inAdvData.counter);*/
-            if (inAdvData.version != 1) {
-                printf("Version currently not supported!\r\n");
-                return false;
+            uint8_t versionAdvData = manuData[2];
+
+            switch (versionAdvData) {
+                case 1: {
+                    if (manuDatalen >= sizeof(BleAdvDataStructV1)) {
+                        struct BleAdvDataStructV1 inAdvData;
+                        memcpy(&inAdvData, manuData, sizeof(BleAdvDataStructV1));
+                        printf("Version 1 ATC_BLE_OEPL Received\r\n");
+                        /*Serial.printf("manu_id %04X\r\n", inAdvData.manu_id);
+                        Serial.printf("version %02X\r\n", inAdvData.version);
+                        Serial.printf("hw_type %04X\r\n", inAdvData.hw_type);
+                        Serial.printf("fw_version %04X\r\n", inAdvData.fw_version);
+                        Serial.printf("capabilities %04X\r\n", inAdvData.capabilities);
+                        Serial.printf("battery_mv %u\r\n", inAdvData.battery_mv);
+                        Serial.printf("counter %u\r\n", inAdvData.counter);*/
+                        theAdvData.adr.batteryMv = inAdvData.battery_mv;
+                        theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
+                        theAdvData.adr.hwType = inAdvData.hw_type & 0xff;
+                        theAdvData.adr.tagSoftwareVersion = inAdvData.fw_version;
+                        theAdvData.adr.capabilities = inAdvData.capabilities & 0xff;
+                    } else {
+                        printf("Version 1 data length incorrect!\r\n");
+                        return false;
+                    }
+                } break;
+                case 2: {
+                    if (manuDatalen >= sizeof(BleAdvDataStructV2)) {
+                        struct BleAdvDataStructV2 inAdvData;
+                        memcpy(&inAdvData, manuData, sizeof(BleAdvDataStructV2));
+                        printf("Version 2 ATC_BLE_OEPL Received\r\n");
+                        /*Serial.printf("manu_id %04X\r\n", inAdvData.manu_id);
+                        Serial.printf("version %02X\r\n", inAdvData.version);
+                        Serial.printf("hw_type %04X\r\n", inAdvData.hw_type);
+                        Serial.printf("fw_version %04X\r\n", inAdvData.fw_version);
+                        Serial.printf("capabilities %04X\r\n", inAdvData.capabilities);
+                        Serial.printf("battery_mv %u\r\n", inAdvData.battery_mv);
+                        Serial.printf("temperature %i\r\n", inAdvData.temperature);
+                        Serial.printf("counter %u\r\n", inAdvData.counter);*/
+                        theAdvData.adr.batteryMv = inAdvData.battery_mv;
+                        theAdvData.adr.temperature = inAdvData.temperature;
+                        theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
+                        theAdvData.adr.hwType = inAdvData.hw_type & 0xff;
+                        theAdvData.adr.tagSoftwareVersion = inAdvData.fw_version;
+                        theAdvData.adr.capabilities = inAdvData.capabilities & 0xff;
+                    } else {
+                        printf("Version 2 data length incorrect!\r\n");
+                        return false;
+                    }
+                } break;
+                default:
+                    printf("Version %02X currently not supported!\r\n", versionAdvData);
+                    return false;
+                    break;
             }
             uint8_t macReversed[6];
             memcpy(&macReversed, (uint8_t*)advertisedDevice.getAddress().getNative(), 6);
@@ -153,11 +203,6 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.src[5] = macReversed[0];
             theAdvData.src[6] = manuData[0];  // We use this do find out what type of display we got for compression^^
             theAdvData.src[7] = manuData[1];
-            theAdvData.adr.batteryMv = inAdvData.battery_mv;
-            theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
-            theAdvData.adr.hwType = inAdvData.hw_type & 0xff;
-            theAdvData.adr.tagSoftwareVersion = inAdvData.fw_version;
-            theAdvData.adr.capabilities = inAdvData.capabilities & 0xff;
             processDataReq(&theAdvData, true);
             return true;
         }

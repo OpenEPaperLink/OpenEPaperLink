@@ -3135,7 +3135,7 @@ uint32_t convert_tm_to_seconds(struct tm *t) {
 
 void prepareTIME_RAW(const uint8_t *dst, time_t now) {
     uint8_t *data;
-    size_t len = 1 + 4 + 4;
+    size_t len = 1 + 4 + 4 + 1;
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
     uint32_t local_time = convert_tm_to_seconds(&timeinfo) + 20;// Adding 20 seconds for the average of upload time
@@ -3151,6 +3151,7 @@ void prepareTIME_RAW(const uint8_t *dst, time_t now) {
     data[7] = ((uint8_t*)&unix_time)[1];
     data[8] = ((uint8_t*)&unix_time)[2];
     data[9] = ((uint8_t*)&unix_time)[3];
+    data[10] = 1; // Design, 1 = Full DateTime 2 = Just Time Segment Style
     prepareDataAvail(data, len + 1, DATATYPE_TIME_RAW_DATA, dst);
 }
 #endif
