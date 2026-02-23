@@ -1,0 +1,24 @@
+{
+	"version": 1,
+	"name": "M3 1.6\" 200px BWRY",
+	"width": 200,
+	"height": 200,
+	"rotatebuffer": 3,
+	"bpp": 2,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ],
+		"yellow": [ 255, 255, 0 ]
+	},
+	"perceptual": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ],
+		"yellow": [ 200, 200, 0 ]
+	},
+	"shortlut": 0,
+	"options": [ "button", "led" ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 10, 14, 17, 18, 19, 20, 21 ],
+	"usetemplate": 48
+}
