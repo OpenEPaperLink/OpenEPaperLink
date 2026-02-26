@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 4,
 	"name": "M3 4.2\" BWY",
 	"width": 400,
 	"height": 300,
@@ -15,6 +15,7 @@
 		"black": [ 0, 0, 0 ],
 		"yellow": [ 200, 200, 0 ]
 	},
+	"highlight_color": 3,
 	"shortlut": 0,
 	"zlib_compression": "27",
 	"options": [ "button", "led" ],
