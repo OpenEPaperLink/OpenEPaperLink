@@ -120,6 +120,9 @@ python3 OEPL-Flasher.py -e -c -p COM31 read blaat.bin --flash
 See this [page](https://github.com/OpenEPaperLink/OpenEPaperLink/wiki/Chroma-Series-SubGhz-Tags#flashing-cc1110-based-chroma-tags) 
 on the Wiki for additional information.
 
+## EFR32-based
+
+This flasher does **NOT** support tags based on the EFR32.  See the [wiki](https://github.com/OpenEPaperLink/OpenEPaperLink/wiki/Flashing-SiLabs-based-M3-Newton-Displays) for information on how to flash those.
 ## Credits
 
 Much code was reused from ATC1441's various flashers
