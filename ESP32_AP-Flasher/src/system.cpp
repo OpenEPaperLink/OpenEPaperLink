@@ -13,13 +13,25 @@ void timeSyncCallback(struct timeval* tv) {
     Serial.println("time succesfully synced");
 }
 
+static bool dhcpProvidedNtp() {
+    return strlen(sntp_getservername(0)) ||
+           strlen(sntp_getservername(1)) ||
+           strlen(sntp_getservername(2));
+}
+
 void initTime(void* parameter) {
     if (!(WiFi.status() == WL_CONNECTED || wm.wifiStatus == ETHERNET)) {
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
     sntp_set_time_sync_notification_cb(timeSyncCallback);
     sntp_set_sync_interval(300 * 1000);
-    configTzTime(config.timeZone, "time.cloudflare.com", "pool.ntp.org", "time.nist.gov");
+
+    // try DHCP option 42 first, then fallback if none provided
+    configTzTime(config.timeZone, nullptr, nullptr, nullptr);
+    if (!dhcpProvidedNtp()) {
+        configTzTime(config.timeZone, "time.cloudflare.com", "pool.ntp.org", "time.nist.gov");
+    }
+
     logStartUp();
     struct tm timeinfo;
     while (millis() < 30000) {
