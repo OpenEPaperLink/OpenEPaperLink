@@ -461,7 +461,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
         case 1:
         case 2: {
             long bufw = spr.width(), bufh = spr.height();
-            size_t buffer_size = (bufw * bufh) / 8;
+            size_t buffer_size = ((bufw * bufh) + 7) / 8;  // round up: not all dimensions are multiples of 8
 #ifdef BOARD_HAS_PSRAM
             uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
 #else
@@ -585,7 +585,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
         case 3:
         case 4: {
             long bufw = spr.width(), bufh = spr.height();
-            size_t buffer_size = (bufw * bufh) / 8 * imageParams.bpp;
+            size_t buffer_size = ((bufw * bufh) + 7) / 8 * imageParams.bpp;
             uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
             if (!buffer) {
                 Serial.println("Failed to allocate buffer");
