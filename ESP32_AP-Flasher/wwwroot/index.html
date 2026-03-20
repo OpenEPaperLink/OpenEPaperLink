@@ -34,6 +34,10 @@
 				<!-- /tabs -->
 				<div><span id="runstate"></div>
 				<div><span id="apstatecolor" style="font-size: 18px; vertical-align: bottom;" class="material-symbols-outlined">hourglass</span> <span id="apstate">loading</span></div>
+				<div id="wg-status-container" style="display:none;">
+					<span id="wg-status-icon" style="font-size: 18px; vertical-align: bottom;" class="material-symbols-outlined">vpn_key</span> 
+					<span id="wg-status-text">WireGuard</span>
+				</div>
 				<div><a href="/edit" target="littlefs" class="filebutton material-symbols-outlined">folder_open</a>
 				</div>
 			</div>
@@ -506,6 +510,9 @@ options:
 				</p>
 				<p>
 					<a href="/setup" target="setup" class="wifibutton">WiFi config</a> Opens a new window with WiFi	config options
+				</p>
+				<p>
+					<a href="/wireguard.html" target="wireguard" class="wifibutton">WireGuard VPN</a> Configure WireGuard VPN connection
 				</p>
 				<p>
 					<br>
