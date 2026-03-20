@@ -537,7 +537,8 @@ function updatecards() {
 		if (item.dataset.lastseen && item.dataset.lastseen > (Date.now() / 1000) - servertimediff - 30 * 24 * 3600 * 60) {
 			let idletime = (Date.now() / 1000) - servertimediff - item.dataset.lastseen;
 			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>" + displayTime(Math.floor(idletime)) + " ago";	
-			if ((Date.now() / 1000) - servertimediff - apConfig.maxsleep * 60 - 300 > item.dataset.nextcheckin) {
+			let maxsleepSeconds = apConfig.maxsleep == 255 ? 5 : apConfig.maxsleep * 60;
+			if ((Date.now() / 1000) - servertimediff - maxsleepSeconds - 300 > item.dataset.nextcheckin) {
 				item.querySelector('.warningicon').style.display = 'inline-block';
 				item.classList.remove("tagpending");
 				item.classList.add('state-timeout');
