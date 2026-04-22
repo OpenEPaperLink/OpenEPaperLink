@@ -37,6 +37,9 @@ uint8_t gicToOEPLtype(uint8_t gicType) {
         case 0x33:
             return GICI_BLE_EPD_29_BWR1;
             break;
+        case 0x2E:
+            return GICI_BLE_EPD_29_BWRY;
+            break;
         case 0x48:
             return GICI_BLE_EPD_BW_42;
             break;
@@ -365,6 +368,7 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
     if (giciType & 0x100)  // Some special case, needs to be tested if always correct
         mirror_width = true;
 
+    bool fourcolor_packed = false;
     switch (availColors) {
         case 0:  // BW
             extra_color = false;
@@ -375,8 +379,9 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
         case 2:  // BWY
             extra_color = true;
             break;
-        case 3:  // BWRY
-            extra_color = true;
+        case 3:  // BWRY — single bitplane, 2 bpp packed (GICisky four-color)
+            extra_color = false;
+            fourcolor_packed = true;
             break;
         case 4:  // BWRGBYO
             extra_color = true;
@@ -412,30 +417,48 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
     Serial.printf("width_display %d\r\n", width_display);
     Serial.printf("height_display %d\r\n", height_display);
     Serial.printf("mirror_width %d\r\n", mirror_width);
-    for (int i = 0; i < width_display; i++) {
-        if (canDoCompression) {
-            buffer[len_compressed++] = 0x75;
-            buffer[len_compressed++] = byte_per_line + 7;
-            buffer[len_compressed++] = byte_per_line;
-            buffer[len_compressed++] = 0x00;
-            buffer[len_compressed++] = 0x00;
-            buffer[len_compressed++] = 0x00;
-            buffer[len_compressed++] = 0x00;
-        }
+    Serial.printf("fourcolor_packed %d\r\n", (int)fourcolor_packed);
+    if (fourcolor_packed) {
+        // GICisky BWRY: single bitplane, 2 bpp packed MSB-first.
+        // Source from makeimage.cpp is dual-plane: plane1 (B/W) in [0..plane_size),
+        // plane2 (color) in [plane_size..2*plane_size). Mapping per pixel:
+        //   white (p1=0,p2=0) -> 01, black (1,0) -> 00,
+        //   red   (0,1)       -> 11, yellow (1,1) -> 10.
+        // i.e. high_bit = plane2, low_bit = ~plane1.
         if (mirror_width) {
-            for (int b = 0; b < byte_per_line; b++) {
-                Mirrorbuffer[b] = ~queueItem->data[curr_input_posi++];
+            Serial.println("BLE BWRY mirror_width path is untested for this model");
+        }
+        uint32_t plane_size = (uint32_t)width_display * byte_per_line;
+        uint32_t bpl_packed = byte_per_line * 2;
+        for (int col = 0; col < width_display; col++) {
+            if (canDoCompression) {
+                buffer[len_compressed++] = 0x75;
+                buffer[len_compressed++] = bpl_packed + 7;
+                buffer[len_compressed++] = bpl_packed;
+                buffer[len_compressed++] = 0x00;
+                buffer[len_compressed++] = 0x00;
+                buffer[len_compressed++] = 0x00;
+                buffer[len_compressed++] = 0x00;
             }
-            for (int b = byte_per_line - 1; b >= 0; b--) {
-                buffer[len_compressed++] = swapBits(Mirrorbuffer[b]);
-            }
-        } else {
             for (int b = 0; b < byte_per_line; b++) {
-                buffer[len_compressed++] = ~queueItem->data[curr_input_posi++];
+                uint32_t off = (uint32_t)col * byte_per_line + b;
+                uint8_t bw = (off < queueItem->len) ? queueItem->data[off] : 0;
+                uint8_t clr = (off + plane_size < queueItem->len) ? queueItem->data[off + plane_size] : 0;
+                for (int half = 0; half < 2; half++) {
+                    uint8_t out = 0;
+                    for (int bit = 0; bit < 4; bit++) {
+                        int srcbit = 7 - (half * 4 + bit);
+                        uint8_t p1 = (bw >> srcbit) & 1;
+                        uint8_t p2 = (clr >> srcbit) & 1;
+                        uint8_t hi = p2;
+                        uint8_t lo = p1 ? 0 : 1;
+                        out |= (hi << (7 - bit * 2)) | (lo << (6 - bit * 2));
+                    }
+                    buffer[len_compressed++] = out;
+                }
             }
         }
-    }
-    if (extra_color) {
+    } else {
         for (int i = 0; i < width_display; i++) {
             if (canDoCompression) {
                 buffer[len_compressed++] = 0x75;
@@ -448,20 +471,45 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
             }
             if (mirror_width) {
                 for (int b = 0; b < byte_per_line; b++) {
-                    if (queueItem->len <= curr_input_posi)
-                        Mirrorbuffer[b] = 0x00;  // Do not anything outside of the buffer!
-                    else
-                        Mirrorbuffer[b] = queueItem->data[curr_input_posi++];
+                    Mirrorbuffer[b] = ~queueItem->data[curr_input_posi++];
                 }
                 for (int b = byte_per_line - 1; b >= 0; b--) {
                     buffer[len_compressed++] = swapBits(Mirrorbuffer[b]);
                 }
             } else {
                 for (int b = 0; b < byte_per_line; b++) {
-                    if (queueItem->len <= curr_input_posi) {
-                        buffer[len_compressed++] = 0x00;  // Do not anything outside of the buffer!
-                    } else {
-                        buffer[len_compressed++] = queueItem->data[curr_input_posi++];
+                    buffer[len_compressed++] = ~queueItem->data[curr_input_posi++];
+                }
+            }
+        }
+        if (extra_color) {
+            for (int i = 0; i < width_display; i++) {
+                if (canDoCompression) {
+                    buffer[len_compressed++] = 0x75;
+                    buffer[len_compressed++] = byte_per_line + 7;
+                    buffer[len_compressed++] = byte_per_line;
+                    buffer[len_compressed++] = 0x00;
+                    buffer[len_compressed++] = 0x00;
+                    buffer[len_compressed++] = 0x00;
+                    buffer[len_compressed++] = 0x00;
+                }
+                if (mirror_width) {
+                    for (int b = 0; b < byte_per_line; b++) {
+                        if (queueItem->len <= curr_input_posi)
+                            Mirrorbuffer[b] = 0x00;  // Do not anything outside of the buffer!
+                        else
+                            Mirrorbuffer[b] = queueItem->data[curr_input_posi++];
+                    }
+                    for (int b = byte_per_line - 1; b >= 0; b--) {
+                        buffer[len_compressed++] = swapBits(Mirrorbuffer[b]);
+                    }
+                } else {
+                    for (int b = 0; b < byte_per_line; b++) {
+                        if (queueItem->len <= curr_input_posi) {
+                            buffer[len_compressed++] = 0x00;  // Do not anything outside of the buffer!
+                        } else {
+                            buffer[len_compressed++] = queueItem->data[curr_input_posi++];
+                        }
                     }
                 }
             }

@@ -70,6 +70,7 @@
 #define GICI_BLE_EPD_BWR_74 0xB9
 #define GICI_BLE_TFT_21_BW 0xBA
 #define GICI_BLE_EPD_BWR_29_SILABS 0xBD
+#define GICI_BLE_EPD_29_BWRY 0xBC
 #define GICI_BLE_UNKNOWN 0xBF
 
 // Solum types - customer data byte 16 in M3 (nRF) UICR
