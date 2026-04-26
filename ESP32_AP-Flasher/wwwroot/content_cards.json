@@ -128,13 +128,9 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often the info is being refreshed.",
-        "type": "select",
-        "options": {
-          "30": "-Every 30 minutes",
-          "60": "Every hour",
-          "180": "Every three hours"
-        }
+        "desc": "How often the info is being refreshed. Enter minutes (e.g. 30), an aligned interval (e.g. -60 for on the hour), or a cron expression (e.g. */30 * * * * or 0 6 * * 1-5).",
+        "type": "interval",
+        "default": "30"
       },
       {
         "key": "#lat",
@@ -180,13 +176,9 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often the forecast is being refreshed.",
-        "type": "select",
-        "options": {
-          "60": "Every hour",
-          "180": "-Every three hours",
-          "-1440": "At midnight"
-        }
+        "desc": "How often the forecast is being refreshed. Enter minutes (e.g. 180), an aligned interval (e.g. -60 for on the hour), or a cron expression (e.g. 0 */3 * * * or 0 0 * * *).",
+        "type": "interval",
+        "default": "180"
       },
       {
         "key": "#lat",
@@ -254,8 +246,8 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often (in minutes) the feed is being refreshed. Negative value to align the interval (-60 is 'on the whole hour')",
-        "type": "int"
+        "desc": "How often the feed is being refreshed. Enter minutes (e.g. 60), an aligned interval (e.g. -60 for on the hour), or a cron expression (e.g. */15 * * * * or 0 6 * * 1-5).",
+        "type": "interval"
       }
     ]
   },
@@ -273,8 +265,8 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often (in minutes) the image is being fetched. Minimum is 3 minutes. Negative value to align the interval (-60 is 'on the whole hour')",
-        "type": "int"
+        "desc": "How often the image is being fetched. Minimum is 3 minutes. Enter minutes (e.g. 60), an aligned interval (e.g. -60 for on the hour), or a cron expression (e.g. */15 * * * * or 0 6 * * 1-5).",
+        "type": "interval"
       }
     ]
   },
@@ -318,8 +310,8 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "How often (in minutes) the calendar is being refreshed. Negative value to align the interval (-60 is 'on the whole hour')",
-        "type": "int"
+        "desc": "How often the calendar is being refreshed. Enter minutes (e.g. 60), an aligned interval (e.g. -60 for on the hour), or a cron expression (e.g. */15 * * * * or 0 6 * * 1-5).",
+        "type": "interval"
       }
     ]
   },
@@ -497,8 +489,8 @@
       {
         "key": "interval",
         "name": "Interval",
-        "desc": "In case of an url, how often (in minutes) the template is being fetched. Minimum is 3 minutes. Negative value to align the interval (-60 is 'on the whole hour')",
-        "type": "int"
+        "desc": "In case of a URL, how often the template is being fetched. Minimum is 3 minutes. Enter minutes (e.g. 60), an aligned interval (e.g. -60 for on the hour), or a cron expression (e.g. */15 * * * * or 0 6 * * 1-5).",
+        "type": "interval"
       }
     ]
   },

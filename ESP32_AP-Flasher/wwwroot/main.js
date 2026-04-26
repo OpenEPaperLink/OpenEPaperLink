@@ -1073,6 +1073,10 @@ function contentselected() {
 				case 'int':
 					input.type = "number";
 					break;
+				case 'interval':
+					input.type = "text";
+					input.placeholder = element.default || "e.g. 60 or */15 * * * *";
+					break;
 				case 'ro':
 					input.type = "text";
 					input.disabled = true;
@@ -1140,7 +1144,11 @@ function contentselected() {
 			}
 			input.id = 'opt' + element.key;
 			input.title = element.desc;
-			if (obj[element.key]) input.value = obj[element.key];
+			if (obj[element.key] !== undefined && obj[element.key] !== null && obj[element.key] !== '') {
+				input.value = obj[element.key];
+			} else if (element.type === 'interval' && element.default) {
+				input.value = element.default;
+			}
 			let p = document.createElement("p");
 			p.appendChild(label);
 			p.appendChild(input);

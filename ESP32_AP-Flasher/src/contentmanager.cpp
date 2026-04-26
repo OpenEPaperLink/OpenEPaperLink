@@ -35,6 +35,7 @@
 #include "QRCodeGenerator.h"
 #endif
 #include "language.h"
+#include "schedule_interval.h"
 #include "settings.h"
 #include "system.h"
 #include "tag_db.h"
@@ -249,15 +250,9 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
         taginfo->lastfullupdate = now;
     }
 
-    int32_t interval = cfgobj["interval"].as<int>() * 60;
-    if (interval == -1440 * 60) {
-        interval = util::getMidnightTime() - now;
-    } else if (interval < 0) {
-        interval = -interval;
-        unsigned int secondsUntilNext = (interval - (now % interval)) % interval;
-        interval = secondsUntilNext;
-    } else if (interval < 180)
-        interval = 60 * 60;
+    const ScheduleResult schedResult = computeSchedule(cfgobj["interval"].as<String>(), now);
+    if (!schedResult.error.empty()) wsErr(String(schedResult.error.c_str()));
+    int32_t interval = schedResult.intervalSeconds;
 
     imageParams.ts_option = config.showtimestamp;
     if(imageParams.ts_option) {
