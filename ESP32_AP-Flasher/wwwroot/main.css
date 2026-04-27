@@ -1,10 +1,15 @@
 /* CSS Variables for Theming */
 :root {
+	color-scheme: light;
 	--color-background: #e4e4e0;
 	--color-text: #000000;
 	--color-module-bg: #ffffff;
 	--color-text-light: #444;
 	--color-text-error: red;
+	--color-focus-ring: #2563eb;
+	--color-warning-bg: #fff4cc;
+	--color-warning-text: #7a4b00;
+	--color-warning-border: #d2a23d;
 	--color-header-bg: #646260;
 	--color-header-text: #ffffff;
 	--color-nav-bg: #ffffff;
@@ -46,14 +51,22 @@
 	--color-log-new-bg-start: rgba(255, 255, 204, 1);
 	--color-log-new-bg-mid: rgba(255, 255, 204, 0.5);
 	--color-log-new-bg-end: rgba(255, 255, 204, 0);
+	--color-apconfig-bg: #e6f0d3;
+	--color-apupdate-bg: #f0d0c8;
+	--color-apupdate-border: #d0b0a8;
 }
 
 body.dark-mode {
+	color-scheme: dark;
 	--color-background: #1c1c1e;
 	--color-text: #f0f0f0;
 	--color-module-bg: #3a3a3c;
 	--color-text-light: #cccccc;
 	--color-text-error: #ff8a8a;
+	--color-focus-ring: #7fb0ff;
+	--color-warning-bg: #4f3b15;
+	--color-warning-text: #ffe7b0;
+	--color-warning-border: #a97c2f;
 	--color-header-bg: #2a2a2d;
 	--color-header-text: #f0f0f0;
 	--color-nav-bg: #1f1f22;
@@ -95,6 +108,9 @@ body.dark-mode {
 	--color-log-new-bg-start: rgba(88, 166, 255, 0.3);
 	--color-log-new-bg-mid: rgba(88, 166, 255, 0.15);
 	--color-log-new-bg-end: rgba(88, 166, 255, 0);
+	--color-apconfig-bg: #2f3f2a;
+	--color-apupdate-bg: #453130;
+	--color-apupdate-border: #7a5853;
 }
 
 /* Tag State Classes */
@@ -146,6 +162,31 @@ nav>div {
 	gap: 20px;
 	padding: 10px;
 	background-color: var(--color-nav-bg);
+}
+
+.theme-toggle-btn {
+	background-color: transparent;
+	color: var(--color-text);
+	cursor: pointer;
+	align-self: center;
+	transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+	margin-left: auto;
+	padding: 6px 10px;
+	height: 34px;
+	min-width: 34px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.theme-toggle-btn:hover {
+	background-color: var(--color-tab-hover-bg);
+	border-color: var(--color-tab-border);
+}
+
+.theme-toggle-btn:focus-visible {
+	outline: 2px solid var(--color-focus-ring);
+	outline-offset: 2px;
 }
 
 nav label {
@@ -348,8 +389,9 @@ label {
 	}
 	& .warning {
 		padding: 5px;
-		color: #f02000;
-		background-color: #ffffc0;
+		color: var(--color-warning-text);
+		background-color: var(--color-warning-bg);
+		border: 1px solid var(--color-warning-border);
 		font-weight: bold;
 	}
 }
@@ -588,14 +630,14 @@ select {
 }
 
 #apconfigbox {
-	background-color: #e6f0d3;
+	background-color: var(--color-apconfig-bg);
 }
 
 #apupdatebox {
-	background-color: #f0d0c8;
+	background-color: var(--color-apupdate-bg);
 	width: 700px;
 	padding-bottom: 20px;
-	border: 1px solid #d0b0a8;
+	border: 1px solid var(--color-apupdate-border);
 }
 
 #cfgdelete {
@@ -1167,21 +1209,8 @@ h4 {
 	}
 
 	.theme-toggle-btn {
-	background-color: transparent;
-	border: none;
-	color: var(--color-header-text);
-	cursor: pointer;
-	align-self: center;
-	transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;	
-	margin-left: auto; 	
-	border-left: 1px solid var(--color-tab-border);	
-	padding: 6px 1rem;
-	border-radius: 4px;
+	padding: 6px 0.75rem;
 	margin-right: 1rem;
-	}
-
-	.theme-toggle-btn:hover {
-		background-color: var(--color-tab-hover-bg);
 	}
 
 }

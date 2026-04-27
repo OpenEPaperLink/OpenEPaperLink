@@ -84,34 +84,43 @@ window.addEventListener("loadConfig", function () {
 });
 
 window.addEventListener("load", function () {
-    const themeToggle = $('#theme-toggle');
-    if (themeToggle) {
-        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+	const themeToggle = $('#theme-toggle');
+	if (themeToggle) {
+		const THEME_STORAGE_KEY = 'theme';
+		const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+		let hasExplicitPreference = localStorage.getItem(THEME_STORAGE_KEY) !== null;
 
-        const setTheme = (theme) => {
-            if (theme === 'dark') {
-                document.body.classList.add('dark-mode');
-                themeToggle.innerHTML = 'dark_mode';
-                localStorage.setItem('theme', 'dark');
-            } else {
-                document.body.classList.remove('dark-mode');
-                themeToggle.innerHTML = 'light_mode';
-                localStorage.setItem('theme', 'light');
-            }
-        };
+		const setTheme = (theme, persist = true) => {
+			const isDark = theme === 'dark';
+			document.body.classList.toggle('dark-mode', isDark);
+			themeToggle.innerHTML = isDark ? 'dark_mode' : 'light_mode';
+			themeToggle.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+			themeToggle.setAttribute('aria-label', themeToggle.title);
+			if (persist) {
+				localStorage.setItem(THEME_STORAGE_KEY, theme);
+				hasExplicitPreference = true;
+			}
+		};
 
-        themeToggle.addEventListener('click', () => {
-            const isDarkMode = document.body.classList.contains('dark-mode');
-            setTheme(isDarkMode ? 'light' : 'dark');
-        });
+		themeToggle.addEventListener('click', () => {
+			const isDarkMode = document.body.classList.contains('dark-mode');
+			setTheme(isDarkMode ? 'light' : 'dark', true);
+		});
 
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
-            setTheme(savedTheme);
-        } else {
-            setTheme(prefersDarkScheme.matches ? 'dark' : 'light');
-        }
-    }
+		prefersDarkScheme.addEventListener('change', (event) => {
+			if (!hasExplicitPreference) {
+				setTheme(event.matches ? 'dark' : 'light', false);
+			}
+		});
+
+		const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+		if (savedTheme === 'dark' || savedTheme === 'light') {
+			setTheme(savedTheme, false);
+		} else {
+			hasExplicitPreference = false;
+			setTheme(prefersDarkScheme.matches ? 'dark' : 'light', false);
+		}
+	}
 	window.dispatchEvent(loadConfig);
 	initTabs();
 	fetch('content_cards.json')

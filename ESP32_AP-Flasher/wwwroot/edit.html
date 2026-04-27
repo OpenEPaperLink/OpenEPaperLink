@@ -5,12 +5,55 @@
 	<title>ESP Editor</title>
 	<link rel="icon" href="data:,">
 	<style type="text/css" media="screen">
+		:root {
+			color-scheme: light;
+			--edit-bg: #f3f4f6;
+			--edit-text: #1f2937;
+			--edit-topbar-bg: #444;
+			--edit-topbar-text: #eee;
+			--edit-panel-bg: #ffffff;
+			--edit-panel-border: #e5e7eb;
+			--edit-hover-bg: #d7dbe0;
+			--edit-control-bg: #eeeeee;
+			--edit-control-text: #111827;
+			--edit-control-border: #d1d5db;
+			--edit-menu-bg: #f5f5f5;
+			--edit-menu-border: #444;
+			--edit-menu-hover-bg: #444;
+			--edit-menu-hover-text: #eee;
+			--edit-theme-btn-border: rgba(255, 255, 255, 0.25);
+		}
+
+		body.dark-mode {
+			color-scheme: dark;
+			--edit-bg: #1c1c1e;
+			--edit-text: #f0f0f0;
+			--edit-topbar-bg: #2a2a2d;
+			--edit-topbar-text: #f0f0f0;
+			--edit-panel-bg: #2c2c2e;
+			--edit-panel-border: #444444;
+			--edit-hover-bg: #4a4a4c;
+			--edit-control-bg: #5a5a5c;
+			--edit-control-text: #f0f0f0;
+			--edit-control-border: #555555;
+			--edit-menu-bg: #2c2c2e;
+			--edit-menu-border: #555555;
+			--edit-menu-hover-bg: #4a4a4c;
+			--edit-menu-hover-text: #f0f0f0;
+			--edit-theme-btn-border: rgba(255, 255, 255, 0.35);
+		}
+
+		body {
+			background-color: var(--edit-bg);
+			color: var(--edit-text);
+		}
+
 		.cm {
 			z-index: 300;
 			position: absolute;
 			left: 5px;
-			border: 1px solid #444;
-			background-color: #F5F5F5;
+			border: 1px solid var(--edit-menu-border);
+			background-color: var(--edit-menu-bg);
 			display: none;
 			box-shadow: 0 0 10px rgba(0, 0, 0, .4);
 			font-size: 12px;
@@ -33,17 +76,17 @@
 		}
 
 		.cm span {
-			color: #444;
+			color: var(--edit-text);
 			display: inline-block;
 			padding: 6px;
 		}
 
 		.cm li:hover {
-			background: #444;
+			background: var(--edit-menu-hover-bg);
 		}
 
 		.cm li:hover span {
-			color: #EEE;
+			color: var(--edit-menu-hover-text);
 		}
 
 		.tvu ul,
@@ -68,7 +111,7 @@
 			-moz-user-select: none;
 			-webkit-user-select: none;
 			user-select: none;
-			color: #444;
+			color: var(--edit-text);
 			line-height: 16px;
 		}
 
@@ -100,7 +143,7 @@
 		}
 
 		.tvu li:hover {
-			background-color:#cccccc;
+			background-color: var(--edit-hover-bg);
 		}
 
 		#uploader {
@@ -108,13 +151,17 @@
 			top: 0;
 			right: 0;
 			left: 0;
-			background-color: #444;
-			color: #EEE;
+			background-color: var(--edit-topbar-bg);
+			color: var(--edit-topbar-text);
 			height: 45px;
+			display: flex;
+			align-items: center;
 		}
 
 		button {
-			background-color: #eeeeee;
+			background-color: var(--edit-control-bg);
+			color: var(--edit-control-text);
+			border: 1px solid var(--edit-control-border);
 			border: 0px;
 			cursor: pointer;
 			padding: 3px 5px;
@@ -123,8 +170,9 @@
 		}
 
 		input {
-			background: #ffffff;
-			border: 0px;
+			background: var(--edit-panel-bg);
+			/* color: var(--edit-control-text); */
+			border: 1px solid var(--edit-control-border);
 			appearance: none;
 			padding: 2px 5px;
 			margin: 10px;
@@ -136,7 +184,7 @@
 
 		.uploadpath {
 			background: none;
-			color: white;
+			color: var(--edit-topbar-text);
 		}
 
 		#tree {
@@ -154,12 +202,17 @@
 			right: 0;
 			bottom: 0;
 			left: 300px;
-			border-left: 1px solid #EEE;
+			border-left: 1px solid var(--edit-panel-border);
 		}
 
 		#preview {
-			background-color: #EEE;
+			background-color: var(--edit-panel-bg);
 			padding: 5px;
+		}
+
+		#tree {
+			background-color: var(--edit-panel-bg);
+			border-right: 1px solid var(--edit-panel-border);
 		}
 
 		#loader {
@@ -196,6 +249,39 @@
 	<script>
 		const $ = document.querySelector.bind(document);
 		const BPP_PACKED_2BIT = 5;
+		const THEME_STORAGE_KEY = 'theme';
+
+		function getResolvedTheme() {
+			const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+			if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
+			return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+		}
+
+		function getAceThemeName() {
+			return getResolvedTheme() === 'dark' ? 'tomorrow_night' : 'textmate';
+		}
+
+		function applyAceTheme() {
+			if (!window._editAce) return;
+			window._editAce.setTheme("ace/theme/" + getAceThemeName());
+		}
+
+		function initTheme() {
+			const applyEditorTheme = (isDark) => {
+				if (window._editAce) {
+					window._editAce.setTheme(isDark ? "ace/theme/tomorrow_night" : "ace/theme/textmate");
+				}
+			};
+
+			const setTheme = (theme) => {
+				const isDark = theme === 'dark';
+				document.body.classList.toggle('dark-mode', isDark);
+				applyEditorTheme(isDark);
+			};
+			setTheme(getResolvedTheme());
+			setTimeout(applyAceTheme, 0);
+			setTimeout(applyAceTheme, 80);
+		}
 
 		if (typeof XMLHttpRequest === "undefined") {
 			XMLHttpRequest = function () {
@@ -747,7 +833,7 @@
 			return this;
 		}
 
-		function createEditor(element, file, lang, theme, type) {
+		function createEditor(element, file, lang, type) {
 			function getLangFromFilename(filename) {
 				var lang = "plain";
 				var ext = /(?:\.([^.]+))?$/.exec(filename)[1];
@@ -778,17 +864,13 @@
 			if (typeof lang === "undefined") {
 				lang = getLangFromFilename(file);
 			}
-			if (typeof theme === "undefined") {
-				const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-				theme = (currentTheme === 'dark') ? "tomorrow_night" : "textmate";
-			}
-
 			if (typeof type === "undefined") {
 				type = "text/" + lang;
 				if (lang === "c_cpp") type = "text/plain";
 			}
 
 			var editor = ace.edit(element);
+			window._editAce = editor;
 			function httpPostProcessRequest(status, responseText) {
 				if (status != 200) alert("ERROR[" + status + "]: " + responseText);
 			}
@@ -811,7 +893,7 @@
 			}
 
 			if (lang !== "plain") editor.getSession().setMode("ace/mode/" + lang);
-			editor.setTheme("ace/theme/" + theme);
+			applyAceTheme();
 			editor.$blockScrolling = Infinity;
 			editor.getSession().setUseSoftTabs(true);
 			editor.getSession().setTabSize(2);
@@ -851,20 +933,23 @@
 				type = "text/" + lang;
 				if (lang !== "plain") editor.getSession().setMode("ace/mode/" + lang);
 				httpGet(file);
+				setTimeout(applyAceTheme, 0);
+				setTimeout(applyAceTheme, 80);
 			};
 			return editor;
 		}
 		function onBodyLoad() {
 			var vars = {};
 			var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function (m, key, value) { vars[key] = value; });
-			var editor = createEditor("editor", vars.file, vars.lang, vars.theme);
+			var editor = createEditor("editor", vars.file, vars.lang);
+			initTheme();
 			var tree = createTree("tree", editor);
 			createFileUploader("uploader", tree, editor);
 			if (typeof vars.file === "undefined") vars.file = "/index.htm";
 			editor.loadUrl(vars.file);
 		};
 	</script>
-	<script id='ace' src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.37.2/ace.js" type="text/javascript"
+	<script id='ace' src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.43.3/ace.js" type="text/javascript"
 			charset="utf-8"></script>
 	<script>
 		if (typeof ace.edit == "undefined") {
