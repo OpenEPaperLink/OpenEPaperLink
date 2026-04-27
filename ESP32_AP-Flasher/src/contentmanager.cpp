@@ -843,25 +843,6 @@ String utf8FromCodepoint(uint16_t cp) {
     return String(buf);
 }
 
-String formatUtcToLocal(const String &s) {
-    int h, m, ss = 0;
-    if (sscanf(s.c_str(), "%d:%d:%d", &h, &m, &ss) < 2 || h > 23 || m > 59 || ss > 59)
-        return "-";
-
-    time_t n = time(nullptr);
-    struct tm tm = *localtime(&n);
-    tm.tm_hour = h;
-    tm.tm_min = m;
-    tm.tm_sec = ss;
-
-    time_t utc = mktime(&tm) - _timezone + (tm.tm_isdst ? 3600 : 0);
-    localtime_r(&utc, &tm);
-
-    char buf[6];
-    snprintf(buf, 6, "%02d:%02d", tm.tm_hour, tm.tm_min);
-    return buf;
-}
-
 void drawDate(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgParam &imageParams) {
     time_t now;
     time(&now);
@@ -889,14 +870,12 @@ void drawDate(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPara
     const auto &day = loc["day"];
 
     if (cfgobj["location"]) {
-        const String lat = cfgobj["#lat"];
-        const String lon = cfgobj["#lon"];
-        JsonDocument doc;
+        const double lat = cfgobj["#lat"].as<String>().toDouble();
+        const double lon = cfgobj["#lon"].as<String>().toDouble();
 
-        const bool success = util::httpGetJson("https://api.farmsense.net/v1/daylengths/?d=" + String(now) + "&lat=" + lat + "&lon=" + lon + "&tz=UTC", doc, 5000);
-        if (success && loc["sunrise"].is<JsonArray>()) {
-            String sunrise = formatUtcToLocal(doc[0]["Sunrise"]);
-            String sunset = formatUtcToLocal(doc[0]["Sunset"]);
+        String sunrise, sunset;
+        const bool sunOk = calculateSunriseSunset(lat, lon, now, sunrise, sunset);
+        if (sunOk && loc["sunrise"].is<JsonArray>()) {
             const auto &sunriseicon = loc["sunrise"];
             const auto &sunseticon = loc["sunset"];
             drawString(spr, String("\uF046 "), sunriseicon[0], sunriseicon[1].as<int>(), "/fonts/weathericons.ttf", TR_DATUM, TFT_BLACK, sunriseicon[3]);
@@ -904,17 +883,16 @@ void drawDate(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPara
             drawString(spr, sunrise, sunriseicon[0], sunriseicon[1], sunriseicon[2], TL_DATUM, TFT_BLACK, sunriseicon[3]);
             drawString(spr, sunset, sunseticon[0], sunseticon[1], sunseticon[2], TL_DATUM, TFT_BLACK, sunseticon[3]);
 
-            const bool success = util::httpGetJson("https://api.farmsense.net/v1/moonphases/?d=" + String(now), doc, 5000);
-            if (success && loc["moonicon"].is<JsonArray>()) {
-                uint8_t moonage = doc[0]["Index"].as<int>();
-                const auto &moonicon = loc["moonicon"];
-                uint16_t moonIconId = 0xf095 + moonage;
-                String moonIcon = utf8FromCodepoint(moonIconId);
-                drawString(spr, moonIcon, moonicon[0], moonicon[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, moonicon[2]);
-            }
-
             date = loc["altdate"];
             weekday = loc["altweekday"];
+        }
+
+        if (loc["moonicon"].is<JsonArray>()) {
+            int moonage = calculateMoonPhase(now);
+            const auto &moonicon = loc["moonicon"];
+            uint16_t moonIconId = 0xf095 + moonage;
+            String moonIcon = utf8FromCodepoint(moonIconId);
+            drawString(spr, moonIcon, moonicon[0], moonicon[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, moonicon[2]);
         }
     }
     if (date.is<JsonArray>()) {

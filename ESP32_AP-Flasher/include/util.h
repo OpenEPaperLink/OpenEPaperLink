@@ -190,3 +190,21 @@ inline String formatString(char buffer[bufSize], const char *format, ...) {
 #define minutes(m) seconds(m * 60)
 /// @brief Converts hours to milliseconds
 #define hours(m) minutes(m * 60)
+
+/// @brief Convert a UTC time string ("HH:MM:SS") to local time "HH:MM"
+String formatUtcToLocal(const String &s);
+
+/// @brief Calculate sunrise and sunset times using the NOAA algorithm
+/// @param lat Latitude in decimal degrees
+/// @param lon Longitude in decimal degrees
+/// @param now Current time (used for date and timezone)
+/// @param sunrise Output: local sunrise time as "HH:MM"
+/// @param sunset Output: local sunset time as "HH:MM"
+/// @return true if successful, false if polar day/night
+bool calculateSunriseSunset(double lat, double lon, time_t now, String &sunrise, String &sunset);
+
+/// @brief Calculate moon phase index (0-28) using Julian Day algorithm
+/// @param now Current time (UTC)
+/// @return Moon phase index 0 = new moon, 14 = full moon, 28 = next new moon
+int calculateMoonPhase(time_t now);
+
