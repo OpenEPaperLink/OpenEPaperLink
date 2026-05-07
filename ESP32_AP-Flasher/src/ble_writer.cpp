@@ -1,10 +1,12 @@
 #ifdef HAS_BLE_WRITER
 #include <Arduino.h>
 #include <MD5Builder.h>
+#include <mbedtls/aes.h>
 
 #include "BLEDevice.h"
 #include "ble_filter.h"
 #include "newproto.h"
+#include "tag_db.h"
 
 #define INTERVAL_BLE_SCANNING_SECONDS 60
 #define INTERVAL_HANDLE_PENDING_SECONDS 10
@@ -47,6 +49,17 @@ static BLEUUID ATC_BLE_OEPL_CtrlUUID((uint16_t)0x1337);
 static BLEUUID gicServiceUUID((uint16_t)0xfef0);
 static BLEUUID gicCtrlUUID((uint16_t)0xfef1);
 static BLEUUID gicImgUUID((uint16_t)0xfef2);
+
+// Wolink/Zhsunyco BLE ESL service and characteristic UUIDs.
+// Source: NickWaterton/Wolink wolink_ble.py.
+static BLEUUID wolinkServiceUUID("30323032-4c53-4545-4c42-4b4e494c4f57");
+static BLEUUID wolinkDataUUID("31323032-4c53-4545-4c42-4b4e494c4f57");
+static BLEUUID wolinkAuthUUID("33323032-4c53-4545-4c42-4b4e494c4f57");
+static BLEUUID wolinkStatusUUID("35323032-4c53-4545-4c42-4b4e494c4f57");
+
+static const uint8_t WOLINK_AES_KEY[16] = {
+    0x9B, 0x60, 0x9F, 0x28, 0xBC, 0x49, 0xE2, 0x57,
+    0x29, 0xBD, 0x7B, 0x8D, 0xF2, 0x2B, 0x44, 0x20};
 
 BLERemoteCharacteristic* ctrlChar;
 BLERemoteCharacteristic* imgChar;
@@ -217,6 +230,181 @@ void ATC_BLE_OEPL_SendPart(uint8_t indexBlockId, uint8_t indexPkt) {
     ctrlChar->writeValue(tempPacketBuffer, sizeof(tempPacketBuffer), true);
 }
 
+// Wolink upload runs to completion inside the BLE task (single-threaded).
+// State for the status notify callback lives at file scope so we can capture
+// the two-byte status word that the ESL emits while it processes the upload.
+volatile bool wolink_status_received = false;
+volatile uint8_t wolink_status[2] = {0xFF, 0xFF};
+
+static void wolinkStatusNotifyCallback(
+    BLERemoteCharacteristic* pBLERemoteCharacteristic,
+    uint8_t* pData,
+    size_t length,
+    bool isNotify) {
+    if (length >= 2) {
+        wolink_status[0] = pData[0];
+        wolink_status[1] = pData[1];
+    } else if (length == 1) {
+        wolink_status[0] = pData[0];
+        wolink_status[1] = 0;
+    }
+    wolink_status_received = true;
+    Serial.printf("Wolink status notify: ");
+    for (size_t i = 0; i < length; i++) Serial.printf("%02X", pData[i]);
+    Serial.println();
+}
+
+// AES-128-CBC encrypt the 16-byte challenge with the hardcoded Wolink key,
+// zero IV, and PKCS#7 padding to 32 bytes; we keep only the first 16-byte
+// ciphertext block as the response.
+static void wolink_aes_encrypt_challenge(const uint8_t challenge[16], uint8_t out[16]) {
+    mbedtls_aes_context ctx;
+    mbedtls_aes_init(&ctx);
+    mbedtls_aes_setkey_enc(&ctx, WOLINK_AES_KEY, 128);
+    uint8_t iv[16] = {0};
+    uint8_t padded[32];
+    memcpy(padded, challenge, 16);
+    memset(padded + 16, 0x10, 16);  // PKCS#7: full second block of 0x10
+    uint8_t cipher[32];
+    mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_ENCRYPT, 32, iv, padded, cipher);
+    memcpy(out, cipher, 16);
+    mbedtls_aes_free(&ctx);
+}
+
+// Run a complete Wolink image upload: connect, authenticate, send pixels,
+// trigger refresh, wait for the EPD to report idle. Returns true on success.
+static bool wolink_upload(uint8_t address[8]) {
+    uint8_t temp_Address[] = {address[5], address[4], address[3], address[2], address[1], address[0]};
+    Serial.printf("Wolink connecting to %02X:%02X:%02X:%02X:%02X:%02X\r\n",
+                  address[5], address[4], address[3], address[2], address[1], address[0]);
+
+    pClient = BLEDevice::createClient();
+    pClient->setClientCallbacks(new MyClientCallback());
+    if (!pClient->connect(BLEAddress(temp_Address))) {
+        Serial.println("Wolink connect failed");
+        pClient->disconnect();
+        return false;
+    }
+
+    uint32_t t0 = millis();
+    while (!BLE_connected && millis() - t0 < 5000) delay(50);
+    if (!BLE_connected) {
+        Serial.println("Wolink connect did not settle");
+        pClient->disconnect();
+        return false;
+    }
+    if (!pClient->setMTU(247)) {
+        Serial.println("Wolink MTU negotiation failed (continuing)");
+    }
+
+    BLERemoteService* svc = pClient->getService(wolinkServiceUUID);
+    if (!svc) {
+        Serial.println("Wolink service not found");
+        pClient->disconnect();
+        return false;
+    }
+    BLERemoteCharacteristic* dataChar = svc->getCharacteristic(wolinkDataUUID);
+    BLERemoteCharacteristic* authChar = svc->getCharacteristic(wolinkAuthUUID);
+    BLERemoteCharacteristic* statusChar = svc->getCharacteristic(wolinkStatusUUID);
+    if (!dataChar || !authChar || !statusChar) {
+        Serial.println("Wolink characteristic discovery failed");
+        pClient->disconnect();
+        return false;
+    }
+    if (statusChar->canNotify()) {
+        wolink_status_received = false;
+        wolink_status[0] = 0xFF;
+        wolink_status[1] = 0xFF;
+        statusChar->registerForNotify(wolinkStatusNotifyCallback);
+    } else {
+        Serial.println("Wolink status char does not notify");
+    }
+
+    // 1) Authenticate: read 16-byte challenge, write AES-CBC response.
+    std::string challenge = authChar->readValue();
+    if (challenge.size() < 16) {
+        Serial.printf("Wolink auth challenge too short (%u)\r\n", (unsigned)challenge.size());
+        pClient->disconnect();
+        return false;
+    }
+    uint8_t resp[16];
+    wolink_aes_encrypt_challenge((const uint8_t*)challenge.data(), resp);
+    Serial.printf("Wolink auth challenge=");
+    for (int i = 0; i < 16; i++) Serial.printf("%02X", (uint8_t)challenge[i]);
+    Serial.printf(" resp=");
+    for (int i = 0; i < 16; i++) Serial.printf("%02X", resp[i]);
+    Serial.println();
+    authChar->writeValue(resp, 16, false);
+
+    // 2) Pack the pixel buffer.
+    BLE_image_buffer = (uint8_t*)malloc(BUFFER_MAX_SIZE_COMPRESSING);
+    if (BLE_image_buffer == nullptr) {
+        Serial.println("Wolink: pixel buffer alloc failed");
+        pClient->disconnect();
+        return false;
+    }
+    BLE_compressed_len = pack_wolink_image(address, BLE_image_buffer, BUFFER_MAX_SIZE_COMPRESSING);
+    if (BLE_compressed_len == 0) {
+        Serial.println("Wolink: pack failed");
+        free(BLE_image_buffer);
+        BLE_image_buffer = nullptr;
+        pClient->disconnect();
+        return false;
+    }
+    Serial.printf("Wolink packed %u bytes\r\n", (unsigned)BLE_compressed_len);
+
+    // 3) Upload chunks of (mtu-9) bytes with [0x00,0xA5] + offset(LE32) header.
+    const size_t chunk_size = 238;  // matches MTU 247 - 9 byte overhead
+    uint8_t pkt[6 + 238];
+    for (uint32_t off = 0; off < BLE_compressed_len; off += chunk_size) {
+        size_t this_n = (BLE_compressed_len - off) < chunk_size ? (BLE_compressed_len - off) : chunk_size;
+        pkt[0] = 0x00;
+        pkt[1] = 0xA5;
+        pkt[2] = off & 0xFF;
+        pkt[3] = (off >> 8) & 0xFF;
+        pkt[4] = (off >> 16) & 0xFF;
+        pkt[5] = (off >> 24) & 0xFF;
+        memcpy(pkt + 6, BLE_image_buffer + off, this_n);
+        dataChar->writeValue(pkt, 6 + this_n, true);
+        delay(15);
+    }
+
+    // 4) Trigger refresh: [0x01,0xA5] + total_len(LE32).
+    uint8_t refresh[6];
+    refresh[0] = 0x01;
+    refresh[1] = 0xA5;
+    refresh[2] = BLE_compressed_len & 0xFF;
+    refresh[3] = (BLE_compressed_len >> 8) & 0xFF;
+    refresh[4] = (BLE_compressed_len >> 16) & 0xFF;
+    refresh[5] = (BLE_compressed_len >> 24) & 0xFF;
+    dataChar->writeValue(refresh, 6, true);
+    Serial.println("Wolink refresh triggered, waiting for status idle");
+
+    // 5) Wait for status notify with first byte == 0x00 (idle/done).
+    bool ok = false;
+    uint32_t t_start = millis();
+    while (millis() - t_start < 30000) {
+        if (wolink_status_received) {
+            wolink_status_received = false;
+            if (wolink_status[0] == 0x00) {
+                ok = (wolink_status[1] == 0x00);
+                Serial.printf("Wolink upload %s (status %02X %02X)\r\n",
+                              ok ? "OK" : "ERR", wolink_status[0], wolink_status[1]);
+                break;
+            }
+        }
+        delay(50);
+    }
+    if (!ok && millis() - t_start >= 30000) {
+        Serial.println("Wolink: status wait timed out");
+    }
+
+    free(BLE_image_buffer);
+    BLE_image_buffer = nullptr;
+    pClient->disconnect();
+    return ok;
+}
+
 void BLETask(void* parameter) {
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     Serial.println("BLE task started");
@@ -234,7 +422,28 @@ void BLETask(void* parameter) {
                     if (BLE_is_image_pending(BLE_curr_address)) {
                         Serial.println("BLE Image is pending but we wait a bit");
                         delay(5000);                                                       // We better wait here, since the pending image needs to be created first
-                        if (BLE_curr_address[7] == 0x13 && BLE_curr_address[6] == 0x37) {  // This is an ATC BLE OEPL display
+                        tagRecord* curTag = tagRecord::findByMAC(BLE_curr_address);
+                        uint8_t curHwType = (curTag != nullptr) ? curTag->hwType : 0;
+                        if (curHwType != 0 && (curHwType & 0xF0) == 0xD0) {
+                            // Wolink/Zhsunyco family. The whole upload runs synchronously
+                            // inside this task, so we stay in IDLE and report completion
+                            // (or cancel) directly when wolink_upload() returns.
+                            bool ok = wolink_upload(BLE_curr_address);
+                            if (ok) {
+                                struct espXferComplete reportStruct;
+                                memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
+                                processXferComplete(&reportStruct, true);
+                                BLE_err_counter = 0;
+                            } else {
+                                if (BLE_err_counter++ >= 5) {
+                                    struct espXferComplete reportStruct;
+                                    memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
+                                    processXferComplete(&reportStruct, true);
+                                    BLE_err_counter = 0;
+                                }
+                            }
+                            BLE_last_pending_check = millis();
+                        } else if (BLE_curr_address[7] == 0x13 && BLE_curr_address[6] == 0x37) {  // This is an ATC BLE OEPL display
                             // Here we create the compressed buffer
                             BLE_image_buffer = (uint8_t*)malloc(BUFFER_MAX_SIZE_COMPRESSING);
                             if (BLE_image_buffer == nullptr) {

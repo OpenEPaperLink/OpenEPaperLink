@@ -67,6 +67,15 @@ uint8_t gicToOEPLtype(uint8_t gicType) {
     }
 }
 
+uint8_t wolinkToOEPLtype(uint16_t modelId) {
+    switch (modelId) {
+        case 0x000E:
+            return WOLINK_BLE_EPD_213_BWRY;
+        default:
+            return GICI_BLE_UNKNOWN;
+    }
+}
+
 struct BleAdvDataStructV1 {
     uint16_t manu_id;  // 0x1337 for us
     uint8_t version;
@@ -208,6 +217,41 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.src[7] = manuData[1];
             processDataReq(&theAdvData, true);
             return true;
+        } else if (manuDatalen >= 12 && manuData[0] == 0xBB && manuData[1] == 0xAA) {
+            // Wolink/Zhsunyco BLE ESL. Manu data wire layout (12 bytes):
+            //   [0..1]   company id 0xAABB (LE)
+            //   [2..3]   flags
+            //   [4..5]   model/PID, big-endian (0x000E = 2.13" BWRY)
+            //   [6..7]   firmware/state
+            //   [8..9]   sequence/state
+            //   [10..11] battery mV, big-endian
+            // Reference: NickWaterton/Wolink wolink_ble.py decode_data()/decode_battery().
+            Serial.printf("Wolink/Zhsunyco BLE ESL detected\r\n");
+            uint16_t modelId = (manuData[4] << 8) | manuData[5];
+            uint16_t battMv = (manuData[10] << 8) | manuData[11];
+            uint8_t hwType = wolinkToOEPLtype(modelId);
+            Serial.printf("Wolink modelId 0x%04X battery %u mV hwType 0x%02X\r\n", modelId, battMv, hwType);
+
+            struct espAvailDataReq theAdvData;
+            memset((uint8_t*)&theAdvData, 0x00, sizeof(espAvailDataReq));
+            uint8_t macReversed[6];
+            memcpy(&macReversed, (uint8_t*)advertisedDevice.getAddress().getNative(), 6);
+            theAdvData.src[0] = macReversed[5];
+            theAdvData.src[1] = macReversed[4];
+            theAdvData.src[2] = macReversed[3];
+            theAdvData.src[3] = macReversed[2];
+            theAdvData.src[4] = macReversed[1];
+            theAdvData.src[5] = macReversed[0];
+            theAdvData.src[6] = manuData[4];  // model byte (BE high)
+            theAdvData.src[7] = manuData[5];  // model byte (BE low)
+            theAdvData.adr.batteryMv = battMv;
+            theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
+            theAdvData.adr.lastPacketLQI = advertisedDevice.getRSSI();
+            theAdvData.adr.hwType = hwType;
+            theAdvData.adr.tagSoftwareVersion = (manuData[6] << 8) | manuData[7];
+            theAdvData.adr.capabilities = 0x00;
+            processDataReq(&theAdvData, true);
+            return true;
         }
     }
     if (payloadDatalen >= 17) {  // Lets check for an ATC Mi Thermometer
@@ -243,7 +287,8 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
 bool BLE_is_image_pending(uint8_t address[8]) {
     for (int16_t c = 0; c < tagDB.size(); c++) {
         tagRecord* taginfo = tagDB.at(c);
-        if (taginfo->pendingCount > 0 && taginfo->version == 0 && ((taginfo->hwType & 0xB0) == 0xB0)) {
+        if (taginfo->pendingCount > 0 && taginfo->version == 0 &&
+            (((taginfo->hwType & 0xF0) == 0xB0) || ((taginfo->hwType & 0xF0) == 0xD0))) {
             memcpy(address, taginfo->mac, 8);
             return true;
         }
@@ -523,6 +568,68 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
     }
     free(Mirrorbuffer);
     return len_compressed;
+}
+
+// Pack the dual-bitplane source produced by makeimage into the Wolink/Zhsunyco
+// 2 bpp single-plane RAM layout. Source planes are width*byte_per_line bytes
+// each, ordered column-major (same convention compress_image() relies on).
+// Output: width*32 bytes (width=250, height=128 -> 8000), column-major,
+// y-axis flipped, 4 pixels per byte MSB-first, color map 00=B 01=W 10=Y 11=R.
+// Returns the produced length, or 0 on failure.
+uint32_t pack_wolink_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
+    PendingItem* queueItem = getQueueItem(address, 0);
+    if (queueItem == nullptr) {
+        prepareCancelPending(address);
+        Serial.printf("Wolink pack: missing taginfo %02X%02X%02X%02X%02X%02X\r\n",
+                      address[5], address[4], address[3], address[2], address[1], address[0]);
+        return 0;
+    }
+    if (queueItem->data == nullptr) {
+        fs::File file = contentFS->open(queueItem->filename);
+        if (!file) {
+            Serial.print("Wolink pack: no file " + String(queueItem->filename) + ", canceling\r\n");
+            prepareCancelPending(address);
+            return 0;
+        }
+        queueItem->data = getDataForFile(file);
+        file.close();
+    }
+
+    // Hardcoded geometry for 2.13" BWRY for now; widen when more models land.
+    const uint16_t width = 250;
+    const uint16_t height = 128;
+    const uint32_t byte_per_line = height / 8;            // 16
+    const uint32_t plane_size = (uint32_t)width * byte_per_line;  // 4000
+    const uint32_t out_len = (uint32_t)width * (height / 4);      // 8000
+
+    if (out_len > max_len) {
+        Serial.printf("Wolink pack: buffer too small (%u < %u)\r\n",
+                      (unsigned)max_len, (unsigned)out_len);
+        return 0;
+    }
+    if (queueItem->len < 2 * plane_size) {
+        Serial.printf("Wolink pack: source too small (%u < %u)\r\n",
+                      (unsigned)queueItem->len, (unsigned)(2 * plane_size));
+        return 0;
+    }
+
+    memset(buffer, 0, out_len);
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            uint32_t off = (uint32_t)x * byte_per_line + (y / 8);
+            uint8_t mask = 0x80 >> (y % 8);
+            uint8_t p1 = (queueItem->data[off] & mask) ? 1 : 0;                 // B/W plane
+            uint8_t p2 = (queueItem->data[off + plane_size] & mask) ? 1 : 0;    // color plane
+            // Match the Phase 1 (GICisky BWRY) mapping: hi=p2, lo=~p1.
+            // black (1,0)->00, white (0,0)->01, red (0,1)->11, yellow (1,1)->10.
+            uint8_t color = ((uint8_t)(p2 & 1) << 1) | (uint8_t)(p1 ? 0 : 1);
+            int phy_y = (height - 1) - y;                  // Wolink RAM is y-flipped
+            uint32_t out_byte = (uint32_t)x * 32 + (phy_y / 4);
+            int out_shift = 6 - (phy_y % 4) * 2;           // MSB-first within byte
+            buffer[out_byte] |= color << out_shift;
+        }
+    }
+    return out_len;
 }
 
 uint32_t get_ATC_BLE_OEPL_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len, uint8_t* dataType, uint8_t* dataTypeArgument, uint16_t* nextCheckIn) {
