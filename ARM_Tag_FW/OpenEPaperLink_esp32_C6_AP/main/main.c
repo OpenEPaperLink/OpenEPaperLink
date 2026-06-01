@@ -352,6 +352,7 @@ void     processSerial(uint8_t lastchar) {
             if (bytesRemain == 0) {
                 if (checkCRC(serialbuffer, sizeof(struct espSetChannelPower))) {
                    struct espSetChannelPower *scp = (struct espSetChannelPower *) serialbuffer;
+                    led_set_activity_enabled((scp->flags & ESP_SCP_FLAG_LED) != 0);
 #ifdef CONFIG_OEPL_SUBGIG_SUPPORT
                     if(curSubGhzChannel != scp->subghzchannel
                        && curSubGhzChannel != NO_SUBGHZ_CHANNEL)
