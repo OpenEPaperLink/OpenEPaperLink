@@ -1,5 +1,8 @@
 #include <Arduino.h>
+#include <ArduinoJson.h>
 
+#include "tag_db.h"
+#include "makeimage.h"
 #include "TFT_eSPI.h"
 #include <DrawOWM.h>
 
@@ -1338,80 +1341,105 @@ const char *OwmAirPollutionTestResponse =
 \"nh3\":0},\
 \"dt\":1779382800}]}";
 
-void TestOwm(TFT_eSprite &spr,bool bHighRes) 
+bool TestOwm(TFT_eSprite &spr, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams)
 {
-   OwmArgs Args;
+   bool Ret = false; // Assume the worse
 
-// City name that will be shown in the top-right corner of the display.
-   Args.City = "Rancho Palos Verdes";
-   Args.TimeFormat = "%l:%M %P";
-   Args.DateFormat = "%a, %B %e";
-   Args.ForecastApiResponse = OwmForecastTestResponse;
-   Args.AirPollutionApiResponse = OwmAirPollutionTestResponse;
-   Args.inTemp     = NAN;
-   Args.inHumidity = NAN;
-   Args.batteryVoltage = 2960;
-   Args.Rssi = -59;
-   Args.bMetric = false;
-   Args.bHighRes = bHighRes;
+   do {
+      OwmConfig Config;
+      LOG("Owm test\n");
 
-   LOG("Owm test\n");
+      if(imageParams.width >=  800 && imageParams.height >= 480) {
+         Config.DisplayFormat = FORMAT_800X480;
+      }
+      else if(imageParams.width >= 640 && imageParams.height >= 384) {
+         Config.DisplayFormat = FORMAT_640X384;
+      }
+      else if(imageParams.width >= 400 | imageParams.height >= 300) {
+         Config.DisplayFormat = FORMAT_400X300;
+      }
+      else {
+         LOG("%d x %d display not supported\n",imageParams.width,imageParams.height);
+         break;
+      }
+      Config.ForecastApiResponse = OwmForecastTestResponse;
+      Config.AirPollutionApiResponse = OwmAirPollutionTestResponse;
 
-   Args.WindSpeed = Args.bMetric ? UNITS_SPEED_KILOMETERSPERHOUR : 
-                  UNITS_SPEED_MILESPERHOUR;
-   Args.DistanceType = Args.bMetric ? UNITS_DIST_KILOMETERS : UNITS_DIST_MILES;
-   Args.PrecipType = Args.bMetric ? UNITS_DAILY_PRECIP_MILLIMETERS : 
-                                    UNITS_DAILY_PRECIP_INCHES;
 
-   Args.PrecipHrType = Args.bMetric ? UNITS_HOURLY_PRECIP_MILLIMETERS :
-                                      UNITS_HOURLY_PRECIP_INCHES;
-   Args.PressureType = Args.bMetric ? UNITS_PRES_MILLIBARS :
-                                      UNITS_PRES_INCHESOFMERCURY;
+      String City = cfgobj["location"];
+      Config.City = City.c_str();
+      LOG("City \"%s\"\n",Config.City);
+      Config.bMetric = cfgobj["units"] == "0";
 
-   Args.bDisplayAlerts = Args.bMetric ? false : true;
-   Args.bDisplayAlerts = Args.bMetric ? false : true;
-   if(Args.bHighRes) {
-      Args.DisplayWidth    = 800;
-      Args.DisplayHeight   = 480;
-      Args.PosSunrise      = 0;
-      Args.PosSunset       = 1;
-      Args.PosWind         = 2;
-      Args.PosHumidity     = 3;
-      Args.PosUvi          = 4;
-      Args.PosPressure     = 5;
-      Args.PosAirQuality   = 6;
-      Args.PosVisibility   = 7;
-      Args.PosIntemp       = 8;
-      Args.PosInhumidity   = 9;
-      Args.PosMoonrise     = -1;
-      Args.PosMoonset      = -1;
-      Args.PosMoonphase    = -1;
-      Args.PosDewpoint     = -1;
-   }
-   else {
-  // if a 640 x 384 display is used, then positions 6,7,8,9 are not available
-      Args.DisplayWidth    = 640;
-      Args.DisplayHeight   = 384;
-      Args.PosSunrise      = 0;
-      Args.PosSunset       = 1;
-      Args.PosWind         = 2;
-      Args.PosHumidity     = 3;
-      Args.PosVisibility   = 4;
-      Args.PosIntemp       = 5;
-      Args.PosUvi          = -1;
-      Args.PosPressure     = -1;
-      Args.PosAirQuality   = -1;
-      Args.PosInhumidity   = -1;
-      Args.PosMoonrise     = -1;
-      Args.PosMoonset      = -1;
-      Args.PosMoonphase    = -1;
-      Args.PosDewpoint     = -1;
-   }
+      Config.WindSpeed = Config.bMetric ? UNITS_SPEED_KILOMETERSPERHOUR : 
+                     UNITS_SPEED_MILESPERHOUR;
+      Config.DistanceType = Config.bMetric ? UNITS_DIST_KILOMETERS : UNITS_DIST_MILES;
+      Config.PrecipType = Config.bMetric ? UNITS_DAILY_PRECIP_MILLIMETERS : 
+                                       UNITS_DAILY_PRECIP_INCHES;
 
-   class DrawOWM *owm = new DrawOWM(spr,Args);
-   owm->DrawIt();
-   delete owm;
+      Config.PrecipHrType = Config.bMetric ? UNITS_HOURLY_PRECIP_MILLIMETERS :
+                                         UNITS_HOURLY_PRECIP_INCHES;
+      Config.PressureType = Config.bMetric ? UNITS_PRES_MILLIBARS :
+                                         UNITS_PRES_INCHESOFMERCURY;
+
+      Config.bDisplayAlerts = Config.bMetric ? false : true;
+
+      Config.inTemp         = taginfo->temperature;
+      Config.Rssi           = taginfo->RSSI;
+      Config.batteryVoltage = taginfo->batteryMv;
+
+      Config.TimeFormat = "%l:%M %P";
+      Config.DateFormat = "%a, %B %e";
+      Config.inHumidity = NAN;
+
+      Config.PosSunrise      = 0;
+      Config.PosSunset       = 1;
+      Config.PosWind         = 2;
+      Config.PosHumidity     = 3;
+      Config.PosUvi          = 4;
+      Config.PosPressure     = 5;
+      Config.PosAirQuality   = 6;
+      Config.PosVisibility   = 7;
+      Config.PosIntemp       = 8;
+      Config.PosDewpoint     = 9;
+      Config.PosInhumidity   = -1;
+      Config.PosMoonrise     = -1;
+      Config.PosMoonset      = -1;
+      Config.PosMoonphase    = -1;
+
+      switch(Config.DisplayFormat) {
+         case FORMAT_800X480:
+            Config.DisplayWidth    = 800;
+            Config.DisplayHeight   = 480;
+            break;
+
+         case FORMAT_640X384:
+     // positions 6,7,8,9 are not available on the 640 x 384 display
+            Config.DisplayWidth    = 640;
+            Config.DisplayHeight   = 384;
+            Config.PosVisibility   = 4;
+            Config.PosIntemp       = 5;
+            Config.PosUvi          = -1;
+            Config.PosPressure     = -1;
+            Config.PosAirQuality   = -1;
+            Config.PosInhumidity   = -1;
+            break;
+
+         case FORMAT_400X300:
+            Config.DisplayWidth    = 400;
+            Config.DisplayHeight   = 300;
+            break;
+      }
+
+      Config.xOffset = (imageParams.width - Config.DisplayWidth) / 2;
+      Config.yOffset = (imageParams.height - Config.DisplayHeight) / 2;
+
+      class DrawOWM *owm = new DrawOWM(spr,Config);
+      owm->DrawIt();
+      delete owm;
+      Ret = true;
+   } while(false);
+
+   return Ret;
 }
-
-
 

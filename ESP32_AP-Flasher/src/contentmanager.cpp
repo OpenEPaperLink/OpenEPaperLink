@@ -379,7 +379,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             // https://geocoding-api.open-meteo.com/v1/search?name=eindhoven
             // https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true
             // https://github.com/erikflowers/weather-icons
-
+               
             drawWeather(filename, cfgobj, taginfo, imageParams);
             taginfo->nextupdate = now + interval;
             updateTagImage(filename, mac, interval / 60, taginfo, imageParams);
@@ -1163,20 +1163,22 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
     spr.deleteSprite();
 }
 #else
-void TestOwm(TFT_eSprite &spr,bool bHighRes);
+bool TestOwm(TFT_eSprite &spr, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams);
 void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams) 
 {
-   if(imageParams.width == 800 || imageParams.width == 640) {
-      TFT_eSprite spr = TFT_eSprite(&tft);
-      initSprite(spr, imageParams.width, imageParams.height, imageParams);
-      TestOwm(spr,imageParams.width == 800);
-      spr2buffer(spr, filename, imageParams);
-      spr.deleteSprite();
-      return;
-   }
+   getLocation(cfgobj);
 
+   TFT_eSprite spr = TFT_eSprite(&tft);
+   initSprite(spr, imageParams.width, imageParams.height, imageParams);
+   if(TestOwm(spr,cfgobj,taginfo,imageParams)) {
+      spr2buffer(spr, filename, imageParams);
+   }
+   else {
+      wsLog("OWM weather update failed");
+   }
+   spr.deleteSprite();
+#if 0
     wsLog("get weather");
-    getLocation(cfgobj);
 
     String lat = cfgobj["#lat"];
     String lon = cfgobj["#lon"];
@@ -1192,7 +1194,6 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
         return;
     }
 
-    TFT_eSprite spr = TFT_eSprite(&tft);
     tft.setTextWrap(false, false);
 
     JsonDocument loc;
@@ -1262,6 +1263,7 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
 
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
+#endif
 }
 
 #endif
