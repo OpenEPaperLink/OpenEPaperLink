@@ -349,6 +349,7 @@ void initAPconfig() {
     } else {
         strlcpy(config.timeZone, "CET-1CEST,M3.5.0,M10.5.0/3", sizeof(config.timeZone));
     }
+    if (APconfig["owm_api_key"]) strlcpy(config.owmApiKey, APconfig["owm_api_key"], sizeof(config.owmApiKey));
 }
 
 void saveAPconfig() {
@@ -375,6 +376,7 @@ void saveAPconfig() {
     APconfig["env"] = config.env;
     APconfig["discovery"] = config.discovery;
     APconfig["showtimestamp"] = config.showtimestamp;
+    APconfig["owm_api_key"] = config.owmApiKey;
     serializeJsonPretty(APconfig, configFile);
     configFile.close();
     xSemaphoreGive(fsMutex);
@@ -427,6 +429,7 @@ HwType getHwType(const uint8_t id) {
                 }
                 hwType.highlightColor = doc["highlight_color"].is<uint16_t>() ? doc["highlight_color"].as<uint16_t>() : 2;
                 JsonObject colorTable = doc["colortable"];
+
                 for (auto kv : colorTable) {
                     JsonArray color = kv.value();
                     Color c;

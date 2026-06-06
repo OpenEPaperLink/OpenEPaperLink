@@ -882,6 +882,12 @@ document.addEventListener("loadTab", function (event) {
 						$("#apcnight2").value = data.sleeptime2;
 						$("#apcdiscovery").value = data.discovery;
 						$("#apcshowtimestamp").value = data.showtimestamp;
+						if (data.owm_api_key !== undefined) {
+							$("#owm_api_key").value = data.owm_api_key;
+						}
+						else  {
+							$("#owm_api_key").value = "";
+						}
 					}
 				})
 			$('#apcfgmsg').innerHTML = '';
@@ -921,6 +927,7 @@ $('#apcfgsave').onclick = function () {
 	formData.append('sleeptime2', $('#apcnight2').value);
 	formData.append('discovery', $('#apcdiscovery').value);
 	formData.append('showtimestamp', $('#apcshowtimestamp').value);
+	formData.append('owm_api_key', $('#owm_api_key').value);
 	fetch("save_apcfg", {
 		method: "POST",
 		body: formData
