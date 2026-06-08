@@ -411,6 +411,9 @@ void doTimestamp(TFT_eSprite *spr, uint8_t ts_option) {
     spr->drawRect(ts_x - 1, ts_y - 1, ts_chars * 6 + 1, 9, bg_color);
     spr->setTextColor(char_color, bg_color);
     spr->setCursor(ts_x,ts_y);
+#ifdef LOAD_GFXFF
+    spr->setFreeFont(NULL);
+#endif
     spr->print(buffer);
 }
 
