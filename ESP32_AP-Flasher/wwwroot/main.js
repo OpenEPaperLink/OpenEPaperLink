@@ -50,6 +50,9 @@ window.addEventListener("loadConfig", function () {
 		.then(response => response.json())
 		.then(data => {
 			apConfig = data;
+			// fresh devices have no apconfig.json yet -> "preview" key missing.
+			// Default to enabled, otherwise all tag preview images stay hidden.
+			if (apConfig.preview === undefined) apConfig.preview = 1;
 
 			if (data.alias) {
 				$(".logo").innerHTML = data.alias;
@@ -282,6 +285,9 @@ function connect() {
 		if (msg.apitem) {
 			populateAPCard(msg.apitem);
 		}
+		if (msg.vled) {
+			animateVirtualLed(msg.vled.mac, msg.vled.pattern);
+		}
 		if (msg.console) {
 			if (activeTab == 'flashtab' && flashmodule && typeof (flashmodule.print) === "function") {
 				let color = (msg.color ? msg.color : "#c0c0c0");
@@ -451,6 +457,9 @@ function processTags(tagArray) {
 		div.dataset.nextupdate = element.nextupdate;
 		div.dataset.channel = element.ch;
 		div.dataset.isexternal = element.isexternal;
+		div.dataset.isvirtual = element.isvirtual ? 'true' : 'false';
+		const vtagControls = $('#tag' + tagmac + ' .vtagcontrols');
+		if (vtagControls) vtagControls.style.display = element.isvirtual ? 'flex' : 'none';
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
 		
 		div.style.background = '';
@@ -605,6 +614,15 @@ document.querySelectorAll('.closebtn2').forEach(button => {
 
 //clicking on a tag: load config dialog for tag
 $('#taglist').addEventListener("click", (event) => {
+	// virtual tag controls (buttons / led) are handled separately
+	const vbtn = event.target.closest('.vbtn');
+	if (vbtn) {
+		const card = event.target.closest('.tagcard');
+		if (card) sendVirtualEvent(card.dataset.mac, vbtn.dataset.event);
+		return;
+	}
+	if (event.target.closest('.vtagcontrols')) return;
+
 	let currentElement = event.target;
 	while (currentElement !== $('#taglist')) {
 		if (currentElement.classList.contains("tagcard")) {
@@ -618,6 +636,248 @@ $('#taglist').addEventListener("click", (event) => {
 	const mac = currentElement.dataset.mac;
 	loadContentCard(mac);
 })
+
+// ---- Virtual (simulated) tag support ----
+
+const virtualTagTypes = [
+	[0xC1, "ACeP 4.01 640x400"],
+	[0xBE, "ATC MiThermometer BLE 6x8"],
+	[0xBD, "BLE EPD BWR 2.9\" Silabs 384x168"],
+	[0xE4, "BLE TFT 128x128 128x128"],
+	[0xC0, "BWRY example 360x184"],
+	[0x80, "Chroma 7.4\" 640x384"],
+	[0x81, "Chroma Aeon 74 7.4\" 800x480"],
+	[0x82, "Chroma29 2.9\" 296x128"],
+	[0x83, "Chroma42 4.2\" 400x300"],
+	[0xFA, "ConfigMode 0x0"],
+	[0xE3, "GDEM1085Z51 10.85\" 1360x480"],
+	[0xB0, "Gicisky BLE EPD BW 2.13\" 250x128"],
+	[0xB2, "Gicisky BLE EPD BW 2.9\" 296x128 (Btn)"],
+	[0xB1, "Gicisky BLE EPD BWR 2.13\" 250x128"],
+	[0xB3, "Gicisky BLE EPD BWR 2.9\" 296x128"],
+	[0xB5, "Gicisky BLE EPD BWR 4.2\" 400x300"],
+	[0xBA, "Gicisky BLE TFT 2.13\" 250x136"],
+	[0x50, "HD150 5.83\" BWR 648x480"],
+	[0x67, "HS 2.00\" BWY 152x200 (Btn)"],
+	[0x71, "HS 2.13\" BWR High Res 296x144 (Btn)"],
+	[0x70, "HS 2.9\" HighRes 384x168 (Btn+LED)"],
+	[0x54, "HS BW 2.13\" 256x128 (LED)"],
+	[0x5A, "HS BW 2.13\" LowRes 212x104 (LED)"],
+	[0x62, "HS BW 3.5\" 384x184 (LED)"],
+	[0x55, "HS BWR 2.13\" 256x128 (LED)"],
+	[0x56, "HS BWR 2.66\" 296x152 (LED)"],
+	[0x61, "HS BWR 3.5\" 384x184 (LED)"],
+	[0x6A, "HS BWR 5,83\" 648x480 (Btn+LED)"],
+	[0x6C, "HS BWRY 2,00\" 152x200 (Btn+LED)"],
+	[0x6F, "HS BWRY 2,60\" 296x152 (Btn+LED)"],
+	[0x6E, "HS BWRY 2,9\" 296x128 (Btn+LED)"],
+	[0x6D, "HS BWRY 3,5\" 384x184 (Btn+LED)"],
+	[0x6B, "HS BWRY 7,5\" 800x480 (Btn+LED)"],
+	[0x68, "HS BWY 3.46\" 480x176 (LED)"],
+	[0x60, "HS BWY 3.5\" 384x184 (LED)"],
+	[0x66, "HS BWY 7,5\" 800x480 (Btn+LED)"],
+	[0xE2, "LILYGO TPANEL 4\" 480x480"],
+	[0x00, "M2 1.54\" 152x152 (Btn)"],
+	[0x03, "M2 2.2\" 212x104 (Btn)"],
+	[0x04, "M2 2.6\" 296x152 (Btn)"],
+	[0x22, "M2 2.7\" 264x176 (Btn)"],
+	[0x11, "M2 2.9\" (UC8151) 296x128 (Btn)"],
+	[0x01, "M2 2.9\" 296x128 (Btn)"],
+	[0x02, "M2 4.2\" 400x300 (Btn)"],
+	[0x12, "M2 4.2\" UC 400x300 (Btn)"],
+	[0x05, "M2 7.4\" 640x384"],
+	[0x26, "M2 7.5\" BW 640x384"],
+	[0x43, "M3 1.3\" Peghook 144x200 (Btn)"],
+	[0x91, "M3 1.6\" 200px BWRY 200x200 (Btn+LED)"],
+	[0x4A, "M3 1.6\" 200px BWRY 200x200 (LED)"],
+	[0x30, "M3 1.6\" 200x200 (Btn)"],
+	[0x28, "M3 1.6\" BWRY 168x168 (LED)"],
+	[0x37, "M3 11.6\" 960x640 (Btn)"],
+	[0x4D, "M3 11.6\" BWRY 960x640 (LED)"],
+	[0x2D, "M3 12.2\" 960x768 (Btn)"],
+	[0x45, "M3 2.2 Lite\" 250x128 (LED)"],
+	[0x31, "M3 2.2\" 296x160 (Btn+LED)"],
+	[0x46, "M3 2.2\" BW 296x160 (Btn+LED)"],
+	[0x4B, "M3 2.2\" BWRY 296x160 (LED)"],
+	[0x29, "M3 2.4\" BWRY 296x168 (LED)"],
+	[0x32, "M3 2.6\" 360x184"],
+	[0x4E, "M3 2.6\" BW 360x184 (Btn+LED)"],
+	[0x4F, "M3 2.6\" BWRY 360x184 (Btn+LED)"],
+	[0x47, "M3 2.7\" 300x200 (Btn)"],
+	[0x33, "M3 2.9\" 384x168 (Btn+LED)"],
+	[0x40, "M3 2.9\" BW 384x168 (Btn+LED)"],
+	[0x2B, "M3 2.9\" BWRY 384x168 (LED)"],
+	[0x2A, "M3 3.0\" BWRY 400x168 (LED)"],
+	[0x34, "M3 4.2\" 400x300 (Btn+LED)"],
+	[0x90, "M3 4.2\" BWRY 400x300 (Btn+LED)"],
+	[0x3C, "M3 4.2\" BWY 400x300 (Btn+LED)"],
+	[0x2F, "M3 4.3\" 522x152 (Btn+LED)"],
+	[0x2C, "M3 4.3\" BWRY 522x152 (LED)"],
+	[0x44, "M3 5.81\" BW 720x256"],
+	[0x48, "M3 5.81\" BWR 720x256"],
+	[0x49, "M3 5.81\" V2 BWR 720x256"],
+	[0x41, "M3 5.85\" 792x272"],
+	[0x42, "M3 5.85\" BW 792x272"],
+	[0x35, "M3 6.0\" 600x448 (Btn+LED)"],
+	[0x36, "M3 7.5\" 800x480 (Btn+LED)"],
+	[0x4C, "M3 7.5\" BWRY 800x480 (LED)"],
+	[0x38, "M3 8.2\" BWRY 1024x576 (Btn+LED)"],
+	[0x2E, "M3 9.7\" 960x672 (Btn)"],
+	[0x06, "Opticon 2.2\" 250x128 (LED)"],
+	[0x07, "Opticon 2.9\" 296x128 (LED)"],
+	[0x08, "Opticon 4.2\" 400x300"],
+	[0x09, "Opticon 7.5\" 640x384"],
+	[0xF0, "SLT\u2010EM007 Segmented 0x0"],
+	[0xC2, "Spectra 7.3 800x480"],
+	[0x27, "ST\u2010GM29MT1 2.9\" 296x128 (Btn)"],
+	[0x21, "ST\u2010GM29XXF 2.9\" 296x128 (Btn)"],
+	[0xE1, "TFT 160x80 160x80"],
+	[0xE5, "TFT 240x320 320x172"],
+	[0xE0, "TFT 320x172 320x172"],
+	[0x69, "TLSR BW 2.13\" 250x136 (LED)"],
+	[0x58, "TLSR BW 2.13\" 256x128 (LED)"],
+	[0x57, "TLSR BWR 1.54\" 200x200 (Btn)"],
+	[0x59, "TLSR BWR 2.13\" 264x136 (LED)"],
+	[0x63, "TLSR BWR 4.2\" 400x300 (LED)"],
+];
+
+function randomVirtualMac() {
+	// MAC bytes are hex only, so the "virtual" marker lives in the alias.
+	let mac = '';
+	for (let i = 0; i < 16; i++) mac += Math.floor(Math.random() * 16).toString(16).toUpperCase();
+	return mac;
+}
+
+function sendVirtualEvent(mac, event) {
+	const formData = new FormData();
+	formData.append('mac', mac);
+	formData.append('event', event);
+	fetch('vtag_event', { method: 'POST', body: formData })
+		.then(response => response.text())
+		.then(data => showMessage(data))
+		.catch(error => showMessage('Error: ' + error, true));
+}
+
+$('#addVirtualTag').addEventListener('click', () => {
+	const select = $('#vtagtype');
+	if (select.options.length === 0) {
+		virtualTagTypes.forEach(([id, label]) => {
+			const opt = document.createElement('option');
+			opt.value = id;
+			opt.textContent = label;
+			select.appendChild(opt);
+		});
+	}
+	const mac = randomVirtualMac();
+	$('#vtagmac').value = mac;
+	$('#vtagalias').value = 'VIRT-' + mac.slice(-4);
+	$('#vtagbox').showModal();
+});
+
+$('#vtagrandom').addEventListener('click', () => {
+	const mac = randomVirtualMac();
+	$('#vtagmac').value = mac;
+	$('#vtagalias').value = 'VIRT-' + mac.slice(-4);
+});
+
+$('#vtagclose').addEventListener('click', () => $('#vtagbox').close());
+
+$('#vtagcreate').addEventListener('click', async () => {
+	const mac = $('#vtagmac').value.trim().toUpperCase();
+	const hwtype = parseInt($('#vtagtype').value);
+	const alias = $('#vtagalias').value.trim();
+	if (!/^[0-9A-F]{12}([0-9A-F]{4})?$/.test(mac)) {
+		showMessage('Error: MAC must be 12 or 16 hex characters', true);
+		return;
+	}
+	const btn = $('#vtagcreate');
+	btn.disabled = true;
+	try {
+		// make sure the tag type definition exists on the device, so the AP can render it
+		await getTagtype(hwtype);
+		const formData = new FormData();
+		formData.append('mac', mac);
+		formData.append('hwtype', hwtype);
+		formData.append('alias', alias);
+		const response = await fetch('vtag_create', { method: 'POST', body: formData });
+		const text = await response.text();
+		showMessage(text, !response.ok);
+		if (response.ok) $('#vtagbox').close();
+	} catch (error) {
+		showMessage('Error: ' + error, true);
+	} finally {
+		btn.disabled = false;
+	}
+});
+
+function rgb332ToCss(c) {
+	const r = ((c >> 5) & 7) * 36;
+	const g = ((c >> 2) & 7) * 36;
+	const b = (c & 3) * 85;
+	return `rgb(${r},${g},${b})`;
+}
+
+function animateVirtualLed(mac, hex) {
+	const el = $('#tag' + mac + ' .vled');
+	if (!el || !hex) return;
+	const b = [];
+	for (let i = 0; i < 12; i++) b.push(parseInt(hex.substr(i * 2, 2), 16) || 0);
+
+	// supersede any running animation on this led
+	if (el._ledTimer) { clearTimeout(el._ledTimer); el._ledTimer = null; }
+	el._ledSeq = (el._ledSeq || 0) + 1;
+	const seq = el._ledSeq;
+
+	const ledOff = () => { el.classList.remove('on'); el.style.background = ''; el.style.boxShadow = ''; };
+
+	const mode = b[0] & 0x0f;
+	if (mode === 0) { ledOff(); return; }
+
+	const colors = [b[1], b[4], b[7]];
+	const counts = [b[2] & 0x0f, b[5] & 0x0f, b[8] & 0x0f];
+	const speeds = [(b[2] >> 4) & 0x0f, (b[5] >> 4) & 0x0f, (b[8] >> 4) & 0x0f];
+	const delays = [b[3], b[6], b[9]];
+	const repeats = b[10];
+
+	// build a single flash cycle (bounded: <=3 colors * 15 blinks * 2 + gaps)
+	// and replay it (repeats+1) times. `repeats` is an unbounded byte from the
+	// device, so pre-building every step would materialize tens of thousands of
+	// objects and stall the UI; replaying one cycle keeps memory constant.
+	const cycle = [];
+	for (let c = 0; c < 3; c++) {
+		if (counts[c] === 0) continue;
+		const css = rgb332ToCss(colors[c]);
+		const on = Math.max(60, speeds[c] * 40);
+		for (let n = 0; n < counts[c]; n++) {
+			cycle.push({ color: css, ms: on });
+			cycle.push({ color: null, ms: on });
+		}
+		if (delays[c]) cycle.push({ color: null, ms: delays[c] * 10 });
+	}
+	if (cycle.length === 0) { ledOff(); return; }
+
+	let idx = 0;
+	let rep = 0;
+	const run = () => {
+		if (seq !== el._ledSeq) return;  // a newer animation took over
+		if (idx >= cycle.length) {
+			idx = 0;
+			if (++rep > repeats) { ledOff(); return; }  // repeats+1 cycles total
+		}
+		const s = cycle[idx++];
+		if (s.color) {
+			el.classList.add('on');
+			el.style.background = s.color;
+			el.style.boxShadow = '0 0 8px 2px ' + s.color;
+		} else {
+			el.classList.remove('on');
+			el.style.background = '';
+			el.style.boxShadow = '';
+		}
+		el._ledTimer = setTimeout(run, s.ms);
+	};
+	run();
+}
 
 function loadContentCard(mac) {
 	$('#cfgmac').innerHTML = mac;
@@ -864,6 +1124,7 @@ document.addEventListener("loadTab", function (event) {
 				.then(data => {
 					if (data && 'alias' in data) {
 						apConfig = data;
+						if (apConfig.preview === undefined) apConfig.preview = 1;
 						$('#apcfgalias').value = data.alias;
 						$('#apcfgchid').value = data.channel;
 						$('#apcfgsubgigchid').value = data.subghzchannel;
@@ -1809,6 +2070,28 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 			contextMenu.style.display = 'none';
 		});
 		contextMenu.appendChild(li);
+
+		// virtual tags get extra entries to simulate wake-up events
+		if (clickedGridItem.dataset.isvirtual == "true") {
+			const virtualEvents = [
+				{ event: 'checkin', label: 'Simulate check-in' },
+				{ event: 'button1', label: 'Press button 1' },
+				{ event: 'button2', label: 'Press button 2' },
+				{ event: 'button3', label: 'Press button 3' },
+				{ event: 'gpio', label: 'GPIO wakeup' },
+				{ event: 'nfc', label: 'NFC wakeup' }
+			];
+			virtualEvents.forEach(option => {
+				const li = document.createElement('li');
+				li.textContent = option.label;
+				li.addEventListener('click', (e) => {
+					e.preventDefault();
+					sendVirtualEvent(mac, option.event);
+					contextMenu.style.display = 'none';
+				});
+				contextMenu.appendChild(li);
+			});
+		}
 
 		contextMenuOptions.forEach(option => {
 			const li = document.createElement('li');

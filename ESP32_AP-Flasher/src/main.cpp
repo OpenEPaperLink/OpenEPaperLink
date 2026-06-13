@@ -14,6 +14,7 @@
 #include "system.h"
 #include "tag_db.h"
 #include "tagdata.h"
+#include "virtualtag.h"
 #include "wifimanager.h"
 
 #ifdef HAS_EXT_FLASHER
@@ -37,6 +38,7 @@ util::Timer intervalContentRunner(seconds(1));
 util::Timer intervalSysinfo(seconds(5));
 util::Timer intervalVars(seconds(10));
 util::Timer intervalSaveDB(minutes(5));
+util::Timer intervalVirtualCheckin(seconds(5));
 
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 
@@ -198,6 +200,10 @@ void loop() {
     }
     if (intervalContentRunner.doRun() && (apInfo.state == AP_STATE_ONLINE || apInfo.state == AP_STATE_NORADIO)) {
         contentRunner();
+    }
+    vtagProcessPending();  // run queued virtual-tag actions from the web task here
+    if (intervalVirtualCheckin.doRun() && config.runStatus != RUNSTATUS_STOP) {
+        vtagAutoCheckin();
     }
 
 #ifdef HAS_TFT

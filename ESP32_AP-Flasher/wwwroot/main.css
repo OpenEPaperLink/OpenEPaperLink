@@ -281,6 +281,11 @@ label {
 	}
 }
 
+#addVirtualTag {
+	padding: 0px 6px;
+	margin-right: -12px;  /* sit right next to the filter icon (header gap is 2em=24px) */
+}
+
 .tabheader {
 	background-color: var(--color-nav-bg);
 	padding: 5px 10px;
@@ -509,7 +514,8 @@ select {
 	max-height: calc(100vh - 75px);
 }
 
-#configbox {
+#configbox,
+#vtagbox {
 	margin: auto;
 	min-width: 380px;
 	padding: 15px;
@@ -526,6 +532,7 @@ select {
 }
 
 #configbox p,
+#vtagbox p,
 #apconfigbox p,
 #apupdatebox p {
 	padding: 5px;
@@ -536,6 +543,7 @@ select {
 }
 
 #configbox h3,
+#vtagbox h3,
 #apconfigbox h3,
 #apupdatebox h3 {
 	font-size: 1.5em;
@@ -543,6 +551,8 @@ select {
 }
 
 #configbox input,
+#vtagbox input,
+#vtagbox select,
 #apconfigbox input {
 	border: solid 1px var(--color-input-border);
 }
@@ -664,6 +674,52 @@ select {
 		box-shadow: 7px 10px 52px -19px var(--color-card-hover-shadow);
 		filter: brightness(1.02);
 	}
+}
+
+/* virtual (simulated) tag UI */
+.vtagbadge {
+	margin-left: auto;
+	align-self: center;
+	font-size: 9px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	padding: 1px 4px;
+	border-radius: 3px;
+	background: #8a2be2;
+	color: #fff;
+}
+
+.vtagcontrols {
+	display: none;
+	align-items: center;
+	gap: 4px;
+	flex-wrap: wrap;
+	margin-top: 6px;
+}
+
+.vtagcontrols .vbtn {
+	font-size: 11px;
+	padding: 2px 6px;
+	min-width: 26px;
+	cursor: pointer;
+	border: 1px solid var(--color-card-border);
+	border-radius: 3px;
+	background: var(--color-card-bg);
+	color: var(--color-text);
+}
+
+.vtagcontrols .vbtn:hover {
+	filter: brightness(1.2);
+}
+
+.vled {
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: #333;
+	border: 1px solid #000;
+	transition: background 0.05s linear, box-shadow 0.05s linear;
 }
 
 .tagflash {
