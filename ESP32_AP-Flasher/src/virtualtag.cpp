@@ -56,6 +56,11 @@ void vtagCreate(const uint8_t* mac, uint8_t hwType, const String& alias) {
     mac2hex(mac, hexmac);
     wsLog("Created virtual tag " + String(hexmac));
 
+    // persist immediately: the periodic saveDB only runs every few minutes,
+    // so without this a freshly created virtual tag is lost on a restart/
+    // power-cycle that happens before the next periodic save.
+    saveDB("/current/tagDB.json");
+
     // simulate first boot so default content gets drawn
     vtagEvent(mac, WAKEUP_REASON_FIRSTBOOT);
 }
