@@ -13,6 +13,7 @@
 #include "powermgt.h"
 #include "settings.h"
 #include "storage.h"
+#include "virtualtag.h"
 #include "web.h"
 #include "zbs_interface.h"
 #include "wifimanager.h"
@@ -277,6 +278,8 @@ blksend:
 }
 
 bool sendDataAvail(struct pendingData* pending) {
+    // virtual tags have no radio: handle their data locally and reflect to the UI
+    if (vtagIsVirtual(pending->targetMac)) return vtagHandleDataAvail(pending);
     if (apInfo.state == AP_STATE_NORADIO) return true;
     if (!apInfo.isOnline) return false;
     if (!txStart()) return false;
@@ -299,6 +302,7 @@ bool sendDataAvail(struct pendingData* pending) {
     return false;
 }
 bool sendCancelPending(struct pendingData* pending) {
+    if (vtagIsVirtual(pending->targetMac)) return true;
     if (apInfo.state == AP_STATE_NORADIO) return true;
     if (!apInfo.isOnline) return false;
     if (!txStart()) return false;

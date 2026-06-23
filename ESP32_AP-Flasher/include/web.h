@@ -12,6 +12,7 @@ void wsErr(const String &text);
 void wsSendTaginfo(const uint8_t *mac, uint8_t syncMode);
 void wsSendSysteminfo();
 void wsSendAPitem(struct APlist *apitem);
+void wsSendVirtualLed(const uint8_t *mac, const uint8_t pattern[12]);
 void wsSerial(const String &text);
 void wsSerial(const String &text, const String &color);
 uint8_t wsClientCount();

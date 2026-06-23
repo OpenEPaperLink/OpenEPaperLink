@@ -6,9 +6,9 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
 
 	<title>Open EPaper Link Access Point</title>
-	<script src="main.js?2.74" defer></script>
+	<script src="main.js?2.78" defer></script>
 	<script src="g5decoder.js?2.74"></script>
-	<link rel="stylesheet" href="main.css?2.74" type="text/css" />
+	<link rel="stylesheet" href="main.css?2.79" type="text/css" />
 	<!--<link rel="icon" type="image/vnd.icon" href="favicon.ico">-->
 	<link rel="stylesheet"
 		  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
@@ -117,7 +117,7 @@
 			<div id="tagtab" class="tabcontent">
 				<div class="tagheader">
 					<h3>Currently active tags</h3>
-					<div id="activefilter"></div><button class="material-symbols-outlined" id="toggleFilters">filter_alt</button>
+					<div id="activefilter"></div><button class="material-symbols-outlined" id="addVirtualTag" title="Create a virtual (simulated) tag">add_circle</button><button class="material-symbols-outlined" id="toggleFilters">filter_alt</button>
 				</div>
 				<div id="filterOptions">
 					<div>
@@ -181,6 +181,13 @@
 						<div class="lastseen"></div>
 						<div class="nextcheckin"></div>
 						<div class="nextupdate"></div>
+						<div class="vtagcontrols">
+							<span class="vled" title="Tag LED"></span>
+							<button class="vbtn" data-event="checkin" title="Simulate a check-in">&#x21bb;</button>
+							<button class="vbtn" data-event="button1" title="Press button 1">B1</button>
+							<button class="vbtn" data-event="button2" title="Press button 2">B2</button>
+							<span class="vtagbadge" title="Virtual / simulated tag">VIRT</span>
+						</div>
 						<div class="corner">
 							<div class="waitingicon" title="New content is scheduled to be generated (as soon as possible, or shortly before the next expected checkin time)">&#9203;</div>
 							<div class="pendingicon" title="A new message is waiting for the tag to pick up">&circlearrowright;</div>
@@ -624,6 +631,28 @@ options:
 		<p id="savebar">
 			<span><input type="button" value="Save" id="cfgsave"></span>
 			<span id="cfgmore" title="advanced options">&#x25BC;</span>
+		</p>
+	</dialog>
+
+	<dialog id="vtagbox">
+		<div class="closebtn2" id="vtagclose">&#10006;</div>
+		<h3>Create virtual tag</h3>
+		<p>Simulate a tag for testing &mdash; no physical hardware needed.</p>
+		<p>
+			<label for="vtagalias">Alias</label>
+			<input id="vtagalias" type="text" placeholder="My test tag">
+		</p>
+		<p>
+			<label for="vtagtype">Tag type</label>
+			<select id="vtagtype"></select>
+		</p>
+		<p>
+			<label for="vtagmac">MAC</label>
+			<input id="vtagmac" type="text" maxlength="16" style="font-family:monospace;">
+			<button id="vtagrandom" type="button" title="Generate a random MAC">&#x21bb;</button>
+		</p>
+		<p id="savebar">
+			<span><input type="button" value="Create" id="vtagcreate"></span>
 		</p>
 	</dialog>
 

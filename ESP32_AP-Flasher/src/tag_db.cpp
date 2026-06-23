@@ -122,6 +122,7 @@ void fillNode(JsonObject& tag, const tagRecord* taginfo) {
     tag["updatelast"] = taginfo->updateLast;
     tag["ch"] = taginfo->currentChannel;
     tag["ver"] = taginfo->tagSoftwareVersion;
+    tag["isvirtual"] = taginfo->isVirtual;
 }
 
 void saveDB(const String& filename) {
@@ -233,6 +234,7 @@ bool loadDB(const String& filename) {
                     taginfo->updateLast = tag["updatelast"] | 0;
                     taginfo->currentChannel = tag["ch"] | 0;
                     taginfo->tagSoftwareVersion = tag["ver"] | 0;
+                    taginfo->isVirtual = tag["isvirtual"].as<bool>();
                 }
             } else {
                 Serial.print(F("deserializeJson() failed: "));

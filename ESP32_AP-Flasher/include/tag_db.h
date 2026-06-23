@@ -15,7 +15,7 @@
 #define NO_SUBGHZ_CHANNEL  255
 class tagRecord {
    public:
-    tagRecord() : mac{0}, version(0), alias(""), lastseen(0), nextupdate(0), contentMode(0), pendingCount(0), md5{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false), apIp(IPAddress(0, 0, 0, 0)), pendingIdle(0), rotate(0), lut(0), tagSoftwareVersion(0), currentChannel(0), dataType(0), filename(""), data(nullptr), len(0), invert(0), updateCount(0), updateLast(0) {}
+    tagRecord() : mac{0}, version(0), alias(""), lastseen(0), nextupdate(0), contentMode(0), pendingCount(0), md5{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false), apIp(IPAddress(0, 0, 0, 0)), pendingIdle(0), rotate(0), lut(0), tagSoftwareVersion(0), currentChannel(0), dataType(0), filename(""), data(nullptr), len(0), invert(0), updateCount(0), updateLast(0), isVirtual(false) {}
 
     uint8_t mac[8];
     uint8_t version;
@@ -50,6 +50,8 @@ class tagRecord {
     String filename;
     uint8_t* data;
     uint32_t len;
+
+    bool isVirtual;  // true for simulated tags that have no physical radio counterpart
 
     static tagRecord* findByMAC(const uint8_t mac[8]);
 };
