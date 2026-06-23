@@ -106,5 +106,14 @@
       "MD5":"4643F4F74321FC9B4F9F0ECBD93B74AB",
       "type":17,
       "note":"2.9 White + NFC UC8151 V025 FW"
+    },
+    {
+      "name":"2.9 White + NFC UC8151",
+      "mac_offset":64518,
+      "mac_format":1,
+      "mac_suffix":"3B30",
+      "MD5":"3962F17C657B1E77E144E69DFD1D35A5",
+      "type":17,
+      "note":"2.9 White + NFC UC8151 V033 FW"
     }
   ]
