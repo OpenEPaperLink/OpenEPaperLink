@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WireGuard Konfiguration - OpenEPaperLink</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 10px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.disabled {
+            background-color: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: monospace;
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        button.primary {
+            background-color: #007bff;
+            color: white;
+        }
+        button.primary:hover {
+            background-color: #0056b3;
+        }
+        button.success {
+            background-color: #28a745;
+            color: white;
+        }
+        button.success:hover {
+            background-color: #218838;
+        }
+        button.danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        button.danger:hover {
+            background-color: #c82333;
+        }
+        button.secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        button.secondary:hover {
+            background-color: #5a6268;
+        }
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        .error {
+            color: #dc3545;
+            margin: 10px 0;
+        }
+        .info-box {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 15px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Zurück zur Hauptseite</a>
+        
+        <h1>WireGuard VPN Konfiguration</h1>
+        
+        <div id="status" class="status disabled">
+            Status: <span id="statusText">Lade...</span>
+        </div>
+        
+        <div id="errorMessage" class="error" style="display: none;"></div>
+        
+        <div class="info-box">
+            <strong>Hinweis:</strong> WireGuard ermöglicht einen sicheren VPN-Tunnel zu Ihrem Netzwerk. 
+            Stellen Sie sicher, dass Sie bereits einen WireGuard-Server eingerichtet haben, bevor Sie 
+            diese Konfiguration verwenden.
+        </div>
+        
+        <form id="wgForm">
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="enabled" name="enabled" value="1">
+                    WireGuard aktivieren
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label for="localIP">Lokale IP-Adresse (VPN)</label>
+                <input type="text" id="localIP" name="localIP" placeholder="10.0.0.2">
+                <div class="help-text">Die IP-Adresse, die diesem Gerät im VPN zugewiesen wird</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="privateKey">Private Key (Base64)</label>
+                <textarea id="privateKey" name="privateKey" placeholder="Ihr privater WireGuard-Schlüssel"></textarea>
+                <div class="help-text">Generieren Sie mit: wg genkey</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="endpointAddress">Server-Adresse</label>
+                <input type="text" id="endpointAddress" name="endpointAddress" placeholder="vpn.example.com oder 192.168.1.1">
+                <div class="help-text">Hostname oder IP-Adresse des WireGuard-Servers</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="endpointPort">Server-Port</label>
+                <input type="number" id="endpointPort" name="endpointPort" value="51820" min="1" max="65535">
+                <div class="help-text">Standard: 51820</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="publicKey">Server Public Key (Base64)</label>
+                <textarea id="publicKey" name="publicKey" placeholder="Öffentlicher Schlüssel des Servers"></textarea>
+                <div class="help-text">Der öffentliche Schlüssel Ihres WireGuard-Servers</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="presharedKey">Preshared Key (optional, Base64)</label>
+                <textarea id="presharedKey" name="presharedKey" placeholder="Optional: Zusätzlicher gemeinsamer Schlüssel"></textarea>
+                <div class="help-text">Generieren Sie mit: wg genpsk (optional, für zusätzliche Sicherheit)</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="allowedIPs">Erlaubte IPs (Allowed IPs)</label>
+                <input type="text" id="allowedIPs" name="allowedIPs" value="0.0.0.0/0, ::/0">
+                <div class="help-text">0.0.0.0/0 für allen Traffic durch VPN, oder spezifische Netzwerke (z.B. 10.0.0.0/24)</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="persistentKeepalive">Persistent Keepalive (Sekunden)</label>
+                <input type="number" id="persistentKeepalive" name="persistentKeepalive" value="25" min="0" max="300">
+                <div class="help-text">0 = deaktiviert, 25 = empfohlen für NAT-Durchquerung</div>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit" class="primary">Konfiguration speichern</button>
+                <button type="button" id="connectBtn" class="success">Verbinden</button>
+                <button type="button" id="disconnectBtn" class="danger">Trennen</button>
+                <button type="button" id="refreshBtn" class="secondary">Status aktualisieren</button>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        // Konfiguration beim Laden abrufen
+        async function loadConfig() {
+            try {
+                const response = await fetch('/get_wg_config');
+                const config = await response.json();
+                
+                document.getElementById('enabled').checked = config.enabled;
+                document.getElementById('localIP').value = config.localIP || '';
+                document.getElementById('endpointAddress').value = config.endpointAddress || '';
+                document.getElementById('endpointPort').value = config.endpointPort || 51820;
+                document.getElementById('publicKey').value = config.publicKey || '';
+                document.getElementById('allowedIPs').value = config.allowedIPs || '0.0.0.0/0, ::/0';
+                document.getElementById('persistentKeepalive').value = config.persistentKeepalive || 25;
+                
+                updateStatus(config.status, config.connected);
+            } catch (error) {
+                showError('Fehler beim Laden der Konfiguration: ' + error.message);
+            }
+        }
+        
+        // Status aktualisieren
+        async function refreshStatus() {
+            try {
+                const response = await fetch('/wg_status');
+                const status = await response.json();
+                updateStatus(status.status, status.connected);
+                
+                if (status.error) {
+                    showError('WireGuard Fehler: ' + status.error);
+                } else {
+                    hideError();
+                }
+            } catch (error) {
+                showError('Fehler beim Abrufen des Status: ' + error.message);
+            }
+        }
+        
+        // Status-Anzeige aktualisieren
+        function updateStatus(statusText, connected) {
+            const statusDiv = document.getElementById('status');
+            const statusTextSpan = document.getElementById('statusText');
+            
+            statusTextSpan.textContent = statusText;
+            
+            statusDiv.className = 'status';
+            if (connected) {
+                statusDiv.classList.add('connected');
+            } else if (statusText === 'Disabled') {
+                statusDiv.classList.add('disabled');
+            } else {
+                statusDiv.classList.add('disconnected');
+            }
+        }
+        
+        // Fehler anzeigen
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        // Fehler ausblenden
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+        
+        // Formular absenden
+        document.getElementById('wgForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/save_wg_config', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const text = await response.text();
+                
+                if (response.ok) {
+                    alert('Konfiguration erfolgreich gespeichert!');
+                    await refreshStatus();
+                } else {
+                    showError('Fehler beim Speichern: ' + text);
+                }
+            } catch (error) {
+                showError('Fehler beim Speichern: ' + error.message);
+            }
+        });
+        
+        // Verbinden
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/wg_connect', { method: 'POST' });
+                const text = await response.text();
+                
+                if (response.ok) {
+                    alert('Verbindung wird hergestellt...');
+                    setTimeout(refreshStatus, 2000);
+                } else {
+                    showError('Verbindungsfehler: ' + text);
+                }
+            } catch (error) {
+                showError('Fehler: ' + error.message);
+            }
+        });
+        
+        // Trennen
+        document.getElementById('disconnectBtn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/wg_disconnect', { method: 'POST' });
+                
+                if (response.ok) {
+                    alert('Verbindung getrennt');
+                    await refreshStatus();
+                } else {
+                    showError('Fehler beim Trennen');
+                }
+            } catch (error) {
+                showError('Fehler: ' + error.message);
+            }
+        });
+        
+        // Status aktualisieren
+        document.getElementById('refreshBtn').addEventListener('click', refreshStatus);
+        
+        // Initial laden
+        loadConfig();
+        
+        // Status alle 10 Sekunden aktualisieren
+        setInterval(refreshStatus, 10000);
+    </script>
+</body>
+</html>

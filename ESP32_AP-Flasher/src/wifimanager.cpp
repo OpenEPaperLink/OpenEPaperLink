@@ -13,6 +13,7 @@
 #include "web.h"
 #include "ips_display.h"
 #include "tag_db.h"
+#include "wireguard_manager.h"
 
 uint8_t WifiManager::apClients = 0;
 uint8_t x_buffer[100];
@@ -91,6 +92,13 @@ void WifiManager::poll() {
             waitForConnection();
         } else {
             _nextReconnectCheck = millis() + _reconnectIntervalCheck;
+            
+            // WireGuard Auto-Start wenn WiFi connected und enabled
+            extern WireGuardManager wgManager;
+            if (wgManager.isEnabled() && !wgManager.isTaskRunning()) {
+                Serial.println("[WiFi] WiFi connected - starting WireGuard task");
+                wgManager.start();
+            }
         }
     }
 
