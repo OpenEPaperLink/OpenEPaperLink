@@ -121,8 +121,9 @@ void setup() {
         } while (pi = (esp_partition_next(pi)));
     }
     */
-
+    #ifdef HAS_ETHERNET
     wm.initEth();
+    #endif
     initAPconfig();
 
     updateLanguageFromConfig();
