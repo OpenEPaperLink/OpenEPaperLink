@@ -279,12 +279,13 @@ uint32_t getTagCount(uint32_t& timeoutcount, uint32_t& lowbattcount) {
     for (const tagRecord* taginfo : tagDB) {
         if (!taginfo->isExternal) tagcount++;
         const int32_t timeout = now - taginfo->lastseen;
+        const int32_t maxsleepSeconds = (config.maxsleep == 255) ? 5 : config.maxsleep * 60;
         if (taginfo->expectedNextCheckin < 3600) {
             // not initialised, timeout if not seen last 5 minutes
-            if (timeout > config.maxsleep * 60 + 300) timeoutcount++;
+            if (timeout > maxsleepSeconds + 300) timeoutcount++;
         } else if (now - static_cast<time_t>(taginfo->expectedNextCheckin) > 600) {
             // expected checkin is behind, timeout if not seen last 5 minutes
-            if (timeout > config.maxsleep * 60 + 300) timeoutcount++;
+            if (timeout > maxsleepSeconds + 300) timeoutcount++;
         }
         if (taginfo->batteryMv < 2400 && taginfo->batteryMv != 0 && taginfo->batteryMv != 1337) lowbattcount++;
     }
