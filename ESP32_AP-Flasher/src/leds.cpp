@@ -185,7 +185,7 @@ void quickBlink(uint8_t repeat) {
     for (int i = 0; i < repeat; i++) {
         struct ledInstruction* mono = new struct ledInstruction;
 #ifdef HAS_TFT
-        mono->value = 255;
+        mono->value = maxledbrightness ? 255 : 0;
 #else
         mono->value = maxledbrightness;
 #endif

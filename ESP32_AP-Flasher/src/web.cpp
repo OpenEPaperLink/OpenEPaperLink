@@ -591,6 +591,9 @@ void init_web() {
         if (request->hasParam("led", true)) {
             config.led = static_cast<uint8_t>(request->getParam("led", true)->value().toInt());
             updateBrightnessFromConfig();
+            // sendChannelPower also carries the LED flag, pushing the change to
+            // the C6 live rather than only at the next reboot.
+            sendChannelPower(&curChannel);
         }
         if (request->hasParam("tft", true)) {
             config.tft = static_cast<uint8_t>(request->getParam("tft", true)->value().toInt());

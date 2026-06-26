@@ -179,10 +179,15 @@ struct espAvailDataReq {
     struct AvailDataReq adr;
 } __attribute__((packed, aligned(1)));
 
+// flags bit 0: the host mirrors its LED on/off setting here so we can silence
+// our own activity LED. Other bits reserved.
+#define ESP_SCP_FLAG_LED (1 << 0)
+
 struct espSetChannelPower {
     uint8_t checksum;
     uint8_t channel;
     uint8_t power;
+    uint8_t flags;
 #ifdef CONFIG_OEPL_SUBGIG_SUPPORT
     uint8_t subghzchannel;
 #endif
