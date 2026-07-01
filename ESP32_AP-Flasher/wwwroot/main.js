@@ -1479,7 +1479,12 @@ function GroupSortFilter() {
 	if (grouping) {
 		gridItems.forEach(item => {
 			const g = String(grouping).startsWith('data-') ? item.dataset[grouping.slice(5)] || '' : item.querySelector('.' + grouping).textContent || '';
-			if (g != '') groupCounts[g] = (groupCounts[g] || 0) + 1;
+			if (g == '') return;
+			if (!groupCounts[g]) groupCounts[g] = { total: 0, pending: 0, offline: 0 };
+			groupCounts[g].total++;
+			if (item.classList.contains('tagpending')) groupCounts[g].pending++;
+			const warn = item.querySelector('.warningicon');
+			if (item.classList.contains('state-timeout') || (warn && warn.style.display == 'inline-block')) groupCounts[g].offline++;
 		});
 	}
 
@@ -1515,7 +1520,8 @@ function GroupSortFilter() {
 						groupLabel = 'Channel: ' + group;
 						break;
 				}
-				header.textContent = groupLabel + ' - ' + (groupCounts[group] || 0) + ' pcs';
+				const gc = groupCounts[group] || { total: 0, pending: 0, offline: 0 };
+				header.textContent = groupLabel + ' - ' + gc.total + ' pcs, ' + gc.pending + ' pending, ' + gc.offline + ' offline';
 				header.style.order = order++;
 				header.dataset.clean = 0;
 				currentGroup = group;
