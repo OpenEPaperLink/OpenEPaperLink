@@ -501,6 +501,8 @@ void yellow_ap_display_loop(void) {
     static time_t last_checkin = 0;
     static time_t last_update = 0;
 
+    touch_loop();
+
     if (millis() - last_checkin >= 60000) {
         sendAvail(0);
         last_checkin = millis();
@@ -556,7 +558,6 @@ void yellow_ap_display_loop(void) {
         }
         last_update = millis();
     }
-    touch_loop();
 }
 
 #endif
