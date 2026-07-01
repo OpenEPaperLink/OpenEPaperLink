@@ -683,6 +683,7 @@ select {
 .uploadstatus {
 	display: none;
 	margin-top: 3px;
+	margin-right: 70px;
 	padding: 1px 5px;
 	font-size: 0.78em;
 	font-weight: bold;
