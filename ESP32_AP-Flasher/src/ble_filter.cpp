@@ -3,6 +3,7 @@
 #include <FS.h>
 
 #include "BLEDevice.h"
+#include "ble_filter.h"
 #include "newproto.h"
 #include "serialap.h"
 #include "settings.h"
@@ -90,6 +91,8 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
 
     uint8_t payloadData[100];
     int payloadDatalen = advertisedDevice.getPayloadLength();
+    if (payloadDatalen > sizeof(payloadData))
+        payloadDatalen = sizeof(payloadData);  // Never copy more than the buffer holds (extended advertising can exceed 31 bytes)
     memcpy(&payloadData, (uint8_t*)advertisedDevice.getPayload(), payloadDatalen);
     Serial.printf(" Payload data: ");
     for (int i = 0; i < payloadDatalen; i++)
@@ -133,7 +136,7 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.adr.tagSoftwareVersion = manuData[4] << 8 | manuData[5];
             theAdvData.adr.capabilities = 0x00;
 
-            processDataReq(&theAdvData, true);
+            BLE_enqueue_data_req(&theAdvData);
             return true;
         } else if (manuDatalen >= 3 && manuData[0] == 0x37 && manuData[1] == 0x13) {  // Lets check for a Gicisky E-Paper display
             Serial.printf("ATC BLE OEPL Detected\r\n");
@@ -203,7 +206,7 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.src[5] = macReversed[0];
             theAdvData.src[6] = manuData[0];  // We use this do find out what type of display we got for compression^^
             theAdvData.src[7] = manuData[1];
-            processDataReq(&theAdvData, true);
+            BLE_enqueue_data_req(&theAdvData);
             return true;
         }
     }
@@ -229,7 +232,7 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.adr.hwType = ATC_MI_THERMOMETER;
             theAdvData.adr.tagSoftwareVersion = 0x00;
             theAdvData.adr.capabilities = 0x00;
-            processDataReq(&theAdvData, true);
+            BLE_enqueue_data_req(&theAdvData);
             Serial.printf("We got an ATC_MiThermometer via BLE\r\n");
             return true;
         }
