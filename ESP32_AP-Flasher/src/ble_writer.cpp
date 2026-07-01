@@ -324,6 +324,7 @@ void BLETask(void* parameter) {
                                         struct espXferComplete reportStruct;
                                         memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                         processXferComplete(&reportStruct, true);
+                                        BLE_clear_attempts(BLE_curr_address);
                                     }
                                 }
                             }
@@ -350,6 +351,7 @@ void BLETask(void* parameter) {
                                         struct espXferComplete reportStruct;
                                         memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                         processXferComplete(&reportStruct, true);
+                                        BLE_clear_attempts(BLE_curr_address);
                                     }
                                 }
                             }
@@ -393,6 +395,7 @@ void BLETask(void* parameter) {
                                 struct espXferComplete reportStruct;
                                 memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                 processXferComplete(&reportStruct, true);
+                                BLE_clear_attempts(BLE_curr_address);
                                 BLE_err_counter = 0;
                                 BLE_curr_part = 0;
                             } else {
@@ -482,6 +485,7 @@ void BLETask(void* parameter) {
                                     struct espXferComplete reportStruct;
                                     memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                     processXferComplete(&reportStruct, true);
+                                    BLE_clear_attempts(BLE_curr_address);
                                     BLE_err_counter = 0;
                                     BLE_max_block_parts = 0;
                                     BLE_curr_part = 0;

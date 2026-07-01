@@ -2,6 +2,8 @@
 #include <Arduino.h>
 #include <FS.h>
 
+#include <map>
+
 #include "BLEDevice.h"
 #include "ble_filter.h"
 #include "newproto.h"
@@ -240,23 +242,53 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
     return false;
 }
 
+// Remembers how often we already tried to reach each BLE tag (keyed by MAC).
+// Used to spread attempts evenly instead of getting stuck on the first (maybe
+// offline) tag forever.
+static std::map<uint64_t, uint32_t> BLE_attemptCounts;
+
+static uint64_t BLE_macToKey(const uint8_t mac[8]) {
+    uint64_t key = 0;
+    for (int i = 0; i < 8; i++) key = (key << 8) | mac[i];
+    return key;
+}
+
+static bool BLE_isPendingCandidate(tagRecord* taginfo) {
+    if (taginfo->pendingCount == 0 || taginfo->version != 0) return false;
+    // Gicisky / other BLE displays, or an ATC BLE OEPL tag (MAC starts 0x1337)
+    return ((taginfo->hwType & 0xB0) == 0xB0) || (taginfo->mac[7] == 0x13 && taginfo->mac[6] == 0x37);
+}
+
+// Call once an upload finished (success or given up) so a later re-add of the
+// same tag starts fresh and isn't unfairly deprioritized.
+void BLE_clear_attempts(uint8_t address[8]) {
+    BLE_attemptCounts.erase(BLE_macToKey(address));
+}
+
 bool BLE_is_image_pending(uint8_t address[8]) {
+    // Pick the pending BLE tag we have tried the fewest times. This way an
+    // unreachable display no longer blocks the queue: every attempt rotates to
+    // the next-least-tried tag, so all reachable uploads get their turn and
+    // finish even while some tags stay offline.
+    tagRecord* best = nullptr;
+    uint32_t bestAttempts = 0;
     for (int16_t c = 0; c < tagDB.size(); c++) {
         tagRecord* taginfo = tagDB.at(c);
-        if (taginfo->pendingCount > 0 && taginfo->version == 0 && ((taginfo->hwType & 0xB0) == 0xB0)) {
-            memcpy(address, taginfo->mac, 8);
-            return true;
+        if (!BLE_isPendingCandidate(taginfo)) continue;
+        uint32_t attempts = BLE_attemptCounts[BLE_macToKey(taginfo->mac)];
+        if (best == nullptr || attempts < bestAttempts) {
+            best = taginfo;
+            bestAttempts = attempts;
         }
     }
-    for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = tagDB.at(c);
-        if (taginfo->pendingCount > 0 && taginfo->version == 0 && (taginfo->mac[7] == 0x13) && (taginfo->mac[6] == 0x37)) {
-            memcpy(address, taginfo->mac, 8);
-            Serial.printf("ATC BLE OEPL data Waiting\r\n");
-            return true;
-        }
+    if (best == nullptr) return false;
+
+    memcpy(address, best->mac, 8);
+    BLE_attemptCounts[BLE_macToKey(best->mac)]++;  // count this attempt so the next round prefers the others
+    if (best->mac[7] == 0x13 && best->mac[6] == 0x37) {
+        Serial.printf("ATC BLE OEPL data Waiting\r\n");
     }
-    return false;
+    return true;
 }
 
 uint8_t swapBits(uint8_t num) {
