@@ -496,22 +496,35 @@ void yellow_ap_display_init(void) {
     touch_init();
 }
 
+// Runs in its own FreeRTOS task so periodic checkin and touch input keep
+// working even when the main loop is blocked for a long time (content
+// generation does synchronous HTTP requests with multi-second timeouts, which
+// stall loop() and with it the checkin and touch polling).
+// It only does work that is safe off the main loop: reading touch (I2C +
+// wsSendTouch, which is mutex-protected) and the checkin sendAvail(). It must
+// NOT draw to the display, because gfx/tft2 are also driven from other contexts
+// (content generation in makeimage, the web flasher task) and share the bus.
+void yellow_ap_touch_task(void* parameter) {
+    bool first_run = false;
+    uint32_t last_checkin = 0;
+    while (1) {
+        if (!first_run) {
+            sendAvail(0xFC);
+            first_run = true;
+        }
+        if (millis() - last_checkin >= 60000) {
+            sendAvail(0);
+            last_checkin = millis();
+            tftLogscreen = false;
+        }
+        touch_loop();
+        vTaskDelay(20 / portTICK_PERIOD_MS);
+    }
+}
+
 void yellow_ap_display_loop(void) {
-    static bool first_run = 0;
-    static time_t last_checkin = 0;
     static time_t last_update = 0;
 
-    touch_loop();
-
-    if (millis() - last_checkin >= 60000) {
-        sendAvail(0);
-        last_checkin = millis();
-        tftLogscreen = false;
-    }
-    if (first_run == 0) {
-        sendAvail(0xFC);
-        first_run = 1;
-    }
     if (millis() - last_update >= 3000) {
         uint8_t wifimac[8];
         WiFi.macAddress(wifimac);
