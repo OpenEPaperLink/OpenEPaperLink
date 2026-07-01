@@ -1475,6 +1475,14 @@ function GroupSortFilter() {
 		}
 	});
 
+	let groupCounts = {};
+	if (grouping) {
+		gridItems.forEach(item => {
+			const g = String(grouping).startsWith('data-') ? item.dataset[grouping.slice(5)] || '' : item.querySelector('.' + grouping).textContent || '';
+			if (g != '') groupCounts[g] = (groupCounts[g] || 0) + 1;
+		});
+	}
+
 	let currentGroup = null;
 	let order = 1;
 
@@ -1491,21 +1499,23 @@ function GroupSortFilter() {
 				let header = document.getElementById('header' + group);
 				if (!header) {
 					header = document.createElement('div');
-					switch (grouping) {
-						case 'model':
-							header.textContent = 'Tag model: ' + group;
-							break;
-						case 'contentmode':
-							header.textContent = 'Content: ' + group;
-							break;
-						case 'data-channel':
-							header.textContent = 'Channel: ' + group;
-							break;
-					}
 					header.classList.add('taggroup');
 					header.id = 'header' + group;
 					sortableGrid.appendChild(header);
 				}
+				let groupLabel = group;
+				switch (grouping) {
+					case 'model':
+						groupLabel = 'Tag model: ' + group;
+						break;
+					case 'contentmode':
+						groupLabel = 'Content: ' + group;
+						break;
+					case 'data-channel':
+						groupLabel = 'Channel: ' + group;
+						break;
+				}
+				header.textContent = groupLabel + ' - ' + (groupCounts[group] || 0) + ' pcs';
 				header.style.order = order++;
 				header.dataset.clean = 0;
 				currentGroup = group;
