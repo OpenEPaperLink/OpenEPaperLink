@@ -37,6 +37,9 @@ uint8_t gicToOEPLtype(uint8_t gicType) {
         case 0x2B:
             return GICI_BLE_EPD_29_BWR;
             break;
+        case 0x2E:
+            return GICI_BLE_EPD_29_BWRY;
+            break;
         case 0x33:
             return GICI_BLE_EPD_29_BWR1;
             break;
