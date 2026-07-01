@@ -644,17 +644,6 @@ void init_web() {
         if (request->hasParam("env", true)) {
             config.env = request->getParam("env", true)->value();
         }
-        if (request->hasParam("owm_api_key", true)) {
-            String keyValue = request->getParam("owm_api_key", true)->value();
-            size_t keyLength = keyValue.length();
-            if (keyLength == 32) {
-               keyValue.toCharArray(config.owmApiKey,sizeof(config.owmApiKey));
-               config.owmApiKey[keyLength] = 0;
-            }
-            else {
-               config.owmApiKey[0] = 0;
-            }
-        }
         saveAPconfig();
         setAPchannel();
         request->send(200, "text/plain", "Ok, saved");

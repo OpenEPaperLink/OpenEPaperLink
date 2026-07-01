@@ -42,15 +42,6 @@
 #include "util.h"
 #include "web.h"
 
-#include <DrawOWM.h>
-#define ENABLE_LOGGING  1
-#if ENABLE_LOGGING && __has_include("logging.h") 
-#include "logging.h"
-#else
-#define LOG(format, ...)
-#define LOG_RAW(format, ...)
-#endif
-
 // https://csvjson.com/json_beautifier
 
 bool needRedraw(uint8_t contentMode, uint8_t wakeupReason) {
@@ -386,7 +377,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
             // https://geocoding-api.open-meteo.com/v1/search?name=eindhoven
             // https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true
             // https://github.com/erikflowers/weather-icons
-               
+
             drawWeather(filename, cfgobj, taginfo, imageParams);
             taginfo->nextupdate = now + interval;
             updateTagImage(filename, mac, interval / 60, taginfo, imageParams);
@@ -1079,8 +1070,7 @@ void drawWeather(String &filename, JsonObject &cfgobj, const tagRecord *taginfo,
     spr.deleteSprite();
 }
 
-#if 0
-void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams) {{
+void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams) {
     wsLog("get weather");
     getLocation(cfgobj);
 
@@ -1169,22 +1159,6 @@ void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
 }
-#else
-bool OwmWeather(TFT_eSprite &spr, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams);
-void drawForecast(String &filename, JsonObject &cfgobj, const tagRecord *taginfo, imgParam &imageParams) 
-{
-   TFT_eSprite spr = TFT_eSprite(&tft);
-   initSprite(spr, imageParams.width, imageParams.height, imageParams);
-   if(OwmWeather(spr,cfgobj,taginfo,imageParams)) {
-      spr2buffer(spr, filename, imageParams);
-   }
-   else {
-      wsLog("OWM weather update failed");
-   }
-   spr.deleteSprite();
-}
-
-#endif
 
 int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParams, String MAC) {
     // https://images.klari.net/kat-bw29.jpg
