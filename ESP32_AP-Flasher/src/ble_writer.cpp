@@ -421,6 +421,8 @@ void BLETask(void* parameter) {
                                 uint32_t byteOffset = BLE_curr_part * 240;
                                 if (byteOffset % BLOCK_DATA_SIZE < 240)  // once per 4096-byte block, same cadence as the 802.15.4 path
                                     BLE_reportProgress("block", byteOffset / BLOCK_DATA_SIZE);
+                                uint16_t totalParts = (BLE_compressed_len + 239) / 240;
+                                wsSendUploadProgress(BLE_curr_address, BLE_curr_part + 1, totalParts);  // fine-grained part x/total for the tag card
                                 BLE_curr_part++;
                             }
                             break;
@@ -462,6 +464,8 @@ void BLETask(void* parameter) {
                                         BLE_curr_part = 0;
                                         ATC_BLE_OEPL_PrepareBlk(BLEblkRequst.blockId);
                                         BLE_reportProgress("block", BLEblkRequst.blockId);
+                                        uint16_t totalBlocks = (BLE_compressed_len + BLOCK_DATA_SIZE_BLE - 1) / BLOCK_DATA_SIZE_BLE;
+                                        wsSendUploadProgress(BLE_curr_address, BLEblkRequst.blockId + 1, totalBlocks);
                                         ATC_BLE_OEPL_SendPart(BLEblkRequst.blockId, BLE_curr_part);
                                     }
                                     break;

@@ -680,6 +680,20 @@ select {
 	animation: pending 1.5s ease infinite;
 }
 
+.uploadstatus {
+	display: none;
+	margin-top: 3px;
+	padding: 1px 5px;
+	font-size: 0.78em;
+	font-weight: bold;
+	color: #222;
+	border-radius: 3px;
+	text-align: center;
+	background: linear-gradient(to right,
+		#e2f103 0%, #e2f103 var(--pct, 0%),
+		var(--color-card-border) var(--pct, 0%), var(--color-card-border) 100%);
+}
+
 .taggroup {
 	border: 1px solid var(--color-tag-group-border);
 	width: 100%;

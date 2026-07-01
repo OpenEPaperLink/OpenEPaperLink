@@ -289,6 +289,9 @@ function connect() {
 			//   window.addEventListener('oepltouch', e => console.log(e.detail));
 			window.dispatchEvent(new CustomEvent('oepltouch', { detail: msg.touch }));
 		}
+		if (msg.upload) {
+			showUploadProgress(msg.upload);
+		}
 		if (msg.console) {
 			if (activeTab == 'flashtab' && flashmodule && typeof (flashmodule.print) === "function") {
 				let color = (msg.color ? msg.color : "#c0c0c0");
@@ -1226,6 +1229,30 @@ function getContentDefById(id) {
 	if (id == null) return null;
 	const obj = cardconfig.find(item => item.id == id);
 	return obj || null;
+}
+
+const uploadTimers = {};
+// Live data-upload progress on a tag card.
+// Protocol: {upload:{src:"<16hex MAC>", current:N, total:M}} (current>=total = done).
+function showUploadProgress(u) {
+	const src = (u.src || '').toUpperCase();
+	const div = $('#tag' + src);
+	if (!div) return;
+	const el = div.querySelector('.uploadstatus');
+	if (!el) return;
+	const total = u.total || 0;
+	const current = u.current || 0;
+	const pct = total > 0 ? Math.min(100, Math.round(current / total * 100)) : 0;
+	el.textContent = pct + '% (' + current + '/' + total + ')';
+	el.style.setProperty('--pct', pct + '%');
+	el.style.display = 'block';
+	// Auto-hide: shortly after completion, or after a stall (aborted / tag offline).
+	if (uploadTimers[src]) clearTimeout(uploadTimers[src]);
+	const hideDelay = (total > 0 && current >= total) ? 2000 : 20000;
+	uploadTimers[src] = setTimeout(() => {
+		el.style.display = 'none';
+		delete uploadTimers[src];
+	}, hideDelay);
 }
 
 function showMessage(message, iserr) {

@@ -15,6 +15,7 @@ void wsSendAPitem(struct APlist *apitem);
 void wsSerial(const String &text);
 void wsSerial(const String &text, const String &color);
 void wsSendTouch(uint8_t count, const uint16_t *xs, const uint16_t *ys, const uint8_t *ids, const uint8_t *sizes);
+void wsSendUploadProgress(const uint8_t *mac, uint16_t current, uint16_t total);
 uint8_t wsClientCount();
 
 extern AsyncWebSocket ws;
