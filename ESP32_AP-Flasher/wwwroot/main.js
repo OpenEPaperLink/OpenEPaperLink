@@ -282,6 +282,13 @@ function connect() {
 		if (msg.apitem) {
 			populateAPCard(msg.apitem);
 		}
+		if (msg.touch) {
+			// Real touch positions from a touch-capable AP (e.g. 4inch GT911).
+			// Protocol: {touch:{count:N, points:[{id,x,y,size},...]}}, count 0 = release.
+			// Consume it from your own code with:
+			//   window.addEventListener('oepltouch', e => console.log(e.detail));
+			window.dispatchEvent(new CustomEvent('oepltouch', { detail: msg.touch }));
+		}
 		if (msg.console) {
 			if (activeTab == 'flashtab' && flashmodule && typeof (flashmodule.print) === "function") {
 				let color = (msg.color ? msg.color : "#c0c0c0");

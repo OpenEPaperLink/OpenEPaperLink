@@ -6,6 +6,7 @@
 #include "newproto.h"
 #include "storage.h"
 #include "tag_db.h"
+#include "web.h"
 
 #ifdef HAS_TFT
 
@@ -310,9 +311,21 @@ void touch_loop()
         last_touch_read = millis();
         ts.read();
         if (ts.isTouched)
-        {            
-            touch_last_x = map(ts.points[0].x, 480, 0, 0, 480 - 1);
-            touch_last_y = map(ts.points[0].y, 480, 0, 0, 480 - 1);
+        {
+            uint8_t count = ts.touches;
+            if (count > 5) count = 5;  // the GT911 tracks at most 5 points
+            uint16_t xs[5], ys[5];
+            uint8_t ids[5], sizes[5];
+            for (uint8_t i = 0; i < count; i++) {
+                xs[i] = map(ts.points[i].x, 480, 0, 0, 480 - 1);
+                ys[i] = map(ts.points[i].y, 480, 0, 0, 480 - 1);
+                ids[i] = ts.points[i].id;
+                sizes[i] = ts.points[i].size;
+            }
+            touch_last_x = xs[0];
+            touch_last_y = ys[0];
+            // Stream the real touch positions (also while dragging) over websocket
+            wsSendTouch(count, xs, ys, ids, sizes);
             Serial.printf("Touch position X: %i Y: %i\r\n", touch_last_x, touch_last_y);
             if(is_new_touch_checked == false)
             {
@@ -323,6 +336,8 @@ void touch_loop()
                     sendAvail(WAKEUP_REASON_BUTTON2);
             }
         }else{
+            if (is_new_touch_checked)  // fingers just left the panel, send one release event
+                wsSendTouch(0, nullptr, nullptr, nullptr, nullptr);
             is_new_touch_checked = false;
         }
     }
