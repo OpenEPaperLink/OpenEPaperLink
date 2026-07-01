@@ -5,6 +5,7 @@
 #include "BLEDevice.h"
 #include "ble_filter.h"
 #include "newproto.h"
+#include "web.h"
 
 #define INTERVAL_BLE_SCANNING_SECONDS 60
 #define INTERVAL_HANDLE_PENDING_SECONDS 10
@@ -81,6 +82,19 @@ void BLE_enqueue_data_req(struct espAvailDataReq* req) {
     xQueueSend(BLE_dataReqQueue, req, 0);
 }
 
+// Emits a websocket log line that starts with the tag MAC (same MAC byte
+// order as processBlockRequest). The web frontend blinks the tag card yellow
+// ("loading") for every such line, so this gives per-block progress feedback
+// during a BLE upload instead of only the single flash at the very end.
+static void BLE_reportProgress(const char* what, uint32_t value) {
+    char buffer[80];
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X BLE %s %u",
+            BLE_curr_address[7], BLE_curr_address[6], BLE_curr_address[5], BLE_curr_address[4],
+            BLE_curr_address[3], BLE_curr_address[2], BLE_curr_address[1], BLE_curr_address[0],
+            what, value);
+    wsLog((String)buffer);
+}
+
 static void notifyCallback(
     BLERemoteCharacteristic* pBLERemoteCharacteristic,
     uint8_t* pData,
@@ -124,6 +138,16 @@ bool BLE_connect(uint8_t addr[8], BLE_CONNECTION_TYPE conn_type) {
     uint8_t temp_Address[] = {addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]};
     Serial.printf("BLE Connecting to: %02X:%02X:%02X:%02X:%02X:%02X\r\n", addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
     static MyClientCallback clientCallback;
+    // Free the client from the previous transfer. BLEDevice::createClient()
+    // does 'new BLEClient()' on every call and never reuses or frees them, so
+    // without this every connection attempt leaked one client. We only get here
+    // from the IDLE state: the previous transfer already disconnected, the
+    // GATTC interface was released in ESP_GATTC_DISCONNECT_EVT, and nothing
+    // references the old client anymore, so a plain delete is safe here.
+    if (pClient != nullptr) {
+        delete pClient;
+        pClient = nullptr;
+    }
     pClient = BLEDevice::createClient();
     pClient->setClientCallbacks(&clientCallback);
     if (!pClient->connect(BLEAddress(temp_Address))) {
@@ -391,6 +415,9 @@ void BLETask(void* parameter) {
                                 memcpy((uint8_t*)&BLE_mini_buff[4], (uint8_t*)&BLE_image_buffer[BLE_curr_part * 240], curr_len);
                                 imgChar->writeValue(BLE_mini_buff, curr_len + 4);
                                 Serial.printf("BLE sending part: %i\r\n", BLE_curr_part);
+                                uint32_t byteOffset = BLE_curr_part * 240;
+                                if (byteOffset % BLOCK_DATA_SIZE < 240)  // once per 4096-byte block, same cadence as the 802.15.4 path
+                                    BLE_reportProgress("block", byteOffset / BLOCK_DATA_SIZE);
                                 BLE_curr_part++;
                             }
                             break;
@@ -431,6 +458,7 @@ void BLETask(void* parameter) {
                                         memcpy(&BLEblkRequst, &BLE_notify_buffer[3], sizeof(struct blockRequest));
                                         BLE_curr_part = 0;
                                         ATC_BLE_OEPL_PrepareBlk(BLEblkRequst.blockId);
+                                        BLE_reportProgress("block", BLEblkRequst.blockId);
                                         ATC_BLE_OEPL_SendPart(BLEblkRequst.blockId, BLE_curr_part);
                                     }
                                     break;
