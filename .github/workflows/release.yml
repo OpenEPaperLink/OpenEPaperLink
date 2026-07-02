@@ -6,10 +6,11 @@ on:
       - '*'
 
 env:
-  INCLUDE_C6_H2: true
+  INCLUDE_C6_H2: false
   INCLUDE_MINI_AP: false
   INCLUDE_Nano_AP: false
   INCLUDE_S2_Tag_Flasher: false
+  
 
 jobs:
   build:
@@ -343,6 +344,23 @@ jobs:
           cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
           cp OpenEPaperLink_ESP32-PoE-ISO_AP/firmware.bin espbinaries/OpenEPaperLink_ESP32-PoE-ISO_AP.bin
           cp OpenEPaperLink_ESP32-PoE-ISO_AP/merged-firmware.bin espbinaries/OpenEPaperLink_ESP32-PoE-ISO_AP_full.bin
+      - name: Build firmware for ESP32_S3_16_8_MAKARON_AP
+        run: |
+            cd ESP32_AP-Flasher
+            export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+            pio run --environment ESP32_S3_16_8_MAKARON_AP
+            pio run --target buildfs --environment ESP32_S3_16_8_MAKARON_AP
+            mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_MAKARON_AP
+            cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_MAKARON_AP/boot_app0.bin
+            cp .pio/build/ESP32_S3_16_8_MAKARON_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_MAKARON_AP/firmware.bin
+            cp .pio/build/ESP32_S3_16_8_MAKARON_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_MAKARON_AP/bootloader.bin
+            cp .pio/build/ESP32_S3_16_8_MAKARON_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_MAKARON_AP/partitions.bin
+            cp .pio/build/ESP32_S3_16_8_MAKARON_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_MAKARON_AP/littlefs.bin
+            cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_MAKARON_AP
+            esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+            cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+            cp ESP32_S3_16_8_MAKARON_AP/firmware.bin espbinaries/ESP32_S3_16_8_MAKARON_AP.bin
+                cp ESP32_S3_16_8_MAKARON_AP/merged-firmware.bin espbinaries/ESP32_S3_16_8_MAKARON_AP_full.bin
 
       - name: generate release json file
         run: |
