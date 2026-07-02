@@ -149,6 +149,15 @@ void setup() {
     xTaskCreate(APTask, "AP Process", 6000, NULL, 5, NULL);
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
+#ifdef HAS_TFT
+    // Checkin + touch run in their own task so they keep working even when the
+    // main loop is blocked for a long time (content generation doing blocking
+    // HTTP). The display rendering itself stays in loop() (shares gfx with
+    // makeimage). See yellow_ap_touch_task() in ips_display.cpp.
+    extern void yellow_ap_touch_task(void*);
+    xTaskCreate(yellow_ap_touch_task, "yellowAP touch", 8000, NULL, 2, NULL);
+#endif
+
 #ifdef HAS_BLE_WRITER
     if (config.ble) {
         xTaskCreate(BLETask, "BLE Writer", 12000, NULL, 5, NULL);

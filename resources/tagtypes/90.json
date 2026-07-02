@@ -1,6 +1,6 @@
 {
-	"version": 4,
-	"name": "M3 4.2\" BWY",
+	"version": 3,
+	"name": "M3 4.2\" BWRY",
 	"width": 400,
 	"height": 300,
 	"rotatebuffer": 0,
@@ -8,14 +8,15 @@
 	"colortable": {
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ],
 		"yellow": [ 255, 255, 0 ]
 	},
 	"perceptual": {
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ],
 		"yellow": [ 200, 200, 0 ]
 	},
-	"highlight_color": 3,
 	"shortlut": 0,
 	"zlib_compression": "27",
 	"options": [ "button", "led" ],

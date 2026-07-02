@@ -417,6 +417,7 @@ void processBlockRequest(struct espBlockRequest* br) {
     char buffer[150];
     sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X block request %s block %d, len %d checksum %u\0", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0], queueItem->filename, br->blockId, len, checksum);
     wsLog((String)buffer);
+    wsSendUploadProgress(br->src, br->blockId + 1, totalblocks);  // live block x/total for the tag card
     Serial.printf("<RQB file %s block %d, len %d checksum %u\r\n\0", queueItem->filename, br->blockId, len, checksum);
 }
 

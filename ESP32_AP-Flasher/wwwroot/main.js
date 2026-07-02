@@ -282,6 +282,16 @@ function connect() {
 		if (msg.apitem) {
 			populateAPCard(msg.apitem);
 		}
+		if (msg.touch) {
+			// Real touch positions from a touch-capable AP (e.g. 4inch GT911).
+			// Protocol: {touch:{count:N, points:[{id,x,y,size},...]}}, count 0 = release.
+			// Consume it from your own code with:
+			//   window.addEventListener('oepltouch', e => console.log(e.detail));
+			window.dispatchEvent(new CustomEvent('oepltouch', { detail: msg.touch }));
+		}
+		if (msg.upload) {
+			showUploadProgress(msg.upload);
+		}
 		if (msg.console) {
 			if (activeTab == 'flashtab' && flashmodule && typeof (flashmodule.print) === "function") {
 				let color = (msg.color ? msg.color : "#c0c0c0");
@@ -1221,6 +1231,30 @@ function getContentDefById(id) {
 	return obj || null;
 }
 
+const uploadTimers = {};
+// Live data-upload progress on a tag card.
+// Protocol: {upload:{src:"<16hex MAC>", current:N, total:M}} (current>=total = done).
+function showUploadProgress(u) {
+	const src = (u.src || '').toUpperCase();
+	const div = $('#tag' + src);
+	if (!div) return;
+	const el = div.querySelector('.uploadstatus');
+	if (!el) return;
+	const total = u.total || 0;
+	const current = u.current || 0;
+	const pct = total > 0 ? Math.min(100, Math.round(current / total * 100)) : 0;
+	el.textContent = pct + '% (' + current + '/' + total + ')';
+	el.style.setProperty('--pct', pct + '%');
+	el.style.display = 'block';
+	// Auto-hide: shortly after completion, or after a stall (aborted / tag offline).
+	if (uploadTimers[src]) clearTimeout(uploadTimers[src]);
+	const hideDelay = (total > 0 && current >= total) ? 2000 : 20000;
+	uploadTimers[src] = setTimeout(() => {
+		el.style.display = 'none';
+		delete uploadTimers[src];
+	}, hideDelay);
+}
+
 function showMessage(message, iserr) {
 	const messages = $('#messages');
 	const date = new Date();
@@ -1441,6 +1475,19 @@ function GroupSortFilter() {
 		}
 	});
 
+	let groupCounts = {};
+	if (grouping) {
+		gridItems.forEach(item => {
+			const g = String(grouping).startsWith('data-') ? item.dataset[grouping.slice(5)] || '' : item.querySelector('.' + grouping).textContent || '';
+			if (g == '') return;
+			if (!groupCounts[g]) groupCounts[g] = { total: 0, pending: 0, offline: 0 };
+			groupCounts[g].total++;
+			if (item.classList.contains('tagpending')) groupCounts[g].pending++;
+			const warn = item.querySelector('.warningicon');
+			if (item.classList.contains('state-timeout') || (warn && warn.style.display == 'inline-block')) groupCounts[g].offline++;
+		});
+	}
+
 	let currentGroup = null;
 	let order = 1;
 
@@ -1457,21 +1504,24 @@ function GroupSortFilter() {
 				let header = document.getElementById('header' + group);
 				if (!header) {
 					header = document.createElement('div');
-					switch (grouping) {
-						case 'model':
-							header.textContent = 'Tag model: ' + group;
-							break;
-						case 'contentmode':
-							header.textContent = 'Content: ' + group;
-							break;
-						case 'data-channel':
-							header.textContent = 'Channel: ' + group;
-							break;
-					}
 					header.classList.add('taggroup');
 					header.id = 'header' + group;
 					sortableGrid.appendChild(header);
 				}
+				let groupLabel = group;
+				switch (grouping) {
+					case 'model':
+						groupLabel = 'Tag model: ' + group;
+						break;
+					case 'contentmode':
+						groupLabel = 'Content: ' + group;
+						break;
+					case 'data-channel':
+						groupLabel = 'Channel: ' + group;
+						break;
+				}
+				const gc = groupCounts[group] || { total: 0, pending: 0, offline: 0 };
+				header.textContent = groupLabel + ' - ' + gc.total + ' pcs, ' + gc.pending + ' pending, ' + gc.offline + ' offline';
 				header.style.order = order++;
 				header.dataset.clean = 0;
 				currentGroup = group;

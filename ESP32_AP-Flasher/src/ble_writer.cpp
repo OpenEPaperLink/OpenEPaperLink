@@ -5,6 +5,7 @@
 #include "BLEDevice.h"
 #include "ble_filter.h"
 #include "newproto.h"
+#include "web.h"
 
 #define INTERVAL_BLE_SCANNING_SECONDS 60
 #define INTERVAL_HANDLE_PENDING_SECONDS 10
@@ -67,6 +68,33 @@ uint8_t BLE_curr_address[8] = {0};
 uint32_t BLE_compressed_len = 0;
 uint8_t* BLE_image_buffer;
 
+// Advertisements discovered during a scan are queued here and processed from
+// within BLETask (which has a large stack). The scan callback runs in the
+// Bluedroid host task with only a few KB of stack, so doing the full
+// processDataReq() there overflows the stack and reboots the ESP32.
+#define BLE_DATA_REQ_QUEUE_LEN 64
+QueueHandle_t BLE_dataReqQueue = nullptr;
+
+void BLE_enqueue_data_req(struct espAvailDataReq* req) {
+    if (BLE_dataReqQueue == nullptr) return;
+    // Non-blocking: if the queue is full we simply drop this advertisement,
+    // the next scan will pick the tag up again. Never block the BLE host task.
+    xQueueSend(BLE_dataReqQueue, req, 0);
+}
+
+// Emits a websocket log line that starts with the tag MAC (same MAC byte
+// order as processBlockRequest). The web frontend blinks the tag card yellow
+// ("loading") for every such line, so this gives per-block progress feedback
+// during a BLE upload instead of only the single flash at the very end.
+static void BLE_reportProgress(const char* what, uint32_t value) {
+    char buffer[80];
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X BLE %s %u",
+            BLE_curr_address[7], BLE_curr_address[6], BLE_curr_address[5], BLE_curr_address[4],
+            BLE_curr_address[3], BLE_curr_address[2], BLE_curr_address[1], BLE_curr_address[0],
+            what, value);
+    wsLog((String)buffer);
+}
+
 static void notifyCallback(
     BLERemoteCharacteristic* pBLERemoteCharacteristic,
     uint8_t* pData,
@@ -109,8 +137,19 @@ bool BLE_connect(uint8_t addr[8], BLE_CONNECTION_TYPE conn_type) {
     BLE_err_counter = 0;
     uint8_t temp_Address[] = {addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]};
     Serial.printf("BLE Connecting to: %02X:%02X:%02X:%02X:%02X:%02X\r\n", addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
+    static MyClientCallback clientCallback;
+    // Free the client from the previous transfer. BLEDevice::createClient()
+    // does 'new BLEClient()' on every call and never reuses or frees them, so
+    // without this every connection attempt leaked one client. We only get here
+    // from the IDLE state: the previous transfer already disconnected, the
+    // GATTC interface was released in ESP_GATTC_DISCONNECT_EVT, and nothing
+    // references the old client anymore, so a plain delete is safe here.
+    if (pClient != nullptr) {
+        delete pClient;
+        pClient = nullptr;
+    }
     pClient = BLEDevice::createClient();
-    pClient->setClientCallbacks(new MyClientCallback());
+    pClient->setClientCallbacks(&clientCallback);
     if (!pClient->connect(BLEAddress(temp_Address))) {
         Serial.printf("BLE connection failed\r\n");
         pClient->disconnect();
@@ -166,8 +205,9 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 };
 
 void BLE_startScan(uint32_t timeout) {
+    static MyAdvertisedDeviceCallbacks advertisedDeviceCallbacks;
     BLEScan* pBLEScan = BLEDevice::getScan();
-    pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+    pBLEScan->setAdvertisedDeviceCallbacks(&advertisedDeviceCallbacks);
     pBLEScan->setInterval(1349);
     pBLEScan->setWindow(449);
     pBLEScan->setActiveScan(true);
@@ -220,8 +260,15 @@ void ATC_BLE_OEPL_SendPart(uint8_t indexBlockId, uint8_t indexPkt) {
 void BLETask(void* parameter) {
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     Serial.println("BLE task started");
+    BLE_dataReqQueue = xQueueCreate(BLE_DATA_REQ_QUEUE_LEN, sizeof(struct espAvailDataReq));
     BLEDevice::init("");
     while (1) {
+        // Process advertisements collected by the scan callback here, in this
+        // task's large stack, instead of inside the tiny BLE host task stack.
+        struct espAvailDataReq incomingDataReq;
+        while (BLE_dataReqQueue != nullptr && xQueueReceive(BLE_dataReqQueue, &incomingDataReq, 0) == pdTRUE) {
+            processDataReq(&incomingDataReq, true);
+        }
         switch (ble_main_state) {
             default:
             case BLE_MAIN_STATE_IDLE:
@@ -277,6 +324,7 @@ void BLETask(void* parameter) {
                                         struct espXferComplete reportStruct;
                                         memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                         processXferComplete(&reportStruct, true);
+                                        BLE_clear_attempts(BLE_curr_address);
                                     }
                                 }
                             }
@@ -303,6 +351,7 @@ void BLETask(void* parameter) {
                                         struct espXferComplete reportStruct;
                                         memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                         processXferComplete(&reportStruct, true);
+                                        BLE_clear_attempts(BLE_curr_address);
                                     }
                                 }
                             }
@@ -346,16 +395,18 @@ void BLETask(void* parameter) {
                                 struct espXferComplete reportStruct;
                                 memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                 processXferComplete(&reportStruct, true);
+                                BLE_clear_attempts(BLE_curr_address);
                                 BLE_err_counter = 0;
                                 BLE_curr_part = 0;
                             } else {
-                                uint32_t req_curr_part = (BLE_notify_buffer[6] << 24) | (BLE_notify_buffer[5] << 24) | (BLE_notify_buffer[4] << 24) | BLE_notify_buffer[3];
+                                uint32_t req_curr_part = (BLE_notify_buffer[6] << 24) | (BLE_notify_buffer[5] << 16) | (BLE_notify_buffer[4] << 8) | BLE_notify_buffer[3];
                                 if (req_curr_part != BLE_curr_part) {
                                     Serial.printf("Something went wrong, expected req part: %i but got: %i we better abort here.\r\n", req_curr_part, BLE_curr_part);
                                     free(BLE_image_buffer);
                                     pClient->disconnect();
                                     ble_main_state = BLE_MAIN_STATE_IDLE;
                                     BLE_last_pending_check = millis();
+                                    break;  // buffer is freed and we left the upload state, do not fall through into a use-after-free
                                 }
                                 uint32_t curr_len = 240;
                                 if (BLE_compressed_len - (BLE_curr_part * 240) < 240)
@@ -367,6 +418,11 @@ void BLETask(void* parameter) {
                                 memcpy((uint8_t*)&BLE_mini_buff[4], (uint8_t*)&BLE_image_buffer[BLE_curr_part * 240], curr_len);
                                 imgChar->writeValue(BLE_mini_buff, curr_len + 4);
                                 Serial.printf("BLE sending part: %i\r\n", BLE_curr_part);
+                                uint32_t byteOffset = BLE_curr_part * 240;
+                                if (byteOffset % BLOCK_DATA_SIZE < 240)  // once per 4096-byte block, same cadence as the 802.15.4 path
+                                    BLE_reportProgress("block", byteOffset / BLOCK_DATA_SIZE);
+                                uint16_t totalParts = (BLE_compressed_len + 239) / 240;
+                                wsSendUploadProgress(BLE_curr_address, BLE_curr_part + 1, totalParts);  // fine-grained part x/total for the tag card
                                 BLE_curr_part++;
                             }
                             break;
@@ -407,6 +463,9 @@ void BLETask(void* parameter) {
                                         memcpy(&BLEblkRequst, &BLE_notify_buffer[3], sizeof(struct blockRequest));
                                         BLE_curr_part = 0;
                                         ATC_BLE_OEPL_PrepareBlk(BLEblkRequst.blockId);
+                                        BLE_reportProgress("block", BLEblkRequst.blockId);
+                                        uint16_t totalBlocks = (BLE_compressed_len + BLOCK_DATA_SIZE_BLE - 1) / BLOCK_DATA_SIZE_BLE;
+                                        wsSendUploadProgress(BLE_curr_address, BLEblkRequst.blockId + 1, totalBlocks);
                                         ATC_BLE_OEPL_SendPart(BLEblkRequst.blockId, BLE_curr_part);
                                     }
                                     break;
@@ -430,6 +489,7 @@ void BLETask(void* parameter) {
                                     struct espXferComplete reportStruct;
                                     memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                     processXferComplete(&reportStruct, true);
+                                    BLE_clear_attempts(BLE_curr_address);
                                     BLE_err_counter = 0;
                                     BLE_max_block_parts = 0;
                                     BLE_curr_part = 0;

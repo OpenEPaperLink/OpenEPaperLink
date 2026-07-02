@@ -2,7 +2,10 @@
 #include <Arduino.h>
 #include <FS.h>
 
+#include <map>
+
 #include "BLEDevice.h"
+#include "ble_filter.h"
 #include "newproto.h"
 #include "serialap.h"
 #include "settings.h"
@@ -90,6 +93,8 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
 
     uint8_t payloadData[100];
     int payloadDatalen = advertisedDevice.getPayloadLength();
+    if (payloadDatalen > sizeof(payloadData))
+        payloadDatalen = sizeof(payloadData);  // Never copy more than the buffer holds (extended advertising can exceed 31 bytes)
     memcpy(&payloadData, (uint8_t*)advertisedDevice.getPayload(), payloadDatalen);
     Serial.printf(" Payload data: ");
     for (int i = 0; i < payloadDatalen; i++)
@@ -133,7 +138,7 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.adr.tagSoftwareVersion = manuData[4] << 8 | manuData[5];
             theAdvData.adr.capabilities = 0x00;
 
-            processDataReq(&theAdvData, true);
+            BLE_enqueue_data_req(&theAdvData);
             return true;
         } else if (manuDatalen >= 3 && manuData[0] == 0x37 && manuData[1] == 0x13) {  // Lets check for a Gicisky E-Paper display
             Serial.printf("ATC BLE OEPL Detected\r\n");
@@ -203,7 +208,7 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.src[5] = macReversed[0];
             theAdvData.src[6] = manuData[0];  // We use this do find out what type of display we got for compression^^
             theAdvData.src[7] = manuData[1];
-            processDataReq(&theAdvData, true);
+            BLE_enqueue_data_req(&theAdvData);
             return true;
         }
     }
@@ -229,7 +234,7 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.adr.hwType = ATC_MI_THERMOMETER;
             theAdvData.adr.tagSoftwareVersion = 0x00;
             theAdvData.adr.capabilities = 0x00;
-            processDataReq(&theAdvData, true);
+            BLE_enqueue_data_req(&theAdvData);
             Serial.printf("We got an ATC_MiThermometer via BLE\r\n");
             return true;
         }
@@ -237,23 +242,53 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
     return false;
 }
 
+// Remembers how often we already tried to reach each BLE tag (keyed by MAC).
+// Used to spread attempts evenly instead of getting stuck on the first (maybe
+// offline) tag forever.
+static std::map<uint64_t, uint32_t> BLE_attemptCounts;
+
+static uint64_t BLE_macToKey(const uint8_t mac[8]) {
+    uint64_t key = 0;
+    for (int i = 0; i < 8; i++) key = (key << 8) | mac[i];
+    return key;
+}
+
+static bool BLE_isPendingCandidate(tagRecord* taginfo) {
+    if (taginfo->pendingCount == 0 || taginfo->version != 0) return false;
+    // Gicisky / other BLE displays, or an ATC BLE OEPL tag (MAC starts 0x1337)
+    return ((taginfo->hwType & 0xB0) == 0xB0) || (taginfo->mac[7] == 0x13 && taginfo->mac[6] == 0x37);
+}
+
+// Call once an upload finished (success or given up) so a later re-add of the
+// same tag starts fresh and isn't unfairly deprioritized.
+void BLE_clear_attempts(uint8_t address[8]) {
+    BLE_attemptCounts.erase(BLE_macToKey(address));
+}
+
 bool BLE_is_image_pending(uint8_t address[8]) {
+    // Pick the pending BLE tag we have tried the fewest times. This way an
+    // unreachable display no longer blocks the queue: every attempt rotates to
+    // the next-least-tried tag, so all reachable uploads get their turn and
+    // finish even while some tags stay offline.
+    tagRecord* best = nullptr;
+    uint32_t bestAttempts = 0;
     for (int16_t c = 0; c < tagDB.size(); c++) {
         tagRecord* taginfo = tagDB.at(c);
-        if (taginfo->pendingCount > 0 && taginfo->version == 0 && ((taginfo->hwType & 0xB0) == 0xB0)) {
-            memcpy(address, taginfo->mac, 8);
-            return true;
+        if (!BLE_isPendingCandidate(taginfo)) continue;
+        uint32_t attempts = BLE_attemptCounts[BLE_macToKey(taginfo->mac)];
+        if (best == nullptr || attempts < bestAttempts) {
+            best = taginfo;
+            bestAttempts = attempts;
         }
     }
-    for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = tagDB.at(c);
-        if (taginfo->pendingCount > 0 && taginfo->version == 0 && (taginfo->mac[7] == 0x13) && (taginfo->mac[6] == 0x37)) {
-            memcpy(address, taginfo->mac, 8);
-            Serial.printf("ATC BLE OEPL data Waiting\r\n");
-            return true;
-        }
+    if (best == nullptr) return false;
+
+    memcpy(address, best->mac, 8);
+    BLE_attemptCounts[BLE_macToKey(best->mac)]++;  // count this attempt so the next round prefers the others
+    if (best->mac[7] == 0x13 && best->mac[6] == 0x37) {
+        Serial.printf("ATC BLE OEPL data Waiting\r\n");
     }
-    return false;
+    return true;
 }
 
 uint8_t swapBits(uint8_t num) {

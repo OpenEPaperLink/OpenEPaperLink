@@ -55,6 +55,44 @@ void wsErr(const String &text) {
     if (wsMutex) xSemaphoreGive(wsMutex);
 }
 
+// Live upload progress of data being sent to a display.
+// Protocol: {"upload":{"src":"<16 hex MAC>","current":N,"total":M}}
+// The frontend shows "P% (N/M)" on the tag card; current >= total means done.
+void wsSendUploadProgress(const uint8_t *mac, uint16_t current, uint16_t total) {
+    if (wsClientCount() == 0) return;  // nobody is listening, skip the work
+    char hexmac[17];
+    mac2hex(mac, hexmac);
+    JsonDocument doc;
+    JsonObject up = doc["upload"].to<JsonObject>();
+    up["src"] = hexmac;
+    up["current"] = current;
+    up["total"] = total;
+    if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
+    ws.textAll(doc.as<String>());
+    if (wsMutex) xSemaphoreGive(wsMutex);
+}
+
+// Sends the real touch positions to all connected websocket clients.
+// Protocol: {"touch":{"count":N,"points":[{"id":..,"x":..,"y":..,"size":..}, ...]}}
+// count == 0 (points empty) signals "all fingers released".
+void wsSendTouch(uint8_t count, const uint16_t *xs, const uint16_t *ys, const uint8_t *ids, const uint8_t *sizes) {
+    if (wsClientCount() == 0) return;  // nobody is listening, skip the work
+    JsonDocument doc;
+    JsonObject touch = doc["touch"].to<JsonObject>();
+    touch["count"] = count;
+    JsonArray points = touch["points"].to<JsonArray>();
+    for (uint8_t i = 0; i < count; i++) {
+        JsonObject p = points.add<JsonObject>();
+        p["id"] = ids[i];
+        p["x"] = xs[i];
+        p["y"] = ys[i];
+        p["size"] = sizes[i];
+    }
+    if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
+    ws.textAll(doc.as<String>());
+    if (wsMutex) xSemaphoreGive(wsMutex);
+}
+
 size_t dbSize() {
     size_t size = tagDB.size() * sizeof(tagRecord);
     for (auto &tag : tagDB) {

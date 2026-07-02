@@ -4,6 +4,13 @@ This is an alternative firmware and protocol for the multiple Electronic Shelf L
 
 The software in this project consists of two parts: Accesspoint-firmware and Tag firmware.
 Additionally, there are various hardware designs for accesspoints and flasher-interfaces to program the tags, preferably using programming jigs
+
+>[!Note]
+>Please refer to the [Wiki](https://github.com/jjwbruijn/OpenEPaperLink/wiki) for the latest information.
+>
+>Much of this README is now obsolete, but it has been retained for historical reference.
+>
+>For example the use of tags as RF coprocessors is no longer supported.
  
 ## Aims
 - Low power (currently around 9µA with a minimum of 40 second latency)
