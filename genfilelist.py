@@ -5,6 +5,13 @@ import sys
 import re
 from datetime import datetime
 
+
+def usage_and_exit():
+    print("Usage: python genfilelist.py <tag> <repo> <sha>")
+    print("Example: python genfilelist.py v1.0.0 suchyindustries/OpenEPaperLink abcdef123456")
+    sys.exit(1)
+
+
 def generate_file_hashes(folder_path,internal_path,tag):
     file_list = []
     for file_name in os.listdir(folder_path):
@@ -46,6 +53,9 @@ def calculate_md5(file_path):
     return hash_md5.hexdigest()
 
 rp = os.getcwd()
+
+if len(sys.argv) < 4:
+    usage_and_exit()
 
 now = datetime.now()
 dt_string = now.strftime("%d/%m/%Y %H:%M:%S")

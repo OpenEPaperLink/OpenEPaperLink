@@ -3,11 +3,11 @@
 	"name": "HS BWRY 4.2\"",
 	"width": 400,
 	"height": 300,
-	"rotatebuffer": 2,
+	"rotatebuffer": 1,
 	"bpp": 2,
 	"colortable": {
-		"black": [ 255, 255, 255 ],
-		"white": [ 0, 0, 0 ],
+		"black": [ 0, 0, 0 ],
+		"white": [ 255, 255, 255 ],
 		"yellow": [ 255, 255, 0 ],
 		"red": [ 255, 0, 0 ]
 	},
