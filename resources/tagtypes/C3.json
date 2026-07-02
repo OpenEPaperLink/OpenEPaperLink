@@ -1,9 +1,9 @@
 {
-	"version": 2,
+	"version": 3,
 	"name": "HS BWRY 4.2\"",
 	"width": 400,
 	"height": 300,
-	"rotatebuffer": 1,
+	"rotatebuffer": 0,
 	"bpp": 2,
 	"colortable": {
 		"black": [ 0, 0, 0 ],
