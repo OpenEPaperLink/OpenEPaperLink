@@ -1,5 +1,5 @@
 {
-	"version": 3,
+	"version": 2,
 	"name": "HS BWRY 4.2\"",
 	"width": 400,
 	"height": 300,
@@ -17,6 +17,7 @@
 		"yellow": [ 200, 200, 0 ],
 		"red": [ 255, 0, 0 ]
 	},
+	"highlight_color": 3,
 	"shortlut": 0,
 	"zlib_compression": "27",
 	"options": ["led"],
