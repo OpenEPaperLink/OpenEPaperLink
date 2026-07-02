@@ -48,224 +48,224 @@ jobs:
         run: |
           mkdir espbinaries
 
-      - name: Build firmware for OpenEPaperLink_AP_and_Flasher
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment OpenEPaperLink_AP_and_Flasher
-          pio run --target buildfs --environment OpenEPaperLink_AP_and_Flasher
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher/boot_app0.bin
-          cp .pio/build/OpenEPaperLink_AP_and_Flasher/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher/firmware.bin
-          cp .pio/build/OpenEPaperLink_AP_and_Flasher/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher/bootloader.bin
-          cp .pio/build/OpenEPaperLink_AP_and_Flasher/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher/partitions.bin
-          cp .pio/build/OpenEPaperLink_AP_and_Flasher/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher
-          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00c90000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp OpenEPaperLink_AP_and_Flasher/firmware.bin espbinaries/OpenEPaperLink_AP_and_Flasher.bin
-          cp OpenEPaperLink_AP_and_Flasher/merged-firmware.bin espbinaries/OpenEPaperLink_AP_and_Flasher_full.bin
-      - name: Build firmware for ESP32_S3_16_8_YELLOW_AP
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment ESP32_S3_16_8_YELLOW_AP
-          pio run --target buildfs --environment ESP32_S3_16_8_YELLOW_AP
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP/boot_app0.bin
-          cp .pio/build/ESP32_S3_16_8_YELLOW_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP/firmware.bin
-          cp .pio/build/ESP32_S3_16_8_YELLOW_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP/bootloader.bin
-          cp .pio/build/ESP32_S3_16_8_YELLOW_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP/partitions.bin
-          cp .pio/build/ESP32_S3_16_8_YELLOW_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP
-          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp ESP32_S3_16_8_YELLOW_AP/firmware.bin espbinaries/ESP32_S3_16_8_YELLOW_AP.bin
-          cp ESP32_S3_16_8_YELLOW_AP/merged-firmware.bin espbinaries/ESP32_S3_16_8_YELLOW_AP_full.bin
+      # - name: Build firmware for OpenEPaperLink_AP_and_Flasher
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment OpenEPaperLink_AP_and_Flasher
+      #     pio run --target buildfs --environment OpenEPaperLink_AP_and_Flasher
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher/boot_app0.bin
+      #     cp .pio/build/OpenEPaperLink_AP_and_Flasher/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher/firmware.bin
+      #     cp .pio/build/OpenEPaperLink_AP_and_Flasher/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher/bootloader.bin
+      #     cp .pio/build/OpenEPaperLink_AP_and_Flasher/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher/partitions.bin
+      #     cp .pio/build/OpenEPaperLink_AP_and_Flasher/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher
+      #     esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00c90000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp OpenEPaperLink_AP_and_Flasher/firmware.bin espbinaries/OpenEPaperLink_AP_and_Flasher.bin
+      #     cp OpenEPaperLink_AP_and_Flasher/merged-firmware.bin espbinaries/OpenEPaperLink_AP_and_Flasher_full.bin
+      # - name: Build firmware for ESP32_S3_16_8_YELLOW_AP
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment ESP32_S3_16_8_YELLOW_AP
+      #     pio run --target buildfs --environment ESP32_S3_16_8_YELLOW_AP
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP/boot_app0.bin
+      #     cp .pio/build/ESP32_S3_16_8_YELLOW_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP/firmware.bin
+      #     cp .pio/build/ESP32_S3_16_8_YELLOW_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP/bootloader.bin
+      #     cp .pio/build/ESP32_S3_16_8_YELLOW_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP/partitions.bin
+      #     cp .pio/build/ESP32_S3_16_8_YELLOW_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP
+      #     esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp ESP32_S3_16_8_YELLOW_AP/firmware.bin espbinaries/ESP32_S3_16_8_YELLOW_AP.bin
+      #     cp ESP32_S3_16_8_YELLOW_AP/merged-firmware.bin espbinaries/ESP32_S3_16_8_YELLOW_AP_full.bin
 
-      - name: Build firmware for ESP32_S3_C6_NANO_AP
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment ESP32_S3_C6_NANO_AP
-          pio run --target buildfs --environment ESP32_S3_C6_NANO_AP
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/boot_app0.bin
-          cp .pio/build/ESP32_S3_C6_NANO_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/firmware.bin
-          cp .pio/build/ESP32_S3_C6_NANO_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/bootloader.bin
-          cp .pio/build/ESP32_S3_C6_NANO_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/partitions.bin
-          cp .pio/build/ESP32_S3_C6_NANO_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP
-          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp ESP32_S3_C6_NANO_AP/firmware.bin espbinaries/ESP32_S3_C6_NANO_AP.bin
-          cp ESP32_S3_C6_NANO_AP/merged-firmware.bin espbinaries/ESP32_S3_C6_NANO_AP_full.bin
+      # - name: Build firmware for ESP32_S3_C6_NANO_AP
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment ESP32_S3_C6_NANO_AP
+      #     pio run --target buildfs --environment ESP32_S3_C6_NANO_AP
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/boot_app0.bin
+      #     cp .pio/build/ESP32_S3_C6_NANO_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/firmware.bin
+      #     cp .pio/build/ESP32_S3_C6_NANO_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/bootloader.bin
+      #     cp .pio/build/ESP32_S3_C6_NANO_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/partitions.bin
+      #     cp .pio/build/ESP32_S3_C6_NANO_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP
+      #     esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp ESP32_S3_C6_NANO_AP/firmware.bin espbinaries/ESP32_S3_C6_NANO_AP.bin
+      #     cp ESP32_S3_C6_NANO_AP/merged-firmware.bin espbinaries/ESP32_S3_C6_NANO_AP_full.bin
 
-      - name: Build firmware for ESP32_S3_16_8_LILYGO_AP
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment ESP32_S3_16_8_LILYGO_AP
-          pio run --target buildfs --environment ESP32_S3_16_8_LILYGO_AP
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP/boot_app0.bin
-          cp .pio/build/ESP32_S3_16_8_LILYGO_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP/firmware.bin
-          cp .pio/build/ESP32_S3_16_8_LILYGO_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP/bootloader.bin
-          cp .pio/build/ESP32_S3_16_8_LILYGO_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP/partitions.bin
-          cp .pio/build/ESP32_S3_16_8_LILYGO_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP
-          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp ESP32_S3_16_8_LILYGO_AP/firmware.bin espbinaries/ESP32_S3_16_8_LILYGO_AP.bin
-          cp ESP32_S3_16_8_LILYGO_AP/merged-firmware.bin espbinaries/ESP32_S3_16_8_LILYGO_AP_full.bin
+      # - name: Build firmware for ESP32_S3_16_8_LILYGO_AP
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment ESP32_S3_16_8_LILYGO_AP
+      #     pio run --target buildfs --environment ESP32_S3_16_8_LILYGO_AP
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP/boot_app0.bin
+      #     cp .pio/build/ESP32_S3_16_8_LILYGO_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP/firmware.bin
+      #     cp .pio/build/ESP32_S3_16_8_LILYGO_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP/bootloader.bin
+      #     cp .pio/build/ESP32_S3_16_8_LILYGO_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP/partitions.bin
+      #     cp .pio/build/ESP32_S3_16_8_LILYGO_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP
+      #     esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp ESP32_S3_16_8_LILYGO_AP/firmware.bin espbinaries/ESP32_S3_16_8_LILYGO_AP.bin
+      #     cp ESP32_S3_16_8_LILYGO_AP/merged-firmware.bin espbinaries/ESP32_S3_16_8_LILYGO_AP_full.bin
 
-      - name: Build firmware for ESP32_S3_16_8_LILYGO_T3
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment ESP32_S3_16_8_LILYGO_T3
-          pio run --target buildfs --environment ESP32_S3_16_8_LILYGO_T3
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3/boot_app0.bin
-          cp .pio/build/ESP32_S3_16_8_LILYGO_T3/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3/firmware.bin
-          cp .pio/build/ESP32_S3_16_8_LILYGO_T3/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3/bootloader.bin
-          cp .pio/build/ESP32_S3_16_8_LILYGO_T3/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3/partitions.bin
-          cp .pio/build/ESP32_S3_16_8_LILYGO_T3/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3
-          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp ESP32_S3_16_8_LILYGO_T3/firmware.bin espbinaries/ESP32_S3_16_8_LILYGO_T3.bin
-          cp ESP32_S3_16_8_LILYGO_T3/merged-firmware.bin espbinaries/ESP32_S3_16_8_LILYGO_T3_full.bin
+      # - name: Build firmware for ESP32_S3_16_8_LILYGO_T3
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment ESP32_S3_16_8_LILYGO_T3
+      #     pio run --target buildfs --environment ESP32_S3_16_8_LILYGO_T3
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3/boot_app0.bin
+      #     cp .pio/build/ESP32_S3_16_8_LILYGO_T3/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3/firmware.bin
+      #     cp .pio/build/ESP32_S3_16_8_LILYGO_T3/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3/bootloader.bin
+      #     cp .pio/build/ESP32_S3_16_8_LILYGO_T3/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3/partitions.bin
+      #     cp .pio/build/ESP32_S3_16_8_LILYGO_T3/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3
+      #     esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp ESP32_S3_16_8_LILYGO_T3/firmware.bin espbinaries/ESP32_S3_16_8_LILYGO_T3.bin
+      #     cp ESP32_S3_16_8_LILYGO_T3/merged-firmware.bin espbinaries/ESP32_S3_16_8_LILYGO_T3_full.bin
 
-      - name: Build firmware for OpenEPaperLink_Nano_TLSR
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment OpenEPaperLink_Nano_TLSR
-          pio run --target buildfs --environment OpenEPaperLink_Nano_TLSR
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR/boot_app0.bin
-          cp .pio/build/OpenEPaperLink_Nano_TLSR/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR/firmware.bin
-          cp .pio/build/OpenEPaperLink_Nano_TLSR/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR/bootloader.bin
-          cp .pio/build/OpenEPaperLink_Nano_TLSR/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR/partitions.bin
-          cp .pio/build/OpenEPaperLink_Nano_TLSR/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR
-          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp OpenEPaperLink_Nano_TLSR/firmware.bin espbinaries/OpenEPaperLink_Nano_TLSR.bin
-          cp OpenEPaperLink_Nano_TLSR/merged-firmware.bin espbinaries/OpenEPaperLink_Nano_TLSR_full.bin
+      # - name: Build firmware for OpenEPaperLink_Nano_TLSR
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment OpenEPaperLink_Nano_TLSR
+      #     pio run --target buildfs --environment OpenEPaperLink_Nano_TLSR
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR/boot_app0.bin
+      #     cp .pio/build/OpenEPaperLink_Nano_TLSR/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR/firmware.bin
+      #     cp .pio/build/OpenEPaperLink_Nano_TLSR/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR/bootloader.bin
+      #     cp .pio/build/OpenEPaperLink_Nano_TLSR/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR/partitions.bin
+      #     cp .pio/build/OpenEPaperLink_Nano_TLSR/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR
+      #     esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp OpenEPaperLink_Nano_TLSR/firmware.bin espbinaries/OpenEPaperLink_Nano_TLSR.bin
+      #     cp OpenEPaperLink_Nano_TLSR/merged-firmware.bin espbinaries/OpenEPaperLink_Nano_TLSR_full.bin
 
-      - name: Build firmware for OpenEPaperLink_PoE_AP
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment OpenEPaperLink_PoE_AP
-          pio run --target buildfs --environment OpenEPaperLink_PoE_AP
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/boot_app0.bin
-          cp .pio/build/OpenEPaperLink_PoE_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/firmware.bin
-          cp .pio/build/OpenEPaperLink_PoE_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/bootloader.bin
-          cp .pio/build/OpenEPaperLink_PoE_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/partitions.bin
-          cp .pio/build/OpenEPaperLink_PoE_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP
-          esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode qio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xD000 boot_app0.bin 0x10000 firmware.bin 0x410000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp OpenEPaperLink_PoE_AP/firmware.bin espbinaries/OpenEPaperLink_PoE_AP.bin
-          cp OpenEPaperLink_PoE_AP/merged-firmware.bin espbinaries/OpenEPaperLink_PoE_AP_full.bin
+      # - name: Build firmware for OpenEPaperLink_PoE_AP
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment OpenEPaperLink_PoE_AP
+      #     pio run --target buildfs --environment OpenEPaperLink_PoE_AP
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/boot_app0.bin
+      #     cp .pio/build/OpenEPaperLink_PoE_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/firmware.bin
+      #     cp .pio/build/OpenEPaperLink_PoE_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/bootloader.bin
+      #     cp .pio/build/OpenEPaperLink_PoE_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/partitions.bin
+      #     cp .pio/build/OpenEPaperLink_PoE_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP
+      #     esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode qio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xD000 boot_app0.bin 0x10000 firmware.bin 0x410000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp OpenEPaperLink_PoE_AP/firmware.bin espbinaries/OpenEPaperLink_PoE_AP.bin
+      #     cp OpenEPaperLink_PoE_AP/merged-firmware.bin espbinaries/OpenEPaperLink_PoE_AP_full.bin
 
-      - name: Build firmware for OpenEPaperLink_Mini_AP_v4
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment OpenEPaperLink_Mini_AP_v4
-          pio run --target buildfs --environment OpenEPaperLink_Mini_AP_v4
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4/boot_app0.bin
-          cp .pio/build/OpenEPaperLink_Mini_AP_v4/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4/firmware.bin
-          cp .pio/build/OpenEPaperLink_Mini_AP_v4/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4/bootloader.bin
-          cp .pio/build/OpenEPaperLink_Mini_AP_v4/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4/partitions.bin
-          cp .pio/build/OpenEPaperLink_Mini_AP_v4/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4
-          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp OpenEPaperLink_Mini_AP_v4/firmware.bin espbinaries/OpenEPaperLink_Mini_AP_v4.bin
-          cp OpenEPaperLink_Mini_AP_v4/merged-firmware.bin espbinaries/OpenEPaperLink_Mini_AP_v4_full.bin
+      # - name: Build firmware for OpenEPaperLink_Mini_AP_v4
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment OpenEPaperLink_Mini_AP_v4
+      #     pio run --target buildfs --environment OpenEPaperLink_Mini_AP_v4
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4/boot_app0.bin
+      #     cp .pio/build/OpenEPaperLink_Mini_AP_v4/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4/firmware.bin
+      #     cp .pio/build/OpenEPaperLink_Mini_AP_v4/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4/bootloader.bin
+      #     cp .pio/build/OpenEPaperLink_Mini_AP_v4/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4/partitions.bin
+      #     cp .pio/build/OpenEPaperLink_Mini_AP_v4/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4
+      #     esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp OpenEPaperLink_Mini_AP_v4/firmware.bin espbinaries/OpenEPaperLink_Mini_AP_v4.bin
+      #     cp OpenEPaperLink_Mini_AP_v4/merged-firmware.bin espbinaries/OpenEPaperLink_Mini_AP_v4_full.bin
 
-      - name: Build firmware for BLE_ONLY_AP
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment BLE_ONLY_AP
-          pio run --target buildfs --environment BLE_ONLY_AP
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/boot_app0.bin
-          cp .pio/build/BLE_ONLY_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/firmware.bin
-          cp .pio/build/BLE_ONLY_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/bootloader.bin
-          cp .pio/build/BLE_ONLY_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/partitions.bin
-          cp .pio/build/BLE_ONLY_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP
-          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp BLE_ONLY_AP/firmware.bin espbinaries/BLE_ONLY_AP.bin
-          cp BLE_ONLY_AP/merged-firmware.bin espbinaries/BLE_ONLY_AP_full.bin
+      # - name: Build firmware for BLE_ONLY_AP
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment BLE_ONLY_AP
+      #     pio run --target buildfs --environment BLE_ONLY_AP
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/boot_app0.bin
+      #     cp .pio/build/BLE_ONLY_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/firmware.bin
+      #     cp .pio/build/BLE_ONLY_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/bootloader.bin
+      #     cp .pio/build/BLE_ONLY_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/partitions.bin
+      #     cp .pio/build/BLE_ONLY_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP
+      #     esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp BLE_ONLY_AP/firmware.bin espbinaries/BLE_ONLY_AP.bin
+      #     cp BLE_ONLY_AP/merged-firmware.bin espbinaries/BLE_ONLY_AP_full.bin
 
-      - name: Build firmware for OpenEPaperLink_Nano_TLSR_C6
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment OpenEPaperLink_Nano_TLSR_C6
-          pio run --target buildfs --environment OpenEPaperLink_Nano_TLSR_C6
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6/boot_app0.bin
-          cp .pio/build/OpenEPaperLink_Nano_TLSR_C6/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6/firmware.bin
-          cp .pio/build/OpenEPaperLink_Nano_TLSR_C6/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6/bootloader.bin
-          cp .pio/build/OpenEPaperLink_Nano_TLSR_C6/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6/partitions.bin
-          cp .pio/build/OpenEPaperLink_Nano_TLSR_C6/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6
-          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp OpenEPaperLink_Nano_TLSR_C6/firmware.bin espbinaries/OpenEPaperLink_Nano_TLSR_C6.bin
-          cp OpenEPaperLink_Nano_TLSR_C6/merged-firmware.bin espbinaries/OpenEPaperLink_Nano_TLSR_C6_full.bin
+      # - name: Build firmware for OpenEPaperLink_Nano_TLSR_C6
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment OpenEPaperLink_Nano_TLSR_C6
+      #     pio run --target buildfs --environment OpenEPaperLink_Nano_TLSR_C6
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6/boot_app0.bin
+      #     cp .pio/build/OpenEPaperLink_Nano_TLSR_C6/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6/firmware.bin
+      #     cp .pio/build/OpenEPaperLink_Nano_TLSR_C6/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6/bootloader.bin
+      #     cp .pio/build/OpenEPaperLink_Nano_TLSR_C6/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6/partitions.bin
+      #     cp .pio/build/OpenEPaperLink_Nano_TLSR_C6/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6
+      #     esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp OpenEPaperLink_Nano_TLSR_C6/firmware.bin espbinaries/OpenEPaperLink_Nano_TLSR_C6.bin
+      #     cp OpenEPaperLink_Nano_TLSR_C6/merged-firmware.bin espbinaries/OpenEPaperLink_Nano_TLSR_C6_full.bin
           
-      - name: Build firmware for ESP32_S3_16_8_4inch_AP
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment ESP32_S3_16_8_4inch_AP
-          pio run --target buildfs --environment ESP32_S3_16_8_4inch_AP
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP/boot_app0.bin
-          cp .pio/build/ESP32_S3_16_8_4inch_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP/firmware.bin
-          cp .pio/build/ESP32_S3_16_8_4inch_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP/bootloader.bin
-          cp .pio/build/ESP32_S3_16_8_4inch_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP/partitions.bin
-          cp .pio/build/ESP32_S3_16_8_4inch_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP
-          esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp ESP32_S3_16_8_4inch_AP/firmware.bin espbinaries/ESP32_S3_16_8_4inch_AP.bin
-          cp ESP32_S3_16_8_4inch_AP/merged-firmware.bin espbinaries/ESP32_S3_16_8_4inch_AP_full.bin
+      # - name: Build firmware for ESP32_S3_16_8_4inch_AP
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment ESP32_S3_16_8_4inch_AP
+      #     pio run --target buildfs --environment ESP32_S3_16_8_4inch_AP
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP/boot_app0.bin
+      #     cp .pio/build/ESP32_S3_16_8_4inch_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP/firmware.bin
+      #     cp .pio/build/ESP32_S3_16_8_4inch_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP/bootloader.bin
+      #     cp .pio/build/ESP32_S3_16_8_4inch_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP/partitions.bin
+      #     cp .pio/build/ESP32_S3_16_8_4inch_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP
+      #     esptool.py --chip esp32-s3 merge_bin -o merged-firmware.bin --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin 0x00910000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp ESP32_S3_16_8_4inch_AP/firmware.bin espbinaries/ESP32_S3_16_8_4inch_AP.bin
+      #     cp ESP32_S3_16_8_4inch_AP/merged-firmware.bin espbinaries/ESP32_S3_16_8_4inch_AP_full.bin
           
-      - name: Build firmware for OpenEPaperLink_ESP32-PoE-ISO_AP
-        run: |
-          cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
-          pio run --environment OpenEPaperLink_ESP32-PoE-ISO_AP
-          mv data data.bak
-          mkdir data
-          pio run --target buildfs --environment OpenEPaperLink_ESP32-PoE-ISO_AP
-          rmdir data
-          mv data.bak data
-          mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP/boot_app0.bin
-          cp .pio/build/OpenEPaperLink_ESP32-PoE-ISO_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP/firmware.bin
-          cp .pio/build/OpenEPaperLink_ESP32-PoE-ISO_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP/bootloader.bin
-          cp .pio/build/OpenEPaperLink_ESP32-PoE-ISO_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP/partitions.bin
-          cp .pio/build/OpenEPaperLink_ESP32-PoE-ISO_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP/littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP
-          esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode qio --flash_freq 80m --flash_size 4MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xD000 boot_app0.bin 0x10000 firmware.bin 0x3D0000 littlefs.bin
-          cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
-          cp OpenEPaperLink_ESP32-PoE-ISO_AP/firmware.bin espbinaries/OpenEPaperLink_ESP32-PoE-ISO_AP.bin
-          cp OpenEPaperLink_ESP32-PoE-ISO_AP/merged-firmware.bin espbinaries/OpenEPaperLink_ESP32-PoE-ISO_AP_full.bin
+      # - name: Build firmware for OpenEPaperLink_ESP32-PoE-ISO_AP
+      #   run: |
+      #     cd ESP32_AP-Flasher
+      #     export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+      #     pio run --environment OpenEPaperLink_ESP32-PoE-ISO_AP
+      #     mv data data.bak
+      #     mkdir data
+      #     pio run --target buildfs --environment OpenEPaperLink_ESP32-PoE-ISO_AP
+      #     rmdir data
+      #     mv data.bak data
+      #     mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP
+      #     cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP/boot_app0.bin
+      #     cp .pio/build/OpenEPaperLink_ESP32-PoE-ISO_AP/firmware.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP/firmware.bin
+      #     cp .pio/build/OpenEPaperLink_ESP32-PoE-ISO_AP/bootloader.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP/bootloader.bin
+      #     cp .pio/build/OpenEPaperLink_ESP32-PoE-ISO_AP/partitions.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP/partitions.bin
+      #     cp .pio/build/OpenEPaperLink_ESP32-PoE-ISO_AP/littlefs.bin /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP/littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_ESP32-PoE-ISO_AP
+      #     esptool.py --chip esp32 merge_bin -o merged-firmware.bin --flash_mode qio --flash_freq 80m --flash_size 4MB 0x0000 bootloader.bin 0x8000 partitions.bin 0xD000 boot_app0.bin 0x10000 firmware.bin 0x3D0000 littlefs.bin
+      #     cd /home/runner/work/OpenEPaperLink/OpenEPaperLink
+      #     cp OpenEPaperLink_ESP32-PoE-ISO_AP/firmware.bin espbinaries/OpenEPaperLink_ESP32-PoE-ISO_AP.bin
+      #     cp OpenEPaperLink_ESP32-PoE-ISO_AP/merged-firmware.bin espbinaries/OpenEPaperLink_ESP32-PoE-ISO_AP_full.bin
       - name: Build firmware for ESP32_S3_16_8_MAKARON_AP
         run: |
             cd ESP32_AP-Flasher
