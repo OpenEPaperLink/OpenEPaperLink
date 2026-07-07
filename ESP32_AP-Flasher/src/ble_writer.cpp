@@ -5,6 +5,7 @@
 #include "BLEDevice.h"
 #include "ble_filter.h"
 #include "newproto.h"
+#include "tag_db.h"
 #include "web.h"
 
 #define INTERVAL_BLE_SCANNING_SECONDS 60
@@ -16,9 +17,14 @@
 #define BLE_MAIN_STATE_CONNECT 2
 #define BLE_MAIN_STATE_UPLOAD 3
 #define BLE_MAIN_STATE_ATC_BLE_OEPL_UPLOAD 4
+#define BLE_MAIN_STATE_ATC_BLE_OEPL_CMD 5
+
+// expectedNextCheckin sentinel that the web frontend renders as "In deep sleep"
+#define BLE_DEEPSLEEP_CHECKIN 3216153600
 
 int ble_main_state = BLE_MAIN_STATE_IDLE;
 uint32_t last_ble_scan = 0;
+bool BLE_cmd_isDeepsleep = false;
 
 #define BLE_UPLOAD_STATE_INIT 0
 #define BLE_UPLOAD_STATE_SIZE 1
@@ -64,6 +70,12 @@ uint8_t BLE_mini_buff[256];
 uint32_t BLE_last_notify = 0;
 uint32_t BLE_last_pending_check = 0;
 uint8_t BLE_curr_address[8] = {0};
+
+// Connect-failure counter for the command path. We cannot reuse BLE_err_counter
+// here because BLE_connect() resets it to 0 on every call, so a command aimed at
+// an unreachable / already-sleeping display would otherwise retry forever and
+// block all other BLE work.
+uint32_t BLE_cmd_conn_fails = 0;
 
 uint32_t BLE_compressed_len = 0;
 uint8_t* BLE_image_buffer;
@@ -257,6 +269,26 @@ void ATC_BLE_OEPL_SendPart(uint8_t indexBlockId, uint8_t indexPkt) {
     ctrlChar->writeValue(tempPacketBuffer, sizeof(tempPacketBuffer), true);
 }
 
+// Finish handling a queued command for BLE_curr_address: report the transfer as
+// complete (clears the pending item), reset the retry counters, and - for a deep
+// sleep - flag the tag as sleeping so the UI shows "In deep sleep" until it is
+// seen in a scan again.
+static void BLE_finishCommand(bool markSleep) {
+    struct espXferComplete reportStruct;
+    memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
+    processXferComplete(&reportStruct, true);
+    BLE_clear_attempts(BLE_curr_address);
+    BLE_err_counter = 0;
+    BLE_cmd_conn_fails = 0;
+    if (markSleep) {
+        tagRecord* taginfo = tagRecord::findByMAC(BLE_curr_address);
+        if (taginfo != nullptr) {
+            taginfo->expectedNextCheckin = BLE_DEEPSLEEP_CHECKIN;
+            wsSendTaginfo(BLE_curr_address, SYNC_TAGSTATUS);
+        }
+    }
+}
+
 void BLETask(void* parameter) {
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     Serial.println("BLE task started");
@@ -282,6 +314,52 @@ void BLETask(void* parameter) {
                         Serial.println("BLE Image is pending but we wait a bit");
                         delay(5000);                                                       // We better wait here, since the pending image needs to be created first
                         if (BLE_curr_address[7] == 0x13 && BLE_curr_address[6] == 0x37) {  // This is an ATC BLE OEPL display
+                            // A pending item may be a command (deep sleep, reboot, reset, ...)
+                            // instead of an image. Handle that first and skip the image upload
+                            // path when it is a command.
+                            uint8_t cmdFrame[2 + sizeof(struct AvailDataInfo)];
+                            uint8_t cmdFrameLen = 0;
+                            bool isDeepsleep = false;
+                            if (get_ATC_BLE_OEPL_command(BLE_curr_address, cmdFrame, &cmdFrameLen, &isDeepsleep)) {
+                                if (cmdFrameLen == 0) {
+                                    // No BLE equivalent (e.g. a network scan); just clear it so
+                                    // the queue does not get stuck retrying it forever.
+                                    Serial.println("BLE command has no BLE equivalent, clearing it");
+                                    BLE_finishCommand(false);
+                                } else if (BLE_connect(BLE_curr_address, BLE_TYPE_ATC_BLE_OEPL)) {
+                                    BLE_cmd_conn_fails = 0;
+                                    memset(BLE_notify_buffer, 0x00, sizeof(BLE_notify_buffer));
+                                    BLE_new_notify = false;
+                                    BLE_cmd_isDeepsleep = isDeepsleep;
+                                    ctrlChar->writeValue(cmdFrame, cmdFrameLen, true);  // write-with-response
+                                    Serial.printf("BLE command frame sent (%u bytes)\r\n", cmdFrameLen);
+                                    if (isDeepsleep) {
+                                        // The display shuts its BLE stack down right after ACK-ing a
+                                        // deep sleep, so we usually can't read the ACK before it
+                                        // disconnects. Having connected and written the command (with
+                                        // response) is proof enough of delivery, so finish here -
+                                        // otherwise reconnect attempts to the now sleeping display
+                                        // would loop and block all other BLE work.
+                                        pClient->disconnect();
+                                        ble_main_state = BLE_MAIN_STATE_IDLE;
+                                        BLE_finishCommand(true);
+                                    } else {
+                                        BLE_last_notify = millis();
+                                        ble_main_state = BLE_MAIN_STATE_ATC_BLE_OEPL_CMD;
+                                    }
+                                } else {
+                                    // Connect failed. Give up after a few tries so a command aimed
+                                    // at an unreachable / already-sleeping display cannot block the
+                                    // BLE task forever (BLE_connect resets BLE_err_counter, hence the
+                                    // separate counter here).
+                                    if (++BLE_cmd_conn_fails >= 5) {
+                                        Serial.println("BLE command: giving up after repeated connect failures");
+                                        BLE_finishCommand(false);
+                                    }
+                                }
+                                BLE_last_pending_check = millis();
+                                break;  // handled this pending item, skip the image path
+                            }
                             // Here we create the compressed buffer
                             BLE_image_buffer = (uint8_t*)malloc(BUFFER_MAX_SIZE_COMPRESSING);
                             if (BLE_image_buffer == nullptr) {
@@ -506,6 +584,34 @@ void BLETask(void* parameter) {
                         ble_main_state = BLE_MAIN_STATE_IDLE;
                         BLE_last_pending_check = millis();
                     }
+                }
+                break;
+            }
+            case BLE_MAIN_STATE_ATC_BLE_OEPL_CMD: {
+                // We sent a single command frame and now wait for the display's
+                // acknowledgement notify. Any reply (BLE_CMD_ACK_CMD / BLE_CMD_ACK)
+                // means the command was accepted. No image buffer is involved here,
+                // so we must never free BLE_image_buffer in this state.
+                bool finish = false;
+                if (BLE_connected && BLE_new_notify) {
+                    BLE_new_notify = false;
+                    uint16_t notifyCMD = (BLE_notify_buffer[1] << 8) | BLE_notify_buffer[2];
+                    Serial.println("BLE command reply " + String(notifyCMD));
+                    finish = true;
+                } else if (millis() - BLE_last_notify > 30000) {
+                    // A deep-sleeping display stops its BLE stack right after ACK-ing,
+                    // so a missed notify is expected there; treat the timeout as done.
+                    Serial.println("BLE command timeout, going back to IDLE");
+                    finish = true;
+                }
+                if (finish) {
+                    pClient->disconnect();
+                    ble_main_state = BLE_MAIN_STATE_IDLE;
+                    BLE_last_pending_check = millis();
+                    // The display stops advertising after a deep sleep; show it as sleeping
+                    // until it is found in a scan again (see processDataReq wake handling).
+                    BLE_finishCommand(BLE_cmd_isDeepsleep);
+                    BLE_cmd_isDeepsleep = false;
                 }
                 break;
             }

@@ -442,8 +442,17 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
 
     uint8_t md5bytes[16];
+    bool wasDeepSleepCmd = false;
     PendingItem* queueItem = getQueueItem(xfc->src);
     if (queueItem != nullptr) {
+        // A completed deep-sleep command means the tag acknowledged it and is now
+        // going to sleep. Flag it so we can mark the tag "in deep sleep" below;
+        // this is deterministic, unlike the check-in based sentinel in
+        // processDataReq which the delivering check-in can race and reset.
+        if (queueItem->pendingdata.availdatainfo.dataType == DATATYPE_COMMAND_DATA &&
+            queueItem->pendingdata.availdatainfo.dataTypeArgument == CMD_DO_DEEPSLEEP) {
+            wasDeepSleepCmd = true;
+        }
         if (contentFS->exists(dst_path) && contentFS->exists(queueItem->filename)) {
             contentFS->remove(dst_path);
         }
@@ -469,6 +478,11 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         taginfo->updateLast = now;
         taginfo->pendingCount = countQueueItem(xfc->src);
         taginfo->wakeupReason = 0;
+        if (wasDeepSleepCmd) {
+            // Show "in deep sleep" until the tag checks in again (which
+            // processDataReq treats as a wake-up and clears).
+            taginfo->expectedNextCheckin = 3216153600;
+        }
         if (taginfo->contentMode == 12 && local == false) {
             if (contentFS->exists(dst_path)) {
                 contentFS->remove(dst_path);
@@ -562,9 +576,14 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     }
 
     if (taginfo->pendingIdle == 0 || countQueueItem(eadr->src) > 0) {
-        if (taginfo->expectedNextCheckin < now + 60) taginfo->expectedNextCheckin = now + 60;
-    } else if (taginfo->pendingIdle == 9999) {
-        taginfo->expectedNextCheckin = 3216153600;
+        // A tag that checks in is awake right now. Raise the expected checkin to at
+        // least now+60, and pull it back down from the "in deep sleep" sentinel
+        // (3216153600): once a tag checks in again after a deep sleep it has woken
+        // up, so it must no longer show as sleeping - independent of the checkin
+        // interval. The marker is (re)applied below the moment a deep-sleep command
+        // is actually delivered, after which the tag sleeps and stops checking in.
+        if (taginfo->expectedNextCheckin < now + 60 || taginfo->expectedNextCheckin == 3216153600)
+            taginfo->expectedNextCheckin = now + 60;
     } else {
         taginfo->expectedNextCheckin = now + taginfo->pendingIdle;
     }
@@ -608,6 +627,30 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\r\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
         Serial.print(buffer);
         checkQueue(eadr->src);   // experiemental 3/26/25: redundant check
+
+        // A deep-sleep command makes the tag sleep without ever reporting xfer
+        // complete. The radio co-processor only drops its cached "data available"
+        // on an xfer-complete or an explicit cancel, so it would keep re-delivering
+        // the deepsleep on every future check-in - re-sleeping the tag the moment it
+        // is woken. This check-in means the tag is listening and has just received
+        // it, so: mark it "in deep sleep" (the deterministic moment of delivery),
+        // remove it from our queue, and cancel it in the radio so it is delivered
+        // exactly once. A later check-in is treated as a wake-up (above) and clears
+        // the marker. BLE displays are excluded: their deep sleep is delivered and
+        // marked by the BLE writer, not over the 802.15.4 radio.
+        if (!(eadr->src[7] == 0x13 && eadr->src[6] == 0x37)) {
+            PendingItem* sent = getQueueItem(eadr->src);
+            if (sent != nullptr &&
+                sent->pendingdata.availdatainfo.dataType == DATATYPE_COMMAND_DATA &&
+                sent->pendingdata.availdatainfo.dataTypeArgument == CMD_DO_DEEPSLEEP) {
+                dequeueItem(eadr->src, sent->pendingdata.availdatainfo.dataVer);
+                taginfo->pendingCount = countQueueItem(eadr->src);
+                taginfo->expectedNextCheckin = 3216153600;
+                struct pendingData cancel = {0};
+                memcpy(cancel.targetMac, eadr->src, 8);
+                sendCancelPending(&cancel);
+            }
+        }
     }
 
     if (local) {

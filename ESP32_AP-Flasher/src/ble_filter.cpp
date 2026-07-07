@@ -545,4 +545,79 @@ uint32_t get_ATC_BLE_OEPL_image(uint8_t address[8], uint8_t* buffer, uint32_t ma
     return queueItem->len;
 }
 
+#define BLE_CMD_RESET_TO_DEFAULT 10
+#define BLE_CMD_SET_CUSTOM_MAC 9
+#define BLE_CMD_DEEPSLEEP 20
+#define BLE_CMD_SET_LED 21
+#define BLE_CMD_REBOOT 23
+#define BLE_CMD_AVAILDATA 100
+
+bool get_ATC_BLE_OEPL_command(uint8_t address[8], uint8_t* frame, uint8_t* frameLen, bool* isDeepsleep) {
+    *frameLen = 0;
+    *isDeepsleep = false;
+
+    PendingItem* queueItem = getQueueItem(address, 0);
+    if (queueItem == nullptr) return false;
+
+    struct AvailDataInfo* adi = &queueItem->pendingdata.availdatainfo;
+    if (adi->dataType != DATATYPE_COMMAND_DATA) return false;  // an actual image, let the upload path handle it
+
+    uint8_t arg = adi->dataTypeArgument;
+
+    // A screen-type change (argument >= 0xA0) is understood by the display through
+    // the normal AVAILDATA / COMMAND_DATA path, so forward the availdatainfo as-is.
+    if (arg >= 0xA0) {
+        frame[0] = 0x00;
+        frame[1] = BLE_CMD_AVAILDATA;
+        memcpy(&frame[2], adi, sizeof(struct AvailDataInfo));
+        *frameLen = 2 + sizeof(struct AvailDataInfo);
+        return true;
+    }
+
+    uint16_t bleCmd = 0;
+    switch (arg) {
+        case CMD_DO_REBOOT:
+            bleCmd = BLE_CMD_REBOOT;
+            break;
+        case CMD_DO_DEEPSLEEP:
+            bleCmd = BLE_CMD_DEEPSLEEP;
+            *isDeepsleep = true;
+            break;
+        case CMD_DO_RESET_SETTINGS:
+            // The display requires the 0x1234 confirmation payload for a reset.
+            frame[0] = 0x00;
+            frame[1] = BLE_CMD_RESET_TO_DEFAULT;
+            frame[2] = 0x12;
+            frame[3] = 0x34;
+            *frameLen = 4;
+            return true;
+        case CMD_DO_LEDFLASH:
+            // The 12 LED-pattern bytes are stored in dataVer (8) + dataSize (4).
+            frame[0] = 0x00;
+            frame[1] = BLE_CMD_SET_LED;
+            memcpy(&frame[2], &adi->dataVer, 8);
+            memcpy(&frame[2 + 8], &adi->dataSize, 4);
+            *frameLen = 2 + 12;
+            return true;
+        case 0x23:  // set custom MAC (sendTagMac stores the new MAC in dataVer)
+            frame[0] = 0x00;
+            frame[1] = BLE_CMD_SET_CUSTOM_MAC;
+            memcpy(&frame[2], &adi->dataVer, 8);
+            *frameLen = 2 + 8;
+            return true;
+        case CMD_DO_SCAN:
+        default:
+            // No sensible BLE equivalent (a scan targets the 802.15.4 radio).
+            // Report it as a command so the caller acknowledges/clears it and the
+            // queue does not get stuck retrying forever.
+            *frameLen = 0;
+            return true;
+    }
+
+    frame[0] = (bleCmd >> 8) & 0xff;
+    frame[1] = bleCmd & 0xff;
+    *frameLen = 2;
+    return true;
+}
+
 #endif
