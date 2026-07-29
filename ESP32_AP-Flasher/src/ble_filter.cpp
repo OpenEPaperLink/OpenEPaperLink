@@ -2,7 +2,10 @@
 #include <Arduino.h>
 #include <FS.h>
 
+#include <map>
+
 #include "BLEDevice.h"
+#include "ble_filter.h"
 #include "newproto.h"
 #include "serialap.h"
 #include "settings.h"
@@ -64,13 +67,23 @@ uint8_t gicToOEPLtype(uint8_t gicType) {
     }
 }
 
-struct BleAdvDataStruct {
+struct BleAdvDataStructV1 {
     uint16_t manu_id;  // 0x1337 for us
     uint8_t version;
     uint16_t hw_type;
     uint16_t fw_version;
     uint16_t capabilities;
     uint16_t battery_mv;
+    uint8_t counter;
+} __packed;
+struct BleAdvDataStructV2 {
+    uint16_t manu_id;  // 0x1337 for us
+    uint8_t version;
+    uint16_t hw_type;
+    uint16_t fw_version;
+    uint16_t capabilities;
+    uint16_t battery_mv;
+    int8_t temperature;
     uint8_t counter;
 } __packed;
 
@@ -80,6 +93,8 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
 
     uint8_t payloadData[100];
     int payloadDatalen = advertisedDevice.getPayloadLength();
+    if (payloadDatalen > sizeof(payloadData))
+        payloadDatalen = sizeof(payloadData);  // Never copy more than the buffer holds (extended advertising can exceed 31 bytes)
     memcpy(&payloadData, (uint8_t*)advertisedDevice.getPayload(), payloadDatalen);
     Serial.printf(" Payload data: ");
     for (int i = 0; i < payloadDatalen; i++)
@@ -91,16 +106,16 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
         uint8_t manuData[100];
         if (manuDatalen > sizeof(manuData))
             return false;  // Manu data too big, could never happen but better make sure here
+#if ESP_ARDUINO_VERSION_MAJOR == 2
+        memcpy(&manuData, (uint8_t*)advertisedDevice.getManufacturerData().data(), manuDatalen);
+#else
+        // [Nic] suggested fix for arduino 3.x by copilot, but I cannot test it
+        memcpy(&manuData, (uint8_t*)advertisedDevice.getManufacturerData().c_str(), manuDatalen);
+#endif
         Serial.printf(" Address type: %02X Manu data: ", advertisedDevice.getAddressType());
         for (int i = 0; i < advertisedDevice.getManufacturerData().length(); i++)
             Serial.printf("%02X", manuData[i]);
         Serial.printf("\r\n");
-#if ESP_ARDUINO_VERSION_MAJOR == 2
-        memcpy(&manuData, (uint8_t*)advertisedDevice.getManufacturerData().data(), manuDatalen);
-#else
-        // [Nic] suggested fix for arduino 3.x by copilot, but I cannot test it 
-        memcpy(&manuData, (uint8_t*)advertisedDevice.getManufacturerData().c_str(), manuDatalen);
-#endif
         if (manuDatalen == 7 && manuData[0] == 0x53 && manuData[1] == 0x50) {  // Lets check for a Gicisky E-Paper display
 
             struct espAvailDataReq theAdvData;
@@ -123,25 +138,65 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.adr.tagSoftwareVersion = manuData[4] << 8 | manuData[5];
             theAdvData.adr.capabilities = 0x00;
 
-            processDataReq(&theAdvData, true);
+            BLE_enqueue_data_req(&theAdvData);
             return true;
-        } else if (manuDatalen >= sizeof(BleAdvDataStruct) && manuData[0] == 0x37 && manuData[1] == 0x13) {  // Lets check for a Gicisky E-Paper display
+        } else if (manuDatalen >= 3 && manuData[0] == 0x37 && manuData[1] == 0x13) {  // Lets check for a Gicisky E-Paper display
             Serial.printf("ATC BLE OEPL Detected\r\n");
             struct espAvailDataReq theAdvData;
-            struct BleAdvDataStruct inAdvData;
-
             memset((uint8_t*)&theAdvData, 0x00, sizeof(espAvailDataReq));
-            memcpy(&inAdvData, manuData, sizeof(BleAdvDataStruct));
-            /*Serial.printf("manu_id %04X\r\n", inAdvData.manu_id);
-            Serial.printf("version %04X\r\n", inAdvData.version);
-            Serial.printf("hw_type %04X\r\n", inAdvData.hw_type);
-            Serial.printf("fw_version %04X\r\n", inAdvData.fw_version);
-            Serial.printf("capabilities %04X\r\n", inAdvData.capabilities);
-            Serial.printf("battery_mv %u\r\n", inAdvData.battery_mv);
-            Serial.printf("counter %u\r\n", inAdvData.counter);*/
-            if (inAdvData.version != 1) {
-                printf("Version currently not supported!\r\n");
-                return false;
+            uint8_t versionAdvData = manuData[2];
+
+            switch (versionAdvData) {
+                case 1: {
+                    if (manuDatalen >= sizeof(BleAdvDataStructV1)) {
+                        struct BleAdvDataStructV1 inAdvData;
+                        memcpy(&inAdvData, manuData, sizeof(BleAdvDataStructV1));
+                        printf("Version 1 ATC_BLE_OEPL Received\r\n");
+                        /*Serial.printf("manu_id %04X\r\n", inAdvData.manu_id);
+                        Serial.printf("version %02X\r\n", inAdvData.version);
+                        Serial.printf("hw_type %04X\r\n", inAdvData.hw_type);
+                        Serial.printf("fw_version %04X\r\n", inAdvData.fw_version);
+                        Serial.printf("capabilities %04X\r\n", inAdvData.capabilities);
+                        Serial.printf("battery_mv %u\r\n", inAdvData.battery_mv);
+                        Serial.printf("counter %u\r\n", inAdvData.counter);*/
+                        theAdvData.adr.batteryMv = inAdvData.battery_mv;
+                        theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
+                        theAdvData.adr.hwType = inAdvData.hw_type & 0xff;
+                        theAdvData.adr.tagSoftwareVersion = inAdvData.fw_version;
+                        theAdvData.adr.capabilities = inAdvData.capabilities & 0xff;
+                    } else {
+                        printf("Version 1 data length incorrect!\r\n");
+                        return false;
+                    }
+                } break;
+                case 2: {
+                    if (manuDatalen >= sizeof(BleAdvDataStructV2)) {
+                        struct BleAdvDataStructV2 inAdvData;
+                        memcpy(&inAdvData, manuData, sizeof(BleAdvDataStructV2));
+                        printf("Version 2 ATC_BLE_OEPL Received\r\n");
+                        /*Serial.printf("manu_id %04X\r\n", inAdvData.manu_id);
+                        Serial.printf("version %02X\r\n", inAdvData.version);
+                        Serial.printf("hw_type %04X\r\n", inAdvData.hw_type);
+                        Serial.printf("fw_version %04X\r\n", inAdvData.fw_version);
+                        Serial.printf("capabilities %04X\r\n", inAdvData.capabilities);
+                        Serial.printf("battery_mv %u\r\n", inAdvData.battery_mv);
+                        Serial.printf("temperature %i\r\n", inAdvData.temperature);
+                        Serial.printf("counter %u\r\n", inAdvData.counter);*/
+                        theAdvData.adr.batteryMv = inAdvData.battery_mv;
+                        theAdvData.adr.temperature = inAdvData.temperature;
+                        theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
+                        theAdvData.adr.hwType = inAdvData.hw_type & 0xff;
+                        theAdvData.adr.tagSoftwareVersion = inAdvData.fw_version;
+                        theAdvData.adr.capabilities = inAdvData.capabilities & 0xff;
+                    } else {
+                        printf("Version 2 data length incorrect!\r\n");
+                        return false;
+                    }
+                } break;
+                default:
+                    printf("Version %02X currently not supported!\r\n", versionAdvData);
+                    return false;
+                    break;
             }
             uint8_t macReversed[6];
             memcpy(&macReversed, (uint8_t*)advertisedDevice.getAddress().getNative(), 6);
@@ -153,12 +208,7 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.src[5] = macReversed[0];
             theAdvData.src[6] = manuData[0];  // We use this do find out what type of display we got for compression^^
             theAdvData.src[7] = manuData[1];
-            theAdvData.adr.batteryMv = inAdvData.battery_mv;
-            theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
-            theAdvData.adr.hwType = inAdvData.hw_type & 0xff;
-            theAdvData.adr.tagSoftwareVersion = inAdvData.fw_version;
-            theAdvData.adr.capabilities = inAdvData.capabilities & 0xff;
-            processDataReq(&theAdvData, true);
+            BLE_enqueue_data_req(&theAdvData);
             return true;
         }
     }
@@ -184,7 +234,7 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.adr.hwType = ATC_MI_THERMOMETER;
             theAdvData.adr.tagSoftwareVersion = 0x00;
             theAdvData.adr.capabilities = 0x00;
-            processDataReq(&theAdvData, true);
+            BLE_enqueue_data_req(&theAdvData);
             Serial.printf("We got an ATC_MiThermometer via BLE\r\n");
             return true;
         }
@@ -192,23 +242,53 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
     return false;
 }
 
+// Remembers how often we already tried to reach each BLE tag (keyed by MAC).
+// Used to spread attempts evenly instead of getting stuck on the first (maybe
+// offline) tag forever.
+static std::map<uint64_t, uint32_t> BLE_attemptCounts;
+
+static uint64_t BLE_macToKey(const uint8_t mac[8]) {
+    uint64_t key = 0;
+    for (int i = 0; i < 8; i++) key = (key << 8) | mac[i];
+    return key;
+}
+
+static bool BLE_isPendingCandidate(tagRecord* taginfo) {
+    if (taginfo->pendingCount == 0 || taginfo->version != 0) return false;
+    // Gicisky / other BLE displays, or an ATC BLE OEPL tag (MAC starts 0x1337)
+    return ((taginfo->hwType & 0xB0) == 0xB0) || (taginfo->mac[7] == 0x13 && taginfo->mac[6] == 0x37);
+}
+
+// Call once an upload finished (success or given up) so a later re-add of the
+// same tag starts fresh and isn't unfairly deprioritized.
+void BLE_clear_attempts(uint8_t address[8]) {
+    BLE_attemptCounts.erase(BLE_macToKey(address));
+}
+
 bool BLE_is_image_pending(uint8_t address[8]) {
+    // Pick the pending BLE tag we have tried the fewest times. This way an
+    // unreachable display no longer blocks the queue: every attempt rotates to
+    // the next-least-tried tag, so all reachable uploads get their turn and
+    // finish even while some tags stay offline.
+    tagRecord* best = nullptr;
+    uint32_t bestAttempts = 0;
     for (int16_t c = 0; c < tagDB.size(); c++) {
         tagRecord* taginfo = tagDB.at(c);
-        if (taginfo->pendingCount > 0 && taginfo->version == 0 && ((taginfo->hwType & 0xB0) == 0xB0)) {
-            memcpy(address, taginfo->mac, 8);
-            return true;
+        if (!BLE_isPendingCandidate(taginfo)) continue;
+        uint32_t attempts = BLE_attemptCounts[BLE_macToKey(taginfo->mac)];
+        if (best == nullptr || attempts < bestAttempts) {
+            best = taginfo;
+            bestAttempts = attempts;
         }
     }
-    for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = tagDB.at(c);
-        if (taginfo->pendingCount > 0 && taginfo->version == 0 && (taginfo->mac[7] == 0x13) && (taginfo->mac[6] == 0x37)) {
-            memcpy(address, taginfo->mac, 8);
-            Serial.printf("ATC BLE OEPL data Waiting\r\n");
-            return true;
-        }
+    if (best == nullptr) return false;
+
+    memcpy(address, best->mac, 8);
+    BLE_attemptCounts[BLE_macToKey(best->mac)]++;  // count this attempt so the next round prefers the others
+    if (best->mac[7] == 0x13 && best->mac[6] == 0x37) {
+        Serial.printf("ATC BLE OEPL data Waiting\r\n");
     }
-    return false;
+    return true;
 }
 
 uint8_t swapBits(uint8_t num) {
@@ -463,6 +543,81 @@ uint32_t get_ATC_BLE_OEPL_image(uint8_t address[8], uint8_t* buffer, uint32_t ma
     memcpy(buffer, queueItem->data, queueItem->len);
     Serial.print("Data is prepared Len: " + String(queueItem->len) + "\r\n");
     return queueItem->len;
+}
+
+#define BLE_CMD_RESET_TO_DEFAULT 10
+#define BLE_CMD_SET_CUSTOM_MAC 9
+#define BLE_CMD_DEEPSLEEP 20
+#define BLE_CMD_SET_LED 21
+#define BLE_CMD_REBOOT 23
+#define BLE_CMD_AVAILDATA 100
+
+bool get_ATC_BLE_OEPL_command(uint8_t address[8], uint8_t* frame, uint8_t* frameLen, bool* isDeepsleep) {
+    *frameLen = 0;
+    *isDeepsleep = false;
+
+    PendingItem* queueItem = getQueueItem(address, 0);
+    if (queueItem == nullptr) return false;
+
+    struct AvailDataInfo* adi = &queueItem->pendingdata.availdatainfo;
+    if (adi->dataType != DATATYPE_COMMAND_DATA) return false;  // an actual image, let the upload path handle it
+
+    uint8_t arg = adi->dataTypeArgument;
+
+    // A screen-type change (argument >= 0xA0) is understood by the display through
+    // the normal AVAILDATA / COMMAND_DATA path, so forward the availdatainfo as-is.
+    if (arg >= 0xA0) {
+        frame[0] = 0x00;
+        frame[1] = BLE_CMD_AVAILDATA;
+        memcpy(&frame[2], adi, sizeof(struct AvailDataInfo));
+        *frameLen = 2 + sizeof(struct AvailDataInfo);
+        return true;
+    }
+
+    uint16_t bleCmd = 0;
+    switch (arg) {
+        case CMD_DO_REBOOT:
+            bleCmd = BLE_CMD_REBOOT;
+            break;
+        case CMD_DO_DEEPSLEEP:
+            bleCmd = BLE_CMD_DEEPSLEEP;
+            *isDeepsleep = true;
+            break;
+        case CMD_DO_RESET_SETTINGS:
+            // The display requires the 0x1234 confirmation payload for a reset.
+            frame[0] = 0x00;
+            frame[1] = BLE_CMD_RESET_TO_DEFAULT;
+            frame[2] = 0x12;
+            frame[3] = 0x34;
+            *frameLen = 4;
+            return true;
+        case CMD_DO_LEDFLASH:
+            // The 12 LED-pattern bytes are stored in dataVer (8) + dataSize (4).
+            frame[0] = 0x00;
+            frame[1] = BLE_CMD_SET_LED;
+            memcpy(&frame[2], &adi->dataVer, 8);
+            memcpy(&frame[2 + 8], &adi->dataSize, 4);
+            *frameLen = 2 + 12;
+            return true;
+        case 0x23:  // set custom MAC (sendTagMac stores the new MAC in dataVer)
+            frame[0] = 0x00;
+            frame[1] = BLE_CMD_SET_CUSTOM_MAC;
+            memcpy(&frame[2], &adi->dataVer, 8);
+            *frameLen = 2 + 8;
+            return true;
+        case CMD_DO_SCAN:
+        default:
+            // No sensible BLE equivalent (a scan targets the 802.15.4 radio).
+            // Report it as a command so the caller acknowledges/clears it and the
+            // queue does not get stuck retrying forever.
+            *frameLen = 0;
+            return true;
+    }
+
+    frame[0] = (bleCmd >> 8) & 0xff;
+    frame[1] = bleCmd & 0xff;
+    *frameLen = 2;
+    return true;
 }
 
 #endif

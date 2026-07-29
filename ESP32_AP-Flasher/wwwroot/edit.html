@@ -777,8 +777,10 @@
 			if (typeof lang === "undefined") {
 				lang = getLangFromFilename(file);
 			}
-
-			if (typeof theme === "undefined") theme = "textmate";
+			if (typeof theme === "undefined") {
+				const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+				theme = (currentTheme === 'dark') ? "tomorrow_night" : "textmate";
+			}
 
 			if (typeof type === "undefined") {
 				type = "text/" + lang;

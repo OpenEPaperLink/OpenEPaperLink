@@ -6,6 +6,7 @@
 #include "newproto.h"
 #include "storage.h"
 #include "tag_db.h"
+#include "web.h"
 
 #ifdef HAS_TFT
 
@@ -310,9 +311,21 @@ void touch_loop()
         last_touch_read = millis();
         ts.read();
         if (ts.isTouched)
-        {            
-            touch_last_x = map(ts.points[0].x, 480, 0, 0, 480 - 1);
-            touch_last_y = map(ts.points[0].y, 480, 0, 0, 480 - 1);
+        {
+            uint8_t count = ts.touches;
+            if (count > 5) count = 5;  // the GT911 tracks at most 5 points
+            uint16_t xs[5], ys[5];
+            uint8_t ids[5], sizes[5];
+            for (uint8_t i = 0; i < count; i++) {
+                xs[i] = map(ts.points[i].x, 480, 0, 0, 480 - 1);
+                ys[i] = map(ts.points[i].y, 480, 0, 0, 480 - 1);
+                ids[i] = ts.points[i].id;
+                sizes[i] = ts.points[i].size;
+            }
+            touch_last_x = xs[0];
+            touch_last_y = ys[0];
+            // Stream the real touch positions (also while dragging) over websocket
+            wsSendTouch(count, xs, ys, ids, sizes);
             Serial.printf("Touch position X: %i Y: %i\r\n", touch_last_x, touch_last_y);
             if(is_new_touch_checked == false)
             {
@@ -323,6 +336,8 @@ void touch_loop()
                     sendAvail(WAKEUP_REASON_BUTTON2);
             }
         }else{
+            if (is_new_touch_checked)  // fingers just left the panel, send one release event
+                wsSendTouch(0, nullptr, nullptr, nullptr, nullptr);
             is_new_touch_checked = false;
         }
     }
@@ -481,20 +496,35 @@ void yellow_ap_display_init(void) {
     touch_init();
 }
 
+// Runs in its own FreeRTOS task so periodic checkin and touch input keep
+// working even when the main loop is blocked for a long time (content
+// generation does synchronous HTTP requests with multi-second timeouts, which
+// stall loop() and with it the checkin and touch polling).
+// It only does work that is safe off the main loop: reading touch (I2C +
+// wsSendTouch, which is mutex-protected) and the checkin sendAvail(). It must
+// NOT draw to the display, because gfx/tft2 are also driven from other contexts
+// (content generation in makeimage, the web flasher task) and share the bus.
+void yellow_ap_touch_task(void* parameter) {
+    bool first_run = false;
+    uint32_t last_checkin = 0;
+    while (1) {
+        if (!first_run) {
+            sendAvail(0xFC);
+            first_run = true;
+        }
+        if (millis() - last_checkin >= 60000) {
+            sendAvail(0);
+            last_checkin = millis();
+            tftLogscreen = false;
+        }
+        touch_loop();
+        vTaskDelay(20 / portTICK_PERIOD_MS);
+    }
+}
+
 void yellow_ap_display_loop(void) {
-    static bool first_run = 0;
-    static time_t last_checkin = 0;
     static time_t last_update = 0;
 
-    if (millis() - last_checkin >= 60000) {
-        sendAvail(0);
-        last_checkin = millis();
-        tftLogscreen = false;
-    }
-    if (first_run == 0) {
-        sendAvail(0xFC);
-        first_run = 1;
-    }
     if (millis() - last_update >= 3000) {
         uint8_t wifimac[8];
         WiFi.macAddress(wifimac);
@@ -541,7 +571,6 @@ void yellow_ap_display_loop(void) {
         }
         last_update = millis();
     }
-    touch_loop();
 }
 
 #endif

@@ -25,11 +25,11 @@
 					<div class="tablinks material-symbols-outlined" data-target="hometab" title="Dashboard">home</div>
 					<div class="tablinks material-symbols-outlined" data-target="tagtab" title="Tags">sell</div>
 					<div class="tablinks material-symbols-outlined" data-target="aptab" title="Access Points">cell_tower</div>
-					<!--<div class="tablinks material-symbols-outlined" data-target="templatetab" title="Templates">browse
-					</div>-->
+					<!--<div class="tablinks material-symbols-outlined" data-target="templatetab" title="Templates">browse</div>-->
 					<div class="tablinks material-symbols-outlined" data-target="flashtab" title="Tag flasher" style="display:none;">flash_on</div>
 					<div class="tablinks material-symbols-outlined" data-target="configtab" title="Settings">settings</div>
 					<div class="tablinks material-symbols-outlined" data-target="logtab" title="Logging">text_snippet</div>
+					<button id="theme-toggle" class="theme-toggle-btn material-symbols-outlined" title="Toggle Theme">light_mode</button>
 				</div>
 				<!-- /tabs -->
 				<div><span id="runstate"></div>
@@ -181,6 +181,7 @@
 						<div class="lastseen"></div>
 						<div class="nextcheckin"></div>
 						<div class="nextupdate"></div>
+						<div class="uploadstatus" title="Data upload progress"></div>
 						<div class="corner">
 							<div class="waitingicon" title="New content is scheduled to be generated (as soon as possible, or shortly before the next expected checkin time)">&#9203;</div>
 							<div class="pendingicon" title="A new message is waiting for the tag to pick up">&circlearrowright;</div>
@@ -623,8 +624,7 @@ options:
 		</p>
 	</dialog>
 
-	<ul id="context-menu"
-		style="display: none; position: absolute; background: white; border: 1px solid gray; padding: 0; list-style: none;">
+	<ul id="context-menu" style="display: none; position: absolute;">
 	</ul>
 
 </body>

@@ -6,6 +6,7 @@ const WAKEUP_REASON_GPIO = 2;
 const WAKEUP_REASON_NFC = 3;
 const WAKEUP_REASON_BUTTON1 = 4;
 const WAKEUP_REASON_BUTTON2 = 5;
+const WAKEUP_REASON_BUTTON3 = 6;
 const WAKEUP_REASON_FAILED_OTA_FW = 0xE0;
 const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
@@ -82,6 +83,34 @@ window.addEventListener("loadConfig", function () {
 });
 
 window.addEventListener("load", function () {
+    const themeToggle = $('#theme-toggle');
+    if (themeToggle) {
+        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+        const setTheme = (theme) => {
+            if (theme === 'dark') {
+                document.body.classList.add('dark-mode');
+                themeToggle.innerHTML = 'dark_mode';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.body.classList.remove('dark-mode');
+                themeToggle.innerHTML = 'light_mode';
+                localStorage.setItem('theme', 'light');
+            }
+        };
+
+        themeToggle.addEventListener('click', () => {
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            setTheme(isDarkMode ? 'light' : 'dark');
+        });
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            setTheme(savedTheme);
+        } else {
+            setTheme(prefersDarkScheme.matches ? 'dark' : 'light');
+        }
+    }
 	window.dispatchEvent(loadConfig);
 	initTabs();
 	fetch('content_cards.json')
@@ -124,6 +153,18 @@ function initTabs() {
 		tabLink.addEventListener("click", function (event) {
 			event.preventDefault();
 			const targetId = this.getAttribute("data-target");
+			const url = new URL(window.location);
+			if (targetId === 'tagtab') {
+				if (url.searchParams.get('tab') !== 'tagtab') {
+					url.searchParams.set('tab', 'tagtab');
+					history.replaceState(null, '', url);
+				}
+			} else {
+				if (url.searchParams.has('tab')) {
+					url.searchParams.delete('tab');
+					history.replaceState(null, '', url);
+				}
+			}
 			const loadTabEvent = new CustomEvent('loadTab', { detail: targetId });
 			document.dispatchEvent(loadTabEvent);
 			tabContents.forEach(tabContent => {
@@ -137,7 +178,15 @@ function initTabs() {
 			this.classList.add("active");
 		});
 	});
-	tabLinks[0].click();
+
+	const urlParams = new URLSearchParams(window.location.search);
+	const tabToOpen = urlParams.get('tab');
+	const targetTabLink = document.querySelector(`.tablinks[data-target="${tabToOpen}"]`);
+	if (targetTabLink) {
+		targetTabLink.click();
+	} else {
+		tabLinks[0].click();
+	}
 };
 
 function loadTags(pos) {
@@ -233,6 +282,16 @@ function connect() {
 		if (msg.apitem) {
 			populateAPCard(msg.apitem);
 		}
+		if (msg.touch) {
+			// Real touch positions from a touch-capable AP (e.g. 4inch GT911).
+			// Protocol: {touch:{count:N, points:[{id,x,y,size},...]}}, count 0 = release.
+			// Consume it from your own code with:
+			//   window.addEventListener('oepltouch', e => console.log(e.detail));
+			window.dispatchEvent(new CustomEvent('oepltouch', { detail: msg.touch }));
+		}
+		if (msg.upload) {
+			showUploadProgress(msg.upload);
+		}
 		if (msg.console) {
 			if (activeTab == 'flashtab' && flashmodule && typeof (flashmodule.print) === "function") {
 				let color = (msg.color ? msg.color : "#c0c0c0");
@@ -264,6 +323,17 @@ function convertSize(bytes) {
 	else if (bytes == 1) { bytes = bytes + " byte"; }
 	else { bytes = "0 bytes"; }
 	return bytes;
+}
+
+function clearTagStateClasses(tagElement) {
+	tagElement.classList.remove(
+		'state-deepsleep',
+		'state-boot',
+		'state-wakeup',
+		'state-scan',
+		'state-reset',
+		'state-failed-ota'
+	);
 }
 
 function processTags(tagArray) {
@@ -384,7 +454,7 @@ function processTags(tagArray) {
 		}
 
 		div.style.opacity = '1';
-		$('#tag' + tagmac + ' .lastseen').style.color = "black";
+		$('#tag' + tagmac + ' .lastseen').style.color = "";
 		div.classList.remove("tagpending");
 		div.dataset.lastseen = element.lastseen;
 		div.dataset.wakeupreason = element.wakeupReason;
@@ -392,45 +462,56 @@ function processTags(tagArray) {
 		div.dataset.channel = element.ch;
 		div.dataset.isexternal = element.isexternal;
 		$('#tag' + tagmac + ' .warningicon').style.display = 'none';
-		$('#tag' + tagmac).style.background = "#ffffff";
-		if (element.contentMode == 12 || element.nextcheckin == 3216153600) $('#tag' + tagmac).style.background = "#e4e4e0";
+		
+		div.style.background = '';
+		div.classList.remove('state-timeout');
+		clearTagStateClasses(div);
+		
+		let stateClassSet = false;
 		switch (parseInt(element.wakeupReason)) {
 			case WAKEUP_REASON_TIMED:
 				break;
 			case WAKEUP_REASON_BOOT:
 			case WAKEUP_REASON_FIRSTBOOT:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>First boot</font>"
-				$('#tag' + tagmac).style.background = "#b0d0b0";
+				div.classList.add("state-boot");
+				stateClassSet = true;
 				break;
 			case WAKEUP_REASON_GPIO:
-				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "GPIO wakeup"
-				$('#tag' + tagmac).style.background = "#c8f1bb";
-				break;
 			case WAKEUP_REASON_BUTTON1:
-				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Button 1 pressed"
-				$('#tag' + tagmac).style.background = "#c8f1bb";
-				break;
 			case WAKEUP_REASON_BUTTON2:
-				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Button 2 pressed"
-				$('#tag' + tagmac).style.background = "#c8f1bb";
-				break;
+			case WAKEUP_REASON_BUTTON3:
 			case WAKEUP_REASON_NFC:
-				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "NFC wakeup"
-				$('#tag' + tagmac).style.background = "#c8f1bb";
+				let reasonText = {
+					[WAKEUP_REASON_GPIO]: "GPIO wakeup",
+					[WAKEUP_REASON_BUTTON1]: "Button 1 pressed",
+					[WAKEUP_REASON_BUTTON2]: "Button 2 pressed",
+					[WAKEUP_REASON_BUTTON3]: "Button 3 pressed",
+					[WAKEUP_REASON_NFC]: "NFC wakeup"
+				}[parseInt(element.wakeupReason)];
+				$('#tag' + tagmac + ' .nextcheckin').innerHTML = reasonText;
+				div.classList.add("state-wakeup");
+				stateClassSet = true;
 				break;
 			case WAKEUP_REASON_NETWORK_SCAN:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "<font color=yellow>Network scan</font>"
-				$('#tag' + tagmac).style.background = "#c0c0d0";
+				div.classList.add("state-scan");
+				stateClassSet = true;
 				break;
 			case WAKEUP_REASON_WDT_RESET:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Watchdog reset!"
-				$('#tag' + tagmac).style.background = "#d0a0a0";
+				div.classList.add("state-reset");
+				stateClassSet = true;
 				break;
 			case WAKEUP_REASON_FAILED_OTA_FW:
 				$('#tag' + tagmac + ' .nextcheckin').innerHTML = "Firmware update rejected!"
-				$('#tag' + tagmac).style.background = "#f0a0a0";
+				div.classList.add("state-failed-ota");
+				stateClassSet = true;
 				break;
-		}
+		}		
+		if (!stateClassSet && (element.contentMode == 12 || element.nextcheckin == 3216153600)) {
+			div.classList.add("state-deepsleep");
+		}		
 		$('#tag' + tagmac + ' .pendingicon').style.display = (element.pending ? 'inline-block' : 'none');
 		$('#tag' + tagmac + ' .pendingicon').innerHTML = element.pending;
 		div.classList.add("tagflash");
@@ -465,18 +546,24 @@ function updatecards() {
 		if (tagDB[tagmac].batteryMv < 2400 && tagDB[tagmac].batteryMv != 0 && tagDB[tagmac].batteryMv != 1337) lowbattcount++;
 		if (item.dataset.lastseen && item.dataset.lastseen > (Date.now() / 1000) - servertimediff - 30 * 24 * 3600 * 60) {
 			let idletime = (Date.now() / 1000) - servertimediff - item.dataset.lastseen;
-			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>" + displayTime(Math.floor(idletime)) + " ago";
+			$('#tag' + tagmac + ' .lastseen').innerHTML = "<span>last seen</span>" + displayTime(Math.floor(idletime)) + " ago";	
 			if ((Date.now() / 1000) - servertimediff - apConfig.maxsleep * 60 - 300 > item.dataset.nextcheckin) {
-				$('#tag' + tagmac + ' .warningicon').style.display = 'inline-block';
-				$('#tag' + tagmac).classList.remove("tagpending")
-				$('#tag' + tagmac).style.background = '#e0e0a0';
+				item.querySelector('.warningicon').style.display = 'inline-block';
+				item.classList.remove("tagpending");
+				item.classList.add('state-timeout');
 				timeoutcount++;
 			} else {
+				item.classList.remove('state-timeout');
 				if (tagDB[tagmac].pending) pendingcount++;
 			}
+			
+			const lastseenEl = item.querySelector('.lastseen');
 			if (idletime > 24 * 3600) {
-				$('#tag' + tagmac).style.opacity = '.5';
-				$('#tag' + tagmac + ' .lastseen').style.color = "red";
+				item.style.opacity = '.5';
+				lastseenEl.classList.add('error');
+			} else {
+				item.style.opacity = '1';
+				lastseenEl.classList.remove('error');
 			}
 		} else {
 			if ($('#tag' + tagmac + ' .lastseen')) {
@@ -1007,7 +1094,7 @@ function contentselected() {
 					fetch('edit?list=%2F&recursive=1')
 						.then(response => response.json())
 						.then(data => {
-							let files = data.filter(item => item.type === "file" && item.name.endsWith(".jpg"));
+							let files = data.filter(item => item.type === "file" && (item.name.toLowerCase().endsWith(".jpg") || item.name.toLowerCase().endsWith(".jpeg")));
 							if (element.type == 'binfile') files = data.filter(item => item.type === "file" && item.name.endsWith(".bin"));
 							if (element.type == 'jsonfile') files = data.filter(item => item.type === "file" && item.name.endsWith(".json"));
 							const optionElement = document.createElement("option");
@@ -1142,6 +1229,30 @@ function getContentDefById(id) {
 	if (id == null) return null;
 	const obj = cardconfig.find(item => item.id == id);
 	return obj || null;
+}
+
+const uploadTimers = {};
+// Live data-upload progress on a tag card.
+// Protocol: {upload:{src:"<16hex MAC>", current:N, total:M}} (current>=total = done).
+function showUploadProgress(u) {
+	const src = (u.src || '').toUpperCase();
+	const div = $('#tag' + src);
+	if (!div) return;
+	const el = div.querySelector('.uploadstatus');
+	if (!el) return;
+	const total = u.total || 0;
+	const current = u.current || 0;
+	const pct = total > 0 ? Math.min(100, Math.round(current / total * 100)) : 0;
+	el.textContent = pct + '% (' + current + '/' + total + ')';
+	el.style.setProperty('--pct', pct + '%');
+	el.style.display = 'block';
+	// Auto-hide: shortly after completion, or after a stall (aborted / tag offline).
+	if (uploadTimers[src]) clearTimeout(uploadTimers[src]);
+	const hideDelay = (total > 0 && current >= total) ? 2000 : 20000;
+	uploadTimers[src] = setTimeout(() => {
+		el.style.display = 'none';
+		delete uploadTimers[src];
+	}, hideDelay);
 }
 
 function showMessage(message, iserr) {
@@ -1364,6 +1475,19 @@ function GroupSortFilter() {
 		}
 	});
 
+	let groupCounts = {};
+	if (grouping) {
+		gridItems.forEach(item => {
+			const g = String(grouping).startsWith('data-') ? item.dataset[grouping.slice(5)] || '' : item.querySelector('.' + grouping).textContent || '';
+			if (g == '') return;
+			if (!groupCounts[g]) groupCounts[g] = { total: 0, pending: 0, offline: 0 };
+			groupCounts[g].total++;
+			if (item.classList.contains('tagpending')) groupCounts[g].pending++;
+			const warn = item.querySelector('.warningicon');
+			if (item.classList.contains('state-timeout') || (warn && warn.style.display == 'inline-block')) groupCounts[g].offline++;
+		});
+	}
+
 	let currentGroup = null;
 	let order = 1;
 
@@ -1380,21 +1504,24 @@ function GroupSortFilter() {
 				let header = document.getElementById('header' + group);
 				if (!header) {
 					header = document.createElement('div');
-					switch (grouping) {
-						case 'model':
-							header.textContent = 'Tag model: ' + group;
-							break;
-						case 'contentmode':
-							header.textContent = 'Content: ' + group;
-							break;
-						case 'data-channel':
-							header.textContent = 'Channel: ' + group;
-							break;
-					}
 					header.classList.add('taggroup');
 					header.id = 'header' + group;
 					sortableGrid.appendChild(header);
 				}
+				let groupLabel = group;
+				switch (grouping) {
+					case 'model':
+						groupLabel = 'Tag model: ' + group;
+						break;
+					case 'contentmode':
+						groupLabel = 'Content: ' + group;
+						break;
+					case 'data-channel':
+						groupLabel = 'Channel: ' + group;
+						break;
+				}
+				const gc = groupCounts[group] || { total: 0, pending: 0, offline: 0 };
+				header.textContent = groupLabel + ' - ' + gc.total + ' pcs, ' + gc.pending + ' pending, ' + gc.offline + ' offline';
 				header.style.order = order++;
 				header.dataset.clean = 0;
 				currentGroup = group;
@@ -1696,6 +1823,7 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 				contextMenuOptions.push(
 					{ id: 'scan', label: 'Scan channels' },
 					{ id: 'reboot', label: 'Reboot tag' },
+					{ id: 'deepsleep', label: 'Deep sleep tag' },
 				);
 			};
 			if (tagTypes[hwtype]?.options?.includes("led")) {

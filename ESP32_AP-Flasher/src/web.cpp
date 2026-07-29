@@ -26,6 +26,7 @@
 #include "tag_db.h"
 #include "udp.h"
 #include "wifimanager.h"
+#include <sys/time.h>
 
 #ifdef HAS_EXT_FLASHER
 #include "webflasher.h"
@@ -49,6 +50,44 @@ void wsLog(const String &text) {
 void wsErr(const String &text) {
     JsonDocument doc;
     doc["errMsg"] = text;
+    if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
+    ws.textAll(doc.as<String>());
+    if (wsMutex) xSemaphoreGive(wsMutex);
+}
+
+// Live upload progress of data being sent to a display.
+// Protocol: {"upload":{"src":"<16 hex MAC>","current":N,"total":M}}
+// The frontend shows "P% (N/M)" on the tag card; current >= total means done.
+void wsSendUploadProgress(const uint8_t *mac, uint16_t current, uint16_t total) {
+    if (wsClientCount() == 0) return;  // nobody is listening, skip the work
+    char hexmac[17];
+    mac2hex(mac, hexmac);
+    JsonDocument doc;
+    JsonObject up = doc["upload"].to<JsonObject>();
+    up["src"] = hexmac;
+    up["current"] = current;
+    up["total"] = total;
+    if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
+    ws.textAll(doc.as<String>());
+    if (wsMutex) xSemaphoreGive(wsMutex);
+}
+
+// Sends the real touch positions to all connected websocket clients.
+// Protocol: {"touch":{"count":N,"points":[{"id":..,"x":..,"y":..,"size":..}, ...]}}
+// count == 0 (points empty) signals "all fingers released".
+void wsSendTouch(uint8_t count, const uint16_t *xs, const uint16_t *ys, const uint8_t *ids, const uint8_t *sizes) {
+    if (wsClientCount() == 0) return;  // nobody is listening, skip the work
+    JsonDocument doc;
+    JsonObject touch = doc["touch"].to<JsonObject>();
+    touch["count"] = count;
+    JsonArray points = touch["points"].to<JsonArray>();
+    for (uint8_t i = 0; i < count; i++) {
+        JsonObject p = points.add<JsonObject>();
+        p["id"] = ids[i];
+        p["x"] = xs[i];
+        p["y"] = ys[i];
+        p["size"] = sizes[i];
+    }
     if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());
     if (wsMutex) xSemaphoreGive(wsMutex);
@@ -646,6 +685,28 @@ void init_web() {
         saveAPconfig();
         setAPchannel();
         request->send(200, "text/plain", "Ok, saved");
+    });
+
+    // Allow external time sync (e.g., from Home Assistant) without Internet
+    // Usage: POST /set_time with form field 'epoch' (UNIX time seconds)
+    server.on("/set_time", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("epoch", true)) {
+            time_t epoch = static_cast<time_t>(request->getParam("epoch", true)->value().toInt());
+            if (epoch > 1600000000) { // basic sanity check (~2020-09-13)
+                struct timeval tv;
+                tv.tv_sec = epoch;
+                tv.tv_usec = 0;
+                settimeofday(&tv, nullptr);
+                logLine("Time set via /set_time");
+                wsSendSysteminfo();
+                request->send(200, "text/plain", "ok");
+                return;
+            } else {
+                request->send(400, "text/plain", "invalid epoch");
+                return;
+            }
+        }
+        request->send(400, "text/plain", "missing 'epoch'");
     });
 
     server.on("/set_var", HTTP_POST, [](AsyncWebServerRequest *request) {

@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "TFT 160x80",
 	"width": 160,
 	"height": 80,
@@ -22,7 +22,8 @@
 			{ "text": [ 1, 45, "Ch:", "REFSAN12.vlw", "#888888", 0, 0, 1 ] },
 			{ "text": [ 45, 45, "{ap_ch}", "REFSAN12.vlw", 0, 0, 0, "1" ] },
 			{ "text": [ 1, 62, "Tags:", "REFSAN12.vlw", "#888888", 0, 0, 1 ] },
-			{ "text": [ 45, 62, "{ap_tagcount}", "REFSAN12.vlw", 0, 0, 0, "1" ] }
+			{ "text": [ 45, 62, "{ap_tagcount}", "REFSAN12.vlw", 0, 0, 0, "1" ] },
+			{ "ts_option": 25}
 		]
 	}
 }

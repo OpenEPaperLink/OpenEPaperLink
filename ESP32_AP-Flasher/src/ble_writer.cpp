@@ -5,6 +5,8 @@
 #include "BLEDevice.h"
 #include "ble_filter.h"
 #include "newproto.h"
+#include "tag_db.h"
+#include "web.h"
 
 #define INTERVAL_BLE_SCANNING_SECONDS 60
 #define INTERVAL_HANDLE_PENDING_SECONDS 10
@@ -15,9 +17,14 @@
 #define BLE_MAIN_STATE_CONNECT 2
 #define BLE_MAIN_STATE_UPLOAD 3
 #define BLE_MAIN_STATE_ATC_BLE_OEPL_UPLOAD 4
+#define BLE_MAIN_STATE_ATC_BLE_OEPL_CMD 5
+
+// expectedNextCheckin sentinel that the web frontend renders as "In deep sleep"
+#define BLE_DEEPSLEEP_CHECKIN 3216153600
 
 int ble_main_state = BLE_MAIN_STATE_IDLE;
 uint32_t last_ble_scan = 0;
+bool BLE_cmd_isDeepsleep = false;
 
 #define BLE_UPLOAD_STATE_INIT 0
 #define BLE_UPLOAD_STATE_SIZE 1
@@ -64,8 +71,41 @@ uint32_t BLE_last_notify = 0;
 uint32_t BLE_last_pending_check = 0;
 uint8_t BLE_curr_address[8] = {0};
 
+// Connect-failure counter for the command path. We cannot reuse BLE_err_counter
+// here because BLE_connect() resets it to 0 on every call, so a command aimed at
+// an unreachable / already-sleeping display would otherwise retry forever and
+// block all other BLE work.
+uint32_t BLE_cmd_conn_fails = 0;
+
 uint32_t BLE_compressed_len = 0;
 uint8_t* BLE_image_buffer;
+
+// Advertisements discovered during a scan are queued here and processed from
+// within BLETask (which has a large stack). The scan callback runs in the
+// Bluedroid host task with only a few KB of stack, so doing the full
+// processDataReq() there overflows the stack and reboots the ESP32.
+#define BLE_DATA_REQ_QUEUE_LEN 64
+QueueHandle_t BLE_dataReqQueue = nullptr;
+
+void BLE_enqueue_data_req(struct espAvailDataReq* req) {
+    if (BLE_dataReqQueue == nullptr) return;
+    // Non-blocking: if the queue is full we simply drop this advertisement,
+    // the next scan will pick the tag up again. Never block the BLE host task.
+    xQueueSend(BLE_dataReqQueue, req, 0);
+}
+
+// Emits a websocket log line that starts with the tag MAC (same MAC byte
+// order as processBlockRequest). The web frontend blinks the tag card yellow
+// ("loading") for every such line, so this gives per-block progress feedback
+// during a BLE upload instead of only the single flash at the very end.
+static void BLE_reportProgress(const char* what, uint32_t value) {
+    char buffer[80];
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X BLE %s %u",
+            BLE_curr_address[7], BLE_curr_address[6], BLE_curr_address[5], BLE_curr_address[4],
+            BLE_curr_address[3], BLE_curr_address[2], BLE_curr_address[1], BLE_curr_address[0],
+            what, value);
+    wsLog((String)buffer);
+}
 
 static void notifyCallback(
     BLERemoteCharacteristic* pBLERemoteCharacteristic,
@@ -109,8 +149,19 @@ bool BLE_connect(uint8_t addr[8], BLE_CONNECTION_TYPE conn_type) {
     BLE_err_counter = 0;
     uint8_t temp_Address[] = {addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]};
     Serial.printf("BLE Connecting to: %02X:%02X:%02X:%02X:%02X:%02X\r\n", addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
+    static MyClientCallback clientCallback;
+    // Free the client from the previous transfer. BLEDevice::createClient()
+    // does 'new BLEClient()' on every call and never reuses or frees them, so
+    // without this every connection attempt leaked one client. We only get here
+    // from the IDLE state: the previous transfer already disconnected, the
+    // GATTC interface was released in ESP_GATTC_DISCONNECT_EVT, and nothing
+    // references the old client anymore, so a plain delete is safe here.
+    if (pClient != nullptr) {
+        delete pClient;
+        pClient = nullptr;
+    }
     pClient = BLEDevice::createClient();
-    pClient->setClientCallbacks(new MyClientCallback());
+    pClient->setClientCallbacks(&clientCallback);
     if (!pClient->connect(BLEAddress(temp_Address))) {
         Serial.printf("BLE connection failed\r\n");
         pClient->disconnect();
@@ -166,8 +217,9 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 };
 
 void BLE_startScan(uint32_t timeout) {
+    static MyAdvertisedDeviceCallbacks advertisedDeviceCallbacks;
     BLEScan* pBLEScan = BLEDevice::getScan();
-    pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+    pBLEScan->setAdvertisedDeviceCallbacks(&advertisedDeviceCallbacks);
     pBLEScan->setInterval(1349);
     pBLEScan->setWindow(449);
     pBLEScan->setActiveScan(true);
@@ -217,11 +269,38 @@ void ATC_BLE_OEPL_SendPart(uint8_t indexBlockId, uint8_t indexPkt) {
     ctrlChar->writeValue(tempPacketBuffer, sizeof(tempPacketBuffer), true);
 }
 
+// Finish handling a queued command for BLE_curr_address: report the transfer as
+// complete (clears the pending item), reset the retry counters, and - for a deep
+// sleep - flag the tag as sleeping so the UI shows "In deep sleep" until it is
+// seen in a scan again.
+static void BLE_finishCommand(bool markSleep) {
+    struct espXferComplete reportStruct;
+    memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
+    processXferComplete(&reportStruct, true);
+    BLE_clear_attempts(BLE_curr_address);
+    BLE_err_counter = 0;
+    BLE_cmd_conn_fails = 0;
+    if (markSleep) {
+        tagRecord* taginfo = tagRecord::findByMAC(BLE_curr_address);
+        if (taginfo != nullptr) {
+            taginfo->expectedNextCheckin = BLE_DEEPSLEEP_CHECKIN;
+            wsSendTaginfo(BLE_curr_address, SYNC_TAGSTATUS);
+        }
+    }
+}
+
 void BLETask(void* parameter) {
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     Serial.println("BLE task started");
+    BLE_dataReqQueue = xQueueCreate(BLE_DATA_REQ_QUEUE_LEN, sizeof(struct espAvailDataReq));
     BLEDevice::init("");
     while (1) {
+        // Process advertisements collected by the scan callback here, in this
+        // task's large stack, instead of inside the tiny BLE host task stack.
+        struct espAvailDataReq incomingDataReq;
+        while (BLE_dataReqQueue != nullptr && xQueueReceive(BLE_dataReqQueue, &incomingDataReq, 0) == pdTRUE) {
+            processDataReq(&incomingDataReq, true);
+        }
         switch (ble_main_state) {
             default:
             case BLE_MAIN_STATE_IDLE:
@@ -235,6 +314,52 @@ void BLETask(void* parameter) {
                         Serial.println("BLE Image is pending but we wait a bit");
                         delay(5000);                                                       // We better wait here, since the pending image needs to be created first
                         if (BLE_curr_address[7] == 0x13 && BLE_curr_address[6] == 0x37) {  // This is an ATC BLE OEPL display
+                            // A pending item may be a command (deep sleep, reboot, reset, ...)
+                            // instead of an image. Handle that first and skip the image upload
+                            // path when it is a command.
+                            uint8_t cmdFrame[2 + sizeof(struct AvailDataInfo)];
+                            uint8_t cmdFrameLen = 0;
+                            bool isDeepsleep = false;
+                            if (get_ATC_BLE_OEPL_command(BLE_curr_address, cmdFrame, &cmdFrameLen, &isDeepsleep)) {
+                                if (cmdFrameLen == 0) {
+                                    // No BLE equivalent (e.g. a network scan); just clear it so
+                                    // the queue does not get stuck retrying it forever.
+                                    Serial.println("BLE command has no BLE equivalent, clearing it");
+                                    BLE_finishCommand(false);
+                                } else if (BLE_connect(BLE_curr_address, BLE_TYPE_ATC_BLE_OEPL)) {
+                                    BLE_cmd_conn_fails = 0;
+                                    memset(BLE_notify_buffer, 0x00, sizeof(BLE_notify_buffer));
+                                    BLE_new_notify = false;
+                                    BLE_cmd_isDeepsleep = isDeepsleep;
+                                    ctrlChar->writeValue(cmdFrame, cmdFrameLen, true);  // write-with-response
+                                    Serial.printf("BLE command frame sent (%u bytes)\r\n", cmdFrameLen);
+                                    if (isDeepsleep) {
+                                        // The display shuts its BLE stack down right after ACK-ing a
+                                        // deep sleep, so we usually can't read the ACK before it
+                                        // disconnects. Having connected and written the command (with
+                                        // response) is proof enough of delivery, so finish here -
+                                        // otherwise reconnect attempts to the now sleeping display
+                                        // would loop and block all other BLE work.
+                                        pClient->disconnect();
+                                        ble_main_state = BLE_MAIN_STATE_IDLE;
+                                        BLE_finishCommand(true);
+                                    } else {
+                                        BLE_last_notify = millis();
+                                        ble_main_state = BLE_MAIN_STATE_ATC_BLE_OEPL_CMD;
+                                    }
+                                } else {
+                                    // Connect failed. Give up after a few tries so a command aimed
+                                    // at an unreachable / already-sleeping display cannot block the
+                                    // BLE task forever (BLE_connect resets BLE_err_counter, hence the
+                                    // separate counter here).
+                                    if (++BLE_cmd_conn_fails >= 5) {
+                                        Serial.println("BLE command: giving up after repeated connect failures");
+                                        BLE_finishCommand(false);
+                                    }
+                                }
+                                BLE_last_pending_check = millis();
+                                break;  // handled this pending item, skip the image path
+                            }
                             // Here we create the compressed buffer
                             BLE_image_buffer = (uint8_t*)malloc(BUFFER_MAX_SIZE_COMPRESSING);
                             if (BLE_image_buffer == nullptr) {
@@ -277,6 +402,7 @@ void BLETask(void* parameter) {
                                         struct espXferComplete reportStruct;
                                         memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                         processXferComplete(&reportStruct, true);
+                                        BLE_clear_attempts(BLE_curr_address);
                                     }
                                 }
                             }
@@ -303,6 +429,7 @@ void BLETask(void* parameter) {
                                         struct espXferComplete reportStruct;
                                         memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                         processXferComplete(&reportStruct, true);
+                                        BLE_clear_attempts(BLE_curr_address);
                                     }
                                 }
                             }
@@ -346,16 +473,18 @@ void BLETask(void* parameter) {
                                 struct espXferComplete reportStruct;
                                 memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                 processXferComplete(&reportStruct, true);
+                                BLE_clear_attempts(BLE_curr_address);
                                 BLE_err_counter = 0;
                                 BLE_curr_part = 0;
                             } else {
-                                uint32_t req_curr_part = (BLE_notify_buffer[6] << 24) | (BLE_notify_buffer[5] << 24) | (BLE_notify_buffer[4] << 24) | BLE_notify_buffer[3];
+                                uint32_t req_curr_part = (BLE_notify_buffer[6] << 24) | (BLE_notify_buffer[5] << 16) | (BLE_notify_buffer[4] << 8) | BLE_notify_buffer[3];
                                 if (req_curr_part != BLE_curr_part) {
                                     Serial.printf("Something went wrong, expected req part: %i but got: %i we better abort here.\r\n", req_curr_part, BLE_curr_part);
                                     free(BLE_image_buffer);
                                     pClient->disconnect();
                                     ble_main_state = BLE_MAIN_STATE_IDLE;
                                     BLE_last_pending_check = millis();
+                                    break;  // buffer is freed and we left the upload state, do not fall through into a use-after-free
                                 }
                                 uint32_t curr_len = 240;
                                 if (BLE_compressed_len - (BLE_curr_part * 240) < 240)
@@ -367,6 +496,11 @@ void BLETask(void* parameter) {
                                 memcpy((uint8_t*)&BLE_mini_buff[4], (uint8_t*)&BLE_image_buffer[BLE_curr_part * 240], curr_len);
                                 imgChar->writeValue(BLE_mini_buff, curr_len + 4);
                                 Serial.printf("BLE sending part: %i\r\n", BLE_curr_part);
+                                uint32_t byteOffset = BLE_curr_part * 240;
+                                if (byteOffset % BLOCK_DATA_SIZE < 240)  // once per 4096-byte block, same cadence as the 802.15.4 path
+                                    BLE_reportProgress("block", byteOffset / BLOCK_DATA_SIZE);
+                                uint16_t totalParts = (BLE_compressed_len + 239) / 240;
+                                wsSendUploadProgress(BLE_curr_address, BLE_curr_part + 1, totalParts);  // fine-grained part x/total for the tag card
                                 BLE_curr_part++;
                             }
                             break;
@@ -407,6 +541,9 @@ void BLETask(void* parameter) {
                                         memcpy(&BLEblkRequst, &BLE_notify_buffer[3], sizeof(struct blockRequest));
                                         BLE_curr_part = 0;
                                         ATC_BLE_OEPL_PrepareBlk(BLEblkRequst.blockId);
+                                        BLE_reportProgress("block", BLEblkRequst.blockId);
+                                        uint16_t totalBlocks = (BLE_compressed_len + BLOCK_DATA_SIZE_BLE - 1) / BLOCK_DATA_SIZE_BLE;
+                                        wsSendUploadProgress(BLE_curr_address, BLEblkRequst.blockId + 1, totalBlocks);
                                         ATC_BLE_OEPL_SendPart(BLEblkRequst.blockId, BLE_curr_part);
                                     }
                                     break;
@@ -430,6 +567,7 @@ void BLETask(void* parameter) {
                                     struct espXferComplete reportStruct;
                                     memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                     processXferComplete(&reportStruct, true);
+                                    BLE_clear_attempts(BLE_curr_address);
                                     BLE_err_counter = 0;
                                     BLE_max_block_parts = 0;
                                     BLE_curr_part = 0;
@@ -446,6 +584,34 @@ void BLETask(void* parameter) {
                         ble_main_state = BLE_MAIN_STATE_IDLE;
                         BLE_last_pending_check = millis();
                     }
+                }
+                break;
+            }
+            case BLE_MAIN_STATE_ATC_BLE_OEPL_CMD: {
+                // We sent a single command frame and now wait for the display's
+                // acknowledgement notify. Any reply (BLE_CMD_ACK_CMD / BLE_CMD_ACK)
+                // means the command was accepted. No image buffer is involved here,
+                // so we must never free BLE_image_buffer in this state.
+                bool finish = false;
+                if (BLE_connected && BLE_new_notify) {
+                    BLE_new_notify = false;
+                    uint16_t notifyCMD = (BLE_notify_buffer[1] << 8) | BLE_notify_buffer[2];
+                    Serial.println("BLE command reply " + String(notifyCMD));
+                    finish = true;
+                } else if (millis() - BLE_last_notify > 30000) {
+                    // A deep-sleeping display stops its BLE stack right after ACK-ing,
+                    // so a missed notify is expected there; treat the timeout as done.
+                    Serial.println("BLE command timeout, going back to IDLE");
+                    finish = true;
+                }
+                if (finish) {
+                    pClient->disconnect();
+                    ble_main_state = BLE_MAIN_STATE_IDLE;
+                    BLE_last_pending_check = millis();
+                    // The display stops advertising after a deep sleep; show it as sleeping
+                    // until it is found in a scan again (see processDataReq wake handling).
+                    BLE_finishCommand(BLE_cmd_isDeepsleep);
+                    BLE_cmd_isDeepsleep = false;
                 }
                 break;
             }

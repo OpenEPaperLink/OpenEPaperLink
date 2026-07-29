@@ -1,6 +1,6 @@
 # Google Calendar
 
-To use the 'clandar' content type, you need a helper script, using Google Apps Script. To use Google Apps Script to get all events for the next day and return them via JSON in a web app, you can follow these steps:
+To use the 'calendar' content type, you need a helper script, using Google Apps Script. To use Google Apps Script to get all events for the next day and return them via JSON in a web app, you can follow these steps:
 
 * Create a new Google Apps Script project by going to [https://script.google.com](https://script.google.com) and clicking on "New project".
 * Paste the content of the calendar.js file into the editor

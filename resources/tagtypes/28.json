@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "M3 1.6\" BWRY",
 	"width": 168,
 	"height": 168,
@@ -14,7 +14,8 @@
 	"perceptual": {
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
-		"yellow": [ 200, 200, 0 ]
+		"red": [ 255, 0, 0 ],
+		"yellow": [ 255, 255, 0 ]
 	},
 	"shortlut": 2,
 	"zlib_compression": "27",
