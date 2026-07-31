@@ -69,6 +69,7 @@ uint8_t truetypeClass::setTtfPointer(uint8_t *p, uint32_t u32Size, uint8_t _chec
     readKern();
 #endif
     readHeadTable();
+    readHhea();
     return 1;
 
 } 
