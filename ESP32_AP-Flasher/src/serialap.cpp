@@ -323,6 +323,7 @@ bool sendChannelPower(struct espSetChannelPower* scp) {
     if (apInfo.state == AP_STATE_NORADIO) return true;
     if ((apInfo.state != AP_STATE_ONLINE) && (apInfo.state != AP_STATE_COMING_ONLINE)) return false;
     if (!txStart()) return false;
+    scp->flags = (config.led > 0) ? ESP_SCP_FLAG_LED : 0;
     addCRC(scp, sizeof(struct espSetChannelPower));
     for (uint8_t attempt = 0; attempt < 5; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
