@@ -893,10 +893,21 @@ void drawDate(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPara
         const String lon = cfgobj["#lon"];
         JsonDocument doc;
 
-        const bool success = util::httpGetJson("https://api.farmsense.net/v1/daylengths/?d=" + String(now) + "&lat=" + lat + "&lon=" + lon + "&tz=UTC", doc, 5000);
-        if (success && loc["sunrise"].is<JsonArray>()) {
-            String sunrise = formatUtcToLocal(doc[0]["Sunrise"]);
-            String sunset = formatUtcToLocal(doc[0]["Sunset"]);
+        // Fetch sunrise/sunset from Open-Meteo
+        const bool success = util::httpGetJson("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&daily=sunset,sunrise&timezone=auto&forecast_days=1", doc, 5000);
+        
+        if (success && doc["daily"]["sunrise"].is<JsonArray>() && doc["daily"]["sunset"].is<JsonArray>()) {
+            String sunrise = doc["daily"]["sunrise"][0].as<String>();
+            String sunset = doc["daily"]["sunset"][0].as<String>();
+            
+            // Extract time from ISO8601 format (e.g., "2026-02-11T07:30" -> "07:30")
+            if (sunrise.indexOf('T') >= 0) {
+                sunrise = sunrise.substring(sunrise.indexOf('T') + 1);
+            }
+            if (sunset.indexOf('T') >= 0) {
+                sunset = sunset.substring(sunset.indexOf('T') + 1);
+            }
+            
             const auto &sunriseicon = loc["sunrise"];
             const auto &sunseticon = loc["sunset"];
             drawString(spr, String("\uF046 "), sunriseicon[0], sunriseicon[1].as<int>(), "/fonts/weathericons.ttf", TR_DATUM, TFT_BLACK, sunriseicon[3]);
@@ -904,19 +915,33 @@ void drawDate(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPara
             drawString(spr, sunrise, sunriseicon[0], sunriseicon[1], sunriseicon[2], TL_DATUM, TFT_BLACK, sunriseicon[3]);
             drawString(spr, sunset, sunseticon[0], sunseticon[1], sunseticon[2], TL_DATUM, TFT_BLACK, sunseticon[3]);
 
-            const bool success = util::httpGetJson("https://api.farmsense.net/v1/moonphases/?d=" + String(now), doc, 5000);
-            if (success && loc["moonicon"].is<JsonArray>()) {
-                uint8_t moonage = doc[0]["Index"].as<int>();
+            // Moon phase - don't need api for this, we can calculate it based on the date, accurate enough for any location 
+            // https://www.highpointscientific.com/astronomy-hub/post/how-tos/how-to-predict-phases-of-the-moon
+            
+            if (loc["moonicon"].is<JsonArray>()) {
+                // Calculate moon age (days since new moon), full lunar cycle = 29.53 days
+                const unsigned long lunarCycle = 2551443; // seconds (29.53 days)
+                const unsigned long knownNewMoon = 1610236800; // Known new moon epoch
+                uint8_t moonage = ((now - knownNewMoon) % lunarCycle) * 28 / lunarCycle;
+                
                 const auto &moonicon = loc["moonicon"];
-                uint16_t moonIconId = 0xf095 + moonage;
+                uint16_t moonIconId = 0xf0d0 + moonage;
                 String moonIcon = utf8FromCodepoint(moonIconId);
-                drawString(spr, moonIcon, moonicon[0], moonicon[1], "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, moonicon[2]);
+                
+                // int moonX = moonicon[0];
+                // int moonY = moonicon[1];
+                // int moonSize = moonicon[2].as<int>();
+                
+                // Draw moon icon
+                //drawString(spr, moonIcon, moonX, moonY, "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, moonSize);
+                drawString(spr, moonIcon, moonicon[0], moonicon[1].as<int>(), "/fonts/weathericons.ttf", TC_DATUM, TFT_BLACK, moonicon[2].as<int>());
             }
 
             date = loc["altdate"];
             weekday = loc["altweekday"];
         }
     }
+
     if (date.is<JsonArray>()) {
         drawString(spr, languageDays[timeinfo.tm_wday], weekday[0], weekday[1], weekday[2], TC_DATUM, imageParams.highlightColor, weekday[3]);
         drawString(spr, String(timeinfo.tm_mday) + " " + languageMonth[timeinfo.tm_mon], date[0], date[1], date[2], TC_DATUM, TFT_BLACK, date[3]);
@@ -928,6 +953,7 @@ void drawDate(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPara
     spr2buffer(spr, filename, imageParams);
     spr.deleteSprite();
 }
+
 
 void drawNumber(String &filename, int32_t count, int32_t thresholdred, tagRecord *&taginfo, imgParam &imageParams) {
     int32_t countTemp = count;
