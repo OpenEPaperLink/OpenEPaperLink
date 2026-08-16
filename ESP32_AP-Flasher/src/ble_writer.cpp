@@ -71,6 +71,10 @@ uint32_t BLE_last_notify = 0;
 uint32_t BLE_last_pending_check = 0;
 uint8_t BLE_curr_address[8] = {0};
 
+static bool BLE_isGiciskyBWRY() {
+    return BLE_curr_address[6] == 0x2E;
+}
+
 // Connect-failure counter for the command path. We cannot reuse BLE_err_counter
 // here because BLE_connect() resets it to 0 on every call, so a command aimed at
 // an unreachable / already-sleeping display would otherwise retry forever and
@@ -457,7 +461,15 @@ void BLETask(void* parameter) {
                             BLE_mini_buff[3] = (BLE_compressed_len >> 16) & 0xff;
                             BLE_mini_buff[4] = (BLE_compressed_len >> 24) & 0xff;
                             BLE_mini_buff[5] = 0x00;
-                            ctrlChar->writeValue(BLE_mini_buff, 6);
+                            if (BLE_isGiciskyBWRY()) {
+                                // The four-colour firmware expects the vendor's complete
+                                // 8-byte size command: 0x02, uint32 LE size, then 3 zeros.
+                                BLE_mini_buff[6] = 0x00;
+                                BLE_mini_buff[7] = 0x00;
+                                ctrlChar->writeValue(BLE_mini_buff, 8);
+                            } else {
+                                ctrlChar->writeValue(BLE_mini_buff, 6);
+                            }
                             break;
                         case BLE_UPLOAD_STATE_START:
                             BLE_mini_buff[0] = 0x03;

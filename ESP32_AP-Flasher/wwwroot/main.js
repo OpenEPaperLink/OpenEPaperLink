@@ -1328,6 +1328,7 @@ function processQueue() {
 
 function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
 	data = new Uint8ClampedArray(buffer);
+	const isPackedBWRY = Number(hwtype) === 0xBB && tagTypes[hwtype].bpp === 2;
 	if (data.length > 0 && tagTypes[hwtype].zlib > 0 && $('#tag' + tagmac).dataset.ver >= tagTypes[hwtype].zlib) {
 		data = processZlib(data);
 	}
@@ -1377,6 +1378,25 @@ function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
 			imageData.data[i * 4 + 3] = 255;
 		}
 
+	} else if (isPackedBWRY) {
+		// Gicisky BWRY stores four pixels per byte in the same format used by
+		// the vendor/HASS writer: black=00, white=01, yellow=10, red=11.
+		// Keep the normal preview rotation path unchanged; this branch only
+		// translates the packed colour values into the BB.json palette.
+		const colorTable = tagTypes[hwtype].colortable;
+		const codeToPalette = [1, 0, 3, 2]; // BB.json palette order: W, B, R, Y
+		const pixelCount = Math.min(data.length * 4, canvas.width * canvas.height);
+
+		for (let pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++) {
+			const pixelCode = (data[pixelIndex >> 2] >> (6 - ((pixelIndex & 3) * 2))) & 0x03;
+			const color = colorTable[codeToPalette[pixelCode]];
+			const outputIndex = pixelIndex * 4;
+
+			imageData.data[outputIndex] = color[0];
+			imageData.data[outputIndex + 1] = color[1];
+			imageData.data[outputIndex + 2] = color[2];
+			imageData.data[outputIndex + 3] = 255;
+		}
 	} else if ([3, 4].includes(tagTypes[hwtype].bpp)) {
 		const bpp = tagTypes[hwtype].bpp;
 		const colorTable = tagTypes[hwtype].colortable;
