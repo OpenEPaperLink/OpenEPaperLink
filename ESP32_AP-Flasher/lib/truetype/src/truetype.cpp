@@ -464,7 +464,7 @@ uint8_t truetypeClass::readHMetric() {
 }
 
 ttHMetric_t truetypeClass::getHMetric(uint16_t _code) {
-    ttHMetric_t result;
+    static ttHMetric_t result;
     result.advanceWidth = 0;
 
     ttfSeek(hmtxTablePos + (_code * 4));
@@ -682,6 +682,23 @@ uint8_t truetypeClass::readGlyph(uint16_t _code, uint8_t _justSize) {
     return 0;
 }
 
+uint8_t truetypeClass::getMetrics(uint16_t _code, ttMetrics_t *pMetrics)
+{
+   ttHMetric_t HMetrics;
+   uint16_t Id = codeToGlyphId(_code);
+   uint32_t offset = getGlyphOffset(Id);
+
+   ttfSeek(offset);
+   getInt16t();  // eat numberOfContours
+   pMetrics->xMin = getInt16t();
+   pMetrics->yMin = getInt16t();
+   pMetrics->xMax = getInt16t();
+   pMetrics->yMax = getInt16t();
+   HMetrics = getHMetric(Id);
+   pMetrics->leftSideBearing = HMetrics.leftSideBearing;
+   pMetrics->advanceWidth= HMetrics.advanceWidth;
+    return 0;
+}
 /* free glyph */
 void truetypeClass::freeGlyph() {
     if (glyph.points != nullptr) free(glyph.points);
@@ -1238,7 +1255,7 @@ void truetypeClass::stringToWchar(String _string, wchar_t _charctor[]) {
         if (codeu32 < 0x10000) {
             _charctor[c] = char16_t(codeu32);
         } else {
-            _charctor[c] = ((char16_t((codeu32 - 0x10000) % 0x400 + 0xDC00)) << 8) || (char16_t((codeu32 - 0x10000) / 0x400 + 0xD800));
+            _charctor[c] = ((char16_t((codeu32 - 0x10000) % 0x400 + 0xDC00)) << 8) | (char16_t((codeu32 - 0x10000) / 0x400 + 0xD800));
         }
         c++;
     }

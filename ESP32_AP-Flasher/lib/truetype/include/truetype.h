@@ -154,6 +154,15 @@ typedef struct {
     uint8_t up;
 } ttWindIntersect_t;
 
+typedef struct {
+    uint16_t advanceWidth;
+    int16_t leftSideBearing;
+    int16_t xMin;
+    int16_t yMin;
+    int16_t xMax;
+    int16_t yMax;
+} ttMetrics_t;
+
 class truetypeClass {
    public:
     truetypeClass();
@@ -180,6 +189,7 @@ class truetypeClass {
     void ttfSeek(uint32_t u32Offset);
     uint32_t ttfPosition(void);
     void end();
+    uint8_t getMetrics(uint16_t _code, ttMetrics_t *pMetrics);
 
    private:
     File file;
