@@ -302,35 +302,24 @@ uint8_t swapBits(uint8_t num) {
     return result;
 }
 
-// Gicisky 2.9" BWRY encodes each pixel as a packed 2-bit value, four pixels per
-// byte: black=00, white=01, yellow=10, red=11. makeimage.cpp produces that exact
-// vendor/HASS representation directly. BLE must transmit it unchanged.
-static uint32_t compress_image_bwry(uint8_t* buffer, uint8_t* src, uint32_t src_len,
-                                    uint16_t width_display, uint16_t height_display,
-                                    uint32_t max_len) {
+// Packed 2-bit palette data is already in its final on-air representation and
+// must bypass the older Gicisky bit-plane compressor.
+static uint32_t copy_packed_2bit_image(uint8_t* buffer, uint8_t* src, uint32_t src_len,
+                                       uint16_t width_display, uint16_t height_display,
+                                       uint32_t max_len) {
     const uint32_t output_len = ((uint32_t)width_display * height_display + 3) / 4;
     if (src_len != output_len || output_len > max_len) {
-        Serial.printf("BLE BWRY invalid packed frame: src=%u expected=%u max=%u\r\n",
+        Serial.printf("BLE invalid packed 2bpp frame: src=%u expected=%u max=%u\r\n",
                       src_len, output_len, max_len);
         return 0;
     }
 
-    uint32_t color_count[4] = {0, 0, 0, 0};
     memcpy(buffer, src, output_len);
-    for (uint32_t pos = 0; pos < output_len; pos++) {
-        color_count[(src[pos] >> 6) & 0x03]++;
-        color_count[(src[pos] >> 4) & 0x03]++;
-        color_count[(src[pos] >> 2) & 0x03]++;
-        color_count[src[pos] & 0x03]++;
-    }
-
-    Serial.printf("BLE BWRY direct 2bpp: bytes=%u black=%u white=%u yellow=%u red=%u\r\n",
-                  output_len, color_count[0], color_count[1],
-                  color_count[2], color_count[3]);
+    Serial.printf("BLE direct packed 2bpp frame: %u bytes\r\n", output_len);
     return output_len;
 }
 
-uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
+uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len, uint8_t imageBpp) {
     uint32_t t = millis();
     PendingItem* queueItem = getQueueItem(address, 0);
     if (queueItem == nullptr) {
@@ -455,16 +444,9 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
             break;
     }
 
-    // BWRY (four colours) uses a packed 2 bits-per-pixel format, which is
-    // incompatible with the separate black/white + red planes sent to the older
-    // BW/BWR panels. Encode it on its own path and leave the BW/BWR code below
-    // untouched so existing Gicisky tags are not regressed.
-    if (address[6] == 0x2E) {
-        uint32_t bwry_len = compress_image_bwry(buffer, queueItem->data, queueItem->len,
-                                                width_display, height_display,
-                                                max_len);
-        Serial.printf("BLE BWRY packed 2bpp length: %u\r\n", bwry_len);
-        return bwry_len;
+    if (imageBpp == BPP_PACKED_2BIT) {
+        return copy_packed_2bit_image(buffer, queueItem->data, queueItem->len,
+                                      width_display, height_display, max_len);
     }
 
     uint32_t len_compressed = 0;

@@ -85,6 +85,10 @@ struct Color {
     Color(uint8_t r_, uint8_t g_, uint8_t b_) : r(r_), g(g_), b(b_) {}
 };
 
+// bpp normally contains the literal bits per pixel. Values 1 and 2 use OEPL's
+// bit-plane layout, so packed two-bit palette indices need a distinct value.
+constexpr uint8_t BPP_PACKED_2BIT = 5;
+
 struct HwType {
     uint8_t id;
     uint16_t width;

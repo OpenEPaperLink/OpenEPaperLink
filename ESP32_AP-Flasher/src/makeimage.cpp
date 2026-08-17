@@ -195,15 +195,12 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                 }
             }
 
-            if (imageParams.hwdata.id == GICI_BLE_EPD_29_BWRY && imageParams.bpp == 2) {
-                // Gicisky BWRY follows the vendor/HASS packed-pixel format rather
-                // than OEPL's usual pair of 1-bpp colour planes. Four pixels are
-                // stored per byte, MSB first: black=00, white=01, yellow=10,
-                // red=11. The palette order in BB.json is W, B, R, Y.
-                static constexpr uint8_t bwryColorCode[] = {1, 0, 3, 2};
+            if (imageParams.bpp == BPP_PACKED_2BIT) {
+                // Packed palette indices, four pixels per byte, MSB first. The
+                // tagtype colortable order defines the on-wire colour codes.
                 const size_t byteIndex = bitOffset / 8;
                 const uint8_t bitIndex = bitOffset % 8;
-                buffer[byteIndex] |= bwryColorCode[best_color_index] << (6 - bitIndex);
+                buffer[byteIndex] |= best_color_index << (6 - bitIndex);
                 bitOffset += 2;
                 if (best_color_index >= 2) imageParams.hasRed = true;
             } else if (imageParams.bpp == 3 || imageParams.bpp == 4) {
@@ -473,8 +470,6 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
         case 2: {
             long bufw = spr.width(), bufh = spr.height();
             size_t buffer_size = ((bufw * bufh) + 7) / 8;  // round up: not all dimensions are multiples of 8
-            const bool packedBWRY = imageParams.hwdata.id == GICI_BLE_EPD_29_BWRY && imageParams.bpp == 2;
-            if (packedBWRY) buffer_size *= 2;
 #ifdef BOARD_HAS_PSRAM
             uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
 #else
@@ -490,16 +485,6 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
                 return;
             }
             spr2color(spr, imageParams, buffer, buffer_size, false);
-
-            if (packedBWRY) {
-                // This is already the final on-air representation used by the
-                // working HASS integration; do not create a second colour plane
-                // or run an OEPL image compressor over it.
-                f_out.write(buffer, buffer_size);
-                Serial.printf("BWRY direct packed frame: %u bytes\r\n", buffer_size);
-                free(buffer);
-                break;
-            }
 
             if (imageParams.zlib) {
                 Miniz::tdefl_compressor *comp;
@@ -606,9 +591,11 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
         } break;
 
         case 3:
-        case 4: {
+        case 4:
+        case BPP_PACKED_2BIT: {
             long bufw = spr.width(), bufh = spr.height();
-            size_t buffer_size = ((bufw * bufh) + 7) / 8 * imageParams.bpp;
+            const uint8_t packedBpp = imageParams.bpp == BPP_PACKED_2BIT ? 2 : imageParams.bpp;
+            size_t buffer_size = ((bufw * bufh * packedBpp) + 7) / 8;
             uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
             if (!buffer) {
                 Serial.println("Failed to allocate buffer");

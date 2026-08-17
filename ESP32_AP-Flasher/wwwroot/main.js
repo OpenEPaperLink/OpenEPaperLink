@@ -11,6 +11,7 @@ const WAKEUP_REASON_FAILED_OTA_FW = 0xE0;
 const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
 const WAKEUP_REASON_WDT_RESET = 0xFE;
+const BPP_PACKED_2BIT = 5;
 
 let tagTypes = {};
 let apConfig = {};
@@ -1328,7 +1329,6 @@ function processQueue() {
 
 function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
 	data = new Uint8ClampedArray(buffer);
-	const isPackedBWRY = Number(hwtype) === 0xBB && tagTypes[hwtype].bpp === 2;
 	if (data.length > 0 && tagTypes[hwtype].zlib > 0 && $('#tag' + tagmac).dataset.ver >= tagTypes[hwtype].zlib) {
 		data = processZlib(data);
 	}
@@ -1378,32 +1378,13 @@ function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
 			imageData.data[i * 4 + 3] = 255;
 		}
 
-	} else if (isPackedBWRY) {
-		// Gicisky BWRY stores four pixels per byte in the same format used by
-		// the vendor/HASS writer: black=00, white=01, yellow=10, red=11.
-		// Keep the normal preview rotation path unchanged; this branch only
-		// translates the packed colour values into the BB.json palette.
-		const colorTable = tagTypes[hwtype].colortable;
-		const codeToPalette = [1, 0, 3, 2]; // BB.json palette order: W, B, R, Y
-		const pixelCount = Math.min(data.length * 4, canvas.width * canvas.height);
-
-		for (let pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++) {
-			const pixelCode = (data[pixelIndex >> 2] >> (6 - ((pixelIndex & 3) * 2))) & 0x03;
-			const color = colorTable[codeToPalette[pixelCode]];
-			const outputIndex = pixelIndex * 4;
-
-			imageData.data[outputIndex] = color[0];
-			imageData.data[outputIndex + 1] = color[1];
-			imageData.data[outputIndex + 2] = color[2];
-			imageData.data[outputIndex + 3] = 255;
-		}
-	} else if ([3, 4].includes(tagTypes[hwtype].bpp)) {
-		const bpp = tagTypes[hwtype].bpp;
+	} else if ([3, 4, BPP_PACKED_2BIT].includes(tagTypes[hwtype].bpp)) {
+		const bpp = tagTypes[hwtype].bpp === BPP_PACKED_2BIT ? 2 : tagTypes[hwtype].bpp;
 		const colorTable = tagTypes[hwtype].colortable;
 		let pixelIndex = 0;
 		let bitOffset = 0;
 
-		while (bitOffset < data.length * 8) {
+		while (bitOffset < data.length * 8 && pixelIndex < canvas.width * canvas.height) {
 			let byteIndex = bitOffset >> 3; 
 			let startBit = bitOffset & 7; 
 			let pixelValue = (data[byteIndex] << 8 | data[byteIndex + 1] || 0) >> (16 - bpp - startBit) & ((1 << bpp) - 1);

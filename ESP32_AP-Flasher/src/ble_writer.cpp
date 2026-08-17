@@ -71,10 +71,6 @@ uint32_t BLE_last_notify = 0;
 uint32_t BLE_last_pending_check = 0;
 uint8_t BLE_curr_address[8] = {0};
 
-static bool BLE_isGiciskyBWRY() {
-    return BLE_curr_address[6] == 0x2E;
-}
-
 // Connect-failure counter for the command path. We cannot reuse BLE_err_counter
 // here because BLE_connect() resets it to 0 on every call, so a command aimed at
 // an unreachable / already-sleeping display would otherwise retry forever and
@@ -82,6 +78,7 @@ static bool BLE_isGiciskyBWRY() {
 uint32_t BLE_cmd_conn_fails = 0;
 
 uint32_t BLE_compressed_len = 0;
+uint8_t BLE_image_bpp = 0;
 uint8_t* BLE_image_buffer;
 
 // Advertisements discovered during a scan are queued here and processed from
@@ -417,7 +414,9 @@ void BLETask(void* parameter) {
                                 Serial.println("BLE Could not create buffer!");
                                 BLE_compressed_len = 0;
                             } else {
-                                BLE_compressed_len = compress_image(BLE_curr_address, BLE_image_buffer, BUFFER_MAX_SIZE_COMPRESSING);
+                                tagRecord* taginfo = tagRecord::findByMAC(BLE_curr_address);
+                                BLE_image_bpp = taginfo == nullptr ? 0 : getHwType(taginfo->hwType).bpp;
+                                BLE_compressed_len = compress_image(BLE_curr_address, BLE_image_buffer, BUFFER_MAX_SIZE_COMPRESSING, BLE_image_bpp);
                                 Serial.printf("BLE Compressed Length: %i\r\n", BLE_compressed_len);
                                 // then we connect to BLE to send the compressed data
                                 if (BLE_compressed_len && BLE_connect(BLE_curr_address, BLE_TYPE_GICISKY)) {
@@ -461,9 +460,9 @@ void BLETask(void* parameter) {
                             BLE_mini_buff[3] = (BLE_compressed_len >> 16) & 0xff;
                             BLE_mini_buff[4] = (BLE_compressed_len >> 24) & 0xff;
                             BLE_mini_buff[5] = 0x00;
-                            if (BLE_isGiciskyBWRY()) {
-                                // The four-colour firmware expects the vendor's complete
-                                // 8-byte size command: 0x02, uint32 LE size, then 3 zeros.
+                            if (BLE_image_bpp == BPP_PACKED_2BIT) {
+                                // Packed 2-bit displays use the complete 8-byte size
+                                // command: 0x02, uint32 LE size, then 3 zeros.
                                 BLE_mini_buff[6] = 0x00;
                                 BLE_mini_buff[7] = 0x00;
                                 ctrlChar->writeValue(BLE_mini_buff, 8);
