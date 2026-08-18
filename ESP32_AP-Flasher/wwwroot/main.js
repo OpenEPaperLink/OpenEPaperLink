@@ -11,6 +11,7 @@ const WAKEUP_REASON_FAILED_OTA_FW = 0xE0;
 const WAKEUP_REASON_FIRSTBOOT = 0xFC;
 const WAKEUP_REASON_NETWORK_SCAN = 0xFD;
 const WAKEUP_REASON_WDT_RESET = 0xFE;
+const BPP_PACKED_2BIT = 5;
 
 let tagTypes = {};
 let apConfig = {};
@@ -1377,13 +1378,13 @@ function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
 			imageData.data[i * 4 + 3] = 255;
 		}
 
-	} else if ([3, 4].includes(tagTypes[hwtype].bpp)) {
-		const bpp = tagTypes[hwtype].bpp;
+	} else if ([3, 4, BPP_PACKED_2BIT].includes(tagTypes[hwtype].bpp)) {
+		const bpp = tagTypes[hwtype].bpp === BPP_PACKED_2BIT ? 2 : tagTypes[hwtype].bpp;
 		const colorTable = tagTypes[hwtype].colortable;
 		let pixelIndex = 0;
 		let bitOffset = 0;
 
-		while (bitOffset < data.length * 8) {
+		while (bitOffset < data.length * 8 && pixelIndex < canvas.width * canvas.height) {
 			let byteIndex = bitOffset >> 3; 
 			let startBit = bitOffset & 7; 
 			let pixelValue = (data[byteIndex] << 8 | data[byteIndex + 1] || 0) >> (16 - bpp - startBit) & ((1 << bpp) - 1);

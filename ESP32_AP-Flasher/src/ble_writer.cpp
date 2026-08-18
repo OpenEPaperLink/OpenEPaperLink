@@ -78,6 +78,7 @@ uint8_t BLE_curr_address[8] = {0};
 uint32_t BLE_cmd_conn_fails = 0;
 
 uint32_t BLE_compressed_len = 0;
+uint8_t BLE_image_bpp = 0;
 uint8_t* BLE_image_buffer;
 
 // Advertisements discovered during a scan are queued here and processed from
@@ -413,7 +414,9 @@ void BLETask(void* parameter) {
                                 Serial.println("BLE Could not create buffer!");
                                 BLE_compressed_len = 0;
                             } else {
-                                BLE_compressed_len = compress_image(BLE_curr_address, BLE_image_buffer, BUFFER_MAX_SIZE_COMPRESSING);
+                                tagRecord* taginfo = tagRecord::findByMAC(BLE_curr_address);
+                                BLE_image_bpp = taginfo == nullptr ? 0 : getHwType(taginfo->hwType).bpp;
+                                BLE_compressed_len = compress_image(BLE_curr_address, BLE_image_buffer, BUFFER_MAX_SIZE_COMPRESSING, BLE_image_bpp);
                                 Serial.printf("BLE Compressed Length: %i\r\n", BLE_compressed_len);
                                 // then we connect to BLE to send the compressed data
                                 if (BLE_compressed_len && BLE_connect(BLE_curr_address, BLE_TYPE_GICISKY)) {
@@ -457,7 +460,15 @@ void BLETask(void* parameter) {
                             BLE_mini_buff[3] = (BLE_compressed_len >> 16) & 0xff;
                             BLE_mini_buff[4] = (BLE_compressed_len >> 24) & 0xff;
                             BLE_mini_buff[5] = 0x00;
-                            ctrlChar->writeValue(BLE_mini_buff, 6);
+                            if (BLE_image_bpp == BPP_PACKED_2BIT) {
+                                // Packed 2-bit displays use the complete 8-byte size
+                                // command: 0x02, uint32 LE size, then 3 zeros.
+                                BLE_mini_buff[6] = 0x00;
+                                BLE_mini_buff[7] = 0x00;
+                                ctrlChar->writeValue(BLE_mini_buff, 8);
+                            } else {
+                                ctrlChar->writeValue(BLE_mini_buff, 6);
+                            }
                             break;
                         case BLE_UPLOAD_STATE_START:
                             BLE_mini_buff[0] = 0x03;

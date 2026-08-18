@@ -195,6 +195,7 @@
 	</style>
 	<script>
 		const $ = document.querySelector.bind(document);
+		const BPP_PACKED_2BIT = 5;
 
 		if (typeof XMLHttpRequest === "undefined") {
 			XMLHttpRequest = function () {
@@ -461,13 +462,13 @@
 										imageData.data[i * 4 + 2] = is16Bit ? (rgb & 0x1F) << 3 : ((rgb & 0x03) << 6) * 1.3;
 										imageData.data[i * 4 + 3] = 255;
 									}
-								} else if ([3, 4].includes(tagTypes[hwtype].bpp)) {
-									const bpp = tagTypes[hwtype].bpp;
+								} else if ([3, 4, BPP_PACKED_2BIT].includes(tagTypes[hwtype].bpp)) {
+									const bpp = tagTypes[hwtype].bpp === BPP_PACKED_2BIT ? 2 : tagTypes[hwtype].bpp;
 									const colorTable = tagTypes[hwtype].colortable;
 									let pixelIndex = 0;
 									let bitOffset = 0;
 
-									while (bitOffset < data.length * 8) {
+									while (bitOffset < data.length * 8 && pixelIndex < canvas.width * canvas.height) {
 										let byteIndex = bitOffset >> 3;
 										let startBit = bitOffset & 7;
 										let pixelValue = (data[byteIndex] << 8 | data[byteIndex + 1] || 0) >> (16 - bpp - startBit) & ((1 << bpp) - 1);

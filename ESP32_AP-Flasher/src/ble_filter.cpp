@@ -37,6 +37,9 @@ uint8_t gicToOEPLtype(uint8_t gicType) {
         case 0x2B:
             return GICI_BLE_EPD_29_BWR;
             break;
+        case 0x2E:
+            return GICI_BLE_EPD_29_BWRY;
+            break;
         case 0x33:
             return GICI_BLE_EPD_29_BWR1;
             break;
@@ -299,7 +302,24 @@ uint8_t swapBits(uint8_t num) {
     return result;
 }
 
-uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
+// Packed 2-bit palette data is already in its final on-air representation and
+// must bypass the older Gicisky bit-plane compressor.
+static uint32_t copy_packed_2bit_image(uint8_t* buffer, uint8_t* src, uint32_t src_len,
+                                       uint16_t width_display, uint16_t height_display,
+                                       uint32_t max_len) {
+    const uint32_t output_len = ((uint32_t)width_display * height_display + 3) / 4;
+    if (src_len != output_len || output_len > max_len) {
+        Serial.printf("BLE invalid packed 2bpp frame: src=%u expected=%u max=%u\r\n",
+                      src_len, output_len, max_len);
+        return 0;
+    }
+
+    memcpy(buffer, src, output_len);
+    Serial.printf("BLE direct packed 2bpp frame: %u bytes\r\n", output_len);
+    return output_len;
+}
+
+uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len, uint8_t imageBpp) {
     uint32_t t = millis();
     PendingItem* queueItem = getQueueItem(address, 0);
     if (queueItem == nullptr) {
@@ -422,6 +442,11 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len) {
             break;
         case 1:  // 2 Images
             break;
+    }
+
+    if (imageBpp == BPP_PACKED_2BIT) {
+        return copy_packed_2bit_image(buffer, queueItem->data, queueItem->len,
+                                      width_display, height_display, max_len);
     }
 
     uint32_t len_compressed = 0;

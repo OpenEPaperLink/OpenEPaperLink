@@ -195,7 +195,15 @@ void spr2color(TFT_eSprite &spr, imgParam &imageParams, uint8_t *buffer, size_t 
                 }
             }
 
-            if (imageParams.bpp == 3 || imageParams.bpp == 4) {
+            if (imageParams.bpp == BPP_PACKED_2BIT) {
+                // Packed palette indices, four pixels per byte, MSB first. The
+                // tagtype colortable order defines the on-wire colour codes.
+                const size_t byteIndex = bitOffset / 8;
+                const uint8_t bitIndex = bitOffset % 8;
+                buffer[byteIndex] |= best_color_index << (6 - bitIndex);
+                bitOffset += 2;
+                if (best_color_index >= 2) imageParams.hasRed = true;
+            } else if (imageParams.bpp == 3 || imageParams.bpp == 4) {
                 size_t byteIndex = bitOffset / 8;
                 uint8_t bitIndex = bitOffset % 8;
 
@@ -583,9 +591,11 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
         } break;
 
         case 3:
-        case 4: {
+        case 4:
+        case BPP_PACKED_2BIT: {
             long bufw = spr.width(), bufh = spr.height();
-            size_t buffer_size = ((bufw * bufh) + 7) / 8 * imageParams.bpp;
+            const uint8_t packedBpp = imageParams.bpp == BPP_PACKED_2BIT ? 2 : imageParams.bpp;
+            size_t buffer_size = ((bufw * bufh * packedBpp) + 7) / 8;
             uint8_t *buffer = (uint8_t *)ps_malloc(buffer_size);
             if (!buffer) {
                 Serial.println("Failed to allocate buffer");
