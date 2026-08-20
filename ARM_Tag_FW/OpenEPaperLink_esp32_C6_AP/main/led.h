@@ -4,3 +4,4 @@
 void init_led();
 void led_set(int nr, bool state);
 void led_flash(int nr);
+void led_set_activity_enabled(bool enabled);
