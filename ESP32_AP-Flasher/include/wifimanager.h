@@ -10,6 +10,9 @@
 #define WIFI_MANAGER_H
 
 #include <WiFi.h>
+#ifndef esp_mac_type_t
+#include <esp_mac.h>
+#endif
 
 enum WifiStatus {
     NOINIT,
@@ -55,7 +58,9 @@ class WifiManager {
     void startManagementServer();
     void poll();
     static void WiFiEvent(WiFiEvent_t event);
+    #ifdef HAS_ETHERNET
     void initEth();
+    #endif
     IPAddress localIP();
 };
 
