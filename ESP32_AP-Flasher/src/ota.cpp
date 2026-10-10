@@ -14,6 +14,7 @@
 #include "storage.h"
 #include "tag_db.h"
 #include "util.h"
+#include "uploadinfo.h"
 #include "web.h"
 
 
@@ -130,83 +131,42 @@ void handleCheckFile(AsyncWebServerRequest* request) {
     request->send(200, "application/json", jsonResponse);
 }
 
-#define UPLOAD_BUFFER_SIZE 32768
-
-struct UploadInfo {
-    String filename;
-    uint8_t buffer[UPLOAD_BUFFER_SIZE];
-    size_t bufferSize;
-};
-
 void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final) {
-    String uploadfilename;
-    bool error = false;
     if (!index) {
-        String path;
         if (!request->hasParam("path", true)) {
-            final = true;
-            error = true;
-        } else {
-            uploadfilename = request->getParam("path", true)->value();
-            Serial.println("update " + uploadfilename);
-            File file = contentFS->open(uploadfilename, "w");
-            file.close();
-            UploadInfo* uploadInfo = new UploadInfo{uploadfilename, {}, 0};
-            request->_tempObject = (void*)uploadInfo;
+            request->send(400, "text/plain", "parameters incomplete");
+            return;
         }
+        const String uploadfilename = request->getParam("path", true)->value();
+        Serial.println("update " + uploadfilename);
+        UploadInfo* uploadInfo = newUploadInfo(uploadfilename);
+        if (uploadInfo == nullptr) {
+            request->send(500, "text/plain", "Out of memory or path too long");
+            return;
+        }
+        xSemaphoreTake(fsMutex, portMAX_DELAY);
+        File file = contentFS->open(uploadfilename, "w");
+        file.close();
+        xSemaphoreGive(fsMutex);
+        request->_tempObject = (void*)uploadInfo;
     }
 
     UploadInfo* uploadInfo = static_cast<UploadInfo*>(request->_tempObject);
+    if (uploadInfo == nullptr) return;
 
-    if (uploadInfo != nullptr) {
-        uploadfilename = uploadInfo->filename;
+    if (len) appendUploadInfo(uploadInfo, data, len);
+    if (!final) return;
 
-        if (len) {
-            if (uploadInfo->bufferSize + len <= UPLOAD_BUFFER_SIZE) {
-                memcpy(&uploadInfo->buffer[uploadInfo->bufferSize], data, len);
-                uploadInfo->bufferSize += len;
-            } else {
-                xSemaphoreTake(fsMutex, portMAX_DELAY);
-                File file = contentFS->open(uploadfilename, "a");
-                if (file) {
-                    file.write(uploadInfo->buffer, uploadInfo->bufferSize);
-                    file.close();
-                    uploadInfo->bufferSize = 0;
-                    xSemaphoreGive(fsMutex);
-                } else {
-                    xSemaphoreGive(fsMutex);
-                    logLine("Failed to open file for appending: " + uploadfilename);
-                    final = true;
-                    error = true;
-                }
+    flushUploadInfo(uploadInfo);
+    const bool error = uploadInfo->error;
+    if (error) logLine("Failed to write " + String(uploadInfo->filename));
+    request->_tempObject = nullptr;
+    free(uploadInfo);
 
-                memcpy(uploadInfo->buffer, data, len);
-                uploadInfo->bufferSize = len;
-            }
-        }
-        if (final) {
-            if (uploadInfo->bufferSize > 0) {
-                xSemaphoreTake(fsMutex, portMAX_DELAY);
-                File file = contentFS->open(uploadfilename, "a");
-                if (file) {
-                    file.write(uploadInfo->buffer, uploadInfo->bufferSize);
-                    file.close();
-                    xSemaphoreGive(fsMutex);
-                } else {
-                    xSemaphoreGive(fsMutex);
-                    logLine("Failed to open file for appending: " + uploadfilename);
-                    error = true;
-                }
-                request->_tempObject = nullptr;
-                delete uploadInfo;
-            }
-
-            if (error) {
-                request->send(507, "text/plain", "Error. Disk full?");
-            } else {
-                request->send(200, "text/plain", "Ok, file written");
-            }
-        }
+    if (error) {
+        request->send(507, "text/plain", "Error. Disk full?");
+    } else {
+        request->send(200, "text/plain", "Ok, file written");
     }
 }
 
