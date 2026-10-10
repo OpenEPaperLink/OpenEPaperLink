@@ -1054,6 +1054,11 @@ void checkQueue(const uint8_t* targetMac) {
     }
 }
 
+/// @brief An image to show right away: not preloaded (preload bit 2 and special type bits 3-7 are zero)
+static bool isPlainImage(const struct AvailDataInfo& adi) {
+    return isImageDataType(adi.dataType) && (adi.dataTypeArgument & 0xFC) == 0;
+}
+
 bool queueDataAvail(struct pendingData* pending, bool local) {
     PendingItem newPending;
     newPending.pendingdata.availdatainfo = pending->availdatainfo;
@@ -1088,20 +1093,37 @@ bool queueDataAvail(struct pendingData* pending, bool local) {
     }
     newPending.len = taginfo->len;
 
-    uint8_t dataType = pending->availdatainfo.dataType;
-    if (dataType != DATATYPE_FW_UPDATE && dataType != DATATYPE_NOUPDATE && pending->availdatainfo.dataTypeArgument & 0xF8 == 0x00) {
-        // in case of an image (no preload), remove already queued images
-        std::lock_guard<std::recursive_mutex> lock(queueMutex);
-        for (size_t c = 0; c < pendingQueue.size();) {
-            PendingItem* item = pendingQueue[c];
-            bool macMatches = memcmp(item->pendingdata.targetMac, pending->targetMac, sizeof(item->pendingdata.targetMac)) == 0;
-            bool dataTypeArgumentMatches = (pending->availdatainfo.dataType == item->pendingdata.availdatainfo.dataType) && ((item->pendingdata.availdatainfo.dataTypeArgument & 0xF8) == 0x00);
-            if (macMatches && dataTypeArgumentMatches) {
-                pendingQueue.erase(pendingQueue.begin() + c);
-                retireItem(item);
-            } else {
-                c++;
+    // A new image replaces the images that are still queued for this tag: showing an outdated image
+    // first is pointless. Preloaded images, commands and firmware updates are never replaced.
+    if (isPlainImage(pending->availdatainfo)) {
+        std::vector<String> obsoleteFiles;
+        {
+            std::lock_guard<std::recursive_mutex> lock(queueMutex);
+            for (size_t c = 0; c < pendingQueue.size();) {
+                PendingItem* item = pendingQueue[c];
+                if (memcmp(item->pendingdata.targetMac, pending->targetMac, sizeof(item->pendingdata.targetMac)) == 0 && isPlainImage(item->pendingdata.availdatainfo)) {
+                    pendingQueue.erase(pendingQueue.begin() + c);
+                    retireItem(item);
+                    obsoleteFiles.push_back(item->filename);
+                } else {
+                    c++;
+                }
             }
+            // keep files that are still used (mirrored tags share the file)
+            obsoleteFiles.erase(std::remove_if(obsoleteFiles.begin(), obsoleteFiles.end(),
+                                               [&newPending](const String& filename) {
+                                                   if (!filename.endsWith(".pending") || filename == newPending.filename) return true;
+                                                   for (const PendingItem* item : pendingQueue) {
+                                                       if (filename == item->filename) return true;
+                                                   }
+                                                   return false;
+                                               }),
+                                obsoleteFiles.end());
+        }
+        for (const String& filename : obsoleteFiles) {
+            xSemaphoreTake(fsMutex, portMAX_DELAY);
+            contentFS->remove(filename);
+            xSemaphoreGive(fsMutex);
         }
     }
 
