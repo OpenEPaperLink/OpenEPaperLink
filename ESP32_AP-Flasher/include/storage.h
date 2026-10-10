@@ -32,6 +32,7 @@ class DynStorage {
     void end();
     void listFiles();
     uint64_t freeSpace();
+    uint64_t totalSpace();
 
    private:
     bool isInited;

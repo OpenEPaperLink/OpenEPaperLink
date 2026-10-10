@@ -15,8 +15,28 @@
 #include "tag_db.h"
 #include "wifimanager.h"
 
+static time_t lastNtpSync = 0;
+static bool crashDumpFound = false;
+
 void timeSyncCallback(struct timeval* tv) {
+    lastNtpSync = tv->tv_sec;
     Serial.println("time succesfully synced");
+}
+
+time_t lastTimeSync() {
+    return lastNtpSync;
+}
+
+String ntpServerName() {
+    const char* name = sntp_getservername(0);
+    if (name != nullptr && name[0] != '\0') return String(name);
+    const ip_addr_t* server = sntp_getserver(0);
+    if (server != nullptr && !ip_addr_isany(server)) return String(ipaddr_ntoa(server));
+    return String();
+}
+
+bool crashedLastBoot() {
+    return crashDumpFound;
 }
 
 void enableNtpFromDhcp() {
@@ -124,47 +144,35 @@ String urlForLog(const String& url) {
     return query == -1 ? url : url.substring(0, query);
 }
 
-void logStartUp() {
-    esp_reset_reason_t resetReason = esp_reset_reason();
-
-    String logEntry = "Reboot. Reason: ";
-    switch (resetReason) {
+const char* resetReasonName() {
+    switch (esp_reset_reason()) {
         case ESP_RST_POWERON:
-            logEntry += "Power-on";
-            break;
+            return "Power-on";
         case ESP_RST_EXT:
-            logEntry += "External";
-            break;
+            return "External";
         case ESP_RST_SW:
-            logEntry += "Software";
-            break;
+            return "Software";
         case ESP_RST_PANIC:
-            logEntry += "Panic";
-            break;
+            return "Panic";
         case ESP_RST_INT_WDT:
-            logEntry += "Watchdog";
-            break;
+            return "Watchdog";
         case ESP_RST_TASK_WDT:
-            logEntry += "Task Watchdog";
-            break;
+            return "Task Watchdog";
         case ESP_RST_WDT:
-            logEntry += "Other Watchdog";
-            break;
+            return "Other Watchdog";
         case ESP_RST_DEEPSLEEP:
-            logEntry += "Deep Sleep";
-            break;
+            return "Deep Sleep";
         case ESP_RST_BROWNOUT:
-            logEntry += "Brownout";
-            break;
+            return "Brownout";
         case ESP_RST_SDIO:
-            logEntry += "SDIO";
-            break;
+            return "SDIO";
         default:
-            logEntry += "Unknown";
-            break;
+            return "Unknown";
     }
+}
 
-    logLine(logEntry);
+void logStartUp() {
+    logLine(String("Reboot. Reason: ") + resetReasonName());
 }
 
 /// @brief Write a summary of a crash core dump (stored in flash by a panic or watchdog) to the log, then erase it
@@ -172,6 +180,7 @@ void logStartUp() {
 void logCoreDump() {
 #if CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH && CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF
     if (esp_core_dump_image_check() != ESP_OK) return;
+    crashDumpFound = true;
 
     esp_core_dump_summary_t* summary = static_cast<esp_core_dump_summary_t*>(malloc(sizeof(esp_core_dump_summary_t)));
     if (summary == nullptr) return;

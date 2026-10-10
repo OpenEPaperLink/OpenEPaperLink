@@ -12,6 +12,7 @@
 #include "leds.h"
 #include "serialap.h"
 #include "storage.h"
+#include "system.h"
 #include "tag_db.h"
 #include "util.h"
 #include "uploadinfo.h"
@@ -49,6 +50,14 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["ap_version"] = apInfo.version;
     doc["ap_type"] = apInfo.type;
     doc["ap_typename"] = apTypeName(apInfo.type);
+    doc["channel"] = apInfo.channel;
+    doc["heapsize"] = ESP.getHeapSize();
+    doc["fssize"] = Storage.totalSpace();
+    doc["resetreason"] = resetReasonName();
+    doc["crashed"] = crashedLastBoot();
+    doc["ntpserver"] = ntpServerName();
+    doc["ntpsync"] = lastTimeSync();
+    doc["currtime"] = time(nullptr);
 #ifdef FLASHER_AP_SWS
     doc["has_sws_flasher"] = 1;
 #else

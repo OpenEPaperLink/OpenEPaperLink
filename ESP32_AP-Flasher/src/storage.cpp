@@ -98,6 +98,16 @@ uint64_t DynStorage::freeSpace(){
 #endif
 }
 
+uint64_t DynStorage::totalSpace(){
+    // no begin(): only used once the file system is up, and begin() can copy files on SD card builds
+#ifdef HAS_SDCARD
+    return SDCARD.totalBytes();
+#endif
+#ifndef SD_CARD_ONLY
+    return LittleFS.totalBytes();
+#endif
+}
+
 #ifndef SD_CARD_ONLY
 void copyFile(File in, File out) {
     Serial.print("Copying ");

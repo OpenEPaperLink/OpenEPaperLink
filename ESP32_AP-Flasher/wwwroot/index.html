@@ -6,9 +6,9 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
 
 	<title>Open EPaper Link Access Point</title>
-	<script src="main.js?2.74" defer></script>
-	<script src="g5decoder.js?2.74"></script>
-	<link rel="stylesheet" href="main.css?2.74" type="text/css" />
+	<script src="main.js?2.93" defer></script>
+	<script src="g5decoder.js?2.93"></script>
+	<link rel="stylesheet" href="main.css?2.93" type="text/css" />
 	<!--<link rel="icon" type="image/vnd.icon" href="favicon.ico">-->
 	<link rel="stylesheet"
 		  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
@@ -45,73 +45,72 @@
 		<div class="window">
 
 			<div id="hometab" class="tabcontent">
-				<table>
-					<tr onclick="setFilterAndShow('')">
-						<td class="material-symbols-outlined" id="dashboardStatusIcon">
-							hourglass
-						</td>
-						<td id="dashboardStatus" colspan="2">
-							initialising...
-						</td>
-					</tr>
-					<tr onclick="setFilterAndShow('')">
-						<td class="material-symbols-outlined" style="color:#77239e">
-							sell
-						</td>
-						<td>
-							tags
-						</td>
-						<td id="dashboardTagCount" style="color:#77239e">
-							0
-						</td>
-					</tr>
-					<tr onclick="setFilterAndShow('pending')">
-						<td class="material-symbols-outlined" style="color:#235f9e">
-							hourglass_empty
-						</td>
-						<td>
-							pending data
-						</td>
-						<td id="dashboardPending" style="color:#235f9e">
-							0
-						</td>
-					</tr>
-					<tr onclick="setFilterAndShow('lowbatt')">
-						<td class="material-symbols-outlined" style="color:#9e9223">
-							battery_low
-						</td>
-						<td>
-							low battery
-						</td>
-						<td id="dashboardLowBatt" style="color:#9e9223">
-							0
-						</td>
-					</tr>
-					<tr onclick="setFilterAndShow('inactive')">
-						<td class="material-symbols-outlined" style="color:#9e2323">
-							signal_disconnected
-						</td>
-						<td>
-							timeout
-						</td>
-						<td id="dashboardTimeout" style="color:#9e2323">
-							0
-						</td>
-					</tr>
-					<!--
-					<tr onclick="$(`[data-target='aptab']`).click()">
-						<td class="material-symbols-outlined" style="color:#239f26">
-							cell_tower
-						</td>
-						<td>
-							access points
-						</td>
-						<td id="dashboardApCount" style="color:#239f26">
+				<div class="dash">
+					<section class="dcard span-all">
+						<div class="dstatus">
+							<div class="dmain">
+								<span class="material-symbols-outlined" id="dashboardStatusIcon">hourglass</span>
+								<div><b id="dbAlias">Access point</b><span id="dashboardStatus">initialising...</span> <span id="dbServing"></span></div>
+							</div>
+							<div class="dfact"><small>Radio</small><span id="dbRadio">-</span></div>
+							<div class="dfact"><small>Firmware</small><span id="dbFirmware">-</span></div>
+							<div class="dfact"><small>Network</small><span id="dbNetwork">-</span></div>
+							<div class="dfact"><small>Uptime</small><span id="dbUptime">-</span></div>
+							<div class="dfact"><small>Time</small><span id="dbTime">-</span></div>
+						</div>
+					</section>
 
-						</td>
-					</tr>
-				-->
-				</table>
+					<section class="dtiles span-all">
+						<div class="dtile" style="--c:var(--dash-purple)" onclick="setFilterAndShow('')"><span class="material-symbols-outlined">sell</span><div><b id="dashboardTagCount">0</b><span>tags</span></div></div>
+						<div class="dtile" style="--c:var(--dash-blue)" onclick="setFilterAndShow('pending')"><span class="material-symbols-outlined">hourglass_empty</span><div><b id="dashboardPending">0</b><span>pending data</span></div></div>
+						<div class="dtile" style="--c:var(--dash-teal)" onclick="setFilterAndShow('')"><span class="material-symbols-outlined">update</span><div><b id="dbUpdated">0</b><span>updated last hour</span></div></div>
+						<div class="dtile" style="--c:var(--dash-yellow)" onclick="setFilterAndShow('lowbatt')"><span class="material-symbols-outlined">battery_low</span><div><b id="dashboardLowBatt">0</b><span>low battery</span></div></div>
+						<div class="dtile" style="--c:var(--dash-red)" onclick="setFilterAndShow('inactive')"><span class="material-symbols-outlined">signal_disconnected</span><div><b id="dashboardTimeout">0</b><span>timeout</span></div></div>
+						<div class="dtile" style="--c:var(--dash-ok)" onclick="setFilterAndShow('remote')"><span class="material-symbols-outlined">cell_tower</span><div><b id="dbExternal">0</b><span>via other APs</span></div></div>
+					</section>
+
+					<section class="dcard">
+						<h2><span class="material-symbols-outlined">priority_high</span>Needs attention</h2>
+						<ul class="dlist" id="dbAttention"></ul>
+					</section>
+
+					<section class="dcard" id="dbThumbCard">
+						<h2><span class="material-symbols-outlined">image</span>Just updated<a class="more" onclick="setFilterAndShow('')">all tags</a></h2>
+						<div class="dthumbs" id="dbThumbs"></div>
+					</section>
+
+					<section class="dcard">
+						<h2><span class="material-symbols-outlined">schedule</span>Next updates</h2>
+						<ul class="dlist" id="dbNext"></ul>
+					</section>
+
+					<section class="dcard">
+						<h2><span class="material-symbols-outlined">bar_chart</span>Fleet</h2>
+						<div class="dsub">Battery</div>
+						<div class="ddist" id="dbDistBatt"></div>
+						<div class="dsub">Signal</div>
+						<div class="ddist" id="dbDistRssi"></div>
+						<div class="dsub">Content</div>
+						<div class="ddist" id="dbDistContent"></div>
+						<div class="dsub">Tag types</div>
+						<div class="ddist" id="dbDistTypes"></div>
+					</section>
+
+					<section class="dcard">
+						<h2><span class="material-symbols-outlined">memory</span>System</h2>
+						<div id="dbSystem"></div>
+					</section>
+
+					<section class="dcard">
+						<h2><span class="material-symbols-outlined">cell_tower</span>Access points<a class="more" onclick="$(`[data-target='aptab']`).click()">details</a></h2>
+						<ul class="dlist" id="dbAps"></ul>
+					</section>
+
+					<section class="dcard">
+						<h2><span class="material-symbols-outlined">text_snippet</span>Recent log<a class="more" href="edit?edit=log.txt" target="_blank">full log</a></h2>
+						<div class="dlog" id="dbLog"></div>
+					</section>
+				</div>
 			</div>
 
 			<div id="tagtab" class="tabcontent">

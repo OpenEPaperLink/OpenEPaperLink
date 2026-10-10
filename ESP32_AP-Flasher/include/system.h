@@ -21,4 +21,8 @@ void logLine(const String& text);
 void logLineRateLimited(const String& key, const String& text, const uint32_t intervalSeconds = 3600);
 String urlForLog(const String& url);
 void logStartUp();
+const char* resetReasonName();
+bool crashedLastBoot();
+time_t lastTimeSync();
+String ntpServerName();
 void logCoreDump();
