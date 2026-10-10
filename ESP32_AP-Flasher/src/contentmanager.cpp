@@ -65,14 +65,19 @@ void contentRunner() {
 
     freeDeletedRecords();
     freeRetiredQueueItems();
+    // Storage.freeSpace() walks the whole filesystem: only when a tag needs it, and once per run
+    int8_t spaceLeftCache = -1;
+    auto spaceLeft = [&spaceLeftCache]() {
+        if (spaceLeftCache < 0) spaceLeftCache = Storage.freeSpace() > 31000 ? 1 : 0;
+        return spaceLeftCache == 1;
+    };
     // iterate over a copy: drawNew() can take seconds and must not hold the tagDB lock
     for (tagRecord *taginfo : tagDBSnapshot()) {
 
         const bool isAp = memcmp(taginfo->mac, wifimac, 8) == 0;
         const bool due = now >= taginfo->nextupdate || needRedraw(taginfo->contentMode, taginfo->wakeupReason);
         const bool checkinSoon = taginfo->expectedNextCheckin < now + 300 || isAp || (wsClientCount() && config.stopsleep == 1);
-        const bool spaceLeft = Storage.freeSpace() > 31000;
-        if (taginfo->RSSI && due && config.runStatus == RUNSTATUS_RUN && checkinSoon && spaceLeft &&
+        if (taginfo->RSSI && due && config.runStatus == RUNSTATUS_RUN && checkinSoon && spaceLeft() &&
             !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
                 drawNew(taginfo->mac, taginfo);
                 taginfo->wakeupReason = 0;
@@ -82,7 +87,7 @@ void contentRunner() {
             String reason;
             if (!taginfo->RSSI) {
                 reason = "no RSSI";
-            } else if (!spaceLeft) {
+            } else if (!spaceLeft()) {
                 reason = "filesystem full";
             } else {
                 time_t expected = taginfo->expectedNextCheckin;
