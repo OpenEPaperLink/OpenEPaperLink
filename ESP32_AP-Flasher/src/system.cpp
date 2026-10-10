@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <FS.h>
 #include <Preferences.h>
+#include <esp_netif.h>
 #include <esp_sntp.h>
 
 #include <map>
@@ -20,7 +21,9 @@ void timeSyncCallback(struct timeval* tv) {
 
 void enableNtpFromDhcp() {
 #if LWIP_DHCP_GET_NTP_SRV
-    // has to be enabled before the DHCP lease, to use the NTP server option of the DHCP server
+    // has to be enabled before the DHCP lease, to use the NTP server option of the DHCP server. It goes
+    // through the lwIP thread, so start the network stack first (safe to call again later).
+    esp_netif_init();
     esp_sntp_servermode_dhcp(true);
 #endif
 }
@@ -31,15 +34,16 @@ void initTime(void* parameter) {
     }
     sntp_set_time_sync_notification_cb(timeSyncCallback);
     sntp_set_sync_interval(300 * 1000);
-    // A single NTP server: the one from DHCP when the network provides it, else pool.ntp.org. With several
-    // servers, lwIP moves on to the next one without any delay when a name doesn't resolve, which flooded
-    // the DNS server when there was no internet (#167). With one server it backs off between retries.
+    // A single NTP server: the one from DHCP when the network provides it, else time.cloudflare.com (anycast,
+    // one address; a cached pool.ntp.org answer can point to a server that doesn't respond for minutes).
+    // With several servers, lwIP moves on to the next one without any delay when a name doesn't resolve,
+    // which flooded the DNS server when there was no internet (#167). With one server it backs off.
     if (sntp_enabled()) sntp_stop();
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
     const ip_addr_t* dhcpServer = sntp_getserver(0);
     if (dhcpServer == nullptr || ip_addr_isany(dhcpServer)) {
-        sntp_setservername(0, "pool.ntp.org");
-        Serial.println("NTP server: pool.ntp.org");
+        sntp_setservername(0, "time.cloudflare.com");
+        Serial.println("NTP server: time.cloudflare.com");
     } else {
         Serial.printf("NTP server from DHCP: %s\r\n", ipaddr_ntoa(dhcpServer));
     }
