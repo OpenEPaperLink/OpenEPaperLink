@@ -15,6 +15,12 @@
 const gpio_num_t led_pins[NUM_LEDS] = {LED1, LED2};
 TimerHandle_t led_timers[NUM_LEDS] = {0};
 
+static bool activity_led_enabled = true;
+
+void led_set_activity_enabled(bool enabled) {
+	activity_led_enabled = enabled;
+}
+
 void led_timer_callback(TimerHandle_t xTimer) {
 	int led_index = (int)pvTimerGetTimerID(xTimer);
 	if (led_index >= 0 && led_index < NUM_LEDS) {
@@ -37,6 +43,7 @@ void init_led() {
 }
 
 void led_flash(int nr) {
+	if (!activity_led_enabled) return;
 	gpio_set_level(led_pins[nr], 1);
 	if (nr >= 0 && nr < NUM_LEDS) {
 		xTimerStart(led_timers[nr], 0);
