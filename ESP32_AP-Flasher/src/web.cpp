@@ -353,16 +353,9 @@ void init_web() {
                                 request->send(404, "text/plain", "File not found");
                                 return;
                             }
-                            if (queueItem->data == nullptr) {
-                                fs::File file = contentFS->open(queueItem->filename);
-                                if (file) {
-                                    queueItem->data = getDataForFile(file);
-                                    Serial.println("Reading file " + String(queueItem->filename));
-                                    file.close();
-                                } else {
-                                    request->send(404, "text/plain", "File not found");
-                                    return;
-                                }
+                            if (!loadQueueItemData(queueItem)) {
+                                request->send(404, "text/plain", "File not found");
+                                return;
                             }
                             request->send(200, "application/octet-stream", queueItem->data, queueItem->len);
                             return;

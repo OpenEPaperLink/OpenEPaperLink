@@ -40,8 +40,11 @@ void enqueueItem(const PendingItem& item);
 bool dequeueItem(const uint8_t* targetMac);
 bool dequeueItem(const uint8_t* targetMac, const uint64_t dataVer);
 uint16_t countQueueItem(const uint8_t* targetMac);
+// A returned PendingItem stays valid for a while after it is dequeued (see freeRetiredQueueItems)
 extern PendingItem* getQueueItem(const uint8_t* targetMac);
 extern PendingItem* getQueueItem(const uint8_t* targetMac, const uint64_t dataVer);
 void checkQueue(const uint8_t* targetMac);
 bool queueDataAvail(struct pendingData* pending, bool local);
 uint8_t* getDataForFile(fs::File& file);
+bool loadQueueItemData(PendingItem* queueItem);
+void freeRetiredQueueItems();

@@ -23,8 +23,17 @@
 
 extern uint16_t sendBlock(const void* data, const uint16_t len);
 extern UDPcomm udpsync;
-std::vector<PendingItem> pendingQueue;
-std::mutex queueMutex;
+// Queued items are heap allocated, so a PendingItem* stays valid when the vector grows. Dequeued items
+// are kept for a while before they are freed, because other tasks may still use them: a block request
+// being sent, a BLE upload or an asynchronous /getdata response. Guarded by queueMutex.
+std::vector<PendingItem*> pendingQueue;
+std::recursive_mutex queueMutex;
+struct RetiredItem {
+    PendingItem* item;
+    uint32_t retiredAt;
+};
+static std::vector<RetiredItem> retiredItems;
+static constexpr uint32_t RETIRED_ITEM_GRACE_MS = 120000;
 
 void addCRC(void* p, uint8_t len) {
     uint8_t total = 0;
@@ -401,16 +410,10 @@ void processBlockRequest(struct espBlockRequest* br) {
         Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\r\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
         return;
     }
-    if (queueItem->data == nullptr) {
-        fs::File file = contentFS->open(queueItem->filename);
-        if (!file) {
-            Serial.print("No current file. " + String(queueItem->filename) + " Canceling request\r\n");
-            prepareCancelPending(br->src);
-            return;
-        }
-        queueItem->data = getDataForFile(file);
-        Serial.println("Reading file " + String(queueItem->filename) + " in  " + String(millis() - t) + "ms");
-        file.close();
+    if (!loadQueueItemData(queueItem)) {
+        Serial.print("No data for " + String(queueItem->filename) + ", canceling request\r\n");
+        prepareCancelPending(br->src);
+        return;
     }
 
     // check if we're not exceeding max blocks (to prevent sendBlock from exceeding its boundary)
@@ -939,8 +942,39 @@ bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
 }
 
 void enqueueItem(struct PendingItem& item) {
-    std::lock_guard<std::mutex> lock(queueMutex);
-    pendingQueue.push_back(item);
+    std::lock_guard<std::recursive_mutex> lock(queueMutex);
+    pendingQueue.push_back(new PendingItem(item));
+}
+
+/// @brief Number of queued and retired items that use this data buffer
+static int dataUsers(const uint8_t* data) {
+    int count = 0;
+    for (const PendingItem* item : pendingQueue) {
+        if (item->data == data) count++;
+    }
+    for (const RetiredItem& retired : retiredItems) {
+        if (retired.item->data == data) count++;
+    }
+    return count;
+}
+
+/// @brief Move a removed item to the retired list (caller holds queueMutex)
+static void retireItem(PendingItem* item) {
+    retiredItems.push_back({item, millis()});
+}
+
+void freeRetiredQueueItems() {
+    std::lock_guard<std::recursive_mutex> lock(queueMutex);
+    for (size_t c = 0; c < retiredItems.size();) {
+        if (millis() - retiredItems[c].retiredAt > RETIRED_ITEM_GRACE_MS) {
+            PendingItem* item = retiredItems[c].item;
+            retiredItems.erase(retiredItems.begin() + c);
+            if (item->data != nullptr && dataUsers(item->data) == 0) free(item->data);
+            delete item;
+        } else {
+            c++;
+        }
+    }
 }
 
 bool dequeueItem(const uint8_t* targetMac) {
@@ -948,37 +982,32 @@ bool dequeueItem(const uint8_t* targetMac) {
 }
 
 bool dequeueItem(const uint8_t* targetMac, const uint64_t dataVer) {
-    std::lock_guard<std::mutex> lock(queueMutex);
+    std::lock_guard<std::recursive_mutex> lock(queueMutex);
     auto it = std::find_if(pendingQueue.begin(), pendingQueue.end(),
-                           [targetMac, dataVer](const PendingItem& item) {
-                               bool macMatches = memcmp(item.pendingdata.targetMac, targetMac, sizeof(item.pendingdata.targetMac)) == 0;
-                               bool dataVerMatches = (dataVer == 0) || (dataVer == item.pendingdata.availdatainfo.dataVer);
+                           [targetMac, dataVer](const PendingItem* item) {
+                               bool macMatches = memcmp(item->pendingdata.targetMac, targetMac, sizeof(item->pendingdata.targetMac)) == 0;
+                               bool dataVerMatches = (dataVer == 0) || (dataVer == item->pendingdata.availdatainfo.dataVer);
                                return macMatches && dataVerMatches;
                            });
     if (it != pendingQueue.end()) {
-        if (it->data != nullptr) {
-            int datacount = 0;
-            for (const PendingItem& item : pendingQueue) {
-                if (item.data == it->data) {
-                    datacount++;
-                }
-            }
-            if (datacount == 1) {
-                free(it->data);
-            }
-            it->data = nullptr;
-        }
+        PendingItem* item = *it;
         pendingQueue.erase(it);
+        retireItem(item);
         return true;
     }
     return false;
 }
 
+static size_t queueSize() {
+    std::lock_guard<std::recursive_mutex> lock(queueMutex);
+    return pendingQueue.size();
+}
+
 uint16_t countQueueItem(const uint8_t* targetMac) {
-    std::unique_lock<std::mutex> lock(queueMutex);
+    std::lock_guard<std::recursive_mutex> lock(queueMutex);
     int count = std::count_if(pendingQueue.begin(), pendingQueue.end(),
-                              [targetMac](const PendingItem& item) {
-                                  return memcmp(item.pendingdata.targetMac, targetMac, sizeof(item.pendingdata.targetMac)) == 0;
+                              [targetMac](const PendingItem* item) {
+                                  return memcmp(item->pendingdata.targetMac, targetMac, sizeof(item->pendingdata.targetMac)) == 0;
                               });
     return count;
 }
@@ -988,24 +1017,34 @@ PendingItem* getQueueItem(const uint8_t* targetMac) {
 }
 
 PendingItem* getQueueItem(const uint8_t* targetMac, const uint64_t dataVer) {
+    std::lock_guard<std::recursive_mutex> lock(queueMutex);
     auto it = std::find_if(pendingQueue.begin(), pendingQueue.end(),
-                           [targetMac, dataVer](const PendingItem& item) {
-                               bool macMatches = memcmp(item.pendingdata.targetMac, targetMac, sizeof(item.pendingdata.targetMac)) == 0;
-                               bool dataVerMatches = (dataVer == 0) || (dataVer == item.pendingdata.availdatainfo.dataVer);
+                           [targetMac, dataVer](const PendingItem* item) {
+                               bool macMatches = memcmp(item->pendingdata.targetMac, targetMac, sizeof(item->pendingdata.targetMac)) == 0;
+                               bool dataVerMatches = (dataVer == 0) || (dataVer == item->pendingdata.availdatainfo.dataVer);
                                return macMatches && dataVerMatches;
                            });
-    if (it != pendingQueue.end()) {
-        return &(*it);
-    } else {
-        return nullptr;
+    return it != pendingQueue.end() ? *it : nullptr;
+}
+
+bool loadQueueItemData(PendingItem* queueItem) {
+    std::lock_guard<std::recursive_mutex> lock(queueMutex);
+    if (queueItem->data != nullptr) return true;
+    fs::File file = contentFS->open(queueItem->filename);
+    if (!file) {
+        Serial.print("No current file. " + String(queueItem->filename) + "\r\n");
+        return false;
     }
+    queueItem->data = getDataForFile(file);
+    file.close();
+    return queueItem->data != nullptr;
 }
 
 void checkQueue(const uint8_t* targetMac) {
     uint16_t queueCount;
     queueCount = countQueueItem(targetMac);
     if (queueCount > 0) {
-        Serial.printf("queue: total %d elements\r\n", pendingQueue.size());
+        Serial.printf("queue: total %d elements\r\n", queueSize());
         PendingItem* queueItem = getQueueItem(targetMac);
         if (queueItem == nullptr) {
             return;
@@ -1035,7 +1074,7 @@ bool queueDataAvail(struct pendingData* pending, bool local) {
     } else {
         newPending.data = nullptr;
         
-        if (pendingQueue.size() < 5) {   // maximized to 5 to save some memory
+        if (queueSize() < 5) {   // maximized to 5 to save some memory
             // optional: read data early, don't wait for block request.
             fs::File file = contentFS->open(newPending.filename);
             if (file) {
@@ -1052,13 +1091,18 @@ bool queueDataAvail(struct pendingData* pending, bool local) {
     uint8_t dataType = pending->availdatainfo.dataType;
     if (dataType != DATATYPE_FW_UPDATE && dataType != DATATYPE_NOUPDATE && pending->availdatainfo.dataTypeArgument & 0xF8 == 0x00) {
         // in case of an image (no preload), remove already queued images
-        pendingQueue.erase(std::remove_if(pendingQueue.begin(), pendingQueue.end(),
-                                          [pending](const PendingItem& item) {
-                                              bool macMatches = memcmp(item.pendingdata.targetMac, pending->targetMac, sizeof(item.pendingdata.targetMac)) == 0;
-                                              bool dataTypeArgumentMatches = (pending->availdatainfo.dataType == item.pendingdata.availdatainfo.dataType) && ((item.pendingdata.availdatainfo.dataTypeArgument & 0xF8) == 0x00);
-                                              return macMatches && dataTypeArgumentMatches;
-                                          }),
-                           pendingQueue.end());
+        std::lock_guard<std::recursive_mutex> lock(queueMutex);
+        for (size_t c = 0; c < pendingQueue.size();) {
+            PendingItem* item = pendingQueue[c];
+            bool macMatches = memcmp(item->pendingdata.targetMac, pending->targetMac, sizeof(item->pendingdata.targetMac)) == 0;
+            bool dataTypeArgumentMatches = (pending->availdatainfo.dataType == item->pendingdata.availdatainfo.dataType) && ((item->pendingdata.availdatainfo.dataTypeArgument & 0xF8) == 0x00);
+            if (macMatches && dataTypeArgumentMatches) {
+                pendingQueue.erase(pendingQueue.begin() + c);
+                retireItem(item);
+            } else {
+                c++;
+            }
+        }
     }
 
     enqueueItem(newPending);
