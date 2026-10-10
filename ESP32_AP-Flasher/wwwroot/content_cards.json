@@ -741,6 +741,19 @@
         }
       },
       {
+        "key": "mincheckin",
+        "name": "Minimum check-in time",
+        "desc": "Shortest time between check-ins when the AP has no update planned for the tag. Longer saves battery, but the tag reacts slower.",
+        "type": "select",
+        "options": {
+          "1": "-Tag default (40 sec)",
+          "60": "1 minute",
+          "120": "2 minutes",
+          "300": "5 minutes",
+          "600": "10 minutes"
+        }
+      },
+      {
         "key": "fixedchannel",
         "name": "Fixed Channel",
         "desc": "What channel should the tag initially join?",

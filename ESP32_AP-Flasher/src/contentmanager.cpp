@@ -3094,7 +3094,9 @@ void prepareConfigFile(const uint8_t *dst, const JsonObject &config) {
     tagSettings.enableNoRFSymbol = config["shownorf"].as<int>();
     tagSettings.customMode = 0;
     tagSettings.fastBootCapabilities = 0;
-    tagSettings.minimumCheckInTime = 1;
+    // seconds; 1 = no minimum: the tag uses its own default (40 s)
+    const int minCheckIn = config["mincheckin"].as<int>();
+    tagSettings.minimumCheckInTime = minCheckIn > 0 ? minCheckIn : 1;
     tagSettings.fixedChannel = config["fixedchannel"].as<int>();
     tagSettings.batLowVoltage = config["lowvoltage"].as<int>();
     prepareDataAvail((uint8_t *)&tagSettings, sizeof(tagSettings), 0xA8, dst);
