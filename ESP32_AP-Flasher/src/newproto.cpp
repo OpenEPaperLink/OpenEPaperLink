@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstring>
 #include <mutex>
+#include <unordered_map>
 #include <vector>
 
 #include "serialap.h"
@@ -34,6 +35,41 @@ struct RetiredItem {
 };
 static std::vector<RetiredItem> retiredItems;
 static constexpr uint32_t RETIRED_ITEM_GRACE_MS = 120000;
+
+// What the radio holds for each tag (the dataVer of the last SDA, 0 after a cancel), and what a tag got
+// offered at its last check-in. An xfer complete carries no hash, so this tells which item a tag finished.
+// Only for tags on this AP's radio. Guarded by queueMutex.
+static std::unordered_map<uint64_t, uint64_t> announcedDataVer;
+static std::unordered_map<uint64_t, uint64_t> offeredDataVer;
+
+static uint64_t macKey(const uint8_t* mac) {
+    uint64_t key;
+    memcpy(&key, mac, sizeof(key));
+    return key;
+}
+
+static void setAnnounced(const uint8_t* mac, const uint64_t dataVer) {
+    std::lock_guard<std::recursive_mutex> lock(queueMutex);
+    announcedDataVer[macKey(mac)] = dataVer;
+}
+
+/// @brief Remember what the radio just offered the tag that checked in
+static void recordOffered(const uint8_t* mac) {
+    std::lock_guard<std::recursive_mutex> lock(queueMutex);
+    auto it = announcedDataVer.find(macKey(mac));
+    if (it != announcedDataVer.end()) {
+        offeredDataVer[macKey(mac)] = it->second;
+    } else {
+        offeredDataVer.erase(macKey(mac));
+    }
+}
+
+/// @brief False if the tag was offered (and so finished) another item than the queued one
+static bool offeredMatches(const uint8_t* mac, const uint64_t dataVer) {
+    std::lock_guard<std::recursive_mutex> lock(queueMutex);
+    auto it = offeredDataVer.find(macKey(mac));
+    return it == offeredDataVer.end() || it->second == dataVer;  // unknown: assume it matches
+}
 
 void addCRC(void* p, uint8_t len) {
     uint8_t total = 0;
@@ -68,6 +104,7 @@ void prepareCancelPending(const uint8_t dst[8]) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     sendCancelPending(&pending);
+    setAnnounced(dst, 0);
 
     tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
@@ -91,7 +128,7 @@ void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin) {
         pending.attemptsLeft = 10 + config.maxsleep;
 
         Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X sleeping %d minutes\r\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], nextCheckin);
-        sendDataAvail(&pending);
+        if (sendDataAvail(&pending)) setAnnounced(dst, pending.availdatainfo.dataVer);
     }
 }
 
@@ -463,7 +500,16 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     uint8_t md5bytes[16];
     bool haveMd5 = false;  // false for a repeated xfer complete, when the item is no longer queued
     bool wasDeepSleepCmd = false;
+    if (local) setAnnounced(xfc->src, 0);  // the radio cleared its slot for this tag
     PendingItem* queueItem = getQueueItem(xfc->src);
+    if (local && queueItem != nullptr && !offeredMatches(xfc->src, queueItem->pendingdata.availdatainfo.dataVer)) {
+        // The tag finished data that was replaced while it was downloading. The queued item has not been
+        // delivered: keep it, and announce it again so the tag gets it on its next check-in.
+        Serial.printf("xfer complete for replaced data, keeping the current item\r\n");
+        wsLog("xfer complete for replaced data, current item kept");
+        checkQueue(xfc->src);
+        return;
+    }
     if (queueItem != nullptr) {
         // A completed deep-sleep command means the tag acknowledged it and is now
         // going to sleep. Flag it so we can mark the tag "in deep sleep" below;
@@ -541,6 +587,7 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
 
     time_t now;
     time(&now);
+    if (local) setAnnounced(xfc->src, 0);  // the radio dropped its slot for this tag
     tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         taginfo->pendingIdle = 60;
@@ -646,6 +693,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     if (local) {
         sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\r\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
         Serial.print(buffer);
+        recordOffered(eadr->src);
         checkQueue(eadr->src);   // experiemental 3/26/25: redundant check
 
         // A deep-sleep command makes the tag sleep without ever reporting xfer
@@ -669,6 +717,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
                 struct pendingData cancel = {0};
                 memcpy(cancel.targetMac, eadr->src, 8);
                 sendCancelPending(&cancel);
+                setAnnounced(eadr->src, 0);
             }
         }
     }
@@ -1058,7 +1107,7 @@ void checkQueue(const uint8_t* targetMac) {
             return;
         }
         if (queueCount > 1) queueItem->pendingdata.availdatainfo.nextCheckIn = 5 | 0x8000;
-        sendDataAvail(&queueItem->pendingdata);
+        if (sendDataAvail(&queueItem->pendingdata)) setAnnounced(targetMac, queueItem->pendingdata.availdatainfo.dataVer);
     }
 }
 
