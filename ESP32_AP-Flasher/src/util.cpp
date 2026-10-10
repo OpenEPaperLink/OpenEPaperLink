@@ -86,8 +86,9 @@ bool calculateSunriseSunset(double lat, double lon, time_t now, String &sunrise,
 
     if (haR < 0.0 || haS < 0.0) return false;
 
-    double utcRise_h = raR - haR / 15.0;
-    double utcSet_h = raS + haS / 15.0;
+    // local mean time (T = H + RA - 0.06571 t - 6.622), then to UTC (UT = T - lngHour)
+    double utcRise_h = raR - haR / 15.0 - 0.06571 * tRise - 6.622 - lngHour;
+    double utcSet_h = raS + haS / 15.0 - 0.06571 * tSet - 6.622 - lngHour;
 
     while (utcRise_h < 0.0) utcRise_h += 24.0;
     while (utcRise_h >= 24.0) utcRise_h -= 24.0;
@@ -130,8 +131,8 @@ int calculateMoonPhase(time_t now) {
     double moonAge = fmod(daysSinceNew, synMonth);
     if (moonAge < 0) moonAge += synMonth;
 
-    // Map 0..synMonth to 0..28 index
+    // Map 0..synMonth to the 28 moon icons (0..27); the end of the cycle rounds to the next new moon
     int idx = (int)(moonAge / synMonth * 28.0 + 0.5);
-    if (idx > 28) idx = 0;
+    if (idx >= 28) idx = 0;
     return idx;
 }
