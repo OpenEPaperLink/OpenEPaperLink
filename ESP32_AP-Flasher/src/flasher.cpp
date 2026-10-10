@@ -273,13 +273,18 @@ bool flasher::backupFlash() {
     getFirmwareMD5();
     if (!zbs->select_flash(0)) return false;
     md5char[16] = 0x00;
-    xSemaphoreTake(fsMutex, portMAX_DELAY);
-    fs::File backup = contentFS->open("/" + (String)md5char + "_backup.bin", "w", true);
-    for (uint32_t c = 0; c < 65535; c++) {
-        backup.write(zbs->read_flash(c));
+    // read the 64 KB flash in chunks and write each one via LockedFile: reading byte by byte from the
+    // tag is slow, and fsMutex must not be held all that time
+    LockedFile backup("/" + (String)md5char + "_backup.bin", "w");
+    if (!backup) return false;
+    uint8_t chunk[1024];
+    for (uint32_t addr = 0; addr < 0x10000; addr += sizeof(chunk)) {
+        for (uint16_t c = 0; c < sizeof(chunk); c++) {
+            chunk[c] = zbs->read_flash(addr + c);
+        }
+        backup.write(chunk, sizeof(chunk));
     }
     backup.close();
-    xSemaphoreGive(fsMutex);
     return true;
 }
 
