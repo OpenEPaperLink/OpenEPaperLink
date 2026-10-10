@@ -405,6 +405,14 @@ void processBlockRequest(struct espBlockRequest* br) {
     }
 
     PendingItem* queueItem = getQueueItem(br->src, br->ver);
+    if (queueItem == nullptr && countQueueItem(br->src) > 0) {
+        // The tag asks for data that has been replaced by a newer item (for example a newer image).
+        // Don't cancel everything: announce the current item again, so the radio replaces what it has
+        // for this tag and the tag gets the new data on its next check-in.
+        Serial.printf("blockrequest: outdated data requested by %02X%02X%02X%02X%02X%02X%02X%02X, announcing current item\r\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
+        checkQueue(br->src);
+        return;
+    }
     if (queueItem == nullptr) {
         prepareCancelPending(br->src);
         Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\r\n", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0]);
