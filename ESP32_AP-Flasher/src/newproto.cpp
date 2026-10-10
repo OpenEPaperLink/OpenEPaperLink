@@ -289,11 +289,10 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                 http.begin(imageUrl);
                 int httpCode = http.GET();
                 if (httpCode == 200) {
-                    xSemaphoreTake(fsMutex, portMAX_DELAY);
-                    File file = contentFS->open(filename, "w");
+                    // LockedFile: don't hold fsMutex while waiting for the network
+                    LockedFile file(filename, "w");
                     http.writeToStream(&file);
                     file.close();
-                    xSemaphoreGive(fsMutex);
                 } else if (httpCode == 404) {
                     snprintf(imageUrl, sizeof(imageUrl), "http://%s/current/%s.raw", remoteIP.toString().c_str(), hexmac);
                     // imageUrl = "http://" + remoteIP.toString() + "/current/" + String(hexmac) + ".raw";
@@ -301,11 +300,9 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                     http.begin(imageUrl);
                     httpCode = http.GET();
                     if (httpCode == 200) {
-                        xSemaphoreTake(fsMutex, portMAX_DELAY);
-                        File file = contentFS->open(filename, "w");
+                        LockedFile file(filename, "w");
                         http.writeToStream(&file);
                         file.close();
-                        xSemaphoreGive(fsMutex);
                     }
                 } else {
                     logLine("prepareExternalDataAvail " + String(imageUrl) + " error " + String(httpCode));

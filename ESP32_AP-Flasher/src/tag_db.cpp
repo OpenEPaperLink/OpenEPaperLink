@@ -201,10 +201,7 @@ void saveDB(const String& filename) {
 
     xSemaphoreTake(fsMutex, portMAX_DELAY);
 
-    fs::File existingFile = contentFS->open(filename, "r");
-    if (existingFile) {
-        existingFile.close();
-        vTaskDelay(pdMS_TO_TICKS(100));
+    if (contentFS->exists(filename)) {
         String backupFilename = filename + ".bak";
         if (!contentFS->rename(filename.c_str(), backupFilename.c_str())) {
             xSemaphoreGive(fsMutex);
