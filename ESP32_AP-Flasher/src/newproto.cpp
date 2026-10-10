@@ -450,6 +450,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     sprintf(dst_path, "/current/%02X%02X%02X%02X%02X%02X%02X%02X.raw\0", xfc->src[7], xfc->src[6], xfc->src[5], xfc->src[4], xfc->src[3], xfc->src[2], xfc->src[1], xfc->src[0]);
 
     uint8_t md5bytes[16];
+    bool haveMd5 = false;  // false for a repeated xfer complete, when the item is no longer queued
     bool wasDeepSleepCmd = false;
     PendingItem* queueItem = getQueueItem(xfc->src);
     if (queueItem != nullptr) {
@@ -477,13 +478,14 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
         }
         memcpy(md5bytes, &queueItem->pendingdata.availdatainfo.dataVer, sizeof(uint64_t));
         memset(md5bytes + sizeof(uint64_t), 0, 16 - sizeof(uint64_t));
+        haveMd5 = true;
         dequeueItem(xfc->src);
     }
 
     tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         clearPending(taginfo);
-        memcpy(taginfo->md5, md5bytes, sizeof(md5bytes));
+        if (haveMd5) memcpy(taginfo->md5, md5bytes, sizeof(md5bytes));
         taginfo->updateCount++;
         taginfo->updateLast = now;
         taginfo->pendingCount = countQueueItem(xfc->src);
