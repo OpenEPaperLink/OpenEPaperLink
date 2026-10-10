@@ -29,6 +29,9 @@ WifiManager::WifiManager() {
     _reconnectIntervalCheck = 5000;
     _retryIntervalCheck = 5 * 60000;
     _connectionTimeout = 15000;
+    _reconnectRetryInterval = 15000;
+    _lostConnectionTimeout = 5 * 60000;
+    _disconnectedSince = 0;
 
     _nextReconnectCheck = 0;
     _connected = false;
@@ -84,12 +87,27 @@ void WifiManager::poll() {
 
     if (wifiStatus == CONNECTED && millis() > _nextReconnectCheck) {
         if (WiFi.status() != WL_CONNECTED) {
-            _connected = false;
-            terminalLog("WiFi connection lost. Attempting to reconnect.");
-            logLine("WiFi connection lost. Attempting to reconnect.");
-            WiFi.reconnect();
-            waitForConnection();
+            // Keep retrying in station mode without blocking the loop. Only fall back to the
+            // configuration AP after a long outage (for example when the wifi password changed).
+            if (_connected) {
+                _connected = false;
+                _disconnectedSince = millis();
+                terminalLog("WiFi connection lost. Attempting to reconnect.");
+                logLine("WiFi connection lost. Attempting to reconnect.");
+            }
+            if (millis() - _disconnectedSince > _lostConnectionTimeout) {
+                terminalLog("!Unable to reconnect to WiFi");
+                logLine("Unable to reconnect to WiFi");
+                startManagementServer();
+            } else {
+                WiFi.reconnect();
+                _nextReconnectCheck = millis() + _reconnectRetryInterval;
+            }
         } else {
+            if (!_connected) {
+                _connected = true;
+                logLine("WiFi reconnected after " + String((millis() - _disconnectedSince) / 1000) + " s");
+            }
             _nextReconnectCheck = millis() + _reconnectIntervalCheck;
         }
     }

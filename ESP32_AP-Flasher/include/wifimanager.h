@@ -27,6 +27,9 @@ class WifiManager {
     int _reconnectIntervalCheck;
     int _retryIntervalCheck;
     int _connectionTimeout;
+    int _reconnectRetryInterval;
+    unsigned long _lostConnectionTimeout;
+    unsigned long _disconnectedSince;
     String _ssid;
     String _pass;
     unsigned long _nextReconnectCheck;
