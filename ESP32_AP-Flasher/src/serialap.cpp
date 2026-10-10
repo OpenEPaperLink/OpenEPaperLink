@@ -751,7 +751,7 @@ void rxSerialTask2(void* parameter) {
                     } else {
                         Serial.println("Failed!");
                     }
-                    logLine("IEEE802.15.4 modem reset " + (config.runStatus == RUNSTATUS_RUN) ? ("ok") : ("failed"));
+                    logLine(String("IEEE802.15.4 modem reset ") + (config.runStatus == RUNSTATUS_RUN ? "ok" : "failed"));
                 }
                 rxStrCount = 0;
                 memset(rxStr, 0, sizeof(rxStr));
