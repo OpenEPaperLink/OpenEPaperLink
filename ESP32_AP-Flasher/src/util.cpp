@@ -113,26 +113,29 @@ bool calculateSunriseSunset(double lat, double lon, time_t now, String &sunrise,
 }
 
 int calculateMoonPhase(time_t now) {
-    struct tm utc_tm;
-    gmtime_r(&now, &utc_tm);
-    int y = utc_tm.tm_year + 1900;
-    int m = utc_tm.tm_mon + 1;
-    int d = utc_tm.tm_mday;
+    // The date content is drawn once a day, so take the phase at local noon as the phase of the whole day
+    struct tm noon_tm;
+    localtime_r(&now, &noon_tm);
+    noon_tm.tm_hour = 12;
+    noon_tm.tm_min = noon_tm.tm_sec = 0;
+    noon_tm.tm_isdst = -1;
+    const time_t noon = mktime(&noon_tm);
 
-    // Convert to Julian Day
-    if (m <= 2) { y--; m += 12; }
-    int A = y / 100;
-    int B = 2 - A + A / 4;
-    double JD = floor(365.25 * (y + 4716)) + floor(30.6001 * (m + 1)) + d + B - 1524.5;
+    // Elongation of the moon from the sun with the largest periodic terms (Meeus, ch. 47), which puts new and
+    // full moon within about 20 minutes; the mean synodic month alone can be more than half a day off
+    const double T = ((double)noon / 86400.0 + 2440587.5 - 2451545.0) / 36525.0;
+    const double rad = M_PI / 180.0;
+    const double D = (297.8501921 + 445267.1114034 * T) * rad;  // mean elongation
+    const double M = (357.5291092 + 35999.0502909 * T) * rad;   // sun's mean anomaly
+    const double Mp = (134.9633964 + 477198.8675055 * T) * rad; // moon's mean anomaly
+    const double F = (93.2720950 + 483202.0175233 * T) * rad;   // moon's argument of latitude
+    double elong = D / rad + 6.289 * sin(Mp) + 1.274 * sin(2 * D - Mp) + 0.658 * sin(2 * D) + 0.214 * sin(2 * Mp) -
+                   0.114 * sin(2 * F) - 2.101 * sin(M) - 0.020 * sin(2 * M);
+    elong = fmod(elong, 360.0);
+    if (elong < 0) elong += 360.0;
 
-    // Days since reference new moon: January 6, 2000 ~ JD 2451550.1
-    double daysSinceNew = JD - 2451550.1;
-    const double synMonth = 29.53058867;
-    double moonAge = fmod(daysSinceNew, synMonth);
-    if (moonAge < 0) moonAge += synMonth;
-
-    // Map 0..synMonth to the 28 moon icons (0..27); the end of the cycle rounds to the next new moon
-    int idx = (int)(moonAge / synMonth * 28.0 + 0.5);
+    // Map 0..360 degrees to the 28 moon icons (0..27); the end of the cycle rounds to the next new moon
+    int idx = (int)(elong / 360.0 * 28.0 + 0.5);
     if (idx >= 28) idx = 0;
     return idx;
 }
