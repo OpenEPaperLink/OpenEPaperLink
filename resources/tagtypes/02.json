@@ -16,9 +16,15 @@
 	"contentids": [ 22, 23, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20, 27 ],
 	"template": {
 		"1": {
-			"weekday": [ 200, 0, "Signika-SB.ttf", 70 ],
-			"month": [ 200, 210, "Signika-SB.ttf", 70 ],
-			"day": [ 200, 45, "Signika-SB.ttf", 170 ]
+			"weekday": [ 200, -5, "Signika-SB.ttf", 60 ],
+			"altweekday": [ 200, -5, "Signika-SB.ttf", 60 ],
+			"day": [ 200, 37, "Signika-SB.ttf", 100 ],
+			"month": [ 200, 125, "Signika-SB.ttf", 60 ],
+			
+			"date": [ 200, 65, "Signika-SB.ttf", 54 ],
+			"moonicon": [ 200, 115, 62 ],
+			"sunrise": [ 100, 140, "Signika-SB.ttf", 28 ],
+			"sunset": [ 270, 140, "Signika-SB.ttf", 28 ]
 		},
 		"4": {
 			"location": [ 20, 20, "fonts/calibrib30" ],
