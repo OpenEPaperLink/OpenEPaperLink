@@ -357,7 +357,13 @@ void prepareExternalDataAvail(struct pendingData* pending, IPAddress remoteIP) {
                     size_t len = http.getSize();
                     if (len > 0) {
                         clearPending(taginfo);
-                        taginfo->data = new uint8_t[len];
+                        // malloc, not new[]: the buffer is released with free() (clearPending)
+                        taginfo->data = (uint8_t*)malloc(len);
+                        if (taginfo->data == nullptr) {
+                            wsErr("no memory allocation for data");
+                            http.end();
+                            return;
+                        }
                         WiFiClient* stream = http.getStreamPtr();
                         stream->readBytes(taginfo->data, len);
                         taginfo->dataType = pending->availdatainfo.dataType;

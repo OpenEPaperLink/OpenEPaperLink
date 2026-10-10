@@ -3076,7 +3076,8 @@ void prepareNFCReq(const uint8_t *dst, const char *url) {
     len = 7 + len;
     data[len] = 0xFE;
     len = 1 + len;
-    prepareDataAvail(data, len, DATATYPE_NFC_RAW_CONTENT, dst);
+    prepareDataAvail(data, len, DATATYPE_NFC_RAW_CONTENT, dst);  // copies the data
+    delete[] data;
 }
 #endif
 
@@ -3150,7 +3151,8 @@ void prepareTIME_RAW(const uint8_t *dst, time_t now) {
     data[8] = ((uint8_t*)&unix_time)[2];
     data[9] = ((uint8_t*)&unix_time)[3];
     data[10] = 1; // Design, 1 = Full DateTime 2 = Just Time Segment Style
-    prepareDataAvail(data, len + 1, DATATYPE_TIME_RAW_DATA, dst);
+    prepareDataAvail(data, len + 1, DATATYPE_TIME_RAW_DATA, dst);  // copies the data
+    delete[] data;
 }
 #endif
 
