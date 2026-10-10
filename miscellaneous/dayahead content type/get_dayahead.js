@@ -1,5 +1,13 @@
 /**
- * get_dayahead - ENTSO-E day-ahead prijzen als JSON.
+ * get_dayahead - day-ahead prijzen als JSON.
+ *
+ * Bronnen:
+ *  - Nord Pool is de primaire bron voor de zones die het kent: snel (een paar
+ *    honderd ms), in kwartieren, en direct in NOK/SEK/DKK. ENTSO-E publiceert
+ *    dezelfde veilinguitkomst later opnieuw en mist soms een hele dag.
+ *  - ENTSO-E is de fallback: voor zones die Nord Pool niet kent (CH, CZ, ES,
+ *    PT, RO, SI, SK) en wanneer Nord Pool faalt of vandaag niet volledig heeft.
+ *  - Parameter bron=nordpool of bron=entsoe dwingt een bron af, om te testen.
  *
  * Cachegedrag:
  *  - Het vervallen hangt niet aan de TTL maar aan een dekkingstest op de data
@@ -40,37 +48,38 @@ var DEFAULT_COUNTRY = 'NL';
 
 // https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html#_areas
 // LU deelt de biedzone DE-LU (10Y1001A1001A82H) sinds de DE-AT-LU splitsing
-// van oktober 2018.
+// van oktober 2018. Nord Pool noemt die zone GER.
+// nordpool: deliveryArea bij Nord Pool, null als Nord Pool de zone niet kent.
 var ZONES = {
-  'AT':  { domain: '10YAT-APG------L', currency: null },
-  'BE':  { domain: '10YBE----------2', currency: null },
-  'CH':  { domain: '10YCH-SWISSGRIDZ', currency: null },
-  'CZ':  { domain: '10YCZ-CEPS-----N', currency: null },
-  'DE':  { domain: '10Y1001A1001A82H', currency: null },
-  'LU':  { domain: '10Y1001A1001A82H', currency: null },
-  'DK1': { domain: '10YDK-1--------W', currency: 'DKK' },
-  'DK2': { domain: '10YDK-2--------M', currency: 'DKK' },
-  'EE':  { domain: '10Y1001A1001A39I', currency: null },
-  'ES':  { domain: '10YES-REE------0', currency: null },
-  'FI':  { domain: '10YFI-1--------U', currency: null },
-  'FR':  { domain: '10YFR-RTE------C', currency: null },
-  'LT':  { domain: '10YLT-1001A0008Q', currency: null },
-  'LV':  { domain: '10YLV-1001A00074', currency: null },
-  'NL':  { domain: '10YNL----------L', currency: null },
-  'NO1': { domain: '10YNO-1--------2', currency: 'NOK' },
-  'NO2': { domain: '10YNO-2--------T', currency: 'NOK' },
-  'NO3': { domain: '10YNO-3--------J', currency: 'NOK' },
-  'NO4': { domain: '10YNO-4--------9', currency: 'NOK' },
-  'NO5': { domain: '10Y1001A1001A48H', currency: 'NOK' },
-  'PL':  { domain: '10YPL-AREA-----S', currency: null },
-  'PT':  { domain: '10YPT-REN------W', currency: null },
-  'RO':  { domain: '10YRO-TEL------P', currency: null },
-  'SE1': { domain: '10Y1001A1001A44P', currency: 'SEK' },
-  'SE2': { domain: '10Y1001A1001A45N', currency: 'SEK' },
-  'SE3': { domain: '10Y1001A1001A46L', currency: 'SEK' },
-  'SE4': { domain: '10Y1001A1001A47J', currency: 'SEK' },
-  'SI':  { domain: '10YSI-ELES-----O', currency: null },
-  'SK':  { domain: '10YSK-SEPS-----K', currency: null }
+  'AT':  { domain: '10YAT-APG------L', currency: null, nordpool: 'AT' },
+  'BE':  { domain: '10YBE----------2', currency: null, nordpool: 'BE' },
+  'CH':  { domain: '10YCH-SWISSGRIDZ', currency: null, nordpool: null },
+  'CZ':  { domain: '10YCZ-CEPS-----N', currency: null, nordpool: null },
+  'DE':  { domain: '10Y1001A1001A82H', currency: null, nordpool: 'GER' },
+  'LU':  { domain: '10Y1001A1001A82H', currency: null, nordpool: 'GER' },
+  'DK1': { domain: '10YDK-1--------W', currency: 'DKK', nordpool: 'DK1' },
+  'DK2': { domain: '10YDK-2--------M', currency: 'DKK', nordpool: 'DK2' },
+  'EE':  { domain: '10Y1001A1001A39I', currency: null, nordpool: 'EE' },
+  'ES':  { domain: '10YES-REE------0', currency: null, nordpool: null },
+  'FI':  { domain: '10YFI-1--------U', currency: null, nordpool: 'FI' },
+  'FR':  { domain: '10YFR-RTE------C', currency: null, nordpool: 'FR' },
+  'LT':  { domain: '10YLT-1001A0008Q', currency: null, nordpool: 'LT' },
+  'LV':  { domain: '10YLV-1001A00074', currency: null, nordpool: 'LV' },
+  'NL':  { domain: '10YNL----------L', currency: null, nordpool: 'NL' },
+  'NO1': { domain: '10YNO-1--------2', currency: 'NOK', nordpool: 'NO1' },
+  'NO2': { domain: '10YNO-2--------T', currency: 'NOK', nordpool: 'NO2' },
+  'NO3': { domain: '10YNO-3--------J', currency: 'NOK', nordpool: 'NO3' },
+  'NO4': { domain: '10YNO-4--------9', currency: 'NOK', nordpool: 'NO4' },
+  'NO5': { domain: '10Y1001A1001A48H', currency: 'NOK', nordpool: 'NO5' },
+  'PL':  { domain: '10YPL-AREA-----S', currency: null, nordpool: 'PL' },
+  'PT':  { domain: '10YPT-REN------W', currency: null, nordpool: null },
+  'RO':  { domain: '10YRO-TEL------P', currency: null, nordpool: null },
+  'SE1': { domain: '10Y1001A1001A44P', currency: 'SEK', nordpool: 'SE1' },
+  'SE2': { domain: '10Y1001A1001A45N', currency: 'SEK', nordpool: 'SE2' },
+  'SE3': { domain: '10Y1001A1001A46L', currency: 'SEK', nordpool: 'SE3' },
+  'SE4': { domain: '10Y1001A1001A47J', currency: 'SEK', nordpool: 'SE4' },
+  'SI':  { domain: '10YSI-ELES-----O', currency: null, nordpool: null },
+  'SK':  { domain: '10YSK-SEPS-----K', currency: null, nordpool: null }
 };
 
 function lookupZone_(country) {
@@ -108,7 +117,7 @@ function doGet(e) {
       safePut_(ctx, 'lastgood_' + ctx.country, body, TTL_LASTGOOD);
     }
 
-    ctx.log('gereed', { punten: jsonData.length, bytes: body.length, ms: ctx.elapsed() });
+    ctx.log('gereed', { bron: ctx.source, punten: jsonData.length, bytes: body.length, ms: ctx.elapsed() });
     return reply_(ctx, body, jsonData);
 
   } catch (err) {
@@ -155,12 +164,37 @@ function buildDayAhead_(ctx) {
     ctx.log('cache niet meer bruikbaar: ' + verdict.reden, verdict.data);
   }
 
+  // Markeer de poging vóór de fetch, zodat ook een mislukte poging remt.
+  safePut_(ctx, 'poging_' + ctx.country, String(Date.now()), TTL_ATTEMPT);
+
+  if (zone.nordpool && ctx.bron !== 'entsoe') {
+    ctx.step = 'nordpool-fetch';
+    var npData = null;
+    try {
+      npData = fetchNordPool_(ctx, zone);
+    } catch (err) {
+      console.error('[' + ctx.id + '] Nord Pool mislukt: ' + (err && err.stack ? err.stack : err));
+      ctx.log('Nord Pool mislukt', { fout: String((err && err.message) || err) });
+      if (ctx.bron === 'nordpool') throw err;
+    }
+    if (npData) {
+      var npOordeel = completeToday_(npData);
+      if (npOordeel.compleet || ctx.bron === 'nordpool') {
+        ctx.source = 'nordpool';
+        ctx.log('Nord Pool gebruikt: ' + npOordeel.reden);
+        return npData;
+      }
+      ctx.log('Nord Pool onvolledig, val terug op ENTSO-E: ' + npOordeel.reden);
+    }
+  } else if (!zone.nordpool) {
+    ctx.log('zone niet bij Nord Pool, ENTSO-E gebruikt');
+  }
+
   ctx.step = 'wisselkoers';
   var factor = currencyFactor_(ctx);
 
-  // Markeer de poging vóór de fetch, zodat ook een mislukte poging remt.
   ctx.step = 'entsoe-fetch';
-  safePut_(ctx, 'poging_' + ctx.country, String(Date.now()), TTL_ATTEMPT);
+  ctx.source = 'entsoe';
   var xmlContent = fetchEntsoe_(ctx);
 
   ctx.step = 'parse';
@@ -212,6 +246,20 @@ function cacheVerdict_(ctx, jsonData) {
     return { bruikbaar: false, reden: 'dekt vandaag niet meer', data: data };
   }
 
+  // Een set kan tot het eind van vandaag reiken en toch een gat hebben: op
+  // 10 oktober 2026 stuurde ENTSO-E voor NL vrijdag en zondag, maar geen
+  // zaterdag. Zo'n set niet tot middernacht blijven serveren.
+  var gat = firstGapFrom_(jsonData, localMidnightEpoch_(0));
+  if (gat !== null) {
+    data.gat = new Date(gat * 1000).toISOString();
+    var pogingGat = safeGet_(ctx, 'poging_' + ctx.country);
+    if (pogingGat) {
+      data.laatstePoging = new Date(Number(pogingGat)).toISOString();
+      return { bruikbaar: true, reden: 'gat in vandaag, herpoging afgeremd', data: data };
+    }
+    return { bruikbaar: false, reden: 'gat in de data van vandaag', data: data };
+  }
+
   if (inPublicatievenster && !coversThrough_(jsonData, eindMorgen)) {
     var poging = safeGet_(ctx, 'poging_' + ctx.country);
     if (poging) {
@@ -232,6 +280,41 @@ function coversThrough_(jsonData, boundaryEpoch) {
   if (!jsonData || !jsonData.length) return false;
   var laatste = jsonData[jsonData.length - 1].time;
   return (laatste + 3600) >= boundaryEpoch;
+}
+
+/**
+ * Begin van het eerste gat vanaf `fromEpoch`, of null. Een gat is een stap die
+ * groter is dan de kleinste stap in de reeks, of een reeks die pas na
+ * `fromEpoch` begint.
+ */
+function firstGapFrom_(jsonData, fromEpoch) {
+  if (!jsonData || !jsonData.length) return fromEpoch;
+  if (jsonData[0].time > fromEpoch) return fromEpoch;
+
+  var minStep = null;
+  for (var i = 1; i < jsonData.length; i++) {
+    var d = jsonData[i].time - jsonData[i - 1].time;
+    if (d > 0 && (minStep === null || d < minStep)) minStep = d;
+  }
+  if (minStep === null) return null;
+
+  for (var j = 1; j < jsonData.length; j++) {
+    if (jsonData[j].time <= fromEpoch) continue;
+    if (jsonData[j].time - jsonData[j - 1].time > minStep) return jsonData[j - 1].time + minStep;
+  }
+  return null;
+}
+
+/** Heeft de set vandaag volledig, zonder gat en tot het eind van de dag. */
+function completeToday_(jsonData) {
+  if (!coversThrough_(jsonData, localMidnightEpoch_(1))) {
+    return { compleet: false, reden: 'vandaag niet tot het eind' };
+  }
+  var gat = firstGapFrom_(jsonData, localMidnightEpoch_(0));
+  if (gat !== null) {
+    return { compleet: false, reden: 'gat vanaf ' + new Date(gat * 1000).toISOString() };
+  }
+  return { compleet: true, reden: 'vandaag volledig' };
 }
 
 /** Lokale middernacht als epoch in seconden, in de tijdzone van het script. */
@@ -281,6 +364,93 @@ function currencyFactor_(ctx) {
   ctx.log('wisselkoers opgehaald', { code: code, factor: factor, ms: Date.now() - t });
   safePut_(ctx, key, String(factor), TTL_CURRENCY);
   return factor;
+}
+
+/**
+ * Gisteren, vandaag en morgen van Nord Pool, in de valuta van de zone. Nord
+ * Pool levert direct in NOK/SEK/DKK, dus geen wisselkoers nodig. Een dag die
+ * nog niet gepubliceerd is geeft HTTP 204. Gooit een fout als vandaag niet
+ * opgehaald kan worden, zodat de aanroeper op ENTSO-E terugvalt.
+ */
+function fetchNordPool_(ctx, zone) {
+  var tz = Session.getScriptTimeZone();
+  var currency = zone.currency || 'EUR';
+  var now = new Date();
+  var dagen = [-1, 0, 1].map(function (k) {
+    // 12:00 als ijkpunt, zodat een zomertijdwissel de datum niet verschuift.
+    var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + k, 12, 0, 0, 0);
+    return Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+  });
+
+  var requests = dagen.map(function (dag) {
+    return {
+      url: 'https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices'
+        + '?date=' + dag
+        + '&market=DayAhead'
+        + '&deliveryArea=' + zone.nordpool
+        + '&currency=' + currency,
+      muteHttpExceptions: true,
+      followRedirects: true,
+      validateHttpsCertificates: true
+    };
+  });
+
+  var t = Date.now();
+  var responses = UrlFetchApp.fetchAll(requests);
+  ctx.fetchMs = Date.now() - t;
+
+  var byTime = {};
+  for (var i = 0; i < responses.length; i++) {
+    var dag = dagen[i];
+    var code = responses[i].getResponseCode();
+
+    if (code === 204) {
+      ctx.log('Nord Pool: ' + dag + ' nog niet gepubliceerd');
+      if (i === 1) throw new Error('Nord Pool heeft vandaag (' + dag + ') niet');
+      continue;
+    }
+    if (code !== 200) {
+      var body = responses[i].getContentText();
+      console.error('[' + ctx.id + '] Nord Pool HTTP ' + code + ' voor ' + dag + ': ' +
+        body.substring(0, LOG_BODY_CHARS));
+      if (i === 1) throw new Error('Nord Pool gaf HTTP ' + code + ' voor vandaag');
+      ctx.log('Nord Pool: ' + dag + ' overgeslagen', { httpCode: code });
+      continue;
+    }
+
+    var json = JSON.parse(responses[i].getContentText());
+    var entries = json.multiAreaEntries || [];
+    var aantal = 0;
+    for (var j = 0; j < entries.length; j++) {
+      var price = entries[j].entryPerArea ? entries[j].entryPerArea[zone.nordpool] : null;
+      var start = new Date(entries[j].deliveryStart).getTime();
+      if (typeof price !== 'number' || isNaN(start)) continue;
+      byTime[start / 1000] = price;
+      aantal++;
+    }
+    ctx.log('Nord Pool: ' + dag, {
+      punten: aantal,
+      status: json.areaStates && json.areaStates.length ? json.areaStates[0].state : null,
+      versie: json.version,
+      valuta: json.currency
+    });
+  }
+
+  var times = Object.keys(byTime).sort(function (a, b) { return a - b; });
+  var jsonData = [];
+  for (var m = 0; m < times.length; m++) {
+    jsonData.push({ time: Number(times[m]), price: byTime[times[m]] });
+  }
+
+  ctx.log('Nord Pool punten verzameld', {
+    aantal: jsonData.length,
+    ms: ctx.fetchMs,
+    eerste: jsonData.length ? new Date(jsonData[0].time * 1000).toISOString() : null,
+    laatste: jsonData.length ? new Date(jsonData[jsonData.length - 1].time * 1000).toISOString() : null
+  });
+
+  if (jsonData.length === 0) throw new Error('Nord Pool gaf geen bruikbare punten');
+  return jsonData;
 }
 
 function fetchEntsoe_(ctx) {
@@ -574,7 +744,9 @@ function newContext_(e) {
     trace: [],
     fromCache: false,
     debug: params.debug === '1',
-    noCache: params.nocache === '1'
+    noCache: params.nocache === '1',
+    bron: (params.bron === 'nordpool' || params.bron === 'entsoe') ? params.bron : null,
+    source: null
   };
 
   ctx.elapsed = function () { return Date.now() - t0; };
@@ -597,6 +769,7 @@ function newContext_(e) {
         periodStart: ctx.periodStart,
         periodEnd: ctx.periodEnd,
         fetchMs: ctx.fetchMs,
+        bron: ctx.source,
         parameter: ctx.e.parameter
       }));
   };
@@ -612,6 +785,7 @@ function reply_(ctx, body, jsonData) {
         country: ctx.country,
         domain: ctx.domain,
         uitCache: ctx.fromCache,
+        bron: ctx.source,
         ms: ctx.elapsed(),
         punten: jsonData.length,
         trace: ctx.trace,
