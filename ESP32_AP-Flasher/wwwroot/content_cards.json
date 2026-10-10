@@ -466,7 +466,7 @@
       {
         "key": "cheapblock",
         "name": "Cheap block hours",
-        "desc": "Number of hours for cheapest consecutive block (e.g., 3 for dishwasher, 2.5 for 2h30m). Set to 0 to disable. Shows up to 2 non-overlapping blocks.",
+        "desc": "Number of hours for cheapest consecutive block (e.g., 3 for dishwasher, 2.5 for 2h30m). Set to 0 to disable. Shows the cheapest block of today (also when it is over), and of tomorrow once its prices are known.",
         "type": "text"
       },
       {

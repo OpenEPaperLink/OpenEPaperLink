@@ -1817,8 +1817,10 @@ struct AveragedDataPoint {
     int minute;
 };
 
-// Helper function: Find cheapest consecutive blocks for appliance scheduling
-// Returns: CheapBlock struct
+// Helper function: the cheapest block of the given length per day, for appliance scheduling: one for today
+// (also when it is over or still running) and one for tomorrow once its prices are known. Worked out on the
+// raw prices of the whole day, so a block before the start of the graph still counts. Returned as the bars
+// that overlap it; -1 when no bar does.
 struct CheapBlock {
     int start;
     int end;
@@ -1829,62 +1831,60 @@ struct CheapBlocks {
     CheapBlock block2;
 };
 
-CheapBlocks findCheapestConsecutiveBlocks(const AveragedDataPoint* avgData, int numSamples,
-                                          int blockSamples, time_t now) {
+CheapBlocks findCheapestBlockPerDay(const std::vector<time_t>& rawTimes, const std::vector<double>& rawPrices,
+                                    int nativeIntervalMinutes, double blockHours, const AveragedDataPoint* avgData,
+                                    int numBars, int barIntervalMinutes, time_t now) {
     CheapBlocks result;
     result.block1.start = -1;
     result.block1.end = -1;
     result.block2.start = -1;
     result.block2.end = -1;
 
-    if (blockSamples <= 0 || blockSamples > numSamples) {
+    const int numRaw = rawTimes.size();
+    const int blockSamples = (int)(blockHours * 60 / nativeIntervalMinutes + 0.5);
+    if (blockSamples <= 0 || blockSamples > numRaw || numBars <= 0) {
         return result;  // Invalid or disabled
     }
+    const time_t step = nativeIntervalMinutes * 60;
 
-    // Find all candidate blocks (simple: sum all prices in each block)
-    struct BlockCandidate {
-        int start;
-        int end;
-        double sum;
-    };
-    std::vector<BlockCandidate> candidates;
+    struct tm nowTm;
+    localtime_r(&now, &nowTm);
+    CheapBlock* slots[2] = {&result.block1, &result.block2};
 
-    // Scan through visible data to find all valid consecutive blocks
-    for (int i = 0; i <= numSamples - blockSamples; i++) {
-        const time_t block_start_time = avgData[i].time;
+    for (int day = 0; day < 2; day++) {
+        // Local midnight at the start and the end of today (day 0) and tomorrow (day 1)
+        struct tm startTm = nowTm;
+        startTm.tm_hour = startTm.tm_min = startTm.tm_sec = 0;
+        startTm.tm_mday += day;
+        startTm.tm_isdst = -1;
+        const time_t dayStart = mktime(&startTm);
+        struct tm endTm = nowTm;
+        endTm.tm_hour = endTm.tm_min = endTm.tm_sec = 0;
+        endTm.tm_mday += day + 1;
+        endTm.tm_isdst = -1;
+        const time_t dayEnd = mktime(&endTm);
 
-        // Only consider future blocks (skip past data)
-        if (block_start_time < now) continue;
-
-        // Calculate sum for this block
-        double blockSum = 0;
-        for (int j = 0; j < blockSamples; j++) {
-            blockSum += avgData[i + j].price;
+        double bestSum = std::numeric_limits<double>::max();
+        time_t bestStart = 0;
+        for (int i = 0; i + blockSamples <= numRaw; i++) {
+            if (rawTimes[i] < dayStart) continue;
+            if (rawTimes[i + blockSamples - 1] + step > dayEnd) break;
+            if (rawTimes[i + blockSamples - 1] - rawTimes[i] != (time_t)(blockSamples - 1) * step) continue;  // gap
+            double blockSum = 0;
+            for (int j = 0; j < blockSamples; j++) blockSum += rawPrices[i + j];
+            if (blockSum < bestSum) {
+                bestSum = blockSum;
+                bestStart = rawTimes[i];
+            }
         }
+        if (bestStart == 0) continue;  // no prices for this day (yet)
 
-        BlockCandidate candidate;
-        candidate.start = i;
-        candidate.end = i + blockSamples - 1;
-        candidate.sum = blockSum;
-        candidates.push_back(candidate);
-    }
-
-    // Sort candidates by sum (cheapest first)
-    std::sort(candidates.begin(), candidates.end(),
-              [](const BlockCandidate& a, const BlockCandidate& b) { return a.sum < b.sum; });
-
-    // Pick up to 2 non-overlapping cheap blocks
-    if (candidates.size() > 0) {
-        result.block1.start = candidates[0].start;
-        result.block1.end = candidates[0].end;
-
-        // Find second block that doesn't overlap with first
-        for (size_t i = 1; i < candidates.size(); i++) {
-            bool overlaps = (candidates[i].start <= result.block1.end && candidates[i].end >= result.block1.start);
-            if (!overlaps) {
-                result.block2.start = candidates[i].start;
-                result.block2.end = candidates[i].end;
-                break;
+        const time_t bestEnd = bestStart + blockSamples * step;
+        for (int b = 0; b < numBars; b++) {
+            const time_t barStart = avgData[b].time;
+            if (barStart + barIntervalMinutes * 60 > bestStart && barStart < bestEnd) {
+                if (slots[day]->start < 0) slots[day]->start = b;
+                slots[day]->end = b;
             }
         }
     }
@@ -2179,11 +2179,25 @@ bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, 
         }
     }
 
-    // Find cheapest consecutive block(s) for appliance scheduling (Step 5)
+    // Find the cheapest block per day for appliance scheduling (Step 5), on the raw prices with the same
+    // surcharge and tax as the bars
     double cheapBlockHoursRaw = cfgobj["cheapblock"] ? cfgobj["cheapblock"].as<double>() : 3.0;
-    int blockSamples = (int)(cheapBlockHoursRaw * labelsPerHour);  // Convert hours to sample count
+    std::vector<time_t> rawTimes;
+    std::vector<double> rawPrices;
+    rawTimes.reserve(originalDataSize);
+    rawPrices.reserve(originalDataSize);
+    for (JsonObject obj : doc.as<JsonArray>()) {
+        const time_t item_time = obj["time"];
+        struct tm item_timeinfo;
+        localtime_r(&item_time, &item_timeinfo);
+        const double kwh = (tariffArray.size() == 24) ? tariffArray[item_timeinfo.tm_hour].as<double>()
+                                                      : cfgobj["tariffkwh"].as<double>();
+        rawTimes.push_back(item_time);
+        rawPrices.push_back((obj["price"].as<double>() / 10 + kwh) * (1 + tariftax / 100) / units);
+    }
 
-    CheapBlocks cheapBlocks = findCheapestConsecutiveBlocks(avgData, n, blockSamples, now);
+    CheapBlocks cheapBlocks = findCheapestBlockPerDay(rawTimes, rawPrices, nativeIntervalMinutes, cheapBlockHoursRaw,
+                                                      avgData, n, targetIntervalMinutes, now);
     int cheapBlockStart1 = cheapBlocks.block1.start;
     int cheapBlockEnd1 = cheapBlocks.block1.end;
     int cheapBlockStart2 = cheapBlocks.block2.start;
