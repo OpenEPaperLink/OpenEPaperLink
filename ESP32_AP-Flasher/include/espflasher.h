@@ -28,8 +28,10 @@
    different build of the C6 firmware - one that talks over UART0 instead of a
    second port. That is a property of the wiring, not of the chip, so it keys
    off FLASHER_DEBUG_SHARED and only the manifest name changes: SHORT_CHIP_NAME
-   still says "C6" everywhere it is shown to a user. */
-#if defined(C6_OTA_FLASHING) && defined(FLASHER_DEBUG_SHARED)
+   still says "C6" everywhere it is shown to a user. The UART0 build only exists
+   for the C6: a board with an H2 on a shared UART (LilyGo T-Panel) uses the
+   normal H2 manifest (#621). */
+#if defined(C6_OTA_FLASHING) && defined(FLASHER_DEBUG_SHARED) && !defined(HAS_H2)
    #define OTA_FW_JSON "C6_Uart0"
 #elif defined(SHORT_CHIP_NAME)
    #define OTA_FW_JSON SHORT_CHIP_NAME
