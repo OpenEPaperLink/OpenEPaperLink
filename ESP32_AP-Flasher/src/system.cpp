@@ -4,6 +4,9 @@
 #include <FS.h>
 #include <Preferences.h>
 #include <esp_sntp.h>
+#if CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH && CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF
+#include <esp_core_dump.h>
+#endif
 
 #include "storage.h"
 #include "tag_db.h"
@@ -20,7 +23,6 @@ void initTime(void* parameter) {
     sntp_set_time_sync_notification_cb(timeSyncCallback);
     sntp_set_sync_interval(300 * 1000);
     configTzTime(config.timeZone, "time.cloudflare.com", "pool.ntp.org", "time.nist.gov");
-    logStartUp();
     struct tm timeinfo;
     while (millis() < 30000) {
         if (!getLocalTime(&timeinfo)) {
@@ -30,6 +32,9 @@ void initTime(void* parameter) {
             break;
         }
     }
+    // log after the time sync, so the log entries get the right timestamp
+    logStartUp();
+    logCoreDump();
     if (config.runStatus == RUNSTATUS_INIT) {
         config.runStatus = RUNSTATUS_RUN;
     }
@@ -111,4 +116,37 @@ void logStartUp() {
     }
 
     logLine(logEntry);
+}
+
+/// @brief Write a summary of a crash core dump (stored in flash by a panic or watchdog) to the log, then erase it
+/// @note Decode the backtrace with: xtensa-esp32s3-elf-addr2line -pfiaC -e firmware.elf <addresses>
+void logCoreDump() {
+#if CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH && CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF
+    if (esp_core_dump_image_check() != ESP_OK) return;
+
+    esp_core_dump_summary_t* summary = static_cast<esp_core_dump_summary_t*>(malloc(sizeof(esp_core_dump_summary_t)));
+    if (summary == nullptr) return;
+    if (esp_core_dump_get_summary(summary) == ESP_OK) {
+        char buffer[160];
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
+        snprintf(buffer, sizeof(buffer), "Crash in task %.16s, PC 0x%08lx, cause %lu, vaddr 0x%08lx, elf %.8s",
+                 summary->exc_task, (unsigned long)summary->exc_pc, (unsigned long)summary->ex_info.exc_cause,
+                 (unsigned long)summary->ex_info.exc_vaddr, (const char*)summary->app_elf_sha256);
+#else
+        snprintf(buffer, sizeof(buffer), "Crash in task %.16s, PC 0x%08lx, elf %.8s",
+                 summary->exc_task, (unsigned long)summary->exc_pc, (const char*)summary->app_elf_sha256);
+#endif
+        logLine(buffer);
+
+        String backtrace = "Backtrace:";
+        for (uint32_t i = 0; i < summary->exc_bt_info.depth && i < 16; i++) {
+            snprintf(buffer, sizeof(buffer), " 0x%08lx", (unsigned long)summary->exc_bt_info.bt[i]);
+            backtrace += buffer;
+        }
+        if (summary->exc_bt_info.corrupted) backtrace += " |<-CORRUPTED";
+        logLine(backtrace);
+    }
+    free(summary);
+    esp_core_dump_image_erase();
+#endif
 }
