@@ -3157,8 +3157,11 @@ void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
             getTemplate(json, id, doc["usetemplate"]);
             return;
         }
-        Serial.println("json error in " + String(filename));
-        Serial.println(error.c_str());
+        if (error) {
+            Serial.println("json error in " + String(filename) + ": " + error.c_str());
+        } else {
+            Serial.println("no template for content " + idstr + " in " + String(filename));
+        }
     } else {
         Serial.println("Failed to open " + String(filename));
     }
