@@ -1792,7 +1792,12 @@ DataRange calculateDataRange(const JsonDocument& doc, int originalDataSize, time
     while (pixelsPerBar > 1 && barAreaWidth / pixelsPerBar < neededBars) pixelsPerBar--;
     int numBars = barAreaWidth / pixelsPerBar;
     if (numBars < neededBars) endBar = firstNeededBar + numBars;  // even 1 px bars don't fit: drop the far future
-    if (numBars > endBar) numBars = endBar;                       // not enough history to fill the area
+    // Not enough history to fill the area (hourly bars from a feed of three days): wider bars instead of a gap
+    while (numBars > endBar && barAreaWidth / (pixelsPerBar + 1) >= neededBars) {
+        pixelsPerBar++;
+        numBars = barAreaWidth / pixelsPerBar;
+    }
+    if (numBars > endBar) numBars = endBar;
     const int startBar = endBar - numBars;
 
     result.startIndex = firstAligned + startBar * avgFactor;
