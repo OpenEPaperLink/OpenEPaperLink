@@ -253,6 +253,8 @@ class truetypeClass {
     uint8_t readKern();
     int16_t getKerning(uint16_t _left_glyph, uint16_t _right_glyph);
     int16_t ascender = 0;
+    // number of entries in hmtx with their own advance width; later glyphs share the last one
+    uint16_t numberOfHMetrics = 0;
     uint8_t readHhea();
 
     // generate points

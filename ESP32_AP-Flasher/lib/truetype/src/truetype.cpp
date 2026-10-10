@@ -383,6 +383,9 @@ uint8_t truetypeClass::readHhea() {
     }
     getUInt32t();
     ascender = getInt16t();
+    // skip descender .. metricDataFormat (14 fields) to numberOfHMetrics, the last field at offset 34
+    for (uint8_t i = 0; i < 14; i++) getUInt16t();
+    numberOfHMetrics = getUInt16t();
     return 1;
 }
 
@@ -467,9 +470,18 @@ ttHMetric_t truetypeClass::getHMetric(uint16_t _code) {
     static ttHMetric_t result;
     result.advanceWidth = 0;
 
-    ttfSeek(hmtxTablePos + (_code * 4));
-    result.advanceWidth = getUInt16t();
-    result.leftSideBearing = getInt16t();
+    if (numberOfHMetrics > 0 && _code >= numberOfHMetrics) {
+        // glyphs after the last full entry use its advance width, and have only a leftSideBearing
+        // (common in CJK fonts, where most glyphs have the same width)
+        ttfSeek(hmtxTablePos + ((numberOfHMetrics - 1) * 4));
+        result.advanceWidth = getUInt16t();
+        ttfSeek(hmtxTablePos + (numberOfHMetrics * 4) + ((_code - numberOfHMetrics) * 2));
+        result.leftSideBearing = getInt16t();
+    } else {
+        ttfSeek(hmtxTablePos + (_code * 4));
+        result.advanceWidth = getUInt16t();
+        result.leftSideBearing = getInt16t();
+    }
 
     result.advanceWidth = (result.advanceWidth * characterSize) / headTable.unitsPerEm;
     result.leftSideBearing = (result.leftSideBearing * characterSize) / headTable.unitsPerEm;
