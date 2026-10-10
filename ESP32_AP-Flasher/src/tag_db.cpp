@@ -520,17 +520,28 @@ void cleanupCurrent() {
     dir.close();
 }
 
+static tagRecord* findSavedTagInfo(const uint8_t mac[8]) {
+    for (tagRecord* tag : tagDB) {
+        if (memcmp(tag->mac, mac, 8) == 0 && tag->version == 1) return tag;
+    }
+    return nullptr;
+}
+
 void pushTagInfo(tagRecord* taginfo) {
+    // keep the first saved copy: that one holds the settings to restore
+    if (findSavedTagInfo(taginfo->mac) != nullptr) return;
     tagRecord* taginfo2 = new tagRecord(*taginfo);
     taginfo2->version = 1;
+    // the pending data buffer stays owned by the original record (it is freed in deleteRecord)
+    taginfo2->data = nullptr;
+    taginfo2->len = 0;
     tagDB.push_back(taginfo2);
 }
 
 void popTagInfo(const uint8_t mac[8]) {
-    for (tagRecord* tag : tagDB) {
-        if (memcmp(tag->mac, mac, 8) == 0 && tag->version == 1) {
-            deleteRecord(mac, false);
-            tag->version = 0;
-        }
-    }
+    // find first, then delete: deleteRecord() erases from tagDB, so it can't be called while iterating over it
+    tagRecord* saved = findSavedTagInfo(mac);
+    if (saved == nullptr) return;
+    deleteRecord(mac, false);
+    saved->version = 0;
 }
