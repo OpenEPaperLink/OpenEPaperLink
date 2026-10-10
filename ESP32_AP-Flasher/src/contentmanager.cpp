@@ -1,5 +1,9 @@
 #include "contentmanager.h"
 
+#include <map>
+
+#include "gzipfile.h"
+
 // possibility to turn off, to save space if needed
 #ifndef SAVE_SPACE
 #define CONTENT_QR
@@ -716,6 +720,37 @@ void replaceVariables(String &format) {
     }
 }
 
+// decompressed .vlw.gz fonts, per sprite, until the font is unloaded
+static std::map<TFT_eSprite *, uint8_t *> vlwFontBuffers;
+
+/// @brief Load a smooth font, font like "/fonts/calibrib30"
+/// @note Uses <font>.vlw, or else decompresses <font>.vlw.gz into memory (#464): vlw files store a byte per pixel
+/// and compress very well, so a gzipped font saves a lot of flash
+static void loadVlwFont(TFT_eSprite &spr, const String &font) {
+    const String gzFilename = font + ".vlw.gz";
+    if (contentFS->exists(font + ".vlw") || !contentFS->exists(gzFilename)) {
+        spr.loadFont(font.substring(1), *contentFS);
+        return;
+    }
+    size_t size;
+    uint8_t *fontData = readGzipFile(*contentFS, gzFilename, size);
+    if (fontData == nullptr) {
+        wsErr("Can't load font " + gzFilename);
+        return;
+    }
+    spr.loadFont(fontData);
+    vlwFontBuffers[&spr] = fontData;
+}
+
+static void unloadVlwFont(TFT_eSprite &spr) {
+    spr.unloadFont();
+    auto it = vlwFontBuffers.find(&spr);
+    if (it != vlwFontBuffers.end()) {
+        free(it->second);
+        vlwFontBuffers.erase(it);
+    }
+}
+
 void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align, uint16_t color, uint16_t size, uint16_t bgcolor) {
     // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,TFT_RED);
 
@@ -775,11 +810,11 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
         case 3: {
             // vlw bitmap font
             spr.setTextDatum(align);
-            if (font != "") spr.loadFont(font.substring(1), *contentFS);
+            if (font != "") loadVlwFont(spr, font);
             spr.setTextColor(color, bgcolor);
             spr.setTextWrap(false, false);
             spr.drawString(content, posx, posy);
-            if (font != "") spr.unloadFont();
+            if (font != "") unloadVlwFont(spr);
         }
     }
 }
@@ -795,7 +830,7 @@ void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy
             // vlw bitmap font
             // spr.drawRect(posx, posy, boxwidth, boxheight, TFT_BLACK);
             spr.setTextDatum(align);
-            if (font != "") spr.loadFont(font.substring(1), *contentFS);
+            if (font != "") loadVlwFont(spr, font);
             spr.setTextWrap(false, false);
             spr.setTextColor(color, bgcolor);
 
@@ -823,7 +858,7 @@ void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy
                     startPos++;
                 }
             }
-            if (font != "") spr.unloadFont();
+            if (font != "") unloadVlwFont(spr);
         }
     }
 }
