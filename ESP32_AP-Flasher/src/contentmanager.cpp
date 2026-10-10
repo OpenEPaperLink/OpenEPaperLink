@@ -59,7 +59,9 @@ void contentRunner() {
     WiFi.macAddress(wifimac);
     memset(&wifimac[6], 0, 2);
 
-    for (tagRecord *taginfo : tagDB) {
+    freeDeletedRecords();
+    // iterate over a copy: drawNew() can take seconds and must not hold the tagDB lock
+    for (tagRecord *taginfo : tagDBSnapshot()) {
 
         const bool isAp = memcmp(taginfo->mac, wifimac, 8) == 0;
         if (taginfo->RSSI &&
@@ -102,7 +104,7 @@ void contentRunner() {
 
 void checkVars() {
     JsonDocument cfgobj;
-    for (tagRecord *tag : tagDB) {
+    for (tagRecord *tag : tagDBSnapshot()) {
         if (tag->contentMode == 19) {
             deserializeJson(cfgobj, tag->modeConfigJson);
             const String jsonfile = cfgobj["filename"].as<String>();

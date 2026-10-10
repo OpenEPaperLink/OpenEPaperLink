@@ -197,4 +197,23 @@ extern void cleanupCurrent();
 extern void pushTagInfo(tagRecord* taginfo);
 extern void popTagInfo(const uint8_t mac[8] = nullptr);
 
+/// @brief Locks tagDB (the vector itself) for the lifetime of the object
+/// @note Recursive. Keep it short, and never take it while holding fsMutex (code holding this lock may take fsMutex).
+/// Deleted records stay allocated for a while (see freeDeletedRecords), so a tagRecord pointer obtained
+/// under the lock stays valid for a short time after the lock is released.
+class TagDBLock {
+   public:
+    TagDBLock();
+    ~TagDBLock();
+    TagDBLock(const TagDBLock&) = delete;
+    TagDBLock& operator=(const TagDBLock&) = delete;
+};
+
+/// @brief Copy of the tagDB pointers, for loops that do real work per tag without holding the lock
+extern std::vector<tagRecord*> tagDBSnapshot();
+/// @brief Find the record for this mac, or add a new one
+extern tagRecord* addRecord(const uint8_t mac[8]);
+/// @brief Free records that were deleted some time ago. Call regularly from the loop task.
+extern void freeDeletedRecords();
+
 #pragma pack(pop)

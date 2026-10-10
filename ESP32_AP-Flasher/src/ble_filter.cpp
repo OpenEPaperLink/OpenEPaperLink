@@ -275,8 +275,7 @@ bool BLE_is_image_pending(uint8_t address[8]) {
     // finish even while some tags stay offline.
     tagRecord* best = nullptr;
     uint32_t bestAttempts = 0;
-    for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = tagDB.at(c);
+    for (tagRecord* taginfo : tagDBSnapshot()) {
         if (!BLE_isPendingCandidate(taginfo)) continue;
         uint32_t attempts = BLE_attemptCounts[BLE_macToKey(taginfo->mac)];
         if (best == nullptr || attempts < bestAttempts) {

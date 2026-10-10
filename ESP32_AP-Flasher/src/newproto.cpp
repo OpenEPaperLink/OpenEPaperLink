@@ -553,10 +553,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
             Serial.printf("Tag %s reports illegal channel %d\r\n", hexmac, eadr->adr.currentChannel);
             return;
         }
-        taginfo = new tagRecord;
-        memcpy(taginfo->mac, eadr->src, sizeof(taginfo->mac));
-        taginfo->pendingCount = 0;
-        tagDB.push_back(taginfo);
+        taginfo = addRecord(eadr->src);
     }
     time_t now;
     time(&now);
@@ -681,8 +678,7 @@ void processTagReturnData(struct espTagReturnData* trd, uint8_t len, bool local)
 }
 
 void refreshAllPending() {
-    for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo = tagDB.at(c);
+    for (tagRecord* taginfo : tagDBSnapshot()) {
         if (taginfo->pendingCount > 0 && taginfo->version == 0) {
             clearPending(taginfo);
             taginfo->nextupdate = 0;
@@ -830,10 +826,7 @@ void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP) {
 
     if (taginfo == nullptr) {
         if (config.lock) return;
-        taginfo = new tagRecord;
-        memcpy(taginfo->mac, taginfoitem->mac, sizeof(taginfo->mac));
-        taginfo->pendingCount = 0;
-        tagDB.push_back(taginfo);
+        taginfo = addRecord(taginfoitem->mac);
     }
     tagRecord initialTagInfo = *taginfo;
 
@@ -874,8 +867,7 @@ void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP) {
 }
 
 bool checkMirror(struct tagRecord* taginfo, struct pendingData* pending) {
-    for (int16_t c = 0; c < tagDB.size(); c++) {
-        tagRecord* taginfo2 = tagDB.at(c);
+    for (tagRecord* taginfo2 : tagDBSnapshot()) {
         if (taginfo2->contentMode == 20 && taginfo2->version == 0) {
             JsonDocument doc;
             deserializeJson(doc, taginfo2->modeConfigJson);

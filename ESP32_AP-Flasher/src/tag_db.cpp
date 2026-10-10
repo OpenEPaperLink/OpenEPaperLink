@@ -20,7 +20,52 @@ std::unordered_map<int, HwType> hwdata = {};
 
 Config config;
 
+// tagDB is used from the loop task, the web server (async_tcp) and the AP/BLE tasks
+static SemaphoreHandle_t tagDBMutex = xSemaphoreCreateRecursiveMutex();
+
+TagDBLock::TagDBLock() {
+    xSemaphoreTakeRecursive(tagDBMutex, portMAX_DELAY);
+}
+
+TagDBLock::~TagDBLock() {
+    xSemaphoreGiveRecursive(tagDBMutex);
+}
+
+// Records removed from tagDB are kept here for a while before they are freed, because other tasks
+// may still hold a pointer to them (from findByMAC or a snapshot). Guarded by tagDBMutex.
+struct DeletedRecord {
+    tagRecord* tag;
+    uint32_t deletedAt;
+};
+static std::vector<DeletedRecord> deletedRecords;
+static constexpr uint32_t DELETED_RECORD_GRACE_MS = 30000;
+
+std::vector<tagRecord*> tagDBSnapshot() {
+    TagDBLock lock;
+    return tagDB;
+}
+
+/// @brief True if another record (live or deleted) uses the same pending data buffer
+static bool isDataShared(const tagRecord* taginfo) {
+    for (const tagRecord* tag : tagDB) {
+        if (tag != taginfo && tag->data == taginfo->data) return true;
+    }
+    for (const DeletedRecord& deleted : deletedRecords) {
+        if (deleted.tag != taginfo && deleted.tag->data == taginfo->data) return true;
+    }
+    return false;
+}
+
+/// @brief Free the pending data buffer of a record, unless another record still uses it
+static void releaseData(tagRecord* taginfo) {
+    if (taginfo->data != nullptr && !isDataShared(taginfo)) {
+        free(taginfo->data);
+    }
+    taginfo->data = nullptr;
+}
+
 tagRecord* tagRecord::findByMAC(const uint8_t mac[8]) {
+    TagDBLock lock;
     for (tagRecord* tag : tagDB) {
         if (memcmp(tag->mac, mac, 8) == 0 && tag->version == 0) {
             return tag;
@@ -29,20 +74,43 @@ tagRecord* tagRecord::findByMAC(const uint8_t mac[8]) {
     return nullptr;
 }
 
+tagRecord* addRecord(const uint8_t mac[8]) {
+    TagDBLock lock;
+    tagRecord* taginfo = tagRecord::findByMAC(mac);
+    if (taginfo == nullptr) {
+        taginfo = new tagRecord;
+        memcpy(taginfo->mac, mac, sizeof(taginfo->mac));
+        tagDB.push_back(taginfo);
+    }
+    return taginfo;
+}
+
 bool deleteRecord(const uint8_t mac[8], bool allVersions) {
+    TagDBLock lock;
     for (uint32_t c = 0; c < tagDB.size(); c++) {
         tagRecord* tag = tagDB.at(c);
         if (memcmp(tag->mac, mac, 8) == 0 && (allVersions || tag->version == 0)) {
-            if (tag->data != nullptr) {
-                free(tag->data);
-            }
-            tag->data = nullptr;
-            delete tagDB[c];
             tagDB.erase(tagDB.begin() + c);
+            releaseData(tag);
+            deletedRecords.push_back({tag, millis()});
             return true;
         }
     }
     return false;
+}
+
+void freeDeletedRecords() {
+    TagDBLock lock;
+    for (size_t c = 0; c < deletedRecords.size();) {
+        if (millis() - deletedRecords[c].deletedAt > DELETED_RECORD_GRACE_MS) {
+            tagRecord* tag = deletedRecords[c].tag;
+            deletedRecords.erase(deletedRecords.begin() + c);
+            releaseData(tag);  // it may have got new data while it was waiting here
+            delete tag;
+        } else {
+            c++;
+        }
+    }
 }
 
 void mac2hex(const uint8_t* mac, char* hexBuffer) {
@@ -70,6 +138,7 @@ String tagDBtoJson(const uint8_t mac[8], uint8_t startPos) {
     JsonDocument doc;
     JsonArray tags = doc["tags"].to<JsonArray>();
 
+    TagDBLock lock;
     for (uint32_t c = startPos; c < tagDB.size(); ++c) {
         const tagRecord* taginfo = tagDB.at(c);
 
@@ -128,6 +197,7 @@ void saveDB(const String& filename) {
     JsonDocument doc;
 
     const long t = millis();
+    const std::vector<tagRecord*> tags = tagDBSnapshot();
 
     xSemaphoreTake(fsMutex, portMAX_DELAY);
 
@@ -152,8 +222,8 @@ void saveDB(const String& filename) {
     }
 
     file.write('[');
-    for (size_t c = 0; c < tagDB.size(); c++) {
-        const tagRecord* taginfo = tagDB.at(c);
+    for (size_t c = 0; c < tags.size(); c++) {
+        const tagRecord* taginfo = tags.at(c);
         doc.clear();
 
         if (taginfo->version == 0) {
@@ -195,12 +265,7 @@ bool loadDB(const String& filename) {
                 String dst = tag["mac"].as<String>();
                 uint8_t mac[8];
                 if (hex2mac(dst, mac)) {
-                    tagRecord* taginfo = tagRecord::findByMAC(mac);
-                    if (taginfo == nullptr) {
-                        taginfo = new tagRecord;
-                        memcpy(taginfo->mac, mac, sizeof(taginfo->mac));
-                        tagDB.push_back(taginfo);
-                    }
+                    tagRecord* taginfo = addRecord(mac);
                     String md5 = tag["hash"].as<String>();
                     if (md5.length() >= 32) {
                         for (uint8_t i = 0; i < 16; i++) {
@@ -256,14 +321,13 @@ bool loadDB(const String& filename) {
 void destroyDB() {
     Serial.println("destroying DB");
     util::printHeap();
-    for (tagRecord*& tag : tagDB) {
-        if (tag->data != nullptr) {
-            free(tag->data);
-        }
-        tag->data = nullptr;
-        delete tag;
+    TagDBLock lock;
+    while (!tagDB.empty()) {
+        tagRecord* tag = tagDB.back();
+        tagDB.pop_back();
+        releaseData(tag);
+        deletedRecords.push_back({tag, millis()});
     }
-    tagDB.clear();
     util::printHeap();
 }
 
@@ -276,6 +340,7 @@ uint32_t getTagCount(uint32_t& timeoutcount, uint32_t& lowbattcount) {
     uint32_t tagcount = 0;
     time_t now;
     time(&now);
+    TagDBLock lock;
     for (const tagRecord* taginfo : tagDB) {
         if (!taginfo->isExternal) tagcount++;
         const int32_t timeout = now - taginfo->lastseen;
@@ -293,19 +358,8 @@ uint32_t getTagCount(uint32_t& timeoutcount, uint32_t& lowbattcount) {
 
 void clearPending(tagRecord* taginfo) {
     taginfo->filename = String();
-    if (taginfo->data != nullptr) {
-        // check if this is the last copy of the buffer
-        int datacount = 0;
-        for (const tagRecord* tag : tagDB) {
-            if (tag->data == taginfo->data) {
-                datacount++;
-            }
-        }
-        if (datacount == 1) {
-            free(taginfo->data);
-        }
-        taginfo->data = nullptr;
-    }
+    TagDBLock lock;
+    releaseData(taginfo);
 }
 
 void initAPconfig() {
@@ -491,6 +545,7 @@ void cleanupCurrent() {
         uint8_t mac[8];
         if (hex2mac(getBaseName(filename), mac)) {
             bool found = false;
+            TagDBLock lock;
             for (tagRecord* record : tagDB) {
                 if (memcmp(record->mac, mac, 8) == 0) {
                     found = true;
@@ -521,6 +576,7 @@ void cleanupCurrent() {
 }
 
 static tagRecord* findSavedTagInfo(const uint8_t mac[8]) {
+    TagDBLock lock;
     for (tagRecord* tag : tagDB) {
         if (memcmp(tag->mac, mac, 8) == 0 && tag->version == 1) return tag;
     }
@@ -528,6 +584,7 @@ static tagRecord* findSavedTagInfo(const uint8_t mac[8]) {
 }
 
 void pushTagInfo(tagRecord* taginfo) {
+    TagDBLock lock;
     // keep the first saved copy: that one holds the settings to restore
     if (findSavedTagInfo(taginfo->mac) != nullptr) return;
     tagRecord* taginfo2 = new tagRecord(*taginfo);
@@ -539,6 +596,7 @@ void pushTagInfo(tagRecord* taginfo) {
 }
 
 void popTagInfo(const uint8_t mac[8]) {
+    TagDBLock lock;
     // find first, then delete: deleteRecord() erases from tagDB, so it can't be called while iterating over it
     tagRecord* saved = findSavedTagInfo(mac);
     if (saved == nullptr) return;
