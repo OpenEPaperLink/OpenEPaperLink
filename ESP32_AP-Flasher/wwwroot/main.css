@@ -225,12 +225,20 @@ footer #sysinfo {
 }
 
 .logo {
-	margin: 0 auto;
-	height: 50px;
-	text-indent: 12px;
+	align-self: center;
+	max-width: 320px;
+	margin-right: 8px;
 	overflow: hidden;
-	font-size: 2.5em;
-	color: var(--color-header-text);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: 16px;
+	font-weight: bold;
+	color: var(--color-text);
+}
+
+/* the dashboard shows the AP state in its status card */
+body[data-tab="hometab"] #apstatebox {
+	display: none;
 }
 
 h3 {
@@ -291,7 +299,6 @@ label {
 	display: grid;
 	gap: 16px;
 	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-	max-width: 1500px;
 	font-size: 14px;
 	color: var(--color-text);
 
@@ -1368,11 +1375,18 @@ h4 {
 		max-width: 60px;
 	}
 
+	nav>div {
+		gap: 8px;
+	}
+
+	.tab-container {
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
 	.logo {
-		padding-top: 10px;
-		text-indent: 0px;
-		font-size: 1.8em;
-		text-align: center;
+		flex-basis: 100%;
+		max-width: none;
 	}
 
 	.actionbox>div {
@@ -1391,8 +1405,7 @@ h4 {
 	}
 
 	.theme-toggle-btn {
-	padding: 6px 0.75rem;
-	margin-right: 1rem;
+	padding: 6px 0.5rem;
 	}
 
 }

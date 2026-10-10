@@ -879,6 +879,7 @@ $('#configbox').addEventListener('click', (event) => {
 
 document.addEventListener("loadTab", function (event) {
 	activeTab = event.detail;
+	document.body.dataset.tab = activeTab;
 	switch (event.detail) {
 		case 'configtab':
 		case 'aptab':
