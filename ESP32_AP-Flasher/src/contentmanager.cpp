@@ -344,15 +344,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
 
                 if (prepareDataAvail(filename, imageParams.dataType, *((uint8_t *)&arg), mac, cfgobj["timetolive"].as<int>())) {
                     if (cfgobj["delete"].as<String>() == "1") {
-                        // keep the uploaded image as /current/<mac>.jpg instead of deleting it, so a
-                        // forced refresh can convert it again, also after a reboot of the AP (#567)
-                        const String keepFilename = "/current/" + String(hexmac) + ".jpg";
-                        xSemaphoreTake(fsMutex, portMAX_DELAY);
-                        contentFS->remove(keepFilename);
-                        contentFS->rename(configFilename, keepFilename);
-                        xSemaphoreGive(fsMutex);
-                        cfgobj["filename"] = keepFilename;
-                        cfgobj["delete"] = "0";
+                        contentFS->remove("/" + configFilename);
                     }
                 } else {
                     wsErr("Error accessing " + filename);
