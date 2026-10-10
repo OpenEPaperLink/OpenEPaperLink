@@ -2132,8 +2132,9 @@ bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, 
     int barwidth;
     int barSpacing;
 
-    if (pixelsPerBar >= 3) {
-        // Room for spacing - use 1px gap between bars
+    if (pixelsPerBar >= 3 && targetIntervalMinutes > 15) {
+        // Room for spacing - use 1px gap between bars. Not between quarter-hour bars: they are narrow, and
+        // the white lines between them stand out more than the bars.
         barSpacing = 1;
         barwidth = pixelsPerBar - barSpacing;  // Remaining pixels for bar itself
     } else {
