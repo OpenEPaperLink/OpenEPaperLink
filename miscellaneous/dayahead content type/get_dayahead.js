@@ -1,136 +1,706 @@
+/**
+ * get_dayahead - ENTSO-E day-ahead prijzen als JSON.
+ *
+ * Cachegedrag:
+ *  - Het vervallen hangt niet aan de TTL maar aan een dekkingstest op de data
+ *    zelf: reikt de laatste tijdstempel tot het eind van de dag die nu nodig is.
+ *    Daardoor volstaan ongeveer vier fetches per dag in plaats van 24.
+ *  - Altijd vereist: dekking tot het eind van vandaag. Die eis valt vanzelf om
+ *    na lokale middernacht, dus daar is geen schema voor nodig.
+ *  - Tussen 13:00 en 17:00 aanvullend vereist: dekking tot het eind van morgen,
+ *    want SDAC publiceert rond 13:00. Na 17:00 vervalt die eis weer.
+ *  - Een poging-sleutel met TTL 1 uur remt herpogingen zolang morgen nog niet
+ *    gepubliceerd is, zodat niet elke request 26 seconden gaat wachten.
+ *  - Wie de lock niet krijgt terwijl een andere aanroep aan het ophalen is,
+ *    krijgt direct de oude set. Alleen bij een koude start wordt gewacht.
+ */
+
+// Secrets horen in Projectinstellingen > Scripteigenschappen.
+function prop_(name, fallback) {
+  var v = PropertiesService.getScriptProperties().getProperty(name);
+  return v || fallback;
+}
+
+var CACHE_SAFE_BYTES = 90 * 1024; // CacheService weigert waarden boven 100 KB
+var LOG_BODY_CHARS = 500;         // hoeveel van een foutbody we loggen
+var TTL_OUTPUT = 21600;           // 6 uur, het maximum van CacheService
+var TTL_LASTGOOD = 21600;
+var TTL_XML = 3600;
+var TTL_CURRENCY = 21600;
+var TTL_ATTEMPT = 3600;           // rem op herpogingen binnen het publicatievenster
+var LOCK_QUICK_MS = 200;          // korte poging; daarna liever oude data serveren
+var LOCK_COLD_MS = 30000;         // koude start: geen oude data, dus wel wachten
+var PUBLISH_FROM_HOUR = 13;       // SDAC publiceert morgen rond 13:00
+var PUBLISH_UNTIL_HOUR = 17;
+var DEFAULT_COUNTRY = 'NL';
+
+/* ------------------------------------------------------------------ */
+/* Zones                                                               */
+/* ------------------------------------------------------------------ */
+
+// https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html#_areas
+// LU deelt de biedzone DE-LU (10Y1001A1001A82H) sinds de DE-AT-LU splitsing
+// van oktober 2018.
+var ZONES = {
+  'AT':  { domain: '10YAT-APG------L', currency: null },
+  'BE':  { domain: '10YBE----------2', currency: null },
+  'CH':  { domain: '10YCH-SWISSGRIDZ', currency: null },
+  'CZ':  { domain: '10YCZ-CEPS-----N', currency: null },
+  'DE':  { domain: '10Y1001A1001A82H', currency: null },
+  'LU':  { domain: '10Y1001A1001A82H', currency: null },
+  'DK1': { domain: '10YDK-1--------W', currency: 'DKK' },
+  'DK2': { domain: '10YDK-2--------M', currency: 'DKK' },
+  'EE':  { domain: '10Y1001A1001A39I', currency: null },
+  'ES':  { domain: '10YES-REE------0', currency: null },
+  'FI':  { domain: '10YFI-1--------U', currency: null },
+  'FR':  { domain: '10YFR-RTE------C', currency: null },
+  'LT':  { domain: '10YLT-1001A0008Q', currency: null },
+  'LV':  { domain: '10YLV-1001A00074', currency: null },
+  'NL':  { domain: '10YNL----------L', currency: null },
+  'NO1': { domain: '10YNO-1--------2', currency: 'NOK' },
+  'NO2': { domain: '10YNO-2--------T', currency: 'NOK' },
+  'NO3': { domain: '10YNO-3--------J', currency: 'NOK' },
+  'NO4': { domain: '10YNO-4--------9', currency: 'NOK' },
+  'NO5': { domain: '10Y1001A1001A48H', currency: 'NOK' },
+  'PL':  { domain: '10YPL-AREA-----S', currency: null },
+  'PT':  { domain: '10YPT-REN------W', currency: null },
+  'RO':  { domain: '10YRO-TEL------P', currency: null },
+  'SE1': { domain: '10Y1001A1001A44P', currency: 'SEK' },
+  'SE2': { domain: '10Y1001A1001A45N', currency: 'SEK' },
+  'SE3': { domain: '10Y1001A1001A46L', currency: 'SEK' },
+  'SE4': { domain: '10Y1001A1001A47J', currency: 'SEK' },
+  'SI':  { domain: '10YSI-ELES-----O', currency: null },
+  'SK':  { domain: '10YSK-SEPS-----K', currency: null }
+};
+
+function lookupZone_(country) {
+  var zone = ZONES[country];
+  if (!zone) {
+    throw new Error('Onbekende country "' + country + '". Geldig: ' +
+      Object.keys(ZONES).join(', '));
+  }
+  return zone;
+}
+
+/* ------------------------------------------------------------------ */
+/* Entry point                                                         */
+/* ------------------------------------------------------------------ */
+
 function doGet(e) {
+  var ctx = newContext_(e);
+  ctx.log('binnengekomen', {
+    parameter: ctx.e.parameter,
+    queryString: ctx.e.queryString || null,
+    pathInfo: ctx.e.pathInfo || null
+  });
 
-  var logger = Logger.log;
-  var country = e?.parameter?.country || 'NL';
-  var cache = CacheService.getScriptCache();
+  try {
+    var jsonData = buildDayAhead_(ctx);
+    var body = JSON.stringify(jsonData);
 
-  ExchangeApp.setRatesEndpoint("https://openexchangerates.org/api/latest.json?app_id=*************", 3600)
+    // Alleen wegschrijven wanneer de data daadwerkelijk vers is opgehaald.
+    // Schrijven na een cache-hit verlengt de TTL en bevriest de cache voorgoed.
+    ctx.step = 'cache-write';
+    if (ctx.fromCache) {
+      ctx.log('cache-write overgeslagen, data kwam uit de cache');
+    } else {
+      safePut_(ctx, 'output' + ctx.country, body, TTL_OUTPUT);
+      safePut_(ctx, 'lastgood_' + ctx.country, body, TTL_LASTGOOD);
+    }
 
-  var cachedData = cache.get("output" + country);
-  if (cachedData != null) {
-    logger('from cache');
-    logger('All Data: ' + JSON.stringify(cachedData));
-    return ContentService.createTextOutput(cachedData)
-      .setMimeType(ContentService.MimeType.JSON);
+    ctx.log('gereed', { punten: jsonData.length, bytes: body.length, ms: ctx.elapsed() });
+    return reply_(ctx, body, jsonData);
+
+  } catch (err) {
+    // serveStale is geen storing maar een bewuste keuze: een andere aanroep is
+    // al aan het ophalen, dus zelf wachten heeft geen zin.
+    if (err && err.serveStale) {
+      ctx.log('geen eigen fetch: ' + err.message);
+    } else {
+      ctx.fail(err);
+    }
+
+    ctx.step = 'fallback';
+    var stale = safeGet_(ctx, 'lastgood_' + ctx.country);
+    if (stale && !ctx.debug) {
+      // Bewust niet herschrijven: de fallback mag zichzelf niet in leven houden.
+      ctx.log('val terug op laatst bekende goede data', { bytes: stale.length });
+      return ContentService.createTextOutput(stale)
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    return replyError_(ctx, err);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Hoofdlogica                                                         */
+/* ------------------------------------------------------------------ */
+
+function buildDayAhead_(ctx) {
+  ctx.step = 'zone';
+  var zone = lookupZone_(ctx.country);
+  ctx.domain = zone.domain;
+  ctx.currency = zone.currency;
+  ctx.log('zone bepaald', { country: ctx.country, domain: ctx.domain, currency: ctx.currency });
+
+  ctx.step = 'cache-read';
+  var cached = readCachedSet_(ctx);
+  if (cached) {
+    var verdict = cacheVerdict_(ctx, cached);
+    if (verdict.bruikbaar) {
+      ctx.fromCache = true;
+      ctx.log('cache-hit op output' + ctx.country + ': ' + verdict.reden, verdict.data);
+      return cached;
+    }
+    ctx.log('cache niet meer bruikbaar: ' + verdict.reden, verdict.data);
   }
 
-  var factor = 1;
-  if (country.startsWith('NO')) {
-    // https://github.com/bkper/exchange-app
-    factor = cache.get("currencyNOK");
-    if (factor == null) {
-      factor = ExchangeApp.convert(1, 'EUR', 'NOK');
-      // factor = 11.79;
-      cache.put("currencyNOK", factor, 3600 * 24);
+  ctx.step = 'wisselkoers';
+  var factor = currencyFactor_(ctx);
+
+  // Markeer de poging vóór de fetch, zodat ook een mislukte poging remt.
+  ctx.step = 'entsoe-fetch';
+  safePut_(ctx, 'poging_' + ctx.country, String(Date.now()), TTL_ATTEMPT);
+  var xmlContent = fetchEntsoe_(ctx);
+
+  ctx.step = 'parse';
+  var root = parseEntsoe_(ctx, xmlContent);
+
+  ctx.step = 'extract';
+  return extractPoints_(ctx, root, factor);
+}
+
+function readCachedSet_(ctx) {
+  if (ctx.noCache) {
+    ctx.log('cache-read overgeslagen op verzoek (nocache=1)');
+    return null;
+  }
+  var raw = safeGet_(ctx, 'output' + ctx.country);
+  if (raw == null) {
+    ctx.log('cache-miss op output' + ctx.country);
+    return null;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    ctx.log('cache bevatte onleesbare JSON, genegeerd',
+      { bytes: raw.length, fout: String(err.message || err) });
+    return null;
+  }
+}
+
+/**
+ * Bepaalt of de opgeslagen set nog volstaat. De test kijkt naar de laatste
+ * tijdstempel en niet naar het aantal punten, zodat dagen van 23 en 25 uur
+ * vanzelf goed gaan.
+ */
+function cacheVerdict_(ctx, jsonData) {
+  var eindVandaag = localMidnightEpoch_(1);
+  var eindMorgen = localMidnightEpoch_(2);
+  var uur = new Date().getHours();
+  var inPublicatievenster = (uur >= PUBLISH_FROM_HOUR && uur < PUBLISH_UNTIL_HOUR);
+
+  var laatste = jsonData.length ? jsonData[jsonData.length - 1].time : null;
+  var data = {
+    punten: jsonData.length,
+    laatste: laatste === null ? null : new Date(laatste * 1000).toISOString(),
+    uur: uur,
+    publicatievenster: inPublicatievenster
+  };
+
+  if (!coversThrough_(jsonData, eindVandaag)) {
+    return { bruikbaar: false, reden: 'dekt vandaag niet meer', data: data };
+  }
+
+  if (inPublicatievenster && !coversThrough_(jsonData, eindMorgen)) {
+    var poging = safeGet_(ctx, 'poging_' + ctx.country);
+    if (poging) {
+      data.laatstePoging = new Date(Number(poging)).toISOString();
+      return { bruikbaar: true, reden: 'morgen ontbreekt, herpoging afgeremd', data: data };
+    }
+    return { bruikbaar: false, reden: 'morgen ontbreekt binnen publicatievenster', data: data };
+  }
+
+  return { bruikbaar: true, reden: 'dekking voldoende', data: data };
+}
+
+/**
+ * Reikt de reeks tot aan de opgegeven grens. De laatste tijdstempel is het
+ * begin van het laatste interval, vandaar de marge van een uur.
+ */
+function coversThrough_(jsonData, boundaryEpoch) {
+  if (!jsonData || !jsonData.length) return false;
+  var laatste = jsonData[jsonData.length - 1].time;
+  return (laatste + 3600) >= boundaryEpoch;
+}
+
+/** Lokale middernacht als epoch in seconden, in de tijdzone van het script. */
+function localMidnightEpoch_(offsetDays) {
+  var now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays,
+    0, 0, 0, 0).getTime() / 1000;
+}
+
+function staleSignal_(bericht) {
+  var err = new Error(bericht);
+  err.serveStale = true;
+  return err;
+}
+
+function currencyFactor_(ctx) {
+  var code = ctx.currency;
+  if (!code) return 1;
+
+  var key = 'currency' + code;
+  var cachedFactor = safeGet_(ctx, key);
+  if (cachedFactor != null && !ctx.noCache) {
+    ctx.log('wisselkoers uit cache', { code: code, factor: cachedFactor });
+    return parseFloat(cachedFactor);
+  }
+
+  var t = Date.now();
+  var factor;
+  try {
+    ExchangeApp.setRatesEndpoint(
+      'https://openexchangerates.org/api/latest.json?app_id=' + prop_('OXR_APP_ID', 'xxx'),
+      3600);
+    factor = ExchangeApp.convert(1, 'EUR', code);
+  } catch (err) {
+    // Wisselkoers is niet fataal: log het en reken in EUR verder.
+    console.error('[' + ctx.id + '] wisselkoers ' + code + ' mislukt na ' + (Date.now() - t) +
+      ' ms: ' + (err && err.stack ? err.stack : err));
+    ctx.log('wisselkoers mislukt, factor 1 gebruikt (prijzen dus in EUR)', { code: code });
+    return 1;
+  }
+
+  if (!(factor > 0)) {
+    ctx.log('WAARSCHUWING: ongeldige wisselkoers, factor 1 gebruikt', { code: code, factor: factor });
+    return 1;
+  }
+
+  ctx.log('wisselkoers opgehaald', { code: code, factor: factor, ms: Date.now() - t });
+  safePut_(ctx, key, String(factor), TTL_CURRENCY);
+  return factor;
+}
+
+function fetchEntsoe_(ctx) {
+  ctx.periodStart = getFormattedMidnightUTC(-1);
+  ctx.periodEnd = getFormattedMidnightUTC(2);
+  ctx.xmlUrl = 'https://web-api.tp.entsoe.eu/api'
+    + '?documentType=A44'
+    + '&out_Domain=' + ctx.domain
+    + '&in_Domain=' + ctx.domain
+    + '&periodStart=' + ctx.periodStart
+    + '&periodEnd=' + ctx.periodEnd
+    + '&securityToken=' + prop_('ENTSOE_TOKEN', 'xxx');
+
+  // Cachesleutel zonder token, en kort genoeg voor de 250-tekens limiet.
+  var xmlKey = xmlCacheKey_(ctx.domain, ctx.periodStart, ctx.periodEnd);
+  ctx.log('venster', {
+    periodStart: ctx.periodStart,
+    periodEnd: ctx.periodEnd,
+    scriptTz: Session.getScriptTimeZone(),
+    nu: new Date().toISOString(),
+    url: ctx.xmlUrl.replace(/securityToken=[^&]*/, 'securityToken=***')
+  });
+
+  if (!ctx.noCache) {
+    var cachedXml = safeGet_(ctx, xmlKey);
+    if (cachedXml) {
+      ctx.log('XML uit cache', { bytes: cachedXml.length });
+      return cachedXml;
     }
   }
 
-  if (country.startsWith('DK')) {
-    // https://github.com/bkper/exchange-app
-    factor = cache.get("currencyDKK");
-    if (factor == null) {
-      factor = ExchangeApp.convert(1, 'EUR', 'DKK');
-      // factor = 7.46;
-      cache.put("currencyDKK", factor, 3600 * 24);
+  var lock = LockService.getScriptLock();
+  var gotLock = false;
+  var lockWait = Date.now();
+  try {
+    // Korte poging. Haalt een andere aanroep de data al op, dan is wachten
+    // zinloos: de oude set is dan beter dan 26 seconden vertraging.
+    gotLock = lock.tryLock(LOCK_QUICK_MS);
+    if (!gotLock) {
+      var stale = safeGet_(ctx, 'lastgood_' + ctx.country);
+      if (stale && !ctx.debug) {
+        throw staleSignal_('lock bezet, andere aanroep haalt de data al op');
+      }
+      ctx.log('lock bezet en geen oude set beschikbaar, alsnog wachten',
+        { maxWachtMs: LOCK_COLD_MS });
+      gotLock = lock.tryLock(LOCK_COLD_MS);
     }
-  }
+    ctx.log(gotLock ? 'lock verkregen' : 'lock NIET verkregen, toch doorgegaan',
+      { wachtMs: Date.now() - lockWait });
 
-  if (country.startsWith('SE')) {
-    // https://github.com/bkper/exchange-app
-    factor = cache.get("currencySEK");
-    if (factor == null) {
-      factor = ExchangeApp.convert(1, 'EUR', 'SEK');
-      // factor = 11.59;
-      cache.put("currencySEK", factor, 3600 * 24);
-    }
-  }
-
-  var domain = lookupValue(country);
-  logger(country + ': ' + domain + ' currency: ' + factor);
-
-  var xmlUrl = 'https://web-api.tp.entsoe.eu/api?documentType=A44&out_Domain=' + domain + '&in_Domain=' + domain + '&periodStart=' + getFormattedMidnightUTC(-1) + '&periodEnd=' + getFormattedMidnightUTC(2) + '&securityToken=57ba8658-37a5-4e23-9bee-e60fc3f954db';
-  logger(xmlUrl);
-  var cachedXml = cache.get(xmlUrl);
-
-  if (true && cachedXml) {
-    logger('Using cached XML content.');
-    var xmlContent = cachedXml;
-  } else {
-    logger('Fetching XML content from ' + xmlUrl);
-    var response = UrlFetchApp.fetch(xmlUrl);
-    var xmlContent = response.getContentText();
-    cache.put(xmlUrl, xmlContent, 3600);
-  }
-
-  xmlContent = xmlContent.replace(/xmlns(:[a-z0-9]+)?=["'][^"']*["']/g, '');
-  xmlContent = xmlContent.replace(/<([a-z0-9]+):/g, '<').replace(/<\/([a-z0-9]+):/g, '</');
-
-  var document = XmlService.parse(xmlContent);
-  var root = document.getRootElement();
-
-  var timeSeriesList = getDescendantsByTagName(root, 'TimeSeries');
-  
-  if (timeSeriesList.length > 0) {
-    var jsonData = [];
-
-
-    for (var j = 0; j < timeSeriesList.length; j++) {
-      var timeSeries = timeSeriesList[j];
-
-      var period = timeSeries.getChild('Period');
-
-      if (period) {
-        var startTime = period.getChild('timeInterval').getChildText('start');
-        var resolution = period.getChildText('resolution');
-	      var stepSeconds = resolution === "PT15M" ? 900 : 3600;
-        logger("Resolution: " + resolution + " (" + stepSeconds + " seconds per step)");
-        logger(startTime);
-        var points = period.getChildren('Point');
-
-        for (var i = 0; i < points.length; i++) {
-          var position = parseInt(points[i].getChildText('position'), 10);
-          var priceAmount = points[i].getChildText('price.amount') * factor;
-
-          // Convert ISO date to epoch time (in seconds)
-          var epochTime = new Date(startTime).getTime() / 1000 + (position - 1) * stepSeconds;
-
-          jsonData.push({
-            time: epochTime,
-            price: parseFloat(priceAmount)
-          });
-        }
-
-      } else {
-        logger('Error: No <Period> element found in TimeSeries ' + (j + 1));
+    if (gotLock && !ctx.noCache) {
+      var again = safeGet_(ctx, xmlKey);
+      if (again) {
+        ctx.log('XML inmiddels door andere aanroep gecached', { bytes: again.length });
+        return again;
       }
     }
 
-    if (jsonData.length > 36) {
-      jsonData.splice(0, jsonData.length - 36);
+    var t = Date.now();
+    var response = UrlFetchApp.fetch(ctx.xmlUrl, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      validateHttpsCertificates: true
+    });
+    var code = response.getResponseCode();
+    var xmlContent = response.getContentText();
+    ctx.fetchMs = Date.now() - t;
+    ctx.log('ENTSO-E antwoord', {
+      httpCode: code,
+      bytes: xmlContent.length,
+      ms: ctx.fetchMs,
+      contentType: response.getHeaders()['Content-Type'] || null
+    });
+
+    if (code !== 200) {
+      console.error('[' + ctx.id + '] ENTSO-E HTTP ' + code + ' body: ' +
+        xmlContent.substring(0, LOG_BODY_CHARS));
+      throw new Error('ENTSO-E gaf HTTP ' + code + ': ' + xmlContent.substring(0, 200));
     }
 
-    cache.put("output" + country, JSON.stringify(jsonData), 3600);
-    logger('All Data: ' + JSON.stringify(jsonData));
+    safePut_(ctx, xmlKey, xmlContent, TTL_XML);
+    return xmlContent;
 
-    return ContentService.createTextOutput(JSON.stringify(jsonData))
-      .setMimeType(ContentService.MimeType.JSON);
-  } else {
-    logger('Error: No <TimeSeries> elements found in Publication_MarketDocument');
-    return ContentService.createTextOutput('Error: No <TimeSeries> elements found in Publication_MarketDocument');
+  } finally {
+    if (gotLock) lock.releaseLock();
   }
 }
+
+function parseEntsoe_(ctx, xmlContent) {
+  var cleaned = xmlContent
+    .replace(/xmlns(:[a-z0-9]+)?=["'][^"']*["']/g, '')
+    .replace(/<([a-z0-9]+):/g, '<')
+    .replace(/<\/([a-z0-9]+):/g, '</');
+
+  var doc;
+  try {
+    doc = XmlService.parse(cleaned);
+  } catch (err) {
+    console.error('[' + ctx.id + '] XML parse mislukt. Eerste ' + LOG_BODY_CHARS +
+      ' tekens van de opgeschoonde inhoud:\n' + cleaned.substring(0, LOG_BODY_CHARS));
+    throw new Error('XML parse mislukt: ' + err.message);
+  }
+
+  var root = doc.getRootElement();
+  ctx.log('XML geparsed', { root: root.getName() });
+
+  // ENTSO-E stuurt fouten vaak met HTTP 200 en dit documenttype.
+  if (root.getName() === 'Acknowledgement_MarketDocument') {
+    var reason = root.getChild('Reason');
+    var rc = reason ? reason.getChildText('code') : null;
+    var rt = reason ? reason.getChildText('text') : null;
+    console.error('[' + ctx.id + '] ENTSO-E Acknowledgement: code=' + rc + ' text=' + rt);
+    throw new Error('ENTSO-E weigerde de query (reason ' + rc + '): ' + rt);
+  }
+
+  return root;
+}
+
+/* ------------------------------------------------------------------ */
+/* Punten uitlezen                                                     */
+/* ------------------------------------------------------------------ */
+
+function resolutionSeconds_(resolution) {
+  switch (resolution) {
+    case 'PT15M': return 900;
+    case 'PT30M': return 1800;
+    case 'PT60M': return 3600;
+    case 'PT1H':  return 3600;
+    case 'P1D':   return 86400;
+    default:      return null;
+  }
+}
+
+function extractPoints_(ctx, root, factor) {
+  var timeSeriesList = getDescendantsByTagName(root, 'TimeSeries');
+  ctx.log('TimeSeries gevonden', { aantal: timeSeriesList.length });
+
+  if (timeSeriesList.length === 0) {
+    throw new Error('Geen TimeSeries in het antwoord voor ' + ctx.country + ' (' + ctx.domain + ')');
+  }
+
+  var jobs = [];
+
+  for (var j = 0; j < timeSeriesList.length; j++) {
+    var ts = timeSeriesList[j];
+    var curveType = ts.getChildText('curveType') || 'A01';
+    var periods = ts.getChildren('Period');
+
+    if (periods.length === 0) {
+      ctx.log('WAARSCHUWING: TimeSeries zonder Period', { ts: j + 1 });
+      continue;
+    }
+
+    for (var p = 0; p < periods.length; p++) {
+      var period = periods[p];
+      var interval = period.getChild('timeInterval');
+      if (!interval) {
+        ctx.log('WAARSCHUWING: Period zonder timeInterval', { ts: j + 1, period: p + 1 });
+        continue;
+      }
+
+      var resolution = period.getChildText('resolution');
+      var step = resolutionSeconds_(resolution);
+      if (step === null) {
+        ctx.log('WAARSCHUWING: onbekende resolutie, Period overgeslagen',
+          { ts: j + 1, resolution: resolution });
+        continue;
+      }
+
+      var startEpoch = new Date(interval.getChildText('start')).getTime();
+      if (isNaN(startEpoch)) {
+        ctx.log('WAARSCHUWING: onleesbare starttijd',
+          { ts: j + 1, start: interval.getChildText('start') });
+        continue;
+      }
+      var endEpoch = new Date(interval.getChildText('end')).getTime();
+
+      jobs.push({
+        ts: j + 1,
+        period: p + 1,
+        curveType: curveType,
+        resolution: resolution,
+        step: step,
+        start: startEpoch / 1000,
+        end: isNaN(endEpoch) ? null : endEpoch / 1000,
+        points: period.getChildren('Point')
+      });
+    }
+  }
+
+  jobs.sort(function (a, b) { return b.step - a.step; }); // grof eerst
+
+  var byTime = {};
+  var resoluties = {};
+  var curveTypes = {};
+  var gevuld = 0;
+
+  for (var k = 0; k < jobs.length; k++) {
+    var job = jobs[k];
+    resoluties[job.resolution] = (resoluties[job.resolution] || 0) + 1;
+    curveTypes[job.curveType] = (curveTypes[job.curveType] || 0) + 1;
+
+    var priceAt = {};
+    var maxPos = 0;
+    for (var i = 0; i < job.points.length; i++) {
+      var rawPos = job.points[i].getChildText('position');
+      var rawPrice = job.points[i].getChildText('price.amount');
+      var position = parseInt(rawPos, 10);
+      var price = parseFloat(rawPrice);
+
+      if (isNaN(position) || isNaN(price)) {
+        ctx.log('WAARSCHUWING: punt overgeslagen',
+          { ts: job.ts, period: job.period, position: rawPos, prijs: rawPrice });
+        continue;
+      }
+      priceAt[position] = price;
+      if (position > maxPos) maxPos = position;
+    }
+
+    if (maxPos === 0) continue;
+
+    var expected = maxPos;
+    if (job.end !== null && job.end > job.start) {
+      var n = Math.round((job.end - job.start) / job.step);
+      if (n > 0 && n < 20000) expected = n;
+    }
+    if (expected < maxPos) expected = maxPos;
+
+    // Bij A03/A04/A05 geldt een prijs tot de volgende expliciete positie, dus
+    // ontbrekende posities forward-fillen. Bij A01 horen er geen gaten te zijn.
+    var variabel = (job.curveType === 'A03' || job.curveType === 'A04' || job.curveType === 'A05');
+    var limit = variabel ? expected : maxPos;
+
+    var last = null;
+    for (var pos = 1; pos <= limit; pos++) {
+      if (priceAt.hasOwnProperty(pos)) {
+        last = priceAt[pos];
+      } else {
+        if (last === null) continue;
+        gevuld++;
+        if (!variabel) {
+          ctx.log('WAARSCHUWING: gat in een ' + job.curveType + ' reeks, forward-filled',
+            { ts: job.ts, position: pos });
+        }
+      }
+      var t = job.start + (pos - 1) * job.step;
+      byTime[t] = { price: last * factor, step: job.step };
+    }
+  }
+
+  var times = Object.keys(byTime).sort(function (a, b) { return a - b; });
+  var jsonData = [];
+  for (var m = 0; m < times.length; m++) {
+    jsonData.push({ time: Number(times[m]), price: byTime[times[m]].price });
+  }
+
+  ctx.log('punten verzameld', {
+    aantal: jsonData.length,
+    forwardFilled: gevuld,
+    resoluties: resoluties,
+    curveTypes: curveTypes,
+    factor: factor,
+    eerste: jsonData.length ? new Date(jsonData[0].time * 1000).toISOString() : null,
+    laatste: jsonData.length ? new Date(jsonData[jsonData.length - 1].time * 1000).toISOString() : null
+  });
+
+  if (jsonData.length === 0) {
+    throw new Error('TimeSeries aanwezig maar geen bruikbare punten voor ' + ctx.country);
+  }
+
+  return jsonData;
+}
+
+/* ------------------------------------------------------------------ */
+/* Context, logging en response                                        */
+/* ------------------------------------------------------------------ */
+
+function newContext_(e) {
+  var t0 = Date.now();
+  var params = (e && e.parameter) || {};
+
+  var ctx = {
+    id: Utilities.getUuid().substring(0, 8),
+    t0: t0,
+    e: e || {},
+    country: params.country || DEFAULT_COUNTRY,
+    domain: null,
+    currency: null,
+    xmlUrl: null,
+    step: 'init',
+    trace: [],
+    fromCache: false,
+    debug: params.debug === '1',
+    noCache: params.nocache === '1'
+  };
+
+  ctx.elapsed = function () { return Date.now() - t0; };
+
+  ctx.log = function (msg, data) {
+    var entry = { ms: Date.now() - t0, stap: ctx.step, bericht: msg };
+    if (data !== undefined) entry.data = data;
+    ctx.trace.push(entry);
+    console.log('[' + ctx.id + '] ' + ctx.step + ' | ' + msg +
+      (data === undefined ? '' : ' ' + safeJson_(data)));
+  };
+
+  ctx.fail = function (err) {
+    ctx.trace.push({ ms: Date.now() - t0, stap: ctx.step, fout: String((err && err.message) || err) });
+    console.error('[' + ctx.id + '] MISLUKT in stap "' + ctx.step + '" na ' + ctx.elapsed() + ' ms\n' +
+      (err && err.stack ? err.stack : String(err)) + '\n' +
+      'context: ' + safeJson_({
+        country: ctx.country,
+        domain: ctx.domain,
+        periodStart: ctx.periodStart,
+        periodEnd: ctx.periodEnd,
+        fetchMs: ctx.fetchMs,
+        parameter: ctx.e.parameter
+      }));
+  };
+
+  return ctx;
+}
+
+function reply_(ctx, body, jsonData) {
+  if (ctx.debug) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        reqId: ctx.id,
+        country: ctx.country,
+        domain: ctx.domain,
+        uitCache: ctx.fromCache,
+        ms: ctx.elapsed(),
+        punten: jsonData.length,
+        trace: ctx.trace,
+        data: jsonData
+      }, null, 2))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JSON);
+}
+
+function replyError_(ctx, err) {
+  // Apps Script kan geen HTTP-statuscode zetten: de fout gaat als JSON mee met een 200.
+  var payload = {
+    error: true,
+    reqId: ctx.id,
+    stap: ctx.step,
+    bericht: String((err && err.message) || err),
+    country: ctx.country,
+    domain: ctx.domain,
+    ms: ctx.elapsed()
+  };
+  if (ctx.debug) {
+    payload.trace = ctx.trace;
+    payload.stack = err && err.stack ? String(err.stack) : null;
+  }
+  return ContentService.createTextOutput(JSON.stringify(payload, null, 2))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function safeJson_(v) {
+  try {
+    var s = JSON.stringify(v);
+    return s.length > 2000 ? s.substring(0, 2000) + '...[afgekapt]' : s;
+  } catch (err) {
+    return '[niet serialiseerbaar: ' + err.message + ']';
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Cache met vangnet                                                   */
+/* ------------------------------------------------------------------ */
+
+function xmlCacheKey_(domain, periodStart, periodEnd) {
+  return 'xml_' + domain + '_' + periodStart + '_' + periodEnd;
+}
+
+function safeGet_(ctx, key) {
+  try {
+    return CacheService.getScriptCache().get(key);
+  } catch (err) {
+    ctx.log('cache.get mislukt', { key: key, fout: String(err.message || err) });
+    return null;
+  }
+}
+
+function safePut_(ctx, key, value, ttl) {
+  if (typeof value !== 'string') value = String(value);
+
+  if (value.length > CACHE_SAFE_BYTES) {
+    // CacheService weigert waarden boven 100 KB.
+    ctx.log('cache.put OVERGESLAGEN, waarde te groot', { key: key, bytes: value.length });
+    return false;
+  }
+  if (key.length > 250) {
+    ctx.log('cache.put OVERGESLAGEN, sleutel te lang', { bytes: key.length });
+    return false;
+  }
+
+  try {
+    CacheService.getScriptCache().put(key, value, ttl);
+    return true;
+  } catch (err) {
+    ctx.log('cache.put mislukt', { key: key, bytes: value.length, fout: String(err.message || err) });
+    return false;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Hulpfuncties                                                        */
+/* ------------------------------------------------------------------ */
 
 function getDescendantsByTagName(element, tagName) {
   var matchingElements = [];
 
   function findDescendants(currentElement) {
     var children = currentElement.getChildren();
-
     for (var i = 0; i < children.length; i++) {
       var child = children[i];
-      if (child.getName() === tagName) {
-        matchingElements.push(child);
-      }
+      if (child.getName() === tagName) matchingElements.push(child);
       findDescendants(child);
     }
   }
@@ -140,55 +710,53 @@ function getDescendantsByTagName(element, tagName) {
 }
 
 function getFormattedMidnightUTC(offsetDays) {
-  var now = new Date(); // current date and time
+  var now = new Date();
   var localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays, 0, 0, 0, 0);
 
   var utcMidnight = new Date(localMidnight.getTime());
   var year = utcMidnight.getUTCFullYear();
-  var month = ('0' + (utcMidnight.getUTCMonth() + 1)).slice(-2); // Months are zero-based
+  var month = ('0' + (utcMidnight.getUTCMonth() + 1)).slice(-2);
   var day = ('0' + utcMidnight.getUTCDate()).slice(-2);
   var hours = ('0' + utcMidnight.getUTCHours()).slice(-2);
   var minutes = ('0' + utcMidnight.getUTCMinutes()).slice(-2);
 
-  var formattedTime = year + month + day + hours + minutes;
-  return formattedTime;
+  return year + month + day + hours + minutes;
 }
 
-// https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html#_areas
-// https://transparencyplatform.zendesk.com/hc/en-us/articles/15885757676308-Area-List-with-Energy-Identification-Code-EIC
+/* ------------------------------------------------------------------ */
+/* Handmatige testhulpjes, uit te voeren vanuit de editor              */
+/* ------------------------------------------------------------------ */
 
-function lookupValue(country) {
-  var countryValues = {
-    'AT': '10YAT-APG------L',
-    'BE': '10YBE----------2',
-    'CH': '10YCH-SWISSGRIDZ',
-    'CZ': '10YCZ-CEPS-----N',
-    'DE': '10Y1001A1001A82H',
-    'DK1': '10YDK-1--------W',
-    'DK2': '10YDK-2--------M',
-    'EE': '10Y1001A1001A39I',
-    'ES': '10YES-REE------0',
-    'FI': '10YFI-1--------U',
-    'FR': '10YFR-RTE------C',
-    'LT': '10YLT-1001A0008Q',
-    'LU': '10Y1001A1001A82H',
-    'LV': '10YLV-1001A00074',
-    'NL': '10YNL----------L',
-    'NO1': '10YNO-1--------2',
-    'NO2': '10YNO-2--------T',
-    'NO3': '10YNO-3--------J',
-    'NO4': '10YNO-4--------9',
-    'NO5': '10Y1001A1001A48H',
-    'PL': '10YPL-AREA-----S',
-    'PT': '10YPT-REN------W',
-    'RO': '10YRO-TEL------P',
-    'SE1': '10Y1001A1001A44P',
-    'SE2': '10Y1001A1001A45N',
-    'SE3': '10Y1001A1001A46L',
-    'SE4': '10Y1001A1001A47J',
-    'SI': '10YSI-ELES-----O',
-    'SK': '10YSK-SEPS-----K'
-  };
-  var value = countryValues[country] || '10YNL----------L';
-  return value;
+function test_NL() { return test_('NL'); }
+function test_NO2() { return test_('NO2'); }
+
+function test_(country) {
+  var out = doGet({ parameter: { country: country, debug: '1', nocache: '1' } });
+  var txt = out.getContent();
+  console.log(txt.substring(0, 4000));
+  return txt;
+}
+
+/**
+ * Alle relevante cache-entries wissen, inclusief de xml_ sleutels van de
+ * afgelopen dagen. Elke aanroepdag k gebruikt het venster (k-1, k+2).
+ */
+function clearCaches() {
+  var keys = [];
+  var landen = Object.keys(ZONES);
+  for (var i = 0; i < landen.length; i++) {
+    keys.push('output' + landen[i]);
+    keys.push('lastgood_' + landen[i]);
+    keys.push('poging_' + landen[i]);
+    for (var k = -3; k <= 0; k++) {
+      keys.push(xmlCacheKey_(ZONES[landen[i]].domain,
+        getFormattedMidnightUTC(k - 1), getFormattedMidnightUTC(k + 2)));
+    }
+  }
+  keys.push('currencyNOK', 'currencyDKK', 'currencySEK');
+
+  for (var s = 0; s < keys.length; s += 100) {
+    CacheService.getScriptCache().removeAll(keys.slice(s, s + 100));
+  }
+  console.log('cache gewist: ' + keys.length + ' sleutels');
 }
