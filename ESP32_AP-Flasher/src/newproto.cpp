@@ -36,10 +36,17 @@ struct RetiredItem {
 static std::vector<RetiredItem> retiredItems;
 static constexpr uint32_t RETIRED_ITEM_GRACE_MS = 120000;
 
-// What the radio holds for each tag (the dataVer of the last SDA, 0 after a cancel), and what a tag got
-// offered at its last check-in. An xfer complete carries no hash, so this tells which item a tag finished.
+// What the radio holds for each tag (from the last SDA; cleared on cancel, xfer complete and timeout), and
+// what a tag got offered at its last check-in. An xfer complete carries no hash, so this tells which item a
+// tag finished; and the offered nextCheckIn tells when the tag will check in again (#466).
 // Only for tags on this AP's radio. Guarded by queueMutex.
-static std::unordered_map<uint64_t, uint64_t> announcedDataVer;
+struct Announced {
+    uint64_t dataVer;
+    uint16_t nextCheckIn;   // minutes, or seconds with bit 15 set
+    uint16_t attemptsLeft;  // minutes the radio keeps it
+    uint32_t announcedAt;   // millis()
+};
+static std::unordered_map<uint64_t, Announced> announced;
 static std::unordered_map<uint64_t, uint64_t> offeredDataVer;
 
 static uint64_t macKey(const uint8_t* mac) {
@@ -48,27 +55,50 @@ static uint64_t macKey(const uint8_t* mac) {
     return key;
 }
 
-static void setAnnounced(const uint8_t* mac, const uint64_t dataVer) {
+/// @brief Remember what was sent to the radio for a tag; nullptr: the radio has nothing for it
+static void setAnnounced(const uint8_t* mac, const struct pendingData* pending) {
     std::lock_guard<std::recursive_mutex> lock(queueMutex);
-    announcedDataVer[macKey(mac)] = dataVer;
+    if (pending == nullptr) {
+        announced[macKey(mac)] = {0, 0, 0, millis()};
+    } else {
+        announced[macKey(mac)] = {pending->availdatainfo.dataVer, pending->availdatainfo.nextCheckIn, pending->attemptsLeft, millis()};
+    }
 }
 
 /// @brief Remember what the radio just offered the tag that checked in
-static void recordOffered(const uint8_t* mac) {
+/// @param sleepSeconds set to the time until the tag's next check-in it was told (0: no instruction)
+/// @return false if unknown (for example after a reboot)
+static bool recordOffered(const uint8_t* mac, uint32_t& sleepSeconds) {
     std::lock_guard<std::recursive_mutex> lock(queueMutex);
-    auto it = announcedDataVer.find(macKey(mac));
-    if (it != announcedDataVer.end()) {
-        offeredDataVer[macKey(mac)] = it->second;
-    } else {
+    sleepSeconds = 0;
+    auto it = announced.find(macKey(mac));
+    if (it == announced.end()) {
         offeredDataVer.erase(macKey(mac));
+        return false;
     }
+    const Announced& a = it->second;
+    // the radio counts nextCheckIn and attemptsLeft down once a minute; round up, so the AP rather
+    // expects the tag too early than too late
+    const uint32_t elapsedMinutes = (millis() - a.announcedAt + 59999) / 60000;
+    if (a.attemptsLeft == 0 || elapsedMinutes >= a.attemptsLeft) {
+        offeredDataVer[macKey(mac)] = 0;  // the radio dropped it
+        return true;
+    }
+    offeredDataVer[macKey(mac)] = a.dataVer;
+    if (a.nextCheckIn & 0x8000) {
+        sleepSeconds = a.nextCheckIn & 0x7FFF;
+    } else if (a.nextCheckIn > elapsedMinutes) {
+        sleepSeconds = (a.nextCheckIn - elapsedMinutes) * 60;
+    }
+    return true;
 }
 
 /// @brief False if the tag was offered (and so finished) another item than the queued one
 static bool offeredMatches(const uint8_t* mac, const uint64_t dataVer) {
     std::lock_guard<std::recursive_mutex> lock(queueMutex);
     auto it = offeredDataVer.find(macKey(mac));
-    return it == offeredDataVer.end() || it->second == dataVer;  // unknown: assume it matches
+    // unknown, or the radio had dropped it by our count: assume it matches
+    return it == offeredDataVer.end() || it->second == 0 || it->second == dataVer;
 }
 
 void addCRC(void* p, uint8_t len) {
@@ -104,7 +134,7 @@ void prepareCancelPending(const uint8_t dst[8]) {
     struct pendingData pending = {0};
     memcpy(pending.targetMac, dst, 8);
     sendCancelPending(&pending);
-    setAnnounced(dst, 0);
+    setAnnounced(dst, nullptr);
 
     tagRecord* taginfo = tagRecord::findByMAC(dst);
     if (taginfo == nullptr) {
@@ -128,7 +158,7 @@ void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin) {
         pending.attemptsLeft = 10 + config.maxsleep;
 
         Serial.printf(">SDA %02X%02X%02X%02X%02X%02X%02X%02X sleeping %d minutes\r\n", dst[7], dst[6], dst[5], dst[4], dst[3], dst[2], dst[1], dst[0], nextCheckin);
-        if (sendDataAvail(&pending)) setAnnounced(dst, pending.availdatainfo.dataVer);
+        if (sendDataAvail(&pending)) setAnnounced(dst, &pending);
     }
 }
 
@@ -500,7 +530,7 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     uint8_t md5bytes[16];
     bool haveMd5 = false;  // false for a repeated xfer complete, when the item is no longer queued
     bool wasDeepSleepCmd = false;
-    if (local) setAnnounced(xfc->src, 0);  // the radio cleared its slot for this tag
+    if (local) setAnnounced(xfc->src, nullptr);  // the radio cleared its slot for this tag
     PendingItem* queueItem = getQueueItem(xfc->src);
     if (local && queueItem != nullptr && !offeredMatches(xfc->src, queueItem->pendingdata.availdatainfo.dataVer)) {
         // The tag finished data that was replaced while it was downloading. The queued item has not been
@@ -587,7 +617,7 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
 
     time_t now;
     time(&now);
-    if (local) setAnnounced(xfc->src, 0);  // the radio dropped its slot for this tag
+    if (local) setAnnounced(xfc->src, nullptr);  // the radio dropped its slot for this tag
     tagRecord* taginfo = tagRecord::findByMAC(xfc->src);
     if (taginfo != nullptr) {
         taginfo->pendingIdle = 60;
@@ -642,7 +672,15 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         taginfo->apIp = IPAddress(0, 0, 0, 0);
     }
 
-    if (taginfo->pendingIdle == 0 || countQueueItem(eadr->src) > 0) {
+    uint32_t offeredSleep = 0;
+    const bool offeredKnown = local && recordOffered(eadr->src, offeredSleep);
+    // BLE displays don't get their instructions from the radio
+    const bool bleTag = ((eadr->adr.hwType & 0xB0) == 0xB0) || (eadr->src[7] == 0x13 && eadr->src[6] == 0x37);
+    if (offeredKnown && !bleTag) {
+        // The tag sleeps what the radio told it just now, counted down since it was announced (#466).
+        // Without an instruction it checks in again after about 40 seconds.
+        taginfo->expectedNextCheckin = now + (offeredSleep > 60 ? offeredSleep : 60);
+    } else if (taginfo->pendingIdle == 0 || countQueueItem(eadr->src) > 0) {
         // A tag that checks in is awake right now. Raise the expected checkin to at
         // least now+60, and pull it back down from the "in deep sleep" sentinel
         // (3216153600): once a tag checks in again after a deep sleep it has woken
@@ -693,7 +731,6 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     if (local) {
         sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\r\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
         Serial.print(buffer);
-        recordOffered(eadr->src);
         checkQueue(eadr->src);   // experiemental 3/26/25: redundant check
 
         // A deep-sleep command makes the tag sleep without ever reporting xfer
@@ -717,7 +754,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
                 struct pendingData cancel = {0};
                 memcpy(cancel.targetMac, eadr->src, 8);
                 sendCancelPending(&cancel);
-                setAnnounced(eadr->src, 0);
+                setAnnounced(eadr->src, nullptr);
             }
         }
     }
@@ -1107,7 +1144,7 @@ void checkQueue(const uint8_t* targetMac) {
             return;
         }
         if (queueCount > 1) queueItem->pendingdata.availdatainfo.nextCheckIn = 5 | 0x8000;
-        if (sendDataAvail(&queueItem->pendingdata)) setAnnounced(targetMac, queueItem->pendingdata.availdatainfo.dataVer);
+        if (sendDataAvail(&queueItem->pendingdata)) setAnnounced(targetMac, &queueItem->pendingdata);
     }
 }
 
