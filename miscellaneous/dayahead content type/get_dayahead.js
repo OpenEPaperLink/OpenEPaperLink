@@ -8,6 +8,7 @@
  *  - ENTSO-E is de fallback: voor zones die Nord Pool niet kent (CH, CZ, ES,
  *    PT, RO, SI, SK) en wanneer Nord Pool faalt of vandaag niet volledig heeft.
  *  - Parameter bron=nordpool of bron=entsoe dwingt een bron af, om te testen.
+ *    Zo'n aanroep schrijft de gedeelde cache niet.
  *
  * Cachegedrag:
  *  - Het vervallen hangt niet aan de TTL maar aan een dekkingstest op de data
@@ -36,6 +37,8 @@ var TTL_LASTGOOD = 21600;
 var TTL_XML = 3600;
 var TTL_CURRENCY = 21600;
 var TTL_ATTEMPT = 3600;           // rem op herpogingen binnen het publicatievenster
+var TTL_GAP_NORDPOOL = 600;       // rem op herpogingen bij een gat, Nord Pool is snel
+var TTL_GAP_ENTSOE = 3600;        // idem voor zones die alleen ENTSO-E hebben
 var LOCK_QUICK_MS = 200;          // korte poging; daarna liever oude data serveren
 var LOCK_COLD_MS = 30000;         // koude start: geen oude data, dus wel wachten
 var PUBLISH_FROM_HOUR = 13;       // SDAC publiceert morgen rond 13:00
@@ -112,6 +115,9 @@ function doGet(e) {
     ctx.step = 'cache-write';
     if (ctx.fromCache) {
       ctx.log('cache-write overgeslagen, data kwam uit de cache');
+    } else if (ctx.bron) {
+      // Een afgedwongen bron is een test; die mag de gedeelde set niet vervangen.
+      ctx.log('cache-write overgeslagen, bron afgedwongen (' + ctx.bron + ')');
     } else {
       safePut_(ctx, 'output' + ctx.country, body, TTL_OUTPUT);
       safePut_(ctx, 'lastgood_' + ctx.country, body, TTL_LASTGOOD);
@@ -150,6 +156,7 @@ function buildDayAhead_(ctx) {
   var zone = lookupZone_(ctx.country);
   ctx.domain = zone.domain;
   ctx.currency = zone.currency;
+  ctx.nordpool = zone.nordpool;
   ctx.log('zone bepaald', { country: ctx.country, domain: ctx.domain, currency: ctx.currency });
 
   ctx.step = 'cache-read';
@@ -252,11 +259,15 @@ function cacheVerdict_(ctx, jsonData) {
   var gat = firstGapFrom_(jsonData, localMidnightEpoch_(0));
   if (gat !== null) {
     data.gat = new Date(gat * 1000).toISOString();
-    var pogingGat = safeGet_(ctx, 'poging_' + ctx.country);
+    // Eigen remsleutel, los van de poging_ sleutel van het publicatievenster:
+    // anders houdt elke eerdere fetch het herstel tot een uur tegen.
+    var pogingGat = safeGet_(ctx, 'gatpoging_' + ctx.country);
     if (pogingGat) {
       data.laatstePoging = new Date(Number(pogingGat)).toISOString();
       return { bruikbaar: true, reden: 'gat in vandaag, herpoging afgeremd', data: data };
     }
+    safePut_(ctx, 'gatpoging_' + ctx.country, String(Date.now()),
+      ctx.nordpool ? TTL_GAP_NORDPOOL : TTL_GAP_ENTSOE);
     return { bruikbaar: false, reden: 'gat in de data van vandaag', data: data };
   }
 
@@ -922,6 +933,7 @@ function clearCaches() {
     keys.push('output' + landen[i]);
     keys.push('lastgood_' + landen[i]);
     keys.push('poging_' + landen[i]);
+    keys.push('gatpoging_' + landen[i]);
     for (var k = -3; k <= 0; k++) {
       keys.push(xmlCacheKey_(ZONES[landen[i]].domain,
         getFormattedMidnightUTC(k - 1), getFormattedMidnightUTC(k + 2)));
