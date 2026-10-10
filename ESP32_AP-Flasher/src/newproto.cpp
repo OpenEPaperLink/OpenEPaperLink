@@ -161,6 +161,10 @@ void prepareDataAvail(uint8_t* data, uint16_t len, uint8_t dataType, const uint8
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
 
+static bool isImageDataType(const uint8_t dataType) {
+    return (dataType >= DATATYPE_IMG_RAW_1BPP && dataType <= DATATYPE_IMG_RAW_4BPP) || dataType == DATATYPE_IMG_ZLIB || dataType == DATATYPE_IMG_G5;
+}
+
 bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgument, const uint8_t* dst, uint16_t nextCheckin, bool resend) {
     if ((nextCheckin & 0x8000) == 0 && nextCheckin > config.maxsleep) nextCheckin = config.maxsleep;
     if ((nextCheckin & 0x8000) == 0 && wsClientCount() && (config.stopsleep == 1)) nextCheckin = 0;
@@ -241,6 +245,7 @@ bool prepareDataAvail(String& filename, uint8_t dataType, uint8_t dataTypeArgume
     taginfo->filename = filename;
     taginfo->len = filesize;
     taginfo->dataType = dataType;
+    if (isImageDataType(dataType)) taginfo->imageDataType = dataType;
     taginfo->pendingCount++;
 
     struct pendingData pending = {0};
@@ -450,10 +455,12 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
             queueItem->pendingdata.availdatainfo.dataTypeArgument == CMD_DO_DEEPSLEEP) {
             wasDeepSleepCmd = true;
         }
-        if (contentFS->exists(dst_path) && contentFS->exists(queueItem->filename)) {
+        // a resent /current/<mac>.raw is already in place: don't remove it
+        const bool isCurrentImage = strcmp(queueItem->filename, dst_path) == 0;
+        if (!isCurrentImage && contentFS->exists(dst_path) && contentFS->exists(queueItem->filename)) {
             contentFS->remove(dst_path);
         }
-        if (contentFS->exists(queueItem->filename)) {
+        if (!isCurrentImage && contentFS->exists(queueItem->filename)) {
             uint8_t dataType = queueItem->pendingdata.availdatainfo.dataType;
             if (config.preview && dataType != DATATYPE_FW_UPDATE && dataType != DATATYPE_NOUPDATE) {
                 contentFS->rename(queueItem->filename, String(dst_path));

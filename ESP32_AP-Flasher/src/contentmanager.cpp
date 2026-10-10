@@ -158,6 +158,24 @@ void drawCounter(const uint8_t mac[8], tagRecord *&taginfo, JsonObject &cfgobj, 
     cfgobj["counter"] = counter + 1;
 }
 
+/// @brief Send the image the tag got last (/current/<mac>.raw, kept when preview is on) again
+/// @note For image content whose source is gone (/imgupload removes it after the first transfer), on a forced
+/// refresh or when the tag rebooted (#567). A tag that cached the image recognizes the md5 and doesn't download it.
+static bool resendCurrentImage(const uint8_t mac[8], const tagRecord *taginfo, const char *hexmac, const uint8_t lut, const uint16_t nextCheckin) {
+    String rawFilename = "/current/" + String(hexmac) + ".raw";
+    if (!contentFS->exists(rawFilename)) {
+        wsErr("Can't resend image, " + rawFilename + " not found (preview off?)");
+        return false;
+    }
+    if (taginfo->imageDataType == 0) {
+        wsErr("Can't resend image, unknown data type for " + rawFilename);
+        return false;
+    }
+    struct imageDataTypeArgStruct arg = {0};
+    arg.lut = lut & 0x03;
+    return prepareDataAvail(rawFilename, taginfo->imageDataType, *((uint8_t *)&arg), mac, nextCheckin, true);
+}
+
 void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     time_t now;
     time(&now);
@@ -296,8 +314,11 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 }
 
                 if (!contentFS->exists(configFilename)) {
+                    // the source image is gone: resend the image the tag got last
+                    if (!resendCurrentImage(mac, taginfo, hexmac, imageParams.lut, cfgobj["timetolive"].as<int>())) {
+                        wsErr("Not found: " + configFilename);
+                    }
                     taginfo->nextupdate = 3216153600;
-                    wsErr("Not found: " + configFilename);
                     break;
                 }
 
