@@ -1740,176 +1740,67 @@ YAxisScale calculateYAxisScale(double priceMin, double priceMax, int divisions) 
     return {minY, maxY, roundedStepSize};
 }
 
-// Helper function: calculate data range and align to interval boundaries
-// Returns: DataRange struct
+// Which raw samples become bars. The bars fill the bar area: first the pixels per bar are picked, as close
+// to the target bar width plus 1 px spacing as the data from now - 1h on allows. That gives the number of bars,
+// and the first bar moves back into the past until the area is full, so the gap at the right is always less
+// than one bar.
 struct DataRange {
-    int startIndex;
-    int endIndex;
-    int numAveragedSamples;
-    int availableSamples;
+    int startIndex;          // first raw sample of the first bar
+    int endIndex;            // one past the last raw sample used
+    int numAveragedSamples;  // number of bars
+    int historicBars;        // bars before now - 1h, added to fill the area
+    int pixelsPerBar;
 };
 
-DataRange calculateDataRangeAndAlignment(const JsonDocument& doc, int originalDataSize, time_t now,
-                                         int avgFactor, int targetIntervalMinutes, int barAreaWidth) {
-    DataRange result;
+DataRange calculateDataRange(const JsonDocument& doc, int originalDataSize, time_t now, int avgFactor,
+                             int targetIntervalMinutes, int barAreaWidth, double targetBarwidth) {
+    DataRange result = {0, 0, 0, 0, 0};
 
-    // Step 1: Find data range - start at now-1h, trim far future if needed
-    time_t targetStart = now - 3600;  // 1 hour ago
+    // A bar of several samples starts on a multiple of the bar interval (:00 and :30 for 30 minutes)
+    int firstAligned = 0;
+    if (avgFactor > 1) {
+        firstAligned = -1;
+        for (int i = 0; i < originalDataSize; i++) {
+            const time_t dataTime = doc[i]["time"];
+            struct tm dt;
+            localtime_r(&dataTime, &dt);
+            if ((dt.tm_hour * 60 + dt.tm_min) % targetIntervalMinutes == 0) {
+                firstAligned = i;
+                break;
+            }
+        }
+        if (firstAligned < 0) return result;
+    }
+    const int totalBars = (originalDataSize - firstAligned) / avgFactor;
+    if (totalBars <= 0) return result;
 
-    // Find first data point at/before now-1h
-    result.startIndex = 0;
+    // Everything from the bar that holds now - 1h on has to be shown
+    int hourAgoIndex = 0;
     for (int i = originalDataSize - 1; i >= 0; i--) {
-        time_t dataTime = doc[i]["time"];
-        if (dataTime <= targetStart) {
-            result.startIndex = i;
+        const time_t dataTime = doc[i]["time"];
+        if (dataTime <= now - 3600) {
+            hourAgoIndex = i;
             break;
         }
     }
+    const int firstNeededBar = (hourAgoIndex > firstAligned) ? (hourAgoIndex - firstAligned) / avgFactor : 0;
+    int endBar = totalBars;
+    const int neededBars = endBar - firstNeededBar;
 
-    // Calculate maximum bars that can fit on display
-    int maxBars = barAreaWidth;  // 1px per bar minimum
+    // Widest bars that still fit the needed data
+    int pixelsPerBar = (int)targetBarwidth + 1;
+    while (pixelsPerBar > 1 && barAreaWidth / pixelsPerBar < neededBars) pixelsPerBar--;
+    int numBars = barAreaWidth / pixelsPerBar;
+    if (numBars < neededBars) endBar = firstNeededBar + numBars;  // even 1 px bars don't fit: drop the far future
+    if (numBars > endBar) numBars = endBar;                       // not enough history to fill the area
+    const int startBar = endBar - numBars;
 
-    // Calculate how many samples we'll have after averaging
-    result.availableSamples = originalDataSize - result.startIndex;
-    result.numAveragedSamples = result.availableSamples / avgFactor;
-
-    // Step 2: Trim from far future if needed (prioritize now and near future)
-    result.endIndex = originalDataSize;
-    if (result.numAveragedSamples > maxBars) {
-        // Too many samples - limit the range
-        int maxSamplesNeeded = maxBars * avgFactor;
-        result.endIndex = result.startIndex + maxSamplesNeeded;
-        if (result.endIndex > originalDataSize) result.endIndex = originalDataSize;
-        result.availableSamples = result.endIndex - result.startIndex;
-        result.numAveragedSamples = result.availableSamples / avgFactor;
-    }
-
-    // Step 3: Align to interval boundary if averaging
-    if (avgFactor > 1) {
-        // Find first data point that aligns with target interval
-        for (int i = result.startIndex; i < result.endIndex; i++) {
-            time_t dataTime = doc[i]["time"];
-            struct tm dt;
-            localtime_r(&dataTime, &dt);
-
-            // Check if this timestamp aligns with target interval
-            if (targetIntervalMinutes == 30) {
-                if (dt.tm_min == 0 || dt.tm_min == 30) {
-                    result.startIndex = i;
-                    break;
-                }
-            } else if (targetIntervalMinutes == 60) {
-                if (dt.tm_min == 0) {
-                    result.startIndex = i;
-                    break;
-                }
-            }
-        }
-
-        // Recalculate after alignment
-        result.availableSamples = result.endIndex - result.startIndex;
-        result.numAveragedSamples = result.availableSamples / avgFactor;
-    }
-
-    return result;
-}
-
-// Helper function: Perform historic data backfill to optimize bar width
-// Returns: BackfillResult struct
-struct BackfillResult {
-    int startIndex;
-    int numAveragedSamples;
-    int availableSamples;
-    int addedHistoricCount;
-    double barwidthBefore;
-    double barwidthAfter;
-};
-
-BackfillResult performHistoricBackfill(int startIndex, int endIndex, int numAveragedSamples,
-                                       int avgFactor, int barAreaWidth, double targetBarwidth) {
-    BackfillResult result;
-    result.startIndex = startIndex;
-    result.numAveragedSamples = numAveragedSamples;
-    result.availableSamples = endIndex - startIndex;
-    result.addedHistoricCount = 0;
-
-    int futureRawCount = endIndex - startIndex;  // Raw samples (before averaging)
-    int historicRawCount = startIndex;           // Raw samples available before startIndex
-
-    // Calculate barwidth BEFORE backfill
-    result.barwidthBefore = (double)barAreaWidth / numAveragedSamples;
-
-    if (historicRawCount > 0) {
-        // Calculate current bar width
-        double pixelsPerBar = (double)barAreaWidth / numAveragedSamples;
-        int currentSpacing = (pixelsPerBar >= 3.0) ? 1 : 0;
-        double currentBarWidth = pixelsPerBar - currentSpacing;
-
-        // Scenario 2: Bars > 5px target - add data to reduce toward target
-        if (currentBarWidth > targetBarwidth) {
-            // Target: 5px bars with 1px spacing = 6px total per bar
-            int targetBars = barAreaWidth / (targetBarwidth + 1.0);
-            int barsToAdd = targetBars - numAveragedSamples;
-
-            if (barsToAdd > 0) {
-                int samplesToAdd = barsToAdd * avgFactor;
-                result.addedHistoricCount = std::min(samplesToAdd, historicRawCount);
-                result.startIndex -= result.addedHistoricCount;
-
-                // Bounds safety: ensure startIndex never goes negative
-                if (result.startIndex < 0) {
-                    result.addedHistoricCount += result.startIndex;  // Reduce by overflow amount
-                    result.startIndex = 0;
-                }
-
-                result.availableSamples = endIndex - result.startIndex;
-                result.numAveragedSamples = result.availableSamples / avgFactor;
-            }
-        }
-        // Scenario 1: Bars <= 5px - fill empty space with historic data
-        else {
-            double currentPixelsPerBar = pixelsPerBar;        // Use pixelsPerBar (not barwidth)
-            int currentPixelsInt = (int)currentPixelsPerBar;  // e.g., 3 from 3.05px
-
-            // Keep adding bars as long as pixelsPerBar doesn't drop below next integer
-            while (historicRawCount > 0) {
-                // Try adding avgFactor more raw samples (= 1 more bar after averaging)
-                int testAveragedBars = result.numAveragedSamples + 1;
-                double testPixelsPerBar = (double)barAreaWidth / testAveragedBars;
-                int testPixelsInt = (int)testPixelsPerBar;
-
-                // Check if pixelsPerBar stays at or above current integer value
-                // This ensures bars don't shrink (e.g., stay at 3px, don't drop to 2px)
-                if (testPixelsInt >= currentPixelsInt) {
-                    // Pixels per bar still >= current integer - add this bar
-                    result.numAveragedSamples = testAveragedBars;
-                    historicRawCount -= avgFactor;  // Consume raw samples
-                    result.addedHistoricCount += avgFactor;
-                    result.startIndex -= avgFactor;  // Move start backwards into historic data
-
-                    // Bounds safety: ensure startIndex never goes negative
-                    if (result.startIndex < 0) {
-                        result.addedHistoricCount += result.startIndex;          // Reduce by overflow amount
-                        result.numAveragedSamples = (endIndex - 0) / avgFactor;  // Recalculate with startIndex=0
-                        result.startIndex = 0;
-                        break;  // Stop backfill
-                    }
-                } else {
-                    // Next bar would drop below current integer, done
-                    break;
-                }
-            }
-
-            // Update availableSamples after backfill
-            if (result.addedHistoricCount > 0) {
-                result.availableSamples = endIndex - result.startIndex;
-            }
-        }
-    }
-
-    // Calculate barwidth after backfill
-    result.barwidthAfter = (double)barAreaWidth / result.numAveragedSamples;
-
+    result.startIndex = firstAligned + startBar * avgFactor;
+    result.endIndex = firstAligned + endBar * avgFactor;
+    if (result.endIndex > originalDataSize) result.endIndex = originalDataSize;
+    result.numAveragedSamples = numBars;
+    result.historicBars = firstNeededBar - startBar;
+    result.pixelsPerBar = pixelsPerBar;
     return result;
 }
 
@@ -2055,6 +1946,23 @@ bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, 
         time_t time0 = doc[0]["time"];
         time_t time1 = doc[1]["time"];
         nativeIntervalMinutes = (time1 - time0) / 60;
+        if (nativeIntervalMinutes <= 0) nativeIntervalMinutes = 15;
+    }
+
+    // Without a price for the current time (a day missing in the feed), the chart shows the wrong day and
+    // "nan" as the current price. Keep the previous image instead and try again later.
+    bool hasCurrentPrice = false;
+    for (int i = 0; i < originalDataSize; i++) {
+        const time_t dataTime = doc[i]["time"];
+        if (now >= dataTime && now < dataTime + nativeIntervalMinutes * 60) {
+            hasCurrentPrice = true;
+            break;
+        }
+    }
+    if (!hasCurrentPrice) {
+        wsErr("No price for the current time in the dayahead feed");
+        logLineRateLimited("getDayAheadNow", "dayahead: no price for the current time in the feed (" + cfgobj["country"].as<String>() + ")");
+        return false;
     }
 
     // Get user's preferred display interval (0 = native, 30 = 30 minutes, 60 = 1 hour)
@@ -2077,13 +1985,12 @@ bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, 
     int rawCurrentHour = 0;    // Hour from the native interval containing "now"
     int rawCurrentMinute = 0;  // Minute from the native interval containing "now"
 
-    // Calculate data range and align to interval boundaries (Steps 1-3)
-    DataRange range = calculateDataRangeAndAlignment(doc, originalDataSize, now, avgFactor,
-                                                     targetIntervalMinutes, barAreaWidth);
+    // Which samples become bars, filling the bar area (Steps 1-3)
+    DataRange range = calculateDataRange(doc, originalDataSize, now, avgFactor, targetIntervalMinutes,
+                                         barAreaWidth, TARGET_BARWIDTH);
     int startIndex = range.startIndex;
     int endIndex = range.endIndex;
     int numAveragedSamples = range.numAveragedSamples;
-    int availableSamples = range.availableSamples;
 
     // Safety check
     if (numAveragedSamples == 0) {
@@ -2091,22 +1998,9 @@ bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, 
         return false;
     }
 
-    // Perform historic data backfill to optimize bar width (Step 4)
-    BackfillResult backfill = performHistoricBackfill(startIndex, endIndex, numAveragedSamples,
-                                                      avgFactor, barAreaWidth, TARGET_BARWIDTH);
-    startIndex = backfill.startIndex;
-    numAveragedSamples = backfill.numAveragedSamples;
-    availableSamples = backfill.availableSamples;
-
     // Debug logging (always visible in web console)
-    int futureRawCount = endIndex - (startIndex + backfill.addedHistoricCount);
-    int historicRawCount = startIndex + backfill.addedHistoricCount;
-    wsLog("Day-ahead bar sizing: future_raw=" + String(futureRawCount) +
-          " (incl now), historic_raw=" + String(historicRawCount) +
-          ", barwidth_before=" + String(backfill.barwidthBefore, 1) +
-          "px, added_historic=" + String(backfill.addedHistoricCount) +
-          ", barwidth_after=" + String(backfill.barwidthAfter, 1) +
-          "px (target=" + String(TARGET_BARWIDTH, 1) + "px)");
+    wsLog("Day-ahead bars: " + String(numAveragedSamples) + " x " + String(range.pixelsPerBar) + "px, " +
+          String(range.historicBars) + " of them before now-1h, area " + String(barAreaWidth) + "px");
 
     int units = cfgobj["units"].as<int>();
     if (units == 0) units = 1;
@@ -2264,9 +2158,10 @@ bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, 
 
     // For better aesthetics, round to nearest multiple based on target interval
     int labelsPerHour = 60 / targetIntervalMinutes;
+    int hoursPerLabel = 0;  // 0: label every labelInterval-th bar (bars longer than an hour)
     if (labelsPerHour > 0) {
         // Try to show labels at nice intervals (every hour, every 2 hours, etc.)
-        int hoursPerLabel = (labelInterval + labelsPerHour - 1) / labelsPerHour;  // Round up
+        hoursPerLabel = (labelInterval + labelsPerHour - 1) / labelsPerHour;  // Round up
         if (hoursPerLabel < 1) hoursPerLabel = 1;
         labelInterval = hoursPerLabel * labelsPerHour;
 
@@ -2274,6 +2169,7 @@ bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, 
         if (n / labelInterval > maxLabels) {
             // Fall back to spacing-based calculation
             labelInterval = (n + maxLabels - 1) / maxLabels;
+            hoursPerLabel = 0;
         }
     }
 
@@ -2333,7 +2229,10 @@ bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, 
         bool skipTicks = (spr.height() < 150);
 
         // Every 2 hours: Black tick (4px) + label
-        if (i % labelInterval == 0 && loc["time"][0]) {
+        // Labels on whole hours, so "18" is at 18:00 whatever time the first bar starts
+        const bool labelHere = hoursPerLabel > 0 ? (item_minute == 0 && item_hour % hoursPerLabel == 0)
+                                                 : (i % labelInterval == 0);
+        if (labelHere && loc["time"][0]) {
             if (!skipTicks) {
                 spr.drawLine(labelX, tickY, labelX, tickY + 4, TFT_BLACK);
             }
