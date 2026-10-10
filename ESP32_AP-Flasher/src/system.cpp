@@ -16,13 +16,34 @@ void timeSyncCallback(struct timeval* tv) {
     Serial.println("time succesfully synced");
 }
 
+void enableNtpFromDhcp() {
+#if LWIP_DHCP_GET_NTP_SRV
+    // has to be enabled before the DHCP lease, to use the NTP server option of the DHCP server
+    esp_sntp_servermode_dhcp(true);
+#endif
+}
+
 void initTime(void* parameter) {
     if (!(WiFi.status() == WL_CONNECTED || wm.wifiStatus == ETHERNET)) {
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
     sntp_set_time_sync_notification_cb(timeSyncCallback);
     sntp_set_sync_interval(300 * 1000);
-    configTzTime(config.timeZone, "time.cloudflare.com", "pool.ntp.org", "time.nist.gov");
+    // A single NTP server: the one from DHCP when the network provides it, else pool.ntp.org. With several
+    // servers, lwIP moves on to the next one without any delay when a name doesn't resolve, which flooded
+    // the DNS server when there was no internet (#167). With one server it backs off between retries.
+    if (sntp_enabled()) sntp_stop();
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    const ip_addr_t* dhcpServer = sntp_getserver(0);
+    if (dhcpServer == nullptr || ip_addr_isany(dhcpServer)) {
+        sntp_setservername(0, "pool.ntp.org");
+        Serial.println("NTP server: pool.ntp.org");
+    } else {
+        Serial.printf("NTP server from DHCP: %s\r\n", ipaddr_ntoa(dhcpServer));
+    }
+    sntp_init();
+    setenv("TZ", config.timeZone, 1);
+    tzset();
     struct tm timeinfo;
     while (millis() < 30000) {
         if (!getLocalTime(&timeinfo)) {

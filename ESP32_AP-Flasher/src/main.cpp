@@ -123,6 +123,7 @@ void setup() {
     }
     */
 
+    enableNtpFromDhcp();
     wm.initEth();
     initAPconfig();
 

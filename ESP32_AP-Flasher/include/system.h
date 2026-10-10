@@ -12,6 +12,7 @@
 #define WAKEUP_REASON_NETWORK_SCAN 0xFD
 #define WAKEUP_REASON_WDT_RESET 0xFE
 
+void enableNtpFromDhcp();
 void initTime(void* parameter);
 void logLine(const char* buffer);
 void logLine(const String& text);
