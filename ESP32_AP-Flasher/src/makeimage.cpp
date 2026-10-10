@@ -498,9 +498,18 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
 
                 // 768 = compression level 9, 1500 = unofficial level 10
                 if (comp == NULL || zlibbuf == NULL || totalbytes == 0 || !initializeCompressor(comp, Miniz::TDEFL_WRITE_ZLIB_HEADER | 1500)) {
-                    Serial.println("Failed to initialize compressor or allocate memory for zlib");
+                    Serial.println("Failed to initialize compressor or allocate memory for zlib, falling back to raw");
                     if (zlibbuf != NULL) free(zlibbuf);
                     if (comp != NULL) free(comp);
+                    imageParams.zlib = 0;
+                    imageParams.g5 = 0;
+                    f_out.seek(0);
+                    f_out.write(buffer, buffer_size);
+                    if (imageParams.hasRed && imageParams.bpp > 1) {
+                        spr2color(spr, imageParams, buffer, buffer_size, true);
+                        f_out.write(buffer, buffer_size);
+                    }
+                    free(buffer);
                     break;
                 }
 
