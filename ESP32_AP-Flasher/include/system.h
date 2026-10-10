@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Arduino.h>
 
 #define WAKEUP_REASON_TIMED 0
@@ -16,5 +18,7 @@ void enableNtpFromDhcp();
 void initTime(void* parameter);
 void logLine(const char* buffer);
 void logLine(const String& text);
+void logLineRateLimited(const String& key, const String& text, const uint32_t intervalSeconds = 3600);
+String urlForLog(const String& url);
 void logStartUp();
 void logCoreDump();

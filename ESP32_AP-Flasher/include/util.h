@@ -80,6 +80,7 @@ static bool httpGetJson(String &url, JsonDocument &json, const uint16_t timeout,
     if (httpCode != 200) {
         http.end();
         wsErr(String("[httpGetJson] http ") + url + " code " + httpCode);
+        logLineRateLimited(urlForLog(url), "http error " + String(httpCode) + " " + urlForLog(url));
         return false;
     }
 

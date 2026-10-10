@@ -4,6 +4,8 @@
 #include <FS.h>
 #include <Preferences.h>
 #include <esp_sntp.h>
+
+#include <map>
 #if CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH && CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF
 #include <esp_core_dump.h>
 #endif
@@ -94,6 +96,28 @@ void logLine(const String& text) {
         logFile.close();
     }
     xSemaphoreGive(fsMutex);
+}
+
+/// @brief Log a line at most once per interval for the same key (log.txt is only 10 KB)
+void logLineRateLimited(const String& key, const String& text, const uint32_t intervalSeconds) {
+    static std::map<String, uint32_t> lastLogged;
+    static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
+    const uint32_t now = millis() / 1000;
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    auto it = lastLogged.find(key);
+    const bool log = it == lastLogged.end() || now - it->second >= intervalSeconds;
+    if (log) {
+        if (lastLogged.size() > 50) lastLogged.clear();  // bound the memory use
+        lastLogged[key] = now;
+    }
+    xSemaphoreGive(mutex);
+    if (log) logLine(text);
+}
+
+/// @brief Url without query string (which can hold api keys), for the log
+String urlForLog(const String& url) {
+    const int query = url.indexOf('?');
+    return query == -1 ? url : url.substring(0, query);
 }
 
 void logStartUp() {

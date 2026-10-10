@@ -69,13 +69,30 @@ void contentRunner() {
     for (tagRecord *taginfo : tagDBSnapshot()) {
 
         const bool isAp = memcmp(taginfo->mac, wifimac, 8) == 0;
-        if (taginfo->RSSI &&
-            (now >= taginfo->nextupdate || needRedraw(taginfo->contentMode, taginfo->wakeupReason)) &&
-            config.runStatus == RUNSTATUS_RUN && 
-            (taginfo->expectedNextCheckin < now + 300 || isAp || (wsClientCount() && config.stopsleep == 1)) &&
-            Storage.freeSpace() > 31000 && !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
+        const bool due = now >= taginfo->nextupdate || needRedraw(taginfo->contentMode, taginfo->wakeupReason);
+        const bool checkinSoon = taginfo->expectedNextCheckin < now + 300 || isAp || (wsClientCount() && config.stopsleep == 1);
+        const bool spaceLeft = Storage.freeSpace() > 31000;
+        if (taginfo->RSSI && due && config.runStatus == RUNSTATUS_RUN && checkinSoon && spaceLeft &&
+            !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
                 drawNew(taginfo->mac, taginfo);
                 taginfo->wakeupReason = 0;
+        } else if (due && config.runStatus == RUNSTATUS_RUN && now > taginfo->nextupdate + 900 &&
+                   !util::isSleeping(config.sleepTime1, config.sleepTime2)) {
+            // content is overdue for more than 15 minutes: log why (#579)
+            String reason;
+            if (!taginfo->RSSI) {
+                reason = "no RSSI";
+            } else if (!spaceLeft) {
+                reason = "filesystem full";
+            } else {
+                time_t expected = taginfo->expectedNextCheckin;
+                char timeStr[20];
+                strftime(timeStr, sizeof(timeStr), "%d-%m %H:%M", localtime(&expected));
+                reason = "waiting for check-in expected at " + String(timeStr);
+            }
+            char hexmac[17];
+            mac2hex(taginfo->mac, hexmac);
+            logLineRateLimited(String("overdue") + hexmac, String(hexmac) + " content overdue: " + reason);
         }
 
         if (taginfo->expectedNextCheckin > now - 10 && taginfo->expectedNextCheckin < now + 30 && taginfo->pendingIdle == 0 && taginfo->pendingCount == 0 && !isAp) {
@@ -1219,6 +1236,7 @@ int getImgURL(String &filename, String URL, time_t fetched, imgParam &imageParam
     } else {
         if (httpCode != 304) {
             wsErr("http " + URL + " " + String(httpCode));
+            logLineRateLimited(urlForLog(URL), "http error " + String(httpCode) + " " + urlForLog(URL));
         }
     }
     http.end();
@@ -1371,6 +1389,7 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     int httpCode = http.GET();
     if (httpCode != 200) {
         wsErr("getCalFeed http error " + String(httpCode));
+        logLineRateLimited("getCalFeed", "calendar: http error " + String(httpCode));
         return false;
     }
 
@@ -2004,6 +2023,7 @@ bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, 
     int httpCode = http.GET();
     if (httpCode != 200) {
         wsErr("getDayAhead http error " + String(httpCode));
+        logLineRateLimited("getDayAhead", "dayahead: http error " + String(httpCode));
         return false;
     }
 
@@ -2854,6 +2874,7 @@ int getJsonTemplateUrl(String &filename, String URL, time_t fetched, String MAC,
     } else {
         if (httpCode != 304) {
             wsErr("http " + URL + " status " + String(httpCode));
+            logLineRateLimited(urlForLog(URL), "http error " + String(httpCode) + " " + urlForLog(URL));
         }
     }
     http.end();
