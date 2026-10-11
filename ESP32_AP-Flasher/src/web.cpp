@@ -878,6 +878,23 @@ void init_web() {
     // OTA related calls
 
     server.on("/sysinfo", HTTP_GET, handleSysinfoRequest);
+    // core dump of the last crash, for: espcoredump.py info_corefile -t raw -c coredump.bin firmware.elf
+    server.on("/coredump", HTTP_GET, [](AsyncWebServerRequest *request) {
+        const size_t size = coreDumpSize();
+        if (size == 0) {
+            request->send(404, "text/plain", "No core dump");
+            return;
+        }
+        AsyncWebServerResponse *response = request->beginResponse("application/octet-stream", size, [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+            return readCoreDump(buffer, index, maxLen);
+        });
+        response->addHeader("Content-Disposition", "attachment; filename=\"coredump.bin\"");
+        request->send(response);
+    });
+    server.on("/coredump_erase", HTTP_POST, [](AsyncWebServerRequest *request) {
+        const bool erased = eraseCoreDump();
+        request->send(erased ? 200 : 500, "text/plain", erased ? "OK" : "Failed");
+    });
     server.on("/check_file", HTTP_GET, handleCheckFile);
     server.on("/rollback", HTTP_POST, handleRollback);
     server.on("/update_c6", HTTP_POST, handleUpdateC6);

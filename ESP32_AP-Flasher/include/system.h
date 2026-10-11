@@ -26,3 +26,6 @@ bool crashedLastBoot();
 time_t lastTimeSync();
 String ntpServerName();
 void logCoreDump();
+size_t coreDumpSize();
+size_t readCoreDump(uint8_t* buffer, size_t offset, size_t len);
+bool eraseCoreDump();
