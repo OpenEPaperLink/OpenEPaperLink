@@ -89,7 +89,8 @@ static void initSDCard() {
 #endif
 
 uint64_t DynStorage::freeSpace(){
-    this->begin();
+    // no begin(): only used once the file system is up. LittleFS.begin() frees and reallocates its
+    // partition label on every call, a double free when two tasks ask for the free space at once.
 #ifdef HAS_SDCARD
     return SDCARD.totalBytes() - SDCARD.usedBytes();
 #endif
