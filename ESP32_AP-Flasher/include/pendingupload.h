@@ -31,3 +31,9 @@ PendingUpload takePendingUpload(const uint8_t mac[8], const String &name, uint8_
 
 /// @brief Free stored images that won't be converted: the tag is gone or its config names another image
 void dropStalePendingUploads();
+
+#define PENDING_UPLOAD_SPILL_MS 60000
+/// @brief Write one image that waited longer than PENDING_UPLOAD_SPILL_MS to the file its name gives, and free it.
+/// The tag isn't due yet (a sleeping tag can take hours); the content runner converts the file when it is.
+/// @note Call it from the loop task, never from async_tcp: it writes to flash.
+void spillPendingUpload();

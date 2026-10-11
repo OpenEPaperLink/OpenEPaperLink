@@ -67,6 +67,7 @@ void contentRunner() {
     freeDeletedRecords();
     freeRetiredQueueItems();
     dropStalePendingUploads();
+    spillPendingUpload();
     // Storage.freeSpace() walks the whole filesystem: only when a tag needs it, and once per run
     int8_t spaceLeftCache = -1;
     auto spaceLeft = [&spaceLeftCache]() {
