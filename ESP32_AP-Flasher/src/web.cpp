@@ -37,8 +37,11 @@
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
-// set by /reboot, handled in the loop task
-static volatile bool rebootRequested = false;
+// A restart asked for by a web request. The response is only sent once the handler returns, and the work before
+// the restart (saving the tag database, a factory reset) shouldn't run in async_tcp: handleRestartRequest() does it
+// in the loop task.
+enum class RestartRequest : uint8_t { None, Reboot, WifiConfig, FactoryReset };
+static volatile RestartRequest restartRequest = RestartRequest::None;
 
 WifiManager wm;
 
@@ -299,9 +302,8 @@ void init_web() {
     server.addHandler(&ws);
 
     server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
-        // the response is only sent once this handler returns: reboot from the loop task (handleRebootRequest)
         request->send(200, "text/plain", "OK Reboot");
-        rebootRequested = true;
+        restartRequest = RestartRequest::Reboot;
     });
 
     server.serveStatic("/current", *contentFS, "/current/").setCacheControl("max-age=604800");
@@ -822,41 +824,7 @@ void init_web() {
         preferences.end();
         Serial.println("config saved");
         request->send(200, "text/plain", "Ok, saved");
-
-        ws.enable(false);
-
-        if (jsonObj["ssid"].as<String>() == "factory") {
-            config.runStatus = RUNSTATUS_STOP;
-            vTaskDelay(2000 / portTICK_PERIOD_MS);
-            preferences.begin("wifi", false);
-            preferences.putString("ssid", "");
-            preferences.putString("pw", "");
-            preferences.end();
-            destroyDB();
-            cleanupCurrent();
-            contentFS->remove("/AP_FW_Pack.bin");
-            contentFS->remove("/OpenEPaperLink_esp32_C6.bin");
-            contentFS->remove("/OpenEPaperLink_esp32_C6uart0.bin");
-            contentFS->remove("/bootloader.bin");
-            contentFS->remove("/partition-table.bin");
-            contentFS->remove("/update_actions.json");
-            contentFS->remove("/log.txt");
-            contentFS->remove("/logold.txt");
-            contentFS->remove("/current/tagDB.json");
-            contentFS->remove("/current/tagDB.json.bak");
-            contentFS->remove("/current/tagDBrestored.json");
-            contentFS->remove("/current/apconfig.json");
-            delay(100);
-            esp_deep_sleep_start();
-            ESP.restart();
-        } else {
-            refreshAllPending();
-            saveDB("/current/tagDB.json");
-        }
-
-        ws.closeAll();
-        delay(100);
-        ESP.restart();
+        restartRequest = jsonObj["ssid"].as<String>() == "factory" ? RestartRequest::FactoryReset : RestartRequest::WifiConfig;
     });
     server.addHandler(handler);
 
@@ -957,14 +925,51 @@ struct ImageUpload {
     bool overflow;
 };
 
-void handleRebootRequest() {
-    if (!rebootRequested) return;
-    logLine("Reboot request by user");
-    wsErr("REBOOTING");
-    delay(100);
-    ws.enable(false);
-    refreshAllPending();
-    saveDB("/current/tagDB.json");
+void handleRestartRequest() {
+    switch (restartRequest) {
+        case RestartRequest::None:
+            return;
+        case RestartRequest::Reboot:
+            logLine("Reboot request by user");
+            wsErr("REBOOTING");
+            delay(100);
+            ws.enable(false);
+            refreshAllPending();
+            saveDB("/current/tagDB.json");
+            break;
+        case RestartRequest::WifiConfig:
+            ws.enable(false);
+            refreshAllPending();
+            saveDB("/current/tagDB.json");
+            break;
+        case RestartRequest::FactoryReset: {
+            ws.enable(false);
+            config.runStatus = RUNSTATUS_STOP;
+            vTaskDelay(2000 / portTICK_PERIOD_MS);
+            Preferences preferences;
+            preferences.begin("wifi", false);
+            preferences.putString("ssid", "");
+            preferences.putString("pw", "");
+            preferences.end();
+            destroyDB();
+            cleanupCurrent();
+            contentFS->remove("/AP_FW_Pack.bin");
+            contentFS->remove("/OpenEPaperLink_esp32_C6.bin");
+            contentFS->remove("/OpenEPaperLink_esp32_C6uart0.bin");
+            contentFS->remove("/bootloader.bin");
+            contentFS->remove("/partition-table.bin");
+            contentFS->remove("/update_actions.json");
+            contentFS->remove("/log.txt");
+            contentFS->remove("/logold.txt");
+            contentFS->remove("/current/tagDB.json");
+            contentFS->remove("/current/tagDB.json.bak");
+            contentFS->remove("/current/tagDBrestored.json");
+            contentFS->remove("/current/apconfig.json");
+            delay(100);
+            esp_deep_sleep_start();
+            break;
+        }
+    }
     ws.closeAll();
     delay(100);
     ESP.restart();
