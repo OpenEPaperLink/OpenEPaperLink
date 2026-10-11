@@ -674,7 +674,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
 #endif
     }
 
-    taginfo->modeConfigJson = doc.as<String>();
+    // keep a config that an upload or the web interface set while this ran
+    if (taginfo->modeConfigJson == processedConfig) taginfo->modeConfigJson = doc.as<String>();
 }
 
 bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, tagRecord *&taginfo, imgParam &imageParams) {
