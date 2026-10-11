@@ -28,18 +28,26 @@ inline UploadInfo *newUploadInfo(const String &filename) {
     return uploadInfo;
 }
 
-/// @brief Append the buffered data to the file and empty the buffer. Sets error on a failed write.
-inline void flushUploadInfo(UploadInfo *uploadInfo) {
-    if (uploadInfo->bufferSize == 0) return;
+/// @brief Append data to the upload file. Sets error on a failed write.
+inline void writeUploadInfo(UploadInfo *uploadInfo, const uint8_t *data, size_t len) {
     xSemaphoreTake(fsMutex, portMAX_DELAY);
     File file = contentFS->open(uploadInfo->filename, "a");
     if (file) {
-        if (file.write(uploadInfo->buffer, uploadInfo->bufferSize) != uploadInfo->bufferSize) uploadInfo->error = true;
+        // a 1-byte stdio buffer makes fwrite() hand all data to the file system in one write, instead of
+        // keeping a tail in the buffer that only gets written (and seeked for) during close()
+        file.setBufferSize(1);
+        if (file.write(data, len) != len) uploadInfo->error = true;
         file.close();
     } else {
         uploadInfo->error = true;
     }
     xSemaphoreGive(fsMutex);
+}
+
+/// @brief Append the buffered data to the file and empty the buffer. Sets error on a failed write.
+inline void flushUploadInfo(UploadInfo *uploadInfo) {
+    if (uploadInfo->bufferSize == 0) return;
+    writeUploadInfo(uploadInfo, uploadInfo->buffer, uploadInfo->bufferSize);
     uploadInfo->bufferSize = 0;
 }
 
@@ -48,11 +56,7 @@ inline void appendUploadInfo(UploadInfo *uploadInfo, const uint8_t *data, size_t
     if (uploadInfo->bufferSize + len > UPLOAD_BUFFER_SIZE) flushUploadInfo(uploadInfo);
     if (len > UPLOAD_BUFFER_SIZE) {
         // chunk larger than the buffer: write it directly
-        xSemaphoreTake(fsMutex, portMAX_DELAY);
-        File file = contentFS->open(uploadInfo->filename, "a");
-        if (!file || file.write(data, len) != len) uploadInfo->error = true;
-        if (file) file.close();
-        xSemaphoreGive(fsMutex);
+        writeUploadInfo(uploadInfo, data, len);
         return;
     }
     memcpy(&uploadInfo->buffer[uploadInfo->bufferSize], data, len);
