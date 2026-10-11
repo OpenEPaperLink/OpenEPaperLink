@@ -1025,6 +1025,18 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
             preloadlut = request->getParam("preloadlut", true)->value().toInt();
         }
     }
+    // an earlier upload for this tag that the content runner hasn't converted yet is never used anymore
+    if (taginfo->contentMode == 24) {
+        JsonDocument oldConfig;
+        if (!deserializeJson(oldConfig, taginfo->modeConfigJson)) {
+            const String oldFilename = oldConfig["filename"] | "";
+            if (oldFilename.startsWith("/temp/") && oldFilename != uploadfilename) {
+                xSemaphoreTake(fsMutex, portMAX_DELAY);
+                contentFS->remove(oldFilename);
+                xSemaphoreGive(fsMutex);
+            }
+        }
+    }
     taginfo->modeConfigJson = "{\"filename\":\"" + uploadfilename + "\",\"timetolive\":\"" + String(ttl) + "\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\", \"preload\":\"" + String(preload) + "\", \"preload_lut\":\"" + String(preloadlut) + "\", \"preload_type\":\"" + String(preloadtype) + "\"}";
     if (request->hasParam("contentmode", true)) {
         taginfo->contentMode = request->getParam("contentmode", true)->value().toInt();
