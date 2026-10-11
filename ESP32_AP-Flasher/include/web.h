@@ -4,6 +4,7 @@
 #include <ESPAsyncWebServer.h>
 
 void init_web();
+void handleRebootRequest();
 void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
 void doJsonUpload(AsyncWebServerRequest *request);
 void dotagDBUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);

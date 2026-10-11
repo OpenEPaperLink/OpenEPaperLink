@@ -197,6 +197,7 @@ void setup() {
 void loop() {
     ws.cleanupClients();
     wm.poll();
+    handleRebootRequest();
 
     if (intervalSysinfo.doRun()) {
         wsSendSysteminfo();

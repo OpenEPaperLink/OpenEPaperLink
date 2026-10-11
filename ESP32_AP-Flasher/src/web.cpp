@@ -36,6 +36,10 @@
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
+
+// set by /reboot, handled in the loop task
+static volatile bool rebootRequested = false;
+
 WifiManager wm;
 
 SemaphoreHandle_t wsMutex;
@@ -295,16 +299,9 @@ void init_web() {
     server.addHandler(&ws);
 
     server.on("/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
+        // the response is only sent once this handler returns: reboot from the loop task (handleRebootRequest)
         request->send(200, "text/plain", "OK Reboot");
-        logLine("Reboot request by user");
-        wsErr("REBOOTING");
-        delay(100);
-        ws.enable(false);
-        refreshAllPending();
-        saveDB("/current/tagDB.json");
-        ws.closeAll();
-        delay(100);
-        ESP.restart();
+        rebootRequested = true;
     });
 
     server.serveStatic("/current", *contentFS, "/current/").setCacheControl("max-age=604800");
@@ -959,6 +956,19 @@ struct ImageUpload {
     size_t len;
     bool overflow;
 };
+
+void handleRebootRequest() {
+    if (!rebootRequested) return;
+    logLine("Reboot request by user");
+    wsErr("REBOOTING");
+    delay(100);
+    ws.enable(false);
+    refreshAllPending();
+    saveDB("/current/tagDB.json");
+    ws.closeAll();
+    delay(100);
+    ESP.restart();
+}
 
 void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
     if (!index) {
