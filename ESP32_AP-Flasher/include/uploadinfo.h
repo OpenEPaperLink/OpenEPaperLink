@@ -1,11 +1,15 @@
 #pragma once
 
 #include <Arduino.h>
+#include <ESPAsyncWebServer.h>
 #include <FS.h>
 
 #include "storage.h"
+#include "system.h"
 
 #define UPLOAD_BUFFER_SIZE 32768
+// free space that has to remain after an upload, for the images made from it and other uploads at the same time
+#define UPLOAD_FREE_SPACE_MARGIN 262144
 
 /// @brief State of a buffered file upload, stored in AsyncWebServerRequest::_tempObject
 /// @note Allocated with malloc(), because the web server releases _tempObject with free() when a request is aborted
@@ -25,6 +29,47 @@ inline UploadInfo *newUploadInfo(const String &filename) {
     strlcpy(uploadInfo->filename, filename.c_str(), sizeof(uploadInfo->filename));
     uploadInfo->error = false;
     uploadInfo->bufferSize = 0;
+    return uploadInfo;
+}
+
+/// @brief Start a buffered upload to the given file: checks the free space, creates the file and stores the
+/// upload state in request->_tempObject. The handler sets _tempObject to nullptr when the upload is complete.
+/// @note LittleFS must never run full: littlefs 2.9.0 divides by zero in its "No more free space" error.
+/// A client that disconnects before the upload is complete leaves a partial file: it is removed then.
+/// @return nullptr after sending an error response
+inline UploadInfo *beginUpload(AsyncWebServerRequest *request, const String &filename) {
+    size_t existingSize = 0;  // overwriting a file frees its space
+    if (contentFS->exists(filename)) {
+        File file = contentFS->open(filename, "r");
+        existingSize = file.size();
+        file.close();
+    }
+    // Storage.freeSpace() walks the file system (seconds): reserve against its last result instead
+    const size_t needed = request->contentLength() > existingSize ? request->contentLength() - existingSize : 0;
+    if (!Storage.reserveSpace(needed, UPLOAD_FREE_SPACE_MARGIN)) {
+        logLineRateLimited("uploadspace", "Upload refused, not enough free space for " + filename, 600);
+        request->send(507, "text/plain", "Not enough free space");
+        return nullptr;
+    }
+
+    UploadInfo *uploadInfo = newUploadInfo(filename);
+    if (uploadInfo == nullptr) {
+        request->send(500, "text/plain", "Out of memory or path too long");
+        return nullptr;
+    }
+    xSemaphoreTake(fsMutex, portMAX_DELAY);
+    File file = contentFS->open(filename, "w");
+    file.close();
+    xSemaphoreGive(fsMutex);
+    request->_tempObject = (void *)uploadInfo;
+
+    request->onDisconnect([request]() {
+        const UploadInfo *uploadInfo = static_cast<const UploadInfo *>(request->_tempObject);
+        if (uploadInfo == nullptr) return;  // complete
+        xSemaphoreTake(fsMutex, portMAX_DELAY);
+        contentFS->remove(uploadInfo->filename);
+        xSemaphoreGive(fsMutex);
+    });
     return uploadInfo;
 }
 

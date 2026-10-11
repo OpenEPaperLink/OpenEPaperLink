@@ -148,16 +148,7 @@ void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_
         }
         const String uploadfilename = request->getParam("path", true)->value();
         Serial.println("update " + uploadfilename);
-        UploadInfo* uploadInfo = newUploadInfo(uploadfilename);
-        if (uploadInfo == nullptr) {
-            request->send(500, "text/plain", "Out of memory or path too long");
-            return;
-        }
-        xSemaphoreTake(fsMutex, portMAX_DELAY);
-        File file = contentFS->open(uploadfilename, "w");
-        file.close();
-        xSemaphoreGive(fsMutex);
-        request->_tempObject = (void*)uploadInfo;
+        if (beginUpload(request, uploadfilename) == nullptr) return;
     }
 
     UploadInfo* uploadInfo = static_cast<UploadInfo*>(request->_tempObject);

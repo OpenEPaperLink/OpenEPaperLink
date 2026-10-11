@@ -962,17 +962,7 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
 
         const String uploadfilename = "/temp/" + request->getParam("mac", true)->value() + "_" + String(millis()) + ".jpg";
         logLine("http imageUpload " + uploadfilename);
-
-        UploadInfo *uploadInfo = newUploadInfo(uploadfilename);
-        if (uploadInfo == nullptr) {
-            request->send(500, "text/plain", "Out of memory");
-            return;
-        }
-        xSemaphoreTake(fsMutex, portMAX_DELAY);
-        File file = contentFS->open(uploadfilename, "w");
-        file.close();
-        xSemaphoreGive(fsMutex);
-        request->_tempObject = (void *)uploadInfo;
+        if (beginUpload(request, uploadfilename) == nullptr) return;
     }
 
     UploadInfo *uploadInfo = static_cast<UploadInfo *>(request->_tempObject);

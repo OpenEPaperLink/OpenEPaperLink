@@ -88,15 +88,28 @@ static void initSDCard() {
 #endif
 #endif
 
+/// @note Walks the whole file system: takes about 2 s on a LittleFS of 7 MB
 uint64_t DynStorage::freeSpace(){
     // no begin(): only used once the file system is up. LittleFS.begin() frees and reallocates its
     // partition label on every call, a double free when two tasks ask for the free space at once.
 #ifdef HAS_SDCARD
-    return SDCARD.totalBytes() - SDCARD.usedBytes();
+    const uint64_t result = SDCARD.totalBytes() - SDCARD.usedBytes();
+#else
+    const uint64_t result = LittleFS.totalBytes() - LittleFS.usedBytes();
 #endif
-#ifndef SD_CARD_ONLY
-    return LittleFS.totalBytes() - LittleFS.usedBytes();
-#endif
+    std::lock_guard<std::mutex> lock(knownFreeMutex);
+    knownFree = result;
+    return result;
+}
+
+/// @brief Reserve space for a file that is about to be written, without walking the file system
+/// @return false if less than bytes + margin is free, by the last freeSpace() minus what was reserved since
+bool DynStorage::reserveSpace(uint64_t bytes, uint64_t margin){
+    std::lock_guard<std::mutex> lock(knownFreeMutex);
+    if (knownFree == UINT64_MAX) return true;  // not measured yet
+    if (knownFree < bytes + margin) return false;
+    knownFree -= bytes;
+    return true;
 }
 
 uint64_t DynStorage::totalSpace(){

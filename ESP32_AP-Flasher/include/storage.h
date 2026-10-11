@@ -3,6 +3,8 @@
 
 #include "FS.h"
 
+#include <mutex>
+
 #ifdef HAS_SDCARD
 #ifndef SD_CARD_SDMMC
 
@@ -33,9 +35,13 @@ class DynStorage {
     void listFiles();
     uint64_t freeSpace();
     uint64_t totalSpace();
+    bool reserveSpace(uint64_t bytes, uint64_t margin);
 
    private:
     bool isInited;
+    // last freeSpace() result minus what was reserved since then; UINT64_MAX until the first measurement
+    uint64_t knownFree = UINT64_MAX;
+    std::mutex knownFreeMutex;
 };
 
 extern SemaphoreHandle_t fsMutex;
