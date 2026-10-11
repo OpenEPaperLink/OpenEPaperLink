@@ -248,8 +248,10 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     }
 #endif
 
+    // an upload can replace the config while this runs: see the static image modes below
+    const String processedConfig = taginfo->modeConfigJson;
     JsonDocument doc;
-    deserializeJson(doc, taginfo->modeConfigJson);
+    deserializeJson(doc, processedConfig);
     JsonObject cfgobj = doc.as<JsonObject>();
     char buffer[64];
 
@@ -345,7 +347,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                     if (!resendCurrentImage(mac, taginfo, hexmac, imageParams.lut, cfgobj["timetolive"].as<int>())) {
                         wsErr("Not found: " + configFilename);
                     }
-                    taginfo->nextupdate = 3216153600;
+                    if (taginfo->modeConfigJson == processedConfig) taginfo->nextupdate = 3216153600;
                     break;
                 }
 
@@ -403,7 +405,8 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 // fixme: doesn't work yet
                 // prepareDataAvail(mac);
             }
-            taginfo->nextupdate = 3216153600;
+            // an image uploaded during the conversion has set nextupdate to 0: keep that, so it gets converted too
+            if (taginfo->modeConfigJson == processedConfig) taginfo->nextupdate = 3216153600;
         } break;
 
         case 1:  // Today
