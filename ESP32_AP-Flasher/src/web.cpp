@@ -19,13 +19,13 @@
 #include "language.h"
 #include "leds.h"
 #include "newproto.h"
+#include "pendingupload.h"
 #include "ota.h"
 #include "serialap.h"
 #include "settings.h"
 #include "storage.h"
 #include "system.h"
 #include "tag_db.h"
-#include "uploadinfo.h"
 #include "udp.h"
 #include "wifimanager.h"
 #include <sys/time.h>
@@ -949,51 +949,86 @@ void init_web() {
     server.begin();
 }
 
+/// @brief State of an /imgupload while it is received, in AsyncWebServerRequest::_tempObject
+/// @note Allocated with malloc(), because the web server releases _tempObject with free() when a request is aborted
+struct ImageUpload {
+    uint8_t mac[8];
+    char name[48];
+    uint8_t *data;  // PSRAM, see pendingupload.h
+    size_t size;
+    size_t len;
+    bool overflow;
+};
+
 void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
     if (!index) {
         if (config.runStatus != RUNSTATUS_RUN) {
             request->send(409, "text/plain", "Come back later");
             return;
         }
-        if (!request->hasParam("mac", true)) {
+        uint8_t mac[8];
+        if (!request->hasParam("mac", true) || !hex2mac(request->getParam("mac", true)->value(), mac)) {
             request->send(400, "text/plain", "parameters incomplete");
             return;
         }
+        const size_t size = request->contentLength();
+        if (size == 0) {
+            request->send(411, "text/plain", "Content-Length required");
+            return;
+        }
+        if (size > IMAGE_UPLOAD_MAX_SIZE) {
+            request->send(413, "text/plain", "Image too large");
+            return;
+        }
 
-        const String uploadfilename = "/temp/" + request->getParam("mac", true)->value() + "_" + String(millis()) + ".jpg";
-        logLine("http imageUpload " + uploadfilename);
-        if (beginUpload(request, uploadfilename) == nullptr) return;
+        const String name = "/temp/" + request->getParam("mac", true)->value() + "_" + String(millis()) + ".jpg";
+        logLine("http imageUpload " + name);
+
+        ImageUpload *upload = static_cast<ImageUpload *>(malloc(sizeof(ImageUpload)));
+        uint8_t *buffer = upload != nullptr ? allocUploadBuffer(size) : nullptr;
+        if (buffer == nullptr) {
+            free(upload);
+            AsyncWebServerResponse *response = request->beginResponse(409, "text/plain", "Busy, come back later");
+            response->addHeader("Retry-After", "5");
+            request->send(response);
+            return;
+        }
+        memcpy(upload->mac, mac, sizeof(mac));
+        strlcpy(upload->name, name.c_str(), sizeof(upload->name));
+        upload->data = buffer;
+        upload->size = size;
+        upload->len = 0;
+        upload->overflow = false;
+        request->_tempObject = upload;
+        request->onDisconnect([request]() {
+            // aborted before the end: the buffer isn't stored, so free it (the server frees _tempObject)
+            const ImageUpload *upload = static_cast<const ImageUpload *>(request->_tempObject);
+            if (upload != nullptr) freeUploadBuffer(upload->data, upload->size);
+        });
     }
 
-    UploadInfo *uploadInfo = static_cast<UploadInfo *>(request->_tempObject);
-    if (uploadInfo == nullptr) return;
+    ImageUpload *upload = static_cast<ImageUpload *>(request->_tempObject);
+    if (upload == nullptr) return;
 
-    if (len) appendUploadInfo(uploadInfo, data, len);
+    if (upload->len + len > upload->size) {
+        upload->overflow = true;
+    } else if (len) {
+        memcpy(upload->data + upload->len, data, len);
+        upload->len += len;
+    }
     if (!final) return;
 
-    flushUploadInfo(uploadInfo);
-    const String uploadfilename = uploadInfo->filename;
-    const bool error = uploadInfo->error;
     request->_tempObject = nullptr;
-    free(uploadInfo);
+    const ImageUpload received = *upload;
+    free(upload);
 
-    tagRecord *taginfo = nullptr;
-    uint8_t mac[8];
-    if (!error && hex2mac(request->getParam("mac", true)->value(), mac)) {
-        taginfo = tagRecord::findByMAC(mac);
-    }
+    tagRecord *taginfo = received.overflow ? nullptr : tagRecord::findByMAC(received.mac);
     if (taginfo == nullptr) {
-        xSemaphoreTake(fsMutex, portMAX_DELAY);
-        contentFS->remove(uploadfilename);
-        xSemaphoreGive(fsMutex);
-        if (error) {
-            logLine("Failed to write " + uploadfilename);
-            request->send(507, "text/plain", "Error writing file. Disk full?");
-        } else {
-            request->send(400, "text/plain", "mac not found");
-        }
+        freeUploadBuffer(received.data, received.size);
+        request->send(400, "text/plain", received.overflow ? "upload larger than its content length" : "mac not found");
         return;
     }
+    const String uploadfilename = received.name;
 
     uint8_t dither = 1;
     if (request->hasParam("dither", true)) {
@@ -1025,27 +1060,20 @@ void doImageUpload(AsyncWebServerRequest *request, String filename, size_t index
             preloadlut = request->getParam("preloadlut", true)->value().toInt();
         }
     }
-    // an earlier upload for this tag that the content runner hasn't converted yet is never used anymore
-    if (taginfo->contentMode == 24) {
-        JsonDocument oldConfig;
-        if (!deserializeJson(oldConfig, taginfo->modeConfigJson)) {
-            const String oldFilename = oldConfig["filename"] | "";
-            if (oldFilename.startsWith("/temp/") && oldFilename != uploadfilename) {
-                xSemaphoreTake(fsMutex, portMAX_DELAY);
-                contentFS->remove(oldFilename);
-                xSemaphoreGive(fsMutex);
-            }
+    {
+        // the stored image and the config that names it change together (see dropStalePendingUploads)
+        std::lock_guard<std::recursive_mutex> lock(pendingUploadMutex());
+        storePendingUpload(received.mac, uploadfilename, received.data, received.len, received.size);
+        taginfo->modeConfigJson = "{\"filename\":\"" + uploadfilename + "\",\"timetolive\":\"" + String(ttl) + "\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\", \"preload\":\"" + String(preload) + "\", \"preload_lut\":\"" + String(preloadlut) + "\", \"preload_type\":\"" + String(preloadtype) + "\"}";
+        if (request->hasParam("contentmode", true)) {
+            taginfo->contentMode = request->getParam("contentmode", true)->value().toInt();
+        } else {
+            taginfo->contentMode = 24;
         }
-    }
-    taginfo->modeConfigJson = "{\"filename\":\"" + uploadfilename + "\",\"timetolive\":\"" + String(ttl) + "\",\"dither\":\"" + String(dither) + "\",\"delete\":\"1\", \"preload\":\"" + String(preload) + "\", \"preload_lut\":\"" + String(preloadlut) + "\", \"preload_type\":\"" + String(preloadtype) + "\"}";
-    if (request->hasParam("contentmode", true)) {
-        taginfo->contentMode = request->getParam("contentmode", true)->value().toInt();
-    } else {
-        taginfo->contentMode = 24;
+        taginfo->nextupdate = 0;
     }
     Serial.println("upload finished " + uploadfilename);
-    taginfo->nextupdate = 0;
-    wsSendTaginfo(mac, SYNC_USERCFG);
+    wsSendTaginfo(received.mac, SYNC_USERCFG);
     request->send(200, "text/plain", "Ok, saved");
 }
 

@@ -44,3 +44,4 @@ struct imgParam {
 
 void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams);
 void jpg2buffer(String filein, String fileout, imgParam &imageParams);
+void jpg2buffer(const uint8_t *jpg, size_t len, String fileout, imgParam &imageParams);

@@ -11,6 +11,8 @@
 #include "tag_db.h"
 #include "util.h"
 
+#include <functional>
+
 #ifdef HAS_TFT
 #include "ips_display.h"
 #endif
@@ -29,15 +31,8 @@ bool spr_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) 
     return 1;
 }
 
-void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
-    TJpgDec.setSwapBytes(true);
-    TJpgDec.setJpgScale(1);
-    TJpgDec.setCallback(spr_output);
-    uint16_t w = 0, h = 0;
-    if (filein.c_str()[0] != '/') {
-        filein = "/" + filein;
-    }
-    TJpgDec.getFsJpgSize(&w, &h, filein, *contentFS);
+/// @brief Decode a jpg of w x h pixels with draw() into a sprite and convert that to fileout
+static void jpg2buffer(uint16_t w, uint16_t h, const std::function<void()> &draw, String &fileout, imgParam &imageParams) {
     if (w == 0 && h == 0) {
         wsErr("invalid jpg");
         return;
@@ -62,11 +57,34 @@ void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
         wsErr("Failed to create sprite in jpg2buffer");
     } else {
         spr.fillSprite(TFT_WHITE);
-        TJpgDec.drawFsJpg(0, 0, filein, *contentFS);
+        draw();
 
         spr2buffer(spr, fileout, imageParams);
         spr.deleteSprite();
     }
+}
+
+static void setupJpgDecoder() {
+    TJpgDec.setSwapBytes(true);
+    TJpgDec.setJpgScale(1);
+    TJpgDec.setCallback(spr_output);
+}
+
+void jpg2buffer(String filein, String fileout, imgParam &imageParams) {
+    setupJpgDecoder();
+    if (filein.c_str()[0] != '/') {
+        filein = "/" + filein;
+    }
+    uint16_t w = 0, h = 0;
+    TJpgDec.getFsJpgSize(&w, &h, filein, *contentFS);
+    jpg2buffer(w, h, [&filein]() { TJpgDec.drawFsJpg(0, 0, filein, *contentFS); }, fileout, imageParams);
+}
+
+void jpg2buffer(const uint8_t *jpg, size_t len, String fileout, imgParam &imageParams) {
+    setupJpgDecoder();
+    uint16_t w = 0, h = 0;
+    TJpgDec.getJpgSize(&w, &h, jpg, len);
+    jpg2buffer(w, h, [jpg, len]() { TJpgDec.drawJpg(0, 0, jpg, len); }, fileout, imageParams);
 }
 
 struct Error {

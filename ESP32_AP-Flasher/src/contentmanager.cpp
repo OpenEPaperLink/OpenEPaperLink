@@ -34,6 +34,7 @@
 #include "commstructs.h"
 #include "makeimage.h"
 #include "newproto.h"
+#include "pendingupload.h"
 #include "storage.h"
 #ifdef CONTENT_QR
 #include "QRCodeGenerator.h"
@@ -65,6 +66,7 @@ void contentRunner() {
 
     freeDeletedRecords();
     freeRetiredQueueItems();
+    dropStalePendingUploads();
     // Storage.freeSpace() walks the whole filesystem: only when a tag needs it, and once per run
     int8_t spaceLeftCache = -1;
     auto spaceLeft = [&spaceLeftCache]() {
@@ -342,7 +344,17 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                     configFilename = "/" + configFilename;
                 }
 
-                if (!contentFS->exists(configFilename)) {
+                // an image from /imgupload waits in PSRAM (pendingupload.h)
+                uint8_t *uploadData = nullptr;
+                size_t uploadLen = 0, uploadSize = 0;
+                const PendingUpload pending = takePendingUpload(mac, configFilename, uploadData, uploadLen, uploadSize);
+                if (pending == PendingUpload::Other) {
+                    // a newer upload is stored, its config is set right after: convert that one on the next run
+                    taginfo->nextupdate = 0;
+                    break;
+                }
+
+                if (pending == PendingUpload::None && !contentFS->exists(configFilename)) {
                     // the source image is gone: resend the image the tag got last
                     if (!resendCurrentImage(mac, taginfo, hexmac, imageParams.lut, cfgobj["timetolive"].as<int>())) {
                         wsErr("Not found: " + configFilename);
@@ -357,7 +369,12 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 imageParams.preloadlut = cfgobj["preload_lut"];
                 imageParams.preloadtype = cfgobj["preload_type"];
 
-                jpg2buffer(configFilename, filename, imageParams);
+                if (pending == PendingUpload::Taken) {
+                    jpg2buffer(uploadData, uploadLen, filename, imageParams);
+                    freeUploadBuffer(uploadData, uploadSize);
+                } else {
+                    jpg2buffer(configFilename, filename, imageParams);
+                }
 
                 if (imageParams.hasRed && imageParams.lut == EPD_LUT_NO_REPEATS && imageParams.shortlut == SHORTLUT_ONLY_BLACK) {
                     imageParams.lut = EPD_LUT_DEFAULT;
@@ -393,7 +410,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
                 }
 
                 if (prepareDataAvail(filename, imageParams.dataType, *((uint8_t *)&arg), mac, cfgobj["timetolive"].as<int>())) {
-                    if (cfgobj["delete"].as<String>() == "1") {
+                    if (pending == PendingUpload::None && cfgobj["delete"].as<String>() == "1") {
                         contentFS->remove("/" + configFilename);
                     }
                 } else {
