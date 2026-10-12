@@ -534,7 +534,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
             lastBlockRequest = getMillis();
         } else {
             // we're talking to another mac, let this mac know we can't accomodate another request right now
-            pr("BUSY!\n\r");
+            ESP_LOGI(TAG, "busy with another tag, cancel");
             sendCancelXfer(rxHeader->src, rxHeader->pan);
             return;
         }
@@ -559,9 +559,9 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
         if (forceBlockDownload) {
             if ((getMillis() - nextBlockAttempt) > 380) {
                 requestDataDownload = true;
-                pr("FORCED\n\r");
+                ESP_LOGI(TAG, "block download forced");
             } else {
-                pr("IGNORED\n\r");
+                ESP_LOGI(TAG, "forced download ignored");
             }
         }
     }
@@ -711,20 +711,9 @@ void sendPart(uint8_t partNo) {
 }
 void sendBlockData() {
     if (getBlockDataLength() == 0) {
-        pr("Invalid block request received, 0 parts..\n\r");
+        ESP_LOGW(TAG, "Invalid block request received, 0 parts");
         requestedData.requestedParts[0] |= 0x01;
     }
-
-    pr("Sending parts:");
-    for (uint8_t c = 0; (c < BLOCK_MAX_PARTS); c++) {
-        if (c % 10 == 0) pr(" ");
-        if (requestedData.requestedParts[c / 8] & (1 << (c % 8))) {
-            pr("X");
-        } else {
-            pr(".");
-        }
-    }
-    pr("\n\r");
 
     // Each requested part once, then repeated until twice the number of requested parts (at most 42
     // frames). Every burst used to be filled up to 42 frames: for a partial request of one part that
