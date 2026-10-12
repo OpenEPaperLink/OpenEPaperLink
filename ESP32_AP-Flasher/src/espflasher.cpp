@@ -199,7 +199,9 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
         }
         file.close();
 
-        if(!stream->connected()) {
+        // A server may close the connection right after the last byte (HTTP/1.0 style), so judge
+        // by the number of bytes, not by whether the connection is still open.
+        if(totalBytesRead < (size_t)contentLength) {
            wsSerial("Connection dropped during transfer");
            break;
         }
