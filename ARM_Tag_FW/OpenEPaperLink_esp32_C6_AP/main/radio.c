@@ -116,10 +116,6 @@ bool radioTx(uint8_t *packet) {
     static uint8_t txPKT[130];
 #endif
     led_flash(1);
-	// while (getMillis() - lastZbTx < 6) {
-	// }
-	// lastZbTx = getMillis();
-	memcpy(txPKT, packet, packet[0]);
 #ifdef CONFIG_OEPL_SUBGIG_SUPPORT
 	struct MacFrameNormal  *txHeader = (struct MacFrameNormal *) (packet + 1);
 
@@ -129,6 +125,10 @@ bool radioTx(uint8_t *packet) {
 #endif
 	while (isInTransmit) {
 	}
+	// Only now: the radio reads txPKT while it sends the previous frame. Copying before the wait
+	// put the next frame's content into the one still on the air, so a full block never carried
+	// part 0 and sent the last part twice.
+	memcpy(txPKT, packet, packet[0]);
 	isInTransmit = 1;
 	esp_ieee802154_transmit(txPKT, false);
 	return true;
