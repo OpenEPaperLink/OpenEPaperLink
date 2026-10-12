@@ -67,6 +67,7 @@ def main():
     lines = 0
     start = time.time()
     next_summary = start + args.summary_every * 60
+    next_flush = start + 5
     buf = b""
     log = open(args.out + ".log", "a", encoding="utf-8", errors="replace")
 
@@ -114,6 +115,9 @@ def main():
                         counts[key] += 1
                         first_seen.setdefault(key, stamp)
                         last_seen[key] = stamp
+            if time.time() >= next_flush:  # so the log can be read while it runs
+                next_flush = time.time() + 5
+                log.flush()
             if time.time() >= next_summary:
                 next_summary += args.summary_every * 60
                 log.flush()

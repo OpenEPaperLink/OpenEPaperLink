@@ -26,14 +26,14 @@ Done when: baseline numbers for M1–M4 are recorded under Results. M2 and M4 do
 
 Fixes in the existing serial protocol. They stay necessary for TLSR, ZBS AP and old C6/H2 (migration step 1). Plus the UDP version number, so multi-AP structs can change safely later. Independent of the measurements.
 
-- [~] #5 SCP size from `apInfo.type` instead of `HAS_SUBGHZ` (P3) — `81b90b4e`: 4 bytes for C6/H2 ≥ 0x0019, 3 for all others; radio info is now asked before the first SCP
-- [~] #6 Limit TRD length and add a timeout to the S3 parser (S1, S3) — `52150c6a`
-- [~] #8 `VER>` buffer with terminating NUL (S2) — `d168ce0f`
-- [~] #23 Do not retry `NOQ>` in `sendDataAvail` (S5) — `405bc9b5`
-- [~] #25 Enlarge the `Serial1` RX buffer (T2) — `14d22365`: 4 KB. Event-driven reading dropped: 1 ms polling with ≈ 20 ms of buffer is enough
+- [x] #5 SCP size from `apInfo.type` instead of `HAS_SUBGHZ` (P3) — `81b90b4e`, `a5a495bd`: 4 bytes for C6/H2 ≥ 0x0019, 3 for all others; radio info is asked before the first SCP, also in the RES> handler. Tested on the Yellow AP (C6); not on a board without `HAS_SUBGHZ` or with a TLSR (none here)
+- [x] #6 Limit TRD length and add a timeout to the S3 parser (S1, S3) — `52150c6a`; runs on the Yellow AP, the error paths were not triggered
+- [x] #8 `VER>` buffer with terminating NUL (S2) — `d168ce0f`; version 0x001F read correctly on the Yellow AP
+- [x] #23 Do not retry `NOQ>` in `sendDataAvail` (S5) — `405bc9b5`; NOQ> not triggered in the test
+- [x] #25 Enlarge the `Serial1` RX buffer (T2) — `14d22365`: 4 KB. Event-driven reading dropped: 1 ms polling with ≈ 20 ms of buffer is enough
 - [~] #31 Version number for the UDP protocol between APs (`adf89611`: `UDP_PROTO_VERSION` 1 as an extra byte in the AP list, peers recorded, `minPeerVersion()`). Must stay compatible with S3s that don't know it: in `udp.cpp` they ignore unknown packet types and cut longer payloads to the struct size. So: announce the version (new packet type, or an extra field in the AP list), keep sending the current packets unchanged, and only use changed structs towards peers that announced a newer version
 
-Status: all six committed locally (not pushed); all 15 S3 envs build (2026-10-12); to be flashed (OTA) and tested on the Yellow AP right after the M3 stage A run (ends ≈ 19:50 on 2026-10-12), followed by a baseline rerun; then push. Done when: all S3 envs build; tested on the Yellow AP (S3 + C6), on a board without `HAS_SUBGHZ` for #5, and #31 in a multi-AP setup with one AP on the old firmware.
+Status 2026-10-12: flashed as `a5a495bd` on the Yellow AP; boots cleanly, radio online at 2 Mbaud, baseline rerun shows no regression ([results](radio-chain-results.md)). #31 still to be tested with a second AP. Done when: all S3 envs build; tested on the Yellow AP (S3 + C6), on a board without `HAS_SUBGHZ` for #5, and #31 in a multi-AP setup with one AP on the old firmware.
 
 ## Phase 2 – C6/H2 rework on the current protocol (interim release)
 

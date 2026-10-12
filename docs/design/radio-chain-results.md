@@ -107,3 +107,16 @@ In one hour with 55 image uploads (8 tags), 6 % of the block hand-overs from the
 - **C5 hits all tag types**, not only the ZBS243.
 - **Concurrency is not the main cost** at this load: 1.7 % airtime, 6 cancels, 2 retried check-ins during bursts. Most check-in retries come from the C6 answering ≈ 9 ms late after an idle period (`vTaskDelay(10)` after an empty queue wait: E1).
 - All 8 tag configs were restored exactly (checked against the saved copies).
+
+## Phase 1 check, 2026-10-12 (S3 `a5a495bd`)
+
+The S3 fixes of phase 1 (#5, #6, #8, #23, #25, #31) change nothing in the radio timing, as expected; the baseline rerun gives the same per-block numbers. On boot the radio info now comes before the SCP and the SCP is accepted on the first try.
+
+| Per block request | Baseline (`2.91-dev`, spill) | Phase 1 (`a5a495bd`) |
+| --- | --- | --- |
+| Burst start after promised time | +71 ms (max +78) | +67 ms (max +83) |
+| Wasted listening before data | 86 ms, 2.35 mC | 83 ms, 2.28 mC |
+| Tag charge per request | 6.3 mC | 5.5 mC |
+| Requests per 3-block transfer | 5–6 | 5–7 |
+
+Same setup and command as the baseline. Only 3 of the 5 uploads became transfers: the tag checked in about every 130 s this time (≈ 40 s in the baseline), so with uploads 100 s apart the AP replaced images before the tag had fetched them. For future runs, set `--interval` above the tag's check-in interval. The first OTA attempt failed after 0.1 s ("Error writing firmware data", download started); the second one worked; cause unknown.
