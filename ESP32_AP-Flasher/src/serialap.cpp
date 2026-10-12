@@ -460,6 +460,12 @@ void rxCmdProcessor(void* parameter) {
                     case RX_CMD_RSET:
                         Serial.println("AP did reset, resending pending\r\n");
                         refreshAllPending();
+                        if (apInfo.version == 0) {
+                            // right after the S3 started, the radio's type is not known yet, and the SCP
+                            // payload size depends on it (see sendChannelPower)
+                            sendGetInfo();
+                            vTaskDelay(200 / portTICK_PERIOD_MS);
+                        }
                         sendChannelPower(&curChannel);
                         break;
                     case RX_CMD_TRD:
