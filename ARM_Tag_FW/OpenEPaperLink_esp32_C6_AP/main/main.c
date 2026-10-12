@@ -84,6 +84,13 @@ uint8_t  dstMac[8];                                       // target for the bloc
 uint16_t dstPan;                                          //
 
 static uint32_t blockStartTimer  = 0;                     // reference that holds when the AP sends the next block
+static bool     blockReady       = false;                 // blockbuffer holds the complete, checked block of requestedData
+// Start a burst this long after the pleaseWaitMs the tag was given: the nRF52811 tag only starts its
+// radio after pleaseWaitMs (the ZBS243 and TLSR tags listen before it).
+#define BURST_MARGIN_MS     5
+// If the block data from the S3 is not complete at that time, wait at most this long for it; after
+// that send nothing (the tag asks again) rather than whatever is in the buffer.
+#define BLOCK_DATA_SLACK_MS 100
 uint32_t        nextBlockAttempt = 0;                     // reference time for when the AP can request a new block from the ESP32
 uint8_t         seq              = 0;                     // holds current sequence number for transmission
 uint8_t         blockbuffer[BLOCK_XFER_BUFFER_SIZE + 5];  // block transfer buffer
@@ -304,6 +311,14 @@ void     processSerial(uint8_t lastchar) {
             if (blockPosition >= 4100) {
                 ESP_LOGI(TAG, "Blockdata fully received in %lu ms, %lu ms after the request", getMillis() - blockStartTime, getMillis() - nextBlockAttempt);
                 RXState = ZBS_RX_WAIT_HEADER;
+                // blockData header: size u16, checksum u16 (sum of the data bytes), then the data
+                struct blockData *bd = (struct blockData *) blockbuffer;
+                uint16_t sum = 0;
+                if (bd->size <= BLOCK_DATA_SIZE) {
+                    for (uint16_t c = 0; c < bd->size; c++) sum += bd->data[c];
+                }
+                blockReady = (bd->size <= BLOCK_DATA_SIZE) && (sum == bd->checksum);
+                if (!blockReady) ESP_LOGW(TAG, "block data from the S3 failed its checksum");
             }
             break;
 
@@ -516,6 +531,9 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     if ((blockReq->blockId != requestedData.blockId) || (blockReq->ver != requestedData.ver)) {
         // requested block isn't already in the buffer
         requestDataDownload = true;
+    } else if (!blockReady && (getMillis() - nextBlockAttempt) > 300) {
+        // the earlier download of this block failed or never completed
+        requestDataDownload = true;
     } else {
         // requested block is already in the buffer
         if (forceBlockDownload) {
@@ -550,7 +568,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     } else {
         blockRequestAck->pleaseWaitMs = 30;
     }
-    blockStartTimer = getMillis() + blockRequestAck->pleaseWaitMs;
+    blockStartTimer = getMillis() + blockRequestAck->pleaseWaitMs + BURST_MARGIN_MS;
 
     memcpy(txHeader->src, mSelfMac, 8);
     memcpy(txHeader->dst, rxHeader->src, 8);
@@ -572,6 +590,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
 
     if (requestDataDownload) {
         blockPosition = 0;
+        blockReady = false;
         espBlockRequest(&requestedData, rxHeader->src);
         nextBlockAttempt = getMillis();
     }
@@ -855,9 +874,15 @@ void app_main(void) {
             while (getRxCharSecond(&curr_char)) processSerial(curr_char);
 
             if (blockStartTimer) {
-                if (getMillis() > blockStartTimer) {
-                    sendBlockData();
-                    blockStartTimer = 0;
+                int32_t late = (int32_t)(getMillis() - blockStartTimer);
+                if (late >= 0) {
+                    if (blockReady) {
+                        sendBlockData();
+                        blockStartTimer = 0;
+                    } else if (late > BLOCK_DATA_SLACK_MS) {
+                        ESP_LOGW(TAG, "block data not complete in time, no burst");
+                        blockStartTimer = 0;
+                    }
                 }
             }
 
@@ -869,6 +894,7 @@ void app_main(void) {
                 uint32_t waitMs = 100;
                 if (blockStartTimer) {
                     int32_t left = (int32_t)(blockStartTimer - getMillis()) + 1;
+                    if (left <= 0) left = (int32_t)(blockStartTimer + BLOCK_DATA_SLACK_MS - getMillis()) + 1;  // waiting for data
                     waitMs = left > 0 ? (uint32_t)left : 0;
                     if (waitMs > 100) waitMs = 100;
                 }
