@@ -39,14 +39,13 @@ Status 2026-10-12: flashed as `a5a495bd` on the Yellow AP; boots cleanly, radio 
 
 The C6/H2 firmware is restructured and fixed while it still speaks the old serial protocol, and released as an interim release. Works with every S3 version. The rework gets field-tested before the new protocol is added in phase 4, and the biggest timing gain (E1) reaches users early. Measure with M1/M2 before and after.
 
-- [ ] #13 Event-driven structure of the C6 firmware (R1)
-- [ ] #3 Move the `memcpy` in `radioTx` after the wait loop (C5). Confirmed by the baseline: part 0 of every full block is never sent, so each block needs a partial re-request; biggest single gain in this phase
-- [ ] #7 Logging to WARN and out of the ISRs (E2, R7)
-- [ ] #10 Use the PAN of the incoming frame for cancel and XFC ack (C4)
-- [ ] #11 Actually call `esp_ieee802154_set_txpower` (C6)
-- [ ] #12 Drop stale packets from the RX queue (E5, R6)
-- [ ] #19 `radioSetChannel` without full re-initialisation and LED delay (E6)
-- [ ] Build in DIO flash mode for ISSI flash (upstream issue #596; also in the local `TASKS.md`): `CONFIG_ESPTOOLPY_FLASHMODE_DIO=y` in `sdkconfig.defaults`
+- [~] #13 Event-driven structure of the C6 firmware (R1) — `3688c43d` (main loop woken by radio, serial and timer; 1 ms ticks), `e652c295` (burst starts 5 ms after `pleaseWaitMs`, only with a complete, checksum-checked block). Measured: 3 block requests per 3-block image (was 5–6), burst +7 ms (was +71), tag charge per transfer −35 % ([results](radio-chain-results.md))
+- [x] #3 Move the `memcpy` in `radioTx` after the wait loop (C5) — `52a65b66`; on air all 42 parts of a full block now arrive (was 41 + a duplicate). Confirmed by the baseline: part 0 of every full block is never sent, so each block needs a partial re-request; biggest single gain in this phase
+- [~] #7 Logging to WARN and out of the ISRs (E2, R7) — `45cd3173`
+- [~] #10 Use the PAN of the incoming frame for cancel and XFC ack (C4) — `ea6e6fe0`; sub-GHz not testable here
+- [~] #12 Drop stale packets from the RX queue (E5, R6) — `85f56e13`: requests older than 5 ms (7 ms for block requests) are skipped and counted
+- [~] #19 `radioSetChannel` without full re-initialisation and LED delay (E6) — `35d2f98f`; needs a channel change to test
+- [~] Build in DIO flash mode for ISSI flash (upstream issue #596; also in the local `TASKS.md`) — `00e9228f`; runs on the Yellow AP, not tested on an ISSI module
 
 Done when: C6 firmware version bumped and released; M1/M2 meet the response-time requirements of the timing budget and show no regression against the baseline.
 
@@ -91,6 +90,7 @@ Can be done at any time; not tied to a phase.
 
 ## Dropped
 
+- [-] #11 Actually call `esp_ieee802154_set_txpower` (C6) — there is no power setting: the S3 always sends 10, the C6 transmits at the driver default of 20 dBm (maximum); applying the 10 would only reduce range
 - [-] T4 Baud rate to 4–5 Mbaud — 2 Mbaud only: some APs are hand-wired with wires of unknown length (Nic, 2026-10-12)
 - [-] #4 Validity flag and checksum check for the block buffer (C1) — replaced by the block cache with confirmation after the checksum check (#15, #30)
 - [-] #9 Do not pass channel 0 to the 802.15.4 radio (C3) — replaced by fixed SCP fields in the new protocol (#30)

@@ -120,3 +120,25 @@ The S3 fixes of phase 1 (#5, #6, #8, #23, #25, #31) change nothing in the radio 
 | Requests per 3-block transfer | 5–6 | 5–7 |
 
 Same setup and command as the baseline. Only 3 of the 5 uploads became transfers: the tag checked in about every 130 s this time (≈ 40 s in the baseline), so with uploads 100 s apart the AP replaced images before the tag had fetched them. For future runs, set `--interval` above the tag's check-in interval. The first OTA attempt failed after 0.1 s ("Error writing firmware data", download started); the second one worked; cause unknown.
+
+## Phase 2, first steps, 2026-10-12 (C6 builds, ESP-IDF 5.5.1)
+
+With C5 fixed and the main loop woken on time, a 3-block image needs 3 block requests instead of 5–6, the burst starts 7 ms after the promised time instead of 71 ms, and the tag's charge per transfer drops by a third.
+
+Same setup as the baseline (2.9" ZBS243 on the PPK2, 3-block noise images, 4 transfers 160 s apart, S3 `a5a495bd`). Each C6 build flashed through the S3's C6 updater.
+
+| Per transfer / per block | Release 0x001F | Same source, local build | 0x0020: C5 + no ISR logging + DIO | + event loop (`3688c43d`, `e652c295`) |
+| --- | --- | --- | --- | --- |
+| Block requests per 3-block transfer | 5–6 | 5 | 5–6 | **3** |
+| Burst start after promised time | +71 ms | +69 ms | +58 ms | **+7 ms** (5 ms margin by design) |
+| Tag radio on before the data (wasted) | 86 ms, 2.35 mC | 84 ms, 2.30 mC | 77 ms, 2.14 mC | **13 ms, 0.20 mC** |
+| Parts on air in a full block | 41 + duplicate | 41 + duplicate | 42 | 42 |
+| Check-in → XFC | 4.1 s | 4.0 s | 3.6–4.6 s | **3.53 s** |
+| Tag charge to XFC | 50.7 mC | 46.5 mC | 46.6 mC | **33.0 mC (−35 %)** |
+| Including the display refresh | 70.4 mC | 66.4 mC | 66.3 mC | **52.7 mC (−25 %)** |
+| XFC → ACK, max | 10.5 ms | 10.8 ms | 9.1 ms | **1.1 ms** |
+| Check-in without new data | 177 µC, reply 2.4 ms | 167 µC, 2.3 ms | 165 µC, 2.2 ms | 164 µC, 2.2 ms |
+
+- The local build of the unchanged source behaves like the release, so the differences come from the changes, not from the toolchain.
+- 0x0020 alone (C5 fixed) did not help yet: the burst still started ≈ 60–70 ms late, before the S3's block data had fully arrived, so the tag got a block with a wrong checksum and asked for all of it again. The event loop takes the block in within milliseconds and starts the burst only with a complete, checked block.
+- Remaining waste: the last, short block (13 parts) is still padded to 42 frames, 27 of them after the tag has its data (R5, task #20).

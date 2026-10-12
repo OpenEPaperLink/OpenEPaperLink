@@ -101,7 +101,7 @@ The biggest brake is the polling main loop: it can lag ≈ 110 ms behind, while 
 | C3 | `main.c:364` → `:372` | With `channel == 0` the code jumps to `SCPchannelFound` and still calls `radioSetChannel(0)` | 802.15.4 on an invalid channel with auto channel + sub-GHz change | Confirmed in code |
 | C4 | `main.c:670/717/732` | Cancel and XFC ack use the global `dstPan` of the previous transfer | Reply via the wrong radio (CC1101); PAN 0 after boot | Confirmed in code |
 | C5 | `radio.c:122–133` | `memcpy` to `txPKT` before waiting for `isInTransmit`; the driver uses that buffer through DMA | Each frame on air carries the next frame's content: in a full block part 0 is never sent and the last part twice, so every full block needs a partial re-request | Confirmed by measurement ([results](radio-chain-results.md)) |
-| C6 | `radio.c:141` | `radioSetTxPower()` is empty | TX power from the web UI is ignored | Confirmed in code |
+| C6 | `radio.c:141` | `radioSetTxPower()` is empty | The S3 always sends the fixed value 10 (there is no power setting in the web UI); the C6 keeps the driver default of 20 dBm, the maximum. Applying the 10 would cut the range, so nothing to fix (corrected 2026-10-12) | Confirmed in code |
 | C7 | `radio.c:39` | `xHigherPriorityTaskWoken` not initialised | Unnecessary context switches | Confirmed in code |
 | C8 | `main.c` | `RSET` does nothing (TODO); channel 27 in `channelList`; `getMillis() > blockStartTimer` fails after 49.7 days | Various edge cases | Confirmed in code |
 | C9 | separate repo `AP_Radio_FW_ESP32` | Slot functions return `int8_t` with 250 slots | Memory corruption with > 128 tags; already fixed in this repo | Confirmed in code |
