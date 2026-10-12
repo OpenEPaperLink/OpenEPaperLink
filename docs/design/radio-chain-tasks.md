@@ -87,7 +87,7 @@ Can be done at any time; not tied to a phase.
 - [ ] #22 TLSR tag: stop receiving when the block is complete (G5)
 - [ ] #27 Flash the C6 at a higher baud rate (T5)
 - [ ] #24 Archive or synchronise the separate repo `AP_Radio_FW_ESP32` (C9)
-- [ ] #32 S3 ↔ radio wiring self-test (nice to have): when the radio does not come online (or from a button in the web UI), the S3 checks each line and reports what fails, e.g. "TX and RX swapped" or "no signal on GPIO n". S3-side only; uses what the C6 already does (ROM boot text on UART0 after a reset, `RES>`/`RDY>` on the protocol UART, `ACK>` to `RDY?`). Sketch in the chat of 2026-10-12; to be written down before building
+- [ ] #32 S3 ↔ radio wiring self-test (nice to have): when the radio does not come online (or from a button in the web UI), the S3 checks each line and reports what fails, e.g. "TX and RX swapped" or "no signal on GPIO n". S3-side only; uses what the C6 already does (ROM boot text on UART0 after a reset, `RES>`/`RDY>` on the protocol UART, `ACK>` to `RDY?`). Design: [radio-selftest.md](radio-selftest.md); testable on a correctly wired AP by simulating faults with swapped or unused pin numbers
 
 ## Dropped
 
