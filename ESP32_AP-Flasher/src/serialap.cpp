@@ -879,6 +879,10 @@ bool bringAPOnline(uint8_t newState) {
         digitalWrite(45, LOW);
 #endif
 
+        // The default 256-byte buffer holds only 1.3 ms of data at 2 Mbaud, while rxSerialTask
+        // polls every millisecond and runs below the WiFi tasks. 4 KB gives about 20 ms.
+        // Has to be set before begin(); a port that is already open keeps its buffer.
+        AP_SERIAL_PORT.setRxBufferSize(4096);
 #if (AP_PROCESS_PORT == FLASHER_AP_PORT)
         AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
 #elif defined(HAS_EXT_FLASHER)
