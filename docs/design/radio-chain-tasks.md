@@ -17,7 +17,7 @@ Measure how often the tag windows are missed today, before changing behaviour. T
 
 - [ ] **M1 – response times in the C6** (#1). `esp_timer` timestamps in a RAM ring buffer, read out afterwards via a command. Yields: RX → TX per packet type, queue wait time, burst start vs `pleaseWaitMs`, duration of serial handling. Behaviour-neutral C6 build.
 - [x] **M2 – timing and loss on air** (#2). Sniffer `miscellaneous/radio-sniffer/` — `0594eb1b`; baseline 2026-10-12 in [radio-chain-results.md](radio-chain-results.md). Any ESP32-C6 devboard on USB as sniffer: small ESP-IDF (v5.5.1) firmware in promiscuous mode on the AP's channel, sends every frame with its SFD timestamp (µs), RSSI and LQI over serial; a Python script on the PC decodes the OEPL packet types, computes response times and gaps, and writes a pcap for Wireshark. Tags: ZBS243 and nRF52811 (available); no TLSR8258 tag available, so TLSR windows stay code-derived. Yields: missed windows, repeated requests, packet loss per burst.
-- [ ] **M3 – UART integrity.** Stage A (no firmware change) planned for the night of 2026-10-12: overnight log of the Yellow AP's USB console (COM7) with `miscellaneous/ap-console-log/`, counting the error messages the S3 and the echoed radio debug UART already print. Stage B (counters in S3 and C6 firmware) waits for permission to flash test builds. M1 also waits; proposal: make its trace buffer the first step of phase 2. Counters for checksum errors and timeouts on both sides. Yields: how often P1/P5 occur in practice.
+- [~] **M3 – UART integrity.** Stage A done 2026-10-12 (1.1 h with generated traffic, console on COM12): 6 % of block hand-overs failed, all through the C6 being busy or slow (P2/P4, E1); no checksum errors. Results in [radio-chain-results.md](radio-chain-results.md). Stage B (counters in S3 and C6 firmware) still waits; M1 too, proposal: make its trace buffer the first step of phase 2.
 - [x] **M4 – baseline tag consumption.** Capture script `miscellaneous/ppk2-measure/` — `506a79a2`, baseline runner `miscellaneous/radio-baseline/`; baseline 2026-10-12 in [radio-chain-results.md](radio-chain-results.md). Nordic PPK2 in source-meter mode powers one ZBS243 tag (battery removed, ≈ 3.0 V), 100 kS/s, controlled from Python (`ppk2-api` 0.9.2). Sync with M2: the sniffer devboard toggles a GPIO on every frame to or from the tag, wired to PPK2 logic input D0, so current and radio frames share one timeline. Yields: sleep current, charge per check-in, per block and per complete image transfer, radio-on time per step (check-in, `pleaseWaitMs`, block data), display refresh shown separately. ZBS243 chosen because its `pleaseWaitMs` handling (busy-wait with radio on below 35 ms, sleep above) makes the effect of R3 impossible to predict from code; also the most common tag. Reference for R3/R5.
 
 Done when: baseline numbers for M1–M4 are recorded under Results. M2 and M4 done; M1 (inside the C6) and M3 (UART) still open.
@@ -33,7 +33,7 @@ Fixes in the existing serial protocol. They stay necessary for TLSR, ZBS AP and 
 - [~] #25 Enlarge the `Serial1` RX buffer (T2) — `14d22365`: 4 KB. Event-driven reading dropped: 1 ms polling with ≈ 20 ms of buffer is enough
 - [~] #31 Version number for the UDP protocol between APs (`adf89611`: `UDP_PROTO_VERSION` 1 as an extra byte in the AP list, peers recorded, `minPeerVersion()`). Must stay compatible with S3s that don't know it: in `udp.cpp` they ignore unknown packet types and cut longer payloads to the struct size. So: announce the version (new packet type, or an extra field in the AP list), keep sending the current packets unchanged, and only use changed structs towards peers that announced a newer version
 
-Status: all six committed locally (not pushed); all 15 S3 envs build (2026-10-12); to be flashed and tested on the Yellow AP after the overnight M3 stage A log. Done when: all S3 envs build; tested on the Yellow AP (S3 + C6), on a board without `HAS_SUBGHZ` for #5, and #31 in a multi-AP setup with one AP on the old firmware.
+Status: all six committed locally (not pushed); all 15 S3 envs build (2026-10-12); to be flashed (OTA) and tested on the Yellow AP right after the M3 stage A run (ends ≈ 19:50 on 2026-10-12), followed by a baseline rerun; then push. Done when: all S3 envs build; tested on the Yellow AP (S3 + C6), on a board without `HAS_SUBGHZ` for #5, and #31 in a multi-AP setup with one AP on the old firmware.
 
 ## Phase 2 – C6/H2 rework on the current protocol (interim release)
 
@@ -104,7 +104,7 @@ New findings that are not yet in a phase.
 ## Results
 
 - Final results (baselines and before/after comparisons) go into [radio-chain-results.md](radio-chain-results.md), committed.
-- Intermediate results stay local in `measurements/` at the repo root (excluded via `.git/info/exclude`, not committed). Latest: `baseline-2026-10-12/` (the baseline run, raw data).
+- Intermediate results stay local in `measurements/` at the repo root (excluded via `.git/info/exclude`, not committed). Latest: `run-2026-10-12/` (M3 stage A + concurrent transfers, raw data).
 - Measurement tools are committed under `miscellaneous/`; each has a README with setup, usage, how to read the output and pitfalls.
 
 ## Tools
@@ -113,4 +113,5 @@ New findings that are not yet in a phase.
 | --- | --- | --- |
 | `miscellaneous/radio-sniffer/` | M2: on-air reply times, requests per exchange, block bursts, pcap; GPIO sync output for M4 | [README](../../miscellaneous/radio-sniffer/README.md) |
 | `miscellaneous/ppk2-measure/` | M4: tag current with a PPK2 (100 kS/s), active episodes with charge and radio frames (D0) | [README](../../miscellaneous/ppk2-measure/README.md) |
-| `miscellaneous/radio-baseline/` | Repeatable baseline (M2 + M4): scripted image transfers to one tag, analysis of boot, check-ins, XFC, blocks and transfers. Rerun after each change and compare | [README](../../miscellaneous/radio-baseline/README.md) |
+| `miscellaneous/radio-baseline/` | Repeatable baseline (M2 + M4): scripted image transfers to one tag, analysis of boot, check-ins, XFC, blocks and transfers. Rerun after each change and compare. `night_traffic.py`: longer runs with traffic on several tags | [README](../../miscellaneous/radio-baseline/README.md) |
+| `miscellaneous/ap-console-log/` | M3 stage A: long log of the AP's USB console, counting serial-protocol errors | [README](../../miscellaneous/ap-console-log/README.md) |
