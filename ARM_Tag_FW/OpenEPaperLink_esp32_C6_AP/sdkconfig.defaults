@@ -10,3 +10,5 @@ CONFIG_OEPL_SUBGIG_SUPPORT=y
 CONFIG_IEEE802154_RX_BUFFER_SIZE=100
 # Info logging goes to the 115200 baud console and blocks while the UART is busy (timing finding E2)
 CONFIG_LOG_DEFAULT_LEVEL_WARN=y
+# 1 ms ticks: the main loop's waits are a few ms (default 100 Hz gives 10 ms steps)
+CONFIG_FREERTOS_HZ=1000

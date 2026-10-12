@@ -34,13 +34,15 @@ static const char *TAG = "RADIO";
 uint8_t mSelfMac[8];
 volatile uint8_t isInTransmit = 0;
 QueueHandle_t packet_buffer = NULL;
+TaskHandle_t radioWakeTask = NULL;  // main loop task; woken by radio frames and serial data
 // No logging per frame in these callbacks: they run in the radio interrupt, and an early log
 // waits for the 115200 baud console, long enough to miss the tags' reply windows (2-6 ms).
 void esp_ieee802154_receive_done(uint8_t *frame, esp_ieee802154_frame_info_t *frame_info) {
-    BaseType_t xHigherPriorityTaskWoken;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     static uint8_t inner_rxPKT[130];
     memcpy(inner_rxPKT, &frame[0], frame[0] + 1);
     xQueueSendFromISR(packet_buffer, (void *)&inner_rxPKT, &xHigherPriorityTaskWoken);
+    if (radioWakeTask) vTaskNotifyGiveFromISR(radioWakeTask, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR_ARG(xHigherPriorityTaskWoken);
     if(esp_ieee802154_receive_handle_done(frame)) {
         ESP_EARLY_LOGI(TAG, "esp_ieee802154_receive_handle_done() failed");
@@ -142,7 +144,8 @@ void radioSetTxPower(uint8_t power) {}
 
 int8_t commsRxUnencrypted(uint8_t *data) {
     static uint8_t inner_rxPKT_out[130];
-    if (xQueueReceive(packet_buffer, (void *)&inner_rxPKT_out, pdMS_TO_TICKS(100)) == pdTRUE) {
+    // Don't block here: the main loop sleeps in ulTaskNotifyTake() and is woken by frames and serial data
+    if (xQueueReceive(packet_buffer, (void *)&inner_rxPKT_out, 0) == pdTRUE) {
         memcpy(data, &inner_rxPKT_out[1], inner_rxPKT_out[0] + 1);
         return inner_rxPKT_out[0] - 2;
     }

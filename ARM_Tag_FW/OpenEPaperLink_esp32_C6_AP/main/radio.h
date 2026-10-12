@@ -1,9 +1,12 @@
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #define RAW_PKT_PADDING 2
 extern uint8_t mSelfMac[8];
+extern TaskHandle_t radioWakeTask;
 
 void radio_init(uint8_t ch);
 bool radioTx(uint8_t *packet);

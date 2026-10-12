@@ -24,6 +24,7 @@
 #endif
 static const char *TAG = "SECOND_UART";
 #include "second_uart.h"
+#include "radio.h"
 
 
 #define BUF_SIZE    (1024)
@@ -93,6 +94,7 @@ static void uart_event_task(void *pvParameters) {
                         curr_buff_pos++;
                         curr_buff_pos %= MAX_BUFF_POS;
                     }
+                    if (radioWakeTask) xTaskNotifyGive(radioWakeTask);  // handle it now, not after a radio timeout
                     break;
                 default:
                     // ESP_LOGI(TAG, "uart event type: %d", event.type);

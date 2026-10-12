@@ -754,6 +754,7 @@ void sendPong(void *buf) {
 }
 
 void app_main(void) {
+    radioWakeTask = xTaskGetCurrentTaskHandle();
     esp_event_loop_create_default();
     
     init_nvs();
@@ -848,8 +849,6 @@ void app_main(void) {
                         ESP_LOGI(TAG, "t=%02X" , getPacketType(radiorxbuffer));
                         break;
                 }
-            } else if (blockStartTimer == 0) {
-                vTaskDelay(10 / portTICK_PERIOD_MS);
             }
 
             uint8_t curr_char;
@@ -860,6 +859,20 @@ void app_main(void) {
                     sendBlockData();
                     blockStartTimer = 0;
                 }
+            }
+
+            if (ret <= 1) {
+                // Nothing from the radio this round: sleep until a radio frame or serial data
+                // arrives (both notify this task) or the block burst is due, at most 100 ms (sub-GHz
+                // reception is still polled). Waiting on the radio queue alone delayed serial data
+                // by up to 100 ms, and with it every block burst.
+                uint32_t waitMs = 100;
+                if (blockStartTimer) {
+                    int32_t left = (int32_t)(blockStartTimer - getMillis()) + 1;
+                    waitMs = left > 0 ? (uint32_t)left : 0;
+                    if (waitMs > 100) waitMs = 100;
+                }
+                if (waitMs) ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(waitMs));
             }
         }
 
