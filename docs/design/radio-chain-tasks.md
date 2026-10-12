@@ -17,7 +17,7 @@ Measure how often the tag windows are missed today, before changing behaviour. T
 
 - [ ] **M1 – response times in the C6** (#1). `esp_timer` timestamps in a RAM ring buffer, read out afterwards via a command. Yields: RX → TX per packet type, queue wait time, burst start vs `pleaseWaitMs`, duration of serial handling. Behaviour-neutral C6 build.
 - [x] **M2 – timing and loss on air** (#2). Sniffer `miscellaneous/radio-sniffer/` — `0594eb1b`; baseline 2026-10-12 in [radio-chain-results.md](radio-chain-results.md). Any ESP32-C6 devboard on USB as sniffer: small ESP-IDF (v5.5.1) firmware in promiscuous mode on the AP's channel, sends every frame with its SFD timestamp (µs), RSSI and LQI over serial; a Python script on the PC decodes the OEPL packet types, computes response times and gaps, and writes a pcap for Wireshark. Tags: ZBS243 and nRF52811 (available); no TLSR8258 tag available, so TLSR windows stay code-derived. Yields: missed windows, repeated requests, packet loss per burst.
-- [ ] **M3 – UART integrity.** Counters for checksum errors and timeouts on both sides. Yields: how often P1/P5 occur in practice.
+- [ ] **M3 – UART integrity.** Stage A (no firmware change) planned for the night of 2026-10-12: overnight log of the Yellow AP's USB console (COM7) with `miscellaneous/ap-console-log/`, counting the error messages the S3 and the echoed radio debug UART already print. Stage B (counters in S3 and C6 firmware) waits for permission to flash test builds. M1 also waits; proposal: make its trace buffer the first step of phase 2. Counters for checksum errors and timeouts on both sides. Yields: how often P1/P5 occur in practice.
 - [x] **M4 – baseline tag consumption.** Capture script `miscellaneous/ppk2-measure/` — `506a79a2`, baseline runner `miscellaneous/radio-baseline/`; baseline 2026-10-12 in [radio-chain-results.md](radio-chain-results.md). Nordic PPK2 in source-meter mode powers one ZBS243 tag (battery removed, ≈ 3.0 V), 100 kS/s, controlled from Python (`ppk2-api` 0.9.2). Sync with M2: the sniffer devboard toggles a GPIO on every frame to or from the tag, wired to PPK2 logic input D0, so current and radio frames share one timeline. Yields: sleep current, charge per check-in, per block and per complete image transfer, radio-on time per step (check-in, `pleaseWaitMs`, block data), display refresh shown separately. ZBS243 chosen because its `pleaseWaitMs` handling (busy-wait with radio on below 35 ms, sleep above) makes the effect of R3 impossible to predict from code; also the most common tag. Reference for R3/R5.
 
 Done when: baseline numbers for M1–M4 are recorded under Results. M2 and M4 done; M1 (inside the C6) and M3 (UART) still open.
@@ -55,7 +55,7 @@ Done when: C6 firmware version bumped and released; M1/M2 meet the response-time
 S3 structure and protocol design, without changing behaviour (migration step 2). Can run in parallel with phase 2.
 
 - [ ] #28 Transport abstraction on the S3, with only the old implementation
-- [ ] #30 Design the message set for the new UART protocol: check-in with AP-side RSSI/LQI/radio, data in chunks with offset, cancel by MAC, fixed SCP fields. Written down in `docs/design/` before implementation
+- [~] #30 Design the message set for the new UART protocol: check-in with AP-side RSSI/LQI/radio, data in chunks with offset, cancel by MAC, fixed SCP fields. Draft: [radio-protocol-v2.md](radio-protocol-v2.md); open questions listed there
 
 Done when: S3 behaviour unchanged (same test as phase 1); message set documented.
 
