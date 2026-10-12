@@ -105,7 +105,7 @@ Can be done at any time; not tied to a phase.
 
 New findings that are not yet in a phase.
 
-- [ ] One block request answered only after 43 ms (0021, 2026-10-13 00:20:46, tag 00007E1CFE21B296, hwType 33, a 1-block image right after its check-in): the tag asked 6 times, 7 ms apart; the C6 was busy ≈ 40 ms and skipped the first five as too old. Seen once; in the 0020 runs the first reply stayed within 10.4 ms. Find what blocks the C6 loop right after a check-in with new data (serial `ADR>`/`RQB>` handling?)
+- [-] One block request answered only after 43 ms (0021, 2026-10-13 00:20:46, tag 00007E1CFE21B296): the C6 did not receive the tag's first five requests (no requests skipped as too old, the sniffer heard all six). Cause: the S3's WiFi transmissions desensitise the C6 receiver next to it; the web UI was open, so each check-in triggered a websocket push just when the tag asked for its block. Measured: check-ins needed 1.11 requests on average under WiFi load against 1.02 quiet ([results](radio-chain-results.md#wifi-desensitisation-2026-10-13)). Not fixed (Nic, 2026-10-13)
 
 - [ ] 11.6" M3 tags (hwType 0x37, 2× rechargeable AA) check in only every 10–20 min instead of every minute, also with the old C6 firmware; a button press makes them check in every 40 s again, but the one at RSSI −68 fell silent again after 5 check-ins, the one moved close to the AP stayed regular. Next: sniffer close to the tag to see whether it sends and whether the AP hears it; check what the tag firmware does after a missed reply or at 2.4–2.5 V ([results](radio-chain-results.md#phase-2-traffic-hour-2026-10-12-c6-74761447-s3-74761447))
 

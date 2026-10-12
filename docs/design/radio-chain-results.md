@@ -171,3 +171,18 @@ Same setup and command as [M3 stage A](#m3-stage-a-and-concurrent-transfers-2026
 ## ESP-IDF 5.5.5 check, 2026-10-12
 
 The same C6 source built with ESP-IDF 5.5.5 (the release build; measured builds above used 5.5.1) behaves the same: 25 min of traffic (7 tags, one burst and one staggered round, 14 uploads), sniffer on channel 25. No serial errors; 281 check-ins all answered within 5 ms (median 2.20 ms, p95 2.22 ms, 1.02 requests per exchange); 41 block requests, all answered within 6 ms; 42 bursts at +6.3 ms median (max +6.8 ms); 14 of 14 XFC answered on the first try.
+
+## WiFi desensitisation, 2026-10-13
+
+The S3's own WiFi transmissions make the C6 next to it miss tag frames. Seen first as a block request that the tag had to send six times (7 ms apart, 49 ms after its check-in, while the web UI was open): the C6 skipped nothing as too old, the sniffer heard all six requests, the C6 none of the first five. The websocket update the S3 sends after each check-in coincided with the tag's request.
+
+Test: sniffer on channel 25, AP WiFi on channel 1 (2412 MHz, 63 MHz away), WiFi TX power setting 34 (8.5 dBm), no browser open; 6 min quiet, then 6 min while the PC kept downloading `main.js` (22 KB) from the AP.
+
+| | Quiet | WiFi load |
+| --- | --- | --- |
+| Check-ins | 93 | 102 |
+| Requests per check-in | 1.02 (max 2) | 1.11 (max 3) |
+| First reply p95 | 2.2 ms | 9.4 ms |
+| Unanswered | 0 | 0 |
+
+Each repeated check-in costs a ZBS243 tag ≈ 210 µC. The effect is small without web or API traffic and grows with it. Possible remedies, not pursued: lower WiFi TX power, delaying the S3's websocket push after a check-in past the tag's request window, more distance between the antennas.
