@@ -36,7 +36,7 @@ sequenceDiagram
 
 1. The S3 always starts with the old protocol at 115200 baud (`RDY?`, `NFO?`). Old radios never see anything unknown.
 2. A v2 radio answers only `RDY?`, `NFO?` and `FRM1` in ASCII. Its `NFO?` answer contains the usual tokens plus `CAP>xxxx`: a hex bit mask (bit 0 = v2 framing; other bits as in HELLO_REPLY). Old S3s ignore the unknown token.
-3. On `CAP>` with bit 0, the S3 sends `FRM1` instead of `HSPD`. After `ACK>` both sides wait 20 ms, switch to the v2 baud rate (2 Mbaud; 4 Mbaud only if both set bit 4 and M3 shows the line is clean) and to framing.
+3. On `CAP>` with bit 0, the S3 sends `FRM1` instead of `HSPD`. After `ACK>` both sides wait 20 ms, switch to 2 Mbaud and to framing. (No higher rates: some APs are hand-wired with wires of unknown length.)
 4. The S3 sends HELLO. No HELLO_REPLY within 200 ms (3 tries): the S3 resets the radio through its RESET line and starts again at step 1; after 3 failed rounds the AP state becomes FAILED. There is no fallback to the old protocol with a v2 radio.
 5. After a radio reset the radio is back in ASCII recognition at 115200 baud. The S3 notices through the heartbeat (3 missed STATUS replies) and starts again at step 1. The radio's pending table and cache are empty after a reset; the S3 resends everything (as `refreshAllPending()` does today).
 
@@ -98,11 +98,11 @@ crc16:        CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over header and payl
 | 0x7E | ACK | – |
 | 0x7F | NAK | `code u8`: 1 `UNKNOWN_TYPE`, 2 `BAD_LENGTH`, 3 `INVALID_PARAM`, 4 `NO_SLOT`, 5 `NO_CACHE_SPACE`, 6 `BUSY` |
 
-Capability bits (`caps`, `wanted_caps`, `CAP>`): 0 v2 framing, 1 block cache, 2 sub-GHz radio present, 3 tag return data, 4 4 Mbaud, 5 log frames.
+Capability bits (`caps`, `wanted_caps`, `CAP>`): 0 v2 framing, 1 block cache, 2 sub-GHz radio present, 3 tag return data, 4 reserved, 5 log frames.
 
 ## Block cache and data flow
 
-The radio serves block requests from a cache keyed by `data_ver`; the S3 fills it with DATA_CHUNKs.
+The radio serves block requests from a cache of 4 KB blocks, keyed by `data_ver` and block number (the tag's own request unit); the S3 fills it with DATA_CHUNKs. A block is ready when all its bytes have arrived. Caching per block instead of per file lets a radio with little RAM (TLSR) hold only the blocks it needs, lets the S3 send the next block while the tag receives the current one, and makes eviction simple; sending a whole file is just sending all its blocks.
 
 1. The S3 sends SET_PENDING. With cache capability and enough space (`cache_kb` from HELLO_REPLY, `cache_used_kb` from STATUS), it sets flag bit 0 and sends the whole file as DATA_CHUNKs right away; the tag is usually still asleep, so this costs no tag time.
 2. A tag checks in; the radio answers from the pending table and sends CHECKIN.
@@ -127,11 +127,11 @@ Multi-AP is unchanged: SET_PENDING only reaches the radio of the AP where the ta
 | SET_CONFIG | `SCP>` + `espSetChannelPower` | from `sendChannelPower()`; fixed fields, no `HAS_SUBGHZ` difference |
 | HELLO_REPLY / STATUS | `NFO?` tokens, `RDY?` | fill `apInfo`; STATUS replaces the 30 s ping |
 
-## Open questions
+## Decisions (2026-10-12)
 
-1. Cache granularity: whole files only, or per 4 KB block (lets a TLSR or a full cache serve part of a file)? The DATA_CHUNK offsets allow both.
-2. How much repetition per burst (R5)? To be set from M2 packet-loss numbers after C5 is fixed.
-3. Should the radio pick `pleaseWaitMs` per tag type (the nRF52811 starts its radio only after `pw`, the ZBS243 25 ms before)? CHECKIN carries `hwType`, so the radio knows it.
-4. Is 4 Mbaud worth it? Only if M3 shows a clean line and cache filling becomes a bottleneck with many tags.
-5. Sub-GHz (CC1101): same messages with `radio` = 1; SET_CONFIG covers its channel. To be checked against `SubGigRadio.c`.
-6. Do we keep the radio's UART0 debug output for crash logs (ROM/bootloader prints) next to LOG frames? Probably yes, at reduced level.
+1. **Cache per 4 KB block**, not per file (see Block cache above).
+2. **Repetition per burst**: determined by measurement. After C5 is fixed (task #3), measure part loss per burst with the baseline (M2) and pick the smallest repetition that keeps re-requests rare; until then each requested part is sent once plus one repetition.
+3. **`pleaseWaitMs`: one default for all tags**, 0 or ≥ 10 ms, with the burst starting a few ms after `pleaseWaitMs` (the nRF52811 starts its radio only after it). A ZBS243-specific value only if a measurement shows it saves battery; with the cache the remaining waste is a few ms per block (≈ 0.2 mC on a ZBS243, about one check-in). The AP has to work with every tag firmware in the field, so the timing contract stays on the AP side; tag-side fixes (underflow of small values, nRF ping loop: tasks #16, #21, #22) make tags more robust but do not replace it.
+4. **2 Mbaud only.** Some APs are hand-wired with wires of unknown length; capability bit 4 is reserved.
+5. **Sub-GHz must keep working**, but there are no sub-GHz tags to test with. Messages carry `radio`; the CC1101 path in the radio firmware stays as it is apart from the PAN fix (C4). Before a release, ask a user with sub-GHz tags to test.
+6. **The radio's UART0 debug output stays**, at warning level: the ROM bootloader and crash backtraces always go there, and the S3 echoes it to its console (and, on boards with a separate debug line, checks it for the stuck-modem message). LOG frames over v2 are for runtime logging that should reach the web UI.

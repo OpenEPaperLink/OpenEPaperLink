@@ -26,14 +26,14 @@ Done when: baseline numbers for M1–M4 are recorded under Results. M2 and M4 do
 
 Fixes in the existing serial protocol. They stay necessary for TLSR, ZBS AP and old C6/H2 (migration step 1). Plus the UDP version number, so multi-AP structs can change safely later. Independent of the measurements.
 
-- [ ] #5 SCP size from `apInfo.type` instead of `HAS_SUBGHZ` (P3)
-- [ ] #6 Limit TRD length and add a timeout to the S3 parser (S1, S3)
-- [ ] #8 `VER>` buffer with terminating NUL (S2)
-- [ ] #23 Do not retry `NOQ>` in `sendDataAvail` (S5)
-- [ ] #25 Enlarge the `Serial1` RX buffer and read event-driven (T2)
-- [ ] #31 Version number for the UDP protocol between APs. Must stay compatible with S3s that don't know it: in `udp.cpp` they ignore unknown packet types and cut longer payloads to the struct size. So: announce the version (new packet type, or an extra field in the AP list), keep sending the current packets unchanged, and only use changed structs towards peers that announced a newer version
+- [~] #5 SCP size from `apInfo.type` instead of `HAS_SUBGHZ` (P3) — `81b90b4e`: 4 bytes for C6/H2 ≥ 0x0019, 3 for all others; radio info is now asked before the first SCP
+- [~] #6 Limit TRD length and add a timeout to the S3 parser (S1, S3) — `52150c6a`
+- [~] #8 `VER>` buffer with terminating NUL (S2) — `d168ce0f`
+- [~] #23 Do not retry `NOQ>` in `sendDataAvail` (S5) — `405bc9b5`
+- [~] #25 Enlarge the `Serial1` RX buffer (T2) — `14d22365`: 4 KB. Event-driven reading dropped: 1 ms polling with ≈ 20 ms of buffer is enough
+- [~] #31 Version number for the UDP protocol between APs (`adf89611`: `UDP_PROTO_VERSION` 1 as an extra byte in the AP list, peers recorded, `minPeerVersion()`). Must stay compatible with S3s that don't know it: in `udp.cpp` they ignore unknown packet types and cut longer payloads to the struct size. So: announce the version (new packet type, or an extra field in the AP list), keep sending the current packets unchanged, and only use changed structs towards peers that announced a newer version
 
-Done when: all S3 envs build; tested on the Yellow AP (S3 + C6), on a board without `HAS_SUBGHZ` for #5, and #31 in a multi-AP setup with one AP on the old firmware.
+Status: all six committed locally (not pushed); all 15 S3 envs build (2026-10-12); to be flashed and tested on the Yellow AP after the overnight M3 stage A log. Done when: all S3 envs build; tested on the Yellow AP (S3 + C6), on a board without `HAS_SUBGHZ` for #5, and #31 in a multi-AP setup with one AP on the old firmware.
 
 ## Phase 2 – C6/H2 rework on the current protocol (interim release)
 
@@ -55,7 +55,7 @@ Done when: C6 firmware version bumped and released; M1/M2 meet the response-time
 S3 structure and protocol design, without changing behaviour (migration step 2). Can run in parallel with phase 2.
 
 - [ ] #28 Transport abstraction on the S3, with only the old implementation
-- [~] #30 Design the message set for the new UART protocol: check-in with AP-side RSSI/LQI/radio, data in chunks with offset, cancel by MAC, fixed SCP fields. Draft: [radio-protocol-v2.md](radio-protocol-v2.md); open questions listed there
+- [~] #30 Design the message set for the new UART protocol: check-in with AP-side RSSI/LQI/radio, data in chunks with offset, cancel by MAC, fixed SCP fields. Draft: [radio-protocol-v2.md](radio-protocol-v2.md); decisions of 2026-10-12 recorded there (cache per 4 KB block, one `pleaseWaitMs` default, 2 Mbaud only, keep UART0 debug output)
 
 Done when: S3 behaviour unchanged (same test as phase 1); message set documented.
 
@@ -68,7 +68,6 @@ Migration step 3: S3 and C6/H2 firmware are released together. Old S3 + new C6/H
 - [ ] #26 C6: one RX buffer, possibly UHCI DMA (T3, E7)
 - [ ] #15 Block cache on the C6 (R3)
 - [ ] #20 Less repetition in `sendBlockData`, based on M2 packet loss (E4, R5)
-- [ ] T4 Baud rate to 4–5 Mbaud, only if M3 allows it and the block cache needs it
 
 Done when: tested with new S3 + old C6, new C6, TLSR and ZBS AP, and old S3 + old radio; multi-AP with mixed radios; timing budget met in M1/M2; M4 compared to the baseline.
 
@@ -88,9 +87,11 @@ Can be done at any time; not tied to a phase.
 - [ ] #22 TLSR tag: stop receiving when the block is complete (G5)
 - [ ] #27 Flash the C6 at a higher baud rate (T5)
 - [ ] #24 Archive or synchronise the separate repo `AP_Radio_FW_ESP32` (C9)
+- [ ] #32 S3 ↔ radio wiring self-test (nice to have): when the radio does not come online (or from a button in the web UI), the S3 checks each line and reports what fails, e.g. "TX and RX swapped" or "no signal on GPIO n". S3-side only; uses what the C6 already does (ROM boot text on UART0 after a reset, `RES>`/`RDY>` on the protocol UART, `ACK>` to `RDY?`). Sketch in the chat of 2026-10-12; to be written down before building
 
 ## Dropped
 
+- [-] T4 Baud rate to 4–5 Mbaud — 2 Mbaud only: some APs are hand-wired with wires of unknown length (Nic, 2026-10-12)
 - [-] #4 Validity flag and checksum check for the block buffer (C1) — replaced by the block cache with confirmation after the checksum check (#15, #30)
 - [-] #9 Do not pass channel 0 to the 802.15.4 radio (C3) — replaced by fixed SCP fields in the new protocol (#30)
 
