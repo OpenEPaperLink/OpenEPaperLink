@@ -300,6 +300,11 @@ bool sendDataAvail(struct pendingData* pending) {
             txEnd();
             return true;
         }
+        if (cmdReplyValue == CMD_REPLY_NOQ) {
+            // the radio has no free pending slot; trying again 200 ms later won't change that
+            Serial.print("SDA refused: radio pending table full\r\n");
+            break;
+        }
         Serial.printf("SDA send failed in try %d\r\n", attempt);
         delay(200);
     }
