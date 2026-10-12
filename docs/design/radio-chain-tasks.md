@@ -49,7 +49,7 @@ The C6/H2 firmware is restructured and fixed while it still speaks the old seria
 - [x] S3: wait 500 ms for the radio's `ACK>` to `>D>` (P2/P4) — `acca3f99`; 0 failed block hand-overs in the traffic hour (was 11 of 177)
 - [x] S3 C6 updater: don't call a complete download dropped (unplanned, found while flashing) — `74761447`
 
-Status 2026-10-12: all of the above on the Yellow AP (C6 0x0020 and S3 `74761447`); one hour of traffic like M3 stage A: no serial errors, half the block frames on air, bursts +6 ms instead of +72 ms, check-ins answered on the first try ([results](radio-chain-results.md#phase-2-traffic-hour-2026-10-12-c6-74761447-s3-74761447)). ESP32-H2 build of the same source compiles (ESP-IDF 5.5.1, no H2 hardware here). Still open: the release; #10 (sub-GHz) and the ISSI case then by users.
+Status 2026-10-12: all of the above on the Yellow AP (C6 0x0020 and S3 `74761447`); one hour of traffic like M3 stage A: no serial errors, half the block frames on air, bursts +6 ms instead of +72 ms, check-ins answered on the first try ([results](radio-chain-results.md#phase-2-traffic-hour-2026-10-12-c6-74761447-s3-74761447)). Released as `2.94-nic` (C6/H2 0020, built with ESP-IDF 5.5.5 and checked with 25 min of traffic; H2 build-tested only, its `sdkconfig.defaults` got the same timing settings). Still open: #10 (sub-GHz) and the ISSI case, by users.
 
 Done when: C6 firmware version bumped and released; M2 meets the response-time requirements of the timing budget and shows no regression against the baseline.
 

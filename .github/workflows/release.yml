@@ -51,7 +51,7 @@ jobs:
         if: ${{ env.INCLUDE_C6_H2 == 'true' }}
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: latest
+          esp_idf_version: v5.5.5
           target: esp32c6
           path: 'ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/'
 
@@ -67,7 +67,7 @@ jobs:
         if: ${{ env.INCLUDE_C6_H2 == 'true' }}
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: latest
+          esp_idf_version: v5.5.5
           target: esp32h2
           path: 'ARM_Tag_FW/OpenEPaperLink_esp32_H2_AP/'
 

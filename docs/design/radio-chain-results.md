@@ -167,3 +167,7 @@ Same setup and command as [M3 stage A](#m3-stage-a-and-concurrent-transfers-2026
 - The only console errors left are "Failed to compress G5" on the noise test image (the AP then sends it uncompressed); also in M3 stage A (25×).
 - All 8 tag configs were restored.
 - The two 11.6" M3 tags (hwType 0x37, two rechargeable AA cells) checked in only every 10–20 min in both runs, so this is not caused by phase 2: 6 check-ins each in M3 stage A, 4 and 0 in the first half of this run, while the other tags checked in about every minute. After a button press both checked in every 40 s and fetched their images in ≈ 3 s. Moved close to the AP (RSSI −32, LQI 244), 00000642D364BA94 stayed regular to the end of the run; 00000642D3C1BA9B, left at RSSI −68 / LQI 100, fell silent again after 5 check-ins. Cause not found yet (open item in the task list).
+
+## ESP-IDF 5.5.5 check, 2026-10-12
+
+The same C6 source built with ESP-IDF 5.5.5 (the release build; measured builds above used 5.5.1) behaves the same: 25 min of traffic (7 tags, one burst and one staggered round, 14 uploads), sniffer on channel 25. No serial errors; 281 check-ins all answered within 5 ms (median 2.20 ms, p95 2.22 ms, 1.02 requests per exchange); 41 block requests, all answered within 6 ms; 42 bursts at +6.3 ms median (max +6.8 ms); 14 of 14 XFC answered on the first try.

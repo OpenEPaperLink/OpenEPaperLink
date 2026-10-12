@@ -14,3 +14,8 @@ CONFIG_MOSI_GPIO=11
 CONFIG_CSN_GPIO=8
 CONFIG_GDO0_GPIO=2
 CONFIG_GDO2_GPIO=22
+# Same timing settings as the C6 build (ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/sdkconfig.defaults):
+# info logging blocks on the 115200 baud console (timing finding E2)
+CONFIG_LOG_DEFAULT_LEVEL_WARN=y
+# 1 ms ticks: the main loop's waits are a few ms (default 100 Hz gives 10 ms steps)
+CONFIG_FREERTOS_HZ=1000
