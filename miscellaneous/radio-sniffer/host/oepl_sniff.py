@@ -260,7 +260,7 @@ class Analyzer:
         out = []
         out.append("=== OEPL sniffer summary ===")
         if status:
-            out.append(f"sniffer since its boot: received {status['received']}, dropped in sniffer queue {status['dq']}, "
+            out.append(f"sniffer during this run: received {status['received']}, dropped in sniffer queue {status['dq']}, "
                        f"dropped on USB {status['du']}, channel {status['channel']}")
         out.append("packets: " + ", ".join(f"{k} {v}" for k, v in self.types.most_common()))
         out.append(f"frames from other 802.15.4 networks (ignored): {self.foreign}")
@@ -317,6 +317,11 @@ def main():
     ser.dtr = False
     ser.rts = False
     ser.open()
+    # The sniffer keeps up to 16 KB of records buffered while nobody reads the port; those are
+    # from before this run. Read and drop them before starting.
+    drain_until = time.time() + 0.5
+    while time.time() < drain_until:
+        ser.read(4096)
     ser.write(f"C{args.channel}\n".encode())
     if args.sync_mac:
         ser.write(("M" + bytes.fromhex(args.sync_mac)[::-1].hex() + "\n").encode())
@@ -327,6 +332,7 @@ def main():
     analyzer = Analyzer(args.verbose)
     pcap = Pcap(args.pcap) if args.pcap else None
     status = None
+    status0 = None
     t0_host, t0_dev = None, None
     start = time.time()
     last_summary = start
@@ -343,7 +349,10 @@ def main():
                 analyzer.feed(ts, rssi, frame)
             elif rtype == 2:
                 ts, rec, dq, du, ch, sync = struct.unpack_from("<QIIIBB", payload)
-                status = {"received": rec, "dq": dq, "du": du, "channel": ch, "sync": sync}
+                if status0 is None:
+                    status0 = (rec, dq, du)  # counters at the start of this run
+                status = {"received": rec - status0[0], "dq": dq - status0[1], "du": du - status0[2],
+                          "channel": ch, "sync": sync}
             elif rtype == 3:
                 print(f"sniffer firmware v{payload[0]}, channel {payload[1]}", file=sys.stderr)
             if args.summary_every and now - last_summary >= args.summary_every:
