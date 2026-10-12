@@ -142,3 +142,28 @@ Same setup as the baseline (2.9" ZBS243 on the PPK2, 3-block noise images, 4 tra
 - The local build of the unchanged source behaves like the release, so the differences come from the changes, not from the toolchain.
 - 0x0020 alone (C5 fixed) did not help yet: the burst still started ≈ 60–70 ms late, before the S3's block data had fully arrived, so the tag got a block with a wrong checksum and asked for all of it again. The event loop takes the block in within milliseconds and starts the burst only with a complete, checked block.
 - Remaining waste: the last, short block (13 parts) is still padded to 42 frames, 27 of them after the tag has its data (R5, task #20).
+
+## Phase 2 traffic hour, 2026-10-12 (C6 `74761447`, S3 `74761447`)
+
+The same hour of traffic as M3 stage A, now with all phase 2 changes: no serial errors at all, half the block frames on air for the same images, bursts on time, and check-ins answered on the first try.
+
+Same setup and command as [M3 stage A](#m3-stage-a-and-concurrent-transfers-2026-10-12-before-any-change): 21:20–22:21, 53 uploads (test tag 18, 7 tags 5 each), sniffer on channel 25. C6 with C5, the event loop, the burst readiness rule, late-request skipping, repeats up to twice the requested parts (#20), channel change without re-init (#19, not exercised), no debug text on the protocol UART (P7); S3 with the 500 ms wait for the `ACK>` to `>D>` and the C6-updater download fix.
+
+| Metric | M3 stage A (0x001F) | Phase 2 |
+| --- | --- | --- |
+| Block hand-overs failed (`block send failed`) | 11 of 177 (6 %) | **0** |
+| `SDA>` retries / given up | 7 / 1 | **0 / 0** |
+| UART Timeout (C6) | 4 | **0** |
+| wait… tx busy | 24 | 2 |
+| Block requests (sniffer) | 250 + 95 partial | **154 + 7 partial** |
+| Block parts on air / burst airtime | 12 448 frames, 60.6 s | **5 844 frames, 28.3 s (−53 %)** |
+| Frames after the tag had all requested parts | 5 308 | 735 |
+| Burst start after `pleaseWaitMs` | median +72 ms, max +94 ms | **median +6.3 ms, max +28 ms** |
+| Check-ins: requests per exchange | mean 1.13 (max 14), 66 extra replies | **mean 1.05 (max 13), 12 extra replies** |
+| Check-ins: first reply | median 2.42 ms, p95 5.7 ms; 808/821 within 5 ms | **median 2.20 ms, p95 2.21 ms; 887/890 within 5 ms** |
+| XFC: requests per exchange, first reply p95 | 1.40, 10.5 ms | **1.02, 1.1 ms** |
+| CANCEL_XFER | 6 | 3 |
+
+- The only console errors left are "Failed to compress G5" on the noise test image (the AP then sends it uncompressed); also in M3 stage A (25×).
+- All 8 tag configs were restored.
+- The two 11.6" M3 tags (hwType 0x37, two rechargeable AA cells) checked in only every 10–20 min in both runs, so this is not caused by phase 2: 6 check-ins each in M3 stage A, 4 and 0 in the first half of this run, while the other tags checked in about every minute. After a button press both checked in every 40 s and fetched their images in ≈ 3 s. Moved close to the AP (RSSI −32, LQI 244), 00000642D364BA94 stayed regular to the end of the run; 00000642D3C1BA9B, left at RSSI −68 / LQI 100, fell silent again after 5 check-ins. Cause not found yet (open item in the task list).

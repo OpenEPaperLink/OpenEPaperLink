@@ -46,6 +46,11 @@ The C6/H2 firmware is restructured and fixed while it still speaks the old seria
 - [~] #12 Drop stale packets from the RX queue (E5, R6) — `85f56e13`: requests older than 5 ms (7 ms for block requests) are skipped and counted
 - [~] #19 `radioSetChannel` without full re-initialisation and LED delay (E6) — `35d2f98f`; needs a channel change to test
 - [~] Build in DIO flash mode for ISSI flash (upstream issue #596; also in the local `TASKS.md`) — `00e9228f`; runs on the Yellow AP, not tested on an ISSI module
+- [x] No debug text on the protocol UART (P7) — `1d3c0f5d`
+- [x] S3: wait 500 ms for the radio's `ACK>` to `>D>` (P2/P4) — `acca3f99`; 0 failed block hand-overs in the traffic hour (was 11 of 177)
+- [x] S3 C6 updater: don't call a complete download dropped (unplanned, found while flashing) — `74761447`
+
+Status 2026-10-12: all of the above on the Yellow AP (C6 0x0020 and S3 `74761447`); one hour of traffic like M3 stage A: no serial errors, half the block frames on air, bursts +6 ms instead of +72 ms, check-ins answered on the first try ([results](radio-chain-results.md#phase-2-traffic-hour-2026-10-12-c6-74761447-s3-74761447)). Still open: #19 (channel change), #10 (sub-GHz), DIO on an ISSI module, release.
 
 Done when: C6 firmware version bumped and released; M1/M2 meet the response-time requirements of the timing budget and show no regression against the baseline.
 
@@ -53,7 +58,7 @@ Done when: C6 firmware version bumped and released; M1/M2 meet the response-time
 
 S3 structure and protocol design, without changing behaviour (migration step 2). Can run in parallel with phase 2.
 
-- [ ] #28 Transport abstraction on the S3, with only the old implementation
+- [~] #28 Transport abstraction on the S3, with only the old implementation (`radiotransport.h`, `legacytransport.cpp`; AP-state checks stay in `serialap.cpp`); all S3 envs build, not yet run on the AP
 - [~] #30 Design the message set for the new UART protocol: check-in with AP-side RSSI/LQI/radio, data in chunks with offset, cancel by MAC, fixed SCP fields. Draft: [radio-protocol-v2.md](radio-protocol-v2.md); decisions of 2026-10-12 recorded there (cache per 4 KB block, one `pleaseWaitMs` default, 2 Mbaud only, keep UART0 debug output)
 
 Done when: S3 behaviour unchanged (same test as phase 1); message set documented.
@@ -66,7 +71,7 @@ Migration step 3: S3 and C6/H2 firmware are released together. Old S3 + new C6/H
 - [ ] #29 Negotiation at startup (`CAP>`, `FRM1`, HELLO, heartbeat); C6/H2 only ASCII recognition plus the new protocol
 - [ ] #26 C6: one RX buffer, possibly UHCI DMA (T3, E7)
 - [ ] #15 Block cache on the C6 (R3)
-- [ ] #20 Less repetition in `sendBlockData`, based on M2 packet loss (E4, R5)
+- [~] #20 Less repetition in `sendBlockData`, based on M2 packet loss (E4, R5) — `939cd948` (moved forward into the phase 2 build): each requested part at most twice, never more than 42 frames; frames after the tag had its data 5 308 → 735 in the traffic hour. Tune with M2 packet loss
 
 Done when: tested with new S3 + old C6, new C6, TLSR and ZBS AP, and old S3 + old radio; multi-AP with mixed radios; timing budget met in M1/M2; M4 compared to the baseline.
 
@@ -99,7 +104,7 @@ Can be done at any time; not tied to a phase.
 
 New findings that are not yet in a phase.
 
-*(none)*
+- [ ] 11.6" M3 tags (hwType 0x37, 2× rechargeable AA) check in only every 10–20 min instead of every minute, also with the old C6 firmware; a button press makes them check in every 40 s again, but the one at RSSI −68 fell silent again after 5 check-ins, the one moved close to the AP stayed regular. Next: sniffer close to the tag to see whether it sends and whether the AP hears it; check what the tag firmware does after a missed reply or at 2.4–2.5 V ([results](radio-chain-results.md#phase-2-traffic-hour-2026-10-12-c6-74761447-s3-74761447))
 
 ## Results
 

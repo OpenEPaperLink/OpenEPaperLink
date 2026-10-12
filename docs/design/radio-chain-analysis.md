@@ -85,7 +85,7 @@ The most serious S3 bug is a possible heap overflow in the parser. All points he
 | S3 | `rxSerialTask` | No timeout in payload states | After a lost byte the parser waits until the next message has been eaten | Confirmed in code |
 | S4 | `sendBlock()` | On a failed `malloc` nothing is sent, or `c` is undefined; ± 4 KB VLA on a 6000-byte stack | C6 keeps waiting; possible stack overflow | Likely |
 | S5 | `sendDataAvail()` | On `NOQ>` (queue full) still retries 5× with 200 ms pauses | Pointless delay of ± 1 s | Confirmed in code |
-| S6 | `rxSerialTask2` | Recovery from a stuck modem works by parsing log text, and stops above 6000 characters/s | Under heavy load the watchdog is off exactly when it matters | Confirmed in code |
+| S6 | `rxSerialTask2` | Recovery from a stuck modem works by parsing log text, and stops above 6000 characters/s | Under heavy load the watchdog is off exactly when it matters. With C6 firmware built with ESP-IDF 5.5.1 the case it guards against no longer occurs: the driver drops a frame into a stub buffer instead of getting stuck, and logs that only with `CONFIG_IEEE802154_DEBUG` (checked 2026-10-12); still useful for older C6 firmware | Confirmed in code |
 | S7 | `waitCmdReply()` | `millis() < val + 200` | Wrong after the wrap at 49.7 days | Confirmed in code |
 
 ## Findings: C6/H2 radio firmware
