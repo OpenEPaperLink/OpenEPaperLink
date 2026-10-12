@@ -179,6 +179,7 @@ class Analyzer:
                 return
             if t in (0xE5,) and len(d["payload"]) >= 7:
                 self.hwtype[tag] = d["payload"][6]
+            self.close_burst(tag)  # before `requested` changes: it belongs to the burst that just ended
             if t in (0xE4, 0xE7) and len(d["payload"]) >= 17:
                 # blockRequest: checksum, ver[8], blockId, type, requestedParts[6]
                 bits = d["payload"][11:17]
@@ -193,7 +194,6 @@ class Analyzer:
                     self.sessions[label].append(s)
                 self.open[(tag, label)] = {"tag": tag, "reply_types": REPLIES[t][0], "requests": [end],
                                            "replies": [], "last_req": ts}
-            self.close_burst(tag)
             if self.verbose:
                 print(f"{ts / 1e6:12.6f}  tag {mac_str(tag)} -> {PKT.get(t, hex(t))} rssi {rssi}")
             return

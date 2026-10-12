@@ -62,3 +62,19 @@ python miscellaneous/radio-baseline/analyze_baseline.py --pcap <out>.pcap --ppk 
 - If the analysis warns that frame and edge counts differ, the sniffer lost frames or D0 is not wired; the per-block numbers are then unreliable.
 - The thresholds are for a ZBS243 (radio on > 20 mA, idle < 200 µA). Other tags need other values (`RADIO_ON_UA`, `IDLE_UA` at the top of `analyze_baseline.py`).
 - Other tags on the AP keep checking in; they show up in the AP-side summary, not in the per-tag numbers.
+
+## Longer runs with real traffic: `night_traffic.py`
+
+Generates image-transfer traffic on the AP for an hour or a night, for the serial-integrity measurement (M3, together with [ap-console-log](../ap-console-log/README.md)) and to watch concurrent transfers on air.
+
+- The test tag (on the PPK2, which the script keeps powered) gets an image every `--test-interval` s (default 180).
+- The other tags (`--tags`, comma-separated) get one in rounds of `--tag-interval` s (default 600), alternating "burst" (all at the same moment, so their transfers overlap) and "staggered" (spread over the round). No tag gets one more often than its interval; the last upload time per tag is kept in `--state` (default `measurements/traffic-last-upload.json`) so this also holds across runs.
+- No uploads in the AP's sleep window (`--quiet 1-7`).
+- The sniffer runs the whole time (`<out>/night.pcap`, hourly summaries in `<out>/sniff.txt`); analyse the pcap later with `oepl_sniff.py --replay`.
+- Images: header text, time, sequence number, and a noise band so each needs a few blocks (big displays capped at about 48 000 noise pixels). Sizes and colours come from `resources/tagtypes/<hwType>.json`.
+- **`/imgupload` switches a tag to content mode 24 and replaces its content config.** The script saves every tag's config to `<out>/tag-configs.json` first and restores it at the end; if it was stopped early, restore with `--restore <out>/tag-configs.json`. Only use tags whose owner agreed.
+
+```bash
+python miscellaneous/radio-baseline/night_traffic.py --ap http://192.168.178.198 --test-tag 0000021EDAAE3B17 \
+    --tags 000002BD0A923B1C,0000018938B83B11 --sniffer COM11 --ppk COM3 --hours 1 --out measurements/<date>/run
+```
