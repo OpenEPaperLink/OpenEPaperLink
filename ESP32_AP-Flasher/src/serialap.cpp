@@ -477,12 +477,29 @@ void rxSerialTask(void* parameter) {
     static uint8_t RXState = ZBS_RX_WAIT_HEADER;
     static char lastchar = 0;
     static uint8_t charindex = 0;
+    static uint32_t lastByteMs = 0;
+
+    // States that own the calloc'ed packetp until they hand it to addRXQueue()
+    auto ownsPacket = [](uint8_t state) {
+        return state == ZBS_RX_BLOCK_REQUEST || state == ZBS_RX_WAIT_XFERCOMPLETE || state == ZBS_RX_WAIT_XFERTIMEOUT ||
+               state == ZBS_RX_WAIT_DATA_REQ || state == ZBS_RX_WAIT_TAG_RETURN_DATA;
+    };
 
     gSerialTaskState = SERIAL_STATE_RUNNING;
     LOG("rxSerialTask starting\n");
     while (gSerialTaskState == SERIAL_STATE_RUNNING) {
+        // A message whose bytes stopped arriving (lost bytes) must not keep the parser in a payload
+        // state, where it would swallow the next messages as payload.
+        if (RXState != ZBS_RX_WAIT_HEADER && !AP_SERIAL_PORT.available() && millis() - lastByteMs > 100) {
+            if (ownsPacket(RXState)) free(packetp);
+            packetp = nullptr;
+            RXState = ZBS_RX_WAIT_HEADER;
+            Serial.print("AP serial: incomplete message dropped\r\n");
+        }
         while (AP_SERIAL_PORT.available()) {
             lastchar = AP_SERIAL_PORT.read();
+            lastByteMs = millis();
+            if (ownsPacket(RXState) && packetp == nullptr) RXState = ZBS_RX_WAIT_HEADER;  // calloc failed
             switch (RXState) {
                 case ZBS_RX_WAIT_HEADER:
 
@@ -622,6 +639,15 @@ void rxSerialTask(void* parameter) {
                 case ZBS_RX_WAIT_TAG_RETURN_DATA: {
                     packetp[pktindex] = lastchar;
                     pktindex++;
+                    // byte 9 is the length of the tag data; an impossible value (corrupted or lost
+                    // bytes) would let pktindex run past the buffer and wrap around
+                    if (pktindex == 10 && packetp[9] > sizeof(struct tagReturnData)) {
+                        free(packetp);
+                        packetp = nullptr;
+                        RXState = ZBS_RX_WAIT_HEADER;
+                        Serial.print("AP serial: TRD with invalid length dropped\r\n");
+                        break;
+                    }
                     if ((pktindex > 10) && (pktindex >= (packetp[9] + 10))) {
                         addRXQueue(packetp, pktindex, RX_CMD_TRD);
                         RXState = ZBS_RX_WAIT_HEADER;
