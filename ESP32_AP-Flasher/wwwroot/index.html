@@ -550,6 +550,10 @@ options:
 								<button type="button" id="flashTlsrBtn">Flash TLSR (SWS)</button>
 								<input type="text" id="tlsrFile" value="/TLSR_AP_FW.bin" size="20">
 							</p>
+							<p id="radioTestOption" style="display:none;">
+								<button type="button" id="radioTestBtn">Test radio wiring</button>
+								checks every wire between the ESP32 and the C6/H2; the radio is offline for about 10 s
+							</p>
 							<p id="updateTagtypeOption">
 								<button type="button" id="updateTagtypeBtn">Update tagtype definitions</button>
 								<input type="checkbox" value="1" id="tagtype_clean">remove unused tagtype files

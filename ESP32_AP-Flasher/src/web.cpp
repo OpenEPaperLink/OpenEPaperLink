@@ -20,6 +20,7 @@
 #include "leds.h"
 #include "newproto.h"
 #include "pendingupload.h"
+#include "radioselftest.h"
 #include "ota.h"
 #include "serialap.h"
 #include "settings.h"
@@ -864,6 +865,35 @@ void init_web() {
     server.on("/check_file", HTTP_GET, handleCheckFile);
     server.on("/rollback", HTTP_POST, handleRollback);
     server.on("/update_c6", HTTP_POST, handleUpdateC6);
+    /* Radio wiring self-test (task #32). POST starts it (the radio is offline
+       for 5-10 s), GET returns the last result. For development, protoTx,
+       protoRx, dbgTx, dbgRx, reset and prog (S3-side GPIOs, -2 = not
+       connected) replace the configured pins, to simulate wiring faults on a
+       correctly wired AP. */
+    server.on("/radio_selftest", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(200, "application/json", radioSelfTestResult());
+    });
+    server.on("/radio_selftest", HTTP_POST, [](AsyncWebServerRequest *request) {
+        RadioPins pins = radioPinsFromConfig();
+        struct { const char *name; int8_t *pin; } params[] = {
+            {"protoTx", &pins.protoTx}, {"protoRx", &pins.protoRx}, {"dbgTx", &pins.dbgTx},
+            {"dbgRx", &pins.dbgRx}, {"reset", &pins.reset}, {"prog", &pins.prog},
+        };
+        for (auto &p : params) {
+            if (!request->hasParam(p.name, true)) continue;
+            long v = request->getParam(p.name, true)->value().toInt();
+            if (v < -2 || v > 48) {  // -2: simulate a wire that is not connected
+                request->send(400, "text/plain", String("invalid pin for ") + p.name);
+                return;
+            }
+            *p.pin = (int8_t)v;
+        }
+        if (startRadioSelfTest(pins)) {
+            request->send(202, "text/plain", "started");
+        } else {
+            request->send(409, "text/plain", "not possible now (test or flashing running, or no ESP radio)");
+        }
+    });
 #ifdef FLASHER_AP_SWS
     /* Flash the TLSR over SWS. Defaults to the firmware already on the
        filesystem; "url" fetches a release directory instead. */

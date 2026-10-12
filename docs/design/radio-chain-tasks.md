@@ -94,7 +94,7 @@ Can be done at any time; not tied to a phase.
 - [ ] #22 TLSR tag: stop receiving when the block is complete (G5)
 - [ ] #27 Flash the C6 at a higher baud rate (T5)
 - [ ] #24 Archive or synchronise the separate repo `AP_Radio_FW_ESP32` (C9)
-- [ ] #32 S3 ↔ radio wiring self-test (nice to have): when the radio does not come online (or from a button in the web UI), the S3 checks each line and reports what fails, e.g. "TX and RX swapped" or "no signal on GPIO n". S3-side only; uses what the C6 already does (ROM boot text on UART0 after a reset, `RES>`/`RDY>` on the protocol UART, `ACK>` to `RDY?`). Design: [radio-selftest.md](radio-selftest.md); testable on a correctly wired AP by simulating faults with swapped or unused pin numbers
+- [x] #32 S3 ↔ radio wiring self-test (nice to have): when the radio does not come online (or from a button in the web UI), the S3 checks each line and reports what fails, e.g. "TX and RX swapped" or "no signal on GPIO n". S3-side only; uses what the C6 already does (ROM boot text on UART0 after a reset, `RES>`/`RDY>` on the protocol UART, `ACK>` to `RDY?`). Design: [radio-selftest.md](radio-selftest.md); testable on a correctly wired AP by simulating faults with swapped or unused pin numbers — implemented: `radioselftest.cpp`, button *Test radio wiring* on the update page, `POST`/`GET /radio_selftest`, runs automatically when the radio does not come online at boot; tested on the Yellow AP with the real wiring and 10 simulated faults (all correct, see the design doc); the button tested by Nic. Not covered yet: PROG on shared-UART boards, automatic correction of swapped pins
 
 ## Dropped
 
@@ -106,6 +106,8 @@ Can be done at any time; not tied to a phase.
 ## Unplanned
 
 New findings that are not yet in a phase.
+
+- [ ] C6/H2 firmware prints `CC1101_QuickCheck … not detected` on the protocol UART at every boot without a CC1101 (`LOGE`/`LOGA` in `cc1101_radio.h` use `uart_printf` to UART1 on purpose). The S3 parser skips it; move these logs to UART0 (ESP_LOG) like the other debug output (P7)
 
 - [-] One block request answered only after 43 ms (0021, 2026-10-13 00:20:46, tag 00007E1CFE21B296): the C6 did not receive the tag's first five requests (no requests skipped as too old, the sniffer heard all six). Cause: the S3's WiFi transmissions desensitise the C6 receiver next to it; the web UI was open, so each check-in triggered a websocket push just when the tag asked for its block. Measured: check-ins needed 1.11 requests on average under WiFi load against 1.02 quiet ([results](radio-chain-results.md#wifi-desensitisation-2026-10-13)). Not fixed (Nic, 2026-10-13)
 

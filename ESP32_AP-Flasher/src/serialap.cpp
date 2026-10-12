@@ -17,6 +17,7 @@
 #include "zbs_interface.h"
 #include "wifimanager.h"
 #include "radiotransport.h"
+#include "radioselftest.h"
 
 #define LOG(format, ...) printf(format, ##__VA_ARGS__)
 
@@ -575,11 +576,20 @@ void APTask(void* parameter) {
         if (FLASHER_AP_MOSI == -1) {
             Serial.printf("I wasn't able to connect to the AP radio. Did you flash it?\r\n");
             Serial.printf("The build of this firmware expects an AP tag with TXD/RXD on ESP32 pins %d and %d, does this match with your wiring?\r\n", FLASHER_AP_RXD, FLASHER_AP_TXD);
-#ifdef HAS_RGB_LED
-            showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
+            bool onlineAfterTest = false;
+#ifdef C6_OTA_FLASHING
+            // Find out which wire is wrong (result in the log and the web UI); it also tries once more
+            if (apInfo.state != AP_STATE_FLASHING) onlineAfterTest = radioSelfTest(radioPinsFromConfig());
 #endif
-            if (apInfo.state != AP_STATE_FLASHING)  // In case we are flashing already we do not want to end in a failed AP
-                setAPstate(false, AP_STATE_FAILED);
+            if (onlineAfterTest) {
+                ShowAPInfo();
+            } else {
+#ifdef HAS_RGB_LED
+                showColorPattern(CRGB::Red, CRGB::Yellow, CRGB::Red);
+#endif
+                if (apInfo.state != AP_STATE_FLASHING)  // In case we are flashing already we do not want to end in a failed AP
+                    setAPstate(false, AP_STATE_FAILED);
+            }
         } else {
 #ifndef C6_OTA_FLASHING
             // AP unavailable, maybe time to flash?

@@ -116,6 +116,7 @@ export async function initUpdate() {
         // firmware behind /flash_tlsr is not even compiled in on such a
         // board, so pressing it could only ever fail.
         if (sdata.has_sws_flasher) $("#flashTlsrOption").style.display = 'block';
+        if (sdata.hasC6 || sdata.hasH2) $("#radioTestOption").style.display = 'block';
         $('#environment').value = env;
     }
 
@@ -515,6 +516,36 @@ export async function updateC6H2(Url, apType) {
         body: formData
     })
 
+    running = false;
+    disableButtons(false);
+}
+
+$('#radioTestBtn').onclick = async function () {
+    if (running) return;
+    if (!confirm("Test the wiring to the radio? The radio is offline for about 10 seconds.")) return;
+    disableButtons(true);
+    running = true;
+    print("Radio wiring test...");
+    try {
+        const response = await fetch("radio_selftest", { method: "POST" });
+        if (!response.ok) {
+            print("Radio wiring test not started: " + await response.text(), "red");
+        } else {
+            // progress and findings arrive on the console through the websocket; wait for the end
+            let result = null;
+            for (let i = 0; i < 30; i++) {
+                await new Promise(r => setTimeout(r, 1000));
+                const r = await fetch("radio_selftest");
+                result = await r.json();
+                if (!result.running) break;
+            }
+            if (result && !result.running) {
+                print(result.ok ? "Radio wiring OK" : "Radio wiring: " + result.messages.join("; "), result.ok ? "green" : "red");
+            }
+        }
+    } catch (error) {
+        print("Radio wiring test: " + error, "red");
+    }
     running = false;
     disableButtons(false);
 }

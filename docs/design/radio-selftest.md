@@ -1,6 +1,6 @@
 # S3 ↔ radio wiring self-test – design
 
-*Draft, 2026-10-12. Task #32 in [radio-chain-tasks.md](radio-chain-tasks.md). Nothing is implemented yet.*
+*Design 2026-10-12, implemented 2026-10-13 in `ESP32_AP-Flasher/src/radioselftest.cpp`. Task #32 in [radio-chain-tasks.md](radio-chain-tasks.md). See* Implementation *at the end for what differs from this design.*
 
 When the radio does not come online, the AP now says "I wasn't able to connect to the AP radio" and lists the pins it expects. Users with self-built APs (an S3 and a C6 board connected by wires) then have to find out themselves which wire is wrong. The self-test lets the S3 check every line between the two chips and report what fails, for example *"TX and RX of the protocol UART are swapped"* or *"no signal on GPIO 14 (radio TX → S3 RX): wire not connected"*. It runs on the S3 only and uses what the radio already does; the radio firmware does not change.
 
@@ -80,3 +80,32 @@ Every simulated fault must produce the matching message, and the real wiring mus
 - The pull test (step 1) assumes no external pull resistors on the RX lines; a board with strong pull-ups would read "driven". To be checked against the board schematics, or the step is used only as a hint.
 - The ESP32-H2 ROM banner and timing to be checked (the test looks for `ESP-ROM:` only).
 - If a user's eFuses disable ROM messages, steps 3–5 lose their evidence; the test then reports "ROM output disabled, partial result".
+
+## Implementation (2026-10-13)
+
+`radioselftest.cpp` / `radioselftest.h`, only in `C6_OTA_FLASHING` builds.
+
+- **Runs** automatically when the radio does not come online at boot (before the AP is marked FAILED; if the radio comes online after the test, the AP carries on), and from the button *Test radio wiring* under *Other actions* on the update page. `POST /radio_selftest` starts it, `GET /radio_selftest` returns the last result as JSON (`ok`, `messages`, `observations` with the pull results, what was heard on each pin, boot text, bootloader and `ACK>` results). Progress and findings go to the web console, the serial console and `log.txt`. It takes ≈ 8 s, after which the radio is brought online again.
+- **Steps as designed**, with two UART receivers (Serial1 and Serial2) listening on two pins per reset: first the S3's RX pins, then its TX pins. PROG and debug TX are checked with an own SLIP-framed SYNC command to the ROM, listening on the pin where the ROM text appeared; `esp_loader` is not used because the boot text must be read in the same session. The protocol TX check sends `RDY?` on the S3 output that is not the pin the firmware output was found on, so a TX/RX swap is also confirmed in the other direction.
+- **Development parameters**: `protoTx`, `protoRx`, `dbgTx`, `dbgRx`, `reset`, `prog` (S3-side GPIOs) replace the configured pins; the value **-2 stands for a wire that is not connected**: the test never drives it and hears nothing on it. This simulates missing wires without driving a spare GPIO that may be wired to something on the board.
+- **Not yet covered**: PROG on shared-UART boards (LILYGO, 4inch; the bootloader step needs separate debug pins); the automatic correction of swapped pins; the ESP32-H2 banner (the test looks for `ESP-ROM:` only, which the H2 ROM also prints, unverified).
+
+### Tested on the Yellow AP (C6 0x0021)
+
+| Pins given to the test | Message |
+| --- | --- |
+| real wiring (twice, before and after the series) | Radio wiring OK |
+| `protoTx=18 protoRx=17` | TX and RX of the protocol UART are swapped (GPIO 18 <-> GPIO 17) |
+| `protoRx=19 dbgRx=18` | Protocol and debug RX wires are swapped (GPIO 19 <-> GPIO 18) |
+| `dbgTx=19 dbgRx=20` | TX and RX of the debug UART are swapped (GPIO 19 <-> GPIO 20) |
+| `protoRx=-2` | No signal on … (radio protocol TX -> S3 RX): wire not connected |
+| `dbgRx=-2` | No signal on … (radio debug TX -> S3 RX): wire not connected |
+| `reset=-2` | The radio does not restart: RESET wire … not connected |
+| `prog=-2` | PROG wire … not connected: the radio boots normally with PROG low |
+| `dbgTx=-2` | Debug TX wire … not connected: the bootloader does not answer |
+| `protoTx=-2` | S3 TX -> radio RX wire … not connected: RDY? gets no answer |
+| `protoTx=20 dbgTx=17` | The S3's two TX wires are swapped between the radio's UARTs (GPIO 20 <-> GPIO 17) |
+
+Every simulated fault gave exactly its message, the real wiring no false alarm, and the radio came online after every run. With the real wiring the pull test read both RX lines as driven high, so the Yellow AP has no external pulls that fool it.
+
+Seen on the way: at boot the C6 firmware prints `CC1101_QuickCheck … CC1101 not detected` on the **protocol** UART (`LOGE`/`LOGA` in `cc1101_radio.h` write to UART1 on purpose, "log to all"). The S3's parser skips it; it is noted as an open item.
