@@ -14,6 +14,7 @@
 //   M<16 hex>   toggle SYNC_GPIO on frames to/from this MAC (bytes in over-the-air order)
 //   M           sync off
 //   S           send a STATUS record now
+//   T           wiring test: toggle SYNC_GPIO at 20 Hz for 2 s
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -146,6 +147,14 @@ static void handle_command(char *line) {
     switch (line[0]) {
         case 'C':
             set_channel((uint8_t)atoi(line + 1));
+            break;
+        case 'T':
+            // Wiring test: toggle SYNC_GPIO 40 times at 20 Hz (2 s), independent of radio frames.
+            for (int i = 0; i < 40; i++) {
+                s_sync_level ^= 1;
+                gpio_set_level(SYNC_GPIO, s_sync_level);
+                vTaskDelay(pdMS_TO_TICKS(50));
+            }
             break;
         case 'M':
             if (strlen(line + 1) >= 16) {

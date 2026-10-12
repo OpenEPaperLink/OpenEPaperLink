@@ -147,11 +147,10 @@ class Pcap:
 class Analyzer:
     def __init__(self, verbose):
         self.verbose = verbose
-        self.pending = {}  # tag mac -> (req type, end of request us)
-        self.reply_us = collections.defaultdict(list)  # label -> reply times
-        self.unanswered = collections.Counter()
-        self.sessions = collections.defaultdict(list)  # tag -> [attempts per check-in]
-        self.last_checkin = {}  # tag -> (ts, attempts, answered)
+        # A session is one exchange as the tag experiences it: its requests of one kind (retries
+        # included, until a gap of SESSION_GAP_US) and the AP's replies to them.
+        self.open = {}  # (tag, label) -> session dict
+        self.sessions = collections.defaultdict(list)  # label -> closed sessions
         self.hwtype = {}
         self.ap_macs = set()
         self.ap_seq = {}
@@ -184,17 +183,16 @@ class Analyzer:
                 # blockRequest: checksum, ver[8], blockId, type, requestedParts[6]
                 bits = d["payload"][11:17]
                 self.requested[tag] = {i for i in range(BLOCK_MAX_PARTS) if bits[i // 8] & (1 << (i % 8))}
-            if tag in self.pending:
-                self.unanswered[REPLIES[self.pending[tag][0]][1]] += 1
-            self.pending[tag] = (t, end)
-            if t in (0xE5, 0xE3):
-                prev = self.last_checkin.get(tag)
-                if prev and ts - prev[0] < SESSION_GAP_US and not prev[2]:
-                    self.last_checkin[tag] = (ts, prev[1] + 1, False)
-                else:
-                    if prev:
-                        self.sessions[tag].append((prev[1], prev[2]))
-                    self.last_checkin[tag] = (ts, 1, False)
+            label = REPLIES[t][1]
+            s = self.open.get((tag, label))
+            if s and ts - s["last_req"] < SESSION_GAP_US:
+                s["requests"].append(end)
+                s["last_req"] = ts
+            else:
+                if s:
+                    self.sessions[label].append(s)
+                self.open[(tag, label)] = {"tag": tag, "reply_types": REPLIES[t][0], "requests": [end],
+                                           "replies": [], "last_req": ts}
             self.close_burst(tag)
             if self.verbose:
                 print(f"{ts / 1e6:12.6f}  tag {mac_str(tag)} -> {PKT.get(t, hex(t))} rssi {rssi}")
@@ -210,15 +208,10 @@ class Analyzer:
             self.ap_seq[ap] = d["seq"]
         if tag is None:
             return
-        req = self.pending.get(tag)
-        if req and t in REPLIES[req[0]][0]:
-            reply_time = end - req[1]
-            if reply_time <= REPLY_TIMEOUT_US:
-                self.reply_us[REPLIES[req[0]][1]].append(reply_time)
-                if req[0] in (0xE5, 0xE3) and tag in self.last_checkin:
-                    lc = self.last_checkin[tag]
-                    self.last_checkin[tag] = (lc[0], lc[1], True)
-            del self.pending[tag]
+        for (stag, label), s in self.open.items():
+            if stag == tag and t in s["reply_types"] and end - s["requests"][0] <= REPLY_TIMEOUT_US:
+                s["replies"].append(end)
+                break
         if t == 0xE9 and len(d["payload"]) >= 3:
             please_wait = struct.unpack_from("<H", d["payload"], 1)[0]
             self.close_burst(tag)
@@ -266,24 +259,30 @@ class Analyzer:
         out.append(f"frames from other 802.15.4 networks (ignored): {self.foreign}")
         out.append(f"AP sequence gaps (AP did not send, or sniffer missed): {self.ap_seq_gaps}")
         out.append("")
-        out.append("reply time = end of tag request -> end of AP reply (ms)")
+        out.append("exchanges (a tag's requests of one kind incl. retries, and the AP's replies):")
+        out.append("  first reply = end of the tag's first request -> end of the AP's first reply (ms)")
+        out.append("  in window W = a reply ended within W ms after the end of one of the tag's requests")
         for label in ("ping", "checkin", "blockreq", "xfc", "returndata"):
-            v = self.reply_us.get(label, [])
-            windows = next(w for r, (_, l, w) in REPLIES.items() if l == label)
-            if not v and not self.unanswered[label]:
+            ss = self.sessions.get(label, []) + [s for (_, l), s in self.open.items() if l == label]
+            if not ss:
                 continue
-            line = f"  {label:10s} n={len(v):5d} unanswered={self.unanswered[label]:4d}"
-            if v:
-                ms = sorted(x / 1000 for x in v)
-                p = lambda q: ms[min(len(ms) - 1, int(q * len(ms)))]
-                line += f"  median {statistics.median(ms):6.2f}  p95 {p(0.95):6.2f}  max {ms[-1]:6.2f}"
-                line += "  over " + ", ".join(f"{w} ms: {sum(1 for x in ms if x > w)}" for w in windows)
+            windows = next(w for r, (_, l, w) in REPLIES.items() if l == label)
+            answered = [s for s in ss if s["replies"]]
+            nreq = [len(s["requests"]) for s in ss]
+            extra = sum(max(0, len(s["replies"]) - 1) for s in ss)
+            line = (f"  {label:10s} n={len(ss):4d} unanswered={len(ss) - len(answered):3d}"
+                    f"  requests per exchange: mean {statistics.mean(nreq):.2f} max {max(nreq)}"
+                    f"  extra replies {extra}")
             out.append(line)
-        sessions = [s for v in self.sessions.values() for s in v]
-        if sessions:
-            att = [a for a, ok in sessions if ok]
-            out.append(f"  check-ins: {len(sessions)}, answered {len(att)}, "
-                       f"attempts per answered check-in: mean {statistics.mean(att) if att else 0:.2f}, max {max(att) if att else 0}")
+            if answered:
+                ms = sorted((s["replies"][0] - s["requests"][0]) / 1000 for s in answered)
+                p = lambda q: ms[min(len(ms) - 1, int(q * len(ms)))]
+                line = f"  {'':10s} first reply median {statistics.median(ms):6.2f}  p95 {p(0.95):6.2f}  max {ms[-1]:6.2f}"
+                for w in windows:
+                    ok = sum(1 for s in answered
+                             if any(0 < r - q <= w * 1000 for r in s["replies"] for q in s["requests"]))
+                    line += f"  in {w} ms window: {ok}/{len(ss)}"
+                out.append(line)
         if self.blocks:
             out.append("")
             out.append("block bursts:")
@@ -301,7 +300,8 @@ class Analyzer:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--port", required=True)
+    ap.add_argument("--port", help="sniffer serial port (not needed with --replay)")
+    ap.add_argument("--replay", help="analyse a pcap written earlier by this script instead of live data")
     ap.add_argument("--channel", type=int, default=25)
     ap.add_argument("--duration", type=float, default=0, help="seconds, 0 = until Ctrl-C")
     ap.add_argument("--pcap", help="write frames to this pcap file")
@@ -309,6 +309,23 @@ def main():
     ap.add_argument("--summary-every", type=float, default=0, help="print a summary every N seconds")
     ap.add_argument("-v", "--verbose", action="store_true", help="print every OEPL packet")
     args = ap.parse_args()
+
+    if args.replay:
+        analyzer = Analyzer(args.verbose)
+        with open(args.replay, "rb") as f:
+            magic, _, _, _, _, _, linktype = struct.unpack("<IHHiIII", f.read(24))
+            if magic != 0xA1B2C3D4 or linktype != 230:
+                sys.exit("not a pcap from this script (expected LINKTYPE 230, microsecond timestamps)")
+            while hdr := f.read(16):
+                sec, usec, incl, _ = struct.unpack("<IIII", hdr)
+                frame = f.read(incl) + b"\0\0"  # decode() expects the FCS the sniffer delivers
+                analyzer.feed(sec * 1_000_000 + usec, 0, frame)
+        for tag in list(analyzer.burst):
+            analyzer.close_burst(tag)
+        print(analyzer.summary(None))
+        return
+    if not args.port:
+        sys.exit("--port is required (or use --replay)")
 
     ser = serial.Serial()
     ser.port = args.port

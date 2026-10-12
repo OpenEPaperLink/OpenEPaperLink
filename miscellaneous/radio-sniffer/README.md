@@ -31,7 +31,8 @@ It is measurement **M2** of the radio chain work. Context, finding IDs and the t
 
 | Option | Meaning |
 | --- | --- |
-| `--port` | Sniffer's serial port (required). |
+| `--port` | Sniffer's serial port (required for live capture). |
+| `--replay FILE` | Analyse a pcap written earlier by this script instead of live data (no RSSI). |
 | `--channel` | 802.15.4 channel, 11–26. Default 25. |
 | `--duration` | Seconds to run; 0 = until Ctrl-C. The summary prints at the end. |
 | `--pcap FILE` | Also write all frames (OEPL and others) to a pcap, LINKTYPE 230 (802.15.4 without FCS). |
@@ -48,17 +49,22 @@ sniffer during this run: received N, dropped in sniffer queue N, dropped on USB 
 packets: <OEPL packet type> <count>, ...
 frames from other 802.15.4 networks (ignored): N
 AP sequence gaps (AP did not send, or sniffer missed): N
-reply time = end of tag request -> end of AP reply (ms)
-  checkin    n=… unanswered=…  median …  p95 …  max …  over 5 ms: …
-  check-ins: N, answered N, attempts per answered check-in: mean …, max …
+exchanges (a tag's requests of one kind incl. retries, and the AP's replies):
+  ping       n=4 unanswered=0  requests per exchange: mean 2.00 max 4  extra replies 3
+             first reply median 3.88  p95 6.69  max 6.69  in 2 ms window: 3/4  in 5 ms window: 4/4
+  checkin    n=27 unanswered=1  requests per exchange: mean 1.37 max 5  extra replies 1
+             first reply median 2.43  p95 20.96  max 23.11  in 5 ms window: 26/27
 block bursts:
   tag <MAC>: wait <pleaseWaitMs> ms, start vs wait <±ms>, <frames> frames (<distinct> distinct, <requested> requested, <missing> requested not seen), <ms> ms, <n> frames after all requested parts were sent
 tags seen (hwType): <MAC>=<hwType hex>, ...
 ```
 
-- **Reply time** is measured on air: end of the tag's request → end of the AP's reply. That is what has to fit in the tag's receive window. Windows (from the tag firmware, see the timing budget in the analysis): ping 2 ms on ZBS243 (5 ms on others), check-in 5 ms, block request 6 ms on nRF52811 (7–9 ms on ZBS243), XFC ack 6 ms. The `over X ms` counts are against those windows.
-- **unanswered**: a tag request without a matching AP reply before that tag's next request. Either the AP did not answer in time, or the sniffer missed the reply.
-- **attempts per answered check-in**: requests a tag needed before it got an `AVAIL_DATA_INFO`. More than 1 means missed windows (or the AP did not hear the tag).
+- **exchange**: one interaction as the tag experiences it: its requests of one kind (ping, check-in, block request, XFC, return data), including retries, until a gap of 300 ms, plus the AP's replies to them. Kinds: `ping` (PING/PONG), `checkin` (AVAIL_DATA_REQ or SHORTREQ / AVAIL_DATA_INFO), `blockreq` (BLOCK_REQUEST or PARTIAL / ACK, PART or CANCEL), `xfc` (XFER_COMPLETE / ACK), `returndata`.
+- **requests per exchange**: how many requests the tag needed. More than 1 means the tag did not get a usable reply in its window (or the AP did not hear it).
+- **extra replies**: replies beyond the first in an exchange. The AP answering requests that queued up while it was busy; the tag has stopped listening for those (finding E5).
+- **first reply**: on air, from the end of the tag's *first* request to the end of the AP's first reply. Includes the tag's retries, so it is what the exchange really took.
+- **in W ms window**: exchanges where some reply ended within W ms after the end of one of the tag's requests, i.e. where the tag could have accepted it. Windows (from the tag firmware, see the timing budget in the analysis): ping 2 ms on ZBS243 (5 ms on others), check-in 5 ms, block request 6 ms on nRF52811 (7–9 ms on ZBS243), XFC ack 6 ms.
+- **unanswered**: exchanges without any AP reply. Either the AP did not answer, or the sniffer missed the reply.
 - **block bursts**: per `BLOCK_REQUEST_ACK`: the `pleaseWaitMs` the AP gave, when the first `BLOCK_PART` actually came relative to that (`+` = late), how many frames were sent, how many distinct parts, how many requested parts were never seen, burst duration, and frames sent after every requested part had already gone out once (redundancy; ZBS243 and nRF52811 have stopped listening by then).
 - **AP sequence gaps**: jumps in the AP's MAC sequence number. 0 means the sniffer saw every AP frame.
 - **dropped in sniffer queue / on USB**: should be 0. If not, the sniffer lost frames itself and the numbers are incomplete.
@@ -85,9 +91,9 @@ Device → host records, little-endian: `0xA5 0x5A`, type `u8`, payload length `
 | 2 STATUS (every 1 s) | `ts_us u64, received u32, dropped_queue u32, dropped_usb u32, channel u8, sync_on u8` |
 | 3 HELLO (at boot) | `version u8, channel u8` |
 
-Host → device commands, ASCII lines: `C<11..26>` set channel, `M<16 hex>` sync on frames with this MAC (over-the-air byte order), `M` sync off, `S` status now. Every command is answered with a STATUS record.
+Host → device commands, ASCII lines: `C<11..26>` set channel, `M<16 hex>` sync on frames with this MAC (over-the-air byte order), `M` sync off, `S` status now, `T` wiring test (GPIO 2 toggles at 20 Hz for 2 s, independent of radio frames). Every command is answered with a STATUS record.
 
-Script structure: `Reader` splits the byte stream into records (resyncs on the magic bytes), `decode()` parses the 802.15.4 header and the OEPL packet type, `Analyzer.feed()` pairs tag requests with AP replies and collects bursts, `Analyzer.summary()` prints the report, `Pcap` writes the capture. Packet types and reply pairing are in the `PKT` and `REPLIES` tables at the top; OEPL structs are in `oepl-proto.h`.
+Script structure: `Reader` splits the byte stream into records (resyncs on the magic bytes), `decode()` parses the 802.15.4 header and the OEPL packet type, `Analyzer.feed()` groups tag requests and AP replies into exchanges (`self.open`, `self.sessions`) and collects bursts, `Analyzer.summary()` prints the report, `Pcap` writes the capture. Packet types and reply pairing are in the `PKT` and `REPLIES` tables at the top; OEPL structs are in `oepl-proto.h`.
 
 ## Where results go
 
