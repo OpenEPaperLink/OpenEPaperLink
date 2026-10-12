@@ -167,6 +167,9 @@ int8_t commsRxUnencrypted(uint8_t *data) {
     if(gSubGigData.Enabled) {
        int8_t Ret = SubGig_commsRxUnencrypted(data);
        if(Ret > 0) {
+          // No SFD timestamp from the CC1101; the packet is read right after its interrupt woke us.
+          // Without this, the age of the last 802.15.4 frame was used to skip sub-GHz requests.
+          lastRxAgeUs = 0;
           return Ret;
         }
     }

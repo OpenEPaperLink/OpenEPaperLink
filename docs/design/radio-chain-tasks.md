@@ -42,6 +42,7 @@ The C6/H2 firmware is restructured and fixed while it still speaks the old seria
 - [x] #3 Move the `memcpy` in `radioTx` after the wait loop (C5) — `52a65b66`; on air all 42 parts of a full block now arrive (was 41 + a duplicate). Confirmed by the baseline: part 0 of every full block is never sent, so each block needs a partial re-request; biggest single gain in this phase
 - [x] #7 Logging to WARN and out of the ISRs (E2, R7) — `45cd3173`; traffic hour without serial errors
 - [~] #10 Use the PAN of the incoming frame for cancel and XFC ack (C4) — `ea6e6fe0`; sub-GHz not testable here, to be tested by users after the release
+- [~] Sub-GHz in the event loop (found after `2.94-nic`, C6/H2 0021): #12 judged sub-GHz requests by the age of the last 802.15.4 frame (`lastRxAgeUs` was only set on that path), so after a late 802.15.4 frame they were skipped; now 0 for sub-GHz. The CC1101 interrupt (GDO0) now wakes the main loop like an 802.15.4 frame (was: polled, up to 100 ms). Build-tested; 2.4 GHz checked with 12 min of traffic; bins in `binaries/ESP32-C6`, `binaries/ESP32-H2` for separate testing, in the next release by default
 - [x] #12 Drop stale packets from the RX queue (E5, R6) — `85f56e13`: requests older than 5 ms (7 ms for block requests) are skipped and counted
 - [x] #19 `radioSetChannel` without full re-initialisation and LED delay (E6) — `35d2f98f`; tested 2026-10-12: AP switched 25 → 26 → 25 through the web config, the C6 changed channel at once each time, the test tag (rebooted) found the AP on 26, the other tags checked in again right after the switch back
 - [x] Build in DIO flash mode for ISSI flash (upstream issue #596; also in the local `TASKS.md`) — `00e9228f`; runs on the Yellow AP; the ISSI case waits for user feedback after the release
@@ -103,6 +104,8 @@ Can be done at any time; not tied to a phase.
 ## Unplanned
 
 New findings that are not yet in a phase.
+
+- [ ] One block request answered only after 43 ms (0021, 2026-10-13 00:20:46, tag 00007E1CFE21B296, hwType 33, a 1-block image right after its check-in): the tag asked 6 times, 7 ms apart; the C6 was busy ≈ 40 ms and skipped the first five as too old. Seen once; in the 0020 runs the first reply stayed within 10.4 ms. Find what blocks the C6 loop right after a check-in with new data (serial `ADR>`/`RQB>` handling?)
 
 - [ ] 11.6" M3 tags (hwType 0x37, 2× rechargeable AA) check in only every 10–20 min instead of every minute, also with the old C6 firmware; a button press makes them check in every 40 s again, but the one at RSSI −68 fell silent again after 5 check-ins, the one moved close to the AP stayed regular. Next: sniffer close to the tag to see whether it sends and whether the AP hears it; check what the tag firmware does after a missed reply or at 2.4–2.5 V ([results](radio-chain-results.md#phase-2-traffic-hour-2026-10-12-c6-74761447-s3-74761447))
 

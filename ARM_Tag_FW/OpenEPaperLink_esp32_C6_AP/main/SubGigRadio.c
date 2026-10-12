@@ -214,7 +214,13 @@ void SubGig_CC1101_SetConfig(const RfSetting *pConfig);
 
 static void IRAM_ATTR gpio_isr_handler(void *arg)
 {
+   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
    gSubGigData.RxAvailable = true;
+   // Wake the main loop now, as for 802.15.4 frames; otherwise the packet waits for its next poll (up to 100 ms)
+   if(radioWakeTask) {
+      vTaskNotifyGiveFromISR(radioWakeTask,&xHigherPriorityTaskWoken);
+   }
+   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 // return SUBGIG_ERR_NONE aka ESP_OK aka 0 if CC1101 is detected and all is good
