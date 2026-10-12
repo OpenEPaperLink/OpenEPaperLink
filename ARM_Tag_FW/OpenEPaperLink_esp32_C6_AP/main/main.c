@@ -726,18 +726,23 @@ void sendBlockData() {
     }
     pr("\n\r");
 
+    // Each requested part once, then repeated until twice the number of requested parts (at most 42
+    // frames). Every burst used to be filled up to 42 frames: for a partial request of one part that
+    // kept the radio busy for 200 ms after the tag had its data, while other tags waited.
+    uint8_t requested = getBlockDataLength();
+    uint8_t frames = (requested * 2 > BLOCK_MAX_PARTS) ? BLOCK_MAX_PARTS : requested * 2;
+    if (frames < requested) frames = requested;
+    if (dstPan == PROTO_PAN_ID_SUBGHZ) {
+        // Don't repeat for subgig, it requests what it can handle with its limited RAM
+        frames = requested;
+    }
     uint8_t partNo = 0;
-    while (partNo < BLOCK_MAX_PARTS) {
-        for (uint8_t c = 0; (c < BLOCK_MAX_PARTS) && (partNo < BLOCK_MAX_PARTS); c++) {
+    while (partNo < frames) {
+        for (uint8_t c = 0; (c < BLOCK_MAX_PARTS) && (partNo < frames); c++) {
             if (requestedData.requestedParts[c / 8] & (1 << (c % 8))) {
                 sendPart(c);
                 partNo++;
             }
-        }
-        if(dstPan == PROTO_PAN_ID_SUBGHZ) {
-        // Don't send BLOCK_MAX_PARTS for subgig, it requests what it 
-        // can handle with its limited RAM
-           break;
         }
     }
 }
