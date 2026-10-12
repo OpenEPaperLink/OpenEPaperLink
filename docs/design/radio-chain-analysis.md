@@ -100,7 +100,7 @@ The biggest brake is the polling main loop: it can lag ≈ 110 ms behind, while 
 | C2 | `main.c:542` | `pleaseWaitMs = 140` assumes a fast S3; with 5 or more items in the S3 queue the first block reads a whole file from LittleFS (below that, `queueDataAvail()` already reads it into RAM in advance) | Burst starts before the block is complete | Likely |
 | C3 | `main.c:364` → `:372` | With `channel == 0` the code jumps to `SCPchannelFound` and still calls `radioSetChannel(0)` | 802.15.4 on an invalid channel with auto channel + sub-GHz change | Confirmed in code |
 | C4 | `main.c:670/717/732` | Cancel and XFC ack use the global `dstPan` of the previous transfer | Reply via the wrong radio (CC1101); PAN 0 after boot | Confirmed in code |
-| C5 | `radio.c:122–133` | `memcpy` to `txPKT` before waiting for `isInTransmit`; the driver uses that buffer through DMA | A frame still being sent can be overwritten | Contract violated; effect to be verified |
+| C5 | `radio.c:122–133` | `memcpy` to `txPKT` before waiting for `isInTransmit`; the driver uses that buffer through DMA | Each frame on air carries the next frame's content: in a full block part 0 is never sent and the last part twice, so every full block needs a partial re-request | Confirmed by measurement ([results](radio-chain-results.md)) |
 | C6 | `radio.c:141` | `radioSetTxPower()` is empty | TX power from the web UI is ignored | Confirmed in code |
 | C7 | `radio.c:39` | `xHigherPriorityTaskWoken` not initialised | Unnecessary context switches | Confirmed in code |
 | C8 | `main.c` | `RSET` does nothing (TODO); channel 27 in `channelList`; `getMillis() > blockStartTimer` fails after 49.7 days | Various edge cases | Confirmed in code |
@@ -110,7 +110,7 @@ The biggest brake is the polling main loop: it can lag ≈ 110 ms behind, while 
 
 | ID | Finding | Consequence |
 | --- | --- | --- |
-| E1 | One polling loop: `xQueueReceive` up to 100 ms, plus `vTaskDelay(10)` | Serial commands and `sendBlockData` up to ≈ 110 ms late |
+| E1 | One polling loop: `xQueueReceive` up to 100 ms, plus `vTaskDelay(10)` | Serial commands and `sendBlockData` up to ≈ 110 ms late; measured: block bursts start ≈ 71 ms after the promised time ([results](radio-chain-results.md)) |
 | E2 | `ESP_EARLY_LOGI` in RX and TX ISR; `ESP_LOGI` for almost every command, UART0 at 115200 | ISRs lasting milliseconds; threatens the 1–3 ms window and can overflow the protocol UART |
 | E3 | `radioTx` busy-waits on `isInTransmit`, without yield or timeout | CPU busy; possible hang |
 | E4 | `sendBlockData` always fills up to 42 frames (≈ 180 ms) | ZBS/nRF are no longer listening; other tags miss their windows |

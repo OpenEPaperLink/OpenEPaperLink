@@ -16,11 +16,11 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done (with commit) · `[-]` dro
 Measure how often the tag windows are missed today, before changing behaviour. The instrumentation must not affect timing: no live logging. Gate for phases 2 and 4.
 
 - [ ] **M1 – response times in the C6** (#1). `esp_timer` timestamps in a RAM ring buffer, read out afterwards via a command. Yields: RX → TX per packet type, queue wait time, burst start vs `pleaseWaitMs`, duration of serial handling. Behaviour-neutral C6 build.
-- [~] **M2 – timing and loss on air** (#2). Sniffer built and working: `miscellaneous/radio-sniffer/` — `0594eb1b`; baseline with block transfers still to do. Any ESP32-C6 devboard on USB as sniffer: small ESP-IDF (v5.5.1) firmware in promiscuous mode on the AP's channel, sends every frame with its SFD timestamp (µs), RSSI and LQI over serial; a Python script on the PC decodes the OEPL packet types, computes response times and gaps, and writes a pcap for Wireshark. Tags: ZBS243 and nRF52811 (available); no TLSR8258 tag available, so TLSR windows stay code-derived. Yields: missed windows, repeated requests, packet loss per burst.
+- [x] **M2 – timing and loss on air** (#2). Sniffer `miscellaneous/radio-sniffer/` — `0594eb1b`; baseline 2026-10-12 in [radio-chain-results.md](radio-chain-results.md). Any ESP32-C6 devboard on USB as sniffer: small ESP-IDF (v5.5.1) firmware in promiscuous mode on the AP's channel, sends every frame with its SFD timestamp (µs), RSSI and LQI over serial; a Python script on the PC decodes the OEPL packet types, computes response times and gaps, and writes a pcap for Wireshark. Tags: ZBS243 and nRF52811 (available); no TLSR8258 tag available, so TLSR windows stay code-derived. Yields: missed windows, repeated requests, packet loss per burst.
 - [ ] **M3 – UART integrity.** Counters for checksum errors and timeouts on both sides. Yields: how often P1/P5 occur in practice.
-- [~] **M4 – baseline tag consumption.** Capture script `miscellaneous/ppk2-measure/`, sync with the sniffer verified (D0 edges = frames to/from the tag); baseline with image transfers in progress. Nordic PPK2 in source-meter mode powers one ZBS243 tag (battery removed, ≈ 3.0 V), 100 kS/s, controlled from Python (`ppk2-api` 0.9.2). Sync with M2: the sniffer devboard toggles a GPIO on every frame to or from the tag, wired to PPK2 logic input D0, so current and radio frames share one timeline. Yields: sleep current, charge per check-in, per block and per complete image transfer, radio-on time per step (check-in, `pleaseWaitMs`, block data), display refresh shown separately. ZBS243 chosen because its `pleaseWaitMs` handling (busy-wait with radio on below 35 ms, sleep above) makes the effect of R3 impossible to predict from code; also the most common tag. Reference for R3/R5.
+- [x] **M4 – baseline tag consumption.** Capture script `miscellaneous/ppk2-measure/` — `506a79a2`, baseline runner `miscellaneous/radio-baseline/`; baseline 2026-10-12 in [radio-chain-results.md](radio-chain-results.md). Nordic PPK2 in source-meter mode powers one ZBS243 tag (battery removed, ≈ 3.0 V), 100 kS/s, controlled from Python (`ppk2-api` 0.9.2). Sync with M2: the sniffer devboard toggles a GPIO on every frame to or from the tag, wired to PPK2 logic input D0, so current and radio frames share one timeline. Yields: sleep current, charge per check-in, per block and per complete image transfer, radio-on time per step (check-in, `pleaseWaitMs`, block data), display refresh shown separately. ZBS243 chosen because its `pleaseWaitMs` handling (busy-wait with radio on below 35 ms, sleep above) makes the effect of R3 impossible to predict from code; also the most common tag. Reference for R3/R5.
 
-Done when: baseline numbers for M1–M4 are recorded under Results.
+Done when: baseline numbers for M1–M4 are recorded under Results. M2 and M4 done; M1 (inside the C6) and M3 (UART) still open.
 
 ## Phase 1 – S3 fixes without radio protocol change
 
@@ -40,7 +40,7 @@ Done when: all S3 envs build; tested on the Yellow AP (S3 + C6), on a board with
 The C6/H2 firmware is restructured and fixed while it still speaks the old serial protocol, and released as an interim release. Works with every S3 version. The rework gets field-tested before the new protocol is added in phase 4, and the biggest timing gain (E1) reaches users early. Measure with M1/M2 before and after.
 
 - [ ] #13 Event-driven structure of the C6 firmware (R1)
-- [ ] #3 Move the `memcpy` in `radioTx` after the wait loop (C5)
+- [ ] #3 Move the `memcpy` in `radioTx` after the wait loop (C5). Confirmed by the baseline: part 0 of every full block is never sent, so each block needs a partial re-request; biggest single gain in this phase
 - [ ] #7 Logging to WARN and out of the ISRs (E2, R7)
 - [ ] #10 Use the PAN of the incoming frame for cancel and XFC ack (C4)
 - [ ] #11 Actually call `esp_ieee802154_set_txpower` (C6)
@@ -103,7 +103,7 @@ New findings that are not yet in a phase.
 ## Results
 
 - Final results (baselines and before/after comparisons) go into [radio-chain-results.md](radio-chain-results.md), committed.
-- Intermediate results stay local in `measurements/` at the repo root (excluded via `.git/info/exclude`, not committed). Latest: `2026-10-12-m2-sniffer-check.md` (check-in reply median 2.4 ms, max 4.5 ms; no block transfers yet).
+- Intermediate results stay local in `measurements/` at the repo root (excluded via `.git/info/exclude`, not committed). Latest: `baseline-2026-10-12/` (the baseline run, raw data).
 - Measurement tools are committed under `miscellaneous/`; each has a README with setup, usage, how to read the output and pitfalls.
 
 ## Tools
@@ -112,3 +112,4 @@ New findings that are not yet in a phase.
 | --- | --- | --- |
 | `miscellaneous/radio-sniffer/` | M2: on-air reply times, requests per exchange, block bursts, pcap; GPIO sync output for M4 | [README](../../miscellaneous/radio-sniffer/README.md) |
 | `miscellaneous/ppk2-measure/` | M4: tag current with a PPK2 (100 kS/s), active episodes with charge and radio frames (D0) | [README](../../miscellaneous/ppk2-measure/README.md) |
+| `miscellaneous/radio-baseline/` | Repeatable baseline (M2 + M4): scripted image transfers to one tag, analysis of boot, check-ins, XFC, blocks and transfers. Rerun after each change and compare | [README](../../miscellaneous/radio-baseline/README.md) |
