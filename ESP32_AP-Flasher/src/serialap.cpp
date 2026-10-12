@@ -332,13 +332,19 @@ bool sendChannelPower(struct espSetChannelPower* scp) {
     if (apInfo.state == AP_STATE_NORADIO) return true;
     if ((apInfo.state != AP_STATE_ONLINE) && (apInfo.state != AP_STATE_COMING_ONLINE)) return false;
     if (!txStart()) return false;
-    addCRC(scp, sizeof(struct espSetChannelPower));
+    // The payload size depends on how the radio was built, not on HAS_SUBGHZ here: C6/H2 firmware
+    // since 0x0019 always expects the sub-GHz channel byte, every other radio expects 3 bytes. A size
+    // mismatch made the radio take the first byte of the next command as payload.
+    uint8_t wire[4] = {0, scp->channel, scp->power, 0};
+#ifdef HAS_SUBGHZ
+    wire[3] = scp->subghzchannel;
+#endif  // without HAS_SUBGHZ nobody changes the radio's sub-GHz channel, so 0 (its default) is no change
+    const uint8_t wireLen = (apInfo.type == ESP32_C6 && apInfo.version >= 0x0019) ? 4 : 3;
+    addCRC(wire, wireLen);
     for (uint8_t attempt = 0; attempt < 5; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
         AP_SERIAL_PORT.print("SCP>");
-        for (uint8_t c = 0; c < sizeof(struct espSetChannelPower); c++) {
-            AP_SERIAL_PORT.write(((uint8_t*)scp)[c]);
-        }
+        AP_SERIAL_PORT.write(wire, wireLen);
         if (waitCmdReply()) {
             txEnd();
             apInfo.channel = scp->channel;
@@ -876,12 +882,14 @@ bool bringAPOnline(uint8_t newState) {
         return false;
     } else {
         setAPstate(false, AP_STATE_COMING_ONLINE);
-        sendChannelPower(&curChannel);
-        vTaskDelay(200 / portTICK_PERIOD_MS);
+        // Info first: sendChannelPower() needs the radio's type and version for the payload size.
+        // The radio sends TYP>/VER> after its ACK>, so give the parser a moment.
         if (!sendGetInfo()) {
             setAPstate(false, AP_STATE_OFFLINE);
             return false;
         }
+        vTaskDelay(200 / portTICK_PERIOD_MS);
+        sendChannelPower(&curChannel);
         if (apInfo.type == ESP32_C6) {
             if (sendHighspeed()) {
                 AP_SERIAL_PORT.flush();
