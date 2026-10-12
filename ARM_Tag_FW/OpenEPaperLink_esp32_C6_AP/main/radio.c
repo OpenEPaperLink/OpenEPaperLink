@@ -144,7 +144,13 @@ bool radioTx(uint8_t *packet) {
 }
 
 void radioSetChannel(uint8_t ch) {
-    radio_init(ch);
+    // Only the channel: a full radio_init() disabled and re-enabled the radio and blinked the LEDs
+    // for 400 ms, during which tags were not answered. Receiving again applies the new channel.
+    while (isInTransmit) {
+    }
+    esp_ieee802154_set_channel(ch);
+    esp_ieee802154_receive();
+    ESP_LOGW(TAG, "channel %d", ch);
 }
 
 void radioSetTxPower(uint8_t power) {}
