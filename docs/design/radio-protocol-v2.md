@@ -1,6 +1,6 @@
 # S3 ↔ radio protocol v2 – design
 
-*Draft, 2026-10-12. Task #30 in [radio-chain-tasks.md](radio-chain-tasks.md). Nothing is implemented yet.*
+*Design, 2026-10-13 (draft of 2026-10-12, checked against the phase 2 code and measurements). Task #30 in [radio-chain-tasks.md](radio-chain-tasks.md). Not implemented yet; the message structs are in [radio-protocol-v2.h](radio-protocol-v2.h), with size checks that compile for the S3 (Xtensa, C++) and the C6/H2 (RISC-V, C).*
 
 Version 2 replaces the ASCII command protocol between the ESP32-S3 and the radio co-processor (ESP32-C6/H2 first, TLSR later) with framed binary messages: COBS framing, CRC16, sequence numbers, acknowledgements, and explicit fields. It fixes P1–P8 and S1–S3 from [radio-chain-analysis.md](radio-chain-analysis.md), carries the extra check-in data from the struct review, and adds the data chunks the block cache (R3) needs. The tag ↔ radio air protocol does not change.
 
@@ -82,7 +82,7 @@ crc16:        CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over header and payl
 | Type | Name | Payload | Reply |
 | --- | --- | --- | --- |
 | 0x81 | HELLO_REPLY | `proto_major u8, proto_minor u8, fw_version u16, hw_type u8, mac[8], caps u16, max_payload u16, cache_kb u16, pending_slots u16` | – |
-| 0x82 | STATUS | `uptime_ms u32, pending u16, cache_used_kb u16, rx_frames u32, tx_frames u32, serial_crc_errors u16, serial_overflows u16, retransmits u16, events_queued u8, last_reset_reason u8` | – |
+| 0x82 | STATUS | `uptime_ms u32, channel u8, subghz_channel u8, tx_power_dbm i8, last_reset_reason u8, pending u16, pending_idle u16, cache_used_kb u16, rx_frames u32, tx_frames u32, late_requests_skipped u16, serial_crc_errors u16, serial_overflows u16, retransmits u16, events_queued u8` — the first fields replace the `ZCH>`, `SCH>`, `ZPW>`, `PEN>` and `NOP>` tokens of `NFO?`; `late_requests_skipped` counts tag requests the radio found too old to answer (phase 2, #12) since the last STATUS | – |
 | 0x40 | CHECKIN | `mac[8], timestamp_us u32, rssi i8, lqi u8, radio u8 (0 = 2.4 GHz, 1 = sub-GHz), channel u8, pan u16, kind u8 (0 = full, 1 = short request), answered_ver u64, answered_type u8, adr[21]` — `adr` = the tag's `AvailDataReq` as received (all zero for a short request); `answered_*` = what the radio offered | ACK |
 | 0x41 | DATA_NEEDED | `mac[8], data_ver u64, offset u32, length u32, please_wait_ms u16` — the radio has no cached data for this block request; `please_wait_ms` is what it told the tag | ACK, then DATA_CHUNKs |
 | 0x42 | BLOCK_SERVED | `mac[8], data_ver u64, block_id u8, parts_requested u8, frames_sent u8, late_ms i16` — statistics, one per block request served from the cache | ACK |
@@ -99,6 +99,17 @@ crc16:        CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over header and payl
 | 0x7F | NAK | `code u8`: 1 `UNKNOWN_TYPE`, 2 `BAD_LENGTH`, 3 `INVALID_PARAM`, 4 `NO_SLOT`, 5 `NO_CACHE_SPACE`, 6 `BUSY` |
 
 Capability bits (`caps`, `wanted_caps`, `CAP>`): 0 v2 framing, 1 block cache, 2 sub-GHz radio present, 3 tag return data, 4 reserved, 5 log frames.
+
+## Rules
+
+- **Pending table: one entry per tag MAC.** SET_PENDING for a MAC that already has an entry replaces it, as `SDA>` does today; the S3 keeps its own queue per tag and only gives the radio the item that is due. An entry with `data_type` = `DATATYPE_NOUPDATE` is an idle request: the radio offers "no update" with that `next_checkin`.
+- CANCEL_PENDING removes every entry for the MAC and does not produce XFER_TIMEOUT. NAK `NO_SLOT` replaces `NOQ>`; the S3 does not retry it (phase 1, #23) and tries again when the next check-in of that tag comes in.
+- `ttl_min` counts down once a minute, as `attemptsLeft` does today; at 0 the radio drops the entry and sends XFER_TIMEOUT, except for idle requests.
+- **XFER_COMPLETE** is sent once per transfer: a tag that repeats its XFC (because it missed the radio's ack) gets acked again on air, but not reported again. The radio drops the pending entry when it sends it.
+- **CHECKIN** for every check-in the radio answered, short requests included, after the reply is on air. At 100 tags checking in every 40 s that is 2.5 frames/s of ≈ 56 bytes on the wire (49 payload, header, CRC, COBS): negligible at 2 Mbaud.
+- The radio never needs the S3 to answer a tag. If the event queue is full (S3 not reading), the radio keeps answering from local state, drops the oldest CHECKIN events first and counts them; XFER_COMPLETE, XFER_TIMEOUT and TAG_RETURN_DATA are kept.
+- **Sequence numbers** are 8 bits per direction and wrap; the duplicate check compares with the last handled seq only, which is safe with stop-and-wait and a window of 4.
+- DATA_CHUNKs fill the cache whether or not a pending entry with that `data_ver` exists (the S3 may preload); the radio evicts least-recently-used blocks when space runs out, never a block that a burst is reading.
 
 ## Block cache and data flow
 
@@ -130,8 +141,18 @@ Multi-AP is unchanged: SET_PENDING only reaches the radio of the AP where the ta
 ## Decisions (2026-10-12)
 
 1. **Cache per 4 KB block**, not per file (see Block cache above).
-2. **Repetition per burst**: determined by measurement. After C5 is fixed (task #3), measure part loss per burst with the baseline (M2) and pick the smallest repetition that keeps re-requests rare; until then each requested part is sent once plus one repetition.
-3. **`pleaseWaitMs`: one default for all tags**, 0 or ≥ 10 ms, with the burst starting a few ms after `pleaseWaitMs` (the nRF52811 starts its radio only after it). A ZBS243-specific value only if a measurement shows it saves battery; with the cache the remaining waste is a few ms per block (≈ 0.2 mC on a ZBS243, about one check-in). The AP has to work with every tag firmware in the field, so the timing contract stays on the AP side; tag-side fixes (underflow of small values, nRF ping loop: tasks #16, #21, #22) make tags more robust but do not replace it.
+2. **Repetition per burst**: determined by measurement. After C5 is fixed (task #3), measure part loss per burst with the baseline (M2) and pick the smallest repetition that keeps re-requests rare; until then each requested part is sent once plus one repetition. *Phase 2 (2026-10-12/13): each requested part at most twice, never more than 42 frames (`939cd948`); in the traffic hour full blocks needed 154 requests for 168 bursts and 7 partial re-requests, so this stays the default.*
+3. **`pleaseWaitMs`: one default for all tags**, 0 or ≥ 10 ms, with the burst starting a few ms after `pleaseWaitMs` (the nRF52811 starts its radio only after it). *Phase 2: the burst starts 5 ms after `pleaseWaitMs` (`BURST_MARGIN_MS`), measured +6.3 ms median; v2 keeps that margin.* A ZBS243-specific value only if a measurement shows it saves battery; with the cache the remaining waste is a few ms per block (≈ 0.2 mC on a ZBS243, about one check-in). The AP has to work with every tag firmware in the field, so the timing contract stays on the AP side; tag-side fixes (underflow of small values, nRF ping loop: tasks #16, #21, #22) make tags more robust but do not replace it.
 4. **2 Mbaud only.** Some APs are hand-wired with wires of unknown length; capability bit 4 is reserved.
 5. **Sub-GHz must keep working**, but there are no sub-GHz tags to test with. Messages carry `radio`; the CC1101 path in the radio firmware stays as it is apart from the PAN fix (C4). Before a release, ask a user with sub-GHz tags to test.
 6. **The radio's UART0 debug output stays**, at warning level: the ROM bootloader and crash backtraces always go there, and the S3 echoes it to its console (and, on boards with a separate debug line, checks it for the stuck-modem message). LOG frames over v2 are for runtime logging that should reach the web UI.
+
+## Changes to the draft (2026-10-13)
+
+Checked against the C6 and S3 code after phase 2 and against today's measurements:
+
+- STATUS carries the radio's channel, sub-GHz channel and TX power, and pending counts split in data and idle entries, so `NFO?` is not needed after negotiation; it also reports how many tag requests the radio skipped as too old.
+- New section *Rules*: one pending entry per MAC (as the C6 does today), XFER_COMPLETE once per transfer, CHECKIN for every answered check-in, what the radio drops when the S3 does not read, sequence number wrap, preloading the cache.
+- Message structs and constants in [radio-protocol-v2.h](radio-protocol-v2.h); sizes: HELLO_REPLY 21, STATUS 31, SET_PENDING 27, CHECKIN 49, DATA_NEEDED 26, BLOCK_SERVED 21, XFER_COMPLETE/TIMEOUT 16, DATA_CHUNK 16 + up to 240 bytes; TAG_RETURN_DATA 14 + the tag's 101 bytes.
+- Decisions 2 and 3 got their measured values.
+- Not a protocol matter, but relevant for the cache: the S3's WiFi transmissions make the C6 miss tag frames now and then ([results](radio-chain-results.md#wifi-desensitisation-2026-10-13)). Preloading blocks while tags sleep (step 1 of the data flow) keeps serial and WiFi activity out of the tags' request windows as far as the S3 controls it.

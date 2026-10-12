@@ -58,14 +58,16 @@ Done when: C6 firmware version bumped and released; M2 meets the response-time r
 
 S3 structure and protocol design, without changing behaviour (migration step 2). Can run in parallel with phase 2.
 
-- [~] #28 Transport abstraction on the S3, with only the old implementation (`radiotransport.h`, `legacytransport.cpp`; AP-state checks stay in `serialap.cpp`); on branch `s3-transport-abstraction` (`1da97695`), all S3 envs build, not yet run on the AP
-- [~] #30 Design the message set for the new UART protocol: check-in with AP-side RSSI/LQI/radio, data in chunks with offset, cancel by MAC, fixed SCP fields. Draft: [radio-protocol-v2.md](radio-protocol-v2.md); decisions of 2026-10-12 recorded there (cache per 4 KB block, one `pleaseWaitMs` default, 2 Mbaud only, keep UART0 debug output)
+- [x] #28 Transport abstraction on the S3, with only the old implementation (`radiotransport.h`, `legacytransport.cpp`; AP-state checks stay in `serialap.cpp`) — `be5bf3ae`; all S3 envs build; on the Yellow AP the radio came online as before and 25 min of traffic showed no serial errors and the same timing as the 5.5.5 check
+- [x] #30 Design the message set for the new UART protocol: check-in with AP-side RSSI/LQI/radio, data in chunks with offset, cancel by MAC, fixed SCP fields. [radio-protocol-v2.md](radio-protocol-v2.md) (checked against phase 2 on 2026-10-13: rules for the pending table and events, STATUS replaces the `NFO?` tokens), structs with size checks in [radio-protocol-v2.h](radio-protocol-v2.h); decisions of 2026-10-12 recorded there (cache per 4 KB block, one `pleaseWaitMs` default, 2 Mbaud only, keep UART0 debug output)
 
 Done when: S3 behaviour unchanged (same test as phase 1); message set documented.
 
 ## Phase 4 – New protocol (C6/H2 + S3)
 
 Migration step 3: S3 and C6/H2 firmware are released together. Old S3 + new C6/H2 is not supported.
+
+**On hold (Nic, 2026-10-13):** after phase 2 the remaining gains (robustness of the framing, block cache, diagnostics) do not outweigh a joint S3 + radio release for now. The design ([radio-protocol-v2.md](radio-protocol-v2.md), [radio-protocol-v2.h](radio-protocol-v2.h)) stays as the starting point if it is picked up again.
 
 - [ ] #14 Framing in chunks of ≤ 256 B with CRC16, sequence numbers and version handshake (R2, T1)
 - [ ] #29 Negotiation at startup (`CAP>`, `FRM1`, HELLO, heartbeat); C6/H2 only ASCII recognition plus the new protocol
