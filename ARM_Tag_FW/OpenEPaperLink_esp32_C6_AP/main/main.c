@@ -112,8 +112,8 @@ uint8_t curNoUpdate    = 0;
 
 bool highspeedSerial = false;
 
-void sendXferCompleteAck(uint8_t *dst);
-void sendCancelXfer(uint8_t *dst);
+void sendXferCompleteAck(uint8_t *dst, uint16_t pan);
+void sendCancelXfer(uint8_t *dst, uint16_t pan);
 void espNotifyAPInfo();
 
 // tools
@@ -515,7 +515,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
         } else {
             // we're talking to another mac, let this mac know we can't accomodate another request right now
             pr("BUSY!\n\r");
-            sendCancelXfer(rxHeader->src);
+            sendCancelXfer(rxHeader->src, rxHeader->pan);
             return;
         }
     }
@@ -523,7 +523,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     // check if we have data for this mac
     if (findSlotForMac(rxHeader->src) == -1) {
         // no data for this mac, politely tell it to fuck off
-        sendCancelXfer(rxHeader->src);
+        sendCancelXfer(rxHeader->src, rxHeader->pan);
         return;
     }
 
@@ -639,7 +639,7 @@ void processAvailDataReq(uint8_t *buffer) {
 }
 void processXferComplete(uint8_t *buffer) {
     struct MacFrameNormal *rxHeader = (struct MacFrameNormal *) buffer;
-    sendXferCompleteAck(rxHeader->src);
+    sendXferCompleteAck(rxHeader->src, rxHeader->pan);
     if (memcmp(lastAckMac, rxHeader->src, 8) != 0) {
         memcpy((void *) lastAckMac, (void *) rxHeader->src, 8);
         espNotifyXferComplete(rxHeader->src);
@@ -721,7 +721,7 @@ void sendBlockData() {
         }
     }
 }
-void sendXferCompleteAck(uint8_t *dst) {
+void sendXferCompleteAck(uint8_t *dst, uint16_t pan) {
     struct MacFrameNormal *frameHeader = (struct MacFrameNormal *) (radiotxbuffer + 1);
     memset(radiotxbuffer + 1, 0, sizeof(struct blockPart) + sizeof(struct MacFrameNormal));
     radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_XFER_COMPLETE_ACK;
@@ -733,10 +733,10 @@ void sendXferCompleteAck(uint8_t *dst) {
     frameHeader->fcs.destAddrType    = 3;
     frameHeader->fcs.srcAddrType     = 3;
     frameHeader->seq                 = seq++;
-    frameHeader->pan                 = dstPan;
+    frameHeader->pan                 = pan;  // the PAN (and so the radio) the tag used
     radioTx(radiotxbuffer);
 }
-void sendCancelXfer(uint8_t *dst) {
+void sendCancelXfer(uint8_t *dst, uint16_t pan) {
     struct MacFrameNormal *frameHeader = (struct MacFrameNormal *) (radiotxbuffer + 1);
     memset(radiotxbuffer + 1, 0, sizeof(struct blockPart) + sizeof(struct MacFrameNormal));
     radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_CANCEL_XFER;
@@ -748,7 +748,7 @@ void sendCancelXfer(uint8_t *dst) {
     frameHeader->fcs.destAddrType    = 3;
     frameHeader->fcs.srcAddrType     = 3;
     frameHeader->seq                 = seq++;
-    frameHeader->pan                 = dstPan;
+    frameHeader->pan                 = pan;  // the PAN (and so the radio) the tag used
     radioTx(radiotxbuffer);
 }
 void sendPong(void *buf) {
