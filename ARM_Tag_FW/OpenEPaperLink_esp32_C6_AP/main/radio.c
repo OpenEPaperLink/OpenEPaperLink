@@ -35,13 +35,20 @@ uint8_t mSelfMac[8];
 volatile uint8_t isInTransmit = 0;
 QueueHandle_t packet_buffer = NULL;
 TaskHandle_t radioWakeTask = NULL;  // main loop task; woken by radio frames and serial data
+int64_t lastRxAgeUs = 0;            // age of the frame commsRxUnencrypted() returned last, from its SFD
+
+struct rxItem {
+    int64_t sfdTime;  // esp_timer time of the frame's start-of-frame delimiter
+    uint8_t frame[130];
+};
 // No logging per frame in these callbacks: they run in the radio interrupt, and an early log
 // waits for the 115200 baud console, long enough to miss the tags' reply windows (2-6 ms).
 void esp_ieee802154_receive_done(uint8_t *frame, esp_ieee802154_frame_info_t *frame_info) {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    static uint8_t inner_rxPKT[130];
-    memcpy(inner_rxPKT, &frame[0], frame[0] + 1);
-    xQueueSendFromISR(packet_buffer, (void *)&inner_rxPKT, &xHigherPriorityTaskWoken);
+    static struct rxItem item;
+    item.sfdTime = frame_info->timestamp;
+    memcpy(item.frame, &frame[0], frame[0] + 1);
+    xQueueSendFromISR(packet_buffer, (void *)&item, &xHigherPriorityTaskWoken);
     if (radioWakeTask) vTaskNotifyGiveFromISR(radioWakeTask, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR_ARG(xHigherPriorityTaskWoken);
     if(esp_ieee802154_receive_handle_done(frame)) {
@@ -64,7 +71,7 @@ void esp_ieee802154_transmit_done(const uint8_t *frame, const uint8_t *ack, esp_
 }
 static bool zigbee_is_enabled = false;
 void radio_init(uint8_t ch) {
-    if (packet_buffer == NULL) packet_buffer = xQueueCreate(32, 130);
+    if (packet_buffer == NULL) packet_buffer = xQueueCreate(32, sizeof(struct rxItem));
 
     // this will trigger a "IEEE802154 MAC sleep init failed" when called a second time, but it works
     if(zigbee_is_enabled)
@@ -143,11 +150,12 @@ void radioSetChannel(uint8_t ch) {
 void radioSetTxPower(uint8_t power) {}
 
 int8_t commsRxUnencrypted(uint8_t *data) {
-    static uint8_t inner_rxPKT_out[130];
+    static struct rxItem item;
     // Don't block here: the main loop sleeps in ulTaskNotifyTake() and is woken by frames and serial data
-    if (xQueueReceive(packet_buffer, (void *)&inner_rxPKT_out, 0) == pdTRUE) {
-        memcpy(data, &inner_rxPKT_out[1], inner_rxPKT_out[0] + 1);
-        return inner_rxPKT_out[0] - 2;
+    if (xQueueReceive(packet_buffer, (void *)&item, 0) == pdTRUE) {
+        lastRxAgeUs = esp_timer_get_time() - item.sfdTime;
+        memcpy(data, &item.frame[1], item.frame[0] + 1);
+        return item.frame[0] - 2;
     }
 #ifdef CONFIG_OEPL_SUBGIG_SUPPORT
     if(gSubGigData.Enabled) {

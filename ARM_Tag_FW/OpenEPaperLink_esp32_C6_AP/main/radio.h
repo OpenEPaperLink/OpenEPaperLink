@@ -7,6 +7,7 @@
 #define RAW_PKT_PADDING 2
 extern uint8_t mSelfMac[8];
 extern TaskHandle_t radioWakeTask;
+extern int64_t lastRxAgeUs;
 
 void radio_init(uint8_t ch);
 bool radioTx(uint8_t *packet);

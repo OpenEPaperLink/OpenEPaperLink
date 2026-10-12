@@ -156,6 +156,26 @@ uint8_t getBlockDataLength() {
 }
 
 // pendingdata slot stuff
+// A tag accepts a reply only within a few ms of its request (2-9 ms depending on tag type and request,
+// see the timing budget in docs/design/radio-chain-analysis.md). A request that waited longer in the
+// queue (for example behind a block burst) is skipped: the reply would only cost airtime, and the tag
+// has asked again already.
+static uint32_t lateRequestsSkipped = 0;
+static bool tooLateToAnswer(uint8_t type, int64_t ageUs) {
+    switch (type) {
+        case PKT_PING:
+        case PKT_AVAIL_DATA_REQ:
+        case PKT_AVAIL_DATA_SHORTREQ:
+        case PKT_XFER_COMPLETE:
+            return ageUs > 5000;
+        case PKT_BLOCK_REQUEST:
+        case PKT_BLOCK_PARTIAL_REQUEST:
+            return ageUs > 7000;
+        default:
+            return false;
+    }
+}
+
 int32_t findSlotForMac(const uint8_t *mac) {
     for (uint8_t c = 0; c < MAX_PENDING_MACS; c++) {
         if (memcmp(mac, ((uint8_t *) &(pendingDataArr[c].targetMac)), 8) == 0) {
@@ -827,6 +847,10 @@ void app_main(void) {
                 LOGV_RAW(" packet:\n");
                 LOGV_HEX(radiorxbuffer,ret);
 #endif
+                if (tooLateToAnswer(PktType, lastRxAgeUs)) {
+                    lateRequestsSkipped++;
+                    PktType = 0;  // falls through to default below without a reply
+                }
                 // received a packet, lets see what it is
                 switch (PktType) {
                     case PKT_AVAIL_DATA_REQ:
@@ -863,6 +887,8 @@ void app_main(void) {
                         break;
                     case PKT_TAG_RETURN_DATA:
                         processTagReturnData(radiorxbuffer, ret);
+                        break;
+                    case 0:
                         break;
                     default:
                         ESP_LOGI(TAG, "t=%02X" , getPacketType(radiorxbuffer));
@@ -902,6 +928,10 @@ void app_main(void) {
             }
         }
 
+        if (lateRequestsSkipped) {
+            ESP_LOGW(TAG, "%lu requests skipped in the last minute: too late to answer", lateRequestsSkipped);
+            lateRequestsSkipped = 0;
+        }
         memset(&lastTagReturn, 0, 8);
         for (uint8_t cCount = 0; cCount < MAX_PENDING_MACS; cCount++) {
             if (pendingDataArr[cCount].attemptsLeft == 1) {
