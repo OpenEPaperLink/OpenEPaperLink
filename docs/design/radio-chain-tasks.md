@@ -15,12 +15,11 @@ Status: `[ ]` open · `[~]` in progress · `[x]` done (with commit) · `[-]` dro
 
 Measure how often the tag windows are missed today, before changing behaviour. The instrumentation must not affect timing: no live logging. Gate for phases 2 and 4.
 
-- [ ] **M1 – response times in the C6** (#1). `esp_timer` timestamps in a RAM ring buffer, read out afterwards via a command. Yields: RX → TX per packet type, queue wait time, burst start vs `pleaseWaitMs`, duration of serial handling. Behaviour-neutral C6 build.
 - [x] **M2 – timing and loss on air** (#2). Sniffer `miscellaneous/radio-sniffer/` — `0594eb1b`; baseline 2026-10-12 in [radio-chain-results.md](radio-chain-results.md). Any ESP32-C6 devboard on USB as sniffer: small ESP-IDF (v5.5.1) firmware in promiscuous mode on the AP's channel, sends every frame with its SFD timestamp (µs), RSSI and LQI over serial; a Python script on the PC decodes the OEPL packet types, computes response times and gaps, and writes a pcap for Wireshark. Tags: ZBS243 and nRF52811 (available); no TLSR8258 tag available, so TLSR windows stay code-derived. Yields: missed windows, repeated requests, packet loss per burst.
-- [~] **M3 – UART integrity.** Stage A done 2026-10-12 (1.1 h with generated traffic, console on COM12): 6 % of block hand-overs failed, all through the C6 being busy or slow (P2/P4, E1); no checksum errors. Results in [radio-chain-results.md](radio-chain-results.md). Stage B (counters in S3 and C6 firmware) still waits; M1 too, proposal: make its trace buffer the first step of phase 2.
+- [~] **M3 – UART integrity.** Stage A done 2026-10-12 (1.1 h with generated traffic, console on COM12): 6 % of block hand-overs failed, all through the C6 being busy or slow (P2/P4, E1); no checksum errors. Results in [radio-chain-results.md](radio-chain-results.md). Stage B (counters in S3 and C6 firmware) still waits;
 - [x] **M4 – baseline tag consumption.** Capture script `miscellaneous/ppk2-measure/` — `506a79a2`, baseline runner `miscellaneous/radio-baseline/`; baseline 2026-10-12 in [radio-chain-results.md](radio-chain-results.md). Nordic PPK2 in source-meter mode powers one ZBS243 tag (battery removed, ≈ 3.0 V), 100 kS/s, controlled from Python (`ppk2-api` 0.9.2). Sync with M2: the sniffer devboard toggles a GPIO on every frame to or from the tag, wired to PPK2 logic input D0, so current and radio frames share one timeline. Yields: sleep current, charge per check-in, per block and per complete image transfer, radio-on time per step (check-in, `pleaseWaitMs`, block data), display refresh shown separately. ZBS243 chosen because its `pleaseWaitMs` handling (busy-wait with radio on below 35 ms, sleep above) makes the effect of R3 impossible to predict from code; also the most common tag. Reference for R3/R5.
 
-Done when: baseline numbers for M1–M4 are recorded under Results. M2 and M4 done; M1 (inside the C6) and M3 (UART) still open.
+Done when: baseline numbers for M2–M4 are recorded under Results. M2 and M4 done; M3 (UART) stage B still open. M1 moved to phase 4 (2026-10-12): M2 showed on air everything phase 2 needed.
 
 ## Phase 1 – S3 fixes without radio protocol change
 
@@ -39,26 +38,26 @@ Status 2026-10-12: flashed as `a5a495bd` on the Yellow AP; boots cleanly, radio 
 
 The C6/H2 firmware is restructured and fixed while it still speaks the old serial protocol, and released as an interim release. Works with every S3 version. The rework gets field-tested before the new protocol is added in phase 4, and the biggest timing gain (E1) reaches users early. Measure with M1/M2 before and after.
 
-- [~] #13 Event-driven structure of the C6 firmware (R1) — `3688c43d` (main loop woken by radio, serial and timer; 1 ms ticks), `e652c295` (burst starts 5 ms after `pleaseWaitMs`, only with a complete, checksum-checked block). Measured: 3 block requests per 3-block image (was 5–6), burst +7 ms (was +71), tag charge per transfer −35 % ([results](radio-chain-results.md))
+- [x] #13 Event-driven structure of the C6 firmware (R1) — `3688c43d` (main loop woken by radio, serial and timer; 1 ms ticks), `e652c295` (burst starts 5 ms after `pleaseWaitMs`, only with a complete, checksum-checked block). Measured: 3 block requests per 3-block image (was 5–6), burst +7 ms (was +71), tag charge per transfer −35 % ([results](radio-chain-results.md))
 - [x] #3 Move the `memcpy` in `radioTx` after the wait loop (C5) — `52a65b66`; on air all 42 parts of a full block now arrive (was 41 + a duplicate). Confirmed by the baseline: part 0 of every full block is never sent, so each block needs a partial re-request; biggest single gain in this phase
-- [~] #7 Logging to WARN and out of the ISRs (E2, R7) — `45cd3173`
-- [~] #10 Use the PAN of the incoming frame for cancel and XFC ack (C4) — `ea6e6fe0`; sub-GHz not testable here
-- [~] #12 Drop stale packets from the RX queue (E5, R6) — `85f56e13`: requests older than 5 ms (7 ms for block requests) are skipped and counted
-- [~] #19 `radioSetChannel` without full re-initialisation and LED delay (E6) — `35d2f98f`; needs a channel change to test
-- [~] Build in DIO flash mode for ISSI flash (upstream issue #596; also in the local `TASKS.md`) — `00e9228f`; runs on the Yellow AP, not tested on an ISSI module
+- [x] #7 Logging to WARN and out of the ISRs (E2, R7) — `45cd3173`; traffic hour without serial errors
+- [~] #10 Use the PAN of the incoming frame for cancel and XFC ack (C4) — `ea6e6fe0`; sub-GHz not testable here, to be tested by users after the release
+- [x] #12 Drop stale packets from the RX queue (E5, R6) — `85f56e13`: requests older than 5 ms (7 ms for block requests) are skipped and counted
+- [x] #19 `radioSetChannel` without full re-initialisation and LED delay (E6) — `35d2f98f`; tested 2026-10-12: AP switched 25 → 26 → 25 through the web config, the C6 changed channel at once each time, the test tag (rebooted) found the AP on 26, the other tags checked in again right after the switch back
+- [x] Build in DIO flash mode for ISSI flash (upstream issue #596; also in the local `TASKS.md`) — `00e9228f`; runs on the Yellow AP; the ISSI case waits for user feedback after the release
 - [x] No debug text on the protocol UART (P7) — `1d3c0f5d`
 - [x] S3: wait 500 ms for the radio's `ACK>` to `>D>` (P2/P4) — `acca3f99`; 0 failed block hand-overs in the traffic hour (was 11 of 177)
 - [x] S3 C6 updater: don't call a complete download dropped (unplanned, found while flashing) — `74761447`
 
-Status 2026-10-12: all of the above on the Yellow AP (C6 0x0020 and S3 `74761447`); one hour of traffic like M3 stage A: no serial errors, half the block frames on air, bursts +6 ms instead of +72 ms, check-ins answered on the first try ([results](radio-chain-results.md#phase-2-traffic-hour-2026-10-12-c6-74761447-s3-74761447)). Still open: #19 (channel change), #10 (sub-GHz), DIO on an ISSI module, release.
+Status 2026-10-12: all of the above on the Yellow AP (C6 0x0020 and S3 `74761447`); one hour of traffic like M3 stage A: no serial errors, half the block frames on air, bursts +6 ms instead of +72 ms, check-ins answered on the first try ([results](radio-chain-results.md#phase-2-traffic-hour-2026-10-12-c6-74761447-s3-74761447)). ESP32-H2 build of the same source compiles (ESP-IDF 5.5.1, no H2 hardware here). Still open: the release; #10 (sub-GHz) and the ISSI case then by users.
 
-Done when: C6 firmware version bumped and released; M1/M2 meet the response-time requirements of the timing budget and show no regression against the baseline.
+Done when: C6 firmware version bumped and released; M2 meets the response-time requirements of the timing budget and shows no regression against the baseline.
 
 ## Phase 3 – Foundations for the new protocol
 
 S3 structure and protocol design, without changing behaviour (migration step 2). Can run in parallel with phase 2.
 
-- [~] #28 Transport abstraction on the S3, with only the old implementation (`radiotransport.h`, `legacytransport.cpp`; AP-state checks stay in `serialap.cpp`); all S3 envs build, not yet run on the AP
+- [~] #28 Transport abstraction on the S3, with only the old implementation (`radiotransport.h`, `legacytransport.cpp`; AP-state checks stay in `serialap.cpp`); on branch `s3-transport-abstraction` (`1da97695`), all S3 envs build, not yet run on the AP
 - [~] #30 Design the message set for the new UART protocol: check-in with AP-side RSSI/LQI/radio, data in chunks with offset, cancel by MAC, fixed SCP fields. Draft: [radio-protocol-v2.md](radio-protocol-v2.md); decisions of 2026-10-12 recorded there (cache per 4 KB block, one `pleaseWaitMs` default, 2 Mbaud only, keep UART0 debug output)
 
 Done when: S3 behaviour unchanged (same test as phase 1); message set documented.
@@ -72,6 +71,7 @@ Migration step 3: S3 and C6/H2 firmware are released together. Old S3 + new C6/H
 - [ ] #26 C6: one RX buffer, possibly UHCI DMA (T3, E7)
 - [ ] #15 Block cache on the C6 (R3)
 - [~] #20 Less repetition in `sendBlockData`, based on M2 packet loss (E4, R5) — `939cd948` (moved forward into the phase 2 build): each requested part at most twice, never more than 42 frames; frames after the tag had its data 5 308 → 735 in the traffic hour. Tune with M2 packet loss
+- [ ] M1 – response times in the C6 (#1), moved here from phase 0: build it when the new protocol and the block cache need a look inside the C6. `esp_timer` timestamps in a RAM ring buffer, read out afterwards via a command. Yields: RX → TX per packet type, queue wait time, burst start vs `pleaseWaitMs`, duration of serial handling. Behaviour-neutral C6 build.
 
 Done when: tested with new S3 + old C6, new C6, TLSR and ZBS AP, and old S3 + old radio; multi-AP with mixed radios; timing budget met in M1/M2; M4 compared to the baseline.
 
