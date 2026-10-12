@@ -34,8 +34,9 @@ static const char *TAG = "RADIO";
 uint8_t mSelfMac[8];
 volatile uint8_t isInTransmit = 0;
 QueueHandle_t packet_buffer = NULL;
+// No logging per frame in these callbacks: they run in the radio interrupt, and an early log
+// waits for the 115200 baud console, long enough to miss the tags' reply windows (2-6 ms).
 void esp_ieee802154_receive_done(uint8_t *frame, esp_ieee802154_frame_info_t *frame_info) {
-    ESP_EARLY_LOGI(TAG, "RX %d", frame[0]);
     BaseType_t xHigherPriorityTaskWoken;
     static uint8_t inner_rxPKT[130];
     memcpy(inner_rxPKT, &frame[0], frame[0] + 1);
@@ -53,7 +54,6 @@ void esp_ieee802154_transmit_failed(const uint8_t *frame, esp_ieee802154_tx_erro
 
 void esp_ieee802154_transmit_done(const uint8_t *frame, const uint8_t *ack, esp_ieee802154_frame_info_t *ack_frame_info) {
     isInTransmit = 0;
-    ESP_EARLY_LOGI(TAG, "TX %d", frame[0]);
     if(ack != NULL) {
        if(esp_ieee802154_receive_handle_done(ack)) {
           ESP_EARLY_LOGI(TAG, "esp_ieee802154_receive_handle_done() failed");
