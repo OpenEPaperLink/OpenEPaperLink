@@ -632,7 +632,9 @@ void rxSerialTask(void* parameter) {
                     charindex++;
                     if (charindex == 4) {
                         charindex = 0;
-                        apInfo.version = (uint16_t)strtoul(cmdbuffer, NULL, 16);
+                        // cmdbuffer holds exactly 4 characters and no terminator
+                        const char ver[5] = {cmdbuffer[0], cmdbuffer[1], cmdbuffer[2], cmdbuffer[3], 0};
+                        apInfo.version = (uint16_t)strtoul(ver, NULL, 16);
                         RXState = ZBS_RX_WAIT_HEADER;
                     }
                     break;
