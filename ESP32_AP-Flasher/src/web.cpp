@@ -266,6 +266,7 @@ void wsSendAPitem(struct APlist *apitem) {
     ap["count"] = apitem->tagCount;
     ap["channel"] = apitem->channelId;
     ap["version"] = version_str;
+    ap["udp"] = apitem->udpVersion;
 
     if (wsMutex) xSemaphoreTake(wsMutex, portMAX_DELAY);
     ws.textAll(doc.as<String>());

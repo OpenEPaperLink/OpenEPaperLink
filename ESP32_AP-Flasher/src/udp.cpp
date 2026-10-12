@@ -88,12 +88,16 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
             break;
         }
         case PKT_APLIST_REQ: {
+            APlist requester{};
+            memcpy(&requester, &packet.data()[1], std::min(packet.length() - 1, sizeof(APlist)));
+            notePeer(requester);
             APlist APitem;
             APitem.src = wm.localIP();
             strcpy(APitem.alias, config.alias);
             APitem.channelId = curChannel.channel;
             APitem.tagCount = getTagCount();
             APitem.version = apInfo.version;
+            APitem.udpVersion = UDP_PROTO_VERSION;
 
             uint8_t buffer[sizeof(struct APlist) + 1];
             buffer[0] = PKT_APLIST_REPLY;
@@ -109,6 +113,7 @@ void UDPcomm::processPacket(AsyncUDPPacket packet) {
             for (int i = 0; i < 6; i++) {
                 if (channelList[i] == APreply.channelId) channelList[i] = 0;
             }
+            notePeer(APreply);
             wsSendAPitem(&APreply);
             break;
         }
@@ -160,6 +165,7 @@ void UDPcomm::getAPList() {
     APitem.channelId = curChannel.channel;
     APitem.tagCount = getTagCount();
     APitem.version = apInfo.version;
+    APitem.udpVersion = UDP_PROTO_VERSION;
     wsSendAPitem(&APitem);
 
     if (config.alias == 0) {
@@ -213,4 +219,17 @@ void UDPcomm::writeUdpPacket(uint8_t *buffer, uint16_t len, IPAddress senderIP) 
     } else {
         udp.broadcastTo(buffer, len, UDPPORT);
     }
+}
+
+void UDPcomm::notePeer(const struct APlist& item) {
+    if (item.src == 0 || item.src == (uint32_t)wm.localIP()) return;
+    peerVersions[item.src] = item.udpVersion;
+}
+
+uint8_t UDPcomm::minPeerVersion() {
+    uint8_t lowest = UDP_PROTO_VERSION;
+    for (const auto& peer : peerVersions) {
+        if (peer.second < lowest) lowest = peer.second;
+    }
+    return lowest;
 }

@@ -16,12 +16,20 @@
 #define PKT_APLIST_REPLY 0x81
 #define PKT_TAGINFO 0x82
 
+// Version of the UDP messages between APs (multi-AP). S3s with different firmware must keep working
+// together, and older ones ignore unknown packet types and cut longer payloads to their struct size.
+// So when a UDP struct has to change: give the new layout a new packet type, keep sending the old
+// type as long as a peer reports a lower version (UDPcomm::minPeerVersion()), and bump this number.
+// Version 0 = firmware from before this field existed; the layouts of 0 and 1 are the same.
+#define UDP_PROTO_VERSION 1
+
 struct APlist {
     uint32_t src;
     char alias[32];
     uint8_t channelId;
     uint8_t tagCount;
     uint16_t version;
+    uint8_t udpVersion;  // UDP_PROTO_VERSION of the sender; 0 when sent by older firmware (field missing)
 } __packed;
 
 #define SYNC_NOSYNC 0
