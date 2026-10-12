@@ -106,9 +106,9 @@ void txEnd() {
         xSemaphoreGive(txActive);
     }
 }
-bool waitCmdReply() {
+bool waitCmdReply(uint32_t timeoutMs = 200) {
     uint32_t val = millis();
-    while (millis() < val + 200) {
+    while (millis() - val < timeoutMs) {
         switch (cmdReplyValue) {
             case CMD_REPLY_WAIT:
                 break;
@@ -224,7 +224,11 @@ uint16_t sendBlock(const void* data, const uint16_t len) {
     for (uint8_t attempt = 0; attempt < 1; attempt++) {
         cmdReplyValue = CMD_REPLY_WAIT;
         AP_SERIAL_PORT.print(">D>");
-        if (waitCmdReply()) goto blksend;
+        // The radio reads no serial data while it sends a block burst (up to about 200 ms), so wait
+        // longer than one burst. Giving up too early left the radio waiting for block data that
+        // never came, and it then took the next commands as data (6 % of block hand-overs in an
+        // hour with 8 tags, docs/design/radio-chain-results.md).
+        if (waitCmdReply(500)) goto blksend;
         Serial.printf("block send failed in try %d\r\n", attempt);
     }
     Serial.print("Failed sending block...\r\n");
