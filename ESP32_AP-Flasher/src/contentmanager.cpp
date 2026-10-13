@@ -49,6 +49,8 @@
 
 // https://csvjson.com/json_beautifier
 
+static void clearFontCache();
+
 bool needRedraw(uint8_t contentMode, uint8_t wakeupReason) {
     // contentmode 26, timestamp
     if ((wakeupReason == WAKEUP_REASON_BUTTON1 || wakeupReason == WAKEUP_REASON_BUTTON2 || wakeupReason == WAKEUP_REASON_BUTTON3) && contentMode == 26) return true;
@@ -694,6 +696,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
 
     // keep a config that an upload or the web interface set while this ran
     if (taginfo->modeConfigJson == processedConfig) taginfo->modeConfigJson = doc.as<String>();
+    clearFontCache();
 }
 
 bool updateTagImage(String &filename, const uint8_t *dst, uint16_t nextCheckin, tagRecord *&taginfo, imgParam &imageParams) {
@@ -764,35 +767,69 @@ void replaceVariables(String &format) {
     }
 }
 
-// decompressed .vlw.gz fonts, per sprite, until the font is unloaded
-static std::map<TFT_eSprite *, uint8_t *> vlwFontBuffers;
+// Font files read into memory during one drawNew(), freed by clearFontCache() at its end. A forecast draws
+// ~30 strings; decompressing a .vlw.gz (~100 ms) or opening a .ttf (~60 ms) for each of them took seconds.
+// Only drawNew() (the loop task) draws, so the cache needs no lock.
+struct CachedFont {
+    uint8_t *data;
+    size_t size;
+};
+static std::map<String, CachedFont> fontCache;
+
+static void clearFontCache() {
+    for (auto &font : fontCache) free(font.second.data);
+    fontCache.clear();
+}
+
+/// @brief A font file in memory, decompressed for a .gz; nullptr if it can't be read
+static uint8_t *getCachedFont(const String &path, bool gzip, size_t &size) {
+    auto it = fontCache.find(path);
+    if (it != fontCache.end()) {
+        size = it->second.size;
+        return it->second.data;
+    }
+    uint8_t *data = nullptr;
+    if (gzip) {
+        data = readGzipFile(*contentFS, path, size);
+    } else {
+#ifdef BOARD_HAS_PSRAM
+        File file = contentFS->open(path, "r");
+        if (file) {
+            size = file.size();
+            data = (uint8_t *)ps_malloc(size);
+            if (data && file.read(data, size) != size) {
+                free(data);
+                data = nullptr;
+            }
+            file.close();
+        }
+#endif
+    }
+    if (data) fontCache[path] = {data, size};
+    return data;
+}
 
 /// @brief Load a smooth font, font like "/fonts/calibrib30"
 /// @note Uses <font>.vlw, or else decompresses <font>.vlw.gz into memory (#464): vlw files store a byte per pixel
 /// and compress very well, so a gzipped font saves a lot of flash
 static void loadVlwFont(TFT_eSprite &spr, const String &font) {
     const String gzFilename = font + ".vlw.gz";
-    if (contentFS->exists(font + ".vlw") || !contentFS->exists(gzFilename)) {
+    // a cached font was already checked: exists() costs ~20 ms on LittleFS
+    if (fontCache.find(gzFilename) == fontCache.end() && (contentFS->exists(font + ".vlw") || !contentFS->exists(gzFilename))) {
         spr.loadFont(font.substring(1), *contentFS);
         return;
     }
     size_t size;
-    uint8_t *fontData = readGzipFile(*contentFS, gzFilename, size);
+    uint8_t *fontData = getCachedFont(gzFilename, true, size);
     if (fontData == nullptr) {
         wsErr("Can't load font " + gzFilename);
         return;
     }
     spr.loadFont(fontData);
-    vlwFontBuffers[&spr] = fontData;
 }
 
 static void unloadVlwFont(TFT_eSprite &spr) {
     spr.unloadFont();
-    auto it = vlwFontBuffers.find(&spr);
-    if (it != vlwFontBuffers.end()) {
-        free(it->second);
-        vlwFontBuffers.erase(it);
-    }
 }
 
 void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align, uint16_t color, uint16_t size, uint16_t bgcolor) {
@@ -824,13 +861,16 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
     switch (processFontPath(font)) {
         case 2: {
             // truetype
-            time_t t = millis();
             truetypeClass truetype = truetypeClass();
             void *framebuffer = spr.getPointer();
             truetype.setFramebuffer(spr.width(), spr.height(), spr.getColorDepth(), static_cast<uint8_t *>(framebuffer));
-            File fontFile = contentFS->open(font, "r");
-            if (!truetype.setTtfFile(fontFile)) {
+            // from memory where possible (PSRAM): no file reads per glyph
+            size_t fontSize;
+            uint8_t *fontData = getCachedFont(font, false, fontSize);
+            const bool loaded = fontData ? truetype.setTtfPointer(fontData, fontSize, 0, false) : truetype.setTtfFile(contentFS->open(font, "r"));
+            if (!loaded) {
                 Serial.println("read ttf failed");
+                truetype.end();
                 return;
             }
 

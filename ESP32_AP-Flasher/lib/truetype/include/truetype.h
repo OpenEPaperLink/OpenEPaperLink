@@ -148,11 +148,11 @@ typedef struct {
     int16_t leftSideBearing;
 } ttHMetric_t;
 
+// where an outline edge crosses a scanline: x, and +1 for an upward edge, -1 for a downward one
 typedef struct {
-    uint16_t p1;
-    uint16_t p2;
-    uint8_t up;
-} ttWindIntersect_t;
+    float x;
+    int8_t dir;
+} ttCrossing_t;
 
 typedef struct {
     uint16_t advanceWidth;
@@ -211,7 +211,7 @@ class truetypeClass {
     const int tablePos = 12;
 
     uint16_t numTables;
-    ttTable_t *table;
+    ttTable_t *table = nullptr;
     ttHeadttTable_t headTable;
 
     uint8_t getUInt8t();
@@ -257,17 +257,16 @@ class truetypeClass {
     uint16_t numberOfHMetrics = 0;
     uint8_t readHhea();
 
-    // generate points
+    // generate points (arrays grow by doubling, capacity in the *Cap fields)
     ttCoordinate_t *points = nullptr;
-    uint16_t numPoints = 0;
+    uint16_t numPoints = 0, pointsCap = 0;
     uint16_t *beginPoints = nullptr;
-    uint16_t numBeginPoints = 0;
+    uint16_t numBeginPoints = 0, beginPointsCap = 0;
     uint16_t *endPoints = nullptr;
-    uint16_t numEndPoints = 0;
+    uint16_t numEndPoints = 0, endPointsCap = 0;
 
     // glyf
     ttGlyph_t glyph;
-    ttWindIntersect_t *pointsToFill = nullptr;
     void generateOutline(int16_t _x, int16_t _y, uint16_t characterSize);
     void freePointsAll();
     void fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t characterSize);
@@ -281,7 +280,6 @@ class truetypeClass {
     void freeBeginPoints();
     void addEndPoint(uint16_t _ep);
     void freeEndPoints();
-    float isLeft(ttCoordinate_t *_p0, ttCoordinate_t *_p1, ttCoordinate_t *_point);
 
     // write user framebuffer
     uint16_t characterSize = 20;
