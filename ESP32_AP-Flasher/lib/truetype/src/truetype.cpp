@@ -83,6 +83,7 @@ int truetypeClass::ttfRead(uint8_t *d, int iLen) {
 
         while (iLen > 0) {
             if (iBufferedBytes == 0) {
+                u32BufStart = file.position();
                 iBufferedBytes = file.read(u8FileBuf, FILE_BUF_SIZE);
                 iCurrentBufSize = iBufferedBytes;
                 if (iBufferedBytes <= 0) break;
@@ -118,18 +119,15 @@ int truetypeClass::ttfRead(uint8_t *d, int iLen) {
 
 void truetypeClass::ttfSeek(uint32_t u32Offset) {
     if (!pTTF) {
-        /*
-        TODO/FIXME: for some reason this doesn't work.
-        If a seek position is within the current loaded buffer, it should just change the buffer position
-
-        if (u32Offset >= file.position() - iCurrentBufSize && u32Offset < file.position()) {
-            u32BufPosition = u32Offset - (file.position() - iCurrentBufSize);
-            iBufferedBytes = file.position() - u32Offset;
+        // within the loaded buffer: only move in the buffer (the file position stays at its end)
+        if (iCurrentBufSize > 0 && u32Offset >= u32BufStart && u32Offset < u32BufStart + iCurrentBufSize) {
+            u32BufPosition = u32Offset - u32BufStart;
+            iBufferedBytes = iCurrentBufSize - u32BufPosition;
         } else {
-        */
             file.seek(u32Offset);
             iBufferedBytes = 0;
-        // }
+            iCurrentBufSize = 0;
+        }
     } else {
         if (u32Offset > u32TTFSize) {
             u32Offset = u32TTFSize;
@@ -458,6 +456,12 @@ int16_t truetypeClass::getKerning(uint16_t _left_glyph, uint16_t _right_glyph) {
 }
 #endif
 
+uint16_t truetypeClass::spaceAdvance(wchar_t _space) {
+    const uint16_t id = codeToGlyphId(_space);
+    if (id == 0) return characterSize / 4;
+    return getHMetric(id).advanceWidth;
+}
+
 // hmtx. metric information for the horizontal layout each of the glyphs
 uint8_t truetypeClass::readHMetric() {
     if (seekToTable("hmtx") == 0) {
@@ -749,8 +753,8 @@ void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t characterSi
     uint16_t j = 0;
 
     for (uint16_t i = 0; i < glyph.numberOfContours; i++) {
-        uint8_t firstPointOfContour = j;
-        uint8_t lastPointOfContour = glyph.endPtsOfContours[i];
+        uint16_t firstPointOfContour = j;
+        uint16_t lastPointOfContour = glyph.endPtsOfContours[i];
 
         // Rotate to on-curve the first point
         uint16_t numberOfRotations = 0;
@@ -808,10 +812,17 @@ void truetypeClass::generateOutline(int16_t _x, int16_t _y, uint16_t characterSi
                 x0 = pointsOfCurve[0].x;
                 y0 = pointsOfCurve[0].y;
 
-                for (int step = 0; step <= 9; step += 1) {
-                    float t = (float)step / 9.0;
-                    x1 = (1.0 - t) * (1.0 - t) * pointsOfCurve[0].x + 2.0 * t * (1.0 - t) * pointsOfCurve[1].x + t * t * pointsOfCurve[2].x;
-                    y1 = (1.0 - t) * (1.0 - t) * pointsOfCurve[0].y + 2.0 * t * (1.0 - t) * pointsOfCurve[1].y + t * t * pointsOfCurve[2].y;
+                // enough straight segments to stay within ~0.2 pixel of the curve: few for small text,
+                // more for large digits (was always 9)
+                const float scale = (float)characterSize / headTable.unitsPerEm;
+                const float lengthPx = (hypotf(pointsOfCurve[1].x - pointsOfCurve[0].x, pointsOfCurve[1].y - pointsOfCurve[0].y) +
+                                        hypotf(pointsOfCurve[2].x - pointsOfCurve[1].x, pointsOfCurve[2].y - pointsOfCurve[1].y)) * scale;
+                const int steps = constrain((int)ceilf(sqrtf(lengthPx / 1.6f)), 1, 24);
+
+                for (int step = 1; step <= steps; step++) {
+                    const float t = (float)step / steps;
+                    x1 = (1.0f - t) * (1.0f - t) * pointsOfCurve[0].x + 2.0f * t * (1.0f - t) * pointsOfCurve[1].x + t * t * pointsOfCurve[2].x;
+                    y1 = (1.0f - t) * (1.0f - t) * pointsOfCurve[0].y + 2.0f * t * (1.0f - t) * pointsOfCurve[1].y + t * t * pointsOfCurve[2].y;
 
                     addLine(x0 * characterSize / headTable.unitsPerEm + _x, (ascender - y0) * characterSize / headTable.unitsPerEm + _y,
                             x1 * characterSize / headTable.unitsPerEm + _x, (ascender - y1) * characterSize / headTable.unitsPerEm + _y);
@@ -872,13 +883,15 @@ void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t character
     ttCrossing_t *crossings = (ttCrossing_t *)malloc(sizeof(ttCrossing_t) * numPoints);
     if (crossings == nullptr) return;
 
-    const int16_t xStart = _x_min + round((float)glyph.xMin * (float)characterSize / (float)headTable.unitsPerEm);
-    const int16_t xEnd = _x_min + round((float)glyph.xMax * (float)characterSize / (float)headTable.unitsPerEm);
+    // a pixel is filled when its centre (x + 0.5, y + 0.5) is inside the outline
+    const float scale = (float)characterSize / (float)headTable.unitsPerEm;
+    const int16_t xStart = floorf(_x_min + glyph.xMin * scale);
+    const int16_t xEnd = ceilf(_x_min + glyph.xMax * scale);
+    const int16_t yStart = floorf((ascender - glyph.yMax) * scale + _y_min);
+    const int16_t yEnd = ceilf((ascender - glyph.yMin) * scale + _y_min);
 
-    for (int16_t y = round((float)(ascender - glyph.yMax) * (float)characterSize / (float)headTable.unitsPerEm + _y_min);
-         y < round((float)(ascender - glyph.yMin) * (float)characterSize / (float)headTable.unitsPerEm + _y_min);
-         y++) {
-        const float fy = (float)y;
+    for (int16_t y = yStart; y < yEnd; y++) {
+        const float fy = (float)y + 0.5f;
         uint16_t numCrossings = 0;
         uint16_t bpCounter = 0;
         uint16_t epCounter = 0;
@@ -919,7 +932,7 @@ void truetypeClass::fillGlyph(int16_t _x_min, int16_t _y_min, uint16_t character
         int16_t passed = 0;
         uint16_t k = 0;
         for (int16_t x = xStart; x < xEnd; x++) {
-            while (k < numCrossings && crossings[k].x <= (float)x) {
+            while (k < numCrossings && crossings[k].x <= (float)x + 0.5f) {
                 passed += crossings[k].dir;
                 k++;
             }
@@ -939,7 +952,7 @@ void truetypeClass::textDraw(int16_t _x, int16_t _y, const wchar_t _character[])
         // space (half-width, full-width)
         if ((_character[c] == ' ') || (_character[c] == L'　')) {
             prev_code = 0;
-            _x += characterSize / 4;
+            _x += spaceAdvance(_character[c]);
             c++;
             continue;
         }
@@ -1095,7 +1108,7 @@ uint16_t truetypeClass::getStringWidth(const wchar_t _character[]) {
         // space (half-width, full-width)
         if ((_character[c] == ' ') || (_character[c] == L'　')) {
             prev_code = 0;
-            output += characterSize / 4;
+            output += spaceAdvance(_character[c]);
             c++;
             continue;
         }
@@ -1161,7 +1174,7 @@ static bool reserveOneMore(T *&array, uint16_t count, uint16_t &capacity) {
     return true;
 }
 
-void truetypeClass::addPoint(int16_t _x, int16_t _y) {
+void truetypeClass::addPoint(float _x, float _y) {
     if (!reserveOneMore(points, numPoints, pointsCap)) return;
     points[numPoints].x = _x;
     points[numPoints].y = _y;

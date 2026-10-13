@@ -832,6 +832,57 @@ static void unloadVlwFont(TFT_eSprite &spr) {
     spr.unloadFont();
 }
 
+/// @brief Set up truetype to draw into spr, the font from memory where possible (PSRAM): no file reads per glyph
+static bool beginTruetype(truetypeClass &truetype, TFT_eSprite &spr, const String &font, uint16_t size, uint16_t color) {
+    truetype.setFramebuffer(spr.width(), spr.height(), spr.getColorDepth(), static_cast<uint8_t *>(spr.getPointer()));
+    size_t fontSize;
+    uint8_t *fontData = getCachedFont(font, false, fontSize);
+    const bool loaded = fontData ? truetype.setTtfPointer(fontData, fontSize, 0, false) : truetype.setTtfFile(contentFS->open(font, "r"));
+    if (!loaded) {
+        Serial.println("read ttf failed");
+        truetype.end();
+        return false;
+    }
+    truetype.setCharacterSize(size);
+    truetype.setCharacterSpacing(0);
+    if (spr.getColorDepth() == 8) {
+        truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
+    } else {
+        truetype.setTextColor(color, color);
+    }
+    return true;
+}
+
+/// @brief Word wrap content into lines of at most boxwidth (by width(text)), drawLine(text, y) for each line
+/// that fits in boxheight; posy ends below the last line
+template <typename Width, typename DrawLine>
+static void wrapText(const String &content, int16_t &posy, int16_t boxwidth, int16_t boxheight, int16_t lineAdvance, float lineheight, Width width, DrawLine drawLine) {
+    const int length = content.length();
+    int startPos = 0;
+    const int startPosY = posy;
+
+    while (startPos < length && posy + lineAdvance <= startPosY + boxheight) {
+        int endPos = startPos;
+        bool hasspace = false;
+
+        while (endPos < length && width(content.substring(startPos, endPos + 1)) <= boxwidth && content.charAt(endPos) != '\n') {
+            if (content.charAt(endPos) == ' ' || content.charAt(endPos) == '-') hasspace = true;
+            endPos++;
+        }
+        while (endPos < length && endPos > startPos && hasspace == true && content.charAt(endPos - 1) != ' ' && content.charAt(endPos - 1) != '-' && content.charAt(endPos) != '\n') {
+            endPos--;
+        }
+        drawLine(content.substring(startPos, endPos), posy);
+        posy += lineAdvance * lineheight;
+
+        if (content.charAt(endPos) == '\n') endPos++;
+        startPos = endPos;
+        while (startPos < length && content.charAt(startPos) == ' ') {
+            startPos++;
+        }
+    }
+}
+
 void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, String font, byte align, uint16_t color, uint16_t size, uint16_t bgcolor) {
     // drawString(spr,"test",100,10,"bahnschrift30",TC_DATUM,TFT_RED);
 
@@ -862,20 +913,7 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
         case 2: {
             // truetype
             truetypeClass truetype = truetypeClass();
-            void *framebuffer = spr.getPointer();
-            truetype.setFramebuffer(spr.width(), spr.height(), spr.getColorDepth(), static_cast<uint8_t *>(framebuffer));
-            // from memory where possible (PSRAM): no file reads per glyph
-            size_t fontSize;
-            uint8_t *fontData = getCachedFont(font, false, fontSize);
-            const bool loaded = fontData ? truetype.setTtfPointer(fontData, fontSize, 0, false) : truetype.setTtfFile(contentFS->open(font, "r"));
-            if (!loaded) {
-                Serial.println("read ttf failed");
-                truetype.end();
-                return;
-            }
-
-            truetype.setCharacterSize(size);
-            truetype.setCharacterSpacing(0);
+            if (!beginTruetype(truetype, spr, font, size, color)) return;
             if (align == TC_DATUM) {
                 posx -= truetype.getStringWidth(content) / 2;
             }
@@ -883,11 +921,6 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
                 posx -= truetype.getStringWidth(content);
             }
             truetype.setTextBoundary(posx, spr.width(), spr.height());
-            if (spr.getColorDepth() == 8) {
-                truetype.setTextColor(spr.color16to8(color), spr.color16to8(color));
-            } else {
-                truetype.setTextColor(color, color);
-            }
             truetype.textDraw(posx, posy, content);
             truetype.end();
         } break;
@@ -903,12 +936,24 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
     }
 }
 
-void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy, int16_t boxwidth, int16_t boxheight, String font, uint16_t color, uint16_t bgcolor, float lineheight, byte align) {
+void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy, int16_t boxwidth, int16_t boxheight, String font, uint16_t color, uint16_t bgcolor, float lineheight, byte align, uint16_t size) {
     replaceVariables(content);
     switch (processFontPath(font)) {
         case 2: {
-            // truetype
-            Serial.println("truetype font not implemented for drawTextBox");
+            // truetype: size in pixels (default 20), lines size * lineheight apart
+            if (size == 0) size = 20;
+            truetypeClass truetype = truetypeClass();
+            if (!beginTruetype(truetype, spr, font, size, color)) return;
+            wrapText(
+                content, posy, boxwidth, boxheight, size, lineheight, [&](const String &text) { return truetype.getStringWidth(text); },
+                [&](const String &line, int16_t y) {
+                    int16_t x = posx;
+                    if (align == TC_DATUM) x -= truetype.getStringWidth(line) / 2;
+                    if (align == TR_DATUM) x -= truetype.getStringWidth(line);
+                    truetype.setTextBoundary(x, spr.width(), spr.height());
+                    truetype.textDraw(x, y, line);
+                });
+            truetype.end();
         } break;
         case 3: {
             // vlw bitmap font
@@ -917,31 +962,9 @@ void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy
             if (font != "") loadVlwFont(spr, font);
             spr.setTextWrap(false, false);
             spr.setTextColor(color, bgcolor);
-
-            int length = content.length();
-            int startPos = 0;
-            int startPosY = posy;
-
-            while (startPos < length && posy + spr.gFont.yAdvance <= startPosY + boxheight) {
-                int endPos = startPos;
-                bool hasspace = false;
-
-                while (endPos < length && spr.textWidth(content.substring(startPos, endPos + 1).c_str()) <= boxwidth && content.charAt(endPos) != '\n') {
-                    if (content.charAt(endPos) == ' ' || content.charAt(endPos) == '-') hasspace = true;
-                    endPos++;
-                }
-                while (endPos < length && endPos > startPos && hasspace == true && content.charAt(endPos - 1) != ' ' && content.charAt(endPos - 1) != '-' && content.charAt(endPos) != '\n') {
-                    endPos--;
-                }
-                spr.drawString(content.substring(startPos, endPos), posx, posy);
-                posy += spr.gFont.yAdvance * lineheight;
-
-                if (content.charAt(endPos) == '\n') endPos++;
-                startPos = endPos;
-                while (startPos < length && content.charAt(startPos) == ' ') {
-                    startPos++;
-                }
-            }
+            wrapText(
+                content, posy, boxwidth, boxheight, spr.gFont.yAdvance, lineheight, [&](const String &text) { return spr.textWidth(text.c_str()); },
+                [&](const String &line, int16_t y) { spr.drawString(line, posx, y); });
             if (font != "") unloadVlwFont(spr);
         }
     }
@@ -2933,7 +2956,7 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
         const uint16_t bgcolor = (bgcolorstr.length() > 0) ? getColor(bgcolorstr) : TFT_WHITE;
         drawString(spr, textArray[2], textArray[0].as<int>(), textArray[1].as<int>(), textArray[3], align, getColor(textArray[4]), size, bgcolor);
     } else if (element["textbox"].is<JsonArray>()) {
-        // posx, posy, width, height, text, font, color, lineheight, align  
+        // posx, posy, width, height, text, font, color, lineheight, align, size (truetype)
         const JsonArray &textArray = element["textbox"];
         float lineheight = textArray[7].as<float>();
         if (lineheight == 0) lineheight = 1;
@@ -2941,7 +2964,8 @@ void drawElement(const JsonObject &element, TFT_eSprite &spr, imgParam &imagePar
         int16_t posy = textArray[1] | 0;
         String text = textArray[4];
         const uint16_t align = textArray[8] | 0;
-        drawTextBox(spr, text, posx, posy, textArray[2], textArray[3], textArray[5], getColor(textArray[6]), TFT_WHITE, lineheight, align);
+        const uint16_t size = textArray[9] | 0;
+        drawTextBox(spr, text, posx, posy, textArray[2], textArray[3], textArray[5], getColor(textArray[6]), TFT_WHITE, lineheight, align, size);
     } else if (element["box"].is<JsonArray>()) {
         const JsonArray &boxArray = element["box"];
         spr.fillRect(boxArray[0].as<int>(), boxArray[1].as<int>(), boxArray[2].as<int>(), boxArray[3].as<int>(), getColor(boxArray[4]));

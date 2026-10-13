@@ -200,7 +200,8 @@ class truetypeClass {
     int iBufferedBytes = 0;            // Number of bytes remaining in u8FileBuf
     uint8_t u8FileBuf[FILE_BUF_SIZE];  // Buffered reads from the file system
     uint32_t u32BufPosition;           // Current position in the buffer
-    uint32_t iCurrentBufSize = 0;
+    uint32_t iCurrentBufSize = 0;      // Bytes read into u8FileBuf
+    uint32_t u32BufStart = 0;          // File offset of u8FileBuf[0]
 
     TTF_DRAWPIXEL *pfnDrawPixel = NULL;
 
@@ -256,6 +257,8 @@ class truetypeClass {
     // number of entries in hmtx with their own advance width; later glyphs share the last one
     uint16_t numberOfHMetrics = 0;
     uint8_t readHhea();
+    // advance width of a space at the current size: the font's own, or characterSize / 4
+    uint16_t spaceAdvance(wchar_t _space);
 
     // generate points (arrays grow by doubling, capacity in the *Cap fields)
     ttCoordinate_t *points = nullptr;
@@ -274,7 +277,7 @@ class truetypeClass {
     void freeGlyph();
 
     void addLine(float _x0, float _y0, float _x1, float _y1);
-    void addPoint(int16_t _x, int16_t _y);
+    void addPoint(float _x, float _y);
     void freePoints();
     void addBeginPoint(uint16_t _bp);
     void freeBeginPoints();
