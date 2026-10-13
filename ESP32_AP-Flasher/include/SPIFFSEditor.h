@@ -7,8 +7,6 @@ class SPIFFSEditor: public AsyncWebHandler {
     mutable fs::FS _fs;
     String _username;
     String _password;
-    bool _authenticated;
-    uint32_t _startTime;
   public:
 #ifdef ESP32
     SPIFFSEditor(const fs::FS& fs, const String& username=String(), const String& password=String());

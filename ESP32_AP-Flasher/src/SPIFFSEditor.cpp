@@ -2,10 +2,13 @@
 
 #include <FS.h>
 
+#include "system.h"
+#include "uploadinfo.h"
+
 #define SPIFFS_MAXLENGTH_FILEPATH 32
 
 SPIFFSEditor::SPIFFSEditor(const fs::FS &fs, const String &username, const String &password)
-    : _fs(fs), _username(username), _password(password), _authenticated(false), _startTime(0) {
+    : _fs(fs), _username(username), _password(password) {
 }
 
 bool SPIFFSEditor::canHandle(AsyncWebServerRequest *request) const {
@@ -103,11 +106,8 @@ void SPIFFSEditor::handleRequest(AsyncWebServerRequest *request) {
             request->send(404);
         }
     } else if (request->method() == HTTP_POST) {
-        String filename = request->getParam("data", true, true)->value();
-        if (filename.c_str()[0] != '/') {
-            filename = "/" + filename;
-        }
-        if (request->hasParam("data", true, true) && _fs.exists(filename)) {
+        if (request->getResponse()) return;  // the upload handler already answered with an error
+        if (request->hasParam("data", true, true)) {
             request->send(200, "", "UPLOADED: " + request->getParam("data", true, true)->value());
         } else {
             request->send(500);
@@ -136,31 +136,36 @@ void SPIFFSEditor::handleRequest(AsyncWebServerRequest *request) {
     }
 }
 
+// Same upload path as /littlefs_put (uploadinfo.h): checks the free space, writes in 32 KB blocks under fsMutex
+// and removes the partial file when the client disconnects. Writing through an open File here hit a LittleFS
+// assert ("file not open") on large uploads.
 void SPIFFSEditor::handleUpload(AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) {
     if (!index) {
-        if (!_username.length() || request->authenticate(_username.c_str(), _password.c_str())) {
-            _authenticated = true;
-            if (filename.c_str()[0] != '/') {
-                request->_tempFile = _fs.open("/" + filename, "w");
-            } else {
-                int lastSlash = filename.lastIndexOf('/');
-                if (lastSlash != -1) {
-                    String folderPath = filename.substring(0, lastSlash);
-                    if (!_fs.exists(folderPath)) {
-                        _fs.mkdir(folderPath);
-                    }
-                }
-                request->_tempFile = _fs.open(filename, "w");
-            }
-            _startTime = millis();
+        if (_username.length() && !request->authenticate(_username.c_str(), _password.c_str())) {
+            request->send(401);
+            return;
         }
+        const String path = filename.c_str()[0] == '/' ? filename : "/" + filename;
+        const int lastSlash = path.lastIndexOf('/');
+        if (lastSlash > 0) {
+            const String folderPath = path.substring(0, lastSlash);
+            xSemaphoreTake(fsMutex, portMAX_DELAY);
+            if (!_fs.exists(folderPath)) _fs.mkdir(folderPath);
+            xSemaphoreGive(fsMutex);
+        }
+        if (beginUpload(request, path) == nullptr) return;
     }
-    if (_authenticated && request->_tempFile) {
-        if (len) {
-            request->_tempFile.write(data, len);
-        }
-        if (final) {
-            request->_tempFile.close();
-        }
-    }
+
+    UploadInfo *uploadInfo = static_cast<UploadInfo *>(request->_tempObject);
+    if (uploadInfo == nullptr) return;
+
+    if (len) appendUploadInfo(uploadInfo, data, len);
+    if (!final) return;
+
+    flushUploadInfo(uploadInfo);
+    const bool error = uploadInfo->error;
+    if (error) logLine("Failed to write " + String(uploadInfo->filename));
+    request->_tempObject = nullptr;
+    free(uploadInfo);
+    if (error) request->send(507, "text/plain", "Error. Disk full?");
 }
