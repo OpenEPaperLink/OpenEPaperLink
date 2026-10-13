@@ -241,7 +241,15 @@ void updateFirmware(const char* url, const char* expectedMd5, const size_t size)
                 }
             });
 
-            const size_t written = Update.writeStream(httpClient.getStream());
+            // writeStream() checks the image header with a non-blocking peek() first: when the body
+            // hasn't arrived yet (GET() returns after the headers), that fails at once, as a wrong
+            // magic byte. Wait for the first bytes.
+            WiFiClient &stream = httpClient.getStream();
+            const uint32_t waitStart = millis();
+            while (stream.available() == 0 && stream.connected() && millis() - waitStart < 10000) {
+                vTaskDelay(10 / portTICK_PERIOD_MS);
+            }
+            const size_t written = Update.writeStream(stream);
             if (written == httpClient.getSize()) {
                 if (Update.end(true)) {
                     wsSerial("Firmware update successful");
