@@ -70,7 +70,7 @@ crc16:        CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over header and payl
 | --- | --- | --- | --- |
 | 0x01 | HELLO | `proto_major u8, proto_minor u8, wanted_caps u16` | HELLO_REPLY |
 | 0x02 | HEARTBEAT | – (sent every 1 s) | STATUS |
-| 0x03 | SET_CONFIG | `channel u8, subghz_channel u8, tx_power_dbm i8, flags u8` — 0xFF / 0x7F = do not change; flags bit 0 = log frames on | ACK / NAK `INVALID_PARAM` |
+| 0x03 | SET_CONFIG | `channel u8, subghz_channel u8, tx_power_dbm i8, flags u8, led_brightness u8` — 0xFF / 0x7F = do not change (not for led_brightness); flags bit 0 = log frames on; led_brightness 0 = activity LED off, 255 = full | ACK / NAK `INVALID_PARAM` |
 | 0x04 | SET_PENDING | `mac[8], data_ver u64, data_size u32, data_type u8, data_type_arg u8, next_checkin u16, ttl_min u16, flags u8` — `next_checkin` as in `AvailDataInfo` (minutes, bit 15 = seconds), `ttl_min` = minutes before the radio reports XFER_TIMEOUT (was `attemptsLeft`); flags bit 0 = data follows as DATA_CHUNK (cache) | ACK / NAK `NO_SLOT` |
 | 0x05 | CANCEL_PENDING | `mac[8]` | ACK |
 | 0x06 | DATA_CHUNK | `data_ver u64, offset u32, total_size u32, bytes[≤ 240]` | ACK / NAK `NO_CACHE_SPACE` |
