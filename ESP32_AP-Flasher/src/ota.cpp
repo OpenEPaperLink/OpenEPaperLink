@@ -380,7 +380,9 @@ void handleUpdateC6(AsyncWebServerRequest* request) {
     if (request->hasParam("url",true)) {
         const char* urlStr = request->getParam("url", true)->value().c_str();
         char* urlCopy = strdup(urlStr);
-        xTaskCreate(C6firmwareUpdateTask, "OTAUpdateTask", 6400, urlCopy, 10, NULL);
+        // The HTTPS download (TLS handshake) runs in this task: with 6400 bytes only 96 were left
+        // on the Yellow AP, and a Mini AP v4 (logging and USB CDC on) ran out of stack
+        xTaskCreate(C6firmwareUpdateTask, "OTAUpdateTask", 10240, urlCopy, 10, NULL);
         request->send(200, "Ok");
     }
     else {

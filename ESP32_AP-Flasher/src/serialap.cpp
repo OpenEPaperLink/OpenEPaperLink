@@ -289,8 +289,9 @@ bool startApReader() {
 #endif
 #endif
     apReaderStop = false;
-    // the handle is set before the task can run, so it never sees itself unregistered
-    if (xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, 11, (TaskHandle_t*)&apReaderTask) != pdPASS) {
+    // the handle is set before the task can run, so it never sees itself unregistered.
+    // 1750 bytes left 616 free in normal use, too little for one ESP_LOG (vprintf) from the UART driver.
+    if (xTaskCreate(rxSerialTask, "rxSerialTask", 3072, NULL, 11, (TaskHandle_t*)&apReaderTask) != pdPASS) {
         apReaderTask = nullptr;
         AP_SERIAL_PORT.end();
         return false;
