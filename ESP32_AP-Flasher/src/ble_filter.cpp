@@ -268,6 +268,11 @@ void BLE_clear_attempts(uint8_t address[8]) {
     BLE_attemptCounts.erase(BLE_macToKey(address));
 }
 
+uint32_t BLE_get_attempts(uint8_t address[8]) {
+    auto it = BLE_attemptCounts.find(BLE_macToKey(address));
+    return it == BLE_attemptCounts.end() ? 0 : it->second;
+}
+
 bool BLE_is_image_pending(uint8_t address[8]) {
     // Pick the pending BLE tag we have tried the fewest times. This way an
     // unreachable display no longer blocks the queue: every attempt rotates to

@@ -410,7 +410,7 @@ void BLETask(void* parameter) {
                                     BLE_new_notify = true;  // trigger the upload here
                                 } else {
                                     BLE_freeImageBuffer();
-                                    if (BLE_err_counter++ >= 5) {  // 5 Retries for a BLE Connection
+                                    if (BLE_get_attempts(BLE_curr_address) >= 5) {  // 5 tries per display (BLE_connect() resets BLE_err_counter)
                                         struct espXferComplete reportStruct;
                                         memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                         processXferComplete(&reportStruct, true);
@@ -439,7 +439,7 @@ void BLETask(void* parameter) {
                                     BLE_new_notify = true;  // trigger the upload here
                                 } else {
                                     BLE_freeImageBuffer();
-                                    if (BLE_err_counter++ >= 5) {  // 5 Retries for a BLE Connection
+                                    if (BLE_get_attempts(BLE_curr_address) >= 5) {  // 5 tries per display (BLE_connect() resets BLE_err_counter)
                                         struct espXferComplete reportStruct;
                                         memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
                                         processXferComplete(&reportStruct, true);
