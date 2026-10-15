@@ -53,6 +53,22 @@ static void say(const String& text) {
 static bool present(int8_t pin) { return pin >= 0 || pin == SIMULATED_NC; }
 static String gpioName(int8_t pin) { return pin == SIMULATED_NC ? String("GPIO (simulated, not connected)") : "GPIO " + String(pin); }
 
+// Messages name wires the way a builder sees them: by the pin numbers on both boards (the wiki's
+// pinout table), not by UART roles. The radio's debug UART (UART0) and PROG pins are fixed per chip.
+#ifdef HAS_H2
+#define RADIO_NAME "H2"
+#define RADIO_DBG_TX 24
+#define RADIO_DBG_RX 23
+#else
+#define RADIO_NAME "C6"
+#define RADIO_DBG_TX 16
+#define RADIO_DBG_RX 17
+#endif
+static String s3Pin(int8_t pin) { return "S3 " + gpioName(pin); }
+static String radioPin(const char* what, int gpio) { return String("the radio's ") + what + " (" RADIO_NAME " GPIO " + gpio + ")"; }
+static String swapped(int8_t a, int8_t b) { return "The wires on " + s3Pin(a) + " and " + gpioName(b) + " are swapped: swap them"; }
+static String misplaced(int8_t on, int8_t belongs) { return "The wire on " + s3Pin(on) + " belongs on " + gpioName(belongs) + ": move it"; }
+
 static void releasePin(int8_t pin) {
     if (pin >= 0) pinMode(pin, INPUT);
 }
@@ -104,6 +120,30 @@ static PullResult pullTest(int8_t pin) {
     if (highDown <= 5 && highUp >= 45) return PULL_FLOATING;
     if (highDown <= 5 && highUp <= 5) return PULL_DRIVEN_LOW;
     return PULL_ACTIVE;
+}
+
+// Are two S3 pins connected to each other? Drive one, pull the other the opposite way, both
+// directions. Needs the radio in reset, so its outputs don't drive the lines. One direction alone
+// is not enough: a PC on the S3's USB pins pulls both down with 15k, which also "follows low".
+static bool pinsConnected(int8_t a, int8_t b) {
+    if (a < 0 || b < 0) return false;
+    bool connected = true;
+    for (uint8_t dir = 0; dir < 2 && connected; dir++) {
+        const int8_t drive = dir ? a : b, sense = dir ? b : a;
+        pinMode(drive, OUTPUT);
+        digitalWrite(drive, LOW);
+        pinMode(sense, INPUT_PULLUP);
+        delayMicroseconds(500);
+        const bool followsLow = digitalRead(sense) == LOW;
+        digitalWrite(drive, HIGH);
+        pinMode(sense, INPUT_PULLDOWN);
+        delayMicroseconds(500);
+        const bool followsHigh = digitalRead(sense) == HIGH;
+        connected = followsLow && followsHigh;
+    }
+    releasePin(a);
+    releasePin(b);
+    return connected;
 }
 
 // Collect what arrives on up to two pins (one UART each) for ms milliseconds.
@@ -266,6 +306,38 @@ static String runTest(const RadioPins& p) {
     pins["prog"] = p.prog;
     const bool sixLine = present(p.dbgTx) && present(p.dbgRx);
 
+    // 0. Is a TX pin connected to its RX pin? Every later step would then misread: the radio's
+    // output appears on the S3's TX pin as well, and anything the S3 sends collides with it.
+    if (p.reset >= 0) {
+        say("checking for lines connected to each other");
+        pinMode(p.reset, OUTPUT);
+        digitalWrite(p.reset, LOW);  // radio in reset: its pins let go of the lines
+        vTaskDelay(20 / portTICK_PERIOD_MS);
+        const bool protoShort = pinsConnected(p.protoTx, p.protoRx);
+        const bool dbgShort = sixLine && pinsConnected(p.dbgTx, p.dbgRx);
+        digitalWrite(p.reset, HIGH);
+        obs["protoLinesConnected"] = protoShort;
+        obs["dbgLinesConnected"] = dbgShort;
+        if (protoShort) fail(s3Pin(p.protoTx) + " and " + gpioName(p.protoRx) + " are connected to each other: look for a short between these two wires");
+        if (dbgShort) {
+            String m = s3Pin(p.dbgTx) + " and " + gpioName(p.dbgRx) + " are connected to each other: look for a short between these two wires";
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+            // GPIO19/20 are the S3's USB D-/D+; a USB charger connects D+ and D-
+            if ((p.dbgTx == 19 || p.dbgTx == 20) && (p.dbgRx == 19 || p.dbgRx == 20))
+                m = "Is a USB charger plugged into the board's \"USB\" port? That disturbs the radio wires on GPIO 19 and 20. "
+                    "Plug the charger into the other port (\"UART\" or \"COM\") instead, or power the board from a computer";
+#endif
+            fail(m);
+        }
+        if (protoShort || dbgShort) {
+            doc["ok"] = false;
+            String out;
+            serializeJson(doc, out);
+            return out;
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);  // let the radio start again before step 1
+    }
+
     // 1. Are the radio's TX lines driven? (radio running, before any reset)
     say("radio wiring test: checking the radio's output lines");
     const PullResult pullProto = pullTest(p.protoRx);
@@ -286,7 +358,6 @@ static String runTest(const RadioPins& p) {
         const char* role;
     } seen[] = {{p.protoRx, &rx.a, "protoRx"}, {p.dbgRx, &rx.b, "dbgRx"}, {p.protoTx, &tx.a, "protoTx"}, {p.dbgTx, &tx.b, "dbgTx"}};
     int8_t romPin = -1, fwPin = -1;
-    const char *romRole = "", *fwRole = "";
     JsonObject heard = obs["heard"].to<JsonObject>();
     for (auto& s : seen) {
         if (!present(s.pin)) continue;
@@ -295,8 +366,8 @@ static String runTest(const RadioPins& p) {
         h["firmware"] = hasFirmware(*s.text);
         h["bytes"] = s.text->length();
         if (s.text->length()) h["text"] = excerpt(*s.text);
-        if (hasRom(*s.text) && romPin < 0) romPin = s.pin, romRole = s.role;
-        if (hasFirmware(*s.text) && fwPin < 0) fwPin = s.pin, fwRole = s.role;
+        if (hasRom(*s.text) && romPin < 0) romPin = s.pin;
+        if (hasFirmware(*s.text) && fwPin < 0) fwPin = s.pin;
     }
 
     if (romPin < 0 && fwPin < 0) {
@@ -304,12 +375,12 @@ static String runTest(const RadioPins& p) {
         const bool alive = askReady(p.protoRx, p.protoTx, 2000000) || askReady(p.protoRx, p.protoTx, 115200);
         obs["aliveWithoutReset"] = alive;
         if (alive) {
-            fail("The radio does not restart: RESET wire (" + gpioName(p.reset) + ") not connected");
+            fail("The radio does not restart: no contact on the wire from " + s3Pin(p.reset) + " to the radio's EN (or RST)");
         } else if (pullProto == PULL_FLOATING && (!sixLine || pullDbg == PULL_FLOATING)) {
-            fail("No signal from the radio on " + gpioName(p.protoRx) + (sixLine ? " or " + gpioName(p.dbgRx) : String("")) +
-                 ": wires not connected, or the radio has no power");
+            fail("Nothing comes from the radio on " + s3Pin(p.protoRx) + (sixLine ? " or " + gpioName(p.dbgRx) : String("")) +
+                 ": check these wires, and whether the radio has power");
         } else {
-            fail("No response at all: is the radio powered and flashed?");
+            fail("No answer from the radio at all: does it have power, and is the OpenEPaperLink radio firmware flashed?");
         }
         doc["ok"] = false;
         String out;
@@ -321,15 +392,15 @@ static String runTest(const RadioPins& p) {
     if (fwPin == p.protoRx) {
         // as it should be
     } else if (fwPin >= 0 && fwPin == p.dbgRx) {
-        fail("Protocol and debug RX wires are swapped (" + gpioName(p.protoRx) + " <-> " + gpioName(p.dbgRx) + ")");
+        fail(swapped(p.protoRx, p.dbgRx));
     } else if (fwPin >= 0 && fwPin == p.protoTx) {
-        fail("TX and RX of the protocol UART are swapped (" + gpioName(p.protoTx) + " <-> " + gpioName(p.protoRx) + ")");
+        fail(swapped(p.protoTx, p.protoRx));
     } else if (fwPin >= 0) {
-        fail("The radio's protocol output arrives on " + gpioName(fwPin) + " (" + fwRole + "), expected on " + gpioName(p.protoRx));
+        fail(misplaced(fwPin, p.protoRx));
     } else if (pullProto == PULL_FLOATING) {
-        fail("No signal on " + gpioName(p.protoRx) + " (radio protocol TX -> S3 RX): wire not connected");
+        fail("Nothing comes from the radio on " + s3Pin(p.protoRx) + ": no contact on this wire");
     } else {
-        fail("The radio boots, but its firmware sends nothing on " + gpioName(p.protoRx) + ": is the OEPL radio firmware flashed?");
+        fail("The radio starts, but sends nothing on " + s3Pin(p.protoRx) + ": is the OpenEPaperLink radio firmware flashed?");
     }
 
     // ROM output (radio UART0); on shared-UART boards it comes on the protocol line
@@ -337,15 +408,16 @@ static String runTest(const RadioPins& p) {
         if (romPin == p.dbgRx) {
             // as it should be
         } else if (romPin >= 0 && romPin == p.protoRx) {
-            if (fwPin != p.dbgRx) fail("The radio's boot output arrives on the protocol RX " + gpioName(p.protoRx) + ", expected on " + gpioName(p.dbgRx));
+            if (fwPin != p.dbgRx) fail(misplaced(p.protoRx, p.dbgRx));
         } else if (romPin >= 0 && romPin == p.dbgTx) {
-            fail("TX and RX of the debug UART are swapped (" + gpioName(p.dbgTx) + " <-> " + gpioName(p.dbgRx) + ")");
+            fail(swapped(p.dbgTx, p.dbgRx));
         } else if (romPin >= 0) {
-            fail("The radio's boot output arrives on " + gpioName(romPin) + " (" + romRole + "), expected on " + gpioName(p.dbgRx));
+            fail(misplaced(romPin, p.dbgRx));
         } else if (pullDbg == PULL_FLOATING) {
-            fail("No signal on " + gpioName(p.dbgRx) + " (radio debug TX -> S3 RX): wire not connected");
+            fail("No contact on the wire from " + radioPin("TX", RADIO_DBG_TX) + " to " + s3Pin(p.dbgRx));
         } else {
-            fail("No boot output on " + gpioName(p.dbgRx) + " after a reset (radio debug TX -> S3 RX), or ROM messages are disabled");
+            // the line is driven, but no boot text came: also the case when the radio's boot messages are off (eFuse)
+            fail("Nothing on " + s3Pin(p.dbgRx) + " when the radio restarts: check the wire to " + radioPin("TX", RADIO_DBG_TX));
         }
     }
 
@@ -360,14 +432,14 @@ static String runTest(const RadioPins& p) {
         if (!hasRom(boot.a)) {
             obs["bootloaderSync"] = "not tested";
         } else if (!download) {
-            fail("PROG wire (" + gpioName(p.prog) + " -> radio GPIO9) not connected: the radio boots normally with PROG low");
+            fail("No contact on the wire from " + s3Pin(p.prog) + " to the radio's GPIO 9 (PROG/BOOT)");
         } else {
             const int8_t dbgOut = (romPin == p.dbgTx) ? p.dbgRx : p.dbgTx;
             const bool sync = romSync(romPin, dbgOut);
             obs["bootloaderSync"] = sync;
             if (!sync) {
                 debugTxMessage = messages.size();
-                fail("Debug TX wire (" + gpioName(dbgOut) + " -> radio UART0 RX) not connected: the bootloader does not answer");
+                fail("No contact on the wire from " + s3Pin(dbgOut) + " to " + radioPin("RX", RADIO_DBG_RX));
             }
         }
         if (p.prog >= 0) digitalWrite(p.prog, HIGH);
@@ -387,12 +459,12 @@ static String runTest(const RadioPins& p) {
             obs["protocolAckViaDebugTx"] = viaOther;
             if (viaOther) {
                 if (debugTxMessage >= 0) messages.remove(debugTxMessage);  // explained by the swap
-                fail("The S3's two TX wires are swapped between the radio's UARTs (" + gpioName(protoOut) + " <-> " + gpioName(other) + ")");
+                fail(swapped(protoOut, other));
             } else {
-                fail("S3 TX -> radio RX wire (" + gpioName(protoOut) + ") not connected: RDY? gets no answer");
+                fail("No contact on the wire from " + s3Pin(protoOut) + " to the radio's RX");
             }
         } else if (!ready) {
-            fail("S3 TX -> radio RX wire (" + gpioName(protoOut) + ") not connected: RDY? gets no answer");
+            fail("No contact on the wire from " + s3Pin(protoOut) + " to the radio's RX");
         }
     }
 

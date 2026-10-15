@@ -40,6 +40,8 @@ The test stops the normal serial tasks (as flashing does), runs these steps and 
 
 ## Conclusions and messages
 
+The messages as designed; since 2026-10-15 they name wires by pin numbers instead, see *Messages for builders* at the end.
+
 | Observation | Message (web UI and log) |
 | --- | --- |
 | everything as expected | "Radio wiring OK" |
@@ -109,3 +111,43 @@ Every simulated fault must produce the matching message, and the real wiring mus
 Every simulated fault gave exactly its message, the real wiring no false alarm, and the radio came online after every run. With the real wiring the pull test read both RX lines as driven high, so the Yellow AP has no external pulls that fool it.
 
 Seen on the way: at boot the C6 firmware prints `CC1101_QuickCheck … CC1101 not detected` on the **protocol** UART (`LOGE`/`LOGA` in `cc1101_radio.h` write to UART1 on purpose, "log to all"). The S3's parser skips it; it is noted as an open item.
+
+## Lines connected to each other (2026-10-15)
+
+Issue #586: on a hand-wired Yellow AP (S3 devkit + C6), powered through the S3 devkit's **USB** connector, the test reported "TX and RX of the debug UART are swapped" and "Debug TX wire … not connected" with correct wiring, and the C6 update failed. On the Yellow AP the debug UART is on GPIO19/20, the S3's USB D−/D+. A USB charger connects D+ and D− (USB BC1.2 dedicated charging port), so the S3's debug TX and RX are shorted: the radio's ROM text appears on the S3's TX pin as well, and whatever the S3 sends collides with the radio's output.
+
+Measured on an S3 devkit with the C6 wires removed, driving one pin and pulling the other the opposite way:
+
+| On the S3's USB connector | follows low | follows high |
+| --- | --- | --- |
+| USB charger | yes | yes |
+| PC port | yes (the host's 15k pull-downs) | no |
+| nothing | no | no |
+
+With a PC on that connector the test and the C6 update work: Windows gives up enumerating (the radio keeps D− high) and leaves the lines alone. So only "follows both ways" means connected.
+
+**Step 0** in the implementation: with the radio held in reset (its pins let go), check each S3 TX/RX pair (protocol and debug) for a connection both ways. If one is found, report it and stop. On an S3 with the debug pair on GPIO19/20 the message starts from what the user did and can change: *"Is a USB charger plugged into the board's "USB" port? That disturbs the radio wires on GPIO 19 and 20. Plug the charger into the other port ("UART" or "COM") instead, or power the board from a computer"*. Observations `protoLinesConnected`, `dbgLinesConnected`. Skipped without a RESET pin.
+
+Tested: on the S3 devkit with the Yellow firmware and no radio, the connection was found with the charger and not without it; on the Yellow AP "Radio wiring OK" twice, both pairs not connected.
+
+## Messages for builders (2026-10-15)
+
+Someone who wired an S3 board to a C6 board works from the pinout table ("S3 pin 19 to C6 pin 16"); "protocol UART", "debug UART", "UART0", "ROM" or `RDY?` mean nothing to them. The messages now name each wire by its pins and say what to do. The radio's debug UART and PROG pins are fixed per chip (C6: TX 16, RX 17; H2: TX 24, RX 23; PROG GPIO 9), so they are named; the radio's protocol pins depend on the radio firmware's hardware profile, so only the S3 side is named there. The technical evidence stays in `observations`.
+
+| Finding | Message |
+| --- | --- |
+| a TX/RX pair connected | "S3 GPIO a and GPIO b are connected to each other: look for a short between these two wires" (GPIO19/20 on an S3: the charger message above) |
+| two wires swapped (any pair) | "The wires on S3 GPIO a and GPIO b are swapped: swap them" |
+| output on a pin it does not belong on | "The wire on S3 GPIO a belongs on GPIO b: move it" |
+| radio does not restart | "The radio does not restart: no contact on the wire from S3 GPIO n to the radio's EN (or RST)" |
+| radio RX lines not driven | "Nothing comes from the radio on S3 GPIO a or GPIO b: check these wires, and whether the radio has power" |
+| no answer at all | "No answer from the radio at all: does it have power, and is the OpenEPaperLink radio firmware flashed?" |
+| protocol RX not driven | "Nothing comes from the radio on S3 GPIO n: no contact on this wire" |
+| radio boots, protocol silent | "The radio starts, but sends nothing on S3 GPIO n: is the OpenEPaperLink radio firmware flashed?" |
+| debug RX not driven | "No contact on the wire from the radio's TX (C6 GPIO 16) to S3 GPIO n" |
+| debug RX driven, no boot text | "Nothing on S3 GPIO n when the radio restarts: check the wire to the radio's TX (C6 GPIO 16)" |
+| PROG | "No contact on the wire from S3 GPIO n to the radio's GPIO 9 (PROG/BOOT)" |
+| debug TX | "No contact on the wire from S3 GPIO n to the radio's RX (C6 GPIO 17)" |
+| protocol TX | "No contact on the wire from S3 GPIO n to the radio's RX" |
+
+Tested on the Yellow AP with the real wiring (twice) and the ten simulated faults of the table above: each gave its new message, and the radio came online after every run.
