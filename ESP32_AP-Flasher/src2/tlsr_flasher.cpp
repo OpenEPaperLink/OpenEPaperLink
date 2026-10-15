@@ -244,13 +244,11 @@ bool tlsrFlashFile(const String &path) {
     /* Stop talking to the module first: the access point task keeps a UART
        conversation running with the very chip being flashed, and it owns the
        same port this needs. */
-    const bool wasRunning = (gSerialTaskState == SERIAL_STATE_RUNNING);
+    const bool wasRunning = apReaderRunning();
     if (wasRunning) {
         tlsrLog("TLSR: pausing access point communication");
         setAPstate(false, AP_STATE_FLASHING);
-        gSerialTaskState = SERIAL_STATE_STOP;
-        for (int i = 0; i < 300 && gSerialTaskState != SERIAL_STATE_STOPPED; i++) vTaskDelay(1);
-        gSerialTaskState = SERIAL_STATE_NONE;
+        stopApReader();
     }
 
     bool ok = false;

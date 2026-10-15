@@ -216,18 +216,13 @@ static String excerpt(const String& s) {
 static void stopApSerial() {
     config.runStatus = RUNSTATUS_STOP;
     setAPstate(false, AP_STATE_FLASHING);  // keeps the rest of the AP off the serial port
-    if (gSerialTaskState == SERIAL_STATE_RUNNING || gSerialTaskState == SERIAL_STATE_STARTING) {
-        gSerialTaskState = SERIAL_STATE_STOP;
-        uint32_t start = millis();
-        while (gSerialTaskState != SERIAL_STATE_STOPPED && millis() - start < 1000) vTaskDelay(10 / portTICK_PERIOD_MS);
-    }
+    stopApReader();
 #ifdef SELFTEST_HAS_MONITOR
     rxSerialStopTask2 = true;
 #endif
     vTaskDelay(300 / portTICK_PERIOD_MS);
     Serial1.end();
     Serial2.end();
-    gSerialTaskState = SERIAL_STATE_NONE;
 }
 
 static bool restartApSerial() {

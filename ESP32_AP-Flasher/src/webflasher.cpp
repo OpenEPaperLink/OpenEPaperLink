@@ -511,7 +511,7 @@ void handleWSdata(uint8_t* data, size_t len, AsyncWebSocketClient* client) {
             case WEBFLASH_POWER_ON: {
                 wsSerial("Power up", "yellow");
 
-                extern bool rxSerialStopTask2;
+                extern volatile bool rxSerialStopTask2;
                 if (rxSerialStopTask2 == false) {
                     rxSerialStopTask2 = true;
                     vTaskDelay(500 / portTICK_PERIOD_MS);
@@ -535,7 +535,7 @@ void handleWSdata(uint8_t* data, size_t len, AsyncWebSocketClient* client) {
                     serialPassthroughState = false;
                     vTaskDelay(500 / portTICK_PERIOD_MS);
                 }
-                extern bool rxSerialStopTask2;
+                extern volatile bool rxSerialStopTask2;
                 if (rxSerialStopTask2 == false) {
                     rxSerialStopTask2 = true;
                     vTaskDelay(500 / portTICK_PERIOD_MS);

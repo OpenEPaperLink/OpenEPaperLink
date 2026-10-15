@@ -46,7 +46,11 @@ const char *apTypeName(uint8_t type) {
     }
 }
 
-volatile ApSerialState gSerialTaskState;
+// Set while rxSerialTask exists; the task clears it as its last act
+static TaskHandle_t volatile apReaderTask = nullptr;
+static volatile bool apReaderStop = false;
+// Set by the debug monitor (rxSerialTask2), handled by APTask: the only task that resets the radio
+static volatile bool modemResetRequested = false;
 
 struct rxCmd {
     uint8_t* data;
@@ -99,18 +103,7 @@ void setAPstate(bool isOnline, uint8_t state) {
 #endif
 #ifdef FLASHER_DEBUG_SHARED
     // Flasher shares port with AP comms
-    if (state == AP_STATE_FLASHING) {
-        LOG("Shared COM port, gSerialTaskState %d\n", gSerialTaskState);
-        gSerialTaskState = SERIAL_STATE_STOP;
-        for (int i = 0; i < 100; i++) {
-            vTaskDelay(1 / portTICK_RATE_MS);
-            if (gSerialTaskState == SERIAL_STATE_STOPPED) {
-                gSerialTaskState = SERIAL_STATE_NONE;
-                break;
-            }
-        }
-        LOG("gSerialTaskState %d\n", gSerialTaskState);
-    }
+    if (state == AP_STATE_FLASHING) stopApReader();
 #endif
     wsSendSysteminfo();
 }
@@ -255,20 +248,68 @@ void rxCmdProcessor(void* parameter) {
     }
 }
 void rxSerialTask(void* parameter) {
-    gSerialTaskState = SERIAL_STATE_RUNNING;
     LOG("rxSerialTask starting\n");
-    while (gSerialTaskState == SERIAL_STATE_RUNNING) {
+    while (!apReaderStop) {
         radioTransport->onIdle();
         while (AP_SERIAL_PORT.available()) {
             radioTransport->onByte(AP_SERIAL_PORT.read());
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
-    }  // end of while(1)
+    }
 
     AP_SERIAL_PORT.end();
-    gSerialTaskState = SERIAL_STATE_STOPPED;
     LOG("rxSerialTask stopped\n");
+    apReaderTask = nullptr;
     vTaskDelete(NULL);
+}
+
+bool apReaderRunning() { return apReaderTask != nullptr; }
+
+// Opens the port and starts the reader, unless it runs already: opening the port again under a
+// running reader frees its receive buffer, and a second reader shares the parser state with it.
+bool startApReader() {
+    if (apReaderTask) return true;
+#ifdef HAS_ELECROW_ADV_2_8
+    // Set GPIO45 low to connect the wireless interface to the multiplexed pins
+    pinMode(45, OUTPUT);
+    digitalWrite(45, LOW);
+#endif
+
+    // The default 256-byte buffer holds only 1.3 ms of data at 2 Mbaud, while rxSerialTask
+    // polls every millisecond and runs below the WiFi tasks. 4 KB gives about 20 ms.
+    // Has to be set before begin(); a port that is already open keeps its buffer.
+    AP_SERIAL_PORT.setRxBufferSize(4096);
+#if (AP_PROCESS_PORT == FLASHER_AP_PORT)
+    AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
+#elif defined(HAS_EXT_FLASHER)
+#if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
+    AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
+#elif (AP_PROCESS_PORT == FLASHER_ALTRADIO_PORT)
+    AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
+#endif
+#endif
+    apReaderStop = false;
+    // the handle is set before the task can run, so it never sees itself unregistered
+    if (xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, 11, (TaskHandle_t*)&apReaderTask) != pdPASS) {
+        apReaderTask = nullptr;
+        AP_SERIAL_PORT.end();
+        return false;
+    }
+    return true;
+}
+
+// Stops the reader and closes the port. False if it did not stop within a second; it then still
+// counts as running, so startApReader() won't start a second one.
+bool stopApReader() {
+    if (!apReaderTask) return true;
+    apReaderStop = true;
+    const uint32_t start = millis();
+    while (apReaderTask && millis() - start < 1000) vTaskDelay(1);
+    if (apReaderTask) {
+        LOG("rxSerialTask did not stop\n");
+        return false;
+    }
+    return true;
 }
 
 #if defined(FLASHER_DEBUG_RXD) && !defined(FLASHER_DEBUG_SHARED)
@@ -300,19 +341,8 @@ void rxSerialTask2(void* parameter) {
             if (lastchar == '\n' || lastchar == '\r') {
                 if (strncmp(rxStr, "receive buffer full, drop the current frame", 43) == 0 && millisDiff(modemResetHoldoff) > 20000) {
                     modemResetHoldoff = millis();
-                    vTaskDelay(100 / portTICK_PERIOD_MS);
-                    config.runStatus = RUNSTATUS_STOP;
-                    Serial.println("IEEE802.15.4 modem stuck case detected, resetting...");
-                    APTagReset();
-                    vTaskDelay(1000 / portTICK_PERIOD_MS);
-                    Serial.println("bringing AP online again");
-                    if (bringAPOnline()) {
-                        config.runStatus = RUNSTATUS_RUN;
-                        Serial.println("Finished!");
-                    } else {
-                        Serial.println("Failed!");
-                    }
-                    logLine(String("IEEE802.15.4 modem reset ") + (config.runStatus == RUNSTATUS_RUN ? "ok" : "failed"));
+                    Serial.println("IEEE802.15.4 modem stuck case detected");
+                    modemResetRequested = true;  // APTask does the reset
                 }
                 rxStrCount = 0;
                 memset(rxStr, 0, sizeof(rxStr));
@@ -394,31 +424,8 @@ bool bringAPOnline(uint8_t newState) {
     if (apInfo.state == AP_STATE_NORADIO) return true;
     if (apInfo.state == AP_STATE_FLASHING) return false;
 
-    if (gSerialTaskState != SERIAL_STATE_INITIALIZED) {
-#ifdef HAS_ELECROW_ADV_2_8
-        // Set GPIO45 low to connect the wireless interface to the multiplexed pins
-        pinMode(45, OUTPUT);
-        digitalWrite(45, LOW);
-#endif
-
-        // The default 256-byte buffer holds only 1.3 ms of data at 2 Mbaud, while rxSerialTask
-        // polls every millisecond and runs below the WiFi tasks. 4 KB gives about 20 ms.
-        // Has to be set before begin(); a port that is already open keeps its buffer.
-        AP_SERIAL_PORT.setRxBufferSize(4096);
-#if (AP_PROCESS_PORT == FLASHER_AP_PORT)
-        AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
-#elif defined(HAS_EXT_FLASHER)
-#if (AP_PROCESS_PORT == FLASHER_EXT_PORT)
-        AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
-#elif (AP_PROCESS_PORT == FLASHER_ALTRADIO_PORT)
-        AP_SERIAL_PORT.begin(115200, SERIAL_8N1, FLASHER_AP_RXD, FLASHER_AP_TXD);
-#endif
-#endif
-        gSerialTaskState = SERIAL_STATE_INITIALIZED;
-    }
-    if (gSerialTaskState != SERIAL_STATE_RUNNING) {
-        gSerialTaskState = SERIAL_STATE_STARTING;
-        xTaskCreate(rxSerialTask, "rxSerialTask", 1750, NULL, 11, NULL);
+    if (!apReaderRunning()) {
+        if (!startApReader()) return false;
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
     setAPstate(false, AP_STATE_OFFLINE);
@@ -665,6 +672,26 @@ void APTask(void* parameter) {
 
     uint8_t attempts = 0;
     while (1) {
+        if (modemResetRequested) {
+            modemResetRequested = false;
+            // not while the port is in other hands (flashing, self-test), they bring the radio back themselves
+            if (apInfo.state == AP_STATE_ONLINE || apInfo.state == AP_STATE_FAILED) {
+                config.runStatus = RUNSTATUS_STOP;
+                Serial.println("IEEE802.15.4 modem stuck, resetting...");
+                APTagReset();
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
+                const bool ok = bringAPOnline();
+                if (ok) {
+                    attempts = 0;
+                } else {
+                    // the ping recovery below tries again later
+                    setAPstate(false, AP_STATE_FAILED);
+                    lastAPActivity = millis();
+                }
+                config.runStatus = RUNSTATUS_RUN;
+                logLine(String("IEEE802.15.4 modem reset ") + (ok ? "ok" : "failed"));
+            }
+        }
         if (((apInfo.state == AP_STATE_ONLINE) || (apInfo.state == AP_STATE_FAILED)) && (millis() - lastAPActivity > AP_ACTIVITY_MAX_INTERVAL)) {
             bool reply = sendPing();
             if (!reply) {

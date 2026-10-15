@@ -630,7 +630,7 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
         case CMD_PASS_THROUGH:
             wsSerial("> pass through");
 
-            extern bool rxSerialStopTask2;
+            extern volatile bool rxSerialStopTask2;
             rxSerialStopTask2 = true;
             vTaskDelay(500 / portTICK_PERIOD_MS);
 
