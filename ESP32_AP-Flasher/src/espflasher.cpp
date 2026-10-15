@@ -178,9 +178,11 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
         WiFiClient *stream = binaryHttp.getStreamPtr();
         uint8_t buffer[1024];
         size_t totalBytesRead = 0;
-     // timeout if we don't average at least 1k bytes/second
-        unsigned long timeOut = millis() + contentLength;
-        while(stream->connected() && totalBytesRead < contentLength) {
+     // timeout if we don't average at least 1k bytes/second (plus 5 s for a slow start)
+        unsigned long timeOut = millis() + 5000 + contentLength;
+        // A server that closes right after the last byte (HTTP/1.0 style) leaves the rest in the
+        // receive buffer, so keep reading while there is data, not only while connected.
+        while(totalBytesRead < (size_t)contentLength && (stream->connected() || stream->available())) {
             size_t bytesRead;
             size_t bytesToRead;
             if(stream->available()) {
@@ -194,13 +196,15 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
                 totalBytesRead += bytesRead;
                 vTaskDelay(1 / portTICK_PERIOD_MS);
             } else {
+                if(millis() > timeOut) {
+                    wsSerial("Download time out");
+                    break;
+                }
                 vTaskDelay(10 / portTICK_PERIOD_MS);
             }
         }
         file.close();
 
-        // A server may close the connection right after the last byte (HTTP/1.0 style), so judge
-        // by the number of bytes, not by whether the connection is still open.
         if(totalBytesRead < (size_t)contentLength) {
            wsSerial("Connection dropped during transfer");
            break;
