@@ -1280,7 +1280,14 @@ static int tdefl_flush_block(tdefl_compressor *d, int flush)
 
     if ((d->m_flags & TDEFL_WRITE_ZLIB_HEADER) && (!d->m_block_index))
     {
-        const mz_uint8 cmf = 0x78;
+        mz_uint8 cmf = 0x78;
+        if (d->m_max_dist < TDEFL_LZ_DICT_SIZE)
+        {
+            /* CINFO = log2(window) - 8 */
+            mz_uint cinfo = 0;
+            while ((256u << cinfo) < d->m_max_dist) cinfo++;
+            cmf = (mz_uint8)((cinfo << 4) | 8);
+        }
         mz_uint8 flg, flevel = 3;
         mz_uint header, i, mz_un = sizeof(s_tdefl_num_probes) / sizeof(mz_uint);
 
@@ -1837,7 +1844,7 @@ static mz_bool tdefl_compress_normal(tdefl_compressor *d)
         }
         else
         {
-            tdefl_find_match(d, d->m_lookahead_pos, d->m_dict_size, d->m_lookahead_size, &cur_match_dist, &cur_match_len);
+            tdefl_find_match(d, d->m_lookahead_pos, MZ_MIN(d->m_dict_size, d->m_max_dist), d->m_lookahead_size, &cur_match_dist, &cur_match_len);
         }
 // fixme: hardcoded 8*1024
 // if (((cur_match_len == TDEFL_MIN_MATCH_LEN) && (cur_match_dist >= 8U * 1024U)) || (cur_pos == cur_match_dist) || ((d->m_flags & TDEFL_FILTER_MATCHES) && (cur_match_len <= 5)))
@@ -1965,7 +1972,8 @@ tdefl_status tdefl_compressOEPL(tdefl_compressor *d, const void *pIn_buf, size_t
 #if MINIZ_USE_UNALIGNED_LOADS_AND_STORES && MINIZ_LITTLE_ENDIAN
     if (((d->m_flags & TDEFL_MAX_PROBES_MASK) == 1) &&
         ((d->m_flags & TDEFL_GREEDY_PARSING_FLAG) != 0) &&
-        ((d->m_flags & (TDEFL_FILTER_MATCHES | TDEFL_FORCE_ALL_RAW_BLOCKS | TDEFL_RLE_MATCHES)) == 0))
+        ((d->m_flags & (TDEFL_FILTER_MATCHES | TDEFL_FORCE_ALL_RAW_BLOCKS | TDEFL_RLE_MATCHES)) == 0) &&
+        (d->m_max_dist == TDEFL_LZ_DICT_SIZE)) /* the fast path doesn't know m_max_dist */
     {
         if (!tdefl_compress_fast(d))
             return d->m_prev_return_status;
@@ -2002,8 +2010,11 @@ tdefl_status tdefl_compress_buffer(tdefl_compressor *d, const void *pIn_buf, siz
     return tdefl_compressOEPL(d, pIn_buf, &in_buf_size, NULL, NULL, flush);
 }
 
-tdefl_status tdefl_initOEPL(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags)
+tdefl_status tdefl_initOEPL(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags, mz_uint max_dist)
 {
+    if ((max_dist < 256) || (max_dist > TDEFL_LZ_DICT_SIZE) || (max_dist & (max_dist - 1)))
+        max_dist = TDEFL_LZ_DICT_SIZE;
+    d->m_max_dist = max_dist;
     d->m_pPut_buf_func = pPut_buf_func;
     d->m_pPut_buf_user = pPut_buf_user;
     d->m_flags = (mz_uint)(flags);

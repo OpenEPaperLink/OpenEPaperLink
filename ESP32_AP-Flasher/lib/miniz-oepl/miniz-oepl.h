@@ -772,6 +772,7 @@ typedef struct
     mz_uint m_flags, m_max_probes[2];
     int m_greedy_parsing;
     mz_uint m_adler32, m_lookahead_pos, m_lookahead_size, m_dict_size;
+    mz_uint m_max_dist; /* OEPL: largest match distance, see tdefl_initOEPL() */
     mz_uint8 *m_pLZ_code_buf, *m_pLZ_flags, *m_pOutput_buf, *m_pOutput_buf_end;
     mz_uint m_num_flags_left, m_total_lz_bytes, m_lz_code_buf_dict_pos, m_bits_in, m_bit_buffer;
     mz_uint m_saved_match_dist, m_saved_match_len, m_saved_lit, m_output_flush_ofs, m_output_flush_remaining, m_finished, m_block_index, m_wants_to_finish;
@@ -797,7 +798,9 @@ typedef struct
 /* pBut_buf_func: If NULL, output data will be supplied to the specified callback. In this case, the user should call the tdefl_compress_buffer() API for compression. */
 /* If pBut_buf_func is NULL the user should always call the tdefl_compress() API. */
 /* flags: See the above enums (TDEFL_HUFFMAN_ONLY, TDEFL_WRITE_ZLIB_HEADER, etc.) */
-MINIZ_EXPORT tdefl_status tdefl_initOEPL(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags);
+/* OEPL: max_dist limits the match distance for decoders with a smaller window (a power of two, 256..TDEFL_LZ_DICT_SIZE); */
+/* below TDEFL_LZ_DICT_SIZE the zlib header declares that window. The default keeps the old output, header 0x78 included. */
+MINIZ_EXPORT tdefl_status tdefl_initOEPL(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags, mz_uint max_dist = TDEFL_LZ_DICT_SIZE);
 
 /* Compresses a block of data, consuming as much of the specified input buffer as possible, and writing as much compressed data to the specified output buffer as possible. */
 MINIZ_EXPORT tdefl_status tdefl_compressOEPL(tdefl_compressor *d, const void *pIn_buf, size_t *pIn_buf_size, void *pOut_buf, size_t *pOut_buf_size, tdefl_flush flush);
