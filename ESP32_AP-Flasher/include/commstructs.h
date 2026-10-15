@@ -36,7 +36,7 @@ struct APlist {
 #define SYNC_USERCFG 1
 #define SYNC_TAGSTATUS 2
 #define SYNC_DELETE 3
-#define SYNC_VERSION 0xAA01
+#define SYNC_VERSION 0xAA02
 
 struct TagInfo {
     uint16_t structVersion = SYNC_VERSION;
@@ -47,12 +47,12 @@ struct TagInfo {
     uint32_t nextupdate;
     uint16_t pendingCount;
     uint32_t expectedNextCheckin;
-    uint8_t hwType;
+    uint16_t hwType;
     uint8_t wakeupReason;
     uint8_t capabilities;
     uint16_t pendingIdle;
     uint8_t contentMode;
-    uint8_t reserved[8];
+    uint8_t reserved[7];
 } __packed;
 
 #pragma pack(pop)

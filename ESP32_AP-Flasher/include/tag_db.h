@@ -31,7 +31,7 @@ class tagRecord {
     int8_t RSSI;
     int8_t temperature;
     uint16_t batteryMv;
-    uint8_t hwType;
+    uint16_t hwType;
     uint8_t wakeupReason;
     uint8_t capabilities;
     uint32_t lastfullupdate;
@@ -149,7 +149,7 @@ struct Color {
 constexpr uint8_t BPP_PACKED_2BIT = 5;
 
 struct HwType {
-    uint8_t id;
+    uint16_t id;
     uint16_t width;
     uint16_t height;
     uint8_t rotatebuffer;
@@ -183,7 +183,7 @@ extern bool hex2mac(const String& hexString, uint8_t* mac);
 extern void clearPending(tagRecord* taginfo);
 extern void initAPconfig();
 extern void saveAPconfig();
-extern HwType getHwType(const uint8_t id);
+extern HwType getHwType(const uint16_t id);
 
 /// @brief Update a variable with the given key and value
 ///

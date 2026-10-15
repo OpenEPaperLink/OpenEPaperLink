@@ -283,7 +283,7 @@ bool loadDB(const String& filename) {
                     taginfo->RSSI = tag["RSSI"];
                     taginfo->temperature = tag["temperature"];
                     taginfo->batteryMv = tag["batteryMv"];
-                    taginfo->hwType = (uint8_t)tag["hwType"];
+                    taginfo->hwType = (uint16_t)tag["hwType"];
                     taginfo->wakeupReason = tag["wakeupReason"];
                     taginfo->capabilities = tag["capabilities"];
                     taginfo->modeConfigJson = tag["modecfgjson"].as<String>();
@@ -447,13 +447,13 @@ void saveAPconfig() {
     xSemaphoreGive(fsMutex);
 }
 
-HwType getHwType(const uint8_t id) {
+HwType getHwType(const uint16_t id) {
     auto it = hwdata.find(id);
     if (it != hwdata.end()) {
         return it->second;
     } else {
         char filename[20];
-        snprintf(filename, sizeof(filename), "/tagtypes/%02X.json", id);
+        snprintf(filename, sizeof(filename), id > 0xFF ? "/tagtypes/%04X.json" : "/tagtypes/%02X.json", id);
         Serial.printf("read %s\r\n", filename);
         File jsonFile = contentFS->open(filename, "r");
 

@@ -1,3 +1,9 @@
+// Tag types (hwType). Tags themselves report one byte; inside the AP (tagDB, tag type files,
+// web UI, multi-AP sync) the type is 16 bits:
+//   0x00xx  the types below: radio tags and the older BLE displays, /tagtypes/XX.json
+//   0x01xx  OpenDisplay BLE tags: types the AP writes itself from the tag's config,
+//           /tagtypes/01XX.json (0x0100: config not read yet). Not in the repo.
+
 #define SOLUM_154_SSD1619 0
 #define SOLUM_29_SSD1619 0x01
 #define SOLUM_29_UC8151 0x11

@@ -757,7 +757,7 @@ String urlEncode(const char *msg) {
     return encodedMsg;
 }
 
-void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
+void getTemplate(JsonDocument &json, const uint8_t id, const uint16_t hwtype) {
     JsonDocument filter;
     JsonDocument doc;
 
@@ -765,7 +765,7 @@ void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
     constexpr const char *templateKey = "template";
 
     char filename[20];
-    snprintf(filename, sizeof(filename), "/tagtypes/%02X.json", hwtype);
+    snprintf(filename, sizeof(filename), hwtype > 0xFF ? "/tagtypes/%04X.json" : "/tagtypes/%02X.json", hwtype);
     File jsonFile = contentFS->open(filename, "r");
 
     if (jsonFile) {
@@ -777,7 +777,7 @@ void getTemplate(JsonDocument &json, const uint8_t id, const uint8_t hwtype) {
             json.set(doc[templateKey][idstr]);
             return;
         }
-        if (!error && doc["usetemplate"].is<uint8_t>()) {
+        if (!error && doc["usetemplate"].is<uint16_t>()) {
             getTemplate(json, id, doc["usetemplate"]);
             return;
         }

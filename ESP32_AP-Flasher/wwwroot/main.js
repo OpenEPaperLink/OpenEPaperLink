@@ -790,9 +790,9 @@ $('#cfgautoupdate').onclick = async function () {
 	var infourl = "https://raw.githubusercontent.com/" + repo + "/master/binaries/Tag/tagotaversions.json";
 	var info = "";
 	await fetch(infourl, { method: 'GET' }).then(await function (response) { return response.json(); }).then(await function (json) { info = json; });
-	var tagtype = ("0" + (Number($('#tag' + mac).dataset.hwtype).toString(16))).slice(-2).toUpperCase();
-	var name = info[0][tagtype]["type"];
-	if (name == "") {
+	var tagtype = hwTypeHex($('#tag' + mac).dataset.hwtype);
+	var name = info[0][tagtype]?.["type"];
+	if (!name) {
 		alert("Tag id not known");
 		return false;
 	}
@@ -1615,6 +1615,11 @@ const downloadTagtype = async (hwtype) => {
 	}
 };
 
+// tag type id as used in the file name: two hex digits, four above 0xFF
+function hwTypeHex(hwtype) {
+	return Number(hwtype).toString(16).toUpperCase().padStart(Number(hwtype) > 0xFF ? 4 : 2, '0');
+}
+
 async function getTagtype(hwtype) {
 	if (tagTypes[hwtype] && tagTypes[hwtype].busy == false) {
 		return tagTypes[hwtype];
@@ -1657,10 +1662,11 @@ async function getTagtype(hwtype) {
 	try {
 		getTagtypeBusy = true;
 		tagTypes[hwtype] = { busy: true };
-		let response = await fetch('tagtypes/' + hwtype.toString(16).padStart(2, '0').toUpperCase() + '.json');
+		let response = await fetch('tagtypes/' + hwTypeHex(hwtype) + '.json');
 
-		if (response.status === 404) {
-			response = await downloadTagtype(hwtype.toString(16).padStart(2, '0').toUpperCase());
+		// types above 0xFF are made by the AP itself, the repo doesn't have them
+		if (response.status === 404 && hwtype <= 0xFF) {
+			response = await downloadTagtype(hwTypeHex(hwtype));
 		}
 
 		if (!response.ok) {
@@ -2154,7 +2160,7 @@ function renderDashboard() {
 		const contentName = getContentDefById(tag.contentMode)?.name;
 		if (contentName) content[contentName] = (content[contentName] || 0) + 1;
 		if (tag.RSSI) {
-			const typeName = tagTypes[tag.hwType]?.name || 'type ' + Number(tag.hwType).toString(16).toUpperCase().padStart(2, '0');
+			const typeName = tagTypes[tag.hwType]?.name || 'type ' + hwTypeHex(tag.hwType);
 			types[typeName] = (types[typeName] || 0) + 1;
 		}
 
