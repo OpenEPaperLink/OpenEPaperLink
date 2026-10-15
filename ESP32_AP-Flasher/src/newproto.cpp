@@ -675,7 +675,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     uint32_t offeredSleep = 0;
     const bool offeredKnown = local && recordOffered(eadr->src, offeredSleep);
     // BLE displays don't get their instructions from the radio
-    const bool bleTag = ((eadr->adr.hwType & 0xB0) == 0xB0) || (eadr->src[7] == 0x13 && eadr->src[6] == 0x37);
+    const bool bleTag = ((eadr->adr.hwType & 0xF0) == 0xB0) || (eadr->src[7] == 0x13 && eadr->src[6] == 0x37);
     if (offeredKnown && !bleTag) {
         // The tag sleeps what the radio told it just now, counted down since it was announced (#466).
         // Without an instruction it checks in again after about 40 seconds.

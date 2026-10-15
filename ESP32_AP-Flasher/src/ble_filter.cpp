@@ -259,7 +259,7 @@ static uint64_t BLE_macToKey(const uint8_t mac[8]) {
 static bool BLE_isPendingCandidate(tagRecord* taginfo) {
     if (taginfo->pendingCount == 0 || taginfo->version != 0) return false;
     // Gicisky / other BLE displays, or an ATC BLE OEPL tag (MAC starts 0x1337)
-    return ((taginfo->hwType & 0xB0) == 0xB0) || (taginfo->mac[7] == 0x13 && taginfo->mac[6] == 0x37);
+    return ((taginfo->hwType & 0xFFF0) == 0xB0) || (taginfo->mac[7] == 0x13 && taginfo->mac[6] == 0x37);
 }
 
 // Call once an upload finished (success or given up) so a later re-add of the
