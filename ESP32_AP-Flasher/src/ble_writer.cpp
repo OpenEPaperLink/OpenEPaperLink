@@ -79,7 +79,12 @@ uint32_t BLE_cmd_conn_fails = 0;
 
 uint32_t BLE_compressed_len = 0;
 uint8_t BLE_image_bpp = 0;
-uint8_t* BLE_image_buffer;
+uint8_t* BLE_image_buffer = nullptr;
+
+static void BLE_freeImageBuffer() {
+    free(BLE_image_buffer);
+    BLE_image_buffer = nullptr;
+}
 
 // Advertisements discovered during a scan are queued here and processed from
 // within BLETask (which has a large stack). The scan callback runs in the
@@ -305,6 +310,12 @@ void BLETask(void* parameter) {
         switch (ble_main_state) {
             default:
             case BLE_MAIN_STATE_IDLE:
+                // onDisconnect() puts us back in IDLE in the middle of an upload; the
+                // upload states free the buffer on every other way out
+                if (BLE_image_buffer != nullptr) {
+                    Serial.println("BLE upload ended by a disconnect");
+                    BLE_freeImageBuffer();
+                }
                 if (millis() - last_ble_scan > (INTERVAL_BLE_SCANNING_SECONDS * 1000)) {
                     last_ble_scan = millis();
                     Serial.println("Doing the BLE Scan");
@@ -398,7 +409,7 @@ void BLETask(void* parameter) {
                                     ble_main_state = BLE_MAIN_STATE_ATC_BLE_OEPL_UPLOAD;
                                     BLE_new_notify = true;  // trigger the upload here
                                 } else {
-                                    free(BLE_image_buffer);
+                                    BLE_freeImageBuffer();
                                     if (BLE_err_counter++ >= 5) {  // 5 Retries for a BLE Connection
                                         struct espXferComplete reportStruct;
                                         memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
@@ -427,7 +438,7 @@ void BLETask(void* parameter) {
                                     ble_main_state = BLE_MAIN_STATE_UPLOAD;
                                     BLE_new_notify = true;  // trigger the upload here
                                 } else {
-                                    free(BLE_image_buffer);
+                                    BLE_freeImageBuffer();
                                     if (BLE_err_counter++ >= 5) {  // 5 Retries for a BLE Connection
                                         struct espXferComplete reportStruct;
                                         memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
@@ -476,7 +487,7 @@ void BLETask(void* parameter) {
                             break;
                         case BLE_UPLOAD_STATE_UPLOAD:
                             if (BLE_notify_buffer[2] == 0x08) {
-                                free(BLE_image_buffer);
+                                BLE_freeImageBuffer();
                                 pClient->disconnect();
                                 ble_main_state = BLE_MAIN_STATE_IDLE;
                                 BLE_last_pending_check = millis();
@@ -491,7 +502,7 @@ void BLETask(void* parameter) {
                                 uint32_t req_curr_part = (BLE_notify_buffer[6] << 24) | (BLE_notify_buffer[5] << 16) | (BLE_notify_buffer[4] << 8) | BLE_notify_buffer[3];
                                 if (req_curr_part != BLE_curr_part) {
                                     Serial.printf("Something went wrong, expected req part: %i but got: %i we better abort here.\r\n", req_curr_part, BLE_curr_part);
-                                    free(BLE_image_buffer);
+                                    BLE_freeImageBuffer();
                                     pClient->disconnect();
                                     ble_main_state = BLE_MAIN_STATE_IDLE;
                                     BLE_last_pending_check = millis();
@@ -519,7 +530,7 @@ void BLETask(void* parameter) {
                 } else {
                     if (millis() - BLE_last_notify > 30000) {  // Something odd, better reset connection!
                         Serial.println("BLE err going back to IDLE");
-                        free(BLE_image_buffer);
+                        BLE_freeImageBuffer();
                         pClient->disconnect();
                         BLE_err_counter = 0;
                         ble_main_state = BLE_MAIN_STATE_IDLE;
@@ -570,7 +581,7 @@ void BLETask(void* parameter) {
                                 case BLE_CMD_ACK_IS_SHOWN:
                                 case BLE_CMD_ACK_FW_UPDATED:
                                     Serial.println("BLE Upload done");
-                                    free(BLE_image_buffer);
+                                    BLE_freeImageBuffer();
                                     pClient->disconnect();
                                     ble_main_state = BLE_MAIN_STATE_IDLE;
                                     BLE_last_pending_check = millis();
@@ -589,7 +600,7 @@ void BLETask(void* parameter) {
                 } else {
                     if (millis() - BLE_last_notify > 30000) {  // Something odd, better reset connection!
                         Serial.println("BLE err going back to IDLE");
-                        free(BLE_image_buffer);
+                        BLE_freeImageBuffer();
                         pClient->disconnect();
                         BLE_err_counter = 0;
                         ble_main_state = BLE_MAIN_STATE_IDLE;
