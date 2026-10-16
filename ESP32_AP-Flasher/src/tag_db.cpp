@@ -368,6 +368,7 @@ void clearPending(tagRecord* taginfo) {
 void initAPconfig() {
     JsonDocument APconfig;
     File configFile = contentFS->open("/current/apconfig.json", "r");
+    const bool firstStart = !configFile;
     if (configFile) {
         DeserializationError error = deserializeJson(APconfig, configFile);
         if (error) {
@@ -413,6 +414,9 @@ void initAPconfig() {
     } else {
         strlcpy(config.timeZone, "CET-1CEST,M3.5.0,M10.5.0/3", sizeof(config.timeZone));
     }
+    // A new AP has no settings file until they are first saved. The web UI reads its settings
+    // from that file (/get_ap_config), so without it it saw none, and hid the previews.
+    if (firstStart) saveAPconfig();
 }
 
 void saveAPconfig() {
