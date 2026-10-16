@@ -5,6 +5,8 @@
 #include "BLEDevice.h"
 #include "ble_filter.h"
 #include "newproto.h"
+#include "od_keys.h"
+#include "od_session.h"
 #include "tag_db.h"
 #include "web.h"
 
@@ -300,11 +302,23 @@ void BLETask(void* parameter) {
     Serial.println("BLE task started");
     BLE_dataReqQueue = xQueueCreate(BLE_DATA_REQ_QUEUE_LEN, sizeof(struct espAvailDataReq));
     BLEDevice::init("");
+    odInit();
     while (1) {
         // Process advertisements collected by the scan callback here, in this
         // task's large stack, instead of inside the tiny BLE host task stack.
         struct espAvailDataReq incomingDataReq;
         while (BLE_dataReqQueue != nullptr && xQueueReceive(BLE_dataReqQueue, &incomingDataReq, 0) == pdTRUE) {
+            // Every AP in range hears a BLE display. One added here goes by the roaming rules
+            // (odLocalCheckin); one that isn't added here and that another AP already has stays
+            // with that AP, instead of moving between them with every check-in.
+            if (bleFamily(incomingDataReq.src, 0) == BLE_FAMILY_OPENDISPLAY) {
+                if (odKeyAdded(incomingDataReq.src)) {
+                    if (!odLocalCheckin(incomingDataReq.src)) continue;
+                } else {
+                    const tagRecord* taginfo = tagRecord::findByMAC(incomingDataReq.src);
+                    if (taginfo != nullptr && taginfo->isExternal) continue;
+                }
+            }
             processDataReq(&incomingDataReq, true);
         }
         switch (ble_main_state) {
@@ -325,7 +339,15 @@ void BLETask(void* parameter) {
                     if (BLE_is_image_pending(BLE_curr_address)) {
                         Serial.println("BLE Image is pending but we wait a bit");
                         delay(5000);                                                       // We better wait here, since the pending image needs to be created first
-                        if (BLE_curr_address[7] == 0x13 && BLE_curr_address[6] == 0x37) {  // This is an ATC BLE OEPL display
+                        if (bleFamily(BLE_curr_address, 0) == BLE_FAMILY_OPENDISPLAY) {
+                            // one blocking session: connect, authenticate, send, wait for the refresh
+                            if (odUpload(BLE_curr_address) || BLE_get_attempts(BLE_curr_address) >= 5) {
+                                struct espXferComplete reportStruct;
+                                memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
+                                processXferComplete(&reportStruct, true);
+                                BLE_clear_attempts(BLE_curr_address);
+                            }
+                        } else if (bleFamily(BLE_curr_address, 0) == BLE_FAMILY_ATC) {  // This is an ATC BLE OEPL display
                             // A pending item may be a command (deep sleep, reboot, reset, ...)
                             // instead of an image. Handle that first and skip the image upload
                             // path when it is a command.
@@ -451,6 +473,7 @@ void BLETask(void* parameter) {
                         BLE_last_pending_check = millis();
                     }
                 }
+                if (ble_main_state == BLE_MAIN_STATE_IDLE) odService();
                 break;
             case BLE_MAIN_STATE_UPLOAD: {
                 if (BLE_connected && BLE_new_notify) {

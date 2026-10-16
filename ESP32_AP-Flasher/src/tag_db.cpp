@@ -1,4 +1,5 @@
 #include "tag_db.h"
+#include "od_session.h"
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -146,6 +147,9 @@ String tagDBtoJson(const uint8_t mac[8], uint8_t startPos) {
         if (select && taginfo->version == 0) {
             JsonObject tag = tags.add<JsonObject>();
             fillNode(tag, taginfo);
+#ifdef HAS_BLE_WRITER
+            if (bleFamily(taginfo->mac, taginfo->hwType) == BLE_FAMILY_OPENDISPLAY) odDescribe(taginfo->mac, tag["od"].to<JsonObject>());
+#endif
             if (measureJson(doc) > 5000) {
                 doc["continu"] = c + 1;
                 break;
@@ -445,6 +449,10 @@ void saveAPconfig() {
     serializeJsonPretty(APconfig, configFile);
     configFile.close();
     xSemaphoreGive(fsMutex);
+}
+
+void forgetHwType(const uint16_t id) {
+    hwdata.erase(id);
 }
 
 HwType getHwType(const uint16_t id) {

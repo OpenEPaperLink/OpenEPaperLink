@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "od_keys.h"
+#include "od_session.h"
 #include "serialap.h"
 #include "settings.h"
 #include "storage.h"
@@ -638,6 +640,11 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     }
     char buffer[64];
 
+#ifdef HAS_BLE_WRITER
+    // a BLE display added on this AP stays here while this AP has it (roaming rules in od_session)
+    if (!local && bleFamily(eadr->src, 0) == BLE_FAMILY_OPENDISPLAY && odKeyAdded(eadr->src) && !odRemoteCheckin(eadr->src, remoteIP)) return;
+#endif
+
     char hexmac[17];
     mac2hex(eadr->src, hexmac);
 
@@ -675,7 +682,8 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     uint32_t offeredSleep = 0;
     const bool offeredKnown = local && recordOffered(eadr->src, offeredSleep);
     // BLE displays don't get their instructions from the radio
-    const bool bleTag = ((eadr->adr.hwType & 0xF0) == 0xB0) || (eadr->src[7] == 0x13 && eadr->src[6] == 0x37);
+    const BleFamily family = bleFamily(eadr->src, eadr->adr.hwType);
+    const bool bleTag = family != BLE_FAMILY_NONE;
     if (offeredKnown && !bleTag) {
         // The tag sleeps what the radio told it just now, counted down since it was announced (#466).
         // Without an instruction it checks in again after about 40 seconds.
@@ -718,15 +726,19 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         }
 
         taginfo->LQI = eadr->adr.lastPacketLQI;
-        taginfo->hwType = eadr->adr.hwType;
         taginfo->RSSI = eadr->adr.lastPacketRSSI;
         taginfo->temperature = eadr->adr.temperature;
         taginfo->batteryMv = eadr->adr.batteryMv;
-        taginfo->hwType = eadr->adr.hwType;
         taginfo->wakeupReason = eadr->adr.wakeupReason;
         taginfo->capabilities = eadr->adr.capabilities;
         taginfo->currentChannel = eadr->adr.currentChannel;
-        taginfo->tagSoftwareVersion = eadr->adr.tagSoftwareVersion;
+        if (family == BLE_FAMILY_OPENDISPLAY) {
+            // type and firmware version come from the tag's config, the advertisement has neither
+            if (taginfo->hwType == 0) taginfo->hwType = HWTYPE_OPENDISPLAY_UNKNOWN;
+        } else {
+            taginfo->hwType = eadr->adr.hwType;
+            taginfo->tagSoftwareVersion = eadr->adr.tagSoftwareVersion;
+        }
     }
     if (local) {
         sprintf(buffer, "<ADR %02X%02X%02X%02X%02X%02X%02X%02X\r\n\0", eadr->src[7], eadr->src[6], eadr->src[5], eadr->src[4], eadr->src[3], eadr->src[2], eadr->src[1], eadr->src[0]);
@@ -743,7 +755,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         // exactly once. A later check-in is treated as a wake-up (above) and clears
         // the marker. BLE displays are excluded: their deep sleep is delivered and
         // marked by the BLE writer, not over the 802.15.4 radio.
-        if (!(eadr->src[7] == 0x13 && eadr->src[6] == 0x37)) {
+        if (family != BLE_FAMILY_ATC) {
             PendingItem* sent = getQueueItem(eadr->src);
             if (sent != nullptr &&
                 sent->pendingdata.availdatainfo.dataType == DATATYPE_COMMAND_DATA &&

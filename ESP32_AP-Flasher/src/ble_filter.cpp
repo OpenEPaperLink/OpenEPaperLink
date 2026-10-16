@@ -7,6 +7,8 @@
 #include "BLEDevice.h"
 #include "ble_filter.h"
 #include "newproto.h"
+#include "od_keys.h"
+#include "od_session.h"
 #include "serialap.h"
 #include "settings.h"
 #include "storage.h"
@@ -90,6 +92,33 @@ struct BleAdvDataStructV2 {
     uint8_t counter;
 } __packed;
 
+// OpenDisplay advertisement, after the company id: v1 (14 bytes) or the older format (11 bytes).
+// The display type isn't in it; that needs the config, read over a connection.
+static bool BLE_filter_add_opendisplay(BLEAdvertisedDevice& advertisedDevice, const uint8_t* manuData, int manuDatalen) {
+    struct espAvailDataReq theAdvData;
+    memset((uint8_t*)&theAdvData, 0x00, sizeof(espAvailDataReq));
+    const uint8_t* p = manuData + 2;
+    if (manuDatalen >= 16) {
+        // 0-10 buttons/sensors, 11 temperature (C + 40) * 2, 12 + bit 0 of 13 battery in 10 mV,
+        // 13 bit 1 rebooted, bit 2 connection requested, bits 4-7 loop counter
+        theAdvData.adr.temperature = (int8_t)((p[11] + 1) / 2 - 40);
+        theAdvData.adr.batteryMv = (p[12] | ((p[13] & 1) << 8)) * 10;
+    } else {
+        theAdvData.adr.batteryMv = p[7] | (p[8] << 8);
+        theAdvData.adr.temperature = (int8_t)p[9];
+    }
+    theAdvData.adr.lastPacketRSSI = advertisedDevice.getRSSI();
+
+    uint8_t macReversed[6];
+    memcpy(&macReversed, (uint8_t*)advertisedDevice.getAddress().getNative(), 6);
+    for (int i = 0; i < 6; i++) theAdvData.src[i] = macReversed[5 - i];
+    theAdvData.src[6] = 0x46;  // marks the family, see bleFamily()
+    theAdvData.src[7] = 0x24;
+    if (manuDatalen >= 16) theAdvData.adr.wakeupReason = odButtonEvent(theAdvData.src, p);
+    BLE_enqueue_data_req(&theAdvData);
+    return true;
+}
+
 bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
     Serial.print("BLE Advertised Device found: ");
     Serial.println(advertisedDevice.toString().c_str());
@@ -143,6 +172,8 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
 
             BLE_enqueue_data_req(&theAdvData);
             return true;
+        } else if (manuDatalen >= 13 && manuData[0] == 0x46 && manuData[1] == 0x24) {  // OpenDisplay, company id 0x2446
+            return BLE_filter_add_opendisplay(advertisedDevice, manuData, manuDatalen);
         } else if (manuDatalen >= 3 && manuData[0] == 0x37 && manuData[1] == 0x13) {  // Lets check for a Gicisky E-Paper display
             Serial.printf("ATC BLE OEPL Detected\r\n");
             struct espAvailDataReq theAdvData;
@@ -258,8 +289,12 @@ static uint64_t BLE_macToKey(const uint8_t mac[8]) {
 
 static bool BLE_isPendingCandidate(tagRecord* taginfo) {
     if (taginfo->pendingCount == 0 || taginfo->version != 0) return false;
-    // Gicisky / other BLE displays, or an ATC BLE OEPL tag (MAC starts 0x1337)
-    return ((taginfo->hwType & 0xFFF0) == 0xB0) || (taginfo->mac[7] == 0x13 && taginfo->mac[6] == 0x37);
+    const BleFamily family = bleFamily(taginfo->mac, taginfo->hwType);
+    // an OpenDisplay tag only once its type, and so its config, is known, while it is added, and
+    // only on the AP that has it now (the AP with its content queues the image too)
+    if (family == BLE_FAMILY_OPENDISPLAY)
+        return taginfo->hwType != HWTYPE_OPENDISPLAY_UNKNOWN && !taginfo->isExternal && odKeyAdded(taginfo->mac) && odIsOwner(taginfo->mac);
+    return family == BLE_FAMILY_GICISKY || family == BLE_FAMILY_ATC;
 }
 
 // Call once an upload finished (success or given up) so a later re-add of the
@@ -292,7 +327,7 @@ bool BLE_is_image_pending(uint8_t address[8]) {
 
     memcpy(address, best->mac, 8);
     BLE_attemptCounts[BLE_macToKey(best->mac)]++;  // count this attempt so the next round prefers the others
-    if (best->mac[7] == 0x13 && best->mac[6] == 0x37) {
+    if (bleFamily(best->mac, best->hwType) == BLE_FAMILY_ATC) {
         Serial.printf("ATC BLE OEPL data Waiting\r\n");
     }
     return true;

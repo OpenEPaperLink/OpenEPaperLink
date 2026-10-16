@@ -34,6 +34,7 @@
 #include "commstructs.h"
 #include "makeimage.h"
 #include "newproto.h"
+#include "od_session.h"
 #include "pendingupload.h"
 #include "storage.h"
 #ifdef CONTENT_QR
@@ -292,6 +293,11 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     } else {
         imageParams.g5 = 0;
     }
+#endif
+
+#ifdef HAS_BLE_WRITER
+    // OpenDisplay: buffer layout and colors from the tag's own config; the BLE upload compresses
+    if (bleFamily(mac, taginfo->hwType) == BLE_FAMILY_OPENDISPLAY) odImageParams(mac, imageParams);
 #endif
 
     imageParams.lut = EPD_LUT_NO_REPEATS;

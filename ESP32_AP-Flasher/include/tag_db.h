@@ -161,6 +161,26 @@ struct HwType {
     std::vector<Color> colortable;
 };
 
+// BLE displays carry their family in the top two bytes of the 8-byte MAC the AP gives them.
+// Gicisky displays are known by their hwType range instead.
+enum BleFamily : uint8_t {
+    BLE_FAMILY_NONE = 0,  // 802.15.4 tag
+    BLE_FAMILY_GICISKY,
+    BLE_FAMILY_ATC,          // ATC BLE OEPL, MAC 1337xxxxxxxxxxxx
+    BLE_FAMILY_OPENDISPLAY,  // OpenDisplay, MAC 2446xxxxxxxxxxxx (its company id)
+};
+
+inline BleFamily bleFamily(const uint8_t mac[8], uint16_t hwType) {
+    if (mac[7] == 0x13 && mac[6] == 0x37) return BLE_FAMILY_ATC;
+    if (mac[7] == 0x24 && mac[6] == 0x46) return BLE_FAMILY_OPENDISPLAY;
+    if ((hwType & 0xFFF0) == 0xB0) return BLE_FAMILY_GICISKY;
+    return BLE_FAMILY_NONE;
+}
+
+// An OpenDisplay tag's type comes from its config, not from its advertisement. Until the
+// AP has read the config it has this type; the AP's own types for these tags start at 0x0101.
+constexpr uint16_t HWTYPE_OPENDISPLAY_UNKNOWN = 0x0100;
+
 struct varStruct {
     String value;
     bool changed;
@@ -184,6 +204,8 @@ extern void clearPending(tagRecord* taginfo);
 extern void initAPconfig();
 extern void saveAPconfig();
 extern HwType getHwType(const uint16_t id);
+// Drop a cached tag type, so getHwType() reads its file again
+extern void forgetHwType(const uint16_t id);
 
 /// @brief Update a variable with the given key and value
 ///

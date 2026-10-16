@@ -19,6 +19,8 @@
 #include "language.h"
 #include "leds.h"
 #include "newproto.h"
+#include "od_keys.h"
+#include "od_session.h"
 #include "pendingupload.h"
 #include "radioselftest.h"
 #include "ota.h"
@@ -422,6 +424,55 @@ void init_web() {
         }
         request->send(200, "text/plain", "Ok, saved");
     });
+
+#ifdef HAS_BLE_WRITER
+    // OpenDisplay tag, added by the user with or without an encryption key: GET says whether it
+    // is added and has a key (never the key itself); POST sets the key (32 hex digits), adds the
+    // tag without one (add=1) or removes either (empty key)
+    server.on("/od_key", HTTP_ANY, [](AsyncWebServerRequest *request) {
+        const bool post = request->method() == HTTP_POST;
+        uint8_t mac[8];
+        if (!request->hasParam("mac", post) || !hex2mac(request->getParam("mac", post)->value(), mac) ||
+            bleFamily(mac, 0) != BLE_FAMILY_OPENDISPLAY) {
+            request->send(400, "text/plain", "Not an OpenDisplay tag");
+            return;
+        }
+        if (!post) {
+            const bool set = odKeyHas(mac);
+            request->send(200, "application/json", String("{\"set\":") + (set ? "true" : "false") + ",\"added\":" + (set || odKeyAdded(mac) ? "true" : "false") + "}");
+            return;
+        }
+        if (request->hasParam("add", true)) {
+            const bool added = odKeyAddWithoutKey(mac);
+            odKeyChanged(mac);
+            wsSendTaginfo(mac, SYNC_NOSYNC);
+            request->send(200, "text/plain", added ? "Tag added without a key" : "Error adding the tag");
+            return;
+        }
+        const String hex = request->hasParam("key", true) ? request->getParam("key", true)->value() : "";
+        if (hex.isEmpty()) {
+            odKeyClear(mac);
+            odForget(mac);
+            wsSendTaginfo(mac, SYNC_NOSYNC);  // this AP's view only, the tag may be on another AP
+            request->send(200, "text/plain", "Removed: the AP no longer connects to this tag");
+            return;
+        }
+        uint8_t key[16];
+        bool valid = hex.length() == 32;
+        for (int i = 0; valid && i < 32; i++) valid = isxdigit(hex[i]);
+        if (valid) {
+            for (int i = 0; i < 16; i++) key[i] = strtoul(hex.substring(i * 2, i * 2 + 2).c_str(), nullptr, 16);
+        } else {
+            request->send(400, "text/plain", "The key is 32 hex digits");
+            return;
+        }
+        const bool saved = odKeySet(mac, key);
+        memset(key, 0, sizeof(key));
+        odKeyChanged(mac);
+        wsSendTaginfo(mac, SYNC_NOSYNC);
+        request->send(200, "text/plain", saved ? "Key saved" : "Error saving the key");
+    });
+#endif
 
     server.on("/tag_cmd", HTTP_POST, [](AsyncWebServerRequest *request) {
         if (request->hasParam("mac", true) && request->hasParam("cmd", true)) {

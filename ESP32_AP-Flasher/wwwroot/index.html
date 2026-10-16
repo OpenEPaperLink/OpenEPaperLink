@@ -612,6 +612,15 @@ options:
 			<label for="cfgalias">Alias</label>
 			<input id="cfgalias" type="text">
 		</p>
+		<p id="cfgodkeyrow" style="display:none">
+			<label for="cfgodkey">Encryption key</label>
+			<input id="cfgodkey" type="text" autocomplete="off" spellcheck="false" maxlength="32">
+		</p>
+		<p id="cfgodkeybuttons" style="display:none">
+			<label></label>
+			<button id="cfgodkeyadd">add without key</button>
+			<button id="cfgodkeyclear">remove</button>
+		</p>
 		<p>
 			<label for="cfgcontent">Content</label>
 			<select id="cfgcontent" onchange="contentselected()">

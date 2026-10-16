@@ -23,6 +23,8 @@ class UDPcomm {
     // Lowest UDP_PROTO_VERSION among the APs seen in AP-list exchanges (0 if one runs older
     // firmware); UDP_PROTO_VERSION when no other AP has been seen.
     uint8_t minPeerVersion();
+    // number of other APs seen in AP-list exchanges
+    size_t peerCount() { return peerVersions.size(); }
 
    private:
     AsyncUDP udp;
