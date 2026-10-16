@@ -16,6 +16,12 @@
 // with WiFi, so it listens a small part of the time (the duty cycle ESPHome's BLE proxies use).
 #define BLE_SCAN_INTERVAL_MS 320
 #define BLE_SCAN_WINDOW_MS 30
+// Once a minute a short active burst: a display that has its data only in the scan response
+// is found too (not known for Gicisky's factory firmware; OpenDisplay and ATC don't need it)
+#define BLE_ACTIVE_EVERY_MS 60000
+#define BLE_ACTIVE_BURST_MS 5000
+#define BLE_ACTIVE_INTERVAL_MS 100
+#define BLE_ACTIVE_WINDOW_MS 50
 #define INTERVAL_HANDLE_PENDING_MS 1000
 // a display reports at most this often, unless a button was pressed
 #define BLE_CHECKIN_INTERVAL_MS 60000
@@ -239,21 +245,29 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 };
 
 static bool BLE_scanning = false;
+static bool BLE_scanActive = false;  // mode of the running scan
+static uint32_t BLE_burstStart = 0;
 
 static void BLE_scanEnded(BLEScanResults) {
     BLE_scanning = false;
 }
 
+// Keeps the background scan running in the mode it should have now: passive, or the active burst
 static void BLE_scanRun() {
-    if (BLE_scanning) return;
+    const uint32_t now = millis();
+    if (now - BLE_burstStart >= BLE_ACTIVE_EVERY_MS) BLE_burstStart = now;
+    const bool active = now - BLE_burstStart < BLE_ACTIVE_BURST_MS;
+    if (BLE_scanning && BLE_scanActive == active) return;
+    BLE_scanStop();  // the scan parameters can't change while it runs
     static MyAdvertisedDeviceCallbacks advertisedDeviceCallbacks;
     BLEScan* pBLEScan = BLEDevice::getScan();
     // every advertisement, also repeats: a button press is a repeat of a device already seen
     pBLEScan->setAdvertisedDeviceCallbacks(&advertisedDeviceCallbacks, true);
-    pBLEScan->setInterval(BLE_SCAN_INTERVAL_MS);
-    pBLEScan->setWindow(BLE_SCAN_WINDOW_MS);
-    pBLEScan->setActiveScan(false);
-    BLE_scanning = pBLEScan->start(0, BLE_scanEnded, false);  // 0: until stopped
+    pBLEScan->setInterval(active ? BLE_ACTIVE_INTERVAL_MS : BLE_SCAN_INTERVAL_MS);
+    pBLEScan->setWindow(active ? BLE_ACTIVE_WINDOW_MS : BLE_SCAN_WINDOW_MS);
+    pBLEScan->setActiveScan(active);
+    BLE_scanActive = active;
+    BLE_scanning = pBLEScan->start(0, BLE_scanEnded, false);  // 0: until stopped, doesn't block
 }
 
 void BLE_scanStop() {
