@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "BLEDevice.h"
+#include "ble_filter.h"
 #include "commstructs.h"
 #include "esp_random.h"
 #include "makeimage.h"
@@ -430,6 +431,7 @@ static void odSession(const uint8_t mac[8]) {
         return;
     }
     Serial.println(name + ": connecting");
+    BLE_scanStop();
     if (!odConnect(mac)) {
         odDisconnect();
         odSetState(mac, OD_STATE_UNREACHABLE);

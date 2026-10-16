@@ -2,6 +2,8 @@
 #include <Arduino.h>
 #include <MD5Builder.h>
 
+#include <map>
+
 #include "BLEDevice.h"
 #include "ble_filter.h"
 #include "newproto.h"
@@ -10,8 +12,13 @@
 #include "tag_db.h"
 #include "web.h"
 
-#define INTERVAL_BLE_SCANNING_SECONDS 60
-#define INTERVAL_HANDLE_PENDING_SECONDS 10
+// Continuous passive scan, paused only while the AP holds a BLE connection. The radio is shared
+// with WiFi, so it listens a small part of the time (the duty cycle ESPHome's BLE proxies use).
+#define BLE_SCAN_INTERVAL_MS 320
+#define BLE_SCAN_WINDOW_MS 30
+#define INTERVAL_HANDLE_PENDING_MS 1000
+// a display reports at most this often, unless a button was pressed
+#define BLE_CHECKIN_INTERVAL_MS 60000
 #define BUFFER_MAX_SIZE_COMPRESSING 135000
 
 #define BLE_MAIN_STATE_IDLE 0
@@ -25,7 +32,6 @@
 #define BLE_DEEPSLEEP_CHECKIN 3216153600
 
 int ble_main_state = BLE_MAIN_STATE_IDLE;
-uint32_t last_ble_scan = 0;
 bool BLE_cmd_isDeepsleep = false;
 
 #define BLE_UPLOAD_STATE_INIT 0
@@ -97,8 +103,16 @@ QueueHandle_t BLE_dataReqQueue = nullptr;
 
 void BLE_enqueue_data_req(struct espAvailDataReq* req) {
     if (BLE_dataReqQueue == nullptr) return;
+    // The scan reports every advertisement (a display sends one every second or so): pass one on
+    // per minute, and every button press right away. Only the BLE host task gets here.
+    static std::map<uint64_t, uint32_t> lastPassed;
+    uint64_t key = 0;
+    for (int i = 0; i < 8; i++) key = (key << 8) | req->src[i];
+    auto it = lastPassed.find(key);
+    if (it != lastPassed.end() && req->adr.wakeupReason == 0 && millis() - it->second < BLE_CHECKIN_INTERVAL_MS) return;
+    lastPassed[key] = millis();
     // Non-blocking: if the queue is full we simply drop this advertisement,
-    // the next scan will pick the tag up again. Never block the BLE host task.
+    // a later one will pick the tag up again. Never block the BLE host task.
     xQueueSend(BLE_dataReqQueue, req, 0);
 }
 
@@ -224,14 +238,28 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
     }
 };
 
-void BLE_startScan(uint32_t timeout) {
+static bool BLE_scanning = false;
+
+static void BLE_scanEnded(BLEScanResults) {
+    BLE_scanning = false;
+}
+
+static void BLE_scanRun() {
+    if (BLE_scanning) return;
     static MyAdvertisedDeviceCallbacks advertisedDeviceCallbacks;
     BLEScan* pBLEScan = BLEDevice::getScan();
-    pBLEScan->setAdvertisedDeviceCallbacks(&advertisedDeviceCallbacks);
-    pBLEScan->setInterval(1349);
-    pBLEScan->setWindow(449);
-    pBLEScan->setActiveScan(true);
-    pBLEScan->start(timeout, false);
+    // every advertisement, also repeats: a button press is a repeat of a device already seen
+    pBLEScan->setAdvertisedDeviceCallbacks(&advertisedDeviceCallbacks, true);
+    pBLEScan->setInterval(BLE_SCAN_INTERVAL_MS);
+    pBLEScan->setWindow(BLE_SCAN_WINDOW_MS);
+    pBLEScan->setActiveScan(false);
+    BLE_scanning = pBLEScan->start(0, BLE_scanEnded, false);  // 0: until stopped
+}
+
+void BLE_scanStop() {
+    if (!BLE_scanning) return;
+    BLEDevice::getScan()->stop();
+    BLE_scanning = false;
 }
 
 #define BLOCK_DATA_SIZE_BLE 4096
@@ -330,15 +358,11 @@ void BLETask(void* parameter) {
                     Serial.println("BLE upload ended by a disconnect");
                     BLE_freeImageBuffer();
                 }
-                if (millis() - last_ble_scan > (INTERVAL_BLE_SCANNING_SECONDS * 1000)) {
-                    last_ble_scan = millis();
-                    Serial.println("Doing the BLE Scan");
-                    BLE_startScan(10);  // timeout in seconds, this is blocking but only for this thread!
-                }
-                if (millis() - BLE_last_pending_check >= (INTERVAL_HANDLE_PENDING_SECONDS * 1000)) {
+                BLE_scanRun();
+                if (millis() - BLE_last_pending_check >= INTERVAL_HANDLE_PENDING_MS) {
+                    // only tags whose pending item is queued, so the image is ready
                     if (BLE_is_image_pending(BLE_curr_address)) {
-                        Serial.println("BLE Image is pending but we wait a bit");
-                        delay(5000);                                                       // We better wait here, since the pending image needs to be created first
+                        BLE_scanStop();  // no scanning while connected; IDLE starts it again
                         if (bleFamily(BLE_curr_address, 0) == BLE_FAMILY_OPENDISPLAY) {
                             // one blocking session: connect, authenticate, send, wait for the refresh
                             if (odUpload(BLE_curr_address) || BLE_get_attempts(BLE_curr_address) >= 5) {

@@ -10,6 +10,8 @@ struct espAvailDataReq;
 // which only has a few KB of stack, and processDataReq() (tagDB, websocket
 // JSON, UDP sync, filesystem) overflows that stack and reboots the ESP32.
 void BLE_enqueue_data_req(struct espAvailDataReq* req);
+// Stops the continuous scan before a connection; the BLE task starts it again when idle
+void BLE_scanStop();
 
 uint8_t gicToOEPLtype(uint8_t gicType);
 bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice);

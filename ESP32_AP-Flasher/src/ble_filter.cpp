@@ -119,19 +119,14 @@ static bool BLE_filter_add_opendisplay(BLEAdvertisedDevice& advertisedDevice, co
     return true;
 }
 
+// Called for every advertisement of every BLE device around (the scan runs continuously):
+// keep it quiet and quick
 bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
-    Serial.print("BLE Advertised Device found: ");
-    Serial.println(advertisedDevice.toString().c_str());
-
     uint8_t payloadData[100];
     int payloadDatalen = advertisedDevice.getPayloadLength();
     if (payloadDatalen > sizeof(payloadData))
         payloadDatalen = sizeof(payloadData);  // Never copy more than the buffer holds (extended advertising can exceed 31 bytes)
     memcpy(&payloadData, (uint8_t*)advertisedDevice.getPayload(), payloadDatalen);
-    Serial.printf(" Payload data: ");
-    for (int i = 0; i < payloadDatalen; i++)
-        Serial.printf("%02X", payloadData[i]);
-    Serial.printf("\r\n");
 
     if (advertisedDevice.haveManufacturerData()) {
         int manuDatalen = advertisedDevice.getManufacturerData().length();
@@ -144,10 +139,6 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
         // [Nic] suggested fix for arduino 3.x by copilot, but I cannot test it
         memcpy(&manuData, (uint8_t*)advertisedDevice.getManufacturerData().c_str(), manuDatalen);
 #endif
-        Serial.printf(" Address type: %02X Manu data: ", advertisedDevice.getAddressType());
-        for (int i = 0; i < advertisedDevice.getManufacturerData().length(); i++)
-            Serial.printf("%02X", manuData[i]);
-        Serial.printf("\r\n");
         if (manuDatalen == 7 && manuData[0] == 0x53 && manuData[1] == 0x50) {  // Lets check for a Gicisky E-Paper display
 
             struct espAvailDataReq theAdvData;
@@ -175,7 +166,6 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
         } else if (manuDatalen >= 13 && manuData[0] == 0x46 && manuData[1] == 0x24) {  // OpenDisplay, company id 0x2446
             return BLE_filter_add_opendisplay(advertisedDevice, manuData, manuDatalen);
         } else if (manuDatalen >= 3 && manuData[0] == 0x37 && manuData[1] == 0x13) {  // Lets check for a Gicisky E-Paper display
-            Serial.printf("ATC BLE OEPL Detected\r\n");
             struct espAvailDataReq theAdvData;
             memset((uint8_t*)&theAdvData, 0x00, sizeof(espAvailDataReq));
             uint8_t versionAdvData = manuData[2];
@@ -185,7 +175,6 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
                     if (manuDatalen >= sizeof(BleAdvDataStructV1)) {
                         struct BleAdvDataStructV1 inAdvData;
                         memcpy(&inAdvData, manuData, sizeof(BleAdvDataStructV1));
-                        printf("Version 1 ATC_BLE_OEPL Received\r\n");
                         /*Serial.printf("manu_id %04X\r\n", inAdvData.manu_id);
                         Serial.printf("version %02X\r\n", inAdvData.version);
                         Serial.printf("hw_type %04X\r\n", inAdvData.hw_type);
@@ -207,7 +196,6 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
                     if (manuDatalen >= sizeof(BleAdvDataStructV2)) {
                         struct BleAdvDataStructV2 inAdvData;
                         memcpy(&inAdvData, manuData, sizeof(BleAdvDataStructV2));
-                        printf("Version 2 ATC_BLE_OEPL Received\r\n");
                         /*Serial.printf("manu_id %04X\r\n", inAdvData.manu_id);
                         Serial.printf("version %02X\r\n", inAdvData.version);
                         Serial.printf("hw_type %04X\r\n", inAdvData.hw_type);
@@ -269,7 +257,6 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.adr.tagSoftwareVersion = 0x00;
             theAdvData.adr.capabilities = 0x00;
             BLE_enqueue_data_req(&theAdvData);
-            Serial.printf("We got an ATC_MiThermometer via BLE\r\n");
             return true;
         }
     }
@@ -280,6 +267,8 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
 // Used to spread attempts evenly instead of getting stuck on the first (maybe
 // offline) tag forever.
 static std::map<uint64_t, uint32_t> BLE_attemptCounts;
+static std::map<uint64_t, uint32_t> BLE_attemptLast;  // millis() of the last try
+#define BLE_RETRY_WAIT_MS 30000
 
 static uint64_t BLE_macToKey(const uint8_t mac[8]) {
     uint64_t key = 0;
@@ -289,6 +278,11 @@ static uint64_t BLE_macToKey(const uint8_t mac[8]) {
 
 static bool BLE_isPendingCandidate(tagRecord* taginfo) {
     if (taginfo->pendingCount == 0 || taginfo->version != 0) return false;
+    // pendingCount goes up just before the item is queued; the image is ready once it is there
+    if (getQueueItem(taginfo->mac) == nullptr) return false;
+    // after a failed try, wait a bit: the pending check runs every second
+    auto last = BLE_attemptLast.find(BLE_macToKey(taginfo->mac));
+    if (last != BLE_attemptLast.end() && millis() - last->second < BLE_RETRY_WAIT_MS) return false;
     const BleFamily family = bleFamily(taginfo->mac, taginfo->hwType);
     // an OpenDisplay tag only once its type, and so its config, is known, while it is added, and
     // only on the AP that has it now (the AP with its content queues the image too)
@@ -301,6 +295,7 @@ static bool BLE_isPendingCandidate(tagRecord* taginfo) {
 // same tag starts fresh and isn't unfairly deprioritized.
 void BLE_clear_attempts(uint8_t address[8]) {
     BLE_attemptCounts.erase(BLE_macToKey(address));
+    BLE_attemptLast.erase(BLE_macToKey(address));
 }
 
 uint32_t BLE_get_attempts(uint8_t address[8]) {
@@ -327,6 +322,7 @@ bool BLE_is_image_pending(uint8_t address[8]) {
 
     memcpy(address, best->mac, 8);
     BLE_attemptCounts[BLE_macToKey(best->mac)]++;  // count this attempt so the next round prefers the others
+    BLE_attemptLast[BLE_macToKey(best->mac)] = millis();
     if (bleFamily(best->mac, best->hwType) == BLE_FAMILY_ATC) {
         Serial.printf("ATC BLE OEPL data Waiting\r\n");
     }
