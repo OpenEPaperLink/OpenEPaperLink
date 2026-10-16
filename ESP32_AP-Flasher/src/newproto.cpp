@@ -965,6 +965,8 @@ void updateTaginfoitem(struct TagInfo* taginfoitem, IPAddress remoteIP) {
             taginfo->wakeupReason = taginfoitem->wakeupReason;
             taginfo->capabilities = taginfoitem->capabilities;
             taginfo->pendingIdle = taginfoitem->pendingIdle;
+            // the image hash, for the preview, of a tag whose content another AP makes
+            if (taginfo->contentMode == 12) memcpy(taginfo->md5, taginfoitem->md5, sizeof(taginfoitem->md5));
             break;
     }
 

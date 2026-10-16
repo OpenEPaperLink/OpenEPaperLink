@@ -52,6 +52,7 @@ struct TagInfo {
     uint8_t capabilities;
     uint16_t pendingIdle;
     uint8_t contentMode;
+    uint8_t md5[8];  // of the image on the tag, so other APs can show its preview
     uint8_t reserved[7];
 } __packed;
 

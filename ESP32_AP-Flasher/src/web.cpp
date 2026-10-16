@@ -250,6 +250,7 @@ void wsSendTaginfo(const uint8_t *mac, uint8_t syncMode) {
                     taginfoitem.wakeupReason = taginfo->wakeupReason;
                     taginfoitem.capabilities = taginfo->capabilities;
                     taginfoitem.pendingIdle = taginfo->pendingIdle;
+                    memcpy(taginfoitem.md5, taginfo->md5, sizeof(taginfoitem.md5));
                 }
                 udpsync.netTaginfo(&taginfoitem);
             }
