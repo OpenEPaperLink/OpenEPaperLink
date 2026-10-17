@@ -12,6 +12,7 @@
 
 #include "BLEDevice.h"
 #include "ble_filter.h"
+#include "ble_writer.h"
 #include "commstructs.h"
 #include "esp_random.h"
 #include "makeimage.h"
@@ -35,6 +36,8 @@ static BLEUUID odUUID("00002446-0000-1000-8000-00805F9B34FB");  // service and c
 #define OD_CMD_AUTHENTICATE 0x0050
 
 #define OD_REPLY_TIMEOUT 3000
+#define OD_CONNECT_TIMEOUT 45000  // connect, service, notify; then the link is dropped
+#define OD_WRITE_TIMEOUT 10000
 #define OD_RETRY_INTERVAL (5 * 60 * 1000)
 #define OD_SEEN_RECENTLY 150  // seconds; the BLE scan runs every 60 s
 
@@ -211,12 +214,14 @@ static void odSend(uint16_t op, const uint8_t* payload = nullptr, size_t len = 0
     frame[0] = op >> 8;
     frame[1] = op & 0xff;
     if (len) memcpy(frame + 2, payload, len);
+    BLE_guardStart(*odClient->getPeerAddress().getNative(), OD_WRITE_TIMEOUT);
     if (odEncrypted) {
         uint8_t enc[300];
         odChar->writeValue(enc, odEncrypt(frame, len + 2, enc), true);
     } else {
         odChar->writeValue(frame, len + 2, true);
     }
+    BLE_guardStop();
 }
 
 // Replies are [op:2][status/data]. Inside a session, short replies (acks, FE, FF) stay
@@ -236,7 +241,7 @@ static void odDisconnect() {
     odEncrypted = false;
 }
 
-static bool odConnect(const uint8_t mac[8]) {
+static bool odConnectSession(const uint8_t mac[8]) {
     // The previous client has disconnected by now; BLEDevice::createClient() never reuses them
     if (odClient != nullptr) {
         delete odClient;
@@ -250,12 +255,21 @@ static bool odConnect(const uint8_t mac[8]) {
     odClient->setMTU(255);
     BLERemoteService* service = odClient->getService(odUUID);
     if (service != nullptr) odChar = service->getCharacteristic(odUUID);
-    if (odChar == nullptr || !odChar->canNotify()) {
+    // registerForNotify() on a link that just dropped waits for an event that never comes
+    if (odChar == nullptr || !odChar->canNotify() || !odClient->isConnected()) {
         odDisconnect();
         return false;
     }
     odChar->registerForNotify(odNotify);
     return true;
+}
+
+static bool odConnect(const uint8_t mac[8]) {
+    const uint8_t peer[] = {mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]};
+    BLE_guardStart(peer, OD_CONNECT_TIMEOUT);
+    const bool connected = odConnectSession(mac);
+    BLE_guardStop();
+    return connected;
 }
 
 // Two round trips; afterwards every request and long reply goes through the CCM envelope

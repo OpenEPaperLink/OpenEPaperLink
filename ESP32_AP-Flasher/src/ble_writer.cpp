@@ -37,6 +37,49 @@
 // expectedNextCheckin sentinel that the web frontend renders as "In deep sleep"
 #define BLE_DEEPSLEEP_CHECKIN 3216153600
 
+// The BLE library waits without a timeout for some events (connecting, registering for notify, a
+// write with response). When one of those gets lost, the task hangs until a reboot (#622). A round
+// of the task loop takes seconds; an OpenDisplay upload with its refresh a few minutes at most.
+#define BLE_TASK_HUNG_MS (10 * 60 * 1000)
+static volatile uint32_t BLE_task_alive = 0;
+
+bool BLE_taskHung() {
+    const uint32_t alive = BLE_task_alive;
+    return alive != 0 && millis() - alive > BLE_TASK_HUNG_MS;
+}
+
+// A write the library could not send keeps its semaphore taken, and a failed service search never
+// gives its one back: the next call then waits for as long as the display keeps the link. A
+// disconnect releases all those waits, so a guarded call that takes too long drops the link.
+// Connecting itself is bounded by the BLE stack (CONFIG_BT_BLE_ESTAB_LINK_CONN_TOUT, 30 s).
+static esp_timer_handle_t BLE_guardTimer = nullptr;
+static esp_bd_addr_t BLE_guardPeer;
+static volatile bool BLE_guardFired = false;
+
+static void BLE_guardExpired(void*) {
+    BLE_guardFired = true;
+    esp_ble_gap_disconnect(BLE_guardPeer);
+}
+
+void BLE_guardStart(const uint8_t peer[6], uint32_t timeoutMs) {
+    if (BLE_guardTimer == nullptr) {
+        const esp_timer_create_args_t args = {.callback = BLE_guardExpired, .arg = nullptr, .dispatch_method = ESP_TIMER_TASK, .name = "BLE guard"};
+        if (esp_timer_create(&args, &BLE_guardTimer) != ESP_OK) return;
+    }
+    esp_timer_stop(BLE_guardTimer);
+    memcpy(BLE_guardPeer, peer, sizeof(esp_bd_addr_t));
+    BLE_guardFired = false;
+    esp_timer_start_once(BLE_guardTimer, (uint64_t)timeoutMs * 1000);
+}
+
+void BLE_guardStop() {
+    if (BLE_guardTimer != nullptr) esp_timer_stop(BLE_guardTimer);
+    if (BLE_guardFired) {
+        BLE_guardFired = false;
+        Serial.println("BLE call timed out, link dropped");
+    }
+}
+
 int ble_main_state = BLE_MAIN_STATE_IDLE;
 bool BLE_cmd_isDeepsleep = false;
 
@@ -73,6 +116,15 @@ BLERemoteCharacteristic* ctrlChar;
 BLERemoteCharacteristic* imgChar;
 BLEAdvertisedDevice* myDevice;
 BLEClient* pClient;
+
+#define BLE_CONNECT_TIMEOUT_MS 45000
+#define BLE_WRITE_TIMEOUT_MS 10000
+
+static void BLE_write(BLERemoteCharacteristic* chr, uint8_t* data, size_t len, bool response = false) {
+    BLE_guardStart(*pClient->getPeerAddress().getNative(), BLE_WRITE_TIMEOUT_MS);
+    chr->writeValue(data, len, response);
+    BLE_guardStop();
+}
 
 uint8_t BLE_notify_buffer[256] = {0};
 
@@ -173,7 +225,7 @@ enum BLE_CONNECTION_TYPE {
     BLE_TYPE_ATC_BLE_OEPL
 };
 
-bool BLE_connect(uint8_t addr[8], BLE_CONNECTION_TYPE conn_type) {
+static bool BLE_connectSession(uint8_t addr[8], BLE_CONNECTION_TYPE conn_type) {
     BLE_err_counter = 0;
     uint8_t temp_Address[] = {addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]};
     Serial.printf("BLE Connecting to: %02X:%02X:%02X:%02X:%02X:%02X\r\n", addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
@@ -222,7 +274,8 @@ bool BLE_connect(uint8_t addr[8], BLE_CONNECTION_TYPE conn_type) {
         pClient->disconnect();
         return false;
     }
-    if (ctrlChar->canNotify()) {
+    // registerForNotify() on a link that just dropped waits for an event that never comes
+    if (ctrlChar->canNotify() && pClient->isConnected()) {
         ctrlChar->registerForNotify(notifyCallback);
     } else {
         Serial.printf("BLE Notify failed\r\n");
@@ -236,6 +289,14 @@ bool BLE_connect(uint8_t addr[8], BLE_CONNECTION_TYPE conn_type) {
     }
     Serial.printf("BLE Connected fully to: %02X:%02X:%02X:%02X:%02X:%02X\r\n", addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
     return true;
+}
+
+bool BLE_connect(uint8_t addr[8], BLE_CONNECTION_TYPE conn_type) {
+    const uint8_t peer[] = {addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]};
+    BLE_guardStart(peer, BLE_CONNECT_TIMEOUT_MS);
+    const bool connected = BLE_connectSession(addr, conn_type);
+    BLE_guardStop();
+    return connected;
 }
 
 class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
@@ -316,7 +377,7 @@ void ATC_BLE_OEPL_SendPart(uint8_t indexBlockId, uint8_t indexPkt) {
     tempPacketBuffer[3] = indexBlockId;
     tempPacketBuffer[4] = indexPkt;
     Serial.println("BLE Sending packet Len " + String(sizeof(tempPacketBuffer)));
-    ctrlChar->writeValue(tempPacketBuffer, sizeof(tempPacketBuffer), true);
+    BLE_write(ctrlChar, tempPacketBuffer, sizeof(tempPacketBuffer), true);
 }
 
 // Finish handling a queued command for BLE_curr_address: report the transfer as
@@ -346,6 +407,7 @@ void BLETask(void* parameter) {
     BLEDevice::init("");
     odInit();
     while (1) {
+        BLE_task_alive = millis();
         // Process advertisements collected by the scan callback here, in this
         // task's large stack, instead of inside the tiny BLE host task stack.
         struct espAvailDataReq incomingDataReq;
@@ -403,7 +465,7 @@ void BLETask(void* parameter) {
                                     memset(BLE_notify_buffer, 0x00, sizeof(BLE_notify_buffer));
                                     BLE_new_notify = false;
                                     BLE_cmd_isDeepsleep = isDeepsleep;
-                                    ctrlChar->writeValue(cmdFrame, cmdFrameLen, true);  // write-with-response
+                                    BLE_write(ctrlChar, cmdFrame, cmdFrameLen, true);  // write-with-response
                                     Serial.printf("BLE command frame sent (%u bytes)\r\n", cmdFrameLen);
                                     if (isDeepsleep) {
                                         // The display shuts its BLE stack down right after ACK-ing a
@@ -523,7 +585,7 @@ void BLETask(void* parameter) {
                         default:
                         case BLE_UPLOAD_STATE_INIT:
                             BLE_mini_buff[0] = 1;
-                            ctrlChar->writeValue(BLE_mini_buff, 1);
+                            BLE_write(ctrlChar, BLE_mini_buff, 1);
                             break;
                         case BLE_UPLOAD_STATE_SIZE:
                             BLE_mini_buff[0] = 0x02;
@@ -537,14 +599,14 @@ void BLETask(void* parameter) {
                                 // command: 0x02, uint32 LE size, then 3 zeros.
                                 BLE_mini_buff[6] = 0x00;
                                 BLE_mini_buff[7] = 0x00;
-                                ctrlChar->writeValue(BLE_mini_buff, 8);
+                                BLE_write(ctrlChar, BLE_mini_buff, 8);
                             } else {
-                                ctrlChar->writeValue(BLE_mini_buff, 6);
+                                BLE_write(ctrlChar, BLE_mini_buff, 6);
                             }
                             break;
                         case BLE_UPLOAD_STATE_START:
                             BLE_mini_buff[0] = 0x03;
-                            ctrlChar->writeValue(BLE_mini_buff, 1);
+                            BLE_write(ctrlChar, BLE_mini_buff, 1);
                             break;
                         case BLE_UPLOAD_STATE_UPLOAD:
                             if (BLE_notify_buffer[2] == 0x08) {
@@ -577,7 +639,7 @@ void BLETask(void* parameter) {
                                 BLE_mini_buff[2] = (BLE_curr_part >> 16) & 0xff;
                                 BLE_mini_buff[3] = (BLE_curr_part >> 24) & 0xff;
                                 memcpy((uint8_t*)&BLE_mini_buff[4], (uint8_t*)&BLE_image_buffer[BLE_curr_part * 240], curr_len);
-                                imgChar->writeValue(BLE_mini_buff, curr_len + 4);
+                                BLE_write(imgChar, BLE_mini_buff, curr_len + 4);
                                 Serial.printf("BLE sending part: %i\r\n", BLE_curr_part);
                                 uint32_t byteOffset = BLE_curr_part * 240;
                                 if (byteOffset % BLOCK_DATA_SIZE < 240)  // once per 4096-byte block, same cadence as the 802.15.4 path
@@ -610,7 +672,7 @@ void BLETask(void* parameter) {
                             BLE_mini_buff[0] = 0x00;
                             BLE_mini_buff[1] = 0x64;
                             memcpy((uint8_t*)&BLE_mini_buff[2], &BLEavaildatainfo, sizeof(struct AvailDataInfo));
-                            ctrlChar->writeValue(BLE_mini_buff, sizeof(struct AvailDataInfo) + 2);
+                            BLE_write(ctrlChar, BLE_mini_buff, sizeof(struct AvailDataInfo) + 2);
                             BLE_upload_state = BLE_UPLOAD_STATE_UPLOAD;
                             break;
                         case BLE_UPLOAD_STATE_UPLOAD: {

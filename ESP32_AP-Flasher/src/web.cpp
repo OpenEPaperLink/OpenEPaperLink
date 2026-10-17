@@ -15,6 +15,7 @@
 #include "AsyncJson.h"
 #include "LittleFS.h"
 #include "SPIFFSEditor.h"
+#include "ble_writer.h"
 #include "commstructs.h"
 #include "language.h"
 #include "leds.h"
@@ -177,9 +178,18 @@ void wsSendSysteminfo() {
     setVarDB("ap_ch", String(apInfo.channel));
 #endif
 
-    // reboot once at night
+    // reboot once at night, or when the BLE task hangs: only a reboot gets it going again
+    const char* rebootReason = nullptr;
     if (timeinfo.tm_hour == 3 && timeinfo.tm_min == 56 && millis() > 2 * 3600 * 1000 && config.nightlyreboot == 1) {
-        logLine("Nightly reboot");
+        rebootReason = "Nightly reboot";
+    }
+#ifdef HAS_BLE_WRITER
+    else if (BLE_taskHung()) {
+        rebootReason = "BLE task hangs, reboot";
+    }
+#endif
+    if (rebootReason != nullptr) {
+        logLine(rebootReason);
         wsErr("REBOOTING");
         config.runStatus = RUNSTATUS_STOP;
         ws.enable(false);
