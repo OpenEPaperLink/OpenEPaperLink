@@ -138,13 +138,22 @@ uint16_t sendBlock(const void* data, const uint16_t len) {
     return radioTransport->sendBlock(data, len);
 }
 
+// A BLE display never hears the radio. Data the radio holds for one times out there, and that
+// timeout dropped the queued image before the BLE task had sent it (#622).
+static bool isBleTarget(const uint8_t mac[8]) {
+    const tagRecord* taginfo = tagRecord::findByMAC(mac);
+    return bleFamily(mac, taginfo != nullptr ? taginfo->hwType : 0) != BLE_FAMILY_NONE;
+}
+
 bool sendDataAvail(struct pendingData* pending) {
     if (apInfo.state == AP_STATE_NORADIO) return true;
+    if (isBleTarget(pending->targetMac)) return false;
     if (!apInfo.isOnline) return false;
     return radioTransport->sendDataAvail(pending);
 }
 bool sendCancelPending(struct pendingData* pending) {
     if (apInfo.state == AP_STATE_NORADIO) return true;
+    if (isBleTarget(pending->targetMac)) return true;
     if (!apInfo.isOnline) return false;
     return radioTransport->cancelPending(pending);
 }
