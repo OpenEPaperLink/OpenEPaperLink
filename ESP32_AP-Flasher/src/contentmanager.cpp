@@ -43,7 +43,7 @@
 #include "settings.h"
 #include "system.h"
 #include "tag_db.h"
-#include "truetype.h"
+#include <TinyTTF.h>
 #include "util.h"
 #include "web.h"
 

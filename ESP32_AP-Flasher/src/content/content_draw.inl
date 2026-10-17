@@ -105,7 +105,7 @@ static void unloadVlwFont(TFT_eSprite &spr) {
 }
 
 /// @brief Set up truetype to draw into spr, the font from memory where possible (PSRAM): no file reads per glyph
-static bool beginTruetype(truetypeClass &truetype, TFT_eSprite &spr, const String &font, uint16_t size, uint16_t color) {
+static bool beginTruetype(TinyTTF &truetype, TFT_eSprite &spr, const String &font, uint16_t size, uint16_t color) {
     truetype.setFramebuffer(spr.width(), spr.height(), spr.getColorDepth(), static_cast<uint8_t *>(spr.getPointer()));
     size_t fontSize;
     uint8_t *fontData = getCachedFont(font, false, fontSize);
@@ -184,7 +184,7 @@ void drawString(TFT_eSprite &spr, String content, int16_t posx, int16_t posy, St
     switch (processFontPath(font)) {
         case 2: {
             // truetype
-            truetypeClass truetype = truetypeClass();
+            TinyTTF truetype = TinyTTF();
             if (!beginTruetype(truetype, spr, font, size, color)) return;
             if (align == TC_DATUM) {
                 posx -= truetype.getStringWidth(content) / 2;
@@ -214,7 +214,7 @@ void drawTextBox(TFT_eSprite &spr, String &content, int16_t &posx, int16_t &posy
         case 2: {
             // truetype: size in pixels (default 20), lines size * lineheight apart
             if (size == 0) size = 20;
-            truetypeClass truetype = truetypeClass();
+            TinyTTF truetype = TinyTTF();
             if (!beginTruetype(truetype, spr, font, size, color)) return;
             wrapText(
                 content, posy, boxwidth, boxheight, size, lineheight, [&](const String &text) { return truetype.getStringWidth(text); },
