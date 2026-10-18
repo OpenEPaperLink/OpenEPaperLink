@@ -508,8 +508,7 @@ void init_web() {
                     }
                     if (strcmp(cmdValue, "clear") == 0) {
                         clearPending(taginfo);
-                        while (dequeueItem(mac)) {
-                        };
+                        dequeueAllItems(mac);
                         taginfo->pendingCount = countQueueItem(mac);
                         wsSendTaginfo(mac, SYNC_TAGSTATUS);
                     }

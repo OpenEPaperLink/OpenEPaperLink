@@ -145,8 +145,7 @@ void prepareCancelPending(const uint8_t dst[8]) {
         return;
     }
     clearPending(taginfo);
-    while (dequeueItem(dst)) {
-    };
+    dequeueAllItems(dst);
     taginfo->pendingCount = countQueueItem(dst);
     wsSendTaginfo(dst, SYNC_TAGSTATUS);
 }
@@ -625,8 +624,8 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
         taginfo->pendingIdle = 60;
         clearPending(taginfo);
     }
-    while (dequeueItem(xfc->src)) {
-    };
+    dequeueAllItems(xfc->src);
+    if (taginfo != nullptr) taginfo->pendingCount = countQueueItem(xfc->src);
 
     checkQueue(xfc->src);
 
@@ -1106,6 +1105,48 @@ bool dequeueItem(const uint8_t* targetMac, const uint64_t dataVer) {
     return false;
 }
 
+/// @brief Leave only the .pending files that no queued item uses (mirrored tags share the file), and drop keep
+/// @note Caller holds queueMutex
+static void keepUnusedPendingFiles(std::vector<String>& files, const char* keep) {
+    files.erase(std::remove_if(files.begin(), files.end(),
+                               [keep](const String& filename) {
+                                   if (!filename.endsWith(".pending") || (keep != nullptr && filename == keep)) return true;
+                                   for (const PendingItem* item : pendingQueue) {
+                                       if (filename == item->filename) return true;
+                                   }
+                                   return false;
+                               }),
+                files.end());
+}
+
+static void removeFiles(const std::vector<String>& files) {
+    for (const String& filename : files) {
+        xSemaphoreTake(fsMutex, portMAX_DELAY);
+        contentFS->remove(filename);
+        xSemaphoreGive(fsMutex);
+    }
+}
+
+void dequeueAllItems(const uint8_t* targetMac) {
+    // the .pending files go too: nothing removes them later, until the next boot
+    std::vector<String> obsoleteFiles;
+    {
+        std::lock_guard<std::recursive_mutex> lock(queueMutex);
+        for (size_t c = 0; c < pendingQueue.size();) {
+            PendingItem* item = pendingQueue[c];
+            if (memcmp(item->pendingdata.targetMac, targetMac, sizeof(item->pendingdata.targetMac)) == 0) {
+                pendingQueue.erase(pendingQueue.begin() + c);
+                retireItem(item);
+                obsoleteFiles.push_back(item->filename);
+            } else {
+                c++;
+            }
+        }
+        keepUnusedPendingFiles(obsoleteFiles, nullptr);
+    }
+    removeFiles(obsoleteFiles);
+}
+
 static size_t queueSize() {
     std::lock_guard<std::recursive_mutex> lock(queueMutex);
     return pendingQueue.size();
@@ -1217,22 +1258,9 @@ bool queueDataAvail(struct pendingData* pending, bool local) {
                     c++;
                 }
             }
-            // keep files that are still used (mirrored tags share the file)
-            obsoleteFiles.erase(std::remove_if(obsoleteFiles.begin(), obsoleteFiles.end(),
-                                               [&newPending](const String& filename) {
-                                                   if (!filename.endsWith(".pending") || filename == newPending.filename) return true;
-                                                   for (const PendingItem* item : pendingQueue) {
-                                                       if (filename == item->filename) return true;
-                                                   }
-                                                   return false;
-                                               }),
-                                obsoleteFiles.end());
+            keepUnusedPendingFiles(obsoleteFiles, newPending.filename);
         }
-        for (const String& filename : obsoleteFiles) {
-            xSemaphoreTake(fsMutex, portMAX_DELAY);
-            contentFS->remove(filename);
-            xSemaphoreGive(fsMutex);
-        }
+        removeFiles(obsoleteFiles);
     }
 
     enqueueItem(newPending);
