@@ -24,7 +24,7 @@
 #include "util.h"
 #include "web.h"
 
-extern uint16_t sendBlock(const void* data, const uint16_t len);
+extern uint16_t sendBlock(const void* data, const uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize);
 extern UDPcomm udpsync;
 // Queued items are heap allocated, so a PendingItem* stays valid when the vector grows. Dequeued items
 // are kept for a while before they are freed, because other tasks may still use them: a block request
@@ -500,7 +500,7 @@ void processBlockRequest(struct espBlockRequest* br) {
     }
     uint32_t len = queueItem->len - (BLOCK_DATA_SIZE * br->blockId);
     if (len > BLOCK_DATA_SIZE) len = BLOCK_DATA_SIZE;
-    uint16_t checksum = sendBlock(queueItem->data + (br->blockId * BLOCK_DATA_SIZE), len);
+    uint16_t checksum = sendBlock(queueItem->data + (br->blockId * BLOCK_DATA_SIZE), len, br->ver, br->blockId * BLOCK_DATA_SIZE, queueItem->len);
     char buffer[150];
     sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X block request %s block %d, len %d checksum %u\0", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0], queueItem->filename, br->blockId, len, checksum);
     wsLog((String)buffer);

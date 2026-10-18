@@ -27,14 +27,12 @@ static const char *TAG = "SECOND_UART";
 #include "radio.h"
 
 
-#define BUF_SIZE    (1024)
-#define RD_BUF_SIZE (BUF_SIZE)
+// One receive buffer: the driver's. The main loop reads it directly (uartRead), woken by the event
+// task. 4 KB holds 20 ms at 2 Mbaud, more than the S3 sends unanswered (4 frames of data).
+#define RX_BUF_SIZE 4096
+#define TX_BUF_SIZE 2048
 static QueueHandle_t uart0_queue;
-
-#define MAX_BUFF_POS 8000
-volatile int     curr_buff_pos   = 0;
-volatile int     worked_buff_pos = 0;
-volatile uint8_t buff_pos[MAX_BUFF_POS + 5];
+volatile uint32_t uartOverflows = 0;
 
 static void uart_event_task(void *pvParameters);
 void init_second_uart() {
@@ -48,11 +46,11 @@ void init_second_uart() {
     };
     ESP_LOGI(TAG, "HARDWARE_UART_TX %d, CONFIG_OEPL_HARDWARE_UART_RX %d", 
              CONFIG_OEPL_HARDWARE_UART_TX,CONFIG_OEPL_HARDWARE_UART_RX);
-    ESP_ERROR_CHECK(uart_driver_install(1, BUF_SIZE * 2, BUF_SIZE * 2, 20, &uart0_queue, 0));
+    ESP_ERROR_CHECK(uart_driver_install(1, RX_BUF_SIZE, TX_BUF_SIZE, 20, &uart0_queue, 0));
     ESP_ERROR_CHECK(uart_param_config(1, &uart_config));
 	ESP_ERROR_CHECK(uart_set_pin(1, CONFIG_OEPL_HARDWARE_UART_TX, CONFIG_OEPL_HARDWARE_UART_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
-	xTaskCreate(uart_event_task, "uart_event_task", 16384, NULL, 12, NULL);
+	xTaskCreate(uart_event_task, "uart_event_task", 3072, NULL, 12, NULL);
 }
 
 void uart_switch_speed(int baudrate) {
@@ -69,42 +67,38 @@ void uart_switch_speed(int baudrate) {
 
 void uartTx(uint8_t data) { uart_write_bytes(1, (const char *) &data, 1); }
 
+void uartWrite(const uint8_t *data, size_t len) { uart_write_bytes(1, (const char *) data, len); }
 
-bool getRxCharSecond(uint8_t *newChar) {
-    if (curr_buff_pos != worked_buff_pos) {
-        *newChar = buff_pos[worked_buff_pos];
-        worked_buff_pos++;
-        worked_buff_pos %= MAX_BUFF_POS;
-        return true;
-    }
-    return false;
+int uartRead(uint8_t *buf, int max) {
+    size_t avail = 0;
+    if (uart_get_buffered_data_len(1, &avail) != ESP_OK || avail == 0) return 0;
+    if (avail > (size_t) max) avail = max;
+    return uart_read_bytes(1, buf, avail, 0);
 }
 
+void uartFlushInput() { uart_flush_input(1); }
+
+// Only wakes the main loop; reading is done there
 static void uart_event_task(void *pvParameters) {
     uart_event_t event;
-    uint8_t     *dtmp = (uint8_t *) malloc(RD_BUF_SIZE);
     for (;;) {
         if (xQueueReceive(uart0_queue, (void *) &event, (TickType_t) portMAX_DELAY)) {
-            bzero(dtmp, RD_BUF_SIZE);
             switch (event.type) {
                 case UART_DATA:
-                    uart_read_bytes(1, dtmp, event.size, portMAX_DELAY);
-                    for (int i = 0; i < event.size; i++) {
-                        buff_pos[curr_buff_pos] = dtmp[i];
-                        curr_buff_pos++;
-                        curr_buff_pos %= MAX_BUFF_POS;
-                    }
                     if (radioWakeTask) xTaskNotifyGive(radioWakeTask);  // handle it now, not after a radio timeout
                     break;
+                case UART_FIFO_OVF:
+                case UART_BUFFER_FULL:
+                    // data was lost; the framing resynchronises at the next delimiter
+                    uartOverflows++;
+                    uart_flush_input(1);
+                    xQueueReset(uart0_queue);
+                    break;
                 default:
-                    // ESP_LOGI(TAG, "uart event type: %d", event.type);
                     break;
             }
         }
     }
-    free(dtmp);
-    dtmp = NULL;
-    vTaskDelete(NULL);
 }
 
 void uart_printf(const char *format, ...) {

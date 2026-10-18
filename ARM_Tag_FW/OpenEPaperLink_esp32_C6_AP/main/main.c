@@ -8,6 +8,7 @@
 #include "esp_ieee802154.h"
 #include "esp_log.h"
 #include "esp_phy_init.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -30,6 +31,7 @@
 #include <string.h>
 #include "logging.h"
 #include "SubGigRadio.h"
+#include "v2link.h"
 
 
 static const char *TAG = "MAIN";
@@ -69,7 +71,7 @@ const struct {
 struct pendingData pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t version = 0x0022;
+uint16_t version = 0x0023;
 
 #define RAW_PKT_PADDING 2
 
@@ -91,6 +93,9 @@ static bool     blockReady       = false;                 // blockbuffer holds t
 // If the block data from the S3 is not complete at that time, wait at most this long for it; after
 // that send nothing (the tag asks again) rather than whatever is in the buffer.
 #define BLOCK_DATA_SLACK_MS 100
+// What the tag is told to wait when the block has to come from the S3 first
+#define PLEASE_WAIT_DOWNLOAD_MS 140
+#define PLEASE_WAIT_READY_MS    30
 uint32_t        nextBlockAttempt = 0;                     // reference time for when the AP can request a new block from the ESP32
 uint8_t         seq              = 0;                     // holds current sequence number for transmission
 uint8_t         blockbuffer[BLOCK_XFER_BUFFER_SIZE + 5];  // block transfer buffer
@@ -102,6 +107,22 @@ uint32_t lastBlockRequest = 0;
 uint8_t  lastBlockMac[8];
 uint8_t  lastTagReturn[8];
 
+// Block data from the S3 arrives as DATA_CHUNKs of V2_CHUNK_MAX bytes from the start of the block
+static uint32_t chunksReceived = 0;  // bit n: chunk n of the requested block is in blockbuffer
+static uint32_t blockLen       = 0;  // bytes in the requested block, known from the first chunk
+
+// A block burst is sent one frame per loop pass, so serial frames from the S3 are handled between
+// the parts (a burst takes up to 200 ms; the S3 expects an answer within 30 ms).
+static uint8_t burstParts[BLOCK_MAX_PARTS];
+static uint8_t burstLen    = 0;
+static uint8_t burstPos    = 0;
+static bool    burstActive = false;
+static int16_t burstLateMs = 0;
+
+// The S3 sends a HEARTBEAT every second. Without any frame for this long it is gone (rebooted, or
+// reset its end of the line): go back to the ASCII protocol at 115200 baud, where it starts again.
+#define V2_LINK_LOST_MS 5000
+
 #define NO_SUBGHZ_CHANNEL  255
 uint8_t curSubGhzChannel;
 uint8_t curChannel = 25;
@@ -109,8 +130,6 @@ uint8_t curPower   = 10;
 
 uint8_t curPendingData = 0;
 uint8_t curNoUpdate    = 0;
-
-bool highspeedSerial = false;
 
 void sendXferCompleteAck(uint8_t *dst, uint16_t pan);
 void sendCancelXfer(uint8_t *dst, uint16_t pan);
@@ -161,6 +180,7 @@ uint8_t getBlockDataLength() {
 // queue (for example behind a block burst) is skipped: the reply would only cost airtime, and the tag
 // has asked again already.
 static uint32_t lateRequestsSkipped = 0;
+static uint16_t statusLateSkipped   = 0;  // the same, since the last STATUS
 static bool tooLateToAnswer(uint8_t type, int64_t ageUs) {
     switch (type) {
         case PKT_PING:
@@ -231,251 +251,22 @@ void countSlots() {
     }
 }
 
-// processing serial data
-#define ZBS_RX_WAIT_HEADER 0
-#define ZBS_RX_WAIT_SDA    1  // send data avail
-#define ZBS_RX_WAIT_CANCEL 2  // cancel traffic for mac
-#define ZBS_RX_WAIT_SCP    3  // set channel power
-#define ZBS_RX_WAIT_BLOCKDATA 4
-
-bool isSame(uint8_t *in1, char *in2, int len) {
-    bool flag = 1;
-    for (int i = 0; i < len; i++) {
-        if (in1[i] != in2[i]) flag = 0;
-    }
-    return flag;
-}
-
-int      blockPosition  = 0;
-void     processSerial(uint8_t lastchar) {
-    static uint8_t  cmdbuffer[4];
-    static uint8_t  RXState = 0;
-    static uint8_t  serialbuffer[48];
-    static uint8_t *serialbufferp;
-    static uint8_t  bytesRemain = 0;
-    static uint32_t lastSerial  = 0;
-    static uint32_t blockStartTime = 0;
-    if ((RXState != ZBS_RX_WAIT_HEADER) && ((getMillis() - lastSerial) > 1000)) {
-        RXState = ZBS_RX_WAIT_HEADER;
-        ESP_LOGI(TAG, "UART Timeout");
-    }
-    lastSerial = getMillis();
-    switch (RXState) {
-        case ZBS_RX_WAIT_HEADER:
-            // shift characters in
-            for (uint8_t c = 0; c < 3; c++) {
-                cmdbuffer[c] = cmdbuffer[c + 1];
-            }
-            cmdbuffer[3] = lastchar;
-
-            if (isSame(cmdbuffer + 1, ">D>", 3)) {
-                pr("ACK>");
-                blockStartTime = getMillis();
-                ESP_LOGI(TAG, "Starting BlkData, %lu ms after request", blockStartTime - nextBlockAttempt );
-                blockPosition = 0;
-                RXState       = ZBS_RX_WAIT_BLOCKDATA;
-            }
-
-            if (isSame(cmdbuffer, "SDA>", 4)) {
-                ESP_LOGI(TAG, "SDA In");
-                RXState       = ZBS_RX_WAIT_SDA;
-                bytesRemain   = sizeof(struct pendingData);
-                serialbufferp = serialbuffer;
-                break;
-            }
-            if (isSame(cmdbuffer, "CXD>", 4)) {
-                ESP_LOGI(TAG, "CXD In");
-                RXState       = ZBS_RX_WAIT_CANCEL;
-                bytesRemain   = sizeof(struct pendingData);
-                serialbufferp = serialbuffer;
-                break;
-            }
-            if (isSame(cmdbuffer, "SCP>", 4)) {
-                ESP_LOGI(TAG, "SCP In");
-                RXState       = ZBS_RX_WAIT_SCP;
-                bytesRemain   = sizeof(struct espSetChannelPower);
-                serialbufferp = serialbuffer;
-                break;
-            }
-            if (isSame(cmdbuffer, "NFO?", 4)) {
-                pr("ACK>");
-                ESP_LOGI(TAG, "NFO? In");
-                espNotifyAPInfo();
-                RXState = ZBS_RX_WAIT_HEADER;
-            }
-            if (isSame(cmdbuffer, "RDY?", 4)) {
-                pr("ACK>");
-                ESP_LOGI(TAG, "RDY? In");
-                RXState = ZBS_RX_WAIT_HEADER;
-            }
-            if (isSame(cmdbuffer, "RSET", 4)) {
-                pr("ACK>");
-                ESP_LOGI(TAG, "RSET In");
-                delay(100);
-                // TODO RESET US HERE
-                RXState = ZBS_RX_WAIT_HEADER;
-            }
-            if (isSame(cmdbuffer, "HSPD", 4)) {
-                pr("ACK>");
-                ESP_LOGI(TAG, "HSPD In, switching to 2000000");
-                delay(100);
-                uart_switch_speed(2000000);
-                delay(100);
-                highspeedSerial = true;
-                pr("ACK>");
-                RXState = ZBS_RX_WAIT_HEADER;
-            }
-            break;
-        case ZBS_RX_WAIT_BLOCKDATA:
-            blockbuffer[blockPosition++] = 0xAA ^ lastchar;
-            if (blockPosition >= 4100) {
-                ESP_LOGI(TAG, "Blockdata fully received in %lu ms, %lu ms after the request", getMillis() - blockStartTime, getMillis() - nextBlockAttempt);
-                RXState = ZBS_RX_WAIT_HEADER;
-                // blockData header: size u16, checksum u16 (sum of the data bytes), then the data
-                struct blockData *bd = (struct blockData *) blockbuffer;
-                uint16_t sum = 0;
-                if (bd->size <= BLOCK_DATA_SIZE) {
-                    for (uint16_t c = 0; c < bd->size; c++) sum += bd->data[c];
-                }
-                blockReady = (bd->size <= BLOCK_DATA_SIZE) && (sum == bd->checksum);
-                if (!blockReady) ESP_LOGW(TAG, "block data from the S3 failed its checksum");
-            }
-            break;
-
-        case ZBS_RX_WAIT_SDA:
-            *serialbufferp = lastchar;
-            serialbufferp++;
-            bytesRemain--;
-            if (bytesRemain == 0) {
-                if (checkCRC(serialbuffer, sizeof(struct pendingData))) {
-                    struct pendingData *pd   = (struct pendingData *) serialbuffer;
-                    int32_t              slot = findSlotForMac(pd->targetMac);
-                    if (slot == -1) slot = findFreeSlot();
-                    if (slot != -1) {
-                        memcpy(&(pendingDataArr[slot]), serialbuffer, sizeof(struct pendingData));
-                        pr("ACK>");
-                    } else {
-                        pr("NOQ>");
-                    }
-                } else {
-                    pr("NOK>");
-                }
-
-                RXState = ZBS_RX_WAIT_HEADER;
-            }
-            break;
-        case ZBS_RX_WAIT_CANCEL:
-            *serialbufferp = lastchar;
-            serialbufferp++;
-            bytesRemain--;
-            if (bytesRemain == 0) {
-                if (checkCRC(serialbuffer, sizeof(struct pendingData))) {
-                    struct pendingData *pd = (struct pendingData *) serialbuffer;
-                    deleteAllPendingDataForMac((uint8_t *) &pd->targetMac);
-                    pr("ACK>");
-                } else {
-                    pr("NOK>");
-                }
-
-                RXState = ZBS_RX_WAIT_HEADER;
-            }
-            break;
-        case ZBS_RX_WAIT_SCP:
-            *serialbufferp = lastchar;
-            serialbufferp++;
-            bytesRemain--;
-            if (bytesRemain == 0) {
-                if (checkCRC(serialbuffer, sizeof(struct espSetChannelPower))) {
-                   struct espSetChannelPower *scp = (struct espSetChannelPower *) serialbuffer;
+// capabilities, for CAP> and HELLO_REPLY
+static uint16_t radioCaps() {
+    uint16_t caps = V2_CAP_FRAMING | V2_CAP_TAG_RETURN_DATA;
 #ifdef CONFIG_OEPL_SUBGIG_SUPPORT
-                    if(curSubGhzChannel != scp->subghzchannel
-                       && curSubGhzChannel != NO_SUBGHZ_CHANNEL)
-                    {
-                        curSubGhzChannel = scp->subghzchannel;
-                        ESP_LOGI(TAG,"Set SubGhz channel: %d",curSubGhzChannel);
-                        SubGig_radioSetChannel(scp->subghzchannel);
-                        if(scp->channel == 0) {
-                        // Not setting 802.15.4 channel
-                           goto SCPchannelFound;
-                        }
-                    }
+    if (curSubGhzChannel != NO_SUBGHZ_CHANNEL) caps |= V2_CAP_SUBGHZ;
 #endif
-                    for (uint8_t c = 0; c < sizeof(channelList); c++) {
-                        if (channelList[c] == scp->channel) goto SCPchannelFound;
-                    }
-                    goto SCPfailed;
-                SCPchannelFound:
-                    pr("ACK>");
-                    if (curChannel != scp->channel) {
-                        radioSetChannel(scp->channel);
-                        curChannel = scp->channel;
-                    }
-                    curPower   = scp->power;
-                    radioSetTxPower(scp->power);
-                    ESP_LOGI(TAG, "Set channel: %d power: %d", curChannel, curPower);
-                } else {
-                SCPfailed:
-                    pr("NOK>");
-                }
-                RXState = ZBS_RX_WAIT_HEADER;
-            }
-            break;
-    }
+    return caps;
 }
 
-// sending data to the ESP
-void espBlockRequest(const struct blockRequest *br, uint8_t *src) {
-    struct espBlockRequest *ebr = (struct espBlockRequest *) blockbuffer;
-    uartTx('R');
-    uartTx('Q');
-    uartTx('B');
-    uartTx('>');
-    memcpy(&(ebr->ver), &(br->ver), 8);
-    memcpy(&(ebr->src), src, 8);
-    ebr->blockId = br->blockId;
-    addCRC(ebr, sizeof(struct espBlockRequest));
-    for (uint8_t c = 0; c < sizeof(struct espBlockRequest); c++) {
-        uartTx(((uint8_t *) ebr)[c]);
-    }
+static uint8_t subGhzChannelForS3() {
+#ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+    if (curSubGhzChannel != NO_SUBGHZ_CHANNEL) return curSubGhzChannel;
+#endif
+    return V2_NO_SUBGHZ_CHANNEL;
 }
-void espNotifyAvailDataReq(const struct AvailDataReq *adr, const uint8_t *src) {
-    uartTx('A');
-    uartTx('D');
-    uartTx('R');
-    uartTx('>');
 
-    struct espAvailDataReq eadr = {0};
-    memcpy((void *) eadr.src, (void *) src, 8);
-    memcpy((void *) &eadr.adr, (void *) adr, sizeof(struct AvailDataReq));
-    addCRC(&eadr, sizeof(struct espAvailDataReq));
-    for (uint8_t c = 0; c < sizeof(struct espAvailDataReq); c++) {
-        uartTx(((uint8_t *) &eadr)[c]);
-    }
-}
-void espNotifyXferComplete(const uint8_t *src) {
-    struct espXferComplete exfc;
-    memcpy(&exfc.src, src, 8);
-    uartTx('X');
-    uartTx('F');
-    uartTx('C');
-    uartTx('>');
-    addCRC(&exfc, sizeof(exfc));
-    for (uint8_t c = 0; c < sizeof(exfc); c++) {
-        uartTx(((uint8_t *) &exfc)[c]);
-    }
-}
-void espNotifyTimeOut(const uint8_t *src) {
-    struct espXferComplete exfc;
-    memcpy(&exfc.src, src, 8);
-    uartTx('X');
-    uartTx('T');
-    uartTx('O');
-    uartTx('>');
-    addCRC(&exfc, sizeof(exfc));
-    for (uint8_t c = 0; c < sizeof(exfc); c++) {
-        uartTx(((uint8_t *) &exfc)[c]);
-    }
-}
 void espNotifyAPInfo() {
     pr("TYP>%02X", HW_TYPE);
     pr("VER>%04X", version);
@@ -491,11 +282,246 @@ void espNotifyAPInfo() {
     countSlots();
     pr("PEN>%02X", curPendingData);
     pr("NOP>%02X", curNoUpdate);
+    pr("CAP>%04X", radioCaps());
+}
+
+bool isSame(uint8_t *in1, char *in2, int len) {
+    bool flag = 1;
+    for (int i = 0; i < len; i++) {
+        if (in1[i] != in2[i]) flag = 0;
+    }
+    return flag;
+}
+
+// The ASCII protocol, before FRM1: only what the S3 needs to recognise this radio and switch it to
+// v2 (oepl-radio-v2.h). Older S3 firmware, which needs the full ASCII protocol, is not supported.
+// Returns true once the link switched to v2; the rest of the buffer then belongs to the old speed.
+static bool processAscii(uint8_t lastchar) {
+    static uint8_t cmdbuffer[4];
+    for (uint8_t c = 0; c < 3; c++) {
+        cmdbuffer[c] = cmdbuffer[c + 1];
+    }
+    cmdbuffer[3] = lastchar;
+
+    if (isSame(cmdbuffer, "NFO?", 4)) {
+        pr("ACK>");
+        espNotifyAPInfo();
+    }
+    if (isSame(cmdbuffer, "RDY?", 4)) {
+        pr("ACK>");
+    }
+    if (isSame(cmdbuffer, "FRM1", 4)) {
+        memset(cmdbuffer, 0, sizeof(cmdbuffer));
+        pr("ACK>");
+        uart_wait_tx_done(1, pdMS_TO_TICKS(20));
+        delay(V2_SWITCH_DELAY_MS);
+        uart_switch_speed(V2_BAUD);
+        uartFlushInput();
+        v2Start();
+        ESP_LOGW(TAG, "protocol v2");
+        return true;
+    }
+    return false;
+}
+
+// --- requests from the S3 (v2) ------------------------------------------------------------------
+
+static void nak(struct v2Reply *reply, uint8_t code) {
+    reply->type    = V2_NAK;
+    reply->len     = 1;
+    reply->data[0] = code;
+}
+
+static void fillStatus(struct v2Reply *reply) {
+    struct v2Status st = {0};
+    st.uptimeMs        = getMillis();
+    st.channel         = curChannel;
+    st.subghzChannel   = subGhzChannelForS3();
+    st.txPowerDbm      = (int8_t) curPower;
+    st.lastResetReason = (uint8_t) esp_reset_reason();
+    countSlots();
+    st.pending             = curPendingData;
+    st.pendingIdle         = curNoUpdate;
+    st.cacheUsedKb         = 0;
+    st.rxFrames            = radioRxFrames;
+    st.txFrames            = radioTxFrames;
+    st.lateRequestsSkipped = statusLateSkipped;
+    st.serialCrcErrors     = v2CrcErrors;
+    st.serialOverflows     = v2Overflows + (uint16_t) uartOverflows;
+    st.retransmits         = v2Retransmits;
+    st.eventsQueued        = v2EventsQueued();
+    statusLateSkipped      = 0;
+    reply->type            = V2_STATUS;
+    reply->len             = sizeof(st);
+    memcpy(reply->data, &st, sizeof(st));
+}
+
+static void fillHelloReply(struct v2Reply *reply) {
+    struct v2HelloReply hr = {0};
+    hr.protoMajor   = V2_PROTO_MAJOR;
+    hr.protoMinor   = V2_PROTO_MINOR;
+    hr.fwVersion    = version;
+    hr.hwType       = HW_TYPE;
+    memcpy(hr.mac, mSelfMac, 8);
+    hr.caps         = radioCaps();
+    hr.maxPayload   = V2_MAX_PAYLOAD;
+    hr.cacheKb      = 0;
+    hr.pendingSlots = MAX_PENDING_MACS;
+    reply->type     = V2_HELLO_REPLY;
+    reply->len      = sizeof(hr);
+    memcpy(reply->data, &hr, sizeof(hr));
+}
+
+static void setConfig(const struct v2SetConfig *sc, struct v2Reply *reply) {
+    if (sc->channel != V2_CFG_UNCHANGED_U8) {
+        bool valid = false;
+        for (uint8_t c = 0; c < sizeof(channelList); c++) {
+            if (channelList[c] == sc->channel) valid = true;
+        }
+        if (!valid) {
+            nak(reply, V2_NAK_INVALID_PARAM);
+            return;
+        }
+    }
+#ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+    if (sc->subghzChannel != V2_CFG_UNCHANGED_U8 && curSubGhzChannel != NO_SUBGHZ_CHANNEL && curSubGhzChannel != sc->subghzChannel) {
+        curSubGhzChannel = sc->subghzChannel;
+        SubGig_radioSetChannel(sc->subghzChannel);
+    }
+#endif
+    if (sc->channel != V2_CFG_UNCHANGED_U8 && curChannel != sc->channel) {
+        radioSetChannel(sc->channel);
+        curChannel = sc->channel;
+    }
+    if (sc->txPowerDbm != V2_CFG_UNCHANGED_POWER) {
+        curPower = (uint8_t) sc->txPowerDbm;
+        radioSetTxPower(curPower);
+    }
+    ESP_LOGI(TAG, "Set channel: %d power: %d", curChannel, curPower);
+}
+
+static void setPending(const struct v2SetPending *sp, struct v2Reply *reply) {
+    if (sp->ttlMin == 0) {
+        nak(reply, V2_NAK_INVALID_PARAM);
+        return;
+    }
+    int32_t slot = findSlotForMac(sp->mac);
+    if (slot == -1) slot = findFreeSlot();
+    if (slot == -1) {
+        nak(reply, V2_NAK_NO_SLOT);
+        return;
+    }
+    struct pendingData *pd             = &pendingDataArr[slot];
+    memset(pd, 0, sizeof(struct pendingData));
+    pd->availdatainfo.dataVer          = sp->dataVer;
+    pd->availdatainfo.dataSize         = sp->dataSize;
+    pd->availdatainfo.dataType         = sp->dataType;
+    pd->availdatainfo.dataTypeArgument = sp->dataTypeArg;
+    pd->availdatainfo.nextCheckIn      = sp->nextCheckin;
+    pd->attemptsLeft                   = sp->ttlMin;
+    memcpy(pd->targetMac, sp->mac, 8);
+}
+
+// Fills the block buffer with what the tag asked for; the burst starts once all of it is there
+static void dataChunk(const struct v2DataChunk *dc, size_t n, struct v2Reply *reply) {
+    const uint32_t blockStart = (uint32_t) requestedData.blockId * V2_BLOCK_SIZE;
+    const uint64_t ver        = requestedData.ver;
+    if (dc->dataVer != ver || dc->offset < blockStart || dc->offset - blockStart >= V2_BLOCK_SIZE ||
+        (dc->offset - blockStart) % V2_CHUNK_MAX || dc->offset - blockStart + n > V2_BLOCK_SIZE || dc->totalSize <= blockStart) {
+        // not the block the radio is waiting for; without a cache there is nowhere to keep it
+        nak(reply, V2_NAK_NO_CACHE_SPACE);
+        return;
+    }
+    if (blockReady) return;  // a retransmission after the block was complete
+
+    struct blockData *bd = (struct blockData *) blockbuffer;
+    memcpy(bd->data + (dc->offset - blockStart), dc->bytes, n);
+    chunksReceived |= 1UL << ((dc->offset - blockStart) / V2_CHUNK_MAX);
+    blockLen = dc->totalSize - blockStart;
+    if (blockLen > V2_BLOCK_SIZE) blockLen = V2_BLOCK_SIZE;
+
+    const uint32_t needed = (1UL << ((blockLen + V2_CHUNK_MAX - 1) / V2_CHUNK_MAX)) - 1;
+    if ((chunksReceived & needed) != needed) return;
+
+    // complete: the blockData header the tag checks, and 0xFF after the data, as the old protocol had
+    uint16_t sum = 0;
+    for (uint16_t c = 0; c < blockLen; c++) sum += bd->data[c];
+    bd->size     = blockLen;
+    bd->checksum = sum;
+    memset(bd->data + blockLen, 0xFF, BLOCK_DATA_SIZE - blockLen);
+    blockReady = true;
+    ESP_LOGI(TAG, "block data complete, %lu ms after the request", getMillis() - nextBlockAttempt);
+}
+
+void v2HandleRequest(uint8_t type, const uint8_t *payload, size_t len, struct v2Reply *reply) {
+    switch (type) {
+        case V2_HELLO:
+            if (len < sizeof(struct v2Hello)) {
+                nak(reply, V2_NAK_BAD_LENGTH);
+            } else if (((const struct v2Hello *) payload)->protoMajor != V2_PROTO_MAJOR) {
+                nak(reply, V2_NAK_INVALID_PARAM);
+            } else {
+                fillHelloReply(reply);
+            }
+            break;
+        case V2_HEARTBEAT:
+        case V2_GET_STATS:
+            fillStatus(reply);
+            break;
+        case V2_SET_CONFIG:
+            if (len < sizeof(struct v2SetConfig)) nak(reply, V2_NAK_BAD_LENGTH);
+            else setConfig((const struct v2SetConfig *) payload, reply);
+            break;
+        case V2_SET_PENDING:
+            if (len < sizeof(struct v2SetPending)) nak(reply, V2_NAK_BAD_LENGTH);
+            else setPending((const struct v2SetPending *) payload, reply);
+            break;
+        case V2_CANCEL_PENDING:
+            if (len < sizeof(struct v2CancelPending)) nak(reply, V2_NAK_BAD_LENGTH);
+            else deleteAllPendingDataForMac(((const struct v2CancelPending *) payload)->mac);
+            break;
+        case V2_DATA_CHUNK:
+            if (len <= sizeof(struct v2DataChunk) || len > sizeof(struct v2DataChunk) + V2_CHUNK_MAX) nak(reply, V2_NAK_BAD_LENGTH);
+            else dataChunk((const struct v2DataChunk *) payload, len - sizeof(struct v2DataChunk), reply);
+            break;
+        case V2_DATA_DROP:
+            if (len < sizeof(struct v2DataDrop)) nak(reply, V2_NAK_BAD_LENGTH);
+            break;  // nothing cached
+        default:
+            nak(reply, V2_NAK_UNKNOWN_TYPE);
+            break;
+    }
+}
+
+// --- events to the S3 ---------------------------------------------------------------------------
+
+// Asks the S3 for the block the tag requested; requestedData holds the request
+static void requestBlockData(const uint8_t *src, uint16_t pleaseWaitMs) {
+    struct v2DataNeeded dn;
+    memcpy(dn.mac, src, 8);
+    dn.dataVer = requestedData.ver;
+    dn.offset  = (uint32_t) requestedData.blockId * V2_BLOCK_SIZE;
+    dn.length  = V2_BLOCK_SIZE;
+    int32_t slot = findSlotForMac(src);
+    if (slot != -1) {
+        const uint32_t size = pendingDataArr[slot].availdatainfo.dataSize;
+        if (size > dn.offset && size - dn.offset < V2_BLOCK_SIZE) dn.length = size - dn.offset;
+    }
+    dn.pleaseWaitMs = pleaseWaitMs;
+    chunksReceived  = 0;
+    blockLen        = 0;
+    v2QueueEvent(V2_DATA_NEEDED, &dn, sizeof(dn), true);
+}
+
+static void notifyXferEnd(uint8_t type, const uint8_t *src, uint64_t ver) {
+    struct v2XferEnd xe;
+    memcpy(xe.mac, src, 8);
+    xe.dataVer = ver;
+    v2QueueEvent(type, &xe, sizeof(xe), false);
 }
 
 void espNotifyTagReturnData(uint8_t *src, uint8_t len) {
-    struct tagReturnData *trd = (struct tagReturnData *)(radiorxbuffer + sizeof(struct MacFrameBcast) + 1); // oh how I'd love to pass this as an argument, but sdcc won't let me
-    struct espTagReturnData *etrd = (struct espTagReturnData *)radiotxbuffer;
+    struct tagReturnData *trd = (struct tagReturnData *)(radiorxbuffer + sizeof(struct MacFrameBcast) + 1);
 
     if (memcmp((void *) & trd->dataVer, lastTagReturn, 8) == 0) {
         return;
@@ -503,18 +529,15 @@ void espNotifyTagReturnData(uint8_t *src, uint8_t len) {
         memcpy(lastTagReturn, &trd->dataVer, 8);
     }
 
-    memcpy(etrd->src, src, 8);
-    etrd->len = len;
-    memcpy(&etrd->returnData, trd, len);
-    addCRC(etrd, len + 10);
-
-    uartTx('T');
-    uartTx('R');
-    uartTx('D');
-    uartTx('>');
-    for (uint8_t c = 0; c < len + 10; c++) {
-        uartTx(((uint8_t *)etrd)[c]);
-    }
+    if (len > sizeof(struct tagReturnData)) len = sizeof(struct tagReturnData);
+    uint8_t buf[sizeof(struct v2TagReturnData) + sizeof(struct tagReturnData)];
+    struct v2TagReturnData *e = (struct v2TagReturnData *) buf;
+    memcpy(e->mac, src, 8);
+    e->timestampUs = (uint32_t) lastRxSfdUs;
+    e->rssi        = lastRxRssi;
+    e->lqi         = lastRxLqi;
+    memcpy(e->data, trd, len);
+    v2QueueEvent(V2_TAG_RETURN_DATA, buf, sizeof(struct v2TagReturnData) + len, false);
 }
 
 // process data from tag
@@ -522,6 +545,9 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     struct MacFrameNormal *rxHeader = (struct MacFrameNormal *) buffer;
     struct blockRequest   *blockReq = (struct blockRequest *) (buffer + sizeof(struct MacFrameNormal) + 1);
     if (!checkCRC(blockReq, sizeof(struct blockRequest))) return;
+
+    // the tag asks again: it has given up on the burst that is still being sent
+    if (burstActive && memcmp(rxHeader->src, dstMac, 8) == 0) burstActive = false;
 
     // check if we're already talking to this mac
     if (memcmp(rxHeader->src, lastBlockMac, 8) == 0) {
@@ -574,19 +600,11 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     radiotxbuffer[0]                                 = sizeof(struct MacFrameNormal) + 1 + sizeof(struct blockRequestAck) + RAW_PKT_PADDING;
     radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_BLOCK_REQUEST_ACK;
 
-    if (blockStartTimer == 0) {
-        if (requestDataDownload) {
-            if (highspeedSerial == true) {
-                blockRequestAck->pleaseWaitMs = 140;
-            } else {
-                blockRequestAck->pleaseWaitMs = 550;
-            }
-        } else {
-            // block is already in buffer
-            blockRequestAck->pleaseWaitMs = 30;
-        }
+    if (blockStartTimer == 0 && requestDataDownload) {
+        blockRequestAck->pleaseWaitMs = PLEASE_WAIT_DOWNLOAD_MS;
     } else {
-        blockRequestAck->pleaseWaitMs = 30;
+        // block is already in buffer, or on its way for the request before this one
+        blockRequestAck->pleaseWaitMs = PLEASE_WAIT_READY_MS;
     }
     blockStartTimer = getMillis() + blockRequestAck->pleaseWaitMs + BURST_MARGIN_MS;
 
@@ -609,14 +627,13 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     dstPan = rxHeader->pan;
 
     if (requestDataDownload) {
-        blockPosition = 0;
         blockReady = false;
-        espBlockRequest(&requestedData, rxHeader->src);
+        requestBlockData(rxHeader->src, blockRequestAck->pleaseWaitMs);
         nextBlockAttempt = getMillis();
     }
 }
 
-void processAvailDataReq(uint8_t *buffer) {
+void processAvailDataReq(uint8_t *buffer, uint8_t kind) {
     struct MacFrameBcast *rxHeader     = (struct MacFrameBcast *) buffer;
     struct AvailDataReq  *availDataReq = (struct AvailDataReq *) (buffer + sizeof(struct MacFrameBcast) + 1);
 
@@ -655,15 +672,28 @@ void processAvailDataReq(uint8_t *buffer) {
     addCRC(availDataInfo, sizeof(struct AvailDataInfo));
     radioTx(radiotxbuffer);
     memset(lastAckMac, 0, 8);  // reset lastAckMac, so we can record if we've received exactly one ack packet
-    espNotifyAvailDataReq(availDataReq, rxHeader->src);
+
+    struct v2Checkin ci = {0};
+    memcpy(ci.mac, rxHeader->src, 8);
+    ci.timestampUs  = (uint32_t) lastRxSfdUs;
+    ci.rssi         = lastRxRssi;
+    ci.lqi          = lastRxLqi;
+    ci.radio        = (rxHeader->srcPan == PROTO_PAN_ID_SUBGHZ) ? V2_RADIO_SUBGHZ : V2_RADIO_24GHZ;
+    ci.channel      = (ci.radio == V2_RADIO_SUBGHZ) ? subGhzChannelForS3() : curChannel;
+    ci.pan          = rxHeader->dstPan;
+    ci.kind         = kind;
+    ci.answeredVer  = availDataInfo->dataVer;
+    ci.answeredType = availDataInfo->dataType;
+    memcpy(ci.adr, availDataReq, sizeof(struct AvailDataReq));
+    v2QueueEvent(V2_CHECKIN, &ci, sizeof(ci), false);
 }
 void processXferComplete(uint8_t *buffer) {
     struct MacFrameNormal *rxHeader = (struct MacFrameNormal *) buffer;
     sendXferCompleteAck(rxHeader->src, rxHeader->pan);
     if (memcmp(lastAckMac, rxHeader->src, 8) != 0) {
         memcpy((void *) lastAckMac, (void *) rxHeader->src, 8);
-        espNotifyXferComplete(rxHeader->src);
         int32_t slot = findSlotForMac(rxHeader->src);
+        notifyXferEnd(V2_XFER_COMPLETE, rxHeader->src, slot != -1 ? pendingDataArr[slot].availdatainfo.dataVer : 0);
         if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
     }
 }
@@ -709,7 +739,7 @@ void sendPart(uint8_t partNo) {
     frameHeader->pan                 = dstPan;
     radioTx(radiotxbuffer);
 }
-void sendBlockData() {
+static void startBurst(int32_t lateMs) {
     if (getBlockDataLength() == 0) {
         ESP_LOGW(TAG, "Invalid block request received, 0 parts");
         requestedData.requestedParts[0] |= 0x01;
@@ -725,15 +755,33 @@ void sendBlockData() {
         // Don't repeat for subgig, it requests what it can handle with its limited RAM
         frames = requested;
     }
-    uint8_t partNo = 0;
-    while (partNo < frames) {
-        for (uint8_t c = 0; (c < BLOCK_MAX_PARTS) && (partNo < frames); c++) {
+    burstLen = 0;
+    while (burstLen < frames) {
+        for (uint8_t c = 0; (c < BLOCK_MAX_PARTS) && (burstLen < frames); c++) {
             if (requestedData.requestedParts[c / 8] & (1 << (c % 8))) {
-                sendPart(c);
-                partNo++;
+                burstParts[burstLen++] = c;
             }
         }
     }
+    burstPos    = 0;
+    burstLateMs = (int16_t) (lateMs + BURST_MARGIN_MS);  // against the promised pleaseWaitMs
+    burstActive = true;
+}
+
+// Sends the next part of the burst once the radio is free
+static void burstStep() {
+    if (!burstActive || radioTxBusy()) return;
+    sendPart(burstParts[burstPos++]);
+    if (burstPos < burstLen) return;
+    burstActive = false;
+    struct v2BlockServed bs;
+    memcpy(bs.mac, dstMac, 8);
+    bs.dataVer        = requestedData.ver;
+    bs.blockId        = requestedData.blockId;
+    bs.partsRequested = getBlockDataLength();
+    bs.framesSent     = burstLen;
+    bs.lateMs         = burstLateMs;
+    v2QueueEvent(V2_BLOCK_SERVED, &bs, sizeof(bs), false);
 }
 void sendXferCompleteAck(uint8_t *dst, uint16_t pan) {
     struct MacFrameNormal *frameHeader = (struct MacFrameNormal *) (radiotxbuffer + 1);
@@ -843,6 +891,7 @@ void app_main(void) {
 #endif
                 if (tooLateToAnswer(PktType, lastRxAgeUs)) {
                     lateRequestsSkipped++;
+                    statusLateSkipped++;
                     PktType = 0;  // falls through to default below without a reply
                 }
                 // received a packet, lets see what it is
@@ -852,10 +901,10 @@ void app_main(void) {
                             // old version of the AvailDataReq struct, set all the new fields to zero, so it will pass the CRC
                             memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast) + sizeof(struct oldAvailDataReq), 0,
                                    sizeof(struct AvailDataReq) - sizeof(struct oldAvailDataReq) + 2);
-                            processAvailDataReq(radiorxbuffer);
+                            processAvailDataReq(radiorxbuffer, V2_CHECKIN_FULL);
                         } else if (ret == 40) {
                             // new version of the AvailDataReq struct
-                            processAvailDataReq(radiorxbuffer);
+                            processAvailDataReq(radiorxbuffer, V2_CHECKIN_FULL);
                         }
                         break;
                     case PKT_BLOCK_REQUEST:
@@ -876,7 +925,7 @@ void app_main(void) {
                         // sent
                         if (ret == 18) {
                             memset(radiorxbuffer + 1 + sizeof(struct MacFrameBcast), 0, sizeof(struct AvailDataReq) + 2);
-                            processAvailDataReq(radiorxbuffer);
+                            processAvailDataReq(radiorxbuffer, V2_CHECKIN_SHORT);
                         }
                         break;
                     case PKT_TAG_RETURN_DATA:
@@ -890,14 +939,29 @@ void app_main(void) {
                 }
             }
 
-            uint8_t curr_char;
-            while (getRxCharSecond(&curr_char)) processSerial(curr_char);
+            uint8_t serialBuf[256];
+            int     serialLen;
+            while ((serialLen = uartRead(serialBuf, sizeof(serialBuf))) > 0) {
+                if (v2Active()) {
+                    v2RxBytes(serialBuf, serialLen);
+                } else {
+                    for (int i = 0; i < serialLen; i++) {
+                        if (processAscii(serialBuf[i])) break;
+                    }
+                }
+            }
+            if (v2Active() && v2MsSinceLastFrame() > V2_LINK_LOST_MS) {
+                ESP_LOGW(TAG, "no frames from the S3, back to the ASCII protocol");
+                v2Stop();
+                uart_switch_speed(115200);
+                uartFlushInput();
+            }
 
             if (blockStartTimer) {
                 int32_t late = (int32_t)(getMillis() - blockStartTimer);
                 if (late >= 0) {
                     if (blockReady) {
-                        sendBlockData();
+                        startBurst(late);
                         blockStartTimer = 0;
                     } else if (late > BLOCK_DATA_SLACK_MS) {
                         ESP_LOGW(TAG, "block data not complete in time, no burst");
@@ -905,12 +969,13 @@ void app_main(void) {
                     }
                 }
             }
+            burstStep();
+            v2Poll();
 
             if (ret <= 1) {
-                // Nothing from the radio this round: sleep until a radio frame or serial data
-                // arrives (both notify this task) or the block burst is due, at most 100 ms (sub-GHz
-                // reception is still polled). Waiting on the radio queue alone delayed serial data
-                // by up to 100 ms, and with it every block burst.
+                // Nothing from the radio this round: sleep until a radio frame, serial data or the
+                // end of a transmission arrives (all notify this task), or until a timer is due, at
+                // most 100 ms (sub-GHz reception is still polled).
                 uint32_t waitMs = 100;
                 if (blockStartTimer) {
                     int32_t left = (int32_t)(blockStartTimer - getMillis()) + 1;
@@ -918,6 +983,9 @@ void app_main(void) {
                     waitMs = left > 0 ? (uint32_t)left : 0;
                     if (waitMs > 100) waitMs = 100;
                 }
+                const uint32_t v2Ms = v2MsUntilWork();
+                if (v2Ms < waitMs) waitMs = v2Ms;
+                if (burstActive) waitMs = radioTxBusy() ? 5 : 0;  // the TX-done interrupt wakes us
                 if (waitMs) ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(waitMs));
             }
         }
@@ -930,7 +998,7 @@ void app_main(void) {
         for (uint8_t cCount = 0; cCount < MAX_PENDING_MACS; cCount++) {
             if (pendingDataArr[cCount].attemptsLeft == 1) {
                 if (pendingDataArr[cCount].availdatainfo.dataType != DATATYPE_NOUPDATE) {
-                    espNotifyTimeOut(pendingDataArr[cCount].targetMac);
+                    notifyXferEnd(V2_XFER_TIMEOUT, pendingDataArr[cCount].targetMac, pendingDataArr[cCount].availdatainfo.dataVer);
                 }
                 pendingDataArr[cCount].attemptsLeft = 0;
             } else if (pendingDataArr[cCount].attemptsLeft > 1) {

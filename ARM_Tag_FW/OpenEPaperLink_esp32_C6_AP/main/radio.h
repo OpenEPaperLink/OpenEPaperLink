@@ -8,11 +8,17 @@
 extern uint8_t mSelfMac[8];
 extern TaskHandle_t radioWakeTask;
 extern int64_t lastRxAgeUs;
+extern int64_t lastRxSfdUs;
+extern int8_t lastRxRssi;
+extern uint8_t lastRxLqi;
+extern uint32_t radioRxFrames;
+extern uint32_t radioTxFrames;
 
 void radio_init(uint8_t ch);
 bool radioTx(uint8_t *packet);
 void radioSetChannel(uint8_t ch);
 void radioSetTxPower(uint8_t power);
+bool radioTxBusy(void);
 int8_t commsRxUnencrypted(uint8_t *data);
 
 #ifdef SUBGIG_SUPPORT

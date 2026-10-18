@@ -21,6 +21,7 @@ struct APInfoS {
     uint8_t power;
     uint8_t pendingBuffer;
     uint8_t nop;
+    uint16_t caps = 0;  // protocol v2 capabilities (CAP> in the NFO? answer, HELLO_REPLY)
 #ifdef HAS_SUBGHZ
     bool hasSubGhz = false;
     uint8_t SubGhzChannel;

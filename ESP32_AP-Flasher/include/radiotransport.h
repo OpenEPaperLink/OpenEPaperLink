@@ -1,9 +1,10 @@
 #pragma once
 
 // Interface between the AP logic (serialap.cpp, newproto.cpp) and the serial protocol to the radio
-// co-processor. LegacyTransport (legacytransport.cpp) is the protocol all radios speak today; a framed
-// protocol (docs/design/radio-protocol-v2.md) is to be added as a second implementation, chosen when
-// the radio comes online. The AP-state checks (no radio, offline, flashing) stay in serialap.cpp.
+// co-processor. LegacyTransport (legacytransport.cpp) is the ASCII protocol of the TLSR and ZBS radios
+// and older C6/H2 firmware; V2Transport (v2transport.cpp) the framed protocol of ../../oepl-radio-v2.h,
+// chosen by bringAPOnline() when the radio announces it. The AP-state checks (no radio, offline,
+// flashing) stay in serialap.cpp.
 
 #include <Arduino.h>
 
@@ -29,8 +30,9 @@ class RadioTransport {
     virtual ~RadioTransport() {}
     virtual const char* name() = 0;
 
-    // Commands to the radio; true (or the block checksum) when the radio confirmed them
-    virtual uint16_t sendBlock(const void* data, uint16_t len) = 0;
+    // Commands to the radio; true (or the block checksum) when the radio confirmed them. sendBlock gets
+    // one block of a file: its data, where it starts in the file, and the file's version and size.
+    virtual uint16_t sendBlock(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) = 0;
     virtual bool sendDataAvail(struct pendingData* pending) = 0;
     virtual bool cancelPending(struct pendingData* pending) = 0;
     virtual bool setChannelPower(struct espSetChannelPower* scp) = 0;
@@ -39,6 +41,14 @@ class RadioTransport {
     virtual bool ping() = 0;            // is the radio there?
     virtual bool requestInfo() = 0;     // fills apInfo (type, version, MAC, channel, ...)
     virtual bool enableFastLink() = 0;  // switch the link to its fast mode (2 Mbaud)
+    virtual bool enableFraming() { return false; }  // ask the radio to switch to protocol v2 (FRM1)
+
+    // Link supervision by APTask: with heartbeat() the radio is pinged every pingIntervalMs(),
+    // otherwise only after that long without hearing from it. After maxMissedPings() failures in a
+    // row the link is brought up again.
+    virtual bool heartbeat() { return false; }
+    virtual uint32_t pingIntervalMs() { return 30 * 1000; }
+    virtual uint8_t maxMissedPings() { return 6; }
 
     // Receiving, called by rxSerialTask(): onIdle() before reading, onByte() for every byte
     virtual void onIdle() = 0;
@@ -46,3 +56,6 @@ class RadioTransport {
 };
 
 extern RadioTransport* radioTransport;
+RadioTransport* legacyRadioTransport();
+RadioTransport* v2RadioTransport();
+bool v2StartLink();  // after FRM1 and the switch to V2_BAUD: HELLO, then radioTransport is v2

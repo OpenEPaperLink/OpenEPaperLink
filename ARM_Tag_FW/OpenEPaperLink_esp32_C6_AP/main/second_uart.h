@@ -1,12 +1,17 @@
 #pragma once
 
 #include <inttypes.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 void init_second_uart();
 void uart_switch_speed(int baudrate);
 
 void uartTx(uint8_t data);
-bool getRxCharSecond(uint8_t *newChar);
+void uartWrite(const uint8_t *data, size_t len);
+int uartRead(uint8_t *buf, int max);  // what the driver has buffered, without waiting
+void uartFlushInput();
+extern volatile uint32_t uartOverflows;
 
 void uart_printf(const char *format, ...);
 

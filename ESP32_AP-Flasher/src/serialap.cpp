@@ -18,6 +18,7 @@
 #include "wifimanager.h"
 #include "radiotransport.h"
 #include "radioselftest.h"
+#include "../../oepl-radio-v2.h"
 
 #define LOG(format, ...) printf(format, ##__VA_ARGS__)
 
@@ -132,10 +133,10 @@ void APTagReset() {
 
 // The checks on the AP state live here; what goes over the wire is the transport's job
 // (radiotransport.h, legacytransport.cpp).
-uint16_t sendBlock(const void* data, const uint16_t len) {
+uint16_t sendBlock(const void* data, const uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) {
     if (apInfo.state == AP_STATE_NORADIO) return true;
     if (!apInfo.isOnline) return false;
-    return radioTransport->sendBlock(data, len);
+    return radioTransport->sendBlock(data, len, ver, offset, totalSize);
 }
 
 // A BLE display never hears the radio. Data the radio holds for one times out there, and that
@@ -300,7 +301,8 @@ bool startApReader() {
     apReaderStop = false;
     // the handle is set before the task can run, so it never sees itself unregistered.
     // 1750 bytes left 616 free in normal use, too little for one ESP_LOG (vprintf) from the UART driver.
-    if (xTaskCreate(rxSerialTask, "rxSerialTask", 3072, NULL, 11, (TaskHandle_t*)&apReaderTask) != pdPASS) {
+    // 4096 since protocol v2: frame decoding and the ACKs it sends run in this task too
+    if (xTaskCreate(rxSerialTask, "rxSerialTask", 4096, NULL, 11, (TaskHandle_t*)&apReaderTask) != pdPASS) {
         apReaderTask = nullptr;
         AP_SERIAL_PORT.end();
         return false;
@@ -387,6 +389,7 @@ void ShowAPInfo() {
     Serial.printf("| Power|               %02X |\r\n", apInfo.power);
     Serial.printf("| MAC  | %02X%02X%02X%02X%02X%02X%02X%02X |\r\n", apInfo.mac[7], apInfo.mac[6], apInfo.mac[5], apInfo.mac[4], apInfo.mac[3], apInfo.mac[2], apInfo.mac[1], apInfo.mac[0]);
     Serial.printf("| Ver  |           0x%04X |\r\n", apInfo.version);
+    Serial.printf("| Link | %16s |\r\n", radioTransport->name());
 }
 
 void notifySegmentedFlash() {
@@ -427,6 +430,17 @@ void segmentedShowIp() {
     vTaskDelay(2000 / portTICK_PERIOD_MS);
 }
 
+// FRM1, then both sides change to V2_BAUD and the S3 sends HELLO (oepl-radio-v2.h)
+static bool startFramedLink() {
+    if (!radioTransport->enableFraming()) return false;
+    AP_SERIAL_PORT.flush();
+    vTaskDelay((V2_SWITCH_DELAY_MS + 10) / portTICK_PERIOD_MS);
+    AP_SERIAL_PORT.updateBaudRate(V2_BAUD);
+    if (!v2StartLink()) return false;
+    Serial.printf("protocol v2 at %d baud\r\n", V2_BAUD);
+    return true;
+}
+
 bool bringAPOnline(uint8_t newState) {
 #ifdef BLE_ONLY
     apInfo.state = AP_STATE_NORADIO;
@@ -439,39 +453,53 @@ bool bringAPOnline(uint8_t newState) {
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
     setAPstate(false, AP_STATE_OFFLINE);
-    // try without rebooting
-    AP_SERIAL_PORT.updateBaudRate(115200);
-    uint32_t bootTimeout = millis();
-    bool APrdy = sendPing();
-    if (!APrdy) {
-        if (apInfo.state == AP_STATE_FLASHING) return false;
-        APTagReset();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        bootTimeout = millis();
-        APrdy = false;
-        while ((!APrdy) && (millis() - bootTimeout < 10 * 1000) && (apInfo.state != AP_STATE_FLASHING)) {
-            APrdy = sendPing();
-            vTaskDelay(300 / portTICK_PERIOD_MS);
+    // A radio that announces protocol v2 but does not start it is reset and tried again
+    for (uint8_t round = 0; round < 3; round++) {
+        // Every radio starts with the old protocol at 115200 baud
+        radioTransport = legacyRadioTransport();
+        AP_SERIAL_PORT.updateBaudRate(115200);
+        // try without rebooting, the first time
+        uint32_t bootTimeout = millis();
+        bool APrdy = (round == 0) && sendPing();
+        if (!APrdy) {
+            if (apInfo.state == AP_STATE_FLASHING) return false;
+            APTagReset();
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            bootTimeout = millis();
+            APrdy = false;
+            while ((!APrdy) && (millis() - bootTimeout < 10 * 1000) && (apInfo.state != AP_STATE_FLASHING)) {
+                APrdy = sendPing();
+                vTaskDelay(300 / portTICK_PERIOD_MS);
+            }
         }
-    }
-    if (!APrdy) {
-        return false;
-    } else {
+        if (!APrdy) return false;
+
         setAPstate(false, AP_STATE_COMING_ONLINE);
-        // Info first: sendChannelPower() needs the radio's type and version for the payload size.
-        // The radio sends TYP>/VER> after its ACK>, so give the parser a moment.
+        // Info first: sendChannelPower() needs the radio's type and version for the payload size,
+        // and CAP> tells whether it speaks protocol v2. The radio sends its tokens after its ACK>, so
+        // give the parser a moment.
+        apInfo.caps = 0;
         if (!sendGetInfo()) {
             setAPstate(false, AP_STATE_OFFLINE);
             return false;
         }
         vTaskDelay(200 / portTICK_PERIOD_MS);
-        sendChannelPower(&curChannel);
-        if (apInfo.type == ESP32_C6) {
-            if (sendHighspeed()) {
-                AP_SERIAL_PORT.flush();
-                vTaskDelay(10 / portTICK_PERIOD_MS);
-                AP_SERIAL_PORT.updateBaudRate(2000000);
-                Serial.println("switched to 2000000 baud");
+        if (apInfo.caps & V2_CAP_FRAMING) {
+            if (!startFramedLink()) {
+                Serial.println("protocol v2 did not start, resetting the radio");
+                setAPstate(false, AP_STATE_OFFLINE);
+                continue;
+            }
+            sendChannelPower(&curChannel);
+        } else {
+            sendChannelPower(&curChannel);
+            if (apInfo.type == ESP32_C6) {
+                if (sendHighspeed()) {
+                    AP_SERIAL_PORT.flush();
+                    vTaskDelay(10 / portTICK_PERIOD_MS);
+                    AP_SERIAL_PORT.updateBaudRate(2000000);
+                    Serial.println("switched to 2000000 baud");
+                }
             }
         }
 
@@ -479,6 +507,8 @@ bool bringAPOnline(uint8_t newState) {
         setAPstate(newState == AP_STATE_ONLINE ? true : false, newState);
         return true;
     }
+    radioTransport = legacyRadioTransport();
+    return false;
 }
 
 bool checkRadio() {
@@ -681,6 +711,7 @@ void APTask(void* parameter) {
     }
 
     uint8_t attempts = 0;
+    uint32_t lastPingMs = 0;
     while (1) {
         if (modemResetRequested) {
             modemResetRequested = false;
@@ -702,7 +733,11 @@ void APTask(void* parameter) {
                 logLine(String("IEEE802.15.4 modem reset ") + (ok ? "ok" : "failed"));
             }
         }
-        if (((apInfo.state == AP_STATE_ONLINE) || (apInfo.state == AP_STATE_FAILED)) && (millis() - lastAPActivity > AP_ACTIVITY_MAX_INTERVAL)) {
+        // Protocol v2 sends a heartbeat every second; the old protocol pings after 30 s of silence
+        const uint32_t pingInterval = radioTransport->pingIntervalMs();
+        const bool pingDue = radioTransport->heartbeat() ? (millis() - lastPingMs >= pingInterval) : (millis() - lastAPActivity > pingInterval);
+        if (((apInfo.state == AP_STATE_ONLINE) || (apInfo.state == AP_STATE_FAILED)) && pingDue) {
+            lastPingMs = millis();
             bool reply = sendPing();
             if (!reply) {
                 attempts++;
@@ -711,7 +746,7 @@ void APTask(void* parameter) {
                     setAPstate(true, AP_STATE_ONLINE);
                 attempts = 0;
             }
-            if (attempts > 5 && apInfo.state != AP_STATE_FLASHING) {
+            if (attempts >= radioTransport->maxMissedPings() && apInfo.state != AP_STATE_FLASHING) {
                 setAPstate(false, AP_STATE_WAIT_RESET);
                 if (!bringAPOnline()) {
                     // tried to reset the AP, but we failed... Maybe the AP-Tag died?
@@ -727,6 +762,6 @@ void APTask(void* parameter) {
                 }
             }
         }
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }

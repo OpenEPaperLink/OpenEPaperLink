@@ -38,6 +38,7 @@ static volatile uint8_t cmdReplyValue = CMD_REPLY_WAIT;
 #define ZBS_RX_WAIT_TYPE 17
 #define ZBS_RX_WAIT_TAG_RETURN_DATA 18
 #define ZBS_RX_WAIT_SUBCHANNEL 19
+#define ZBS_RX_WAIT_CAP 20
 
 static bool txStart() {
     while (1) {
@@ -88,13 +89,14 @@ static bool waitCmdReply(uint32_t timeoutMs = 200) {
 class LegacyTransport : public RadioTransport {
    public:
     const char* name() override { return "legacy"; }
-    uint16_t sendBlock(const void* data, uint16_t len) override;
+    uint16_t sendBlock(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) override;
     bool sendDataAvail(struct pendingData* pending) override;
     bool cancelPending(struct pendingData* pending) override;
     bool setChannelPower(struct espSetChannelPower* scp) override;
     bool ping() override;
     bool requestInfo() override;
     bool enableFastLink() override;
+    bool enableFraming() override;
     void onIdle() override;
     void onByte(uint8_t c) override;
 
@@ -115,9 +117,10 @@ class LegacyTransport : public RadioTransport {
 
 static LegacyTransport legacyTransport;
 RadioTransport* radioTransport = &legacyTransport;
+RadioTransport* legacyRadioTransport() { return &legacyTransport; }
 
 // Send data to the AP
-uint16_t LegacyTransport::sendBlock(const void* data, uint16_t len) {
+uint16_t LegacyTransport::sendBlock(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) {
     time_t timeCanary = millis();
     if (!txStart()) return 0;
     // don't retry now, as it collides with communication from the tag
@@ -298,6 +301,21 @@ bool LegacyTransport::enableFastLink() {
     return false;
 }
 
+// Protocol v2 radios (CAP> in the NFO? answer) switch to framing on FRM1, after their ACK>
+bool LegacyTransport::enableFraming() {
+    if (!txStart()) return false;
+    for (uint8_t attempt = 0; attempt < 3; attempt++) {
+        cmdReplyValue = CMD_REPLY_WAIT;
+        AP_SERIAL_PORT.print("FRM1");
+        if (waitCmdReply()) {
+            txEnd();
+            return true;
+        }
+    }
+    txEnd();
+    return false;
+}
+
 void LegacyTransport::onIdle() {
     // A message whose bytes stopped arriving (lost bytes) must not keep the parser in a payload
     // state, where it would swallow the next messages as payload.
@@ -363,6 +381,11 @@ void LegacyTransport::onByte(uint8_t c) {
             }
             if ((strncmp(cmdbuffer, "NOP>", 4) == 0)) {
                 RXState = ZBS_RX_WAIT_NOP;
+                charindex = 0;
+                memset(cmdbuffer, 0x00, 4);
+            }
+            if ((strncmp(cmdbuffer, "CAP>", 4) == 0)) {
+                RXState = ZBS_RX_WAIT_CAP;
                 charindex = 0;
                 memset(cmdbuffer, 0x00, 4);
             }
@@ -474,6 +497,16 @@ void LegacyTransport::onByte(uint8_t c) {
                 // cmdbuffer holds exactly 4 characters and no terminator
                 const char ver[5] = {cmdbuffer[0], cmdbuffer[1], cmdbuffer[2], cmdbuffer[3], 0};
                 apInfo.version = (uint16_t)strtoul(ver, NULL, 16);
+                RXState = ZBS_RX_WAIT_HEADER;
+            }
+            break;
+        case ZBS_RX_WAIT_CAP:
+            cmdbuffer[charindex] = lastchar;
+            charindex++;
+            if (charindex == 4) {
+                charindex = 0;
+                const char caps[5] = {cmdbuffer[0], cmdbuffer[1], cmdbuffer[2], cmdbuffer[3], 0};
+                apInfo.caps = (uint16_t)strtoul(caps, NULL, 16);
                 RXState = ZBS_RX_WAIT_HEADER;
             }
             break;
