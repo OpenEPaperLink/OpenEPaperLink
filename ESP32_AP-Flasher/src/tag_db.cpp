@@ -549,10 +549,11 @@ String getBaseName(const String& filename) {
 void cleanupCurrent() {
     // clean unknown previews
     Serial.println("Cleaning up temporary files");
+    // getNextFileName() only reads the directory; openNextFile() would also stat and open every file
     File dir = contentFS->open("/current");
-    File file = dir.openNextFile();
-    while (file) {
-        String filename = file.name();
+    String path = dir.getNextFileName();
+    while (path.length()) {
+        const String filename = path.substring(path.lastIndexOf('/') + 1);
         uint8_t mac[8];
         if (hex2mac(getBaseName(filename), mac)) {
             bool found = false;
@@ -564,24 +565,19 @@ void cleanupCurrent() {
                 }
             }
             if (!found || filename.endsWith(".pending")) {
-                filename = file.path();
-                file.close();
-                Serial.println("remove " + filename);
-                contentFS->remove(filename);
+                Serial.println("remove " + path);
+                contentFS->remove(path);
             }
         }
-        file = dir.openNextFile();
+        path = dir.getNextFileName();
     }
     dir.close();
 
     dir = contentFS->open("/temp");
-    file = dir.openNextFile();
-    while (file) {
-        String filename = file.name();
-        filename = file.path();
-        file.close();
-        contentFS->remove(filename);
-        file = dir.openNextFile();
+    path = dir.getNextFileName();
+    while (path.length()) {
+        contentFS->remove(path);
+        path = dir.getNextFileName();
     }
     dir.close();
 }

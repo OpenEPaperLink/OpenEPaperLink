@@ -766,7 +766,7 @@ async function fetchAndCheckTagtypes(cleanup) {
     const sortableGrid = $('#taglist');
     const gridItems = Array.from(sortableGrid.querySelectorAll('.tagcard:not(#tagtemplate)'));
     try {
-        const response = await fetch('/edit?list=%2Ftagtypes');
+        const response = await fetch('/edit?list=%2Ftagtypes&nosize=1');
         if (!response.ok) {
             print("Failed to fetch tagtypes list", "red");
             throw new Error('Failed to fetch tagtypes list');

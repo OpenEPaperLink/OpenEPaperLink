@@ -1163,7 +1163,7 @@ function contentselected() {
 				case 'binfile':
 				case 'jsonfile':
 					input = document.createElement("select");
-					fetch('edit?list=%2F&recursive=1')
+					fetch('edit?list=%2F&recursive=1&nosize=1')
 						.then(response => response.json())
 						.then(data => {
 							let files = data.filter(item => item.type === "file" && (item.name.toLowerCase().endsWith(".jpg") || item.name.toLowerCase().endsWith(".jpeg")));

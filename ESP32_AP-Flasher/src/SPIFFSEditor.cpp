@@ -45,11 +45,35 @@ bool SPIFFSEditor::canHandle(AsyncWebServerRequest *request) const {
     return false;
 }
 
-String SPIFFSEditor::listFilesRecursively(String path, bool recursive) {
-    if (recursive && (path == "//www" || path == "//tagtypes" || path == "//current")) return "";
+String SPIFFSEditor::listFilesRecursively(String path, bool recursive, bool withSize) {
+    if (recursive && (path == "//www" || path == "//tagtypes" || path == "//current" || path == "//fonts" || path == "//temp" || path == "//odcfg")) return "";
 
     File dir = _fs.open(path);
     String output = "";
+
+    if (!withSize) {
+        // readdir only: openNextFile() stats and opens every file, which takes ~80 ms per file on LittleFS
+        bool isDir = false;
+        String entry = dir.getNextFileName(&isDir);
+        while (entry.length()) {
+            const String name = entry.substring(entry.lastIndexOf('/') + 1);
+            if (isDir) {
+                if (recursive) {
+                    output += listFilesRecursively(String(path + "/" + name), true, false);
+                } else {
+                    output += ",{\"type\":\"dir\",\"name\":\"" + name + "\"}";
+                }
+            } else if (recursive) {
+                output += ",{\"type\":\"file\",\"name\":\"" + path.substring(2) + "/" + name + "\"}";
+            } else {
+                output += ",{\"type\":\"file\",\"name\":\"" + name + "\"}";
+            }
+            vTaskDelay(1);  // a long listing must not starve the idle task (task watchdog)
+            entry = dir.getNextFileName(&isDir);
+        }
+        dir.close();
+        return output;
+    }
 
     File file = dir.openNextFile();
     bool isFirstFile = true;
@@ -58,7 +82,7 @@ String SPIFFSEditor::listFilesRecursively(String path, bool recursive) {
         if (file.isDirectory()) {
             if (recursive) {
                 String subDirPath = String(path + "/" + file.name());
-                String subDirOutput = listFilesRecursively(subDirPath, true);
+                String subDirOutput = listFilesRecursively(subDirPath, true, true);
                 output += subDirOutput;
             } else {
                 output += ",{\"type\":\"dir\",\"name\":\"" + String(file.name()) + "\"}";
@@ -70,6 +94,7 @@ String SPIFFSEditor::listFilesRecursively(String path, bool recursive) {
                 output += ",{\"type\":\"file\",\"name\":\"" + String(file.name()) + "\",\"size\":" + file.size() + "}";
             }
         }
+        vTaskDelay(1);  // a long listing must not starve the idle task (task watchdog)
         file = dir.openNextFile();
     }
     dir.close();
@@ -84,7 +109,8 @@ void SPIFFSEditor::handleRequest(AsyncWebServerRequest *request) {
     if (request->method() == HTTP_GET) {
         if (request->hasParam("list")) {
             const String path = request->getParam("list")->value();
-            String output = "[" + listFilesRecursively(path, request->hasParam("recursive")).substring(1) + "]";
+            // nosize: names only, much faster
+            String output = "[" + listFilesRecursively(path, request->hasParam("recursive"), !request->hasParam("nosize")).substring(1) + "]";
             request->send(200, "application/json", output);
         } else if (request->hasParam("edit") || request->hasParam("download")) {
             request->send(request->_tempFile, request->_tempFile.name(), String(), request->hasParam("download"));
