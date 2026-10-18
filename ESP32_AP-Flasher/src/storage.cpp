@@ -112,6 +112,12 @@ bool DynStorage::reserveSpace(uint64_t bytes, uint64_t margin){
     return true;
 }
 
+/// @return The last freeSpace() result minus what was reserved since, without walking the file system
+uint64_t DynStorage::knownFreeSpace(){
+    std::lock_guard<std::mutex> lock(knownFreeMutex);
+    return knownFree;
+}
+
 uint64_t DynStorage::totalSpace(){
     // no begin(): only used once the file system is up, and begin() can copy files on SD card builds
 #ifdef HAS_SDCARD

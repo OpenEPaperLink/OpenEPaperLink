@@ -123,21 +123,20 @@ void wsSendSysteminfo() {
     JsonObject sys = doc["sys"].to<JsonObject>();
     time_t now;
     time(&now);
-    static int freeSpaceLastRun = 0;
+    static int tagDBsizeLastRun = 0;
     static size_t tagDBsize = 0;
-    static uint64_t freeSpace = Storage.freeSpace();
 
     sys["currtime"] = now;
     sys["heap"] = ESP.getFreeHeap();
     sys["recordcount"] = tagDBsize;
     sys["dbsize"] = dbSize();
 
-    if (millis() - freeSpaceLastRun > 30000 || freeSpaceLastRun == 0) {
-        freeSpace = Storage.freeSpace();
+    if (millis() - tagDBsizeLastRun > 30000 || tagDBsizeLastRun == 0) {
         tagDBsize = tagDB.size();
-        freeSpaceLastRun = millis();
+        tagDBsizeLastRun = millis();
     }
-    sys["littlefsfree"] = freeSpace;
+    // measuring walks the whole file system: report the last measurement, minus what was reserved since
+    sys["littlefsfree"] = Storage.knownFreeSpace();
 
 #if BOARD_HAS_PSRAM
     sys["psfree"] = ESP.getFreePsram();

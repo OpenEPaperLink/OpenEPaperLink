@@ -36,6 +36,7 @@ class DynStorage {
     uint64_t freeSpace();
     uint64_t totalSpace();
     bool reserveSpace(uint64_t bytes, uint64_t margin);
+    uint64_t knownFreeSpace();
 
    private:
     bool isInited;
