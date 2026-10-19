@@ -1,6 +1,6 @@
 # S3 ↔ radio protocol v2 – design
 
-*Design, 2026-10-13 (draft of 2026-10-12, checked against the phase 2 code and measurements). Task #30 in [radio-chain-tasks.md](radio-chain-tasks.md). Not implemented yet; the message structs are in [radio-protocol-v2.h](radio-protocol-v2.h), with size checks that compile for the S3 (Xtensa, C++) and the C6/H2 (RISC-V, C).*
+*Design, 2026-10-13 (draft of 2026-10-12, checked against the phase 2 code and measurements). Task #30 in [radio-chain-tasks.md](radio-chain-tasks.md). Step 1 implemented on 2026-10-19 (see [Implementation](#implementation-step-1-2026-10-19)); the message structs and the framing now live in `oepl-radio-v2.h` in the repository root, used by the S3 and the C6/H2 firmware. [radio-protocol-v2.h](radio-protocol-v2.h) here is the design draft.*
 
 Version 2 replaces the ASCII command protocol between the ESP32-S3 and the radio co-processor (ESP32-C6/H2 first, TLSR later) with framed binary messages: COBS framing, CRC16, sequence numbers, acknowledgements, and explicit fields. It fixes P1–P8 and S1–S3 from [radio-chain-analysis.md](radio-chain-analysis.md), carries the extra check-in data from the struct review, and adds the data chunks the block cache (R3) needs. The tag ↔ radio air protocol does not change.
 
@@ -156,3 +156,32 @@ Checked against the C6 and S3 code after phase 2 and against today's measurement
 - Message structs and constants in [radio-protocol-v2.h](radio-protocol-v2.h); sizes: HELLO_REPLY 21, STATUS 31, SET_PENDING 27, CHECKIN 49, DATA_NEEDED 26, BLOCK_SERVED 21, XFER_COMPLETE/TIMEOUT 16, DATA_CHUNK 16 + up to 240 bytes; TAG_RETURN_DATA 14 + the tag's 101 bytes.
 - Decisions 2 and 3 got their measured values.
 - Not a protocol matter, but relevant for the cache: the S3's WiFi transmissions make the C6 miss tag frames now and then ([results](radio-chain-results.md#wifi-desensitisation-2026-10-13)). Preloading blocks while tags sleep (step 1 of the data flow) keeps serial and WiFi activity out of the tags' request windows as far as the S3 controls it.
+
+## Implementation, step 1 (2026-10-19)
+
+Framing, negotiation and all messages, without the block cache (`cache_kb` = 0). Code: `oepl-radio-v2.h` (structs, COBS, CRC16, frame building), C6/H2 `main/v2link.c` (reception, duplicate check, event queue) and `main/main.c` (handlers), S3 `src/v2transport.cpp` (V2Transport) and `bringAPOnline()` in `src/serialap.cpp`. C6/H2 firmware version 0x0023.
+
+Deviations from and additions to the design:
+
+- **Serial handling stays in the C6 main loop** (Nic, 2026-10-19), not in a separate lower-priority task. One thread, so the pending table and the block buffer need no locks. The block burst no longer blocks the loop: it sends one part per pass and waits for the TX-done interrupt, so serial frames are handled between parts and the S3 gets its answers within the 30 ms timeout during a burst (a burst takes up to 200 ms).
+- One RX buffer on the C6 (#26): the main loop reads the UART driver's 4 KB buffer; the event task only wakes the loop and counts overflows.
+- **Link loss on the radio side**: no valid frame for 5 s → back to ASCII at 115200 baud, so a restarted S3 finds the radio without resetting it. The S3 heartbeat keeps the link above that.
+- **Heartbeat** from APTask every second; 3 failed in a row → `bringAPOnline()`. It always starts with the old protocol at 115200 baud; a radio that announces CAP> but does not answer HELLO is reset and tried again, three rounds.
+- DATA_CHUNKs start at the block start and are 240 bytes apart (`offset - blockStart` a multiple of `V2_CHUNK_MAX`); the radio tracks them in a bitmap per block. Without a cache it NAKs (`NO_CACHE_SPACE`) chunks for any block other than the one the tag asked for.
+- `pleaseWaitMs` stays as in phase 2 for now: 140 ms when the block has to come from the S3, 30 ms when it is in the buffer. The S3 logs how long each block took after DATA_NEEDED; to be tuned with step 2 (see there).
+- BLOCK_SERVED is sent for every burst, not only for cached blocks.
+- SET_CONFIG `tx_power_dbm` carries the old `power` value, stored and reported as before (the C6 does not apply it, see #11). `led_brightness` is sent as 255 until #33.
+- The S3 maps SCP channel 0 to "unchanged" (0xFF), as the old protocol did for sub-GHz-only use.
+- The S3's `sendBlock()` got the file version, block offset and file size as parameters; the old protocol ignores them.
+- AP-side RSSI/LQI from CHECKIN are not yet used by the S3.
+
+## Implementation, step 2 (2026-10-19)
+
+The block cache (#15). Code: C6/H2 `main/blockcache.c`, block requests in `main/main.c`; S3 `wantPreload()` and `cacheBlock()` in `src/v2transport.cpp`, `processPreload()` and `processBlockServed()` in `src/newproto.cpp`.
+
+- **Size**: at startup, after all other allocations, the radio takes 4 KB blocks from the heap until 48 KB is left, at most 64 (256 KB), plus one static block, so there is always one. `cache_kb` in HELLO_REPLY, `cache_used_kb` in STATUS. The size on a real C6 and H2 is only in the radio's serial log and was not checked.
+- **Preloading**: when the S3 sends SET_PENDING for data (not an idle request) and the item fits in the free cache (`cache_kb - cache_used_kb` from the last STATUS, minus what it queued since), it sets flag bit 0 and queues the item for `rxCmdProcessor`, which sends all its blocks. Every check-in of a tag with queued data repeats SET_PENDING, so the S3 sends a data version only once per 10 minutes (again after a new link, the radio may have been reset). Measured: about 23 ms per 4 KB block (3 blocks in 70 ms). The web log shows one line per preload.
+- **Dropping**: the radio drops the cached blocks of a data version itself as soon as no pending entry offers it any more (XFER_COMPLETE, XFER_TIMEOUT, CANCEL_PENDING, SET_PENDING with other data). The S3 does not send DATA_DROP; the radio still handles it. LRU eviction covers the rest; the block a burst reads is never evicted or dropped.
+- **Block request**: complete block in the cache → `pleaseWaitMs` 15 ms (0 or ≥ 10, see the timing budget), burst 5 ms after it; block on its way for an earlier request of the same block (< 300 ms) → 30 ms; otherwise DATA_NEEDED and 140 ms, as in step 1. The 140 ms is not tuned: the S3 log with the time per block is only on its USB console. DATA_CHUNKs for any block are kept, so a block that the tag asks for again comes from the cache.
+- A full block request for a block that is in the cache no longer forces a new download (it did after 380 ms): the cached data was checked per chunk by the frame CRC.
+- BLOCK_SERVED drives the live block x/total on the tag card in the web UI, because cached blocks no longer pass through the S3's block request handling. It also gives a log line `<MAC> block served <file> block n, parts, frames, ms late`; a log line that starts with the MAC makes the tag card flash, as the block request line does on the old protocol.

@@ -20,6 +20,8 @@
 #define RX_CMD_RDY 0x05
 #define RX_CMD_RSET 0x06
 #define RX_CMD_TRD 0x07
+#define RX_CMD_PRELOAD 0x08  // send a pending item to the radio's block cache (struct espBlockRequest: src, ver)
+#define RX_CMD_BLS 0x09      // the radio served a block (struct v2BlockServed)
 
 void addRXQueue(uint8_t* data, uint8_t len, uint8_t type);
 extern SemaphoreHandle_t txActive;        // one command on the line at a time
@@ -36,6 +38,8 @@ class RadioTransport {
     virtual bool sendDataAvail(struct pendingData* pending) = 0;
     virtual bool cancelPending(struct pendingData* pending) = 0;
     virtual bool setChannelPower(struct espSetChannelPower* scp) = 0;
+    // One block for the radio's block cache, ahead of the tag's request; false without a cache
+    virtual bool cacheBlock(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) { return false; }
 
     // Link setup, used by bringAPOnline()
     virtual bool ping() = 0;            // is the radio there?

@@ -28,6 +28,7 @@ class V2Transport : public RadioTransport {
    public:
     const char* name() override { return "v2"; }
     uint16_t sendBlock(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) override;
+    bool cacheBlock(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) override;
     bool sendDataAvail(struct pendingData* pending) override;
     bool cancelPending(struct pendingData* pending) override;
     bool setChannelPower(struct espSetChannelPower* scp) override;
@@ -57,11 +58,24 @@ class V2Transport : public RadioTransport {
     SemaphoreHandle_t writeMutex = nullptr;  // whole frames only: the reader writes ACKs too
     volatile uint32_t dataNeededMs = 0;      // when the last DATA_NEEDED came in
 
+    // The radio's block cache. Every check-in of a tag with queued data repeats its SET_PENDING;
+    // the data goes to the cache once (again after PRELOAD_AGAIN_MS: the radio may have evicted it).
+    uint16_t cacheKb = 0;
+    volatile int32_t cacheFreeKb = 0;  // from the last STATUS, minus what was queued for preloading since
+    struct {
+        uint64_t ver;
+        uint32_t ms;
+    } preloaded[16] = {};
+    uint8_t preloadedNext = 0;
+    static constexpr uint32_t PRELOAD_AGAIN_MS = 10 * 60 * 1000;
+    bool wantPreload(const struct pendingData* pending);
+
     // last STATUS counters, to log only what changed
     uint16_t lastCrcErrors = 0, lastOverflows = 0, lastRetransmits = 0;
 
     void writeFrame(uint8_t type, uint8_t seq, uint8_t flags, const void* payload, size_t len);
     v2Outstanding* sendRequest(uint8_t type, const void* payload, size_t len, uint8_t seq, bool retransmit);
+    bool sendChunks(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize);
     bool waitResponse(v2Outstanding* o, uint32_t timeoutMs);
     bool request(uint8_t type, const void* payload, size_t len, uint8_t* respType = nullptr, uint8_t* resp = nullptr, uint8_t* respLen = nullptr);
     void handleFrame(const uint8_t* frame, size_t frameLen);
@@ -145,6 +159,7 @@ bool V2Transport::start() {
     lastEventSeq = -1;
     txSeq = 0;
     for (auto& slot : out) slot.used = false;
+    for (auto& p : preloaded) p = {0, 0};
 
     struct v2Hello hello = {V2_PROTO_MAJOR, V2_PROTO_MINOR, V2_CAP_FRAMING | V2_CAP_SUBGHZ | V2_CAP_TAG_RETURN_DATA};
     uint8_t respType = 0, resp[48], respLen = 0;
@@ -176,15 +191,15 @@ bool V2Transport::start() {
     apInfo.version = hr.fwVersion;
     memcpy(apInfo.mac, hr.mac, 8);
     apInfo.caps = hr.caps;
+    cacheKb = (hr.caps & V2_CAP_BLOCK_CACHE) ? hr.cacheKb : 0;
+    cacheFreeKb = cacheKb;
     lastAPActivity = millis();
-    Serial.printf("v2: protocol %d.%d, radio %02X version %04X, caps %04X, %d pending slots\r\n", hr.protoMajor, hr.protoMinor, hr.hwType, hr.fwVersion, hr.caps, hr.pendingSlots);
+    Serial.printf("v2: protocol %d.%d, radio %02X version %04X, caps %04X, %d pending slots, %d KB block cache\r\n", hr.protoMajor, hr.protoMinor, hr.hwType, hr.fwVersion, hr.caps, hr.pendingSlots, cacheKb);
     return requestInfo();
 }
 
-// The block as DATA_CHUNKs, up to V2_CHUNK_WINDOW unanswered at a time; the radio starts the burst
-// once it has all of them. Returns the block checksum (as the old protocol did), 0 on failure.
-uint16_t V2Transport::sendBlock(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) {
-    const uint32_t t = millis();
+// A block as DATA_CHUNKs, up to V2_CHUNK_WINDOW unanswered at a time
+bool V2Transport::sendChunks(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) {
     const uint8_t* bytes = (const uint8_t*)data;
     const uint16_t chunks = (len + V2_CHUNK_MAX - 1) / V2_CHUNK_MAX;
     uint8_t payload[sizeof(struct v2DataChunk) + V2_CHUNK_MAX];
@@ -253,13 +268,42 @@ uint16_t V2Transport::sendBlock(const void* data, uint16_t len, uint64_t ver, ui
     txEnd();
     if (failed) {
         Serial.printf("v2: block at %u not sent\r\n", offset);
-        return 0;
+        return false;
     }
     lastAPActivity = millis();
+    return true;
+}
+
+// The block a tag asked for (DATA_NEEDED); the radio starts the burst once it has all of it. Returns
+// the block checksum (as the old protocol did), 0 on failure.
+uint16_t V2Transport::sendBlock(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) {
+    const uint32_t t = millis();
+    if (!sendChunks(data, len, ver, offset, totalSize)) return 0;
+    const uint8_t* bytes = (const uint8_t*)data;
+    const uint16_t chunks = (len + V2_CHUNK_MAX - 1) / V2_CHUNK_MAX;
     uint16_t checksum = 0;
     for (uint16_t c = 0; c < len; c++) checksum += bytes[c];
     Serial.printf("v2: block at %u, %u chunks in %u ms, %u ms after the request\r\n", offset, chunks, millis() - t, millis() - dataNeededMs);
     return checksum;
+}
+
+bool V2Transport::cacheBlock(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) {
+    return cacheKb && sendChunks(data, len, ver, offset, totalSize);
+}
+
+// Send this item to the radio's cache? Only data, only once, and only what fits in the free space
+bool V2Transport::wantPreload(const struct pendingData* pending) {
+    const struct AvailDataInfo& adi = pending->availdatainfo;
+    if (cacheKb == 0 || adi.dataType == DATATYPE_NOUPDATE || adi.dataSize == 0) return false;
+    for (const auto& p : preloaded) {
+        if (p.ver == adi.dataVer && p.ms && millis() - p.ms < PRELOAD_AGAIN_MS) return false;
+    }
+    const int32_t needKb = (adi.dataSize + V2_BLOCK_SIZE - 1) / V2_BLOCK_SIZE * (V2_BLOCK_SIZE / 1024);
+    if (needKb > cacheFreeKb) return false;
+    cacheFreeKb -= needKb;
+    preloaded[preloadedNext] = {adi.dataVer, millis() | 1};
+    preloadedNext = (preloadedNext + 1) % (sizeof(preloaded) / sizeof(preloaded[0]));
+    return true;
 }
 
 bool V2Transport::sendDataAvail(struct pendingData* pending) {
@@ -271,11 +315,21 @@ bool V2Transport::sendDataAvail(struct pendingData* pending) {
     sp.dataTypeArg = pending->availdatainfo.dataTypeArgument;
     sp.nextCheckin = pending->availdatainfo.nextCheckIn;
     sp.ttlMin = pending->attemptsLeft ? pending->attemptsLeft : 1;
-    sp.flags = 0;
+    const bool preload = wantPreload(pending);
+    sp.flags = preload ? V2_PENDING_DATA_FOLLOWS : 0;
     txStart();
     // NAK NO_SLOT: the radio's table is full; the next check-in of the tag tries again
     const bool ok = request(V2_SET_PENDING, &sp, sizeof(sp));
     txEnd();
+    if (ok && preload) {
+        // by rxCmdProcessor, which also answers DATA_NEEDED: this may be called from any task
+        struct espBlockRequest* br = (struct espBlockRequest*)calloc(sizeof(struct espBlockRequest) + 8, 1);
+        if (br != nullptr) {
+            memcpy(br->src, sp.mac, 8);
+            br->ver = sp.dataVer;
+            addRXQueue((uint8_t*)br, sizeof(struct espBlockRequest), RX_CMD_PRELOAD);
+        }
+    }
     return ok;
 }
 
@@ -313,6 +367,7 @@ void V2Transport::applyStatus(const uint8_t* payload, size_t len) {
     apInfo.power = (uint8_t)st.txPowerDbm;
     apInfo.pendingBuffer = st.pending > 255 ? 255 : st.pending;
     apInfo.nop = st.pendingIdle > 255 ? 255 : st.pendingIdle;
+    cacheFreeKb = (int32_t)cacheKb - st.cacheUsedKb;
 #ifdef HAS_SUBGHZ
     apInfo.hasSubGhz = st.subghzChannel != V2_NO_SUBGHZ_CHANNEL;
     apInfo.SubGhzChannel = apInfo.hasSubGhz ? st.subghzChannel : 0;
@@ -458,9 +513,10 @@ void V2Transport::handleEvent(uint8_t type, const uint8_t* payload, size_t len) 
         }
         case V2_BLOCK_SERVED: {
             if (len < sizeof(struct v2BlockServed)) return;
-            struct v2BlockServed bs;
-            memcpy(&bs, payload, sizeof(bs));
-            Serial.printf("v2: block %d served, %d parts requested, %d frames, %d ms late\r\n", bs.blockId, bs.partsRequested, bs.framesSent, bs.lateMs);
+            struct v2BlockServed* bs = (struct v2BlockServed*)malloc(sizeof(struct v2BlockServed));
+            if (bs == nullptr) return;
+            memcpy(bs, payload, sizeof(struct v2BlockServed));
+            addRXQueue((uint8_t*)bs, sizeof(struct v2BlockServed), RX_CMD_BLS);
             break;
         }
         case V2_LOG:

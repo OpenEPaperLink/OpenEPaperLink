@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../../oepl-radio-v2.h"
 #include "od_keys.h"
 #include "od_session.h"
 #include "serialap.h"
@@ -25,6 +26,7 @@
 #include "web.h"
 
 extern uint16_t sendBlock(const void* data, const uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize);
+extern bool cacheBlock(const void* data, const uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize);
 extern UDPcomm udpsync;
 // Queued items are heap allocated, so a PendingItem* stays valid when the vector grows. Dequeued items
 // are kept for a while before they are freed, because other tasks may still use them: a block request
@@ -506,6 +508,41 @@ void processBlockRequest(struct espBlockRequest* br) {
     wsLog((String)buffer);
     wsSendUploadProgress(br->src, br->blockId + 1, totalblocks);  // live block x/total for the tag card
     Serial.printf("<RQB file %s block %d, len %d checksum %u\r\n\0", queueItem->filename, br->blockId, len, checksum);
+}
+
+// Protocol v2 radios cache blocks: send the whole item while the tag sleeps, so the radio answers its
+// block requests without waiting for the S3. Without it (cache full, radio reset) the radio asks
+// for each block as before.
+void processPreload(struct espBlockRequest* br) {
+    if (config.runStatus == RUNSTATUS_STOP) return;
+    PendingItem* queueItem = getQueueItem(br->src, br->ver);
+    if (queueItem == nullptr || !loadQueueItemData(queueItem)) return;
+    const uint32_t t = millis();
+    uint16_t blocks = 0;
+    for (uint32_t offset = 0; offset < queueItem->len; offset += BLOCK_DATA_SIZE) {
+        const uint32_t len = queueItem->len - offset > BLOCK_DATA_SIZE ? BLOCK_DATA_SIZE : queueItem->len - offset;
+        if (!cacheBlock(queueItem->data + offset, len, br->ver, offset, queueItem->len)) break;
+        blocks++;
+    }
+    const uint16_t total = (queueItem->len + BLOCK_DATA_SIZE - 1) / BLOCK_DATA_SIZE;
+    char buffer[150];
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X %s sent to the radio in advance, %d of %d blocks in %lu ms", br->src[7], br->src[6], br->src[5], br->src[4], br->src[3], br->src[2], br->src[1], br->src[0], queueItem->filename, blocks, total, (unsigned long)(millis() - t));
+    wsLog((String)buffer);
+}
+
+// The radio sent a block to a tag: the live block x/total on the tag card, also for cached blocks
+// A v2 radio served a block from its cache. The log line starts with the MAC, so the tag card
+// flashes as it does for a block request on the old protocol.
+void processBlockServed(const struct v2BlockServed* bs) {
+    PendingItem* queueItem = getQueueItem(bs->mac, bs->dataVer);
+    if (queueItem == nullptr) return;
+    const uint16_t total = (queueItem->len + BLOCK_DATA_SIZE - 1) / BLOCK_DATA_SIZE;
+    char buffer[150];
+    snprintf(buffer, sizeof(buffer), "%02X%02X%02X%02X%02X%02X%02X%02X block served %s block %d, %d parts, %d frames, %d ms late",
+             bs->mac[7], bs->mac[6], bs->mac[5], bs->mac[4], bs->mac[3], bs->mac[2], bs->mac[1], bs->mac[0],
+             queueItem->filename, bs->blockId, bs->partsRequested, bs->framesSent, bs->lateMs);
+    wsLog((String)buffer);
+    wsSendUploadProgress(bs->mac, bs->blockId + 1, total);
 }
 
 void processXferComplete(struct espXferComplete* xfc, bool local) {

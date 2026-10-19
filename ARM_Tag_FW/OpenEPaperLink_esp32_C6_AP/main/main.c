@@ -32,6 +32,7 @@
 #include "logging.h"
 #include "SubGigRadio.h"
 #include "v2link.h"
+#include "blockcache.h"
 
 
 static const char *TAG = "MAIN";
@@ -86,19 +87,19 @@ uint8_t  dstMac[8];                                       // target for the bloc
 uint16_t dstPan;                                          //
 
 static uint32_t blockStartTimer  = 0;                     // reference that holds when the AP sends the next block
-static bool     blockReady       = false;                 // blockbuffer holds the complete, checked block of requestedData
 // Start a burst this long after the pleaseWaitMs the tag was given: the nRF52811 tag only starts its
 // radio after pleaseWaitMs (the ZBS243 and TLSR tags listen before it).
 #define BURST_MARGIN_MS     5
 // If the block data from the S3 is not complete at that time, wait at most this long for it; after
 // that send nothing (the tag asks again) rather than whatever is in the buffer.
 #define BLOCK_DATA_SLACK_MS 100
-// What the tag is told to wait when the block has to come from the S3 first
+// What the tag is told to wait: the block is in the cache, it is on its way for an earlier request,
+// or it has to come from the S3 first. 0 or at least 10 (smaller values underflow in tag firmware).
+#define PLEASE_WAIT_CACHED_MS   15
+#define PLEASE_WAIT_COMING_MS   30
 #define PLEASE_WAIT_DOWNLOAD_MS 140
-#define PLEASE_WAIT_READY_MS    30
-uint32_t        nextBlockAttempt = 0;                     // reference time for when the AP can request a new block from the ESP32
+uint32_t        nextBlockAttempt = 0;                     // when the radio last asked the S3 for a block
 uint8_t         seq              = 0;                     // holds current sequence number for transmission
-uint8_t         blockbuffer[BLOCK_XFER_BUFFER_SIZE + 5];  // block transfer buffer
 uint8_t         lastAckMac[8] = {0};
 
 // these variables hold the current mac were talking to
@@ -107,13 +108,10 @@ uint32_t lastBlockRequest = 0;
 uint8_t  lastBlockMac[8];
 uint8_t  lastTagReturn[8];
 
-// Block data from the S3 arrives as DATA_CHUNKs of V2_CHUNK_MAX bytes from the start of the block
-static uint32_t chunksReceived = 0;  // bit n: chunk n of the requested block is in blockbuffer
-static uint32_t blockLen       = 0;  // bytes in the requested block, known from the first chunk
-
 // A block burst is sent one frame per loop pass, so serial frames from the S3 are handled between
 // the parts (a burst takes up to 200 ms; the S3 expects an answer within 30 ms).
 static uint8_t burstParts[BLOCK_MAX_PARTS];
+static int     burstSlot   = -1;  // the cache slot the burst reads, pinned until it ends
 static uint8_t burstLen    = 0;
 static uint8_t burstPos    = 0;
 static bool    burstActive = false;
@@ -229,11 +227,18 @@ void deleteAllPendingDataForVer(const uint8_t *ver) {
         if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
     } while (slot != -1);
 }
+// Cached blocks of data that no pending entry offers any more
+static void dropUnusedData(uint64_t ver) {
+    if (ver != 0 && findSlotForVer((const uint8_t *) &ver) == -1) cacheDropVer(ver);
+}
 void deleteAllPendingDataForMac(const uint8_t *mac) {
     int32_t slot = -1;
     do {
         slot = findSlotForMac(mac);
-        if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
+        if (slot != -1) {
+            pendingDataArr[slot].attemptsLeft = 0;
+            dropUnusedData(pendingDataArr[slot].availdatainfo.dataVer);
+        }
     } while (slot != -1);
 }
 
@@ -253,7 +258,7 @@ void countSlots() {
 
 // capabilities, for CAP> and HELLO_REPLY
 static uint16_t radioCaps() {
-    uint16_t caps = V2_CAP_FRAMING | V2_CAP_TAG_RETURN_DATA;
+    uint16_t caps = V2_CAP_FRAMING | V2_CAP_BLOCK_CACHE | V2_CAP_TAG_RETURN_DATA;
 #ifdef CONFIG_OEPL_SUBGIG_SUPPORT
     if (curSubGhzChannel != NO_SUBGHZ_CHANNEL) caps |= V2_CAP_SUBGHZ;
 #endif
@@ -342,7 +347,7 @@ static void fillStatus(struct v2Reply *reply) {
     countSlots();
     st.pending             = curPendingData;
     st.pendingIdle         = curNoUpdate;
-    st.cacheUsedKb         = 0;
+    st.cacheUsedKb         = cacheUsedKb();
     st.rxFrames            = radioRxFrames;
     st.txFrames            = radioTxFrames;
     st.lateRequestsSkipped = statusLateSkipped;
@@ -365,7 +370,7 @@ static void fillHelloReply(struct v2Reply *reply) {
     memcpy(hr.mac, mSelfMac, 8);
     hr.caps         = radioCaps();
     hr.maxPayload   = V2_MAX_PAYLOAD;
-    hr.cacheKb      = 0;
+    hr.cacheKb      = cacheKb();
     hr.pendingSlots = MAX_PENDING_MACS;
     reply->type     = V2_HELLO_REPLY;
     reply->len      = sizeof(hr);
@@ -412,6 +417,7 @@ static void setPending(const struct v2SetPending *sp, struct v2Reply *reply) {
         return;
     }
     struct pendingData *pd             = &pendingDataArr[slot];
+    const uint64_t      oldVer         = pd->attemptsLeft ? pd->availdatainfo.dataVer : 0;
     memset(pd, 0, sizeof(struct pendingData));
     pd->availdatainfo.dataVer          = sp->dataVer;
     pd->availdatainfo.dataSize         = sp->dataSize;
@@ -420,37 +426,21 @@ static void setPending(const struct v2SetPending *sp, struct v2Reply *reply) {
     pd->availdatainfo.nextCheckIn      = sp->nextCheckin;
     pd->attemptsLeft                   = sp->ttlMin;
     memcpy(pd->targetMac, sp->mac, 8);
+    if (oldVer != sp->dataVer) dropUnusedData(oldVer);
 }
 
-// Fills the block buffer with what the tag asked for; the burst starts once all of it is there
+// Block data for the cache: what a tag asked for (DATA_NEEDED), or data the S3 sends in advance
 static void dataChunk(const struct v2DataChunk *dc, size_t n, struct v2Reply *reply) {
-    const uint32_t blockStart = (uint32_t) requestedData.blockId * V2_BLOCK_SIZE;
-    const uint64_t ver        = requestedData.ver;
-    if (dc->dataVer != ver || dc->offset < blockStart || dc->offset - blockStart >= V2_BLOCK_SIZE ||
-        (dc->offset - blockStart) % V2_CHUNK_MAX || dc->offset - blockStart + n > V2_BLOCK_SIZE || dc->totalSize <= blockStart) {
-        // not the block the radio is waiting for; without a cache there is nowhere to keep it
+    const bool awaited = blockStartTimer && dc->dataVer == requestedData.ver && dc->offset / V2_BLOCK_SIZE == requestedData.blockId &&
+                         !cacheComplete(cacheFind(requestedData.ver, requestedData.blockId));
+    const int slot = cacheChunk(dc->dataVer, dc->offset, dc->totalSize, dc->bytes, n);
+    if (slot == CACHE_FULL) {
         nak(reply, V2_NAK_NO_CACHE_SPACE);
-        return;
+    } else if (slot == CACHE_BAD_CHUNK) {
+        nak(reply, V2_NAK_INVALID_PARAM);
+    } else if (awaited && cacheComplete(slot)) {
+        ESP_LOGI(TAG, "block data complete, %lu ms after the request", getMillis() - nextBlockAttempt);
     }
-    if (blockReady) return;  // a retransmission after the block was complete
-
-    struct blockData *bd = (struct blockData *) blockbuffer;
-    memcpy(bd->data + (dc->offset - blockStart), dc->bytes, n);
-    chunksReceived |= 1UL << ((dc->offset - blockStart) / V2_CHUNK_MAX);
-    blockLen = dc->totalSize - blockStart;
-    if (blockLen > V2_BLOCK_SIZE) blockLen = V2_BLOCK_SIZE;
-
-    const uint32_t needed = (1UL << ((blockLen + V2_CHUNK_MAX - 1) / V2_CHUNK_MAX)) - 1;
-    if ((chunksReceived & needed) != needed) return;
-
-    // complete: the blockData header the tag checks, and 0xFF after the data, as the old protocol had
-    uint16_t sum = 0;
-    for (uint16_t c = 0; c < blockLen; c++) sum += bd->data[c];
-    bd->size     = blockLen;
-    bd->checksum = sum;
-    memset(bd->data + blockLen, 0xFF, BLOCK_DATA_SIZE - blockLen);
-    blockReady = true;
-    ESP_LOGI(TAG, "block data complete, %lu ms after the request", getMillis() - nextBlockAttempt);
 }
 
 void v2HandleRequest(uint8_t type, const uint8_t *payload, size_t len, struct v2Reply *reply) {
@@ -486,7 +476,8 @@ void v2HandleRequest(uint8_t type, const uint8_t *payload, size_t len, struct v2
             break;
         case V2_DATA_DROP:
             if (len < sizeof(struct v2DataDrop)) nak(reply, V2_NAK_BAD_LENGTH);
-            break;  // nothing cached
+            else cacheDropVer(((const struct v2DataDrop *) payload)->dataVer);
+            break;
         default:
             nak(reply, V2_NAK_UNKNOWN_TYPE);
             break;
@@ -508,8 +499,6 @@ static void requestBlockData(const uint8_t *src, uint16_t pleaseWaitMs) {
         if (size > dn.offset && size - dn.offset < V2_BLOCK_SIZE) dn.length = size - dn.offset;
     }
     dn.pleaseWaitMs = pleaseWaitMs;
-    chunksReceived  = 0;
-    blockLen        = 0;
     v2QueueEvent(V2_DATA_NEEDED, &dn, sizeof(dn), true);
 }
 
@@ -541,13 +530,16 @@ void espNotifyTagReturnData(uint8_t *src, uint8_t len) {
 }
 
 // process data from tag
-void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
+void processBlockRequest(const uint8_t *buffer) {
     struct MacFrameNormal *rxHeader = (struct MacFrameNormal *) buffer;
     struct blockRequest   *blockReq = (struct blockRequest *) (buffer + sizeof(struct MacFrameNormal) + 1);
     if (!checkCRC(blockReq, sizeof(struct blockRequest))) return;
 
     // the tag asks again: it has given up on the burst that is still being sent
-    if (burstActive && memcmp(rxHeader->src, dstMac, 8) == 0) burstActive = false;
+    if (burstActive && memcmp(rxHeader->src, dstMac, 8) == 0) {
+        burstActive = false;
+        cachePin(-1);
+    }
 
     // check if we're already talking to this mac
     if (memcmp(rxHeader->src, lastBlockMac, 8) == 0) {
@@ -573,24 +565,12 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
         return;
     }
 
-    bool requestDataDownload = false;
-    if ((blockReq->blockId != requestedData.blockId) || (blockReq->ver != requestedData.ver)) {
-        // requested block isn't already in the buffer
-        requestDataDownload = true;
-    } else if (!blockReady && (getMillis() - nextBlockAttempt) > 300) {
-        // the earlier download of this block failed or never completed
-        requestDataDownload = true;
-    } else {
-        // requested block is already in the buffer
-        if (forceBlockDownload) {
-            if ((getMillis() - nextBlockAttempt) > 380) {
-                requestDataDownload = true;
-                ESP_LOGI(TAG, "block download forced");
-            } else {
-                ESP_LOGI(TAG, "forced download ignored");
-            }
-        }
-    }
+    // The block is in the cache, on its way for an earlier request of this block, or has to come from
+    // the S3. A cached block is checked chunk by chunk (CRC16 on the serial line), so a full request
+    // for it no longer forces a new download.
+    const bool sameBlock = blockReq->blockId == requestedData.blockId && blockReq->ver == requestedData.ver;
+    const bool cached    = cacheComplete(cacheFind(blockReq->ver, blockReq->blockId));
+    const bool coming    = !cached && sameBlock && (getMillis() - nextBlockAttempt) <= 300;
 
     // copy blockrequest into requested data
     memcpy(&requestedData, blockReq, sizeof(struct blockRequest));
@@ -600,12 +580,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     radiotxbuffer[0]                                 = sizeof(struct MacFrameNormal) + 1 + sizeof(struct blockRequestAck) + RAW_PKT_PADDING;
     radiotxbuffer[sizeof(struct MacFrameNormal) + 1] = PKT_BLOCK_REQUEST_ACK;
 
-    if (blockStartTimer == 0 && requestDataDownload) {
-        blockRequestAck->pleaseWaitMs = PLEASE_WAIT_DOWNLOAD_MS;
-    } else {
-        // block is already in buffer, or on its way for the request before this one
-        blockRequestAck->pleaseWaitMs = PLEASE_WAIT_READY_MS;
-    }
+    blockRequestAck->pleaseWaitMs = cached ? PLEASE_WAIT_CACHED_MS : coming ? PLEASE_WAIT_COMING_MS : PLEASE_WAIT_DOWNLOAD_MS;
     blockStartTimer = getMillis() + blockRequestAck->pleaseWaitMs + BURST_MARGIN_MS;
 
     memcpy(txHeader->src, mSelfMac, 8);
@@ -626,8 +601,7 @@ void processBlockRequest(const uint8_t *buffer, uint8_t forceBlockDownload) {
     memcpy(dstMac, rxHeader->src, 8);
     dstPan = rxHeader->pan;
 
-    if (requestDataDownload) {
-        blockReady = false;
+    if (!cached && !coming) {
         requestBlockData(rxHeader->src, blockRequestAck->pleaseWaitMs);
         nextBlockAttempt = getMillis();
     }
@@ -694,7 +668,10 @@ void processXferComplete(uint8_t *buffer) {
         memcpy((void *) lastAckMac, (void *) rxHeader->src, 8);
         int32_t slot = findSlotForMac(rxHeader->src);
         notifyXferEnd(V2_XFER_COMPLETE, rxHeader->src, slot != -1 ? pendingDataArr[slot].availdatainfo.dataVer : 0);
-        if (slot != -1) pendingDataArr[slot].attemptsLeft = 0;
+        if (slot != -1) {
+            pendingDataArr[slot].attemptsLeft = 0;
+            dropUnusedData(pendingDataArr[slot].availdatainfo.dataVer);
+        }
     }
 }
 
@@ -729,7 +706,7 @@ void sendPart(uint8_t partNo) {
     memcpy(frameHeader->dst, dstMac, 8);
     blockPart->blockId   = requestedData.blockId;
     blockPart->blockPart = partNo;
-    memcpy(&(blockPart->data), blockbuffer + (partNo * BLOCK_PART_DATA_SIZE), BLOCK_PART_DATA_SIZE);
+    memcpy(&(blockPart->data), cacheBuffer(burstSlot) + (partNo * BLOCK_PART_DATA_SIZE), BLOCK_PART_DATA_SIZE);
     addCRC(blockPart, sizeof(struct blockPart) + BLOCK_PART_DATA_SIZE);
     frameHeader->fcs.frameType       = 1;
     frameHeader->fcs.panIdCompressed = 1;
@@ -739,7 +716,7 @@ void sendPart(uint8_t partNo) {
     frameHeader->pan                 = dstPan;
     radioTx(radiotxbuffer);
 }
-static void startBurst(int32_t lateMs) {
+static void startBurst(int slot, int32_t lateMs) {
     if (getBlockDataLength() == 0) {
         ESP_LOGW(TAG, "Invalid block request received, 0 parts");
         requestedData.requestedParts[0] |= 0x01;
@@ -765,6 +742,9 @@ static void startBurst(int32_t lateMs) {
     }
     burstPos    = 0;
     burstLateMs = (int16_t) (lateMs + BURST_MARGIN_MS);  // against the promised pleaseWaitMs
+    burstSlot   = slot;
+    cachePin(slot);
+    cacheTouch(slot);
     burstActive = true;
 }
 
@@ -774,6 +754,7 @@ static void burstStep() {
     sendPart(burstParts[burstPos++]);
     if (burstPos < burstLen) return;
     burstActive = false;
+    cachePin(-1);
     struct v2BlockServed bs;
     memcpy(bs.mac, dstMac, 8);
     bs.dataVer        = requestedData.ver;
@@ -858,6 +839,7 @@ void app_main(void) {
     }
 #endif
     radioSetTxPower(10);
+    cacheInit();  // last: takes what is left of the heap
 
     pr("RES>");
     pr("RDY>");
@@ -908,10 +890,10 @@ void app_main(void) {
                         }
                         break;
                     case PKT_BLOCK_REQUEST:
-                        processBlockRequest(radiorxbuffer, 1);
+                        processBlockRequest(radiorxbuffer);
                         break;
                     case PKT_BLOCK_PARTIAL_REQUEST:
-                        processBlockRequest(radiorxbuffer, 0);
+                        processBlockRequest(radiorxbuffer);
                         break;
                     case PKT_XFER_COMPLETE:
                         processXferComplete(radiorxbuffer);
@@ -960,8 +942,9 @@ void app_main(void) {
             if (blockStartTimer) {
                 int32_t late = (int32_t)(getMillis() - blockStartTimer);
                 if (late >= 0) {
-                    if (blockReady) {
-                        startBurst(late);
+                    const int slot = cacheFind(requestedData.ver, requestedData.blockId);
+                    if (cacheComplete(slot)) {
+                        startBurst(slot, late);
                         blockStartTimer = 0;
                     } else if (late > BLOCK_DATA_SLACK_MS) {
                         ESP_LOGW(TAG, "block data not complete in time, no burst");
@@ -1001,6 +984,7 @@ void app_main(void) {
                     notifyXferEnd(V2_XFER_TIMEOUT, pendingDataArr[cCount].targetMac, pendingDataArr[cCount].availdatainfo.dataVer);
                 }
                 pendingDataArr[cCount].attemptsLeft = 0;
+                dropUnusedData(pendingDataArr[cCount].availdatainfo.dataVer);
             } else if (pendingDataArr[cCount].attemptsLeft > 1) {
                 pendingDataArr[cCount].attemptsLeft--;
                 // Minutes count down; a value with bit 15 set is seconds and stays as it is.

@@ -3,6 +3,8 @@
 
 #include "commstructs.h"
 
+struct v2BlockServed;
+
 struct PendingItem {
     struct pendingData pendingdata;
     char filename[50];
@@ -14,6 +16,8 @@ extern void addCRC(void* p, uint8_t len);
 extern bool checkCRC(void* p, uint8_t len);
 
 extern void processBlockRequest(struct espBlockRequest* br);
+extern void processPreload(struct espBlockRequest* br);
+extern void processBlockServed(const struct v2BlockServed* bs);
 extern void prepareCancelPending(const uint8_t dst[8]);
 extern void prepareIdleReq(const uint8_t* dst, uint16_t nextCheckin);
 extern void prepareDataAvail(const uint8_t* dst);

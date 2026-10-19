@@ -138,6 +138,10 @@ uint16_t sendBlock(const void* data, const uint16_t len, uint64_t ver, uint32_t 
     if (!apInfo.isOnline) return false;
     return radioTransport->sendBlock(data, len, ver, offset, totalSize);
 }
+bool cacheBlock(const void* data, const uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize) {
+    if (!apInfo.isOnline) return false;
+    return radioTransport->cacheBlock(data, len, ver, offset, totalSize);
+}
 
 // A BLE display never hears the radio. Data the radio holds for one times out there, and that
 // timeout dropped the queued image before the BLE task had sent it (#622).
@@ -248,6 +252,12 @@ void rxCmdProcessor(void* parameter) {
                     case RX_CMD_TRD:
                         // received tag return data
                         processTagReturnData((struct espTagReturnData*)rxcmd->data, rxcmd->len, true);
+                        break;
+                    case RX_CMD_PRELOAD:
+                        processPreload((struct espBlockRequest*)rxcmd->data);
+                        break;
+                    case RX_CMD_BLS:
+                        processBlockServed((struct v2BlockServed*)rxcmd->data);
                         break;
                 }
                 if (rxcmd->data) free(rxcmd->data);
