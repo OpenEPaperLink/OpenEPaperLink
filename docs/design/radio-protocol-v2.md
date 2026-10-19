@@ -170,7 +170,7 @@ Deviations from and additions to the design:
 - DATA_CHUNKs start at the block start and are 240 bytes apart (`offset - blockStart` a multiple of `V2_CHUNK_MAX`); the radio tracks them in a bitmap per block. Without a cache it NAKs (`NO_CACHE_SPACE`) chunks for any block other than the one the tag asked for.
 - `pleaseWaitMs` stays as in phase 2 for now: 140 ms when the block has to come from the S3, 30 ms when it is in the buffer. The S3 logs how long each block took after DATA_NEEDED; to be tuned with step 2 (see there).
 - BLOCK_SERVED is sent for every burst, not only for cached blocks.
-- SET_CONFIG `tx_power_dbm` carries the old `power` value, stored and reported as before (the C6 does not apply it, see #11). `led_brightness` is sent as 255 until #33.
+- SET_CONFIG `tx_power_dbm` carries the old `power` value, stored and reported as before (the C6 does not apply it, see #11). `led_brightness` was sent as 255 until #33 (step 3).
 - The S3 maps SCP channel 0 to "unchanged" (0xFF), as the old protocol did for sub-GHz-only use.
 - The S3's `sendBlock()` got the file version, block offset and file size as parameters; the old protocol ignores them.
 - AP-side RSSI/LQI from CHECKIN are not yet used by the S3.
@@ -185,3 +185,7 @@ The block cache (#15). Code: C6/H2 `main/blockcache.c`, block requests in `main/
 - **Block request**: complete block in the cache → `pleaseWaitMs` 15 ms (0 or ≥ 10, see the timing budget), burst 5 ms after it; block on its way for an earlier request of the same block (< 300 ms) → 30 ms; otherwise DATA_NEEDED and 140 ms, as in step 1. The 140 ms is not tuned: the S3 log with the time per block is only on its USB console. DATA_CHUNKs for any block are kept, so a block that the tag asks for again comes from the cache.
 - A full block request for a block that is in the cache no longer forces a new download (it did after 380 ms): the cached data was checked per chunk by the frame CRC.
 - BLOCK_SERVED drives the live block x/total on the tag card in the web UI, because cached blocks no longer pass through the S3's block request handling. It also gives a log line `<MAC> block served <file> block n, parts, frames, ms late`; a log line that starts with the MAC makes the tag card flash, as the block request line does on the old protocol.
+
+## Implementation, step 3 (2026-10-19)
+
+The activity LEDs (#33, PR #587 by jakobwesthoff). SET_CONFIG `led_brightness` is the AP's `config.led` (0 = off, 255 = full); the C6/H2 drives both activity LEDs with LEDC PWM at that brightness, squared for even steps to the eye, and does not light them at 0. Until the first SET_CONFIG they flash at full brightness, as before. The S3 sends SET_CONFIG again when the LED setting changes in the web UI (`setAPchannel()` compares with the last value sent). The S3's own activity blink on TFT boards (`quickBlink()`) also stays off when the LED is off (#34, from the same PR).

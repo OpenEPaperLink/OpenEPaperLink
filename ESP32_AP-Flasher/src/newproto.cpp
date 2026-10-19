@@ -854,8 +854,10 @@ void updateContent(const uint8_t* dst) {
     }
 }
 
+extern int16_t radioLedBrightness;
+
 void setAPchannel() {
-    bool bSendRadioLayer = false;
+    bool bSendRadioLayer = config.led != radioLedBrightness;  // v2 radios dim their LEDs along
     struct espSetChannelPower tmp;
     if (config.channel == 0) {
         // trigger channel autoselect

@@ -398,6 +398,7 @@ static void setConfig(const struct v2SetConfig *sc, struct v2Reply *reply) {
         radioSetChannel(sc->channel);
         curChannel = sc->channel;
     }
+    led_set_brightness(sc->ledBrightness);
     if (sc->txPowerDbm != V2_CFG_UNCHANGED_POWER) {
         curPower = (uint8_t) sc->txPowerDbm;
         radioSetTxPower(curPower);

@@ -10,6 +10,7 @@
 #include "newproto.h"
 #include "radiotransport.h"
 #include "serialap.h"
+#include "tag_db.h"
 
 #define RESP_WAIT 0
 #define RESP_DONE 1
@@ -352,7 +353,7 @@ bool V2Transport::setChannelPower(struct espSetChannelPower* scp) {
 #endif
     sc.txPowerDbm = (int8_t)scp->power;
     sc.flags = 0;
-    sc.ledBrightness = 255;
+    sc.ledBrightness = config.led;  // the radio's activity LEDs follow the AP's LED setting
     txStart();
     const bool ok = request(V2_SET_CONFIG, &sc, sizeof(sc));
     txEnd();

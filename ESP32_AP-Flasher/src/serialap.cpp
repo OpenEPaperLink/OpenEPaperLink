@@ -32,6 +32,7 @@ volatile bool rxSerialStopTask2 = false;
 
 uint8_t channelList[6];
 struct espSetChannelPower curChannel = {0, 11, 10};
+int16_t radioLedBrightness = -1;  // config.led as last sent with the channel (v2 SET_CONFIG)
 
 
 #define AP_ACTIVITY_MAX_INTERVAL 30 * 1000
@@ -166,6 +167,7 @@ bool sendChannelPower(struct espSetChannelPower* scp) {
     if (apInfo.state == AP_STATE_NORADIO) return true;
     if ((apInfo.state != AP_STATE_ONLINE) && (apInfo.state != AP_STATE_COMING_ONLINE)) return false;
     if (!radioTransport->setChannelPower(scp)) return false;
+    radioLedBrightness = config.led;
     apInfo.channel = scp->channel;
     apInfo.power = scp->power;
     return true;
