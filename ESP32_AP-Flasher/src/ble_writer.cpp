@@ -380,15 +380,48 @@ void ATC_BLE_OEPL_SendPart(uint8_t indexBlockId, uint8_t indexPkt) {
     BLE_write(ctrlChar, tempPacketBuffer, sizeof(tempPacketBuffer), true);
 }
 
+// The queued item for BLE_curr_address reached the display: clear it and count the update.
+static void BLE_reportDelivered() {
+    struct espXferComplete reportStruct;
+    memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
+    processXferComplete(&reportStruct, true);
+    BLE_clear_attempts(BLE_curr_address);
+}
+
+// The item could not be delivered. Reporting it complete would make it the image the AP thinks the
+// display shows: its preview, its hash and one more update. The next run of the same content is
+// then "the same as the current image" and never queued again, so a display the AP never reached
+// keeps its old image for good, while the web interface shows the new one. A timeout clears the
+// queue, logs that the transfer failed and leaves the hash of the image on the display alone.
+static void BLE_reportFailed() {
+    struct espXferComplete reportStruct;
+    memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
+    processXferTimeout(&reportStruct, true);
+    BLE_clear_attempts(BLE_curr_address);
+}
+
+// Leave an ATC BLE OEPL image upload: free the buffer, drop the link and report what happened
+static void BLE_endAtcUpload(bool delivered) {
+    BLE_freeImageBuffer();
+    pClient->disconnect();
+    ble_main_state = BLE_MAIN_STATE_IDLE;
+    BLE_last_pending_check = millis();
+    if (delivered) {
+        BLE_reportDelivered();
+    } else {
+        BLE_reportFailed();
+    }
+    BLE_err_counter = 0;
+    BLE_max_block_parts = 0;
+    BLE_curr_part = 0;
+}
+
 // Finish handling a queued command for BLE_curr_address: report the transfer as
 // complete (clears the pending item), reset the retry counters, and - for a deep
 // sleep - flag the tag as sleeping so the UI shows "In deep sleep" until it is
 // seen in a scan again.
 static void BLE_finishCommand(bool markSleep) {
-    struct espXferComplete reportStruct;
-    memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
-    processXferComplete(&reportStruct, true);
-    BLE_clear_attempts(BLE_curr_address);
+    BLE_reportDelivered();
     BLE_err_counter = 0;
     BLE_cmd_conn_fails = 0;
     if (markSleep) {
@@ -441,11 +474,10 @@ void BLETask(void* parameter) {
                         BLE_scanStop();  // no scanning while connected; IDLE starts it again
                         if (bleFamily(BLE_curr_address, 0) == BLE_FAMILY_OPENDISPLAY) {
                             // one blocking session: connect, authenticate, send, wait for the refresh
-                            if (odUpload(BLE_curr_address) || BLE_get_attempts(BLE_curr_address) >= 5) {
-                                struct espXferComplete reportStruct;
-                                memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
-                                processXferComplete(&reportStruct, true);
-                                BLE_clear_attempts(BLE_curr_address);
+                            if (odUpload(BLE_curr_address)) {
+                                BLE_reportDelivered();
+                            } else if (BLE_get_attempts(BLE_curr_address) >= 5) {  // 5 tries per display
+                                BLE_reportFailed();
                             }
                         } else if (bleFamily(BLE_curr_address, 0) == BLE_FAMILY_ATC) {  // This is an ATC BLE OEPL display
                             // A pending item may be a command (deep sleep, reboot, reset, ...)
@@ -488,7 +520,9 @@ void BLETask(void* parameter) {
                                     // separate counter here).
                                     if (++BLE_cmd_conn_fails >= 5) {
                                         Serial.println("BLE command: giving up after repeated connect failures");
-                                        BLE_finishCommand(false);
+                                        BLE_cmd_conn_fails = 0;
+                                        BLE_err_counter = 0;
+                                        BLE_reportFailed();
                                     }
                                 }
                                 BLE_last_pending_check = millis();
@@ -533,10 +567,7 @@ void BLETask(void* parameter) {
                                 } else {
                                     BLE_freeImageBuffer();
                                     if (BLE_get_attempts(BLE_curr_address) >= 5) {  // 5 tries per display (BLE_connect() resets BLE_err_counter)
-                                        struct espXferComplete reportStruct;
-                                        memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
-                                        processXferComplete(&reportStruct, true);
-                                        BLE_clear_attempts(BLE_curr_address);
+                                        BLE_reportFailed();
                                     }
                                 }
                             }
@@ -562,10 +593,7 @@ void BLETask(void* parameter) {
                                 } else {
                                     BLE_freeImageBuffer();
                                     if (BLE_get_attempts(BLE_curr_address) >= 5) {  // 5 tries per display (BLE_connect() resets BLE_err_counter)
-                                        struct espXferComplete reportStruct;
-                                        memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
-                                        processXferComplete(&reportStruct, true);
-                                        BLE_clear_attempts(BLE_curr_address);
+                                        BLE_reportFailed();
                                     }
                                 }
                             }
@@ -615,10 +643,7 @@ void BLETask(void* parameter) {
                                 ble_main_state = BLE_MAIN_STATE_IDLE;
                                 BLE_last_pending_check = millis();
                                 // Done and the image is refreshing now
-                                struct espXferComplete reportStruct;
-                                memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
-                                processXferComplete(&reportStruct, true);
-                                BLE_clear_attempts(BLE_curr_address);
+                                BLE_reportDelivered();
                                 BLE_err_counter = 0;
                                 BLE_curr_part = 0;
                             } else {
@@ -699,23 +724,16 @@ void BLETask(void* parameter) {
                                     if (BLE_curr_part <= BLE_max_block_parts && BLE_err_counter++ < 15) {
                                         ATC_BLE_OEPL_SendPart(BLEblkRequst.blockId, BLE_curr_part);
                                         break;
-                                    }  // FALLTROUGH!!! We cancel the upload if we land here since we dont have so many parts of a block!
+                                    }
+                                    // too many errors on one block: the display didn't get the image
+                                    Serial.println("BLE upload failed, too many block part errors");
+                                    BLE_endAtcUpload(false);
+                                    break;
                                 case BLE_CMD_ACK:
                                 case BLE_CMD_ACK_IS_SHOWN:
                                 case BLE_CMD_ACK_FW_UPDATED:
                                     Serial.println("BLE Upload done");
-                                    BLE_freeImageBuffer();
-                                    pClient->disconnect();
-                                    ble_main_state = BLE_MAIN_STATE_IDLE;
-                                    BLE_last_pending_check = millis();
-                                    // Done and the image is refreshing now
-                                    struct espXferComplete reportStruct;
-                                    memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
-                                    processXferComplete(&reportStruct, true);
-                                    BLE_clear_attempts(BLE_curr_address);
-                                    BLE_err_counter = 0;
-                                    BLE_max_block_parts = 0;
-                                    BLE_curr_part = 0;
+                                    BLE_endAtcUpload(true);  // the image is refreshing now
                                     break;
                             }
                         } break;
