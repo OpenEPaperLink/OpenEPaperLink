@@ -800,7 +800,10 @@ void loop() {
       pendingDataArr[cCount].attemptsLeft = 0;
     } else if (pendingDataArr[cCount].attemptsLeft > 1) {
       pendingDataArr[cCount].attemptsLeft--;
-      if (pendingDataArr[cCount].availdatainfo.nextCheckIn) pendingDataArr[cCount].availdatainfo.nextCheckIn--;
+      // Minutes count down; a value with bit 15 set is seconds and stays as it is.
+      // Counting 0x8005 down reaches 0x8000 (the tag sleeps "forever") and 0x7FFF (22 days).
+      uint16_t nextCheckIn = pendingDataArr[cCount].availdatainfo.nextCheckIn;
+      if (nextCheckIn && !(nextCheckIn & 0x8000)) pendingDataArr[cCount].availdatainfo.nextCheckIn--;
     }
   }
   housekeepingTimer = millis();
