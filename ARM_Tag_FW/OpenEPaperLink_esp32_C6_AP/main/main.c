@@ -69,7 +69,7 @@ const struct {
 struct pendingData pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t version = 0x0021;
+uint16_t version = 0x0022;
 
 #define RAW_PKT_PADDING 2
 
