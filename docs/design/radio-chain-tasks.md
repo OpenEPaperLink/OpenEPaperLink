@@ -59,7 +59,7 @@ Done when: C6 firmware version bumped and released; M2 meets the response-time r
 S3 structure and protocol design, without changing behaviour (migration step 2). Can run in parallel with phase 2.
 
 - [x] #28 Transport abstraction on the S3, with only the old implementation (`radiotransport.h`, `legacytransport.cpp`; AP-state checks stay in `serialap.cpp`) — `be5bf3ae`; all S3 envs build; on the Yellow AP the radio came online as before and 25 min of traffic showed no serial errors and the same timing as the 5.5.5 check
-- [x] #30 Design the message set for the new UART protocol: check-in with AP-side RSSI/LQI/radio, data in chunks with offset, cancel by MAC, fixed SCP fields. [radio-protocol-v2.md](radio-protocol-v2.md) (checked against phase 2 on 2026-10-13: rules for the pending table and events, STATUS replaces the `NFO?` tokens), structs with size checks in [radio-protocol-v2.h](radio-protocol-v2.h); decisions of 2026-10-12 recorded there (cache per 4 KB block, one `pleaseWaitMs` default, 2 Mbaud only, keep UART0 debug output)
+- [x] #30 Design the message set for the new UART protocol: check-in with AP-side RSSI/LQI/radio, data in chunks with offset, cancel by MAC, fixed SCP fields. Described in [radio-protocol-v2.md](radio-protocol-v2.md), structs with size checks in `oepl-radio-v2.h`
 
 Done when: S3 behaviour unchanged (same test as phase 1); message set documented.
 
@@ -67,7 +67,7 @@ Done when: S3 behaviour unchanged (same test as phase 1); message set documented
 
 Migration step 3: S3 and C6/H2 firmware are released together. Old S3 + new C6/H2 is not supported.
 
-On hold from 2026-10-13, picked up again on 2026-10-19 (Nic). Order: step 1 framing and messages without a cache (#14, #29, #26), step 2 block cache (#15), step 3 LED (#33). Implementation notes in [radio-protocol-v2.md](radio-protocol-v2.md#implementation-step-1-2026-10-19) and [step 2](radio-protocol-v2.md#implementation-step-2-2026-10-19).
+On hold from 2026-10-13, picked up again on 2026-10-19 (Nic). Order: step 1 framing and messages without a cache (#14, #29, #26), step 2 block cache (#15), step 3 LED (#33). How it works: [radio-protocol-v2.md](radio-protocol-v2.md).
 
 - [x] #14 Framing in chunks of ≤ 256 B with CRC16, sequence numbers and version handshake (R2, T1) — step 1, `c852665f`: `oepl-radio-v2.h` (structs, COBS, CRC16), C6 `v2link.c`, S3 `v2transport.cpp`. C6/H2 0023 (0022 is the last version with the old protocol). Tested 2026-10-19 on the Yellow AP: new S3 + C6 0021 stays on the old protocol (2026-10-20 also with 0022); new S3 + C6 v2 runs v2, check-ins of all tags, three concurrent image transfers each block requested once, XFC from all three in 45 s
 - [x] #29 Negotiation at startup (`CAP>`, `FRM1`, HELLO, heartbeat); C6/H2 only ASCII recognition plus the new protocol — step 1, as #14. Heartbeat every second from APTask, 3 misses bring the link up again; the radio falls back to ASCII after 5 s without frames
