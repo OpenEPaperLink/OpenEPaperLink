@@ -132,3 +132,4 @@ New findings that are not yet in a phase.
 | `miscellaneous/ppk2-measure/` | M4: tag current with a PPK2 (100 kS/s), active episodes with charge and radio frames (D0) | [README](../../miscellaneous/ppk2-measure/README.md) |
 | `miscellaneous/radio-baseline/` | Repeatable baseline (M2 + M4): scripted image transfers to one tag, analysis of boot, check-ins, XFC, blocks and transfers. Rerun after each change and compare. `night_traffic.py`: longer runs with traffic on several tags | [README](../../miscellaneous/radio-baseline/README.md) |
 | `miscellaneous/ap-console-log/` | M3 stage A: long log of the AP's USB console, counting serial-protocol errors | [README](../../miscellaneous/ap-console-log/README.md) |
+| `ARM_Tag_FW/build_radio.ps1` | Builds the C6, C6 Uart0 and H2 firmware with ESP-IDF 5.5.5; `-Publish` copies them to `binaries/` and sets the version from `main.c` in the firmware json files | Header of the script |
