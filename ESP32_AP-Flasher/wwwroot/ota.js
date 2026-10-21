@@ -20,8 +20,44 @@ let gCurrentRfVer = 0;
 // firmwares that are not interchangeable and each gets its own entry.
 let gTargets = [];
 
+// GitHub release assets carry no CORS headers, so the browser cannot read the
+// firmware json from the release. The release workflow copies it from the repo
+// at the tag, and raw.githubusercontent.com does allow cross-origin reads.
+const radioFwTimeout = 5000;
+let gRadioFwVersionFailed = false;
+
+// The file lists of a release are only release assets: the AP fetches those for the page.
+// Firmware from before github_proxy answers 404. It is still updated through the external
+// proxy, and also gets its firmware from there: it downloads over http only.
+let gLegacyProxy = false;
+
+async function fetchReleaseFile(url) {
+    if (!gLegacyProxy) {
+        const response = await fetch('github_proxy?url=' + encodeURIComponent(url));
+        if (response.status != 404) return response;
+        gLegacyProxy = true;
+        print("This firmware cannot fetch release files itself yet, using openepaperlink.eu", "yellow");
+    }
+    return fetch("//openepaperlink.eu/getupdate/?url=" + url);
+}
+
+async function fetchRadioFwVersion(tag, jsonName) {
+    const url = `https://raw.githubusercontent.com/${repo}/${tag}/binaries/${gBinDir}/${jsonName}`;
+    try {
+        const response = await fetch(url, { signal: AbortSignal.timeout(radioFwTimeout) });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const files = await response.json();
+        return files[2]['version'];
+    } catch (error) {
+        console.log(`Radio firmware version from ${url} failed: ${error}`);
+        gRadioFwVersionFailed = true;
+        return null;
+    }
+}
+
 export async function initUpdate() {
     gTargets = [];
+    gRadioFwVersionFailed = false;
     initFlashPins();
     if (apConfig?.H2 && apConfig.H2 == 1) {
         gIsH2 = true;
@@ -203,15 +239,7 @@ export async function initUpdate() {
 
                 tablerow = `<td><a href="${release.html_url}" target="_new">${release.tag_name}</a></td><td>${release.date}</td><td>${release.name}</td>`;
                 tablerow += `<td><button type="button" onclick="otamodule.updateC6H2('${release_url}')">${gModuleType}</button></td>`;
-                const firmwareUrl = 'http://proxy.openepaperlink.org/proxy.php?url=' + release.firmware_url;
-                firmwareVer = await fetch(firmwareUrl, { method: 'GET' })
-                    .then(function (response) { return response.json(); })
-                    .then(function (response) {
-                        return response[2]['version'];
-                    })
-                    .catch(error => {
-                        print('Error fetching releases:' + error, "red");
-                    });
+                firmwareVer = await fetchRadioFwVersion(release.tag_name, JsonName) ?? 'unknown';
                 tablerow += '<td>' + firmwareVer + '</td><td>';
                 if (firmwareVer != 'unknown') {
                     let Ver = Number('0x' + firmwareVer);
@@ -234,6 +262,9 @@ export async function initUpdate() {
 
         $('#radio_releasetable').innerHTML = "";
         $('#radio_releasetable').appendChild(table1);
+        if (gRadioFwVersionFailed) {
+            print(`Could not read the ${gModuleType} firmware version of one or more releases\nfrom raw.githubusercontent.com. Updating still works, only the\nVersion column shows 'unknown'.`, "yellow");
+        }
     }
 
     const table2 = document.createElement('table');
@@ -311,7 +342,7 @@ export async function updateWebpage(fileUrl, tagname, showReload) {
 
         let files;
         try {
-            const response = await fetch("//openepaperlink.eu/getupdate/?url=" + fileUrl);
+            const response = await fetchReleaseFile(fileUrl);
             if (!response.ok) throw new Error("HTTP " + response.status);
             files = await response.json();
             if (!Array.isArray(files)) throw new Error("unexpected response");
@@ -406,7 +437,7 @@ export async function updateESP(fileUrl, showConfirm) {
 
     while (retryCount < maxRetries) {
         try {
-            const response = await fetch("//openepaperlink.eu/getupdate/?url=" + fileUrl + "&env=" + env);
+            const response = await fetchReleaseFile(fileUrl);
             const responseBody = await response.text();
             if (!response.ok) {
                 throw new Error("Network response was not OK: " + responseBody);
@@ -419,7 +450,7 @@ export async function updateESP(fileUrl, showConfirm) {
             const data = JSON.parse(responseBody);
             const file = data.find((entry) => entry.name == env + '.bin');
             if (file) {
-                binurl = "http://openepaperlink.eu/getupdate/?url=" + encodeURIComponent(file.url);
+                binurl = gLegacyProxy ? "http://openepaperlink.eu/getupdate/?url=" + encodeURIComponent(file.url) : file.url;
                 binmd5 = file.md5;
                 binsize = file.size;
                 console.log(`URL for "${file.name}": ${binurl}`);
@@ -570,8 +601,7 @@ $('#selectRepo').onclick = function (event) {
                 const filesJsonAsset = assets.find(asset => asset.name === 'filesystem.json');
                 const binariesJsonAsset = assets.find(asset => asset.name === 'binaries.json');
                 if (filesJsonAsset && binariesJsonAsset) {
-                    const updateUrl = "//openepaperlink.eu/getupdate/?url=" + binariesJsonAsset.browser_download_url + "&env=" + $('#repo').value;
-                    return fetch(updateUrl);
+                    return fetchReleaseFile(binariesJsonAsset.browser_download_url);
                 } else {
                     throw new Error("Json file binaries.json and/or filesystem.json not found in the release assets");
                 }

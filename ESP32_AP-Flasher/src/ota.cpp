@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 #include <FS.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <MD5Builder.h>
 #include <Update.h>
 
@@ -182,7 +183,8 @@ void handleUpdateOTA(AsyncWebServerRequest* request) {
         params->url = request->getParam("url", true)->value();
         params->md5 = request->getParam("md5", true)->value();
         params->size = request->getParam("size", true)->value().toInt();
-        xTaskCreate(firmwareUpdateTask, "OTAUpdateTask", 6144, params, 10, NULL);
+        // the firmware comes straight from GitHub: TLS handshake on the stack, see handleUpdateC6
+        xTaskCreate(firmwareUpdateTask, "OTAUpdateTask", 10240, params, 10, NULL);
 
         request->send(200, "text/plain", "In progress");
     } else {
@@ -275,6 +277,84 @@ void updateFirmware(const char* url, const char* expectedMd5, const size_t size)
 
     httpClient.end();
     config.runStatus = RUNSTATUS_RUN;
+}
+
+// The update page needs the file lists of a release (filesystem.json, binaries.json), but GitHub serves
+// release assets without CORS headers, so the browser cannot read them. The AP fetches them instead.
+// Only release downloads from GitHub, and only small files: the lists are about 10 KB.
+#define GITHUB_PROXY_MAX_SIZE 65536
+
+struct GithubProxyJob {
+    String url;
+    AsyncWebServerRequestPtr request;
+};
+
+static volatile bool githubProxyBusy = false;
+
+static void githubProxyTask(void* parameter) {
+    GithubProxyJob* job = static_cast<GithubProxyJob*>(parameter);
+    int code = 502;
+    String body;
+
+    WiFiClientSecure client;
+    client.setInsecure();
+    HTTPClient http;
+    http.begin(client, job->url);
+    http.setReuse(false);
+    http.setTimeout(10000);
+    http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+    const int httpCode = http.GET();
+    char tlsError[100] = "";
+    if (httpCode < 0) client.lastError(tlsError, sizeof(tlsError));
+    if (httpCode == HTTP_CODE_OK) {
+        if (http.getSize() > GITHUB_PROXY_MAX_SIZE) {
+            body = "file too large";
+        } else {
+            body = http.getString();
+            if (body.length() == 0 || body.length() > GITHUB_PROXY_MAX_SIZE) {
+                body = "empty or too large response";
+            } else {
+                code = 200;
+            }
+        }
+    } else {
+        // always 502, also when GitHub says 404: to the page, a 404 means firmware without this endpoint
+        body = "GitHub: " + (httpCode < 0 ? http.errorToString(httpCode) + " " + tlsError : "HTTP " + String(httpCode));
+    }
+    http.end();
+
+    // the browser may have given up in the meantime: then the request no longer exists
+    if (auto request = job->request.lock()) {
+        request->send(code, code == 200 ? "application/json" : "text/plain", body);
+    }
+    delete job;
+    githubProxyBusy = false;
+    vTaskDelete(NULL);
+}
+
+void handleGithubProxy(AsyncWebServerRequest* request) {
+    if (!request->hasParam("url")) {
+        request->send(400, "text/plain", "url missing");
+        return;
+    }
+    const String url = request->getParam("url")->value();
+    if (!url.startsWith("https://github.com/") || url.indexOf("/releases/download/") < 0) {
+        request->send(403, "text/plain", "only release downloads from GitHub");
+        return;
+    }
+    if (githubProxyBusy) {
+        request->send(503, "text/plain", "busy");
+        return;
+    }
+    githubProxyBusy = true;
+    // the download takes seconds: it runs in its own task, the request is answered from there
+    GithubProxyJob* job = new GithubProxyJob{url, request->pause()};
+    // TLS handshake on the stack: see handleUpdateC6
+    if (xTaskCreate(githubProxyTask, "githubProxy", 10240, job, 2, NULL) != pdPASS) {
+        delete job;
+        githubProxyBusy = false;
+        request->send(503, "text/plain", "out of memory");
+    }
 }
 
 void handleRollback(AsyncWebServerRequest* request) {

@@ -959,6 +959,7 @@ void init_web() {
         request->send(erased ? 200 : 500, "text/plain", erased ? "OK" : "Failed");
     });
     server.on("/check_file", HTTP_GET, handleCheckFile);
+    server.on("/github_proxy", HTTP_GET, handleGithubProxy);
     server.on("/rollback", HTTP_POST, handleRollback);
     server.on("/update_c6", HTTP_POST, handleUpdateC6);
     /* Radio wiring self-test (task #32). POST starts it (the radio is offline
