@@ -62,6 +62,11 @@ jobs:
           cp /home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/build/bootloader/bootloader.bin espbinaries/bootloader_C6.bin
           cp /home/runner/work/OpenEPaperLink/OpenEPaperLink/ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/build/partition_table/partition-table.bin espbinaries/partition-table_C6.bin
           cp /home/runner/work/OpenEPaperLink/OpenEPaperLink//binaries/ESP32-C6/firmware_C6.json espbinaries
+          # A board with its co-processor on the shared UART0 (the 4inch AP) asks for
+          # firmware_C6_Uart0.json, which names the 4inchAP-profile build of the same source.
+          # That profile isn't built here, so the manifest and its binary come from the repo.
+          cp /home/runner/work/OpenEPaperLink/OpenEPaperLink//binaries/ESP32-C6/OpenEPaperLink_esp32_C6uart0.bin espbinaries/OpenEPaperLink_esp32_C6uart0.bin
+          cp /home/runner/work/OpenEPaperLink/OpenEPaperLink//binaries/ESP32-C6/firmware_C6_Uart0.json espbinaries
 
       - name: build ESP32-H2 firmware
         if: ${{ env.INCLUDE_C6_H2 == 'true' }}
