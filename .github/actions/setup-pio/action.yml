@@ -5,30 +5,26 @@ inputs:
   python-version:
     description: 'Set Python version (optional)'
     required: false
-    default: '3.9'
+    default: '3.14'
 
 runs:
   using: "composite"
   steps:
-    - name: Cache pip
-      id: cache-pip
-      uses: actions/cache@v3
+    - name: Cache pip and PlatformIO downloads
+      uses: actions/cache@v6
       with:
         path: |
           ~/.cache/pip
           ~/.platformio/.cache
-        key: ${{ runner.os }}-${{ inputs.python-version }}-pio
+        key: ${{ runner.os }}-${{ inputs.python-version }}-pio-${{ hashFiles('**/platformio.ini') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ inputs.python-version }}-pio-
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ inputs.python-version }}
 
-    - name: Install PlatformIO Core
+    - name: Install PlatformIO Core, intelhex and esptool
       shell: bash
-      run: pip install --upgrade platformio
-
-    - name: Install intelhex
-      shell: bash
-      run: pip install --upgrade intelhex
-
+      run: pip install --upgrade platformio intelhex esptool
