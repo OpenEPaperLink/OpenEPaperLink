@@ -230,10 +230,16 @@ bool downloadAndWriteBinary(String &filename, const char *url) {
     return Ret;
 }
 
+// Baud rate for writing the radio's flash; 115200 is the fallback when that fails
+#ifndef FLASHER_BAUD
+#define FLASHER_BAUD 921600
+#endif
+
+static bool flashTarget(JsonDocument &jsonDoc, uint32_t baud);
+
 bool FlashC6_H2(const char *RepoUrl) {
     String JsonFilename = "/firmware_" OTA_FW_JSON ".json" ;
     bool Ret = false;
-    bool bLoaderInit = false;
     bool bDownload = strlen(RepoUrl) > 0;
     int retry;
     JsonDocument jsonDoc;
@@ -297,8 +303,23 @@ bool FlashC6_H2(const char *RepoUrl) {
         }
     } while(false);
 
-    if(Ret == true) do {
-       Ret = false;
+    if(Ret == true) {
+        Ret = flashTarget(jsonDoc, FLASHER_BAUD);
+        if(!Ret && FLASHER_BAUD != 115200) {
+            wsSerial("Retrying at 115200 baud");
+            Ret = flashTarget(jsonDoc, 115200);
+        }
+    }
+
+    LOG("%s#%d: ",__FUNCTION__,__LINE__); util::printHeap();
+    return Ret;
+}
+
+static bool flashTarget(JsonDocument &jsonDoc, uint32_t baud) {
+    bool Ret = false;
+    bool bLoaderInit = false;
+
+    do {
         /* Read the pins out first. The local below is called "config" as
            well and would shadow the global one inside its own initialiser -
            which compiles to nonsense rather than an error in some contexts. */
@@ -321,7 +342,8 @@ bool FlashC6_H2(const char *RepoUrl) {
             break;
         }
 
-        if(connect_to_target(115200) != ESP_LOADER_SUCCESS) {
+        // the ROM bootloader syncs at 115200, then switches to the flashing baud rate
+        if(connect_to_target(baud) != ESP_LOADER_SUCCESS) {
             wsSerial("Connection to the " SHORT_CHIP_NAME " failed");
             break;
         }
@@ -335,7 +357,7 @@ bool FlashC6_H2(const char *RepoUrl) {
         /* Boards whose radio co-processor is not an ESP (a TLSR825x, written
            over SWS) define no chip type - there is nothing to compare. */
 #endif
-        wsSerial("Connected to ESP32-" SHORT_CHIP_NAME);
+        wsSerial("Connected to ESP32-" SHORT_CHIP_NAME " at " + String(baud) + " baud");
         int maxRetries = 5;
         esp_loader_error_t err;
 
@@ -355,6 +377,7 @@ bool FlashC6_H2(const char *RepoUrl) {
                 delay(1000);
             }
             if(err != ESP_LOADER_SUCCESS) {
+                Ret = false;  // an earlier file may have succeeded
                 break;
             }
         }
@@ -364,8 +387,6 @@ bool FlashC6_H2(const char *RepoUrl) {
     if(bLoaderInit) {
         loader_port_esp32_deinit();
     }
-
-    LOG("%s#%d: ",__FUNCTION__,__LINE__); util::printHeap();
     return Ret;
 }
 
