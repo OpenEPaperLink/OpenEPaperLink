@@ -10,6 +10,8 @@ window.addEventListener("load", function () {
             $('#mask').value = data.mask || "";
             $('#gw').value = data.gw || "";
             $('#dns').value = data.dns || "";
+            $('#appw').value = data.appw || "";
+            $('#apfallback').value = data.apfallback === 0 ? "0" : "1";
             $('#mac').innerHTML = data.mac || "";
         });
 });
@@ -56,13 +58,20 @@ function getSsidList() {
 };
 
 $('#connect').addEventListener('click', () => {
+    const appw = $('#appw').value;
+    if (appw.length > 0 && (appw.length < 8 || appw.length > 63)) {
+        alert('The hotspot password needs 8 to 63 characters, or leave it empty.');
+        return;
+    }
     const data = {
         ssid: $('#ssid').value,
         pw: $('#pw').value,
         ip: $('#ip').value,
         mask: $('#mask').value,
         gw: $('#gw').value,
-        dns: $('#dns').value
+        dns: $('#dns').value,
+        appw: appw,
+        apfallback: parseInt($('#apfallback').value)
     };
 
     fetch('save_wifi_config', {

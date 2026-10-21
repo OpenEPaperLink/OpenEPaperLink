@@ -38,6 +38,7 @@ WifiManager::WifiManager() {
     _savewhensuccessfull = false;
     _ssid = "";
     _APstarted = false;
+    _resetCountPending = false;
     wifiStatus = NOINIT;
 
     WiFi.onEvent(WiFiEvent);
@@ -45,6 +46,18 @@ WifiManager::WifiManager() {
         Serial.print("WiFi lost connection. Reason: ");
         Serial.println(info.wifi_sta_disconnected.reason);
     }, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+}
+
+// A boot this long after the previous one doesn't count towards the reset sequence
+#define RESET_SEQUENCE_WINDOW 10000
+
+// Fall back to the configuration hotspot when the wifi connection fails (default on)
+static bool hotspotFallback() {
+    Preferences preferences;
+    preferences.begin("wifi", true);
+    const bool fallback = preferences.getUChar("apfallback", 1) != 0;
+    preferences.end();
+    return fallback;
 }
 
 void WifiManager::terminalLog(String text) {
@@ -85,17 +98,26 @@ void WifiManager::poll() {
         }
     }
 
-    if (wifiStatus == CONNECTED && millis() > _nextReconnectCheck) {
+    if (_resetCountPending && millis() > RESET_SEQUENCE_WINDOW) {
+        _resetCountPending = false;
+        Preferences preferences;
+        preferences.begin("wifi", false);
+        preferences.putUChar("rstcount", 0);
+        preferences.end();
+    }
+
+    if ((wifiStatus == CONNECTED || wifiStatus == WAIT_RECONNECT) && millis() > _nextReconnectCheck) {
         if (WiFi.status() != WL_CONNECTED) {
             // Keep retrying in station mode without blocking the loop. Only fall back to the
-            // configuration AP after a long outage (for example when the wifi password changed).
+            // configuration AP after a long outage (for example when the wifi password changed),
+            // and never when the hotspot fallback is turned off.
             if (_connected) {
                 _connected = false;
                 _disconnectedSince = millis();
                 terminalLog("WiFi connection lost. Attempting to reconnect.");
                 logLine("WiFi connection lost. Attempting to reconnect.");
             }
-            if (millis() - _disconnectedSince > _lostConnectionTimeout) {
+            if (millis() - _disconnectedSince > _lostConnectionTimeout && hotspotFallback()) {
                 terminalLog("!Unable to reconnect to WiFi");
                 logLine("Unable to reconnect to WiFi");
                 startManagementServer();
@@ -107,6 +129,10 @@ void WifiManager::poll() {
             if (!_connected) {
                 _connected = true;
                 logLine("WiFi reconnected after " + String((millis() - _disconnectedSince) / 1000) + " s");
+            }
+            if (wifiStatus == WAIT_RECONNECT) {
+                WiFi.setAutoReconnect(true);
+                wifiStatus = CONNECTED;
             }
             _nextReconnectCheck = millis() + _reconnectIntervalCheck;
         }
@@ -249,7 +275,7 @@ bool WifiManager::waitForConnection() {
         if (millis() > timeout) {
             terminalLog("!Unable to connect to WiFi");
             logLine("Unable to connect to WiFi");
-            startManagementServer();
+            connectionFailed();
             return false;
         }
         vTaskDelay(250 / portTICK_PERIOD_MS);
@@ -273,14 +299,54 @@ bool WifiManager::waitForConnection() {
     return true;
 }
 
+// With the hotspot fallback turned off, keep retrying the saved network from poll()
+// instead of opening the configuration AP. Without a saved network there's no choice.
+void WifiManager::connectionFailed() {
+    if (_ssid == "" || hotspotFallback()) {
+        startManagementServer();
+        return;
+    }
+    terminalLog("Hotspot fallback is off, retrying WiFi");
+    logLine("Hotspot fallback is off, retrying WiFi");
+    _connected = false;
+    _disconnectedSince = millis();
+    _nextReconnectCheck = millis() + _reconnectRetryInterval;
+    wifiStatus = WAIT_RECONNECT;
+}
+
+// Three power-ons or reset-button presses in a row, each within RESET_SEQUENCE_WINDOW of
+// the previous boot, turn the hotspot fallback back on and clear the hotspot password.
+void WifiManager::checkResetSequence() {
+    const esp_reset_reason_t reason = esp_reset_reason();
+    Preferences preferences;
+    preferences.begin("wifi", false);
+    const uint8_t stored = preferences.getUChar("rstcount", 0);
+    uint8_t count = (reason == ESP_RST_POWERON || reason == ESP_RST_EXT) ? stored + 1 : 0;
+    if (count >= 3) {
+        preferences.putUChar("apfallback", 1);
+        preferences.remove("appw");
+        count = 0;
+        terminalLog("Hotspot fallback on, hotspot password cleared");
+        logLine("Three quick restarts: hotspot fallback on, hotspot password cleared");
+    }
+    if (count != stored) preferences.putUChar("rstcount", count);
+    preferences.end();
+    _resetCountPending = count > 0;
+}
+
 void WifiManager::startManagementServer() {
     if (!_APstarted && wifiStatus != ETHERNET) {
-        terminalLog("Starting config AP, ssid: OpenEPaperLink");
-        logLine("Starting configuration AP, ssid OpenEPaperLink");
+        Preferences preferences;
+        preferences.begin("wifi", true);
+        String pw = preferences.getString("appw", "");
+        preferences.end();
+        if (pw.length() < 8) pw = "";  // WPA2 needs at least 8 characters
+        terminalLog("Starting config AP, ssid: OpenEPaperLink" + String(pw.length() ? " (password protected)" : ""));
+        logLine("Starting configuration AP, ssid OpenEPaperLink" + String(pw.length() ? " (password protected)" : ""));
         WiFi.disconnect(true, true);
         delay(100);
         WiFi.mode(WIFI_AP);
-        WiFi.softAP("OpenEPaperLink", "", 1, false);
+        WiFi.softAP("OpenEPaperLink", pw.c_str(), 1, false);
         WiFi.softAPsetHostname("OpenEPaperLink");
         IPAddress IP = WiFi.softAPIP();
         terminalLog("Connect to it, visit http://" + String(IP.toString().c_str()) + "/setup");

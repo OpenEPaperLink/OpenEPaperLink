@@ -34,6 +34,7 @@ class WifiManager {
     String _pass;
     unsigned long _nextReconnectCheck;
     bool _APstarted;
+    bool _resetCountPending;
 
     const int SERIAL_BUFFER_SIZE = 64;
     char serialBuffer[64];
@@ -43,6 +44,7 @@ class WifiManager {
     String WiFi_psk();
 
     bool waitForConnection();
+    void connectionFailed();
     void pollSerial();
     static void terminalLog(String text);
     static String buildHostname(esp_mac_type_t mac_type);
@@ -56,6 +58,7 @@ class WifiManager {
     bool connectToWifi(String ssid, String pass, bool savewhensuccessfull);
 
     void startManagementServer();
+    void checkResetSequence();
     void poll();
     static void WiFiEvent(WiFiEvent_t event);
     void initEth();

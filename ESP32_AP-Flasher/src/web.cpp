@@ -304,6 +304,11 @@ uint8_t wsClientCount() {
     return ws.count();
 }
 
+// Empty means an open hotspot; WPA2 takes 8 to 63 characters
+static bool validHotspotPassword(const String &pw) {
+    return pw.length() == 0 || (pw.length() >= 8 && pw.length() <= 63);
+}
+
 void init_web() {
     wsMutex = xSemaphoreCreateMutex();
     WiFi.mode(WIFI_STA);
@@ -652,6 +657,17 @@ void init_web() {
         response->print("\"hasSubGhz\": \"0\", ");
 #endif
 
+        {
+            Preferences preferences;
+            preferences.begin("wifi", true);
+            JsonDocument pw;
+            pw.set(preferences.getString("appw", ""));
+            preferences.end();
+            response->print("\"hotspotpw\": ");
+            serializeJson(pw, *response);
+            response->print(", ");
+        }
+
         response->print("\"apstate\": \"" + String(apInfo.state) + "\"");
 
         File configFile = contentFS->open("/current/apconfig.json", "r");
@@ -673,6 +689,17 @@ void init_web() {
     });
 
     server.on("/save_apcfg", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("hotspotpw", true)) {
+            const String pw = request->getParam("hotspotpw", true)->value();
+            if (!validHotspotPassword(pw)) {
+                request->send(400, "text/plain", "Hotspot password needs 8 to 63 characters");
+                return;
+            }
+            Preferences preferences;
+            preferences.begin("wifi", false);
+            preferences.putString("appw", pw);
+            preferences.end();
+        }
         if (request->hasParam("alias", true)) {
             String aliasValue = request->getParam("alias", true)->value();
             size_t aliasLength = aliasValue.length();
@@ -840,6 +867,8 @@ void init_web() {
         for (size_t i = 0; i < numKeys; i++) {
             doc[keys[i]] = preferences.getString(keys[i], "");
         }
+        doc["appw"] = preferences.getString("appw", "");
+        doc["apfallback"] = preferences.getUChar("apfallback", 1);
         doc["mac"] = WiFi.macAddress();
         serializeJson(doc, *response);
         request->send(response);
@@ -873,15 +902,22 @@ void init_web() {
 
     AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/save_wifi_config", [](AsyncWebServerRequest *request, JsonVariant &json) {
         const JsonObject &jsonObj = json.as<JsonObject>();
+        if (jsonObj["appw"].is<String>() && !validHotspotPassword(jsonObj["appw"].as<String>())) {
+            request->send(400, "text/plain", "Hotspot password needs 8 to 63 characters");
+            return;
+        }
         Preferences preferences;
         preferences.begin("wifi", false);
-        const char *keys[] = {"ssid", "pw", "ip", "mask", "gw", "dns"};
+        const char *keys[] = {"ssid", "pw", "ip", "mask", "gw", "dns", "appw"};
         const size_t numKeys = sizeof(keys) / sizeof(keys[0]);
         for (size_t i = 0; i < numKeys; i++) {
             String key = keys[i];
             if (jsonObj[key].is<String>()) {
                 preferences.putString(key.c_str(), jsonObj[key].as<String>());
             }
+        }
+        if (jsonObj["apfallback"].is<int>()) {
+            preferences.putUChar("apfallback", jsonObj["apfallback"].as<int>() ? 1 : 0);
         }
         preferences.end();
         Serial.println("config saved");

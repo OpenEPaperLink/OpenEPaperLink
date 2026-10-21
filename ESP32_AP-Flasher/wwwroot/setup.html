@@ -47,6 +47,14 @@ Subnet mask     <input type="text" id="mask">
 Gateway         <input type="text" id="gw">
 DNS             <input type="text" id="dns">
             </pre>
+            <p>Without WiFi, the AP opens the configuration hotspot "OpenEPaperLink".<br>
+                Leave the password empty for an open hotspot, or use 8 to 63 characters.<br>
+                Starting the AP three times in a row within 10 seconds (power on or reset button)<br>
+                turns the fallback back on and clears the hotspot password.</p>
+            <pre>
+Hotspot pw      <input type="password" id="appw" maxlength="63">
+Fallback        <select id="apfallback"><option value="1">open the hotspot</option><option value="0">no hotspot, keep retrying WiFi</option></select>
+            </pre>
             <button id="connect">Save WiFi settings and reboot</button><br>
 
         </div>

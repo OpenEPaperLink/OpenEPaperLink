@@ -131,6 +131,7 @@ void setup() {
     enableNtpFromDhcp();
     wm.initEth();
     initAPconfig();
+    wm.checkResetSequence();
 
     updateLanguageFromConfig();
     updateBrightnessFromConfig();
