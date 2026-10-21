@@ -56,42 +56,27 @@ jobs:
     runs-on: ubuntu-26.04
     strategy:
       matrix:
-        # chip, flash mode/size and the boot_app0 offset default to an ESP32-S3 with 16 MB flash;
-        # fs is the offset of the littlefs partition in the merged image
+        # chip and flash mode/size default to an ESP32-S3 with 16 MB flash;
+        # the partition offsets for the merged image come from the partition table of the build
         include:
           - env: OpenEPaperLink_AP_and_Flasher
-            fs: '0xc90000'
           - env: ESP32_S3_16_8_YELLOW_AP
-            fs: '0x910000'
           - env: ESP32_S3_C6_NANO_AP
-            fs: '0x910000'
           - env: ESP32_S3_16_8_LILYGO_AP
-            fs: '0x910000'
           - env: ESP32_S3_16_8_LILYGO_T3
-            fs: '0x910000'
           - env: OpenEPaperLink_Nano_TLSR
-            fs: '0x910000'
           - env: OpenEPaperLink_Nano_TLSR_C6
-            fs: '0x910000'
           - env: OpenEPaperLink_Mini_AP_v4
-            fs: '0x910000'
           - env: BLE_ONLY_AP
-            fs: '0x910000'
           - env: ESP32_S3_16_8_4inch_AP
-            fs: '0x910000'
           - env: ESP32_S3_SIMPLE_AP
-            fs: '0x910000'
           - env: OpenEPaperLink_PoE_AP
             chip: esp32
             mode: qio
-            app0: '0xd000'
-            fs: '0x410000'
           - env: OpenEPaperLink_ESP32-PoE-ISO_AP
             chip: esp32
             mode: qio
             size: 4MB
-            app0: '0xd000'
-            fs: '0x3d0000'
             # this board gets its web files from the internet, its filesystem starts empty
             empty_fs: true
     steps:
@@ -111,15 +96,34 @@ jobs:
       - name: Merge into a full image
         run: |
           build=ESP32_AP-Flasher/.pio/build/${{ matrix.env }}
+          chip=${{ matrix.chip || 'esp32s3' }}
+          # the ESP32 ROM looks for the bootloader at 0x1000, the ESP32-S3 ROM at 0x0
+          boot=0x0
+          if [ $chip = esp32 ]; then boot=0x1000; fi
+          # otadata (where boot_app0.bin goes), the first app and the filesystem partition
+          read otadata app fs < <(python3 - $build/partitions.bin <<'EOF'
+          import struct, sys
+          data = open(sys.argv[1], 'rb').read()
+          found = {}
+          for i in range(0, len(data), 32):
+              magic, ptype, subtype, offset = struct.unpack_from('<HBBI', data, i)
+              if magic != 0x50AA:
+                  break
+              found.setdefault((ptype, subtype), offset)
+          fs = found.get((1, 0x82), found.get((1, 0x83)))
+          print(hex(found[(1, 0x00)]), hex(found[(0, 0x10)]), hex(fs))
+          EOF
+          )
+          echo "bootloader $boot, otadata $otadata, app $app, filesystem $fs"
           mkdir out
           cp $build/firmware.bin out/${{ matrix.env }}.bin
-          esptool --chip ${{ matrix.chip || 'esp32s3' }} merge-bin -o out/${{ matrix.env }}_full.bin \
+          esptool --chip $chip merge-bin -o out/${{ matrix.env }}_full.bin \
             --flash-mode ${{ matrix.mode || 'dio' }} --flash-freq 80m --flash-size ${{ matrix.size || '16MB' }} \
-            0x0 $build/bootloader.bin \
+            $boot $build/bootloader.bin \
             0x8000 $build/partitions.bin \
-            ${{ matrix.app0 || '0xe000' }} ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
-            0x10000 $build/firmware.bin \
-            ${{ matrix.fs }} $build/littlefs.bin
+            $otadata ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
+            $app $build/firmware.bin \
+            $fs $build/littlefs.bin
 
       - uses: actions/upload-artifact@v7
         with:
