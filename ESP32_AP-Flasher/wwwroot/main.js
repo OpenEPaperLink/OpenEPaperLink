@@ -1396,7 +1396,7 @@ function processQueue() {
 		.then(response => response.arrayBuffer())
 		.then(buffer => {
 
-			drawCanvas(buffer, canvas, hwtype, id, true);
+			drawCanvas(buffer, canvas, hwtype, id);
 			processQueue();
 		})
 		.catch(error => {
@@ -1405,7 +1405,7 @@ function processQueue() {
 		});
 }
 
-function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
+function drawCanvas(buffer, canvas, hwtype, tagmac) {
 	data = new Uint8ClampedArray(buffer);
 	if (data.length > 0 && tagTypes[hwtype].zlib > 0 && $('#tag' + tagmac).dataset.ver >= tagTypes[hwtype].zlib) {
 		data = processZlib(data);
@@ -1424,20 +1424,6 @@ function drawCanvas(buffer, canvas, hwtype, tagmac, doRotate) {
 	[canvas.width, canvas.height] = [tagTypes[hwtype].width, tagTypes[hwtype].height] || [0, 0];
 	if (tagTypes[hwtype].rotatebuffer % 2) [canvas.width, canvas.height] = [canvas.height, canvas.width];
 	if (tagTypes[hwtype].rotatebuffer >= 2) canvas.style.transform = 'rotate(180deg)';
-	if (doRotate == false && tagTypes[hwtype].rotatebuffer == 1) {
-		canvas.style.transform = 'rotate(90deg)';
-		canvas.style.transformOrigin = 'top left';
-		canvas.style.position = 'absolute';
-		canvas.style.left = canvas.height + 15;
-		canvas.style.top = 15;
-	}
-	if (doRotate == false && tagTypes[hwtype].rotatebuffer == 3) {
-		canvas.style.transform = 'rotate(270deg)';
-		canvas.style.transformOrigin = 'top left';
-		canvas.style.position = 'absolute';
-		canvas.style.top = (canvas.width + 15) + 'px';
-		canvas.style.left = 15;
-	}
 	const ctx = canvas.getContext('2d');
 	const imageData = ctx.createImageData(canvas.width, canvas.height);
 	if (data.length == 0) {
@@ -2423,10 +2409,19 @@ function backupTagDB() {
 	localStorage.setItem("tagDB", JSON.stringify(tagDB));
 }
 
+// margin around the preview in its window, in CSS pixels
+const previewMargin = 15;
+
 function openPreview(mac, w, h) {
-	const previewWindow = window.open("", `PreviewWindow_${mac}`, `width=${w + 30},height=${h + 30},menubar=no,toolbar=no,location=no,status=no,resizable=no,scrollbars=no`);
+	const size = previewSize(w, h);
+	// centre it on this window, so it lands on the same screen
+	const left = Math.round(window.screenX + (window.outerWidth - size.w) / 2);
+	const top = Math.round(window.screenY + (window.outerHeight - size.h) / 2);
+	const previewWindow = window.open("", `PreviewWindow_${mac}`, `popup,width=${size.w},height=${size.h},left=${left},top=${top}`);
 
 	if (previewWindow) {
+		// a preview of this tag that is already open stays where the user put it
+		const isNew = !previewWindow.document.getElementById('preview');
 		previewWindow.mac = mac;
 		previewWindows.push(previewWindow);
 		const element = tagDB[mac];
@@ -2435,13 +2430,21 @@ function openPreview(mac, w, h) {
 		previewWindow.pending = 0;
 		previewWindow.focus();
 
-		console.log(element);
-		console.log(tagTypes[element.hwType]);
 		previewWindow.document.head.innerHTML = `<title>${tagTypes[element.hwType].name + ' ' + mac}</title>`;
-		previewWindow.document.body.style.backgroundColor = "#dddddd";
-		previewWindow.document.body.style.margin = "15px";
-		previewWindow.document.body.style.overflow = "hidden";
-		previewWindow.document.body.innerHTML = `<canvas id="preview" style="border:1px solid #888888;image-rendering: pixelated;"></canvas>`;
+		const body = previewWindow.document.body;
+		body.style.cssText = `margin:0;height:100vh;overflow:hidden;background:#dddddd;display:flex;align-items:center;justify-content:center`;
+		body.innerHTML = `<canvas id="preview" style="border:1px solid #888888;image-rendering:pixelated;box-sizing:content-box"></canvas>`;
+
+		// browsers may ignore the size given to window.open (Chrome opens it as large as its own window):
+		// size and centre it once it exists, then let the preview follow the window when the user resizes it
+		if (isNew) setTimeout(() => {
+			const outerW = size.w + previewWindow.outerWidth - previewWindow.innerWidth;
+			const outerH = size.h + previewWindow.outerHeight - previewWindow.innerHeight;
+			previewWindow.resizeTo(outerW, outerH);
+			previewWindow.moveTo(Math.round(window.screenX + (window.outerWidth - outerW) / 2),
+				Math.round(window.screenY + (window.outerHeight - outerH) / 2));
+		}, 50);
+		previewWindow.addEventListener('resize', () => fitPreview(previewWindow));
 
 		showPreview(previewWindow, element);
 
@@ -2487,10 +2490,34 @@ function showPreview(previewWindow, element) {
 		fetch(imageSrc)
 			.then(response => response.arrayBuffer())
 			.then(buffer => {
-				drawCanvas(buffer, canvas, element.hwType, element.mac, false);
+				// decode as on the tag cards, then turn the buffer the way the tag shows it
+				const buf = document.createElement('canvas');
+				drawCanvas(buffer, buf, element.hwType, element.mac);
+				const turns = (tagTypes[element.hwType].rotatebuffer || 0) % 4;
+				[canvas.width, canvas.height] = turns % 2 ? [buf.height, buf.width] : [buf.width, buf.height];
+				const ctx = canvas.getContext('2d');
+				ctx.translate(canvas.width / 2, canvas.height / 2);
+				ctx.rotate(turns * Math.PI / 2);
+				ctx.drawImage(buf, -buf.width / 2, -buf.height / 2);
+				fitPreview(previewWindow);
 			})
 			.catch(error => {
 				console.error('fetch preview image error:', error);
 			});
 	}
+}
+
+// window size (inner, CSS pixels) that shows a w x h preview at its own size
+function previewSize(w, h) {
+	return { w: w + 2 * previewMargin + 2, h: h + 2 * previewMargin + 2 };
+}
+
+// scale the preview to the largest size that fits the window, keeping its aspect ratio
+function fitPreview(previewWindow) {
+	const canvas = previewWindow.document.getElementById('preview');
+	if (!canvas || !canvas.width || !canvas.height) return;
+	const scale = Math.min((previewWindow.innerWidth - 2 * previewMargin - 2) / canvas.width,
+		(previewWindow.innerHeight - 2 * previewMargin - 2) / canvas.height);
+	canvas.style.width = Math.max(1, Math.floor(canvas.width * scale)) + 'px';
+	canvas.style.height = Math.max(1, Math.floor(canvas.height * scale)) + 'px';
 }
