@@ -93,7 +93,7 @@ jobs:
         if: ${{ env.INCLUDE_MINI_AP == 'true' }}
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_Mini_AP
           pio run --target buildfs --environment OpenEPaperLink_Mini_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP
@@ -112,7 +112,7 @@ jobs:
         if: ${{ env.INCLUDE_Nano_AP == 'true' }}
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_Nano_AP
           pio run --target buildfs --environment OpenEPaperLink_Nano_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_AP
@@ -133,7 +133,7 @@ jobs:
       - name: Build firmware for OpenEPaperLink_AP_and_Flasher
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_AP_and_Flasher
           pio run --target buildfs --environment OpenEPaperLink_AP_and_Flasher
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_AP_and_Flasher
@@ -150,7 +150,7 @@ jobs:
       - name: Build firmware for ESP32_S3_16_8_YELLOW_AP
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment ESP32_S3_16_8_YELLOW_AP
           pio run --target buildfs --environment ESP32_S3_16_8_YELLOW_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_YELLOW_AP
@@ -168,7 +168,7 @@ jobs:
       - name: Build firmware for ESP32_S3_C6_NANO_AP
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment ESP32_S3_C6_NANO_AP
           pio run --target buildfs --environment ESP32_S3_C6_NANO_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_C6_NANO_AP
@@ -186,7 +186,7 @@ jobs:
       - name: Build firmware for ESP32_S3_16_8_LILYGO_AP
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment ESP32_S3_16_8_LILYGO_AP
           pio run --target buildfs --environment ESP32_S3_16_8_LILYGO_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_AP
@@ -204,7 +204,7 @@ jobs:
       - name: Build firmware for ESP32_S3_16_8_LILYGO_T3
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment ESP32_S3_16_8_LILYGO_T3
           pio run --target buildfs --environment ESP32_S3_16_8_LILYGO_T3
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_LILYGO_T3
@@ -222,7 +222,7 @@ jobs:
       - name: Build firmware for OpenEPaperLink_Nano_TLSR
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_Nano_TLSR
           pio run --target buildfs --environment OpenEPaperLink_Nano_TLSR
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR
@@ -240,7 +240,7 @@ jobs:
       - name: Build firmware for OpenEPaperLink_PoE_AP
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_PoE_AP
           pio run --target buildfs --environment OpenEPaperLink_PoE_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_PoE_AP
@@ -258,7 +258,7 @@ jobs:
       - name: Build firmware for OpenEPaperLink_Mini_AP_v4
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_Mini_AP_v4
           pio run --target buildfs --environment OpenEPaperLink_Mini_AP_v4
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Mini_AP_v4
@@ -276,7 +276,7 @@ jobs:
       - name: Build firmware for BLE_ONLY_AP
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment BLE_ONLY_AP
           pio run --target buildfs --environment BLE_ONLY_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/BLE_ONLY_AP
@@ -294,7 +294,7 @@ jobs:
       - name: Build firmware for OpenEPaperLink_Nano_TLSR_C6
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_Nano_TLSR_C6
           pio run --target buildfs --environment OpenEPaperLink_Nano_TLSR_C6
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/OpenEPaperLink_Nano_TLSR_C6
@@ -312,7 +312,7 @@ jobs:
       - name: Build firmware for ESP32_S3_16_8_4inch_AP
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment ESP32_S3_16_8_4inch_AP
           pio run --target buildfs --environment ESP32_S3_16_8_4inch_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_16_8_4inch_AP
@@ -330,7 +330,7 @@ jobs:
       - name: Build firmware for ESP32_S3_SIMPLE_AP
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment ESP32_S3_SIMPLE_AP
           pio run --target buildfs --environment ESP32_S3_SIMPLE_AP
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/ESP32_S3_SIMPLE_AP
@@ -348,7 +348,7 @@ jobs:
       - name: Build firmware for OpenEPaperLink_ESP32-PoE-ISO_AP
         run: |
           cd ESP32_AP-Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment OpenEPaperLink_ESP32-PoE-ISO_AP
           mv data data.bak
           mkdir data
@@ -387,7 +387,7 @@ jobs:
         if: ${{ env.INCLUDE_S2_Tag_Flasher == 'true' }}
         run: |
           cd Tag_Flasher/ESP32_Flasher
-          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+          export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
           pio run --environment S2_Tag_Flasher
           pio run --target buildfs --environment S2_Tag_Flasher
           mkdir /home/runner/work/OpenEPaperLink/OpenEPaperLink/S2_Tag_Flasher

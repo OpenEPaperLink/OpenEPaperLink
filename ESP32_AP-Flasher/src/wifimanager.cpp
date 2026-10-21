@@ -518,7 +518,7 @@ void WifiManager::WiFiEvent(WiFiEvent_t event) {
 #define BUILD_TIME 0
 #endif
 #ifndef BUILD_VERSION
-#define BUILD_VERSION custom
+#define BUILD_VERSION "custom"
 #endif
 
 std::vector<std::string> getLocalUrl() {
@@ -578,7 +578,7 @@ bool onCommandCallback(improv::ImprovCommand cmd) {
                 // Firmware name
                 "OpenEPaperLink",
                 // Firmware version
-                STR(BUILD_VERSION),
+                BUILD_VERSION,
                 // Hardware chip/variant
                 STR(BUILD_ENV_NAME),
                 // Device name

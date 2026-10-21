@@ -27,7 +27,7 @@
 #define BUILD_TIME 0
 #endif
 #ifndef BUILD_VERSION
-#define BUILD_VERSION custom
+#define BUILD_VERSION "custom"
 #endif
 #ifndef SHA
 #define SHA 0
@@ -43,7 +43,7 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["alias"] = config.alias;
     doc["env"] = STR(BUILD_ENV_NAME);
     doc["buildtime"] = STR(BUILD_TIME);
-    doc["buildversion"] = STR(BUILD_VERSION);
+    doc["buildversion"] = BUILD_VERSION;
     doc["sha"] = STR(SHA);
     doc["psramsize"] = ESP.getPsramSize();
     doc["flashsize"] = ESP.getFlashChipSize();

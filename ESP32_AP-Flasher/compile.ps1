@@ -8,7 +8,7 @@
 
 # cd ESP32_AP-Flasher
 
-# export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION=${{ github.ref_name }} -D SHA=$GITHUB_SHA"
+# export PLATFORMIO_BUILD_FLAGS="-D BUILD_VERSION='\"${{ github.ref_name }}\"' -D SHA=$GITHUB_SHA"
 
 python gzip_wwwfiles.py
 
