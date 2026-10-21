@@ -321,7 +321,8 @@ export async function updateAll(binUrl, fileUrl, tagname) {
         print("The firmware was not updated. Press 'Update now!' again to retry.", "red");
         return;
     }
-    await fetchAndCheckTagtypes(true);
+    // update the tagtypes, but delete nothing: cleaning up is a choice on the tagtype button
+    await fetchAndCheckTagtypes(false);
     await updateESP(binUrl, false);
 }
 
