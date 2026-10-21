@@ -301,7 +301,7 @@
   {
     "id": 11,
     "name": "Google calendar",
-    "desc": "Displays the current and upcoming appointments (next 24 hours) from a Google calendar. To let this work, you need a small Google Apps Script to interface with your calendar. See documentation on github how to do that",
+    "desc": "Displays the current and upcoming appointments from a Google calendar. To let this work, you need a small Google Apps Script to interface with your calendar. See documentation on github how to do that",
     "param": [
       {
         "key": "title",
@@ -314,6 +314,12 @@
         "name": "Apps Script URL",
         "desc": "URL given by Google Apps Script",
         "type": "text"
+      },
+      {
+        "key": "days",
+        "name": "Days ahead",
+        "desc": "List view: show appointments of this many days ahead (1-31). Empty: the next 24 hours. The week view always shows its own number of days",
+        "type": "int"
       },
       {
         "key": "interval",

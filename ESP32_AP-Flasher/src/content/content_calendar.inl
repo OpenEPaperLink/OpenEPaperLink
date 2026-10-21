@@ -31,7 +31,10 @@ bool getCalFeed(String &filename, JsonObject &cfgobj, tagRecord *&taginfo, imgPa
     JsonDocument loc;
     getTemplate(loc, 11, taginfo->hwType);
 
-    String URL = cfgobj["apps_script_url"].as<String>() + "?days=" + loc["days"].as<String>();
+    // the list view can look further ahead than the tag type's default; the week view's days are its columns
+    int days = loc["days"];
+    if (loc["mode"].as<int>() == 0 && cfgobj["days"].as<int>() > 0) days = constrain(cfgobj["days"].as<int>(), 1, 31);
+    String URL = cfgobj["apps_script_url"].as<String>() + "?days=" + String(days);
 
     time_t now;
     time(&now);
