@@ -29,13 +29,15 @@
 #ifndef __CC1101_RADIO_H_
 #define __CC1101_RADIO_H_
 
-// Log to all
-#define LOGA(format, ... ) \
-   uart_printf(format "\r",## __VA_ARGS__)
+#include <stdio.h>
 
-// Error log to all
+// Log to the debug console (UART0), never to the protocol UART to the S3
+#define LOGA(format, ... ) \
+   printf(format,## __VA_ARGS__)
+
+// Error log to the debug console
 #define LOGE(format, ... ) \
-   uart_printf("%s#%d: " format "\r",__FUNCTION__,__LINE__,## __VA_ARGS__)
+   printf("%s#%d: " format,__FUNCTION__,__LINE__,## __VA_ARGS__)
 
 /**
  * CC1101 configuration registers
