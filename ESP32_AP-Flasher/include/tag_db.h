@@ -4,6 +4,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../../oepl-definitions.h"
+
 #pragma pack(push, 1)
 #pragma once
 
@@ -15,7 +17,7 @@
 #define NO_SUBGHZ_CHANNEL  255
 class tagRecord {
    public:
-    tagRecord() : mac{0}, version(0), alias(""), lastseen(0), nextupdate(0), contentMode(0), pendingCount(0), md5{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false), apIp(IPAddress(0, 0, 0, 0)), pendingIdle(0), rotate(0), lut(0), tagSoftwareVersion(0), currentChannel(0), dataType(0), imageDataType(0), filename(""), data(nullptr), len(0), invert(0), updateCount(0), updateLast(0) {}
+    tagRecord() : mac{0}, version(0), alias(""), lastseen(0), nextupdate(0), contentMode(0), pendingCount(0), md5{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false), lastHeardOnRadio(false), apIp(IPAddress(0, 0, 0, 0)), pendingIdle(0), rotate(0), lut(0), tagSoftwareVersion(0), currentChannel(0), dataType(0), imageDataType(0), filename(""), data(nullptr), len(0), invert(0), updateCount(0), updateLast(0) {}
 
     uint8_t mac[8];
     uint8_t version;
@@ -36,6 +38,7 @@ class tagRecord {
     uint8_t capabilities;
     uint32_t lastfullupdate;
     bool isExternal;
+    bool lastHeardOnRadio;  // last check-in came over the 802.15.4 / sub-GHz radio, see tagBleFamily()
     IPAddress apIp;
     uint16_t pendingIdle;
     uint8_t rotate;
@@ -161,8 +164,29 @@ struct HwType {
     std::vector<Color> colortable;
 };
 
+// The display type a Gicisky advertisement reports, as an OEPL hwType.
+inline uint8_t gicToOEPLtype(uint8_t gicType) {
+    switch (gicType) {
+        case 0xA0: return GICI_BLE_TFT_21_BW;
+        case 0x08: return GICI_BLE_EPD_21_BW;
+        case 0x0B: return GICI_BLE_EPD_21_BWR;
+        case 0x28:
+        case 0x30: return GICI_BLE_EPD_29_BW;
+        case 0x2B: return GICI_BLE_EPD_29_BWR;
+        case 0x2E: return GICI_BLE_EPD_29_BWRY;
+        case 0x33: return GICI_BLE_EPD_29_BWR1;
+        case 0x48: return GICI_BLE_EPD_BW_42;
+        case 0x4B: return GICI_BLE_EPD_BWR_42;
+        case 0x40: return GICI_BLE_TFT_BW_42;
+        case 0x42: return GICI_BLE_TFT_BWR_42;
+        case 0x68: return GICI_BLE_EPD_BW_74;
+        case 0x6A: return GICI_BLE_EPD_BWR_74;
+        case 0xEB: return GICI_BLE_EPD_BWR_29_SILABS;
+        default:   return GICI_BLE_UNKNOWN;
+    }
+}
+
 // BLE displays carry their family in the top two bytes of the 8-byte MAC the AP gives them.
-// Gicisky displays are known by their hwType range instead.
 enum BleFamily : uint8_t {
     BLE_FAMILY_NONE = 0,  // 802.15.4 tag
     BLE_FAMILY_GICISKY,
@@ -170,11 +194,28 @@ enum BleFamily : uint8_t {
     BLE_FAMILY_OPENDISPLAY,  // OpenDisplay, MAC 2446xxxxxxxxxxxx (its company id)
 };
 
+// A Gicisky display has no company id in its MAC: mac[6] holds the display type from its
+// advertisement, and its hwType is derived from that. A tag with a Gicisky hwType whose MAC does
+// not match is a radio tag, such as a Gicisky panel running ATC_BLE_OEPL over 802.15.4.
+inline bool isGiciskyMac(const uint8_t mac[8], uint16_t hwType) {
+    return (hwType & 0xFFF0) == 0xB0 && gicToOEPLtype(mac[6]) == (hwType & 0xFF);
+}
+
 inline BleFamily bleFamily(const uint8_t mac[8], uint16_t hwType) {
     if (mac[7] == 0x13 && mac[6] == 0x37) return BLE_FAMILY_ATC;
     if (mac[7] == 0x24 && mac[6] == 0x46) return BLE_FAMILY_OPENDISPLAY;
-    if ((hwType & 0xFFF0) == 0xB0) return BLE_FAMILY_GICISKY;
+    if (isGiciskyMac(mac, hwType)) return BLE_FAMILY_GICISKY;
     return BLE_FAMILY_NONE;
+}
+
+// The family the AP acts on. A tag last heard on the radio is served by the radio, whatever its
+// MAC and type suggest; this also covers a radio tag whose mac[6] happens to match its Gicisky
+// type. The flag is not stored, but a radio check-in sets it before the queue is checked.
+// hwType overrides the record's, for a check-in that is about to update it.
+inline BleFamily tagBleFamily(const uint8_t mac[8], const tagRecord* taginfo, uint16_t hwType = 0) {
+    if (taginfo == nullptr) return bleFamily(mac, hwType);
+    if (taginfo->lastHeardOnRadio) return BLE_FAMILY_NONE;
+    return bleFamily(mac, hwType != 0 ? hwType : taginfo->hwType);
 }
 
 // An OpenDisplay tag's type comes from its config, not from its advertisement. Until the

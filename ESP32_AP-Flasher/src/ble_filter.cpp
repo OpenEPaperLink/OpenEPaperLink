@@ -21,57 +21,6 @@
 
 uint8_t* Mirrorbuffer;
 
-uint8_t gicToOEPLtype(uint8_t gicType) {
-    switch (gicType) {
-        case 0xA0:
-            return GICI_BLE_TFT_21_BW;
-            break;
-        case 0x08:
-            return GICI_BLE_EPD_21_BW;
-            break;
-        case 0x0B:
-            return GICI_BLE_EPD_21_BWR;
-            break;
-        case 0x28:
-        case 0x30:
-            return GICI_BLE_EPD_29_BW;
-            break;
-        case 0x2B:
-            return GICI_BLE_EPD_29_BWR;
-            break;
-        case 0x2E:
-            return GICI_BLE_EPD_29_BWRY;
-            break;
-        case 0x33:
-            return GICI_BLE_EPD_29_BWR1;
-            break;
-        case 0x48:
-            return GICI_BLE_EPD_BW_42;
-            break;
-        case 0x4B:
-            return GICI_BLE_EPD_BWR_42;
-            break;
-        case 0x40:
-            return GICI_BLE_TFT_BW_42;
-            break;
-        case 0x42:
-            return GICI_BLE_TFT_BWR_42;
-            break;
-        case 0x68:
-            return GICI_BLE_EPD_BW_74;
-            break;
-        case 0x6A:
-            return GICI_BLE_EPD_BWR_74;
-            break;
-        case 0xEB:
-            return GICI_BLE_EPD_BWR_29_SILABS;
-            break;
-        default:
-            return GICI_BLE_UNKNOWN;
-            break;
-    }
-}
-
 struct BleAdvDataStructV1 {
     uint16_t manu_id;  // 0x1337 for us
     uint8_t version;
@@ -283,7 +232,7 @@ static bool BLE_isPendingCandidate(tagRecord* taginfo) {
     // after a failed try, wait a bit: the pending check runs every second
     auto last = BLE_attemptLast.find(BLE_macToKey(taginfo->mac));
     if (last != BLE_attemptLast.end() && millis() - last->second < BLE_RETRY_WAIT_MS) return false;
-    const BleFamily family = bleFamily(taginfo->mac, taginfo->hwType);
+    const BleFamily family = tagBleFamily(taginfo->mac, taginfo);
     // an OpenDisplay tag only once its type, and so its config, is known, while it is added, and
     // only on the AP that has it now (the AP with its content queues the image too)
     if (family == BLE_FAMILY_OPENDISPLAY)

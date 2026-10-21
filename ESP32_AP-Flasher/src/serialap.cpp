@@ -147,8 +147,7 @@ bool cacheBlock(const void* data, const uint16_t len, uint64_t ver, uint32_t off
 // A BLE display never hears the radio. Data the radio holds for one times out there, and that
 // timeout dropped the queued image before the BLE task had sent it (#622).
 static bool isBleTarget(const uint8_t mac[8]) {
-    const tagRecord* taginfo = tagRecord::findByMAC(mac);
-    return bleFamily(mac, taginfo != nullptr ? taginfo->hwType : 0) != BLE_FAMILY_NONE;
+    return tagBleFamily(mac, tagRecord::findByMAC(mac)) != BLE_FAMILY_NONE;
 }
 
 bool sendDataAvail(struct pendingData* pending) {
@@ -225,7 +224,7 @@ void rxCmdProcessor(void* parameter) {
                         quickBlink(3);
                         break;
                     case RX_CMD_ADR:
-                        processDataReq((struct espAvailDataReq*)rxcmd->data, true);
+                        processDataReq((struct espAvailDataReq*)rxcmd->data, true, IPAddress(0, 0, 0, 0), CHECKIN_VIA_RADIO);
 #ifdef HAS_RGB_LED
                         // shortBlink(CRGB::Aqua);
 #endif

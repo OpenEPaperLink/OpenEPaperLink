@@ -456,7 +456,7 @@ void BLETask(void* parameter) {
                     if (taginfo != nullptr && taginfo->isExternal) continue;
                 }
             }
-            processDataReq(&incomingDataReq, true);
+            processDataReq(&incomingDataReq, true, IPAddress(0, 0, 0, 0), CHECKIN_VIA_BLE);
         }
         switch (ble_main_state) {
             default:

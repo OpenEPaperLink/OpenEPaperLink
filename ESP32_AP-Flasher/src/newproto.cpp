@@ -670,7 +670,7 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
     if (local) udpsync.netProcessXferTimeout(xfc);
 }
 
-void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP) {
+void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP, CheckinVia via) {
     if (config.runStatus == RUNSTATUS_STOP) {
         return;
     }
@@ -698,6 +698,8 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         }
         taginfo = addRecord(eadr->src);
     }
+    // Set before checkQueue() below, so the first check-in after a reboot is already announced.
+    if (via != CHECKIN_VIA_OTHER) taginfo->lastHeardOnRadio = (via == CHECKIN_VIA_RADIO);
     time_t now;
     time(&now);
 
@@ -718,7 +720,7 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
     uint32_t offeredSleep = 0;
     const bool offeredKnown = local && recordOffered(eadr->src, offeredSleep);
     // BLE displays don't get their instructions from the radio
-    const BleFamily family = bleFamily(eadr->src, eadr->adr.hwType);
+    const BleFamily family = tagBleFamily(eadr->src, taginfo, eadr->adr.hwType);
     const bool bleTag = family != BLE_FAMILY_NONE;
     if (offeredKnown && !bleTag) {
         // The tag sleeps what the radio told it just now, counted down since it was announced (#466).

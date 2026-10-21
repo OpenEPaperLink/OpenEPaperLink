@@ -13,7 +13,6 @@ void BLE_enqueue_data_req(struct espAvailDataReq* req);
 // Stops the continuous scan before a connection; the BLE task starts it again when idle
 void BLE_scanStop();
 
-uint8_t gicToOEPLtype(uint8_t gicType);
 bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice);
 bool BLE_is_image_pending(uint8_t address[8]);
 void BLE_clear_attempts(uint8_t address[8]);
