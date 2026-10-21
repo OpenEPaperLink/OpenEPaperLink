@@ -33,6 +33,7 @@ volatile bool rxSerialStopTask2 = false;
 uint8_t channelList[6];
 struct espSetChannelPower curChannel = {0, 11, 10};
 int16_t radioLedBrightness = -1;  // config.led as last sent with the channel (v2 SET_CONFIG)
+int16_t radioLock = -1;           // config.lock, the same
 
 
 #define AP_ACTIVITY_MAX_INTERVAL 30 * 1000
@@ -167,6 +168,7 @@ bool sendChannelPower(struct espSetChannelPower* scp) {
     if ((apInfo.state != AP_STATE_ONLINE) && (apInfo.state != AP_STATE_COMING_ONLINE)) return false;
     if (!radioTransport->setChannelPower(scp)) return false;
     radioLedBrightness = config.led;
+    radioLock = config.lock;
     apInfo.channel = scp->channel;
     apInfo.power = scp->power;
     return true;
@@ -773,6 +775,7 @@ void APTask(void* parameter) {
                 }
             }
         }
+        if (apInfo.state == AP_STATE_ONLINE) radioTransport->syncAllowList();
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }

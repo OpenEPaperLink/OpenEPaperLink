@@ -36,7 +36,7 @@ sequenceDiagram
     Note over S3,R: both wait 20 ms and switch to 2 Mbaud and v2 frames
     S3->>R: HELLO (protocol version, wanted capabilities)
     R->>S3: HELLO_REPLY (versions, MAC, capabilities, limits)
-    S3->>R: GET_STATS, SET_CONFIG, SET_PENDING …
+    S3->>R: GET_STATS, SET_CONFIG, ALLOW_*, SET_PENDING …
 ```
 
 1. The S3 always starts with the ASCII protocol at 115200 baud (`RDY?`, `NFO?`), so older radios never see anything unknown.
@@ -76,12 +76,15 @@ crc16:        CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over header and payl
 | --- | --- | --- | --- |
 | 0x01 | HELLO | `proto_major u8, proto_minor u8, wanted_caps u16` | HELLO_REPLY |
 | 0x02 | HEARTBEAT | – (every second) | STATUS |
-| 0x03 | SET_CONFIG | `channel u8, subghz_channel u8, tx_power_dbm i8, flags u8, led_brightness u8` — 0xFF (channels) / 0x7F (power) = do not change; flags bit 0 = log frames on; `led_brightness` 0 = activity LEDs off, 255 = full | ACK / NAK `INVALID_PARAM` |
+| 0x03 | SET_CONFIG | `channel u8, subghz_channel u8, tx_power_dbm i8, flags u8, led_brightness u8` — 0xFF (channels) / 0x7F (power) = do not change; flags bit 0 = log frames on, bits 1–2 = tag inventory lock (0 off, 1 locked, 2 learning); `led_brightness` 0 = activity LEDs off, 255 = full | ACK / NAK `INVALID_PARAM` |
 | 0x04 | SET_PENDING | `mac[8], data_ver u64, data_size u32, data_type u8, data_type_arg u8, next_checkin u16, ttl_min u16, flags u8` — `next_checkin` as in `AvailDataInfo` (minutes, bit 15 = seconds); `ttl_min` = minutes before the radio reports XFER_TIMEOUT; flags bit 0 = data follows as DATA_CHUNKs | ACK / NAK `NO_SLOT` |
 | 0x05 | CANCEL_PENDING | `mac[8]` | ACK |
 | 0x06 | DATA_CHUNK | `data_ver u64, offset u32, total_size u32, bytes[≤ 240]` | ACK / NAK `NO_CACHE_SPACE` |
 | 0x07 | DATA_DROP | `data_ver u64` — remove from the cache | ACK |
 | 0x08 | GET_STATS | – | STATUS |
+| 0x09 | ALLOW_CLEAR | – — empty the allow-list | ACK |
+| 0x0A | ALLOW_ADD | `mac[8] × 1..30` | ACK / NAK `NO_SLOT` (list full; what fits is added) |
+| 0x0B | ALLOW_REMOVE | `mac[8] × 1..30` | ACK |
 
 ### Radio → S3
 
@@ -106,7 +109,7 @@ crc16:        CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over header and payl
 
 Payload sizes: HELLO_REPLY 21, STATUS 31, SET_PENDING 27, CHECKIN 49, DATA_NEEDED 26, BLOCK_SERVED 21, XFER_COMPLETE/TIMEOUT 16, DATA_CHUNK 16 + up to 240, TAG_RETURN_DATA 14 + the tag's 101 bytes.
 
-Capability bits (`caps`, `wanted_caps`, `CAP>`): 0 v2 framing, 1 block cache, 2 sub-GHz radio present, 3 tag return data, 4 reserved (higher baud rates, not used), 5 log frames. The C6/H2 announces 0, 1 and 3, plus 2 when a CC1101 is present.
+Capability bits (`caps`, `wanted_caps`, `CAP>`): 0 v2 framing, 1 block cache, 2 sub-GHz radio present, 3 tag return data, 4 reserved (higher baud rates, not used), 5 log frames, 6 allow-list (ALLOW_* and the lock bits of SET_CONFIG, protocol 2.1). The C6/H2 announces 0, 1, 3 and 6, plus 2 when a CC1101 is present.
 
 Not used by the current firmware: the radio does not send LOG frames (and does not announce bit 5); the S3 does not send DATA_DROP (the radio handles it); the S3 does not use the AP-side RSSI/LQI from CHECKIN yet.
 
@@ -119,6 +122,7 @@ Not used by the current firmware: the radio does not send LOG frames (and does n
 - **XFER_COMPLETE** is sent once per transfer: a tag that repeats its XFC (because it missed the radio's ack) gets acked again on air, but not reported again. The radio drops the pending entry when it sends it.
 - **CHECKIN** for every check-in the radio answered, short requests included, after the reply is on air. At 100 tags checking in every 40 s that is 2.5 frames/s of ≈ 56 bytes on the wire: negligible at 2 Mbaud.
 - **SET_CONFIG**: `tx_power_dbm` carries the AP's power setting; the radio stores and reports it but does not apply it (it transmits at the driver default, task #11). The S3 maps channel 0 to "do not change", as the ASCII protocol did for sub-GHz-only use. `led_brightness` is the AP's LED setting (`config.led`): the radio drives both activity LEDs with LEDC PWM at that brightness, squared for even steps to the eye, and does not light them at 0; until the first SET_CONFIG they flash at full brightness. The S3 sends SET_CONFIG again when the LED setting changes in the web UI. The S3's own activity blink on TFT boards (`quickBlink()`) also stays off when the LED is off.
+- **Tag inventory lock** ("Lock tag inventory" in the web UI, issue #177). With capability bit 6 the S3 keeps an allow-list in the radio with every MAC in its tag database: after each HELLO it sends ALLOW_CLEAR and the whole database in ALLOW_ADDs, then SET_CONFIG with the lock bits; later additions and deletions follow as ALLOW_ADD / ALLOW_REMOVE from APTask, at most 100 ms later. Until the list is complete the S3 sends lock 0. Locked, the radio does not answer a frame from a MAC that is not on the list (check-in, short request, ping, block request, XFC, tag return data) and sends no event for it, so the tag looks for another AP. Learning, it also answers a full check-in with `wakeupReason` FIRSTBOOT (0xFC); the S3 then adds the tag and puts it on the list. A ping from an unknown tag gets no PONG in either mode, so a new tag in learning mode is only picked up on the channel it boots on. A tag deleted from the database is removed from the list and is ignored from then on. The list holds 1024 MACs; when an ALLOW_ADD gets NAK `NO_SLOT` the S3 logs it and sends lock 0, so the lock then works on the S3 only, as with radios without bit 6. The radio logs once a minute on its debug UART how many frames it ignored.
 
 ## Block cache and data flow
 
@@ -155,7 +159,8 @@ Multi-AP: SET_PENDING only reaches the radio of the AP where the tag is local, s
 | TAG_RETURN_DATA | `TRD>` + `espTagReturnData` | `processTagReturnData()`; length from the frame |
 | SET_PENDING | `SDA>` + `pendingData` | from `sendDataAvail(pendingData*)`; `attemptsLeft` → `ttl_min`; preloading through `processPreload()` |
 | CANCEL_PENDING | `CXD>` + `pendingData` | from `sendCancelPending()`, MAC only |
-| SET_CONFIG | `SCP>` + `espSetChannelPower` | from `sendChannelPower()`; fixed fields, no `HAS_SUBGHZ` difference |
+| SET_CONFIG | `SCP>` + `espSetChannelPower` | from `sendChannelPower()`; fixed fields, no `HAS_SUBGHZ` difference; lock bits from `config.lock` |
+| ALLOW_CLEAR / ALLOW_ADD / ALLOW_REMOVE | – | `radioAllowListChanged()` from `addRecord()` / `deleteRecord()` (tag_db.cpp) queues the change; `syncAllowList()` from APTask sends it |
 | HELLO_REPLY / STATUS | `NFO?` tokens, `RDY?` | fill `apInfo`; the heartbeat replaces the 30 s ping |
 
 ## Design choices

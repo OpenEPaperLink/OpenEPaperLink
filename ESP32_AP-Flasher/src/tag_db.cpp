@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "language.h"
+#include "radiotransport.h"
 #include "storage.h"
 #include "util.h"
 
@@ -82,6 +83,7 @@ tagRecord* addRecord(const uint8_t mac[8]) {
         taginfo = new tagRecord;
         memcpy(taginfo->mac, mac, sizeof(taginfo->mac));
         tagDB.push_back(taginfo);
+        radioAllowListChanged(mac, true);
     }
     return taginfo;
 }
@@ -94,6 +96,7 @@ bool deleteRecord(const uint8_t mac[8], bool allVersions) {
             tagDB.erase(tagDB.begin() + c);
             releaseData(tag);
             deletedRecords.push_back({tag, millis()});
+            if (tagRecord::findByMAC(mac) == nullptr) radioAllowListChanged(mac, false);
             return true;
         }
     }
@@ -609,4 +612,5 @@ void popTagInfo(const uint8_t mac[8]) {
     if (saved == nullptr) return;
     deleteRecord(mac, false);
     saved->version = 0;
+    radioAllowListChanged(mac, true);
 }

@@ -857,9 +857,11 @@ void updateContent(const uint8_t* dst) {
 }
 
 extern int16_t radioLedBrightness;
+extern int16_t radioLock;
 
 void setAPchannel() {
-    bool bSendRadioLayer = config.led != radioLedBrightness;  // v2 radios dim their LEDs along
+    // v2 radios dim their LEDs along, and apply the tag inventory lock
+    bool bSendRadioLayer = config.led != radioLedBrightness || config.lock != radioLock;
     struct espSetChannelPower tmp;
     if (config.channel == 0) {
         // trigger channel autoselect

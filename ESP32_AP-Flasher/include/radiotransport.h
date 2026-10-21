@@ -54,6 +54,10 @@ class RadioTransport {
     virtual uint32_t pingIntervalMs() { return 30 * 1000; }
     virtual uint8_t maxMissedPings() { return 6; }
 
+    // The tag inventory lock in the radio (v2 radios with V2_CAP_ALLOW_LIST): sends the tag database
+    // changes queued by radioAllowListChanged() to the radio's allow-list. Called by APTask.
+    virtual void syncAllowList() {}
+
     // Receiving, called by rxSerialTask(): onIdle() before reading, onByte() for every byte
     virtual void onIdle() = 0;
     virtual void onByte(uint8_t c) = 0;
@@ -63,3 +67,4 @@ extern RadioTransport* radioTransport;
 RadioTransport* legacyRadioTransport();
 RadioTransport* v2RadioTransport();
 bool v2StartLink();  // after FRM1 and the switch to V2_BAUD: HELLO, then radioTransport is v2
+void radioAllowListChanged(const uint8_t mac[8], bool added);  // a MAC came into or left the tag database

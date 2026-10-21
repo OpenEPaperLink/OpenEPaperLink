@@ -20,7 +20,7 @@
 #include <stdint.h>
 
 #define V2_PROTO_MAJOR 2
-#define V2_PROTO_MINOR 0
+#define V2_PROTO_MINOR 1
 
 #define V2_BAUD 2000000
 #define V2_MAX_PAYLOAD 256  // bytes after the header, before the CRC
@@ -57,6 +57,9 @@ enum v2Type {  // values for v2Header.type
     V2_DATA_CHUNK = 0x06,
     V2_DATA_DROP = 0x07,
     V2_GET_STATS = 0x08,
+    V2_ALLOW_CLEAR = 0x09,
+    V2_ALLOW_ADD = 0x0A,
+    V2_ALLOW_REMOVE = 0x0B,
     // radio -> S3, events
     V2_CHECKIN = 0x40,
     V2_DATA_NEEDED = 0x41,
@@ -89,6 +92,7 @@ enum v2NakCode {  // values for v2Nak.code
 #define V2_CAP_TAG_RETURN_DATA (1 << 3)
 #define V2_CAP_RESERVED_BAUD (1 << 4)  // reserved: 2 Mbaud only
 #define V2_CAP_LOG (1 << 5)
+#define V2_CAP_ALLOW_LIST (1 << 6)  // ALLOW_* and the lock bits in SET_CONFIG
 
 #define V2_RADIO_24GHZ 0
 #define V2_RADIO_SUBGHZ 1
@@ -106,12 +110,20 @@ struct v2Hello {
 #define V2_CFG_UNCHANGED_U8 0xFF
 #define V2_CFG_UNCHANGED_POWER 0x7F
 #define V2_CFG_LOG_FRAMES 0x01
+// Bits 1-2: the tag inventory lock (the AP's "Lock tag inventory" setting). Locked, the radio answers
+// only the tags on its allow-list (ALLOW_*); learning, also a full check-in of a tag that just booted.
+// Frames from other tags get no reply and no event.
+#define V2_CFG_LOCK_MASK 0x06
+#define V2_CFG_LOCK_SHIFT 1
+#define V2_LOCK_OFF 0
+#define V2_LOCK_LOCKED 1
+#define V2_LOCK_LEARNING 2
 
 struct v2SetConfig {
     uint8_t channel;        // 11..26 (802.15.4); 0xFF = do not change
     uint8_t subghzChannel;  // 0xFF = do not change
     int8_t txPowerDbm;      // 0x7F = do not change
-    uint8_t flags;          // V2_CFG_LOG_FRAMES
+    uint8_t flags;          // V2_CFG_LOG_FRAMES, V2_CFG_LOCK_MASK
     uint8_t ledBrightness;  // activity LED: 0 = off, 255 = full
 } __attribute__((packed));
 
@@ -143,6 +155,11 @@ struct v2DataChunk {
 struct v2DataDrop {
     uint64_t dataVer;  // remove all cached blocks of this data
 } __attribute__((packed));
+
+// ALLOW_CLEAR has no payload. ALLOW_ADD and ALLOW_REMOVE carry 1..V2_ALLOW_MAX_MACS MACs of 8 bytes.
+// Adding a MAC that is on the list, or removing one that is not, is no error. When the list is full,
+// ALLOW_ADD adds what fits and is answered with NAK NO_SLOT.
+#define V2_ALLOW_MAX_MACS (V2_CHUNK_MAX / 8)
 
 // --- radio -> S3 --------------------------------------------------------------------------------
 

@@ -5,12 +5,16 @@
 
 #include <Arduino.h>
 
+#include <mutex>
+#include <vector>
+
 #include "../../oepl-radio-v2.h"
 #include "commstructs.h"
 #include "newproto.h"
 #include "radiotransport.h"
 #include "serialap.h"
 #include "tag_db.h"
+#include "web.h"
 
 #define RESP_WAIT 0
 #define RESP_DONE 1
@@ -41,6 +45,7 @@ class V2Transport : public RadioTransport {
     bool heartbeat() override { return true; }
     uint32_t pingIntervalMs() override { return V2_HEARTBEAT_MS; }
     uint8_t maxMissedPings() override { return 3; }
+    void syncAllowList() override;
 
     bool start();
 
@@ -74,6 +79,13 @@ class V2Transport : public RadioTransport {
     // last STATUS counters, to log only what changed
     uint16_t lastCrcErrors = 0, lastOverflows = 0, lastRetransmits = 0;
 
+    // The radio's allow-list (V2_CAP_ALLOW_LIST): every MAC in the tag database. The lock bits go
+    // in SET_CONFIG only while the list in the radio is complete.
+    bool allowListReady = false;
+    bool allowListFull = false;  // the radio has no room for all tags: the lock works on the S3 only
+    bool allowRequest(uint8_t type, const uint8_t* macs, uint8_t count);
+    bool sendAllowList();
+
     void writeFrame(uint8_t type, uint8_t seq, uint8_t flags, const void* payload, size_t len);
     v2Outstanding* sendRequest(uint8_t type, const void* payload, size_t len, uint8_t seq, bool retransmit);
     bool sendChunks(const void* data, uint16_t len, uint64_t ver, uint32_t offset, uint32_t totalSize);
@@ -86,6 +98,34 @@ class V2Transport : public RadioTransport {
 
 static V2Transport v2Transport;
 RadioTransport* v2RadioTransport() { return &v2Transport; }
+
+// Tag database changes for the radio's allow-list, queued from any task (under the tag database
+// lock) and sent by syncAllowList() from APTask. Only while a radio with an allow-list is linked;
+// after each HELLO the whole database goes to the radio.
+struct allowChange {
+    uint8_t mac[8];
+    bool added;
+};
+static std::mutex allowMutex;
+static std::vector<allowChange> allowChanges;
+static volatile bool allowListInUse = false;
+static bool allowResend = false;  // send the whole list: after HELLO, or when the queue overflowed
+#define MAX_ALLOW_CHANGES 256
+
+void radioAllowListChanged(const uint8_t mac[8], bool added) {
+    if (!allowListInUse) return;
+    std::lock_guard<std::mutex> lock(allowMutex);
+    if (allowResend) return;
+    if (allowChanges.size() >= MAX_ALLOW_CHANGES) {
+        allowChanges.clear();
+        allowResend = true;
+        return;
+    }
+    allowChange c;
+    memcpy(c.mac, mac, 8);
+    c.added = added;
+    allowChanges.push_back(c);
+}
 
 static bool txStart() {
     while (!xSemaphoreTake(txActive, portTICK_PERIOD_MS)) {
@@ -162,7 +202,11 @@ bool V2Transport::start() {
     for (auto& slot : out) slot.used = false;
     for (auto& p : preloaded) p = {0, 0};
 
-    struct v2Hello hello = {V2_PROTO_MAJOR, V2_PROTO_MINOR, V2_CAP_FRAMING | V2_CAP_SUBGHZ | V2_CAP_TAG_RETURN_DATA};
+    allowListInUse = false;
+    allowListReady = false;
+    allowListFull = false;
+
+    struct v2Hello hello = {V2_PROTO_MAJOR, V2_PROTO_MINOR, V2_CAP_FRAMING | V2_CAP_SUBGHZ | V2_CAP_TAG_RETURN_DATA | V2_CAP_ALLOW_LIST};
     uint8_t respType = 0, resp[48], respLen = 0;
     txStart();
     bool ok = false;
@@ -194,6 +238,12 @@ bool V2Transport::start() {
     apInfo.caps = hr.caps;
     cacheKb = (hr.caps & V2_CAP_BLOCK_CACHE) ? hr.cacheKb : 0;
     cacheFreeKb = cacheKb;
+    if (hr.caps & V2_CAP_ALLOW_LIST) {
+        std::lock_guard<std::mutex> lock(allowMutex);
+        allowChanges.clear();
+        allowResend = true;
+        allowListInUse = true;
+    }
     lastAPActivity = millis();
     Serial.printf("v2: protocol %d.%d, radio %02X version %04X, caps %04X, %d pending slots, %d KB block cache\r\n", hr.protoMajor, hr.protoMinor, hr.hwType, hr.fwVersion, hr.caps, hr.pendingSlots, cacheKb);
     return requestInfo();
@@ -352,12 +402,97 @@ bool V2Transport::setChannelPower(struct espSetChannelPower* scp) {
     sc.subghzChannel = V2_CFG_UNCHANGED_U8;
 #endif
     sc.txPowerDbm = (int8_t)scp->power;
-    sc.flags = 0;
+    sc.flags = allowListReady ? (config.lock << V2_CFG_LOCK_SHIFT) & V2_CFG_LOCK_MASK : 0;
     sc.ledBrightness = config.led;  // the radio's activity LEDs follow the AP's LED setting
     txStart();
     const bool ok = request(V2_SET_CONFIG, &sc, sizeof(sc));
     txEnd();
     return ok;
+}
+
+// ALLOW_ADD or ALLOW_REMOVE for up to V2_ALLOW_MAX_MACS MACs, or ALLOW_CLEAR (count 0); true when
+// the radio confirmed it. Sets allowListFull when the radio had no room.
+bool V2Transport::allowRequest(uint8_t type, const uint8_t* macs, uint8_t count) {
+    uint8_t respType = 0, resp[48], respLen = 0;
+    txStart();
+    const bool ok = request(type, macs, count * 8, &respType, resp, &respLen);
+    txEnd();
+    if (!ok && respType == V2_NAK && respLen && resp[0] == V2_NAK_NO_SLOT) allowListFull = true;
+    return ok;
+}
+
+// The whole tag database to the radio's allow-list
+bool V2Transport::sendAllowList() {
+    std::vector<uint8_t> macs;
+    {
+        TagDBLock lock;
+        macs.reserve(tagDB.size() * 8);
+        for (const tagRecord* tag : tagDB) {
+            if (tag->version == 0) macs.insert(macs.end(), tag->mac, tag->mac + 8);
+        }
+    }
+    if (!allowRequest(V2_ALLOW_CLEAR, nullptr, 0)) return false;
+    const size_t count = macs.size() / 8;
+    for (size_t c = 0; c < count; c += V2_ALLOW_MAX_MACS) {
+        const uint8_t n = (count - c < V2_ALLOW_MAX_MACS) ? count - c : V2_ALLOW_MAX_MACS;
+        if (!allowRequest(V2_ALLOW_ADD, macs.data() + c * 8, n)) return false;
+    }
+    Serial.printf("v2: allow-list of %u tags sent to the radio\r\n", count);
+    return true;
+}
+
+void V2Transport::syncAllowList() {
+    static uint32_t retryMs = 0;
+    if (!allowListInUse || (retryMs && millis() - retryMs < 1000)) return;
+    retryMs = 0;
+    std::vector<allowChange> changes;
+    bool resend;
+    {
+        std::lock_guard<std::mutex> lock(allowMutex);
+        changes.swap(allowChanges);
+        resend = allowResend;
+        allowResend = false;
+    }
+    if (!resend && changes.empty()) return;
+
+    bool ok = true;
+    if (resend) {
+        if (allowListReady) {
+            // no lock while the list is incomplete, or known tags would go unanswered
+            allowListReady = false;
+            sendChannelPower(&curChannel);
+        }
+        ok = sendAllowList();
+    } else {
+        // consecutive changes of the same kind in one request
+        for (size_t c = 0; c < changes.size() && ok;) {
+            uint8_t macs[V2_ALLOW_MAX_MACS * 8];
+            uint8_t n = 0;
+            const bool added = changes[c].added;
+            while (c < changes.size() && changes[c].added == added && n < V2_ALLOW_MAX_MACS) memcpy(macs + 8 * n++, changes[c++].mac, 8);
+            ok = allowRequest(added ? V2_ALLOW_ADD : V2_ALLOW_REMOVE, macs, n);
+        }
+    }
+
+    if (allowListFull) {
+        allowListInUse = false;
+        allowListReady = false;
+        wsErr("The radio has no room for all tags: the tag inventory lock works on the AP only");
+        sendChannelPower(&curChannel);
+        return;
+    }
+    if (!ok) {
+        // the whole list again, after a second; a lost link is brought up again by APTask
+        std::lock_guard<std::mutex> lock(allowMutex);
+        allowChanges.clear();
+        allowResend = true;
+        retryMs = millis() | 1;
+        return;
+    }
+    if (!allowListReady) {
+        allowListReady = true;
+        if (config.lock) sendChannelPower(&curChannel);
+    }
 }
 
 void V2Transport::applyStatus(const uint8_t* payload, size_t len) {

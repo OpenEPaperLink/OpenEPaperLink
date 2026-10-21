@@ -72,7 +72,7 @@ const struct {
 struct pendingData pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t version = 0x0023;
+uint16_t version = 0x0024;
 
 #define RAW_PKT_PADDING 2
 
@@ -194,6 +194,51 @@ static bool tooLateToAnswer(uint8_t type, int64_t ageUs) {
     }
 }
 
+// The tag inventory lock (V2_CFG_LOCK_MASK in SET_CONFIG). Locked, the radio answers only the tags on
+// the allow-list the S3 keeps here (its tag database); learning, also a full check-in of a tag that
+// just booted. Other tags get no reply, so they look for another AP, and the S3 hears nothing of them.
+#define MAX_ALLOWED_MACS        1024
+#define WAKEUP_REASON_FIRSTBOOT 0xFC
+static uint64_t allowedMacs[MAX_ALLOWED_MACS];  // the 8 MAC bytes as received, compared as one value
+static uint16_t allowedCount  = 0;
+static uint8_t  lockMode      = V2_LOCK_OFF;
+static uint32_t lockedIgnored = 0;  // frames from other tags, in the last minute
+
+static int32_t findAllowed(uint64_t mac) {
+    for (uint16_t c = 0; c < allowedCount; c++) {
+        if (allowedMacs[c] == mac) return c;
+    }
+    return -1;
+}
+static bool allowAdd(const uint8_t *src) {
+    uint64_t mac;
+    memcpy(&mac, src, 8);
+    if (findAllowed(mac) != -1) return true;
+    if (allowedCount >= MAX_ALLOWED_MACS) return false;
+    allowedMacs[allowedCount++] = mac;
+    return true;
+}
+static void allowRemove(const uint8_t *src) {
+    uint64_t mac;
+    memcpy(&mac, src, 8);
+    const int32_t c = findAllowed(mac);
+    if (c != -1) allowedMacs[c] = allowedMacs[--allowedCount];
+}
+// May the radio answer this frame (len bytes, of packet type type)?
+static bool tagAccepted(uint8_t type, const uint8_t *frame, int32_t len) {
+    if (lockMode == V2_LOCK_OFF) return true;
+    const struct MacFcs *fcs = (const struct MacFcs *) frame;
+    const uint8_t       *src = (fcs->destAddrType == 2) ? ((const struct MacFrameBcast *) frame)->src : ((const struct MacFrameNormal *) frame)->src;
+    uint64_t             mac;
+    memcpy(&mac, src, 8);
+    if (findAllowed(mac) != -1) return true;
+    if (lockMode == V2_LOCK_LEARNING && type == PKT_AVAIL_DATA_REQ && (len == 28 || len == 40)) {
+        const struct AvailDataReq *adr = (const struct AvailDataReq *) (frame + sizeof(struct MacFrameBcast) + 1);
+        return adr->wakeupReason == WAKEUP_REASON_FIRSTBOOT;
+    }
+    return false;
+}
+
 int32_t findSlotForMac(const uint8_t *mac) {
     for (uint8_t c = 0; c < MAX_PENDING_MACS; c++) {
         if (memcmp(mac, ((uint8_t *) &(pendingDataArr[c].targetMac)), 8) == 0) {
@@ -258,7 +303,7 @@ void countSlots() {
 
 // capabilities, for CAP> and HELLO_REPLY
 static uint16_t radioCaps() {
-    uint16_t caps = V2_CAP_FRAMING | V2_CAP_BLOCK_CACHE | V2_CAP_TAG_RETURN_DATA;
+    uint16_t caps = V2_CAP_FRAMING | V2_CAP_BLOCK_CACHE | V2_CAP_TAG_RETURN_DATA | V2_CAP_ALLOW_LIST;
 #ifdef CONFIG_OEPL_SUBGIG_SUPPORT
     if (curSubGhzChannel != NO_SUBGHZ_CHANNEL) caps |= V2_CAP_SUBGHZ;
 #endif
@@ -403,7 +448,8 @@ static void setConfig(const struct v2SetConfig *sc, struct v2Reply *reply) {
         curPower = (uint8_t) sc->txPowerDbm;
         radioSetTxPower(curPower);
     }
-    ESP_LOGI(TAG, "Set channel: %d power: %d", curChannel, curPower);
+    lockMode = (sc->flags & V2_CFG_LOCK_MASK) >> V2_CFG_LOCK_SHIFT;
+    ESP_LOGI(TAG, "Set channel: %d power: %d lock: %d (%d tags allowed)", curChannel, curPower, lockMode, allowedCount);
 }
 
 static void setPending(const struct v2SetPending *sp, struct v2Reply *reply) {
@@ -478,6 +524,24 @@ void v2HandleRequest(uint8_t type, const uint8_t *payload, size_t len, struct v2
         case V2_DATA_DROP:
             if (len < sizeof(struct v2DataDrop)) nak(reply, V2_NAK_BAD_LENGTH);
             else cacheDropVer(((const struct v2DataDrop *) payload)->dataVer);
+            break;
+        case V2_ALLOW_CLEAR:
+            allowedCount = 0;
+            break;
+        case V2_ALLOW_ADD:
+        case V2_ALLOW_REMOVE:
+            if (len == 0 || len % 8 || len / 8 > V2_ALLOW_MAX_MACS) {
+                nak(reply, V2_NAK_BAD_LENGTH);
+                break;
+            }
+            for (size_t c = 0; c < len; c += 8) {
+                if (type == V2_ALLOW_REMOVE) {
+                    allowRemove(payload + c);
+                } else if (!allowAdd(payload + c)) {
+                    nak(reply, V2_NAK_NO_SLOT);
+                    break;
+                }
+            }
             break;
         default:
             nak(reply, V2_NAK_UNKNOWN_TYPE);
@@ -877,6 +941,10 @@ void app_main(void) {
                     statusLateSkipped++;
                     PktType = 0;  // falls through to default below without a reply
                 }
+                if (PktType && !tagAccepted(PktType, radiorxbuffer, ret)) {
+                    lockedIgnored++;
+                    PktType = 0;
+                }
                 // received a packet, lets see what it is
                 switch (PktType) {
                     case PKT_AVAIL_DATA_REQ:
@@ -977,6 +1045,10 @@ void app_main(void) {
         if (lateRequestsSkipped) {
             ESP_LOGW(TAG, "%lu requests skipped in the last minute: too late to answer", lateRequestsSkipped);
             lateRequestsSkipped = 0;
+        }
+        if (lockedIgnored) {
+            ESP_LOGW(TAG, "%lu frames ignored in the last minute: tag not on the allow-list", lockedIgnored);
+            lockedIgnored = 0;
         }
         memset(&lastTagReturn, 0, 8);
         for (uint8_t cCount = 0; cCount < MAX_PENDING_MACS; cCount++) {
