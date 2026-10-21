@@ -677,14 +677,6 @@ export function print(line, color = "white") {
         newLine.style.color = color;
         if (line == "[reboot]") {
             newLine.innerHTML = "<button onclick=\"otamodule.reboot()\">Reboot</button>";
-        } else if (line == "[autoreboot]") {
-            // The AP restarts by itself after flashing a co-processor. Nothing
-            // announces that to the browser - the socket simply dies - so the
-            // page would sit there looking busy forever. Reload once the AP has
-            // had time to boot and rejoin the network.
-            newLine.textContent = "Rebooting now... reloading this page in 8 seconds.";
-            newLine.style.color = "yellow";
-            setTimeout(() => { location.reload(); }, 8000);
         } else {
             newLine.textContent = line;
         }

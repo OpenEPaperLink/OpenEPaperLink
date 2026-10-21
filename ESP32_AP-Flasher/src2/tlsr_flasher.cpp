@@ -228,6 +228,12 @@ static bool tlsrLoadFloader() {
     return false;
 }
 
+/* bringAPOnline() refuses while the state says flashing */
+static void tlsrResumeAP() {
+    setAPstate(false, AP_STATE_OFFLINE);
+    if (!bringAPOnline()) tlsrLog("TLSR: the radio doesn't respond. Try the update again.");
+}
+
 bool tlsrFlashFile(const String &path) {
     if (contentFS == nullptr) {
         printf("TLSR: filesystem not mounted yet\r\n");
@@ -255,7 +261,7 @@ bool tlsrFlashFile(const String &path) {
     for (int bringUp = 0; bringUp < 3 && !ok; bringUp++) ok = tlsrLoadFloader();
     if (!ok) {
         f.close();
-        if (wasRunning) bringAPOnline();
+        if (wasRunning) tlsrResumeAP();
         return false;
     }
 
@@ -311,7 +317,7 @@ bool tlsrFlashFile(const String &path) {
     }
     f.close();
     if (!ok) {
-        if (wasRunning) bringAPOnline();
+        if (wasRunning) tlsrResumeAP();
         return false;
     }
 
@@ -323,10 +329,8 @@ bool tlsrFlashFile(const String &path) {
     digitalWrite(config.flashPinReset, HIGH);
 
     if (wasRunning) {
-        tlsrLog("TLSR: restarting to bring the access point back up");
-        wsSerial("[autoreboot]");
-        vTaskDelay(1500 / portTICK_PERIOD_MS);
-        ESP.restart();
+        tlsrLog("TLSR: bringing the access point back online");
+        tlsrResumeAP();
     }
     return true;
 }

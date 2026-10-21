@@ -399,56 +399,44 @@ void C6firmwareUpdateTask(void* parameter) {
 
     wsSerial(SHORT_CHIP_NAME " flash end");
 
-    if (result) {
-        setAPstate(false, AP_STATE_OFFLINE);
+    // also after a failed update: the radio may still run its old firmware
+    setAPstate(false, AP_STATE_OFFLINE);
 
-        wsSerial("Finishing config...");
-        vTaskDelay(3000 / portTICK_PERIOD_MS);
+    wsSerial("Finishing config...");
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
 
-        wsSerial("starting monitor");
+    wsSerial("starting monitor");
 #ifndef FLASHER_DEBUG_SHARED
-        rxSerialStopTask2 = false;
-        xTaskCreate(rxSerialTask2, "rxSerialTask2", 1850, NULL, 2, NULL);
+    rxSerialStopTask2 = false;
+    xTaskCreate(rxSerialTask2, "rxSerialTask2", 1850, NULL, 2, NULL);
 #endif
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-        apInfo.version = 0;
-        wsSerial("bringing AP online");
-        // if (bringAPOnline(AP_STATE_REQUIRED_POWER_CYCLE)) config.runStatus = RUNSTATUS_STOP;
-        if (bringAPOnline(AP_STATE_ONLINE)) {
-            config.runStatus = RUNSTATUS_RUN;
-            setAPstate(true, AP_STATE_ONLINE);
-        }
-
-        // Wait for version info to arrive
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-        if(apInfo.version == 0) {
-           result = false;
-        }
+    apInfo.version = 0;
+    wsSerial("bringing AP online");
+    if (bringAPOnline(AP_STATE_ONLINE)) {
+        config.runStatus = RUNSTATUS_RUN;
+        setAPstate(true, AP_STATE_ONLINE);
     }
 
-    if (result) {
-       wsSerial("Finished!");
-       char buffer[80];
-       snprintf(buffer, sizeof(buffer), "AP is now type %02X (%s), firmware version %04X",
-                apInfo.type, apTypeName(apInfo.type), apInfo.version);
-       wsSerial(String(buffer));
-    }
-    else if(apInfo.version == 0) {
-       wsSerial("AP failed to come online. :-(");
-    }
-    else {
-       wsSerial("Flashing failed. :-(");
+    // Wait for version info to arrive
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+
+    char buffer[80];
+    if (apInfo.version == 0) {
+        wsSerial("The radio doesn't respond. :-( Try the update again.");
+    } else if (result) {
+        wsSerial("Finished!");
+        snprintf(buffer, sizeof(buffer), "AP is now type %02X (%s), firmware version %04X",
+                 apInfo.type, apTypeName(apInfo.type), apInfo.version);
+        wsSerial(String(buffer));
+    } else {
+        snprintf(buffer, sizeof(buffer), "Flashing failed. :-( The radio still runs firmware version %04X",
+                 apInfo.version);
+        wsSerial(String(buffer));
     }
     free(urlPtr);
 
-    if (result) {
-        wsSerial("[autoreboot]");
-        vTaskDelay(1500 / portTICK_PERIOD_MS);
-        ESP.restart();
-    }
-
-    wsSerial("[reboot]");
     vTaskDelay(30000 / portTICK_PERIOD_MS);
     vTaskDelete(NULL);
 }
