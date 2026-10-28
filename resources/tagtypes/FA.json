@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "ConfigMode",
 	"width": 0,
 	"height": 0,
@@ -8,7 +8,7 @@
 	"colortable": { },
 	"shortlut": 0,
 	"options": [ ],
-	"contentids": [ 17 ],
+	"contentids": [ 14, 17 ],
 	"template": {
 	}
 }
