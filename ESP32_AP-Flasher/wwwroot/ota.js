@@ -156,7 +156,22 @@ export async function initUpdate() {
         $('#environment').value = env;
     }
 
-    const rdata = await fetch(repoUrl).then(response => response.json())
+    // The browser fetches the release list itself, so a network that blocks
+    // api.github.com, or a rate limit, would otherwise stop the page here.
+    let rdata = [];
+    let releasesFailed = false;
+    try {
+        const response = await fetch(repoUrl);
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error(`HTTP ${response.status}: ${data?.message || 'unexpected response'}`);
+        rdata = data;
+    } catch (error) {
+        releasesFailed = true;
+        print(`Could not get the list of releases from api.github.com:\n${error}`, "red");
+        if (error instanceof TypeError) {
+            print(`This page loads it directly from your browser, so check if your\nnetwork, firewall, ad blocker or VPN allows access to api.github.com.`, "red");
+        }
+    }
     const JsonName = 'firmware_' + gShortName + '.json';
     const releaseDetails = rdata.map(release => {
         const assets = release.assets;
@@ -178,7 +193,9 @@ export async function initUpdate() {
         };
     })
 
-    if (releaseDetails.length === 0) {
+    if (releasesFailed) {
+        easyupdate.innerHTML = "Could not get the list of releases from GitHub.";
+    } else if (releaseDetails.length === 0) {
         easyupdate.innerHTML = ("No releases found.");
     } else {
         const release = releaseDetails[0];
