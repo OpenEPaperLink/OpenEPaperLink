@@ -161,6 +161,8 @@ void handleLittleFSUpload(AsyncWebServerRequest* request, String filename, size_
     flushUploadInfo(uploadInfo);
     const bool error = uploadInfo->error;
     if (error) logLine("Failed to write " + String(uploadInfo->filename));
+    // a new tagtype definition replaces the one getHwType() has cached
+    if (!error && strncmp(uploadInfo->filename, "/tagtypes/", 10) == 0) forgetHwType(strtol(uploadInfo->filename + 10, nullptr, 16));
     request->_tempObject = nullptr;
     free(uploadInfo);
 

@@ -458,15 +458,25 @@ void saveAPconfig() {
     xSemaphoreGive(fsMutex);
 }
 
+// hwdata is used from the loop task, the BLE writer and the web server (forgetHwType after an upload)
+static SemaphoreHandle_t hwdataMutex = xSemaphoreCreateMutex();
+
 void forgetHwType(const uint16_t id) {
+    xSemaphoreTake(hwdataMutex, portMAX_DELAY);
     hwdata.erase(id);
+    xSemaphoreGive(hwdataMutex);
 }
 
 HwType getHwType(const uint16_t id) {
+    xSemaphoreTake(hwdataMutex, portMAX_DELAY);
     auto it = hwdata.find(id);
     if (it != hwdata.end()) {
-        return it->second;
+        const HwType hwType = it->second;
+        xSemaphoreGive(hwdataMutex);
+        return hwType;
     } else {
+        // read the file without the lock, and only add the complete type to the cache
+        xSemaphoreGive(hwdataMutex);
         char filename[20];
         snprintf(filename, sizeof(filename), id > 0xFF ? "/tagtypes/%04X.json" : "/tagtypes/%02X.json", id);
         Serial.printf("read %s\r\n", filename);
@@ -490,7 +500,7 @@ HwType getHwType(const uint16_t id) {
                 Serial.println("json error in " + String(filename));
                 Serial.println(error.c_str());
             } else {
-                HwType& hwType = hwdata[id];
+                HwType hwType = {};
                 hwType.id = id;
                 hwType.width = doc["width"];
                 hwType.height = doc["height"];
@@ -517,7 +527,10 @@ HwType getHwType(const uint16_t id) {
                     c.b = color[2];
                     hwType.colortable.push_back(c);
                 }
-                return hwdata.at(id);
+                xSemaphoreTake(hwdataMutex, portMAX_DELAY);
+                hwdata[id] = hwType;
+                xSemaphoreGive(hwdataMutex);
+                return hwType;
             }
         }
         return {0, 0, 0, 0, 0, 0, 0};
