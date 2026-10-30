@@ -1,10 +1,5 @@
 #include <Arduino.h>
 
-#ifdef HAS_RGB_LED
-#define FASTLED_INTERNAL
-#include <FastLED.h>
-#endif
-
 #include "leds.h"
 #include "settings.h"
 #include "tag_db.h"
@@ -45,6 +40,14 @@ void ledcSet(uint8_t channel, uint8_t brightness) {
 }
 
 #ifdef HAS_RGB_LED
+
+CRGB blend(const CRGB& a, const CRGB& b, uint8_t amountOfB) {
+    CRGB result;
+    result.r = (a.r * (255 - amountOfB) + b.r * amountOfB) / 255;
+    result.g = (a.g * (255 - amountOfB) + b.g * amountOfB) / 255;
+    result.b = (a.b * (255 - amountOfB) + b.b * amountOfB) / 255;
+    return result;
+}
 
 void addToRGBQueue(struct ledInstructionRGB* rgb, bool requeue) {
     rgb->reQueue = requeue;
@@ -109,8 +112,26 @@ void showColorPattern(CRGB colorone, CRGB colortwo, CRGB colorthree) {
     }
 }
 
+// Temporal dithering, as FastLED did: the part of a channel that the brightness scaling rounds off
+// is carried to the next write, so at a low brightness the led averages two levels instead of stepping
+static uint8_t ditherRemainder[3];
+static bool ditherPending = false;
+static bool rgbWritten = false;
+
 void showRGB() {
-    FastLED.show();
+    // maxledbrightness takes effect at the next show, as with FastLED's setBrightness()
+    const uint16_t scale = maxledbrightness + 1;
+    const uint8_t channel[3] = {leds[0].r, leds[0].g, leds[0].b};
+    uint8_t out[3];
+    ditherPending = false;
+    for (int i = 0; i < 3; i++) {
+        const uint16_t value = channel[i] * scale + ditherRemainder[i];
+        out[i] = value >> 8;
+        ditherRemainder[i] = value & 0xFF;
+        if (ditherRemainder[i]) ditherPending = true;
+    }
+    neopixelWrite(FLASHER_RGB_LED, out[0], out[1], out[2]);
+    rgbWritten = true;
 }
 
 void rgbIdleStep() {
@@ -143,9 +164,6 @@ void setBrightness(int brightness) {
 
 #if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL || HAS_TFT
     ledcSet(1, config.tft);
-#endif
-#ifdef HAS_RGB_LED
-    FastLED.setBrightness(maxledbrightness);
 #endif
 }
 
@@ -204,7 +222,6 @@ volatile uint16_t monoIdlePeriod = 900;
 
 void ledTask(void* parameter) {
 #ifdef HAS_RGB_LED
-    FastLED.addLeds<WS2812B, FLASHER_RGB_LED, GRB>(leds, 1);  // GRB ordering is typical
     leds[0] = CRGB::Blue;
     showRGB();
     rgbLedQueue = xQueueCreate(30, sizeof(struct ledInstructionRGB*));
@@ -288,6 +305,9 @@ void ledTask(void* parameter) {
                 rgb = nullptr;
             }
         }
+        // keep writing while dithering, also when the color doesn't change
+        if (!rgbWritten && ditherPending) showRGB();
+        rgbWritten = false;
 #endif
         // handle flasher LED (single color)
         if (monoled == nullptr) {

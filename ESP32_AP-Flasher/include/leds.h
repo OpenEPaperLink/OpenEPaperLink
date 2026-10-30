@@ -1,8 +1,38 @@
 #include <Arduino.h>
 
 #ifdef HAS_RGB_LED
-#define FASTLED_INTERNAL
-#include <FastLED.h>
+// One WS2812B led, driven with neopixelWrite(); the color names and values are FastLED's
+struct CRGB {
+    enum HTMLColorCode : uint32_t {
+        Aqua = 0x00FFFF,
+        Black = 0x000000,
+        Blue = 0x0000FF,
+        DarkBlue = 0x00008B,
+        Green = 0x008000,
+        Orange = 0xFFA500,
+        Red = 0xFF0000,
+        White = 0xFFFFFF,
+        Yellow = 0xFFFF00,
+        YellowGreen = 0x9ACD32,
+    };
+    uint8_t r = 0, g = 0, b = 0;
+
+    CRGB() = default;
+    CRGB(uint32_t colorcode) : r(colorcode >> 16), g(colorcode >> 8), b(colorcode) {}
+    bool operator==(const CRGB& other) const { return r == other.r && g == other.g && b == other.b; }
+    bool operator!=(const CRGB& other) const { return !(*this == other); }
+    // scale up or down so the brightest channel becomes 'limit'
+    void maximizeBrightness(uint8_t limit = 255) {
+        uint8_t brightest = max(r, max(g, b));
+        if (brightest == 0) return;
+        r = r * limit / brightest;
+        g = g * limit / brightest;
+        b = b * limit / brightest;
+    }
+};
+
+// amountOfB 0 gives a, 255 gives b
+CRGB blend(const CRGB& a, const CRGB& b, uint8_t amountOfB);
 #endif
 
 const uint8_t PROGMEM gamma8[] = {
