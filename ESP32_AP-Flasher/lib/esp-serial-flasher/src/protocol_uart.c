@@ -89,6 +89,23 @@ esp_loader_error_t send_cmd_md5(const void *cmd_data, size_t cmd_size, uint8_t m
 }
 
 
+esp_loader_error_t send_cmd_chip_id(const void *cmd_data, size_t cmd_size, uint32_t *chip_id)
+{
+    security_info_response_t response;
+    command_t command = ((const command_common_t *)cmd_data)->command;
+
+    RETURN_ON_ERROR( SLIP_send_delimiter() );
+    RETURN_ON_ERROR( SLIP_send((const uint8_t *)cmd_data, cmd_size) );
+    RETURN_ON_ERROR( SLIP_send_delimiter() );
+
+    RETURN_ON_ERROR( check_response(command, NULL, &response, sizeof(response)) );
+
+    *chip_id = response.chip_id;
+
+    return ESP_LOADER_SUCCESS;
+}
+
+
 static esp_loader_error_t check_response(command_t cmd, uint32_t *reg_value, void* resp, uint32_t resp_size)
 {
     esp_loader_error_t err;

@@ -68,7 +68,9 @@ static bool waitCmdReply(uint32_t timeoutMs = 200) {
                 break;
             case CMD_REPLY_ACK:
                 lastAPActivity = millis();
-                if (apInfo.isOnline == false)
+                // Not while bringAPOnline() runs (OFFLINE, then COMING_ONLINE): that would let the
+                // command processor handle the radio's RES> in between, still on the old protocol
+                if (apInfo.isOnline == false && apInfo.state != AP_STATE_OFFLINE && apInfo.state != AP_STATE_COMING_ONLINE)
                     setAPstate(true, AP_STATE_ONLINE);
                 return true;
                 break;

@@ -257,6 +257,18 @@ esp_loader_error_t loader_change_baudrate_cmd(uint32_t baudrate)
     return send_cmd(&baudrate_cmd, sizeof(baudrate_cmd), NULL);
 }
 
+esp_loader_error_t loader_get_chip_id_cmd(uint32_t *chip_id)
+{
+    command_common_t info_cmd = {
+        .direction = WRITE_DIRECTION,
+        .command = GET_SECURITY_INFO,
+        .size = 0,
+        .checksum = 0
+    };
+
+    return send_cmd_chip_id(&info_cmd, sizeof(info_cmd), chip_id);
+}
+
 esp_loader_error_t loader_md5_cmd(uint32_t address, uint32_t size, uint8_t *md5_out)
 {
     spi_flash_md5_command_t md5_cmd = {

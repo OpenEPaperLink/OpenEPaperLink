@@ -118,6 +118,14 @@ New findings that are not yet in a phase.
 
 - [ ] 11.6" M3 tags (hwType 0x37, 2× rechargeable AA) check in only every 10–20 min instead of every minute, also with the old C6 firmware; a button press makes them check in every 40 s again, but the one at RSSI −68 fell silent again after 5 check-ins, the one moved close to the AP stayed regular. Next: sniffer close to the tag to see whether it sends and whether the AP hears it; check what the tag firmware does after a missed reply or at 2.4–2.5 V ([results](radio-chain-results.md#phase-2-traffic-hour-2026-10-12-c6-74761447-s3-74761447))
 
+- [x] After every radio flash, "SCP send failed in try 0..4" in the log (found on the ESP Thread Border Router board, 2026-10-30). An `ACK>` during `bringAPOnline()` set the AP state to online, so the command processor handled the radio's `RES>` in between, still on the old protocol. `waitCmdReply()` now leaves the state alone while it is `OFFLINE` or `COMING_ONLINE`; the `RES>` is handled after the switch to protocol v2. Tested with two radio flashes on that board (H2 0024)
+
+- [x] `checkRadio()` saw a radio that wasn't answering (ESP Thread Border Router board, 2026-10-30): with the radio in reset, an edge on the TXD trace showed up on the neighbouring RXD for a few µs. It now reads 100 µs after each edge
+
+- [x] The flasher didn't recognise an ESP32-H2 v1.2 (ROM eco5): its magic register reads 0x97e30068 (2026-10-30). When the magic is unknown, the vendored esp-serial-flasher now asks the ROM for its chip ID with `GET_SECURITY_INFO`, as esptool and newer esp-serial-flasher versions (≥ 1.6.0) do. Flashed the H2 of the Thread Border Router board
+
+- [x] An H2 shows up as "ESP32-C6" in the web UI and the serial log: the H2 firmware is built from the C6 sources and reports type 0xC6. `apTypeName()` names it "ESP32-H2" in builds with `HAS_H2`; the update page and the AP Info box use that name
+
 ## Results
 
 - Final results (baselines and before/after comparisons) go into [radio-chain-results.md](radio-chain-results.md), committed.

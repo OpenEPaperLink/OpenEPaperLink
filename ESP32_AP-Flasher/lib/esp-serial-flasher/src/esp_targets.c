@@ -14,6 +14,8 @@
  */
 
 #include "esp_targets.h"
+#include "esp_loader_io.h"
+#include "protocol.h"
 #include <stddef.h>
 
 #define MAX_MAGIC_VALUES 2
@@ -212,6 +214,32 @@ esp_loader_error_t loader_detect_chip(target_chip_t *target_chip, const target_r
             }
         }
     }
+
+#ifdef SERIAL_FLASHER_INTERFACE_UART
+    // The magic register isn't fixed on newer chips: an ESP32-H2 v1.2 (ROM eco5) reads 0x97e30068.
+    // Like esptool, ask the ROM for its chip ID then (the IMAGE_CHIP_ID values in esptool).
+    static const struct {
+        uint32_t id;
+        target_chip_t chip;
+    } chip_ids[] = {
+        { 5, ESP32C3_CHIP },
+        { 9, ESP32S3_CHIP },
+        { 12, ESP32C2_CHIP },
+        { 13, ESP32C6_CHIP },
+        { 16, ESP32H2_CHIP },
+    };
+    uint32_t chip_id;
+    loader_port_start_timer(3000);
+    if (loader_get_chip_id_cmd(&chip_id) == ESP_LOADER_SUCCESS) {
+        for (size_t i = 0; i < sizeof(chip_ids) / sizeof(chip_ids[0]); i++) {
+            if (chip_ids[i].id == chip_id) {
+                *target_chip = chip_ids[i].chip;
+                *target_data = (target_registers_t *)&esp_target[chip_ids[i].chip];
+                return ESP_LOADER_SUCCESS;
+            }
+        }
+    }
+#endif
 
     return ESP_LOADER_ERROR_INVALID_TARGET;
 }

@@ -29,3 +29,5 @@ esp_loader_error_t send_cmd_with_data(const void *cmd_data, size_t cmd_size,
                                       const void *data, size_t data_size);
 
 esp_loader_error_t send_cmd_md5(const void *cmd_data, size_t cmd_size, uint8_t md5_out[MD5_SIZE]);
+
+esp_loader_error_t send_cmd_chip_id(const void *cmd_data, size_t cmd_size, uint32_t *chip_id);

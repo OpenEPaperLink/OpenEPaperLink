@@ -50,6 +50,7 @@ typedef enum __attribute__((packed))
     FLASH_DEFL_DATA  = 0x11,
     FLASH_DEFL_END   = 0x12,
     SPI_FLASH_MD5    = 0x13,
+    GET_SECURITY_INFO = 0x14,
 } command_t;
 
 typedef enum __attribute__((packed))
@@ -184,6 +185,18 @@ typedef struct __attribute__((packed))
     response_status_t status;
 } rom_md5_response_t;
 
+// The ROM's answer to GET_SECURITY_INFO on chips that report a chip ID (ESP32-C3 and later)
+typedef struct __attribute__((packed))
+{
+    common_response_t common;
+    uint32_t flags;
+    uint8_t flash_crypt_cnt;
+    uint8_t key_purposes[7];
+    uint32_t chip_id;
+    uint32_t eco_version;
+    response_status_t status;
+} security_info_response_t;
+
 typedef struct __attribute__((packed))
 {
     command_common_t common;
@@ -230,6 +243,8 @@ esp_loader_error_t loader_write_reg_cmd(uint32_t address, uint32_t value, uint32
 esp_loader_error_t loader_read_reg_cmd(uint32_t address, uint32_t *reg);
 
 esp_loader_error_t loader_change_baudrate_cmd(uint32_t baudrate);
+
+esp_loader_error_t loader_get_chip_id_cmd(uint32_t *chip_id);
 
 #ifdef __cplusplus
 }

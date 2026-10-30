@@ -42,7 +42,11 @@ struct APInfoS apInfo;
 
 const char *apTypeName(uint8_t type) {
     switch (type) {
+#ifdef HAS_H2
+        case ESP32_C6:        return "ESP32-H2";  // built from the C6 sources, it reports the C6's type
+#else
         case ESP32_C6:        return "ESP32-C6";
+#endif
         case TLSR_ZIGBEE_AP:  return "TLSR Zigbee 802.15.4";  /* 0xF8 */
         case TLSR_GFSK_AP:    return "TLSR GFSK";        /* 0xF9 */
         case SOLUM_SEG_UK:    return "Segmented tag";    /* 0xF0, ZBS243 */
@@ -398,7 +402,11 @@ void rxSerialTask2(void* parameter) {
 #endif
 
 void ShowAPInfo() {
-    Serial.printf("\r\n| AP Info - type %02X       |\r\n", apInfo.type);
+    const char *typeName = apTypeName(apInfo.type);
+    if (strcmp(typeName, "unknown") == 0)
+        Serial.printf("\r\n| AP Info - type %02X       |\r\n", apInfo.type);
+    else
+        Serial.printf("\r\n| AP Info - %-14s|\r\n", typeName);
     Serial.printf("| Ch   |             0x%02X |\r\n", apInfo.channel);
     Serial.printf("| Power|               %02X |\r\n", apInfo.power);
     Serial.printf("| MAC  | %02X%02X%02X%02X%02X%02X%02X%02X |\r\n", apInfo.mac[7], apInfo.mac[6], apInfo.mac[5], apInfo.mac[4], apInfo.mac[3], apInfo.mac[2], apInfo.mac[1], apInfo.mac[0]);
@@ -541,9 +549,13 @@ bool checkRadio() {
     // e.g. for flasher only, or just to use the S3 to generate images for smaller AP's
     pinMode(FLASHER_AP_TXD, OUTPUT);
     pinMode(FLASHER_AP_RXD, INPUT_PULLDOWN);
+    // Read after a moment: with the radio still in reset, only the weak pull-down holds RXD, and
+    // an edge on a neighbouring TXD trace shows up on it for a few microseconds (ESP Thread BR board)
     digitalWrite(FLASHER_AP_TXD, LOW);
+    delayMicroseconds(100);
     if (digitalRead(FLASHER_AP_RXD) != LOW) return true;
     digitalWrite(FLASHER_AP_TXD, HIGH);
+    delayMicroseconds(100);
     if (digitalRead(FLASHER_AP_RXD) != HIGH) return true;
     pinMode(FLASHER_AP_TXD, INPUT_PULLDOWN);
     return false;

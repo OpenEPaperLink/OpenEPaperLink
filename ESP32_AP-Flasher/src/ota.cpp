@@ -429,8 +429,8 @@ void C6firmwareUpdateTask(void* parameter) {
         wsSerial("The radio doesn't respond. :-( Try the update again.");
     } else if (result) {
         wsSerial("Finished!");
-        snprintf(buffer, sizeof(buffer), "AP is now type %02X (%s), firmware version %04X",
-                 apInfo.type, apTypeName(apInfo.type), apInfo.version);
+        snprintf(buffer, sizeof(buffer), "AP is now %s, firmware version %04X",
+                 apTypeName(apInfo.type), apInfo.version);
         wsSerial(String(buffer));
     } else {
         snprintf(buffer, sizeof(buffer), "Flashing failed. :-( The radio still runs firmware version %04X",

@@ -135,7 +135,8 @@ export async function initUpdate() {
             // Prefer what the module reported over the label the build guessed:
             // a board that can carry either radio has the latter fixed to one.
             const label = sdata.ap_type ? sdata.ap_typename : gModuleType;
-            const type = sdata.ap_type
+            // the type code only helps when the AP has no name for it
+            const type = sdata.ap_type && sdata.ap_typename == 'unknown'
                 ? ` (type ${('00' + sdata.ap_type.toString(16).toUpperCase()).slice(-2)})` : '';
             print(`${label} version:   ${hex_ver}${type}`);
         }
