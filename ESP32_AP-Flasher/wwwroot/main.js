@@ -959,7 +959,6 @@ document.addEventListener("loadTab", function (event) {
 						$("#apcnightlyreboot").value = data.nightlyreboot;
 						$("#apclock").value = data.lock;
 						$("#apcwifipower").value = data.wifipower;
-						$("#apchotspotpw").value = data.hotspotpw || "";
 						$("#apctimezone").value = data.timezone;
 						$("#apcnight1").value = data.sleeptime1;
 						$("#apcnight2").value = data.sleeptime2;
@@ -999,12 +998,6 @@ $('#apcfgsave').onclick = function () {
 	formData.append('nightlyreboot', $('#apcnightlyreboot').value);
 	formData.append('lock', $('#apclock').value);
 	formData.append('wifipower', $('#apcwifipower').value);
-	const hotspotpw = $('#apchotspotpw').value;
-	if (hotspotpw.length > 0 && (hotspotpw.length < 8 || hotspotpw.length > 63)) {
-		$('#apcfgmsg').innerHTML = 'Hotspot password needs 8 to 63 characters';
-		return;
-	}
-	formData.append('hotspotpw', hotspotpw);
 	formData.append('timezone', $('#apctimezone').value);
 	formData.append('sleeptime1', $('#apcnight1').value);
 	formData.append('sleeptime2', $('#apcnight2').value);

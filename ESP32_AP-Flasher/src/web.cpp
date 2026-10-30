@@ -657,17 +657,6 @@ void init_web() {
         response->print("\"hasSubGhz\": \"0\", ");
 #endif
 
-        {
-            Preferences preferences;
-            preferences.begin("wifi", true);
-            JsonDocument pw;
-            pw.set(preferences.getString("appw", ""));
-            preferences.end();
-            response->print("\"hotspotpw\": ");
-            serializeJson(pw, *response);
-            response->print(", ");
-        }
-
         response->print("\"apstate\": \"" + String(apInfo.state) + "\"");
 
         File configFile = contentFS->open("/current/apconfig.json", "r");
@@ -689,17 +678,6 @@ void init_web() {
     });
 
     server.on("/save_apcfg", HTTP_POST, [](AsyncWebServerRequest *request) {
-        if (request->hasParam("hotspotpw", true)) {
-            const String pw = request->getParam("hotspotpw", true)->value();
-            if (!validHotspotPassword(pw)) {
-                request->send(400, "text/plain", "Hotspot password needs 8 to 63 characters");
-                return;
-            }
-            Preferences preferences;
-            preferences.begin("wifi", false);
-            preferences.putString("appw", pw);
-            preferences.end();
-        }
         if (request->hasParam("alias", true)) {
             String aliasValue = request->getParam("alias", true)->value();
             size_t aliasLength = aliasValue.length();
