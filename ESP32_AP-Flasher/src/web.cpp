@@ -848,6 +848,14 @@ void init_web() {
         doc["appw"] = preferences.getString("appw", "");
         doc["apfallback"] = preferences.getUChar("apfallback", 1);
         doc["mac"] = WiFi.macAddress();
+#ifdef HAS_ETHERNET
+        // the setup page only shows its Ethernet block when these are there
+        const char *ethKeys[] = {"eip", "emask", "egw", "edns"};
+        for (const char *key : ethKeys) {
+            doc[key] = preferences.getString(key, "");
+        }
+        doc["ethernet"] = wm.wifiStatus == ETHERNET;
+#endif
         serializeJson(doc, *response);
         request->send(response);
     });
@@ -886,7 +894,7 @@ void init_web() {
         }
         Preferences preferences;
         preferences.begin("wifi", false);
-        const char *keys[] = {"ssid", "pw", "ip", "mask", "gw", "dns", "appw"};
+        const char *keys[] = {"ssid", "pw", "ip", "mask", "gw", "dns", "appw", "eip", "emask", "egw", "edns"};
         const size_t numKeys = sizeof(keys) / sizeof(keys[0]);
         for (size_t i = 0; i < numKeys; i++) {
             String key = keys[i];

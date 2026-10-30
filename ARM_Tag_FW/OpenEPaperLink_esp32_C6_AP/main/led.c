@@ -35,6 +35,9 @@ void init_led() {
 			.channel = i,
 			.timer_sel = LEDC_TIMER_0,
 			.duty = 0,
+#ifdef CONFIG_OEPL_HARDWARE_PROFILE_THREAD_BR
+			.flags.output_invert = 1,  // its LEDs hang between 3V3 and the GPIO
+#endif
 		};
 		ledc_channel_config(&channel);
 		led_timers[i] = xTimerCreate("led_timer", pdMS_TO_TICKS(50), pdFALSE, (void *)i, led_timer_callback);

@@ -2110,6 +2110,14 @@ function dbMeter(label, used, total, color, hint) {
 		`<div class="track"><div class="fill" style="width:${pct.toFixed(1)}%"></div></div>${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
 }
 
+// sysinfo.ethernet is only there on boards that can do Ethernet
+function ethernetState(eth) {
+	if (eth.active) return 'connected, in use';
+	if (eth.cable) return 'cable connected, no address yet';
+	if (eth.found) return 'no cable, using WiFi';
+	return 'no Ethernet adapter found';
+}
+
 function dbFetchSysinfo() {
 	dbSysinfoFetched = Date.now();
 	fetch('sysinfo')
@@ -2310,6 +2318,9 @@ function renderDashboard() {
 				sys += sysInfo.ntpsync
 					? `<span>Time sync</span><span>${dbEsc(sysInfo.ntpserver)} &middot; ${dbAgo(now - sysInfo.ntpsync)}</span>`
 					: `<span>Time sync</span><span class="bad">not synced yet${sysInfo.ntpserver ? ' (' + dbEsc(sysInfo.ntpserver) + ')' : ''}</span>`;
+			}
+			if (sysInfo.ethernet) {
+				sys += `<span>Ethernet</span><span>${ethernetState(sysInfo.ethernet)}</span>`;
 			}
 		}
 		sys += '</div>';

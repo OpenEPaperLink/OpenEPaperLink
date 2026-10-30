@@ -47,6 +47,18 @@ Subnet mask     <input type="text" id="mask">
 Gateway         <input type="text" id="gw">
 DNS             <input type="text" id="dns">
             </pre>
+            <div id="ethernet" style="display:none">
+                <h1>Ethernet config</h1>
+                <p>Status: <span id="ethstate">-</span></p>
+                <p>Ethernet is used when a cable is plugged in, WiFi otherwise.<br>
+                    Fill in fields below for a static Ethernet IP. Otherwise, leave empty.</p>
+                <pre>
+Static IP       <input type="text" id="eip">
+Subnet mask     <input type="text" id="emask">
+Gateway         <input type="text" id="egw">
+DNS             <input type="text" id="edns">
+                </pre>
+            </div>
             <p>Without WiFi, the AP opens the configuration hotspot "OpenEPaperLink".<br>
                 Leave the password empty for an open hotspot, or use 8 to 63 characters.<br>
                 Starting the AP three times in a row within 10 seconds (power on or reset button)<br>
@@ -55,7 +67,7 @@ DNS             <input type="text" id="dns">
 Hotspot pw      <input type="password" id="appw" maxlength="63">
 Fallback        <select id="apfallback"><option value="1">open the hotspot</option><option value="0">no hotspot, keep retrying WiFi</option></select>
             </pre>
-            <button id="connect">Save WiFi settings and reboot</button><br>
+            <button id="connect">Save network settings and reboot</button><br>
 
         </div>
     </div>

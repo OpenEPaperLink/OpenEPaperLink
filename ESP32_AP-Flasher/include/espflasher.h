@@ -30,9 +30,12 @@
    off FLASHER_DEBUG_SHARED and only the manifest name changes: SHORT_CHIP_NAME
    still says "C6" everywhere it is shown to a user. The UART0 build only exists
    for the C6: a board with an H2 on a shared UART (LilyGo T-Panel) uses the
-   normal H2 manifest (#621). */
+   normal H2 manifest (#621). The ESP Thread Border Router board has its own H2
+   build: the protocol runs over a second link, and its LEDs are active low. */
 #if defined(C6_OTA_FLASHING) && defined(FLASHER_DEBUG_SHARED) && !defined(HAS_H2)
    #define OTA_FW_JSON "C6_Uart0"
+#elif defined(HAS_H2) && defined(HAS_THREAD_BR)
+   #define OTA_FW_JSON "H2_TBR"
 #elif defined(SHORT_CHIP_NAME)
    #define OTA_FW_JSON SHORT_CHIP_NAME
 #endif

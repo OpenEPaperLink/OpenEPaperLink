@@ -1,4 +1,5 @@
 const $ = document.querySelector.bind(document);
+let onEthernet = false;
 
 window.addEventListener("load", function () {
     fetch("get_wifi_config")
@@ -13,8 +14,25 @@ window.addEventListener("load", function () {
             $('#appw').value = data.appw || "";
             $('#apfallback').value = data.apfallback === 0 ? "0" : "1";
             $('#mac').innerHTML = data.mac || "";
+            if ('eip' in data) {
+                for (const key of ['eip', 'emask', 'egw', 'edns']) $('#' + key).value = data[key] || "";
+                $('#ethernet').style.display = 'block';
+                onEthernet = data.ethernet === true;
+                fetch("sysinfo")
+                    .then(response => response.json())
+                    .then(info => {
+                        if (info.ethernet) $('#ethstate').textContent = ethernetState(info.ethernet);
+                    });
+            }
         });
 });
+
+function ethernetState(eth) {
+    if (eth.active) return 'connected, in use';
+    if (eth.cable) return 'cable connected, no address yet';
+    if (eth.found) return 'no cable, using WiFi';
+    return 'no Ethernet adapter found';
+}
 
 function pad(text, count) {
     let t = text + "";
@@ -73,6 +91,9 @@ $('#connect').addEventListener('click', () => {
         appw: appw,
         apfallback: parseInt($('#apfallback').value)
     };
+    if ($('#ethernet').style.display != 'none') {
+        for (const key of ['eip', 'emask', 'egw', 'edns']) data[key] = $('#' + key).value;
+    }
 
     fetch('save_wifi_config', {
         method: 'POST',
@@ -85,8 +106,9 @@ $('#connect').addEventListener('click', () => {
             if (response.ok) {
                 console.log('WiFi settings saved successfully');
                 let url = "/";
-                if ($('#ip').value) url = "http://" + $('#ip').value + "/";
-                $('.window').innerHTML = "<h1>Wifi settings saved...</h1>Rebooting...<br>Wait a few seconds and then go to the <a href=\"" + url + "\">Access Point web page</a>.";
+                const ip = onEthernet ? $('#eip').value : $('#ip').value;
+                if (ip) url = "http://" + ip + "/";
+                $('.window').innerHTML = "<h1>Network settings saved...</h1>Rebooting...<br>Wait a few seconds and then go to the <a href=\"" + url + "\">Access Point web page</a>.";
             } else {
                 console.log('Error saving WiFi settings');
             }

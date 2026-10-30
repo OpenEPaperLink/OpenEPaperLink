@@ -18,6 +18,7 @@
 #include "util.h"
 #include "uploadinfo.h"
 #include "web.h"
+#include "wifimanager.h"
 
 
 #ifndef BUILD_ENV_NAME
@@ -59,6 +60,13 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["ntpserver"] = ntpServerName();
     doc["ntpsync"] = lastTimeSync();
     doc["currtime"] = time(nullptr);
+#ifdef HAS_ETHERNET
+    // only on boards that can do Ethernet: the web UI shows its status when this is there
+    JsonObject eth = doc["ethernet"].to<JsonObject>();
+    eth["found"] = wm.ethernetFound();
+    eth["cable"] = wm.ethernetCable();
+    eth["active"] = wm.wifiStatus == ETHERNET;
+#endif
 #ifdef FLASHER_AP_SWS
     doc["has_sws_flasher"] = 1;
 #else

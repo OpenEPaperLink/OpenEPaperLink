@@ -10,6 +10,9 @@ menu "OEPL config"
     config OEPL_HARDWARE_PROFILE_LILYGO
       bool "LILYGO-AP"
 
+    config OEPL_HARDWARE_PROFILE_THREAD_BR
+      bool "ESP Thread Border Router board"
+
   endchoice
 
   config OEPL_HARDWARE_UART_TX

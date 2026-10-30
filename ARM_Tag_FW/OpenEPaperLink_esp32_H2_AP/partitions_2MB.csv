@@ -1,0 +1,5 @@
+# ESP-IDF Partition Table for an ESP32-H2 with 2 MB flash (ESP Thread Border Router board)
+# Name, Type, SubType, Offset, Size, Flags
+nvs,data,nvs,0x9000,0x6000,,
+factory,app,factory,0x10000,1M,,
+littlefs,data,spiffs,,960K,,

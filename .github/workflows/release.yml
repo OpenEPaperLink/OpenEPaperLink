@@ -45,6 +45,14 @@ jobs:
             cp binaries/ESP32-C6/OpenEPaperLink_esp32_C6uart0.bin out/
             cp binaries/ESP32-C6/firmware_C6_Uart0.json out/
           fi
+          # The same goes for the ESP Thread Border Router board, which asks for firmware_H2_TBR.json.
+          # Its H2 has 2 MB flash, so that build has its own bootloader and partition table.
+          if [ $chip = H2 ]; then
+            cp binaries/ESP32-H2/OpenEPaperLink_esp32_H2tbr.bin out/
+            cp binaries/ESP32-H2/bootloader_H2tbr.bin out/
+            cp binaries/ESP32-H2/partition-table_H2tbr.bin out/
+            cp binaries/ESP32-H2/firmware_H2_TBR.json out/
+          fi
 
       - uses: actions/upload-artifact@v7
         with:
@@ -70,6 +78,8 @@ jobs:
           - env: BLE_ONLY_AP
           - env: ESP32_S3_16_8_4inch_AP
           - env: ESP32_S3_SIMPLE_AP
+          - env: ESP32_S3_H2_THREAD_BR
+            size: 8MB
           - env: OpenEPaperLink_PoE_AP
             chip: esp32
             mode: qio

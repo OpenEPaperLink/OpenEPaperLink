@@ -6,6 +6,7 @@
 
 #include <ETH.h>
 
+#include "ethernet.h"
 #include "newproto.h"
 #include "system.h"
 #include "tag_db.h"
@@ -18,11 +19,18 @@ uint8_t WifiManager::apClients = 0;
 uint8_t x_buffer[100];
 uint8_t x_position = 0;
 
-#if defined(ETHERNET_PHY_POWER) && defined(ETHERNET_PHY_MDC) && defined(ETHERNET_PHY_MDIO) && defined(ETHERNET_PHY_TYPE) && defined(ETHERNET_CLK_MODE)
-static bool eth_init = false;
-static bool eth_connected = false;
-static bool eth_ip_ok = false;
-static long eth_timeout = 0;
+#ifdef HAS_ETHERNET
+// Ethernet wins over WiFi as soon as it has a link and an address; WiFi is the fallback.
+static bool eth_present = false;
+static volatile bool eth_link = false;
+
+// How long the boot waits for Ethernet before it starts WiFi
+#define ETH_LINK_WAIT 5000
+#define ETH_IP_WAIT 10000
+
+static bool ethUp() {
+    return eth_link && (uint32_t)ETH.localIP() != 0;
+}
 #endif
 
 WifiManager::WifiManager() {
@@ -69,21 +77,18 @@ void WifiManager::terminalLog(String text) {
 
 void WifiManager::poll() {
 
-#if defined(ETHERNET_PHY_POWER) && defined(ETHERNET_PHY_MDC) && defined(ETHERNET_PHY_MDIO) && defined(ETHERNET_PHY_TYPE) && defined(ETHERNET_CLK_MODE)
-
-    if (eth_connected) {
-        wifiStatus = ETHERNET;
-        if(!eth_ip_ok && eth_timeout != 0 && millis() - eth_timeout > 2000) {
-            eth_timeout = 0;
-            eth_connected = false;
+#ifdef HAS_ETHERNET
+    if (eth_present) {
+        if (wifiStatus != ETHERNET && ethUp()) {
+            switchToEthernet();
+        } else if (wifiStatus == ETHERNET && !ethUp()) {
+            terminalLog("Ethernet down, starting WiFi");
+            logLine("Ethernet down, starting WiFi");
+            wifiStatus = NOINIT;
+            _APstarted = false;
+            connectToWifi();
         }
-    } else if(!eth_connected && wifiStatus == ETHERNET) {
-        wifiStatus = NOINIT;
-        _APstarted = false;
-        WiFi.mode(WIFI_STA);
-        connectToWifi();
     }
-
 #endif
 
     if (wifiStatus == AP && millis() > _nextReconnectCheck && _ssid != "") {
@@ -159,6 +164,11 @@ void WifiManager::poll() {
             preferences.putString("mask", "");
             preferences.putString("gw", "");
             preferences.putString("dns", "");
+            // a wrong static Ethernet address would keep the AP unreachable as well
+            preferences.remove("eip");
+            preferences.remove("emask");
+            preferences.remove("egw");
+            preferences.remove("edns");
             preferences.end();
 
             wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -184,24 +194,54 @@ void WifiManager::poll() {
 }
 
 void WifiManager::initEth() {
-#if defined(ETHERNET_PHY_POWER) && defined(ETHERNET_PHY_MDC) && defined(ETHERNET_PHY_MDIO) && defined(ETHERNET_PHY_TYPE) && defined(ETHERNET_CLK_MODE)
-    if(!eth_init) {
-        eth_init = true;
-        ETH.begin(
-            ETH_PHY_ADDR,
-            ETHERNET_PHY_POWER,
-            ETHERNET_PHY_MDC,
-            ETHERNET_PHY_MDIO,
-            ETHERNET_PHY_TYPE,
-            ETHERNET_CLK_MODE,
-            false);
+#ifdef HAS_ETHERNET
+    if (eth_present) return;
+    eth_present = ethernetBegin();
+    if (!eth_present) {
+        terminalLog("No Ethernet hardware");
+        return;
+    }
+    // Wait a little for a cable and an address, so WiFi doesn't start for nothing
+    unsigned long start = millis();
+    while (!eth_link && millis() - start < ETH_LINK_WAIT) vTaskDelay(100 / portTICK_PERIOD_MS);
+    start = millis();
+    while (eth_link && !ethUp() && millis() - start < ETH_IP_WAIT) vTaskDelay(100 / portTICK_PERIOD_MS);
+    if (ethUp()) {
+        switchToEthernet();
+    } else {
+        terminalLog(eth_link ? "Ethernet has no address, using WiFi" : "No Ethernet cable, using WiFi");
     }
 #endif
 }
 
+#ifdef HAS_ETHERNET
+bool WifiManager::ethernetFound() {
+    return eth_present;
+}
+
+bool WifiManager::ethernetCable() {
+    return eth_link;
+}
+#endif
+
+#ifdef HAS_ETHERNET
+void WifiManager::switchToEthernet() {
+    terminalLog("Ethernet " + ethernetDescription() + ", IP " + ETH.localIP().toString());
+    logLine("Ethernet up, IP " + ETH.localIP().toString() + ", WiFi off");
+    if (wifiStatus != NOINIT) {
+        WiFi.disconnect(true, true);
+        WiFi.mode(WIFI_OFF);
+    }
+    _APstarted = false;
+    _connected = false;
+    wifiStatus = ETHERNET;
+    init_udp();
+}
+#endif
+
 bool WifiManager::connectToWifi() {
-#if defined(ETHERNET_PHY_POWER) && defined(ETHERNET_PHY_MDC) && defined(ETHERNET_PHY_MDIO) && defined(ETHERNET_PHY_TYPE) && defined(ETHERNET_CLK_MODE)
-    if (wifiStatus == ETHERNET || eth_connected)
+#ifdef HAS_ETHERNET
+    if (wifiStatus == ETHERNET)
         return true;
 #endif
 
@@ -236,7 +276,7 @@ bool WifiManager::connectToWifi() {
 }
 
 bool WifiManager::connectToWifi(String ssid, String pass, bool savewhensuccessfull) {
-#if defined(ETHERNET_PHY_POWER) && defined(ETHERNET_PHY_MDC) && defined(ETHERNET_PHY_MDIO) && defined(ETHERNET_PHY_TYPE) && defined(ETHERNET_CLK_MODE)
+#ifdef HAS_ETHERNET
     if (wifiStatus == ETHERNET)
         return true;
 #endif
@@ -263,7 +303,7 @@ bool WifiManager::connectToWifi(String ssid, String pass, bool savewhensuccessfu
 }
 
 bool WifiManager::waitForConnection() {
-#if defined(ETHERNET_PHY_POWER) && defined(ETHERNET_PHY_MDC) && defined(ETHERNET_PHY_MDIO) && defined(ETHERNET_PHY_TYPE) && defined(ETHERNET_CLK_MODE)
+#ifdef HAS_ETHERNET
     if (wifiStatus == ETHERNET)
         return true;
 #endif
@@ -458,42 +498,27 @@ void WifiManager::WiFiEvent(WiFiEvent_t event) {
             // eventname = "Assigned IP address to client";
             break;
 
-#if defined(ETHERNET_PHY_POWER) && defined(ETHERNET_PHY_MDC) && defined(ETHERNET_PHY_MDIO) && defined(ETHERNET_PHY_TYPE) && defined(ETHERNET_CLK_MODE)
+#ifdef HAS_ETHERNET
 
+        // Only the state changes here; poll() switches between Ethernet and WiFi
         case ARDUINO_EVENT_ETH_START:
-            eventname = "ETH Started";
-            //set eth hostname here
+            eventname = "Ethernet started";
             ETH.setHostname(buildHostname(ESP_MAC_ETH).c_str());
-            eth_timeout = 0;
             break;
         case ARDUINO_EVENT_ETH_CONNECTED:
-            eventname = "ETH Connected";
-            WiFi.mode(WIFI_MODE_NULL);
-            WiFi.disconnect();
-            eth_connected = true;
-            eth_timeout = millis();
+            eventname = "Ethernet link up";
+            eth_link = true;
             break;
         case ARDUINO_EVENT_ETH_GOT_IP:
-            if (ETH.fullDuplex()) {
-                eventname = "ETH MAC: " + ETH.macAddress() + ", IPv4: " + ETH.localIP().toString() + ", FULL_DUPLEX, " + ETH.linkSpeed() + "Mbps";
-            } else {
-                eventname = "ETH MAC: " + ETH.macAddress() + ", IPv4: " + ETH.localIP().toString() + ", " + ETH.linkSpeed() + "Mbps";
-            }
-            eth_ip_ok = true;
-            init_udp();
-            eth_timeout = 0;
+            eventname = "Ethernet IP address: " + ETH.localIP().toString();
             break;
         case ARDUINO_EVENT_ETH_DISCONNECTED:
-            eventname = "ETH Disconnected";
-            eth_connected = false;
-            eth_ip_ok = false;
-            eth_timeout = 0;
+            eventname = "Ethernet link down";
+            eth_link = false;
             break;
         case ARDUINO_EVENT_ETH_STOP:
-            eventname = "ETH Stopped";
-            eth_connected = false;
-            eth_ip_ok = false;
-            eth_timeout = 0;
+            eventname = "Ethernet stopped";
+            eth_link = false;
             break;
 
 #endif

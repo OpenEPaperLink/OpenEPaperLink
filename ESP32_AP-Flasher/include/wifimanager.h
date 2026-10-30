@@ -46,6 +46,9 @@ class WifiManager {
     bool waitForConnection();
     void connectionFailed();
     void pollSerial();
+#ifdef HAS_ETHERNET
+    void switchToEthernet();
+#endif
     static void terminalLog(String text);
     static String buildHostname(esp_mac_type_t mac_type);
 
@@ -62,6 +65,10 @@ class WifiManager {
     void poll();
     static void WiFiEvent(WiFiEvent_t event);
     void initEth();
+#ifdef HAS_ETHERNET
+    bool ethernetFound();
+    bool ethernetCable();
+#endif
     IPAddress localIP();
 };
 

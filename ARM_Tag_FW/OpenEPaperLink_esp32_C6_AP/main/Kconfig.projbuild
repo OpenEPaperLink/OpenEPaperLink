@@ -22,6 +22,9 @@ menu "OEPL config"
     config OEPL_HARDWARE_PROFILE_ELECROW_C6
       bool "ELECROW-C6-AP"
 
+    config OEPL_HARDWARE_PROFILE_THREAD_BR
+      bool "ESP Thread Border Router board"
+
   endchoice
 
   config OEPL_HARDWARE_UART_TX

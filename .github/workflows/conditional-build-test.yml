@@ -54,6 +54,7 @@ jobs:
           - OpenEPaperLink_Mini_AP_v4
           - OpenEPaperLink_ESP32-PoE-ISO_AP
           - OpenEPaperLink_Mini_AP
+          - ESP32_S3_H2_THREAD_BR
     runs-on: ubuntu-26.04
     steps:
       - name: Checkout Code
