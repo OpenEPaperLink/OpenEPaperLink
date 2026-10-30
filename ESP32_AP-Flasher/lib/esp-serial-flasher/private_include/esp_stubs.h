@@ -1,4 +1,4 @@
-/* Copyright 2020-2023 Espressif Systems (Shanghai) CO LTD
+/* Copyright 2020-2025 Espressif Systems (Shanghai) CO LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,32 @@
  * limitations under the License.
  */
 
+// auto-generated stubs from esp-flasher-stub v0.3.0
+
 #pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include "esp_loader.h"
-#include "protocol.h"
 
-void log_loader_internal_error(error_code_t error);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-esp_loader_error_t send_cmd(const void *cmd_data, uint32_t size, uint32_t *reg_value);
+bool esp_stub_get_running(void);
+void esp_stub_set_running(bool stub_status);
 
-esp_loader_error_t send_cmd_with_data(const void *cmd_data, size_t cmd_size,
-                                      const void *data, size_t data_size);
+#if (defined SERIAL_FLASHER_INTERFACE_UART) || (defined SERIAL_FLASHER_INTERFACE_USB)
 
-esp_loader_error_t send_cmd_md5(const void *cmd_data, size_t cmd_size, uint8_t md5_out[MD5_SIZE]);
+typedef struct {
+    esp_loader_bin_header_t header;
+    esp_loader_bin_segment_t segments[2];
+} esp_stub_t;
 
-esp_loader_error_t send_cmd_chip_id(const void *cmd_data, size_t cmd_size, uint32_t *chip_id);
+extern const esp_stub_t esp_stub[ESP_MAX_CHIP];
+
+#endif
+
+#ifdef __cplusplus
+}
+#endif

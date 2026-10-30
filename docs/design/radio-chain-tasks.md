@@ -122,7 +122,7 @@ New findings that are not yet in a phase.
 
 - [x] `checkRadio()` saw a radio that wasn't answering (ESP Thread Border Router board, 2026-10-30): with the radio in reset, an edge on the TXD trace showed up on the neighbouring RXD for a few µs. It now reads 100 µs after each edge
 
-- [x] The flasher didn't recognise an ESP32-H2 v1.2 (ROM eco5): its magic register reads 0x97e30068 (2026-10-30). When the magic is unknown, the vendored esp-serial-flasher now asks the ROM for its chip ID with `GET_SECURITY_INFO`, as esptool and newer esp-serial-flasher versions (≥ 1.6.0) do. Flashed the H2 of the Thread Border Router board
+- [x] The flasher didn't recognise an ESP32-H2 v1.2 (ROM eco5): its magic register reads 0x97e30068 (2026-10-30). First fixed with a chip ID fallback (`GET_SECURITY_INFO`) in the vendored esp-serial-flasher of 2023; then the library was updated to v1.11.0, which asks for the chip ID first itself, as esptool does. Flashed the H2 of the Thread Border Router board with both
 
 - [x] An H2 shows up as "ESP32-C6" in the web UI and the serial log: the H2 firmware is built from the C6 sources and reports type 0xC6. `apTypeName()` names it "ESP32-H2" in builds with `HAS_H2`; the update page and the AP Info box use that name
 

@@ -1,4 +1,32 @@
 {
   "name": "esp-serial-flasher",
-  "version": "0.0.0+20230909102418"
+  "version": "1.11.0",
+  "description": "Espressif's esp-serial-flasher v1.11.0, UART interface with the ESP32 port. See README.md.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/espressif/esp-serial-flasher.git"
+  },
+  "build": {
+    "srcDir": ".",
+    "includeDir": "include",
+    "srcFilter": [
+      "-<*>",
+      "+<src/esp_loader.c>",
+      "+<src/esp_targets.c>",
+      "+<src/esp_stubs.c>",
+      "+<src/md5_hash.c>",
+      "+<src/protocol_serial.c>",
+      "+<src/protocol_uart.c>",
+      "+<src/slip.c>",
+      "+<port/esp32_port.c>"
+    ],
+    "flags": [
+      "-I private_include",
+      "-I port",
+      "-D SERIAL_FLASHER_WRITE_BLOCK_RETRIES=3",
+      "-D SERIAL_FLASHER_RESET_INVERT=false",
+      "-D SERIAL_FLASHER_BOOT_INVERT=false"
+    ]
+  }
 }
