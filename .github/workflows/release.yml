@@ -79,6 +79,12 @@ jobs:
             size: 4MB
             # this board gets its web files from the internet, its filesystem starts empty
             empty_fs: true
+          - env: OpenEPaperLink_Mini_AP
+            chip: esp32s2
+            size: 4MB
+          - env: OpenEPaperLink_Nano_AP
+            chip: esp32s2
+            size: 4MB
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pio
@@ -97,9 +103,9 @@ jobs:
         run: |
           build=ESP32_AP-Flasher/.pio/build/${{ matrix.env }}
           chip=${{ matrix.chip || 'esp32s3' }}
-          # the ESP32 ROM looks for the bootloader at 0x1000, the ESP32-S3 ROM at 0x0
+          # the ESP32 and ESP32-S2 ROMs look for the bootloader at 0x1000, the ESP32-S3 ROM at 0x0
           boot=0x0
-          if [ $chip = esp32 ]; then boot=0x1000; fi
+          if [ $chip = esp32 ] || [ $chip = esp32s2 ]; then boot=0x1000; fi
           # otadata (where boot_app0.bin goes), the first app and the filesystem partition
           read otadata app fs < <(python3 - $build/partitions.bin <<'EOF'
           import struct, sys

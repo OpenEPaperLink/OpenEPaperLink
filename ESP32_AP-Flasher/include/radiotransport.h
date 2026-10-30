@@ -67,4 +67,9 @@ extern RadioTransport* radioTransport;
 RadioTransport* legacyRadioTransport();
 RadioTransport* v2RadioTransport();
 bool v2StartLink();  // after FRM1 and the switch to V2_BAUD: HELLO, then radioTransport is v2
+#ifdef SAVE_SPACE
+// built without v2transport.cpp: the ZBS243 radio of these APs has no allow-list
+inline void radioAllowListChanged(const uint8_t mac[8], bool added) {}
+#else
 void radioAllowListChanged(const uint8_t mac[8], bool added);  // a MAC came into or left the tag database
+#endif

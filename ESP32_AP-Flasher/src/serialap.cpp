@@ -45,6 +45,7 @@ const char *apTypeName(uint8_t type) {
         case ESP32_C6:        return "ESP32-C6";
         case TLSR_ZIGBEE_AP:  return "TLSR Zigbee 802.15.4";  /* 0xF8 */
         case TLSR_GFSK_AP:    return "TLSR GFSK";        /* 0xF9 */
+        case SOLUM_SEG_UK:    return "Segmented tag";    /* 0xF0, ZBS243 */
         default:              return "unknown";
     }
 }
@@ -443,6 +444,7 @@ void segmentedShowIp() {
     vTaskDelay(2000 / portTICK_PERIOD_MS);
 }
 
+#ifndef SAVE_SPACE
 // FRM1, then both sides change to V2_BAUD and the S3 sends HELLO (oepl-radio-v2.h)
 static bool startFramedLink() {
     if (!radioTransport->enableFraming()) return false;
@@ -453,6 +455,7 @@ static bool startFramedLink() {
     Serial.printf("protocol v2 at %d baud\r\n", V2_BAUD);
     return true;
 }
+#endif
 
 bool bringAPOnline(uint8_t newState) {
 #ifdef BLE_ONLY
@@ -497,6 +500,7 @@ bool bringAPOnline(uint8_t newState) {
             return false;
         }
         vTaskDelay(200 / portTICK_PERIOD_MS);
+#ifndef SAVE_SPACE
         if (apInfo.caps & V2_CAP_FRAMING) {
             if (!startFramedLink()) {
                 Serial.println("protocol v2 did not start, resetting the radio");
@@ -504,7 +508,9 @@ bool bringAPOnline(uint8_t newState) {
                 continue;
             }
             sendChannelPower(&curChannel);
-        } else {
+        } else
+#endif
+        {
             sendChannelPower(&curChannel);
             if (apInfo.type == ESP32_C6) {
                 if (sendHighspeed()) {
