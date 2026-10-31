@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_task_wdt.h>
+#include <mbedtls/platform.h>
 #include <time.h>
 #ifdef ETHERNET_CLK_MODE
 #include <ETH.h>
@@ -42,6 +43,13 @@ util::Timer intervalSaveDB(minutes(5));
 util::Timer intervalFreeSpace(minutes(5), minutes(5));
 
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
+
+#if defined(BOARD_HAS_PSRAM) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32))
+static void* psramCalloc(size_t n, size_t size) {
+    void* p = heap_caps_calloc(n, size, MALLOC_CAP_SPIRAM);
+    return p ? p : heap_caps_calloc(n, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+}
+#endif
 
 void delayedStart(void* parameter) {
     vTaskDelay(30000 / portTICK_PERIOD_MS);
@@ -98,6 +106,12 @@ void setup() {
         }
     };
     heap_caps_malloc_extmem_enable(64);
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32)
+    // The SDK gives mbedTLS internal RAM only. A TLS connection to GitHub needs two 16 KB buffers
+    // plus the handshake: on the ESP32-S2 that often failed for lack of internal RAM, and the ESP32
+    // is tight as well. Let mbedTLS use PSRAM on both.
+    mbedtls_platform_set_calloc_free(psramCalloc, free);
+#endif
 #endif
 
     Storage.begin();
