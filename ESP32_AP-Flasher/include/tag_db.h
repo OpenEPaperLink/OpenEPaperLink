@@ -162,6 +162,7 @@ struct HwType {
     uint8_t g5;
     uint16_t highlightColor;
     std::vector<Color> colortable;
+    std::vector<Color> nominal;  // the colour each colortable entry stands for, when that differs (empty: the same)
 };
 
 // The display type a Gicisky advertisement reports, as an OEPL hwType.

@@ -526,6 +526,16 @@ static Color odColor(const OdConfig& cfg, const char* name, bool perceptual) {
     return {0, 0, 0};
 }
 
+// The color content uses for an ink, which the AP shows with only that ink (see QuantParams::exact)
+static Color odNominal(const char* name) {
+    if (!strcmp(name, "white")) return {255, 255, 255};
+    if (!strcmp(name, "red")) return {255, 0, 0};
+    if (!strcmp(name, "yellow")) return {255, 255, 0};
+    if (!strcmp(name, "blue")) return {0, 0, 255};
+    if (!strcmp(name, "green")) return {0, 255, 0};
+    return {0, 0, 0};
+}
+
 // Content layouts of the repo type of the same size (landscape width x height); generated from
 // resources/tagtypes: the first type with its own templates, else the one most of them use
 struct OdTemplateSize {
@@ -891,7 +901,11 @@ void odImageParams(const uint8_t mac[8], imgParam& imageParams) {
     imageParams.bpp = bpp;
     imageParams.hwdata.bpp = bpp;
     imageParams.hwdata.colortable.clear();
-    for (const char* c : names) imageParams.hwdata.colortable.push_back(odColor(cfg, c, false));
+    imageParams.hwdata.nominal.clear();
+    for (const char* c : names) {
+        imageParams.hwdata.colortable.push_back(odColor(cfg, c, false));
+        imageParams.hwdata.nominal.push_back(odNominal(c));
+    }
     imageParams.zlib = 0;
     imageParams.g5 = 0;
 }

@@ -22,6 +22,11 @@ struct QuantParams {
     uint8_t numColors;          // palette entries dither 0/1 may choose from
     const QuantColor *palette;  // dither 2 always uses all of them
     uint8_t paletteSize;
+    // RGB565 of the colour each palette entry stands for (pure red for the red ink), or null.
+    // A source pixel of exactly that colour gets that entry undithered, so content that only
+    // uses the tag's own colours comes out unchanged, also when the palette holds measured
+    // or tuned values.
+    const uint16_t *exact = nullptr;
 };
 
 namespace colorquant {
@@ -108,21 +113,30 @@ bool quantizeImage(const QuantParams &p, ReadPixel readPixel, uint8_t *plane0, u
 
     bool coloured[256];
     for (int i = 0; i < p.paletteSize; i++) coloured[i] = isColoured(p.palette[i]);
+    const int exactCount = p.exact ? (p.dither == 2 ? p.paletteSize : p.numColors) : 0;
 
+    // Burkes error, in 1/32 (the weights are n/32, so it spreads without rounding), two pixels
+    // of margin on both sides for the error that falls outside the image
     Error *errOld = nullptr, *errNew = nullptr;
     if (p.dither == 1) {
         errOld = new Error[bufw + 4]();
         errNew = new Error[bufw + 4]();
     }
 
-    // ordered dithering only depends on the colour: remember the last one (large areas share a colour)
+    // both only depend on the colour: remember the last one (large areas share a colour)
     int32_t cachedRgb = -1;
+    int cachedExact = -1;
     OrderedMix cachedMix = {0, 0, 0};
+    int32_t cachedMixRgb = -1;
 
-    size_t bitOffset = 0;
+    const int bits = p.bpp == p.packedTwoBit ? 2 : p.bpp;
     for (long y = 0; y < bufh; y++) {
+        // Burkes runs serpentine: odd rows right to left, against the directional artefacts
+        const bool reverse = errOld && (y % 2);
+        const int dir = reverse ? -1 : 1;
         if (errNew) memset(errNew, 0, (bufw + 4) * sizeof(Error));
-        for (long x = 0; x < bufw; x++) {
+        for (long i = 0; i < bufw; i++) {
+            const long x = reverse ? bufw - 1 - i : i;
             uint16_t v = 0;
             switch (p.rotate) {
                 case 0:
@@ -143,11 +157,26 @@ bool quantizeImage(const QuantParams &p, ReadPixel readPixel, uint8_t *plane0, u
             const int g = ((v >> 3) & 0xFC) | ((v >> 9) & 0x03);
             const int b = ((v << 3) & 0xF8) | ((v >> 2) & 0x07);
 
+            if ((int32_t)v != cachedRgb) {
+                cachedRgb = v;
+                cachedExact = -1;
+                for (int c = 0; c < exactCount; c++) {
+                    if (p.exact[c] == v) {
+                        cachedExact = c;
+                        break;
+                    }
+                }
+            }
+
             int best = 0;
-            if (p.dither == 2) {
-                if ((int32_t)v != cachedRgb) {
+            Error e = {0, 0, 0};
+            if (cachedExact >= 0) {
+                // the tag's own colour: that ink, and the error that came in stops here
+                best = cachedExact;
+            } else if (p.dither == 2) {
+                if ((int32_t)v != cachedMixRgb) {
                     cachedMix = orderedMix(r, g, b, p, coloured);
-                    cachedRgb = v;
+                    cachedMixRgb = v;
                 }
                 const bool checker = (x + y) % 2;
                 const bool sparse = (y % 2) && ((y / 2 + x) % 2);
@@ -160,39 +189,48 @@ bool quantizeImage(const QuantParams &p, ReadPixel readPixel, uint8_t *plane0, u
                 }
             } else if (p.dither <= 1) {
                 const bool grey = isGrey(r, g, b);
-                const int er = errOld ? r + errOld[x].r : r;
-                const int eg = errOld ? g + errOld[x].g : g;
-                const int eb = errOld ? b + errOld[x].b : b;
+                // the carried error, rounded to whole units
+                const int er = errOld ? r + ((errOld[x + 2].r + 16) >> 5) : r;
+                const int eg = errOld ? g + ((errOld[x + 2].g + 16) >> 5) : g;
+                const int eb = errOld ? b + ((errOld[x + 2].b + 16) >> 5) : b;
                 uint32_t bestDist = distance(er, eg, eb, grey, p.palette[0], coloured[0]);
-                for (int i = 1; i < p.numColors; i++) {
+                for (int c = 1; c < p.numColors; c++) {
                     if (bestDist == 0) break;
-                    const uint32_t d = distance(er, eg, eb, grey, p.palette[i], coloured[i]);
+                    const uint32_t d = distance(er, eg, eb, grey, p.palette[c], coloured[c]);
                     if (d < bestDist) {
                         bestDist = d;
-                        best = i;
+                        best = c;
+                    }
+                }
+                if (errOld) {
+                    const QuantColor &pc = p.palette[best];
+                    e = {er - pc.r, eg - pc.g, eb - pc.b};
+                    const int32_t m = std::max(abs(e.r), std::max(abs(e.g), abs(e.b)));
+                    if (m > 255) {
+                        const float scale = 255.0f / m;
+                        e.r *= scale;
+                        e.g *= scale;
+                        e.b *= scale;
                     }
                 }
             }
 
-            if (p.bpp == p.packedTwoBit) {
-                // packed palette indices, four pixels per byte, MSB first
-                if (plane0) plane0[bitOffset / 8] |= best << (6 - bitOffset % 8);
-                bitOffset += 2;
-                if (best >= 2) hasRed = true;
-            } else if (p.bpp == 3 || p.bpp == 4) {
+            if (p.bpp == p.packedTwoBit || p.bpp == 3 || p.bpp == 4) {
+                // packed palette indices, MSB first, rows without padding
                 if (plane0) {
+                    const size_t bitOffset = ((size_t)y * bufw + x) * bits;
                     const size_t byteIndex = bitOffset / 8;
                     const uint8_t bitIndex = bitOffset % 8;
-                    if (bitIndex + p.bpp <= 8) {
-                        plane0[byteIndex] |= best << (8 - bitIndex - p.bpp);
+                    if (bitIndex + bits <= 8) {
+                        plane0[byteIndex] |= best << (8 - bitIndex - bits);
                     } else {
-                        const uint8_t highPart = best >> (bitIndex + p.bpp - 8);
-                        const uint8_t lowPart = best & ((1 << (bitIndex + p.bpp - 8)) - 1);
+                        const uint8_t highPart = best >> (bitIndex + bits - 8);
+                        const uint8_t lowPart = best & ((1 << (bitIndex + bits - 8)) - 1);
                         plane0[byteIndex] |= highPart;
-                        plane0[byteIndex + 1] |= lowPart << (8 - (bitIndex + p.bpp - 8));
+                        plane0[byteIndex + 1] |= lowPart << (8 - (bitIndex + bits - 8));
                     }
                 }
-                bitOffset += p.bpp;
+                if (p.bpp == p.packedTwoBit && best >= 2) hasRed = true;
             } else {
                 const uint8_t mask = 1 << (7 - (x % 8));
                 const uint32_t byteIndex = (y * bufw + x) / 8;
@@ -201,46 +239,25 @@ bool quantizeImage(const QuantParams &p, ReadPixel readPixel, uint8_t *plane0, u
                 if (plane1 && (best == 2 || best == 3)) plane1[byteIndex] |= mask;
             }
 
-            if (errOld) {
-                // Burkes
-                const QuantColor &pc = p.palette[best];
-                Error e = {r + errOld[x].r - pc.r, g + errOld[x].g - pc.g, b + errOld[x].b - pc.b};
-                const int32_t m = std::max(abs(e.r), std::max(abs(e.g), abs(e.b)));
-                if (m > 255) {
-                    const float scale = 255.0f / m;
-                    e.r *= scale;
-                    e.g *= scale;
-                    e.b *= scale;
-                }
-
-                errNew[x].r += e.r / 4;
-                errNew[x].g += e.g / 4;
-                errNew[x].b += e.b / 4;
-                if (x > 0) {
-                    errNew[x - 1].r += e.r / 8;
-                    errNew[x - 1].g += e.g / 8;
-                    errNew[x - 1].b += e.b / 8;
-                }
-                if (x > 1) {
-                    errNew[x - 2].r += e.r / 16;
-                    errNew[x - 2].g += e.g / 16;
-                    errNew[x - 2].b += e.b / 16;
-                }
-                errNew[x + 1].r += e.r / 8;
-                errNew[x + 1].g += e.g / 8;
-                errNew[x + 1].b += e.b / 8;
-                errOld[x + 1].r += e.r / 4;
-                errOld[x + 1].g += e.g / 4;
-                errOld[x + 1].b += e.b / 4;
-                errNew[x + 2].r += e.r / 16;
-                errNew[x + 2].g += e.g / 16;
-                errNew[x + 2].b += e.b / 16;
-                errOld[x + 2].r += e.r / 8;
-                errOld[x + 2].g += e.g / 8;
-                errOld[x + 2].b += e.b / 8;
+            if (errOld && (e.r | e.g | e.b)) {
+                // Burkes, in 1/32:   .  X  8  4
+                //                    2  4  8  4  2   (mirrored on right-to-left rows)
+                Error *cur = errOld + x + 2, *next = errNew + x + 2;
+                auto add = [&e](Error &t, int w) {
+                    t.r += e.r * w;
+                    t.g += e.g * w;
+                    t.b += e.b * w;
+                };
+                add(cur[dir], 8);
+                add(cur[2 * dir], 4);
+                add(next[-2], 2);
+                add(next[-1], 4);
+                add(next[0], 8);
+                add(next[1], 4);
+                add(next[2], 2);
             }
         }
-        if (errOld) memcpy(errOld, errNew, bufw * sizeof(Error));
+        if (errOld) std::swap(errOld, errNew);
     }
 
     delete[] errNew;
