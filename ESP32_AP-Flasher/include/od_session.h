@@ -34,6 +34,8 @@ void odService();
 bool odUpload(const uint8_t mac[8]);
 // The wakeup reason for a button press seen in the advertisement's dynamic bytes, else 0
 uint8_t odButtonEvent(const uint8_t mac[8], const uint8_t dynamic[11]);
+// The address type (esp_ble_addr_type_t) the tag advertises with; connections need the same
+void odSetAddrType(const uint8_t mac[8], uint8_t type);
 bool odGetConfig(const uint8_t mac[8], OdConfig& cfg);
 // The key changed: try that tag again
 void odKeyChanged(const uint8_t mac[8]);
