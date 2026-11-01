@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <map>
+#include <set>
 #include <vector>
 
 #include "BLEDevice.h"
@@ -61,6 +62,8 @@ struct OdStatus {
 static std::map<uint64_t, OdConfig> odConfigs;
 static std::map<uint64_t, OdStatus> odStatus;
 static std::map<uint64_t, uint8_t> odAddrTypes;  // from the scan; nRF52 tags use a random static address
+static std::map<uint64_t, bool> odRebooted;      // last reboot bit seen in the advertisement
+static std::set<uint64_t> odConfigStale;         // config dropped after a reboot; its file still to remove
 static SemaphoreHandle_t odMutex = nullptr;
 
 // Roaming: an AP alone on the network claims a tag right away. The AP list is only asked for
@@ -977,6 +980,20 @@ void odService() {
     if (odMutex == nullptr || millis() - lastService < 10000) return;
     lastService = millis();
 
+    // configs dropped by odRebootFlag(): remove their files too, so a boot doesn't load them again
+    xSemaphoreTake(odMutex, portMAX_DELAY);
+    std::set<uint64_t> stale;
+    stale.swap(odConfigStale);
+    xSemaphoreGive(odMutex);
+    for (const uint64_t key : stale) {
+        uint8_t staleMac[8] = {0};
+        for (int i = 0; i < 6; i++) staleMac[i] = key >> (8 * i);
+        xSemaphoreTake(fsMutex, portMAX_DELAY);
+        contentFS->remove(odConfigPath(staleMac));
+        xSemaphoreGive(fsMutex);
+        wsLog("OD" + odAddrHex(staleMac).substring(6) + ": rebooted, reading its config again");
+    }
+
     time_t now;
     time(&now);
     uint8_t mac[8];
@@ -1033,6 +1050,20 @@ bool odGetConfig(const uint8_t mac[8], OdConfig& cfg) {
     if (found) cfg = it->second;
     xSemaphoreGive(odMutex);
     return found;
+}
+
+void odRebootFlag(const uint8_t mac[8], bool rebooted) {
+    if (odMutex == nullptr) return;
+    const uint64_t key = odAddrKey(mac);
+    xSemaphoreTake(odMutex, portMAX_DELAY);
+    auto it = odRebooted.find(key);
+    // the first advertisement after an AP boot only sets the starting point
+    if (it != odRebooted.end() && !it->second && rebooted && odConfigs.erase(key)) {
+        odStatus.erase(key);  // no retry wait: odService() reads it on its next round
+        odConfigStale.insert(key);
+    }
+    odRebooted[key] = rebooted;
+    xSemaphoreGive(odMutex);
 }
 
 void odKeyChanged(const uint8_t mac[8]) {

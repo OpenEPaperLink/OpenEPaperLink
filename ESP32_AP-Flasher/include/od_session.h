@@ -4,7 +4,8 @@
 #include <ArduinoJson.h>
 
 // What the AP uses from an OpenDisplay tag's config (display packet 0x20, security 0x27,
-// binary inputs 0x25). Read over BLE once and kept in /odcfg/<BLE address>.bin.
+// binary inputs 0x25). Read over BLE once, and again after the tag reboots; kept in
+// /odcfg/<BLE address>.bin.
 struct OdConfig {
     uint16_t panelIc;
     uint16_t width;
@@ -37,6 +38,9 @@ uint8_t odButtonEvent(const uint8_t mac[8], const uint8_t dynamic[11]);
 // The address type (esp_ble_addr_type_t) the tag advertises with; connections need the same
 void odSetAddrType(const uint8_t mac[8], uint8_t type);
 bool odGetConfig(const uint8_t mac[8], OdConfig& cfg);
+// The reboot bit from the advertisement. When it goes from 0 to 1 the tag may have a new
+// config (another panel, other colors): drop the stored one, so odService() reads it again.
+void odRebootFlag(const uint8_t mac[8], bool rebooted);
 // The key changed: try that tag again
 void odKeyChanged(const uint8_t mac[8]);
 // Roaming between APs that have the same tag added (see od_session.cpp):
