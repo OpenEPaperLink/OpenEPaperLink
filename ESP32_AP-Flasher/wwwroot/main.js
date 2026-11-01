@@ -16,6 +16,7 @@ const BPP_PACKED_2BIT = 5;
 let tagTypes = {};
 let apConfig = {};
 let tagDB = {};
+let favorites = new Set(JSON.parse(localStorage.getItem("favorites") || "[]"));
 const previewWindows = [];
 
 const apstate = [
@@ -359,6 +360,7 @@ function processTags(tagArray) {
 			div.setAttribute('id', 'tag' + tagmac);
 			div.dataset.mac = tagmac;
 			div.dataset.hwtype = -1;
+			div.classList.toggle('favorite', favorites.has(tagmac));
 			$('#taglist').appendChild(div);
 		}
 
@@ -650,8 +652,19 @@ $('#taglist').addEventListener("click", (event) => {
 		return;
 	}
 	const mac = currentElement.dataset.mac;
+	if (event.target.classList.contains("favoriteicon")) {
+		toggleFavorite(mac);
+		return;
+	}
 	loadContentCard(mac);
 })
+
+function toggleFavorite(mac) {
+	if (favorites.has(mac)) favorites.delete(mac); else favorites.add(mac);
+	localStorage.setItem("favorites", JSON.stringify([...favorites]));
+	$('#tag' + mac)?.classList.toggle('favorite', favorites.has(mac));
+	GroupSortFilter();
+}
 
 function loadContentCard(mac) {
 	$('#cfgmac').innerHTML = mac;
@@ -1503,9 +1516,20 @@ $("#filterOptions").addEventListener("click", function (event) {
 	}
 });
 
+let filtersRestored = false;
+
 function GroupSortFilter() {
 	const sortableGrid = $('#taglist');
 	const gridItems = Array.from(sortableGrid.querySelectorAll('.tagcard:not(#tagtemplate)'));
+
+	const filterBoxes = Array.from(document.querySelectorAll('input[name="filter"]'));
+	if (!filtersRestored) {
+		const storedFilters = JSON.parse(localStorage.getItem("filters") || "[]");
+		filterBoxes.forEach(checkbox => checkbox.checked = storedFilters.includes(checkbox.value));
+		filtersRestored = true;
+	} else {
+		localStorage.setItem("filters", JSON.stringify(filterBoxes.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value)));
+	}
 
 	let grouping = document.querySelector('input[name="group"]:checked')?.value;
 	if (grouping == undefined) {
@@ -1533,9 +1557,24 @@ function GroupSortFilter() {
 		}
 	});
 
+	const visible = new Map();
+	gridItems.forEach(item => {
+		let show = true;
+		let batteryMv = tagDB[item.dataset.mac].batteryMv;
+		if ($('input[name="filter"][value="remote"]').checked && item.dataset.isexternal == "false") show = false;
+		if ($('input[name="filter"][value="local"]').checked && item.dataset.isexternal == "true") show = false;
+		if ($('input[name="filter"][value="inactive"]').checked && item.querySelector('.warningicon').style.display != 'inline-block') show = false;
+		if ($('input[name="filter"][value="pending"]').checked && !item.classList.contains("tagpending")) show = false;
+		if ($('input[name="filter"][value="lowbatt"]').checked && (batteryMv >= 2400 || batteryMv == 0 || batteryMv == 1337)) show = false;
+		if ($('input[name="filter"][value="favorites"]').checked && !favorites.has(item.dataset.mac)) show = false;
+		visible.set(item, show);
+	});
+
+	// counts only the tags that pass the filters; a group without any gets no header
 	let groupCounts = {};
 	if (grouping) {
 		gridItems.forEach(item => {
+			if (!visible.get(item)) return;
 			const g = String(grouping).startsWith('data-') ? item.dataset[grouping.slice(5)] || '' : item.querySelector('.' + grouping).textContent || '';
 			if (g == '') return;
 			if (!groupCounts[g]) groupCounts[g] = { total: 0, pending: 0, offline: 0 };
@@ -1558,7 +1597,7 @@ function GroupSortFilter() {
 
 		if (grouping) {
 			const group = String(grouping).startsWith('data-') ? item.dataset[grouping.slice(5)] || '' : item.querySelector('.' + grouping).textContent || '';
-			if (group !== currentGroup && group != '') {
+			if (group !== currentGroup && group != '' && groupCounts[group]) {
 				let header = document.getElementById('header' + group);
 				if (!header) {
 					header = document.createElement('div');
@@ -1578,7 +1617,7 @@ function GroupSortFilter() {
 						groupLabel = 'Channel: ' + group;
 						break;
 				}
-				const gc = groupCounts[group] || { total: 0, pending: 0, offline: 0 };
+				const gc = groupCounts[group];
 				header.textContent = groupLabel + ' - ' + gc.total + ' pcs, ' + gc.pending + ' pending, ' + gc.offline + ' offline';
 				header.style.order = order++;
 				header.dataset.clean = 0;
@@ -1586,19 +1625,12 @@ function GroupSortFilter() {
 			}
 		}
 
-		let show = true;
-		let batteryMv = tagDB[item.dataset.mac].batteryMv;
-		if ($('input[name="filter"][value="remote"]').checked && item.dataset.isexternal == "false") show = false;
-		if ($('input[name="filter"][value="local"]').checked && item.dataset.isexternal == "true") show = false;
-		if ($('input[name="filter"][value="inactive"]').checked && item.querySelector('.warningicon').style.display != 'inline-block') show = false;
-		if ($('input[name="filter"][value="pending"]').checked && !item.classList.contains("tagpending")) show = false;
-		if ($('input[name="filter"][value="lowbatt"]').checked && (batteryMv >= 2400 || batteryMv == 0 || batteryMv == 1337)) show = false;
-		if (!show) item.style.display = 'none'; else item.style.display = 'block';
+		item.style.display = visible.get(item) ? 'block' : 'none';
 		item.style.order = order++;
 		const checkedValues = Array.from(document.querySelectorAll('input[name="filter"]:checked'))
 			.map(checkbox => checkbox.value)
 			.join(', ');
-		$('#activefilter').innerHTML = (checkedValues ? 'filtered by ' + checkedValues : '');
+		$('#activefilter').innerHTML = (checkedValues ? 'filtered by ' + checkedValues + '<button class="material-symbols-outlined clearfilter" title="Clear filter">close</button>' : '');
 	});
 
 	headItems = Array.from($('#taglist').getElementsByClassName('taggroup'));
@@ -1620,6 +1652,11 @@ $('#toggleFilters').addEventListener('click', (event) => {
 
 $('#activefilter').addEventListener('click', (event) => {
 	event.preventDefault();
+	if (event.target.classList.contains('clearfilter')) {
+		document.querySelectorAll('input[name="filter"]').forEach(checkbox => checkbox.checked = false);
+		GroupSortFilter();
+		return;
+	}
 	const filterOptions = $('#filterOptions');
 	filterOptions.classList.add('active');
 	filterOptions.style.maxHeight = filterOptions.scrollHeight + 20 + 'px';
@@ -1916,6 +1953,7 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 			}
 		}
 		contextMenuOptions.push(
+			{ id: 'favorite', label: favorites.has(mac) ? 'Remove from favorites' : 'Add to favorites' },
 			{ id: 'del', label: 'Delete tag from list' }
 		);
 		let idletime = (Date.now() / 1000) - servertimediff - clickedGridItem.dataset.lastseen;
@@ -1940,7 +1978,7 @@ $('#taglist').addEventListener('contextmenu', (e) => {
 			li.textContent = option.label;
 			li.addEventListener('click', (e) => {
 				e.preventDefault();
-				sendCmd(mac, option.id);
+				if (option.id == 'favorite') toggleFavorite(mac); else sendCmd(mac, option.id);
 				contextMenu.style.display = 'none';
 			});
 			contextMenu.appendChild(li);
@@ -2055,6 +2093,7 @@ function setFilterAndShow(filter) {
 	$('input[name="filter"][value="inactive"]').checked = (filter == 'inactive');
 	$('input[name="filter"][value="pending"]').checked = (filter == 'pending');
 	$('input[name="filter"][value="lowbatt"]').checked = (filter == 'lowbatt');
+	$('input[name="filter"][value="favorites"]').checked = false;
 	GroupSortFilter();
 	$(`[data-target='tagtab']`).click();
 }

@@ -509,6 +509,15 @@ label {
 		flex-grow: 2;
 		align-self: center;
 	}
+
+	& .clearfilter {
+		font-size: 1.1em;
+		vertical-align: middle;
+		margin-left: 6px;
+		padding: 0px 2px;
+		border-radius: 3px;
+		cursor: pointer;
+	}
 }
 
 .tabheader {
@@ -1036,6 +1045,40 @@ select {
 	width: 20px;
 	vertical-align: top;
 	text-align: center;
+}
+
+.favoriteicon {
+	display: none;
+	font-size: 1.3em;
+	height: 20px;
+	width: 20px;
+	line-height: 20px;
+	vertical-align: top;
+	text-align: center;
+	color: var(--color-text);
+	opacity: 0.5;
+
+	&::before {
+		content: "\2606";
+	}
+
+	&:hover {
+		opacity: 1;
+	}
+}
+
+.tagcard:hover .favoriteicon {
+	display: inline-block;
+}
+
+.tagcard.favorite .favoriteicon {
+	display: inline-block;
+	color: #f5b800;
+	opacity: 1;
+
+	&::before {
+		content: "\2605";
+	}
 }
 
 .waitingicon {
