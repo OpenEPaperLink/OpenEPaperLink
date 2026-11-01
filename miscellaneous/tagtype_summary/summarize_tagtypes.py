@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
 """
-jsontable.py - Build one Markdown table (one row per JSON file) from a set of
+summarize_tagtypes.py - Build one Markdown table (one row per JSON file) from a set of
 JSON files, sorted by width, height, then bpp.
 
 Usage:
-    python3 jsontable.py path/to/jsons/            # writes json_files.md
-    python3 jsontable.py a.json b.json -o out.md
-    python3 jsontable.py path/to/jsons/ -r         # include subdirectories
+    python3 summarize_tagtypes.py path/to/jsons/            # writes defined-tagtypes.md
+    python3 summarize_tagtypes.py a.json b.json -o out.md
+    python3 summarize_tagtypes.py path/to/jsons/ -r         # include subdirectories
+
+Default input: if no inputs are given and ../../resources/tagtypes/ exists relative
+to the directory containing this script, the files in that directory are used.
+
+Default output file: if ../../../OpenEPaperLink.wiki/ exists relative to the
+directory containing this script, ../../../OpenEPaperLink.wiki/defined-tagtypes.md
+is written; otherwise defined-tagtypes.md in the current directory. Use -o to
+choose a different file.
 
 Edit COLUMNS below to add, remove or reorder columns.
 """
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -58,6 +68,15 @@ def templates(data):
     return ""
 
 
+def resolution(data):
+    """"<width>x<height>", e.g. 640x384 ("?" for a missing half; blank if both are
+    missing or the size is 0x0)."""
+    w, h = data.get("width"), data.get("height")
+    if (w is None and h is None) or (w == 0 and h == 0):
+        return ""
+    return "%sx%s" % ("?" if w is None else w, "?" if h is None else h)
+
+
 def hex2(value):
     """Decimal number -> two-digit uppercase hex (5 -> "05", 255 -> "FF")."""
     if isinstance(value, int) and not isinstance(value, bool):
@@ -70,14 +89,12 @@ def hex2(value):
 COLUMNS = [
     ("File", None),
     ("Name", "name"),
-    ("Ver", "version"),
-    ("Width", "width"),
-    ("Height", "height"),
+    ("Resolution", resolution),
     ("Type", panel_type),
     ("Options", "options"),
     ("BPP", "bpp"),
-    ("Compression", compression),
-    ("Use Template", lambda d: hex2(d.get("usetemplate"))),
+    ("Comp", compression),
+    ("Base", lambda d: hex2(d.get("usetemplate"))),
     ("Defined Templates", templates),
 ]
 
@@ -101,6 +118,44 @@ def num(value):
     return float("inf")
 
 
+def script_relative(*parts):
+    """Path relative to the directory containing this script (not the current directory)."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.normpath(os.path.join(here, *parts))
+
+
+def default_input():
+    """../../resources/tagtypes/ relative to the script, or None if it does not exist."""
+    folder = script_relative("..", "..", "resources", "tagtypes")
+    return folder if os.path.isdir(folder) else None
+
+
+def default_output():
+    """OpenEPaperLink.wiki/defined-tagtypes.md three levels above the script's
+    directory if that wiki directory exists, otherwise defined-tagtypes.md."""
+    wiki = script_relative("..", "..", "..", "OpenEPaperLink.wiki")
+    if os.path.isdir(wiki):
+        return os.path.join(wiki, "defined-tagtypes.md")
+    return "defined-tagtypes.md"
+
+
+def git_commit_info(path):
+    """(date, short id) of the last commit in the git repository containing path,
+    or None if there is no repository (or git is not installed)."""
+    p = Path(path)
+    folder = p if p.is_dir() else p.parent
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(folder), "log", "-1", "--date=short", "--format=%cd %h"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
+    except OSError:  # git is not installed
+        return None
+    parts = out.stdout.split()
+    if out.returncode != 0 or len(parts) != 2:
+        return None
+    return parts[0], parts[1]
+
+
 def find_files(inputs, recursive):
     found = []
     for item in inputs:
@@ -117,10 +172,21 @@ def find_files(inputs, recursive):
 
 def main():
     ap = argparse.ArgumentParser(description="Summarize JSON files as a Markdown table.")
-    ap.add_argument("inputs", nargs="+", help="JSON files and/or directories")
-    ap.add_argument("-o", "--output", default="json_files.md", help="output file (default: json_files.md)")
+    ap.add_argument("inputs", nargs="*",
+                    help="JSON files and/or directories (default: ../../resources/tagtypes/ "
+                         "relative to this script, if it exists)")
+    ap.add_argument("-o", "--output",
+                    help="output file (default: ../../../OpenEPaperLink.wiki/defined-tagtypes.md "
+                         "relative to this script if that directory exists, else defined-tagtypes.md)")
     ap.add_argument("-r", "--recursive", action="store_true", help="recurse into directories")
     args = ap.parse_args()
+    if not args.inputs:
+        folder = default_input()
+        if folder is None:
+            ap.error("no inputs given and ../../resources/tagtypes/ was not found relative to the script")
+        args.inputs = [folder]
+    if not args.output:
+        args.output = default_output()
 
     rows = []
     for display, path in find_files(args.inputs, args.recursive):
@@ -141,8 +207,13 @@ def main():
     rows.sort(key=lambda r: (num(r[1].get("width")), num(r[1].get("height")),
                              num(r[1].get("bpp")), r[0]))
 
+    title = "Tagtypes"
+    commit = git_commit_info(args.inputs[0])
+    if commit:
+        title += " as of %s @%s" % commit
+
     lines = [
-        "# JSON files",
+        "# " + title,
         "",
         "| " + " | ".join(h for h, _ in COLUMNS) + " |",
         "|" + "|".join("---" for _ in COLUMNS) + "|",
