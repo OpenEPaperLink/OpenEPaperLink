@@ -587,12 +587,13 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
             queueItem->pendingdata.availdatainfo.dataTypeArgument == CMD_DO_DEEPSLEEP) {
             wasDeepSleepCmd = true;
         }
-        // a resent /current/<mac>.raw is already in place: don't remove it
+        // a resent /current/<mac>.raw is already in place: don't remove it. A command has no file.
         const bool isCurrentImage = strcmp(queueItem->filename, dst_path) == 0;
-        if (!isCurrentImage && contentFS->exists(dst_path) && contentFS->exists(queueItem->filename)) {
+        const bool hasFile = queueItem->filename[0] != '\0';
+        if (hasFile && !isCurrentImage && contentFS->exists(dst_path) && contentFS->exists(queueItem->filename)) {
             contentFS->remove(dst_path);
         }
-        if (!isCurrentImage && contentFS->exists(queueItem->filename)) {
+        if (hasFile && !isCurrentImage && contentFS->exists(queueItem->filename)) {
             uint8_t dataType = queueItem->pendingdata.availdatainfo.dataType;
             if (config.preview && dataType != DATATYPE_FW_UPDATE && dataType != DATATYPE_NOUPDATE) {
                 contentFS->rename(queueItem->filename, String(dst_path));
@@ -1275,15 +1276,21 @@ bool queueDataAvail(struct pendingData* pending, bool local) {
         return false;
     }
 
-    std::strcpy(newPending.filename, taginfo->filename.c_str());
-    if (taginfo->data != nullptr) {
-        // move data pointer
-        newPending.data = taginfo->data;
-        taginfo->data = nullptr;
-    } else {
-        newPending.data = nullptr;
-        
-        if (queueSize() < 5) {   // maximized to 5 to save some memory
+    // A command or segmented data travels in the AvailDataInfo itself: it has no file and no data of its own, and
+    // the tag's filename and data belong to an image
+    const uint8_t dataType = pending->availdatainfo.dataType;
+    const bool hasFile = dataType != DATATYPE_COMMAND_DATA && dataType != DATATYPE_UK_SEGMENTED;
+    newPending.filename[0] = '\0';
+    newPending.data = nullptr;
+    newPending.len = 0;
+    if (hasFile) {
+        std::strcpy(newPending.filename, taginfo->filename.c_str());
+        newPending.len = taginfo->len;
+        if (taginfo->data != nullptr) {
+            // move data pointer
+            newPending.data = taginfo->data;
+            taginfo->data = nullptr;
+        } else if (queueSize() < 5) {  // maximized to 5 to save some memory
             // optional: read data early, don't wait for block request.
             fs::File file = contentFS->open(newPending.filename);
             if (file) {
@@ -1295,7 +1302,6 @@ bool queueDataAvail(struct pendingData* pending, bool local) {
             }
         }
     }
-    newPending.len = taginfo->len;
 
     // A new image replaces the images that are still queued for this tag: showing an outdated image
     // first is pointless. Preloaded images, commands and firmware updates are never replaced.
