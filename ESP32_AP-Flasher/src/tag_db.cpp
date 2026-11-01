@@ -623,7 +623,26 @@ void popTagInfo(const uint8_t mac[8]) {
     // find first, then delete: deleteRecord() erases from tagDB, so it can't be called while iterating over it
     tagRecord* saved = findSavedTagInfo(mac);
     if (saved == nullptr) return;
-    deleteRecord(mac, false);
-    saved->version = 0;
+    tagRecord* taginfo = tagRecord::findByMAC(mac);
+    if (taginfo == nullptr) {
+        saved->version = 0;
+    } else {
+        // Put back only what the temporary content changed. The rest of the saved copy is as old as the
+        // copy, so the tag's status (last seen, battery, pending, ...) stays as it is now.
+        taginfo->contentMode = saved->contentMode;
+        taginfo->modeConfigJson = saved->modeConfigJson;
+        taginfo->nextupdate = saved->nextupdate;
+        memcpy(taginfo->md5, saved->md5, sizeof(taginfo->md5));
+        taginfo->filename = saved->filename;
+        taginfo->dataType = saved->dataType;
+        taginfo->imageDataType = saved->imageDataType;
+        for (size_t c = 0; c < tagDB.size(); c++) {
+            if (tagDB[c] == saved) {
+                tagDB.erase(tagDB.begin() + c);
+                break;
+            }
+        }
+        deletedRecords.push_back({saved, millis()});
+    }
     radioAllowListChanged(mac, true);
 }
