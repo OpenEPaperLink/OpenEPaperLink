@@ -633,7 +633,19 @@ void processXferComplete(struct espXferComplete* xfc, bool local) {
     }
 
     // more in the queue?
-    if (local) checkQueue(xfc->src);
+    if (local) {
+        if (countQueueItem(xfc->src) > 0) {
+            checkQueue(xfc->src);
+        } else if (haveMd5) {
+            // The check-in that fetched this item announced it to the radio again (checkQueue() in
+            // processDataReq). A command completes so fast that this announcement can reach the radio after
+            // its xfer complete, and the radio then offers the item once more at the next check-in. Nothing
+            // is queued anymore: clear the radio's slot.
+            struct pendingData cancel = {0};
+            memcpy(cancel.targetMac, xfc->src, 8);
+            sendCancelPending(&cancel);
+        }
+    }
 
     wsSendTaginfo(xfc->src, SYNC_TAGSTATUS);
     if (local) udpsync.netProcessXferComplete(xfc);
