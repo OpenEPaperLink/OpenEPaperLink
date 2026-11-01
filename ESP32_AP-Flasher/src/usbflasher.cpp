@@ -15,6 +15,7 @@ USBCDC USBSerial;
 #include "flasher.h"
 #include "leds.h"
 #include "powermgt.h"
+#include "serialap.h"
 #include "settings.h"
 #include "swd.h"
 #include "web.h"
@@ -23,6 +24,13 @@ USBCDC USBSerial;
 #include "cc_interface.h"
 
 QueueHandle_t flasherCmdQueue;
+#ifdef HAS_EXT_FLASHER
+QueueHandle_t tcpFlasherCmdQueue = nullptr;
+#endif
+// the transport that asked for the tag's debug output, only that one forwards it
+static uint8_t passthroughTransport = TRANSPORT_USB;
+// the radio's debug monitor shares Serial2 with the passthrough; restart it afterwards if it ran
+static bool radioMonitorWasRunning = false;
 
 uint32_t usbConnectedStartTime = 0;
 extern bool serialPassthroughState;
@@ -216,7 +224,12 @@ void flasherDataHandler(uint8_t* data, size_t len, uint8_t transportType) {
                     if (transportType == TRANSPORT_USB) {
                         BaseType_t queuestatus = xQueueSend(flasherCmdQueue, &cmd, 0);
                     } else {
+#ifdef HAS_EXT_FLASHER
+                        // handled by tcpFlasherTask: flasher commands can block for seconds, too long for the async_tcp task
+                        if (tcpFlasherCmdQueue != nullptr && xQueueSend(tcpFlasherCmdQueue, &cmd, 0) == pdTRUE) cmd = nullptr;
+#else
                         processFlasherCommand(cmd, TRANSPORT_TCP);
+#endif
                     }
                     flasherSerialState = FLASHER_RESET;
                 }
@@ -375,6 +388,19 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
                     powerControl(cmd->data[0], (uint8_t*)powerPins, numPowerPins);
                     break;
                 case 1:
+#ifdef HAS_EXT_FLASHER
+                    if (!cmd->data[0]) {
+                        // A high signal line keeps feeding the tag through its protection diodes, so with large
+                        // capacitors it never gets a clean power-on reset. The passthrough only receives, so it stays.
+                        pinMode(FLASHER_EXT_MISO, INPUT);
+                        pinMode(FLASHER_EXT_CLK, INPUT);
+                        pinMode(FLASHER_EXT_TEST, INPUT);
+                        if (!serialPassthroughState) {
+                            pinMode(FLASHER_EXT_RXD, INPUT);
+                            pinMode(FLASHER_EXT_TXD, INPUT);
+                        }
+                    }
+#endif
                     numPowerPins = sizeof(powerPins2);
                     powerControl(cmd->data[0], (uint8_t*)powerPins2, numPowerPins);
                     break;
@@ -631,12 +657,21 @@ void processFlasherCommand(struct flasherCommand* cmd, uint8_t transportType) {
             wsSerial("> pass through");
 
             extern volatile bool rxSerialStopTask2;
+            radioMonitorWasRunning = !rxSerialStopTask2;
             rxSerialStopTask2 = true;
             vTaskDelay(500 / portTICK_PERIOD_MS);
 
             if (Serial2) Serial2.end();
-            Serial2.begin(115200, SERIAL_8N1, FLASHER_EXT_RXD, FLASHER_EXT_TXD);
+            {
+                // With an nRF (M3) tag the tag's TX arrives on FLASHER_EXT_TXD (tested on a Mini AP v4).
+                // A client can ask for that with data byte 1, the flasher script does so for nRF tags.
+                // Receive only: nothing is sent to the tag, and an idle TX line would feed a tag that is switched off,
+                // so the passthrough can stay on while the tag is power cycled to see it boot.
+                const bool tagTxOnTxd = (cmd->len >= 1 && cmd->data[0] == 1) || selectedController == CONTROLLER_NRF82511;
+                Serial2.begin(115200, SERIAL_8N1, tagTxOnTxd ? FLASHER_EXT_TXD : FLASHER_EXT_RXD, -1);
+            }
             cmdSerial.println(">>>");
+            passthroughTransport = transportType;
             serialPassthroughState = true;
             break;
         case CMD_AUTOFLASH:
@@ -702,6 +737,63 @@ void tagDebugPassthrough() {
     */
 }
 
+#ifdef HAS_EXT_FLASHER
+void tcpFlasherTask(void* parameter) {
+    struct flasherCommand* cmd = nullptr;
+    bool forwarding = false;
+    while (true) {
+        const bool passthrough = serialPassthroughState && passthroughTransport == TRANSPORT_TCP;
+        if (passthrough) {
+            // the tag's debug output goes to the TCP client as it is
+            forwarding = true;
+            uint8_t buf[256];
+            size_t len = Serial2.available();
+            if (len > sizeof(buf)) len = sizeof(buf);
+            if (len) {
+                len = Serial2.readBytes(buf, len);
+                sendDataToClient(buf, len);
+            }
+        } else if (forwarding) {
+            // the client disconnected: give Serial2 back to the radio's debug monitor
+            forwarding = false;
+            Serial2.end();
+#if defined(FLASHER_DEBUG_RXD) && !defined(FLASHER_DEBUG_SHARED)
+            if (radioMonitorWasRunning) {
+                extern volatile bool rxSerialStopTask2;
+                rxSerialStopTask2 = false;
+                xTaskCreate(rxSerialTask2, "rxSerialTask2", 1850, NULL, 2, NULL);
+            }
+#endif
+        }
+        if (xQueueReceive(tcpFlasherCmdQueue, &cmd, (passthrough ? 10 : 1000) / portTICK_PERIOD_MS) == pdTRUE) {
+            processFlasherCommand(cmd, TRANSPORT_TCP);
+            if (cmd->data != nullptr) free(cmd->data);
+            delete cmd;
+            cmd = nullptr;
+        }
+    }
+}
+
+void stopTcpPassthrough() {
+    if (passthroughTransport == TRANSPORT_TCP) serialPassthroughState = false;
+}
+
+void startTcpFlasherTask() {
+    tcpFlasherCmdQueue = xQueueCreate(10, sizeof(struct flasherCommand*));
+    xTaskCreate(tcpFlasherTask, "tcpflasher", 10000, NULL, 3, NULL);
+}
+
+// drops commands left over from a previous connection, so their answers don't go to the next client
+void flushTcpFlasherQueue() {
+    if (tcpFlasherCmdQueue == nullptr) return;
+    struct flasherCommand* cmd = nullptr;
+    while (xQueueReceive(tcpFlasherCmdQueue, &cmd, 0) == pdTRUE) {
+        if (cmd->data != nullptr) free(cmd->data);
+        delete cmd;
+    }
+}
+#endif
+
 #ifdef HAS_USB
 void usbFlasherTask(void* parameter) {
     flasherCmdQueue = xQueueCreate(10, sizeof(struct flasherCommand*));
@@ -721,7 +813,7 @@ void usbFlasherTask(void* parameter) {
     uint32_t notificationValue;
     struct flasherCommand* cmd = nullptr;
     while (true) {
-        while (serialPassthroughState) {
+        while (serialPassthroughState && passthroughTransport == TRANSPORT_USB) {
             tagDebugPassthrough();
             vTaskDelay(1 / portTICK_PERIOD_MS);
         }

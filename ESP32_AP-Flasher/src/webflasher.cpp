@@ -157,10 +157,12 @@ void onClientConnect(void* arg, AsyncClient* client) {
     }
     webFlashMode = FLASHMODE_OFF;
     if (connectedClient == NULL) {
+        flushTcpFlasherQueue();
         connectedClient = client;
         client->onData(&onDataReceived, NULL);
         client->onDisconnect([](void* arg, AsyncClient* c) {
             Serial.println("Client disconnected");
+            stopTcpPassthrough();
 
             if (zbsflasherp != nullptr) {
                 zbsflasherp->zbs->reset();
@@ -195,6 +197,7 @@ void sendDataToClient(const uint8_t* data, size_t len) {
 }
 
 void webFlasherTask(void* parameter) {
+    startTcpFlasherTask();
     TCPserver.begin();
     TCPserver.onClient(&onClientConnect, NULL);
 

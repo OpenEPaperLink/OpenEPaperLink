@@ -35,6 +35,8 @@ void rampTagPower(uint8_t* pin, bool up) {
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 #endif
     if (up) {
+        // the pin has to be high (power off) before it becomes an output, a low output switches the tag on without ramping
+        digitalWrite(pin[0], HIGH);
 #if ESP_ARDUINO_VERSION_MAJOR == 2
         ledcSetup(0, 50000, 8);
         ledcWrite(0, 254);
@@ -42,8 +44,9 @@ void rampTagPower(uint8_t* pin, bool up) {
         pinMode(pin[0], OUTPUT);
         ledcAttachPin(pin[0], 0);
 #else
-        ledcWriteChannel(0, 254);
+        pinMode(pin[0], OUTPUT);
         ledcAttachChannel(pin[0], 50000, 8, 0);
+        ledcWriteChannel(0, 254);
 #endif
         pinMode(FLASHER_EXT_RESET, OUTPUT);
         digitalWrite(FLASHER_EXT_RESET, LOW);

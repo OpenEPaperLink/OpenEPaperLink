@@ -335,6 +335,10 @@ uint8_t nrfswd::erase_page(uint32_t page) {
 }
 
 void nrfswd::nrf_soft_reset(){
+  // init() halted the CPU, and a reset through the CTRL-AP keeps it halted: clear C_HALT and C_DEBUGEN in DHCSR first
+  nrf_port_selection(0);
+  AP_Write(AP_CSW, 0xa2000002);
+  write_register(0xe000edf0, 0xA05F0000);
   nrf_port_selection(1);
   nrf_write_port(1, AP_NRF_RESET, 1);
   delay(100);
