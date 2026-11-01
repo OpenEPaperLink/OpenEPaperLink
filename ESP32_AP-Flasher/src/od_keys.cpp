@@ -10,6 +10,13 @@ static void odKeyName(const uint8_t mac[8], char name[13]) {
     snprintf(name, 13, "%02X%02X%02X%02X%02X%02X", mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
 }
 
+// The read-only lookups below fail with an error in the log as long as the namespace doesn't
+// exist (no OpenDisplay tag added yet). Opening it read-write creates it, or keeps it as it is.
+void odKeysInit() {
+    Preferences prefs;
+    if (prefs.begin(OD_KEYS_NAMESPACE, false)) prefs.end();
+}
+
 bool odKeyGet(const uint8_t mac[8], uint8_t key[16]) {
     char name[13];
     odKeyName(mac, name);

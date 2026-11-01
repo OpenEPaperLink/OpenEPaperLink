@@ -33,6 +33,7 @@
 #include "web.h"
 #ifdef HAS_BLE_WRITER
 #include "ble_writer.h"
+#include "od_keys.h"
 #include "tlsr_flasher.h"
 #endif
 
@@ -146,6 +147,9 @@ void setup() {
     wm.initEth();
     initAPconfig();
     wm.checkResetSequence();
+#ifdef HAS_BLE_WRITER
+    odKeysInit();
+#endif
 
     updateLanguageFromConfig();
     updateBrightnessFromConfig();
