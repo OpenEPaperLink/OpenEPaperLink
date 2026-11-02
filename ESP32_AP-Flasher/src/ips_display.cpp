@@ -25,6 +25,16 @@ uint8_t YellowSense = 0;
 bool tftLogscreen = true;
 bool tftOverride = false;
 
+static SemaphoreHandle_t tftMutex = xSemaphoreCreateRecursiveMutex();
+
+TFTLock::TFTLock() {
+    xSemaphoreTakeRecursive(tftMutex, portMAX_DELAY);
+}
+
+TFTLock::~TFTLock() {
+    xSemaphoreGiveRecursive(tftMutex);
+}
+
 #if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
 
 #if defined HAS_LILYGO_TPANEL
@@ -352,6 +362,7 @@ void touch_loop()
 #endif
 
 void TFTLog(String text) {
+    TFTLock lock;
 #if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
 
     gfx->setTextSize(2);
@@ -436,6 +447,7 @@ void sendAvail(uint8_t wakeupReason) {
 }
 
 void yellow_ap_display_init(void) {
+    TFTLock lock;
 #if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
 
     tftLogscreen = true;
@@ -544,27 +556,30 @@ void yellow_ap_display_loop(void) {
                 return;
             }
 
-            TFT_eSprite spr = TFT_eSprite(&tft2);
-            spr.setColorDepth(16);
-            if (tag->len == tft2.width() * tft2.height()) spr.setColorDepth(8);
-            spr.createSprite(tft2.width(), tft2.height());
-            void* spriteData = spr.getPointer();
-            size_t bytesRead = file.readBytes((char*)spriteData, spr.width() * spr.height() * 2);
-            file.close();
+            {
+                TFTLock lock;
+                TFT_eSprite spr = TFT_eSprite(&tft2);
+                spr.setColorDepth(16);
+                if (tag->len == tft2.width() * tft2.height()) spr.setColorDepth(8);
+                spr.createSprite(tft2.width(), tft2.height());
+                void* spriteData = spr.getPointer();
+                size_t bytesRead = file.readBytes((char*)spriteData, spr.width() * spr.height() * 2);
+                file.close();
 
 #if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
-            long dy = spr.height();
-            long dx = spr.width();
+                long dy = spr.height();
+                long dx = spr.width();
 
-            uint16_t* data = static_cast<uint16_t*>(const_cast<void*>(spriteData));
+                uint16_t* data = static_cast<uint16_t*>(const_cast<void*>(spriteData));
 
-            gfx->draw16bitRGBBitmap(0, 0, (uint16_t*)spriteData, dx, dy);
-            spr.deleteSprite();
+                gfx->draw16bitRGBBitmap(0, 0, (uint16_t*)spriteData, dx, dy);
+                spr.deleteSprite();
 #else
-            spr.pushSprite(0, 0);
+                spr.pushSprite(0, 0);
 #endif
 
-            tftLogscreen = false;
+                tftLogscreen = false;
+            }
 
             struct espXferComplete xfc = {0};
             memcpy(xfc.src, tag->mac, 8);

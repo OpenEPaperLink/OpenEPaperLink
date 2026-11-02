@@ -268,6 +268,7 @@ void spr2buffer(TFT_eSprite &spr, String &fileout, imgParam &imageParams) {
     extern uint8_t YellowSense;
     if (fileout == "direct") {
         if (tftOverride == false) {
+            TFTLock lock;
             TFT_eSprite spr2 = TFT_eSprite(&tft2);
 #ifdef ST7735_NANO_TLSR
             tft2.setRotation(1);

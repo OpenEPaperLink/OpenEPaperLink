@@ -75,6 +75,7 @@ size_t Logger::printf(const char* format, ...) {
         char content[50];
         strncpy(content, buffer + 2, len - 7);
         content[len - 7] = '\0';
+        TFTLock lock;
         tft2.fillRect(0, 50, tft2.width(), 40, TFT_BLUE);
         tft2.setCursor(10, 57, 2);
         tft2.setTextColor(TFT_YELLOW);
@@ -100,6 +101,7 @@ void infoDisplay(String actionName, uint8_t icon) {
     wsSerial("  " + actionName, "white");
 #ifdef HAS_TFT
     tftOverride = true;
+    TFTLock lock;
     tft2.fillScreen(TFT_PURPLE);
     tft2.setCursor(0, 0, 4);
     tft2.setTextColor(TFT_WHITE);
@@ -114,11 +116,14 @@ bool report(bool result) {
     if (result) {
         wsSerial("<✔", "green");
 #ifdef HAS_TFT
-        tft2.setTextColor(TFT_GREEN);
-        tft2.setCursor(5, 30, 2);
-        tft2.print("v");
-        tft2.setCursor(6, 30, 2);
-        tft2.print("v");
+        {
+            TFTLock lock;
+            tft2.setTextColor(TFT_GREEN);
+            tft2.setCursor(5, 30, 2);
+            tft2.print("v");
+            tft2.setCursor(6, 30, 2);
+            tft2.print("v");
+        }
         vTaskDelay(100 / portTICK_PERIOD_MS);
 #endif
     } else {
@@ -126,11 +131,14 @@ bool report(bool result) {
         autoFlashStep = AUTOFLASH_STEP_ABORT;
         wsSerial("<✘", "red");
 #ifdef HAS_TFT
-        tft2.setTextColor(TFT_RED);
-        tft2.setCursor(5, 30, 2);
-        tft2.print("x");
-        tft2.setCursor(6, 30, 2);
-        tft2.print("x");
+        {
+            TFTLock lock;
+            tft2.setTextColor(TFT_RED);
+            tft2.setCursor(5, 30, 2);
+            tft2.print("x");
+            tft2.setCursor(6, 30, 2);
+            tft2.print("x");
+        }
         vTaskDelay(500 / portTICK_PERIOD_MS);
 #endif
     }
@@ -146,6 +154,7 @@ void onClientConnect(void* arg, AsyncClient* client) {
     if (autoFlashStep == AUTOFLASH_USBFLASHER_RUNNING) {
 #ifdef HAS_TFT
         if (tftOverride == true) {
+            TFTLock lock;
             tft2.fillRect(0, 62, tft2.width(), 18, TFT_BLUE);
             tft2.setCursor(10, 63, 2);
             tft2.setTextColor(TFT_GREEN);
@@ -175,6 +184,7 @@ void onClientConnect(void* arg, AsyncClient* client) {
 
 #ifdef HAS_TFT
             if (autoFlashStep == AUTOFLASH_USBFLASHER_RUNNING && tftOverride == true) {
+                TFTLock lock;
                 tft2.fillRect(0, 62, tft2.width(), 18, TFT_BLUE);
                 tft2.setCursor(10, 63, 2);
                 tft2.setTextColor(TFT_YELLOW);
@@ -329,10 +339,13 @@ void webFlasherTask(void* parameter) {
 
 #ifdef HAS_TFT
                 tftOverride = true;
-                tft2.fillRect(0, 50, tft2.width(), 40, TFT_BLUE);
-                tft2.setCursor(10, 55, 4);
-                tft2.setTextColor(TFT_YELLOW);
-                tft2.print(timeString);
+                {
+                    TFTLock lock;
+                    tft2.fillRect(0, 50, tft2.width(), 40, TFT_BLUE);
+                    tft2.setCursor(10, 55, 4);
+                    tft2.setTextColor(TFT_YELLOW);
+                    tft2.print(timeString);
+                }
 #endif
                 wsSerial("\r" + String(timeString), "yellow");
                 break;

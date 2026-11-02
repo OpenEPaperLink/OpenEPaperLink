@@ -139,6 +139,15 @@ extern TFT_eSPI tft2;
 extern uint8_t YellowSense;
 extern bool tftOverride;
 
+/// @brief Hold this while drawing on the display: it is drawn from several tasks (loop, WiFi events, web flasher)
+class TFTLock {
+   public:
+    TFTLock();
+    ~TFTLock();
+    TFTLock(const TFTLock&) = delete;
+    TFTLock& operator=(const TFTLock&) = delete;
+};
+
 void TFTLog(String text);
 void sendAvail(uint8_t wakeupReason);
 
