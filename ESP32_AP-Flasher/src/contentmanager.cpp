@@ -304,6 +304,7 @@ void drawNew(const uint8_t mac[8], tagRecord *&taginfo) {
     if (taginfo->lut == 2) imageParams.lut = EPD_LUT_FAST_NO_REDS;
     if (taginfo->lut == 3) imageParams.lut = EPD_LUT_FAST;
     time_t last_midnight = now - now % (24 * 60 * 60) + 3 * 3600;  // somewhere in the middle of the night
+    if (last_midnight > now) last_midnight -= 24 * 60 * 60;          // before 3:00 that's still yesterday's
     if (imageParams.shortlut == SHORTLUT_DISABLED || taginfo->lastfullupdate < last_midnight || taginfo->lut == 1) {
         imageParams.lut = EPD_LUT_DEFAULT;
         taginfo->lastfullupdate = now;
