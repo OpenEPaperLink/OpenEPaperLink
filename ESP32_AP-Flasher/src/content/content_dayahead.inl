@@ -623,11 +623,11 @@ bool getDayAheadFeed(String& filename, JsonObject& cfgobj, tagRecord*& taginfo, 
     // Use constant narrow stem with wider arrow head for a proper arrow shape
     if (pointerX >= 0 && showcurrent) {
         // Arrow stem (narrow rectangle)
-        spr.fillRect(pointerX - STEM_WIDTH / 2, 5 + arrowY, STEM_WIDTH, STEM_HEIGHT, imageParams.highlightColor);
+        spr.fillRect(pointerX - STEM_WIDTH / 2, 5 + arrowY, STEM_WIDTH, STEM_HEIGHT, TFT_BLACK);
         // Arrow head (wider triangle)
         spr.fillTriangle(pointerX - ARROW_WIDTH / 2, 15 + arrowY,
                          pointerX + ARROW_WIDTH / 2, 15 + arrowY,
-                         pointerX, 15 + arrowY + ARROW_HEIGHT, imageParams.highlightColor);
+                         pointerX, 15 + arrowY + ARROW_HEIGHT, TFT_BLACK);
 
         // Vertical line: dashed from arrow to bar, solid from baseline to bottom
         int lineStartY = 21 + arrowY + GAP_AFTER_ARROW;

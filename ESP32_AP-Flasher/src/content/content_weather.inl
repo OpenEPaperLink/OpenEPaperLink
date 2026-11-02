@@ -51,7 +51,9 @@ void drawWeatherContent(JsonDocument &doc, JsonDocument &loc, TFT_eSprite &spr, 
     if (temp[3] && temp[3] == 1) {
         temperatureStr += (cfgobj["units"] == "1") ? "°" : "°";
     }
-    drawString(spr, temperatureStr, temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 ? imageParams.highlightColor : TFT_BLACK));
+    const int interval = cfgobj["interval"].as<int>();
+    const bool frequent = interval > 0 && interval <= 30;
+    drawString(spr, temperatureStr, temp[0], temp[1], temp[2], TL_DATUM, (temperature < 0 && !frequent ? imageParams.highlightColor : TFT_BLACK));
 
     const int iconcolor = (weathercode == 55 || weathercode == 65 || weathercode == 75 || weathercode == 82 || weathercode == 86 || weathercode == 95 || weathercode == 96 || weathercode == 99)
                               ? imageParams.highlightColor

@@ -131,6 +131,7 @@
         "desc": "How often the info is being refreshed.",
         "type": "select",
         "options": {
+          "15": "Every 15 minutes",
           "30": "-Every 30 minutes",
           "60": "Every hour",
           "180": "Every three hours"
