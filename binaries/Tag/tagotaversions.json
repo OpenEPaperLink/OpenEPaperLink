@@ -47,78 +47,113 @@
     },
     "2E": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "2F": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "30": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "31": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "32": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "33": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "34": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "35": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "36": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "40": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "41": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "42": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "43": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "45": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "46": {
       "type": "SOL_M3_Uni_ota",
-      "version": "002B",
-      "md5": "d004ac24fa469ab591ccb5a0b7505c21"
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
+    },
+    "47": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
+    },
+    "28": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
+    },
+    "29": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
+    },
+    "2A": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
+    },
+    "37": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
+    },
+    "3C": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
+    },
+    "93": {
+      "type": "SOL_M3_Uni_ota",
+      "version": "002D",
+      "md5": "3d19873a0a9db1d95ec0724a4942e2ba"
     },
     "80": {
       "type": "chroma74y_ota",
