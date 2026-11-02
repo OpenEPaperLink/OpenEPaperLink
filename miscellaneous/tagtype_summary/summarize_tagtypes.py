@@ -25,6 +25,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 def compression(data):
     """"g5" if the file has g5_compression, "zlib" if it has zlib_compression."""
@@ -97,6 +98,22 @@ COLUMNS = [
     ("Base", lambda d: hex2(d.get("usetemplate"))),
     ("Defined Templates", templates),
 ]
+
+
+# The File column links each file to this location on GitHub (plus the file name).
+BASE_URL = "https://github.com/OpenEPaperLink/OpenEPaperLink/blob/master/resources/tagtypes/"
+
+WARNING = """> [!WARNING]
+> Since this page is generated automagically by a [script](https://github.com/OpenEPaperLink/OpenEPaperLink/blob/master/miscellaneous/tagtype_summary/summarize_tagtypes.py) manual edits are likely to be lost.
+>
+> Please feel free to submit a [PR](https://github.com/OpenEPaperLink/OpenEPaperLink/pulls) or to create an [issue](https://github.com/OpenEPaperLink/OpenEPaperLink/issues) for any errors or to request a format change.
+"""
+
+
+def file_link(display):
+    """Markdown link: text is the name without its extension, target is BASE_URL + full name."""
+    text = os.path.splitext(display)[0].replace("[", "\\[").replace("]", "\\]")
+    return "[%s](%s%s)" % (text, BASE_URL, quote(display))
 
 
 def fmt(value):
@@ -213,6 +230,7 @@ def main():
         title += " as of %s @%s" % commit
 
     lines = [
+        WARNING,
         "# " + title,
         "",
         "| " + " | ".join(h for h, _ in COLUMNS) + " |",
@@ -222,7 +240,7 @@ def main():
         cells = []
         for _, source in COLUMNS:
             if source is None:
-                cells.append(display)
+                cells.append(file_link(display))
             elif callable(source):
                 cells.append(source(data))
             else:

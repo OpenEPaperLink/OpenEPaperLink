@@ -51,7 +51,7 @@ Columns appear in this order:
 
 | Column | Source |
 |---|---|
-| File | File name (relative to the input directory) |
+| File | File name without its extension, as a link to `https://github.com/OpenEPaperLink/OpenEPaperLink/blob/master/resources/tagtypes/` plus the full file name (the base URL is the `BASE_URL` constant in the script). With `-r`, a file in a subfolder keeps its relative path in both the text and the link |
 | Name | `name` |
 | Resolution | `width` and `height` joined with `x`, e.g. `600x448` (`?` for a missing half; blank if both are missing or the size is `0x0`) |
 | Type | `BW`, plus `R` if the `colortable` has red and `Y` if it has yellow. If any other color is present, `N colors` (N = number of `colortable` entries), written with `&nbsp;` so it does not wrap |
@@ -66,6 +66,6 @@ Missing fields give blank cells. A `|` in a name is escaped so it does not break
 ### Example row
 
 ```
-| m3.json | M3 6.0" | 600x448 | BWR | button, led | 2 | zlib | 01 | 1, 9, 10, 11 |
+| [m3](https://github.com/OpenEPaperLink/OpenEPaperLink/blob/master/resources/tagtypes/m3.json) | M3 6.0" | 600x448 | BWR | button, led | 2 | zlib | 01 | 1, 9, 10, 11 |
 ```
 
