@@ -511,10 +511,8 @@ void init_web() {
                         }
                     }
                     if (strcmp(cmdValue, "clear") == 0) {
-                        clearPending(taginfo);
-                        dequeueAllItems(mac);
-                        taginfo->pendingCount = countQueueItem(mac);
-                        wsSendTaginfo(mac, SYNC_TAGSTATUS);
+                        // also clears what the radio holds for the tag, or it would still deliver that
+                        prepareCancelPending(mac);
                     }
                     if (strcmp(cmdValue, "refresh") == 0) {
                         updateContent(mac);
