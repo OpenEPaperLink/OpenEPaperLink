@@ -81,10 +81,25 @@ Done when: tested with new S3 + old C6, new C6, TLSR and ZBS AP, and old S3 + ol
 
 ## Phase 5 – TLSR AP
 
-Migration step 4. Blocked until the source is available or new firmware is written.
+Migration step 4: an open firmware for the TLSR8258 radio, `ARM_Tag_FW/OpenEPaperLink_TLSR_AP` (0xF8, version 0x0080; the closed-source binary reports 0x007C). How it differs from the C6/H2: [radio-protocol-v2.md](radio-protocol-v2.md#the-tlsr8258-ap).
 
-- [ ] #17 Ask for the TLSR AP source (atc1441, OEPL maintainers)
-- [ ] #18 TLSR AP: higher baud rate and prefetch of the next block, then the new protocol (R8)
+- [x] #17 Ask for the TLSR AP source (atc1441, OEPL maintainers) — not needed: a new firmware was written instead
+- [x] #18 TLSR AP: higher baud rate and prefetch of the next block, then the new protocol (R8) — `42b475a3`: protocol v2 at 2 Mbaud, block cache and allow-list, the AP logic of C6/H2 0x0024 behind a small HAL
+- [x] #38 tc32 Linux toolchain as a submodule, at `ARM_Tag_FW/OpenEPaperLink_TLSR/tc32_linux` where the TLSR makefile looks — `b0fcf70f`; the TLSR tag firmware builds on Linux out of the box too
+- [x] #39 `oepl-radio-v2.h` on GCC 4.5, table CRC16, COBS bounds checked per run — `97b88915`; on the TLSR 12 instead of 117 and 9 instead of 22 instructions a byte; S3 and C6/H2 build unchanged
+- [x] #40 TLSR AP: block cache in all the SRAM the link leaves, shared with the tag store; blocks at their own length; eviction by where each transfer stands — `42b475a3`; ≈ 53 KB in a default build
+- [x] #41 TLSR AP: wait for an uncached block learned from the S3 instead of a fixed 140 ms (C2) — `42b475a3`
+- [x] #42 TLSR AP: replies started by the radio's state machine at a fixed 1220 µs (1700 µs for a PONG) — `42b475a3`
+- [x] #43 TLSR AP: burst start per tag family, bursts fill the tag's window with adaptive copies, the radio listens between parts (E4, R5) — `42b475a3`
+- [x] #44 TLSR AP: a second tag's block request waits for the running burst instead of getting CANCEL_XFER — `42b475a3`
+- [x] #45 TLSR AP: the configured TX power is applied (C6/H2: #11) — `42b475a3`
+- [x] #46 TLSR AP: stacks sized at build time from a static call-graph analysis (`tools/stackdepth.py`) — `42b475a3`
+
+
+Done when: tested with tag families other than ZBS243, and `firmware_TLSR.json` points at the open firmware.
+
+- [ ] #47 C6/H2: take over what the TLSR AP does differently — a waiting slot instead of CANCEL_XFER, window-sized bursts with adaptive copies, per-family burst start, the learned data wait, transfer-aware eviction, blocks at their own length ([comparison](radio-protocol-v2.md#the-tlsr8258-ap))
+- [ ] #48 S3: preload as many blocks as fit instead of all or nothing, and keep the `wantPreload()` reservation until its blocks are in (the next STATUS overwrites it)
 
 ## Independent
 
@@ -125,6 +140,8 @@ New findings that are not yet in a phase.
 - [x] The flasher didn't recognise an ESP32-H2 v1.2 (ROM eco5): its magic register reads 0x97e30068 (2026-10-30). First fixed with a chip ID fallback (`GET_SECURITY_INFO`) in the vendored esp-serial-flasher of 2023; then the library was updated to v1.11.0, which asks for the chip ID first itself, as esptool does. Flashed the H2 of the Thread Border Router board with both
 
 - [x] An H2 shows up as "ESP32-C6" in the web UI and the serial log: the H2 firmware is built from the C6 sources and reports type 0xC6. `apTypeName()` names it "ESP32-H2" in builds with `HAS_H2`; the update page and the AP Info box use that name
+
+- [ ] Home Assistant integration: its "Block Requests" sensor counts `block request` log lines; with the v2 cache the radio serves the blocks and the S3 logs `block served`, so the count stops (C6/H2 and TLSR). The fix belongs in the integration.
 
 ## Results
 

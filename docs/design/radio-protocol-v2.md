@@ -1,11 +1,12 @@
 # S3 ↔ radio protocol v2
 
-Protocol v2 is the serial protocol between the ESP32-S3 and the ESP32-C6/H2 radio co-processor: framed binary messages with COBS framing, CRC16, sequence numbers, acknowledgements and explicit fields, plus a block cache in the radio. It replaces the ASCII command protocol, which the S3 still speaks with older radios (C6/H2 up to 0022, TLSR, ZBS). The tag ↔ radio air protocol is the same. Background: problems P1–P8 and S1–S3 in [radio-chain-analysis.md](radio-chain-analysis.md); tasks in [radio-chain-tasks.md](radio-chain-tasks.md); measurements in [radio-chain-results.md](radio-chain-results.md).
+Protocol v2 is the serial protocol between the ESP32-S3 and its radio co-processor, the ESP32-C6/H2 or the TLSR8258 ([below](#the-tlsr8258-ap)): framed binary messages with COBS framing, CRC16, sequence numbers, acknowledgements and explicit fields, plus a block cache in the radio. It replaces the ASCII command protocol, which the S3 still speaks with older radios (C6/H2 up to 0022, the closed-source TLSR AP, ZBS). The tag ↔ radio air protocol is the same. Background: problems P1–P8 and S1–S3 in [radio-chain-analysis.md](radio-chain-analysis.md); tasks in [radio-chain-tasks.md](radio-chain-tasks.md); measurements in [radio-chain-results.md](radio-chain-results.md).
 
 Code:
 
 - `oepl-radio-v2.h` in the repository root: message structs with size checks, constants, COBS, CRC16, frame building. Used by both sides.
 - C6/H2 (`ARM_Tag_FW/OpenEPaperLink_esp32_C6_AP/main/`, also built for the H2): `v2link.c` (reception, duplicate check, event queue), `main.c` (handlers, block requests, bursts), `blockcache.c`.
+- TLSR8258 (`ARM_Tag_FW/OpenEPaperLink_TLSR_AP/src/`): the same split, `v2link.c`, `ap.c`, `blockcache.c`, behind a small HAL; host tests in `test/`.
 - S3 (`ESP32_AP-Flasher/src/`): `v2transport.cpp` (V2Transport), `bringAPOnline()` in `serialap.cpp`, `processPreload()` and `processBlockServed()` in `newproto.cpp`.
 
 C6/H2 firmware from 0x0023 speaks only v2: it needs an S3 build with V2Transport. 0x0022 is the last version with the ASCII protocol.
@@ -109,9 +110,9 @@ crc16:        CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over header and payl
 
 Payload sizes: HELLO_REPLY 21, STATUS 31, SET_PENDING 27, CHECKIN 49, DATA_NEEDED 26, BLOCK_SERVED 21, XFER_COMPLETE/TIMEOUT 16, DATA_CHUNK 16 + up to 240, TAG_RETURN_DATA 14 + the tag's 101 bytes.
 
-Capability bits (`caps`, `wanted_caps`, `CAP>`): 0 v2 framing, 1 block cache, 2 sub-GHz radio present, 3 tag return data, 4 reserved (higher baud rates, not used), 5 log frames, 6 allow-list (ALLOW_* and the lock bits of SET_CONFIG, protocol 2.1). The C6/H2 announces 0, 1, 3 and 6, plus 2 when a CC1101 is present.
+Capability bits (`caps`, `wanted_caps`, `CAP>`): 0 v2 framing, 1 block cache, 2 sub-GHz radio present, 3 tag return data, 4 reserved (higher baud rates, not used), 5 log frames, 6 allow-list (ALLOW_* and the lock bits of SET_CONFIG, protocol 2.1). The C6/H2 announces 0, 1, 3 and 6, plus 2 when a CC1101 is present; the TLSR AP announces 0, 1, 3, 5 and 6.
 
-Not used by the current firmware: the radio does not send LOG frames (and does not announce bit 5); the S3 does not send DATA_DROP (the radio handles it); the S3 does not use the AP-side RSSI/LQI from CHECKIN yet.
+Not used by the current firmware: the S3 does not ask for LOG frames (an `AP_DEBUG=1` TLSR build sends them anyway; the S3 prints them on its serial console); the S3 does not send DATA_DROP (the radio handles it); the S3 does not use the AP-side RSSI/LQI from CHECKIN yet.
 
 ## Rules
 
@@ -121,8 +122,8 @@ Not used by the current firmware: the radio does not send LOG frames (and does n
 - Once a minute the radio counts `ttl_min` down; at 0 it drops the entry and sends XFER_TIMEOUT, except for idle requests. `next_checkin` counts down with it when it is in minutes; a value in seconds (bit 15) stays as it is. The S3 fills `ttl_min` from `attemptsLeft` (at least 1).
 - **XFER_COMPLETE** is sent once per transfer: a tag that repeats its XFC (because it missed the radio's ack) gets acked again on air, but not reported again. The radio drops the pending entry when it sends it.
 - **CHECKIN** for every check-in the radio answered, short requests included, after the reply is on air. At 100 tags checking in every 40 s that is 2.5 frames/s of ≈ 56 bytes on the wire: negligible at 2 Mbaud.
-- **SET_CONFIG**: `tx_power_dbm` carries the AP's power setting; the radio stores and reports it but does not apply it (it transmits at the driver default, task #11). The S3 maps channel 0 to "do not change", as the ASCII protocol did for sub-GHz-only use. `led_brightness` is the AP's LED setting (`config.led`): the radio drives both activity LEDs with LEDC PWM at that brightness, squared for even steps to the eye, and does not light them at 0; until the first SET_CONFIG they flash at full brightness. The S3 sends SET_CONFIG again when the LED setting changes in the web UI. The S3's own activity blink on TFT boards (`quickBlink()`) also stays off when the LED is off.
-- **Tag inventory lock** ("Lock tag inventory" in the web UI, issue #177). With capability bit 6 the S3 keeps an allow-list in the radio with every MAC in its tag database: after each HELLO it sends ALLOW_CLEAR and the whole database in ALLOW_ADDs, then SET_CONFIG with the lock bits; later additions and deletions follow as ALLOW_ADD / ALLOW_REMOVE from APTask, at most 100 ms later. Until the list is complete the S3 sends lock 0. Locked, the radio does not answer a frame from a MAC that is not on the list (check-in, short request, ping, block request, XFC, tag return data) and sends no event for it, so the tag looks for another AP. Learning, it also answers a full check-in with `wakeupReason` FIRSTBOOT (0xFC); the S3 then adds the tag and puts it on the list. A ping from an unknown tag gets no PONG in either mode, so a new tag in learning mode is only picked up on the channel it boots on. A tag deleted from the database is removed from the list and is ignored from then on. The list holds 1024 MACs; when an ALLOW_ADD gets NAK `NO_SLOT` the S3 logs it and sends lock 0, so the lock then works on the S3 only, as with radios without bit 6. The radio logs once a minute on its debug UART how many frames it ignored.
+- **SET_CONFIG**: `tx_power_dbm` carries the AP's power setting; the C6/H2 stores and reports it but does not apply it (it transmits at the driver default, task #11); the TLSR AP applies it. The S3 maps channel 0 to "do not change", as the ASCII protocol did for sub-GHz-only use. `led_brightness` is the AP's LED setting (`config.led`): the radio drives both activity LEDs with LEDC PWM at that brightness, squared for even steps to the eye, and does not light them at 0; until the first SET_CONFIG they flash at full brightness. The S3 sends SET_CONFIG again when the LED setting changes in the web UI. The S3's own activity blink on TFT boards (`quickBlink()`) also stays off when the LED is off.
+- **Tag inventory lock** ("Lock tag inventory" in the web UI, issue #177). With capability bit 6 the S3 keeps an allow-list in the radio with every MAC in its tag database: after each HELLO it sends ALLOW_CLEAR and the whole database in ALLOW_ADDs, then SET_CONFIG with the lock bits; later additions and deletions follow as ALLOW_ADD / ALLOW_REMOVE from APTask, at most 100 ms later. Until the list is complete the S3 sends lock 0. Locked, the radio does not answer a frame from a MAC that is not on the list (check-in, short request, ping, block request, XFC, tag return data) and sends no event for it, so the tag looks for another AP. Learning, it also answers a full check-in with `wakeupReason` FIRSTBOOT (0xFC); the S3 then adds the tag and puts it on the list. A ping from an unknown tag gets no PONG in either mode, so a new tag in learning mode is only picked up on the channel it boots on. A tag deleted from the database is removed from the list and is ignored from then on. The list holds 1024 MACs; when an ALLOW_ADD gets NAK `NO_SLOT` the S3 logs it and sends lock 0, so the lock then works on the S3 only, as with radios without bit 6. The radio logs once a minute how many frames it ignored: the C6/H2 on its debug UART, the TLSR AP in a LOG frame.
 
 ## Block cache and data flow
 
@@ -148,6 +149,24 @@ DATA_CHUNKs start at the block start and are 240 bytes apart (`offset - block st
 
 Multi-AP: SET_PENDING only reaches the radio of the AP where the tag is local, so only that radio caches the data.
 
+## The TLSR8258 AP
+
+The open TLSR8258 firmware (`ARM_Tag_FW/OpenEPaperLink_TLSR_AP`, version 0x0080) runs the C6/H2 AP logic and speaks the same protocol, so the S3 treats both alike. Where it works differently:
+
+| | C6/H2 (0x0024) | TLSR AP (0x0080) |
+| --- | --- | --- |
+| Block cache | heap, fixed 4 KB slots, up to 64 blocks; LRU eviction | the SRAM the link leaves (≈ 53 KB), shared with the tag store; each block at its own length + 24 B; evicts by where each transfer stands, so the block a tag needs next goes last |
+| Wait for an uncached block | 140 ms | learned: the slowest S3 answer seen + 26 ms, at most 550 ms; it never falls |
+| Burst start | `pleaseWaitMs` + 5 ms | per tag family (`tagListensAfterAckMs()`): a ZBS243 25 ms early, an Opticon 40 ms late |
+| Burst size | each part once, repeated up to twice the parts, ≤ 42 frames | fills the tag's 260 ms window (≤ 52 frames); copies start at 2 and adapt to re-requests and channel load |
+| During a burst | one frame per loop pass, the full list | a part waits for a frame that is arriving; passes are spread over the window; stops when the tag is done |
+| Block request during another tag's burst | CANCEL_XFER for 1.2 s | acked with a wait that ends after the burst; only a third tag gets CANCEL_XFER |
+| Replies | sent when ready | started by the radio 1220 µs after the request ends (1700 µs for a PONG) |
+| TX power | not applied (#11) | applied |
+| Pending tags | 250 | derived from the arena; ≥ 340 with the allow-list full |
+| Events to the S3 | queue of 24 | 1 KB ring shared with LOG lines |
+| Logging | debug UART | LOG frames; sent in `AP_DEBUG=1` builds |
+
 ## Mapping to the S3 code
 
 | v2 message | ASCII equivalent | S3 handling |
@@ -170,7 +189,7 @@ Multi-AP: SET_PENDING only reaches the radio of the AP where the tag is local, s
 - **One `pleaseWaitMs` default for all tags.** The AP has to work with every tag firmware in the field, so the timing contract stays on the AP side; tag-side fixes (tasks #16, #21, #22) make tags more robust but do not replace it. A tag-specific value only if a measurement shows it saves battery.
 - **2 Mbaud only**, for hand-wired APs; capability bit 4 stays reserved.
 - **Sub-GHz must keep working**, but there are no sub-GHz tags here to test with. Messages carry `radio`; the CC1101 path is unchanged. Before a release, a user with sub-GHz tags should test it.
-- **The radio's UART0 debug output stays**, at warning level: the ROM bootloader and crash backtraces always go there, and the S3 echoes it to its console (and, on boards with a separate debug line, checks it for the stuck-modem message). LOG frames would be for runtime logging that should reach the web UI.
+- **The radio's UART0 debug output stays**, at warning level: the ROM bootloader and crash backtraces always go there, and the S3 echoes it to its console (and, on boards with a separate debug line, checks it for the stuck-modem message). LOG frames are for a radio without a second UART (the TLSR AP) and stay off the web UI, which every connected client would pay for in WiFi airtime.
 - **Preloading while tags sleep** keeps serial and WiFi activity out of the tags' request windows as far as the S3 controls it; the S3's WiFi transmissions make the C6 miss tag frames now and then ([results](radio-chain-results.md#wifi-desensitisation-2026-10-13)).
 
 ## Not checked
