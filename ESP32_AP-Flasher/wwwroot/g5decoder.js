@@ -6,12 +6,13 @@
 // Copyright (c) 2024 BitBank Software, Inc.
 //
 // Use of this software is governed by the Business Source License
-// included in the file ./LICENSE.
+// included in the file
+// https://github.com/OpenEPaperLink/OpenEPaperLink/blob/master/ESP32_AP-Flasher/src/g5/LICENSE
 //
 // As of the Change Date specified in that file, in accordance with
 // the Business Source License, use of this software will be governed
 // by the Apache License, Version 2.0, included in the file
-// ./APL.txt.
+// https://github.com/OpenEPaperLink/OpenEPaperLink/blob/master/ESP32_AP-Flasher/src/g5/APL.txt
 
 // Converted from C to Javascript by Nic Limper
 
