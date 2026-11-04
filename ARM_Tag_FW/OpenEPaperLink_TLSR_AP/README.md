@@ -94,7 +94,7 @@ ring in `src/tlsr/hal_tlsr.c`. The options are:
 
 | | |
 | --- | --- |
-| `make AP_DEBUG=1` | the instrumented build: LOG lines always on, plus per-ping, per-join and per-check-in lines and a noise histogram. Nothing sent on the air changes |
+| `make AP_DEBUG=1` | the instrumented build, in `out/debug`: LOG lines always on, plus per-ping, per-join and per-check-in lines and a noise histogram. Nothing sent on the air changes |
 | `make TC32_PATH=/opt/tc32/bin/` | use a toolchain elsewhere (with the trailing slash) |
 | `make PYTHON=...` | the Python 3 interpreter (default `python3`, `python` on Windows) |
 | `make STACK_ANALYSIS=0` | skip the stack analysis and use the fixed stacks |

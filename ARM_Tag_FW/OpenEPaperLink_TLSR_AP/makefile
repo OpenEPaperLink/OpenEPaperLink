@@ -1,9 +1,9 @@
 # OpenEPaperLink TLSR825x access point radio firmware (802.15.4, AP type 0xF8)
 #
 #   make                           build out/OEPL_TLSR_AP.bin (with .elf, .lst and .map beside it)
-#   make AP_DEBUG=1                instrumented build: diagnostics as LOG frames whether or not the S3
-#                                  asks for them, with per-ping, per-join and per-check-in detail; what
-#                                  goes on the air is unchanged
+#   make AP_DEBUG=1                instrumented build, in out/debug: diagnostics as LOG frames whether or
+#                                  not the S3 asks for them, with per-ping, per-join and per-check-in
+#                                  detail; what goes on the air is unchanged
 #   make TC32_PATH=/opt/tc32/bin/  use a tc32 toolchain elsewhere (with the trailing slash)
 #   make RAMCODE_SPILL_OK=1        link even when RAM code ends just past a 256-byte boundary, at a
 #                                  cost of 256 bytes of SRAM (see _ramcode_tail_ in boot_8258_ap.link)
@@ -52,11 +52,12 @@ OBJDUMP = $(TC32_PATH)tc32-elf-objdump
 SIZE    = $(TC32_PATH)tc32-elf-size
 
 SDK_PATH := ../OpenEPaperLink_TLSR/tl_zigbee_sdk
-OUT_PATH := out
-LINK_SCRIPT := boot_8258_ap.link
-
 # 1 compiles in the diagnostics (src/ap.c); 0 is the production image.
 AP_DEBUG ?= 0
+# AP_DEBUG changes every object, so each kind of image keeps its own: switching can't reuse the other's
+OUT_PATH := $(if $(filter 1,$(AP_DEBUG)),out/debug,out)
+LINK_SCRIPT := boot_8258_ap.link
+
 # RAM code that ends just past a 256-byte boundary costs 256 bytes of SRAM for a few bytes of code,
 # and boot_8258_ap.link refuses to link it (see _ramcode_tail_ there). 1 accepts the spill.
 RAMCODE_SPILL_OK ?= 0
@@ -91,6 +92,8 @@ GCC_FLAGS := \
 	-DAP_DEBUG=$(AP_DEBUG)
 
 BOOT_FLAG := -DMCU_CORE_8258 -DMCU_STARTUP_8258
+# a .d beside each object, so that a header edit rebuilds what includes it
+DEP_FLAGS := -MMD -MP
 
 APP_SRCS := \
 	src/ap.c \
@@ -176,12 +179,12 @@ all: $(BIN_FILE) $(LST_FILE) size
 $(OUT_PATH)/%.o: %.c
 	@$(MKDIR) $(dir $@)
 	@echo 'CC $<'
-	@$(CC) $(GCC_FLAGS) $(INCLUDE_PATHS) -c -o "$@" "$<"
+	@$(CC) $(GCC_FLAGS) $(DEP_FLAGS) $(INCLUDE_PATHS) -c -o "$@" "$<"
 
 $(OUT_PATH)/sdk/%.o: $(SDK_PATH)/%.c
 	@$(MKDIR) $(dir $@)
 	@echo 'CC $<'
-	@$(CC) $(GCC_FLAGS) $(INCLUDE_PATHS) -c -o "$@" "$<"
+	@$(CC) $(GCC_FLAGS) $(DEP_FLAGS) $(INCLUDE_PATHS) -c -o "$@" "$<"
 
 # The IRQ stack's bytes are reserved by the link, at the size the analysis gives it, so cstartup's own
 # .lcomm of it is made empty: irq_stk becomes the label at the top of that reserve (boot_8258_ap.link).
@@ -190,7 +193,7 @@ $(OUT_PATH)/sdk/platform/boot/8258/cstartup_8258.o: BOOT_FLAG += -D__IRQ_STK_SIZ
 $(OUT_PATH)/sdk/%.o: $(SDK_PATH)/%.S
 	@$(MKDIR) $(dir $@)
 	@echo 'AS $<'
-	@$(CC) $(BOOT_FLAG) $(INCLUDE_PATHS) -c -o "$@" "$<"
+	@$(CC) $(BOOT_FLAG) $(DEP_FLAGS) $(INCLUDE_PATHS) -c -o "$@" "$<"
 
 ifeq ($(STACK_ANALYSIS),1)
 # Link 1: the fallback stacks, for the analysis to read. Its code is the final image's code: the second
@@ -235,6 +238,8 @@ size: $(ELF_FILE)
 
 clean:
 	-$(RM) $(OUT_PATH)
+
+-include $(OBJS:.o=.d)
 
 .PHONY: all clean size
 # a recipe that fails leaves no target behind - above all an image the stack check refused
