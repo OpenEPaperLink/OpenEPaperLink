@@ -37,6 +37,11 @@ from naming it, which leaves it as a constant in a literal pool or in data, so e
 image that is a function's start with the Thumb bit set is a candidate, and the call costs the
 deepest of them. That is pessimistic and sound.
 
+One exception to all this: a pointer copied from one such variable to another (`W = V`) is not
+followed, so a call through W costs only what is stored to W directly. This image has no such copy:
+the firmware has no function pointers of its own and the SDK's two are not copied. Code that adds one
+has to teach this tool about it first.
+
 Interrupts are a second root on a stack of their own (`__irq`, which cstartup_8258.S runs in IRQ mode
 on irq_stk); nothing reachable from it may re-enable interrupts for this to be the IRQ stack's bound,
 which is true of irq_handler in src/tlsr/hal_tlsr.c and not something this tool can see. The main
