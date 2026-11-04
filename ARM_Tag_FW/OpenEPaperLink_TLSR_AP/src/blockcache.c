@@ -96,16 +96,17 @@ static uint16_t evictions = 0;
 static uint16_t evictionsUnserved = 0;
 
 // The least arena this file is built for, as a symbol the link asserts (_cache_arena_need_ in
-// boot_8258_ap.link): the floor's blocks, and the allow-list at its cap in its widest encoding, below
-// which the inventory lock's guarantee is gone. An assembler expression so that it follows
-// CACHE_BLOCKS and MAX_ALLOWED_MACS; the static assert pins the sizes it cannot see.
+// boot_8258_ap.link): the floor's blocks, and the allow-list at its cap at the widest a tag can cost
+// (storeInit in ap.c: a 12-byte record and an 8-byte profile, in granules of 16 and 4, beside a granule
+// of 4 16-byte offers), below which the inventory lock's guarantee is gone. An assembler expression so
+// that it follows CACHE_BLOCKS and MAX_ALLOWED_MACS; the static assert pins the sizes it cannot see.
 V2_STATIC_ASSERT(CACHE_FULL_COST == ((BLOCK_DATA_SIZE + 24u + 3u) & ~3u) && CACHE_OVERHEAD == 24u &&
                      sizeof(struct blockData) + sizeof(struct cacheSlot) == 24u,
                  "the figures in _cache_arena_need_");
 #define BC_STR_(x) #x
 #define BC_STR(x) BC_STR_(x)
-__asm__(".global _cache_arena_need_\n\t.set _cache_arena_need_, (" BC_STR(CACHE_BLOCKS) ") * 4120 + 8 * (" BC_STR(
-    MAX_ALLOWED_MACS) ")");
+__asm__(".global _cache_arena_need_\n\t.set _cache_arena_need_, (" BC_STR(CACHE_BLOCKS) ") * 4120 + ((" BC_STR(
+    MAX_ALLOWED_MACS) ") + 4) / 4 * 4 * 8 + ((" BC_STR(MAX_ALLOWED_MACS) ") + 16) / 16 * 16 * 12 + 64");
 
 // The arena's geometry, from the bytes halArena() reports. Once per boot, on the first call of
 // whichever function needs it, because ap.c lays its tables out at the store's base before it calls
