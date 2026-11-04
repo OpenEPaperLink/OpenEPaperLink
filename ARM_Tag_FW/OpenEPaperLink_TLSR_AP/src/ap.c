@@ -40,61 +40,18 @@ static uint8_t dstMac[8];  // target for the block transfer
 static uint16_t dstPan;
 
 static uint32_t blockStartTimer = 0;  // when the AP sends the next block (0 = no burst due)
-// Start a burst this long after the tag's pleaseWaitMs: the nRF52811 only starts its radio then.
+// When a burst starts, the same for every tag. A tag's firmware decides how it spends a wait, and that
+// differs by chip and by version, so the radio does not try to know: it aims past the latest of them.
+//
+// A block in the cache goes out at once, with a wait of 0: every family then receives straight away,
+// so the tag spends no time waiting, whatever its firmware. An nRF52811 before firmware 0x002D
+// restarts its radio after a wait of 0, which is what the hold is for; an EFR32 restarts its receiver
+// too, on a timer of 0 ms.
+#define ZERO_WAIT_HOLD_MS 3  // that restart's 0.5-2 ms, rounded up; an estimate, not a measurement
+// Any other wait: a tag sleeps or busy-waits through it, listening before its end or as it ends.
+// An Opticon's radio is off 40 ms longer, so it can miss the first frames; the repeats and a
+// re-request, then with a wait of 0, make up for those.
 #define BURST_MARGIN_MS 5
-// Tags that listen early (tagListensEarly) get the shorter times below. M2 hwTypes end at 0x27
-// (SOLUM_M2_BW_29); 0x28 and up are M3 (nRF52811) tags, resources/tagtypes/28.json onwards.
-#define HWTYPE_M3_FIRST 0x28
-#define PLEASE_WAIT_CACHED_EARLY_MS 10  // 0 or at least 10 (smaller values underflow in tag firmware)
-#define BURST_MARGIN_EARLY_MS 1
-#define HWTYPE_UNKNOWN 0xFF
-
-// When a tag starts reading block parts after the block request ack; the burst aims at the latest
-// moment it could start, since frames before that are never heard:
-//
-//   Opticon (CC253x)          powers the radio DOWN and sleeps pleaseWaitMs + 40 ms before it is back
-//   nRF52811 / EFR32xG22 M3   sleep with the radio off for exactly the wait, then start the radio
-//   88MZ100                   busy-waits the full wait with the radio on
-//   ZBS243 (Solum M2)         busy-waits with the radio ON and so listens early: 5 ms for a short
-//                             wait, 25 ms once the wait is long enough that it sleeps instead
-//
-// The 88MZ100 shares hwTypes 0x05, 0x24 and 0x26 with Solum M2; those, and unseen types, take the safe side.
-#define HWTYPE_OPTICON_FIRST 0x06
-#define HWTYPE_OPTICON_LAST 0x09
-#define OPTICON_RADIO_BACK_MS 40
-#define ZBS243_SLEEPS_ABOVE_MS 35
-#define ZBS243_EARLY_BUSY_MS 5
-#define ZBS243_EARLY_SLEEP_MS 25
-
-static bool tagListensEarly(uint8_t hwType) {
-    if (hwType == HWTYPE_UNKNOWN) return false;
-    if (hwType >= HWTYPE_M3_FIRST) return false;                       // nRF52811 / EFR32 M3 and up
-    if (hwType >= HWTYPE_OPTICON_FIRST && hwType <= HWTYPE_OPTICON_LAST) return false;  // Opticon
-    if (hwType == 0x05 || hwType == 0x24 || hwType == 0x26) return false;  // 88MZ100 or Solum M2
-    return true;                                                        // Solum M2 (ZBS243)
-}
-
-// How long after an ack with pleaseWaitMs = 0 ("carry on receiving") a tag can receive: at once for M2,
-// Opticon and 88MZ100 (0x00-0x27); the M3 nRF path re-initialises its radio after an unguarded
-// doSleep(0), and everything from 0x28 up, HWTYPE_UNKNOWN included, is treated the same.
-#define TAG_RADIO_REINIT_MS 3  // the nRF52811's 0.5-2 ms, rounded up; an estimate, not a measurement
-static uint16_t tagRadioBackAfterAckMs(uint8_t hwType) {
-    return hwType < HWTYPE_M3_FIRST ? 0 : TAG_RADIO_REINIT_MS;
-}
-
-static uint16_t tagListensAfterAckMs(uint8_t hwType, uint16_t pleaseWaitMs) {
-    // a zero wait skips every family's wait, the Opticon's 40 ms included
-    if (pleaseWaitMs == 0) return tagRadioBackAfterAckMs(hwType);
-    if (hwType >= HWTYPE_OPTICON_FIRST && hwType <= HWTYPE_OPTICON_LAST) {
-        return pleaseWaitMs + OPTICON_RADIO_BACK_MS;  // its radio is still off at pleaseWaitMs
-    }
-    if (!tagListensEarly(hwType)) return pleaseWaitMs;
-    const uint16_t early = pleaseWaitMs >= ZBS243_SLEEPS_ABOVE_MS ? ZBS243_EARLY_SLEEP_MS : ZBS243_EARLY_BUSY_MS;
-    return pleaseWaitMs > early ? pleaseWaitMs - early : 0;
-}
-// Tags that leave their receive loop once the block is complete (ZBS243), and so can be heard saying
-// so while the burst still has repeats to send. The same set as tagListensEarly.
-static bool tagLeavesWhenComplete(uint8_t hwType) { return tagListensEarly(hwType); }
 
 // A block part on air: the MAC header, the packet type, the blockPart header and its data, plus the
 // FCS the radio adds; 4 bytes of preamble, the SFD and the length byte come first, 32 us per byte.
@@ -150,19 +107,17 @@ typedef char pongFitsWindow[(RADIO_REPLY_PONG_US >= 1250 && RADIO_REPLY_PONG_US 
 // If the block data from the S3 is not complete at that time, wait at most this long for it; after
 // that send nothing (the tag asks again) rather than whatever is in the buffer.
 #define BLOCK_DATA_SLACK_MS 100
-// What the tag is told to wait: the block is in the cache, it is on its way for an earlier request,
-// or it has to come from the S3 first. 0 or at least 10 (smaller values underflow in tag firmware).
-#define PLEASE_WAIT_CACHED_MS 15
-#define PLEASE_WAIT_COMING_MS 30
+// What the tag is told to wait: 0 when the block is in the cache and the radio is free, else what
+// these say. 0 or at least 10 (smaller values underflow in tag firmware).
+#define PLEASE_WAIT_QUEUED_MS 15  // the least, for a block in the cache behind another tag's burst
+#define PLEASE_WAIT_COMING_MS 30  // it is on its way for an earlier request
 
 // The wait told to a tag whose block has to come from the S3. It only ever rises: a long wait is
-// cheap, since the tag sleeps through it (a ZBS243 from 35 ms up, with its radio off until 25 ms
-// before the end; below 35 it busy-waits with its radio on), while one too short costs the tag a
-// wasted receive window and another request round. The margin over the slowest answer seen covers
-// the ZBS243's 25 ms early wake.
+// cheap, since most tags sleep through it, while one too short costs the tag a wasted receive window
+// and another request round.
 #define DATA_WAIT_MAX_MS 550           // what the closed-source firmware asked for unconditionally
 #define DATA_WAIT_START_MS 140         // the C6's constant
-#define DATA_WAIT_MARGIN_MS (ZBS243_EARLY_SLEEP_MS + BURST_MARGIN_EARLY_MS)
+#define DATA_WAIT_MARGIN_MS 20         // over the slowest answer seen
 static uint16_t dataWaitMs = DATA_WAIT_START_MS;
 
 // A block a tag was waiting for took tookMs: raise the wait if that was slower than promised.
@@ -187,7 +142,6 @@ static struct {
     struct blockRequest req;  // as the tag sent it
     uint8_t mac[8];
     uint16_t pan;
-    uint8_t marginMs;   // burstMarginMs for its burst
     uint32_t startMs;   // when its burst is due; 0 = the slot is empty
     uint32_t askedMs;   // when its block was asked of the S3, 0 if it did not need to be
 } queuedReq;
@@ -212,30 +166,38 @@ static void promoteQueued(void);
 static uint8_t burstPos = 0;
 static bool burstActive = false;
 static int16_t burstLateMs = 0;
-// A running burst holds its frames until this time: the tag it is for has just been re-acked and its
-// radio is off for a re-initialisation (tagRadioBackAfterAckMs). 0 = nothing held.
+// A running burst holds its frames until this time: its tag has just been re-acked with a wait of 0
+// (ZERO_WAIT_HOLD_MS), or the next pass is not due yet. 0 = nothing held.
 static uint32_t burstHoldUntil = 0;
-static uint8_t burstMarginMs = BURST_MARGIN_MS;  // of the burst that is due or running
+static uint8_t burstMarginMs = BURST_MARGIN_MS;  // of the burst that is due or running: past its tag's wait
 
-// The burst goes out in passes, every requested part once per pass. A tag that leaves when complete
-// gets time after a pass to say so (burstDoneWaitMs), and if it does the rest is not sent; for other
-// tags the passes are spread over the window, since losses come in clumps.
+// The burst goes out in passes, every requested part once per pass. A tag can leave as soon as it has
+// the block, so it gets time after the first pass to say so (burstDoneWaitMs), and if it does the rest
+// is not sent. A tag that listens out its whole window loses at most the repeats this pushes past it.
 static uint8_t burstPassLen = 0;    // frames per pass: the number of parts the tag asked for
 static uint8_t burstPassFrom = 0;   // the burst position whose pass has been scheduled
-static bool burstWatchDone = false;  // this tag leaves when it is complete, so it can be waited for
 static bool burstFinalBlock = false;  // the image's last block: the tag says XFC, not "next block"
-static bool burstSpread = false;  // its passes are spread over the window, so it runs to the window's end
 static uint32_t burstWindowEndMs = 0;  // when the tag stops listening
-static uint16_t burstBudgetMs = 0;  // how much of its window the burst had when it started
-// A frame arriving when a part is due holds the burst, for at most RADIO_MAX_FRAME_US; a receive flag
-// up longer than that is not trusted again for the rest of the burst.
+// A part that falls due while the channel is in use waits: for a frame arriving, which would otherwise
+// be cut off, and for energy the radio cannot decode, such as WiFi, which the part would be lost in. A
+// clean channel costs nothing this way. A hold that a good frame came of is free. The rest comes out of
+// this budget, per burst, and once that is gone the burst stops waiting, so a noise that never clears
+// costs a tag at most this much of its receive window. A receive flag up for longer than any frame
+// lasts is stuck, which it does get on hardware, and is not trusted again for the rest of the burst.
+// The radio gives no RSSI reading while that flag is up, so the burst can't see the channel past it.
+#define BURST_YIELD_BUDGET_US 30000UL
 #define BURST_YIELD_FREE 0
 #define BURST_YIELD_HOLDING 1  // since burstYieldSinceUs
 #define BURST_YIELD_OFF 2
 static uint32_t burstYieldSinceUs = 0;
+static uint32_t burstYieldChargedUs = 0;  // of the budget, this burst
+static uint32_t burstFlagUpSinceUs = 0;   // the receive flag has been up since, in a hold
+static bool burstYieldToFlag = true;
 static uint8_t burstYield = BURST_YIELD_FREE;
+// This burst waits for energy too: not on a channel busy enough that waiting would not clear it
+static bool burstYieldEnergy = false;
 
-// How long a tag that leaves when complete takes to say so, from the end of the first pass: [0] the
+// How long a tag that leaves when complete has taken to say so, from the end of the first pass: [0] the
 // next block request, [1] XFC after the last block; 0 = not seen yet, no wait. Every reading is the
 // latency or longer, so the window's smallest reading is taken: at once when lower, at the end of the
 // window when the window only saw higher ones.
@@ -247,7 +209,7 @@ static uint32_t burstDoneFromMs = 0;  // the end of the first pass of the burst 
 static struct {
     uint16_t yields;         // burst parts held back because a frame was arriving
     uint16_t yieldFrames;    // ... after which a frame really was received: a hold that was a tag
-    uint16_t yieldTimeouts;  // ... for longer than any frame lasts, so the part went anyway
+    uint16_t yieldMs;        // ... the time of the holds no frame came of (BURST_YIELD_BUDGET_US)
     uint16_t others;         // frames from tags other than the one the bursts went to
     uint16_t burstMs;        // burst airtime
     uint16_t harm;           // the other tags' attempts that airtime is estimated to have gone over
@@ -325,13 +287,13 @@ static struct {
     uint16_t bursts;
     uint16_t xfc;
     uint16_t pings;
-    uint16_t earlyBursts;  // bursts with the early timing for ZBS243 tags
+    uint16_t zeroBursts;   // bursts from the cache, after a wait of 0
     uint16_t rereqs;       // partial requests for a block this radio had just burst: parts were lost
     uint16_t rereqParts;   // ... and how many parts they asked for again
     uint16_t ackResends;   // block request acks sent again mid-burst (the tag missed the first)
     uint16_t burstsCut;    // bursts stopped early because the tag had what it needed
-    uint16_t silentEarly;  // bursts whose tag went quiet after them, early timing (burstAnswerSeen)
-    uint16_t silentSafe;   // ... and with the safe timing
+    uint16_t silentZero;   // bursts whose tag went quiet after them, after a wait of 0 (burstAnswerSeen)
+    uint16_t silentWaited;  // ... and after any other wait
     uint16_t othersHeard;  // frames from tags other than the one bursts went to
     uint32_t burstTxUs;    // time burst frames were on the air, when the radio heard nobody
     uint16_t cancelsBusy;  // CANCEL_XFER sent: more tags wanting a burst at once than the slot holds
@@ -464,7 +426,7 @@ static bool tooLateToAnswer(uint8_t type, uint32_t ageUs) {
 }
 
 // --- the tag store -------------------------------------------------------------------------------
-// A record per tag the radio knows (allow-list flag, pending entry, hwType), a profile per group of
+// A record per tag the radio knows (allow-list flag, pending entry), a profile per group of
 // tags that share the rest of their MAC, and an offer only for a tag with content waiting (most pending
 // entries are an idle "check in again in n minutes"). The three live at the low end of the cache's
 // arena, in whole granules; cacheListReserve is told their total, so the cache gives up room through
@@ -479,9 +441,9 @@ static bool tooLateToAnswer(uint8_t type, uint32_t ageUs) {
 // --- how a MAC is stored
 // On Solum tags mac[2..3] is the serial and mac[0] a check byte; mac[1] and mac[4..7] are shared within a
 // family (0000032CA1B23E17, as the S3 prints it, is mac[0..7] 17 3e b2 a1 2c 03 00 00). So a record's key
-// is mac[0], mac[2], mac[3] and the low byte of its profile index; the profile holds mac[1], mac[4..7]
-// and the hwType. It is exact: a tag that differs from its family in anything gets a profile of its
-// own, and past 256 profiles the index's high byte is the record's profHi. `prof` on the cfg line shows
+// is mac[0], mac[2], mac[3] and the low byte of its profile index; the profile holds mac[1], mac[4..7].
+// It is exact: a tag that differs from its family in anything gets a profile of its own, and past 256
+// profiles the index's high byte is the record's profHi. `prof` on the cfg line shows
 // how well the fixed positions fit: about one profile per family.
 
 #define HOUSEKEEPING_INTERVAL_MS 60000UL
@@ -499,7 +461,7 @@ struct tagRec {
 struct tagProfile {
     uint32_t hi;     // mac[4..7]
     uint8_t b1;      // mac[1]
-    uint8_t hwType;  // what this profile's tags report; only a tag with REC_HWSEEN has said so
+    uint8_t pad;
     uint16_t refs;   // records using it
 } __attribute__((aligned(4)));
 // Content offered to a tag: the AvailDataInfo fields an idle entry has as zero, and its record.
@@ -526,10 +488,9 @@ V2_STATIC_ASSERT(__builtin_offsetof(struct AvailDataInfo, checksum) == 0 && OF_A
 #define REC_PENDING 0x02   // has a pending entry: sleepUntil and expires are live
 #define REC_OFFER 0x04     // ... with content, in offers[offer]
 #define REC_COUNTING 0x08  // sleepUntil is a minute deadline still ahead
-#define REC_HWSEEN 0x10    // this tag reported its profile's hwType in a full check-in
 #define REC_STALE 0x20     // unowned at the last housekeeping: the next one deletes it
 #define REC_AWAIT 0x40     // a burst went to this tag and it has not answered yet (burstAnswerSeen)
-#define REC_AWAIT_EARLY 0x80  // ... and that burst had the early timing of a tag that listens early
+#define REC_AWAIT_ZERO 0x80  // ... and that burst came after a wait of 0
 #define REC_OWNED (REC_LISTED | REC_PENDING)
 
 // Room grows and shrinks in granules, so a new tag rarely moves anything; 16 * 12 and 4 * 8 bytes keep
@@ -601,7 +562,7 @@ static void storeLayout(uint16_t pc, uint16_t rc, uint16_t oc) {
 
 // Who is asking for room, which decides what it may take:
 #define FOR_LIST 0   // ALLOW_ADD: anything the arena has, down to the cache's floor
-#define FOR_OTHER 1  // anything else - a pending entry, a profile, a hwType: the same, less what the
+#define FOR_OTHER 1  // anything else - a pending entry, a profile: the same, less what the
                      // list is promised
 
 static bool storeGrow(uint16_t pc, uint16_t rc, uint16_t oc, uint8_t who, uint8_t dp, uint8_t dr) {
@@ -623,7 +584,7 @@ static void storeTrim(void) {
     cacheListReserve((uint16_t)storeBytes(pc, rc, oc));
 }
 
-// The next live profile at or after `from` with these shared bytes - any hwType, or only `hw`.
+// The next live profile at or after `from` with these shared bytes.
 static int32_t profFind(uint32_t hi, uint8_t b1, uint16_t from) {
     for (uint32_t p = from; p < profN; p++) {
         if (profs[p].hi == hi && profs[p].b1 == b1 && profs[p].refs) return (int32_t)p;
@@ -631,14 +592,12 @@ static int32_t profFind(uint32_t hi, uint8_t b1, uint16_t from) {
     return -1;
 }
 
-// A profile for a tag with these shared bytes: one of its family's (any, when anyHw), or a slot of
-// its own. A new slot is returned with refs 0 - the caller counts the tag in once it has its record,
-// and a slot it never counts stays free.
-static int32_t profFor(uint32_t hi, uint8_t b1, uint8_t hw, bool anyHw, uint8_t who) {
-    for (int32_t p = profFind(hi, b1, 0); p >= 0; p = profFind(hi, b1, (uint16_t)(p + 1))) {
-        if (anyHw || profs[p].hwType == hw) return p;
-    }
-    int32_t p = -1;
+// A profile for a tag with these shared bytes: its family's, or a slot of its own. A new slot is
+// returned with refs 0 - the caller counts the tag in once it has its record, and a slot it never
+// counts stays free.
+static int32_t profFor(uint32_t hi, uint8_t b1, uint8_t who) {
+    int32_t p = profFind(hi, b1, 0);
+    if (p >= 0) return p;
     for (uint32_t c = 0; c < profN && p < 0; c++) {
         if (!profs[c].refs) p = (int32_t)c;
     }
@@ -649,7 +608,6 @@ static int32_t profFor(uint32_t hi, uint8_t b1, uint8_t hw, bool anyHw, uint8_t 
     }
     profs[p].hi = hi;
     profs[p].b1 = b1;
-    profs[p].hwType = anyHw ? HWTYPE_UNKNOWN : hw;
     profs[p].refs = 0;
     return p;
 }
@@ -713,8 +671,8 @@ static void recDelete(uint16_t i) {
     }
 }
 
-// A slot for a new record. Records nothing owns - a tag heard in a full check-in but neither listed
-// nor pending, kept for its hwType - are the first given up, before the store grows into the cache.
+// A slot for a new record. Records nothing owns - a tag whose pending entry lapsed, not listed - are
+// the first given up, before the store grows into the cache.
 static int32_t recSlot(uint8_t who) {
     if (recN < recCap) {
         if (who != FOR_LIST && !storeKeepsList(profCap, recCap, offCap, 0, 1)) return -1;
@@ -734,7 +692,7 @@ static int32_t recSlot(uint8_t who) {
 static int32_t recAdd(const uint8_t *mac, uint8_t who) {
     uint32_t hi;
     memcpy(&hi, mac + 4, 4);
-    const int32_t p = profFor(hi, mac[1], HWTYPE_UNKNOWN, true, who);
+    const int32_t p = profFor(hi, mac[1], who);
     if (p < 0) return -1;
     const int32_t i = recSlot(who);
     if (i < 0) return -1;  // the profile, if it was a new one, stays free
@@ -747,42 +705,6 @@ static int32_t recAdd(const uint8_t *mac, uint8_t who) {
     r->offer = 0;
     profs[p].refs++;
     return i;
-}
-
-// --- hwType, for the burst timing
-// The tag type comes from a full check-in only and lives in the profile; a tag reporting another type
-// than its family's moves to a profile of its own. Until the tag itself has reported (REC_HWSEEN) it
-// is unknown, which gets the safe burst timing.
-static uint8_t knownHwType(int32_t rec) {
-    if (rec < 0 || !(recs[rec].flags & REC_HWSEEN)) return HWTYPE_UNKNOWN;
-    return profs[recProfile(&recs[rec])].hwType;
-}
-
-static void rememberHwType(int32_t rec, const uint8_t *mac, uint8_t hw) {
-    // A tag not in the store yet (SET_PENDING usually follows this check-in) gets a record that owns
-    // nothing; housekeeping frees it within two rounds unless something comes to own it.
-    if (rec < 0 && (rec = recAdd(mac, FOR_OTHER)) < 0) return;
-    struct tagRec *r = &recs[rec];
-    r->flags &= (uint8_t)~REC_HWSEEN;
-    if (hw == HWTYPE_UNKNOWN) return;
-    const uint16_t p = recProfile(r);
-    struct tagProfile *const pf = &profs[p];
-    // Its family's type, or a family nobody has reported for (no tag of it has REC_HWSEEN, so none
-    // reads the type set here), or a profile of its own already: the type is the profile's.
-    if (pf->hwType == hw || pf->hwType == HWTYPE_UNKNOWN || pf->refs == 1) {
-        pf->hwType = hw;
-        r->flags |= REC_HWSEEN;
-        return;
-    }
-    // Another type than its family's: move to that type's profile, or stay unknown without room.
-    const int32_t q = profFor(pf->hi, pf->b1, hw, false, FOR_OTHER);
-    if (q < 0) return;
-    r = &recs[rec];  // profFor may have moved the records
-    profs[p].refs--;
-    profs[q].refs++;
-    r->key = (r->key & 0xFFFFFFu) | ((uint32_t)q << 24);
-    r->profHi = (uint8_t)(q >> 8);
-    r->flags |= REC_HWSEEN;
 }
 
 // --- the tag inventory lock (V2_CFG_LOCK_MASK in SET_CONFIG)
@@ -814,7 +736,7 @@ static void allowRemove(const uint8_t *mac) {
 }
 
 // The S3 sends this before the whole database, after every HELLO. A tag with something pending keeps
-// its record and hwType for the ALLOW_ADD that follows; the rest go.
+// its record for the ALLOW_ADD that follows; the rest go.
 static void allowClear(void) {
     for (uint32_t c = 0; c < recN;) {
         recs[c].flags &= (uint8_t)~REC_LISTED;
@@ -1404,9 +1326,8 @@ static void processBlockRequest(const uint8_t *buffer) {
     cacheRequested(blockReq->ver, blockReq->blockId);
 
     // A tag asking again for exactly what the running burst sends missed the ack. Ack again with
-    // pleaseWaitMs 0 and keep the burst running; the M3 families re-initialise their radio after it,
-    // so the burst holds its frames meanwhile (tagRadioBackAfterAckMs). Not a non-zero wait: it would
-    // have to be at least 10 ms, which a ZBS243 or 88MZ100 busy-waits with its receiver on.
+    // pleaseWaitMs 0 and keep the burst running, holding its frames for ZERO_WAIT_HOLD_MS. Not a
+    // non-zero wait: it would have to be at least 10 ms, which many tags busy-wait with the receiver on.
     if (burstActive && memcmp(rxHeader->src, dstMac, 8) == 0) {
         if (blockReq->blockId == requestedData.blockId && blockReq->ver == requestedData.ver &&
             memcmp(blockReq->requestedParts, requestedData.requestedParts, BLOCK_REQ_PARTS_BYTES) == 0) {
@@ -1416,13 +1337,10 @@ static void processBlockRequest(const uint8_t *buffer) {
             addCRC(again, sizeof(struct blockRequestAck));
             halRadioTxReply(RADIO_REPLY_AT_US);
             diag.ackResends++;
-            const uint16_t backMs = tagRadioBackAfterAckMs(knownHwType(rxRec));
-            if (backMs) {
-                uint32_t ackInUs = (halRadioTxEndUs() - halMicros()) & HAL_US_MASK;
-                if (ackInUs > 20000) ackInUs = 0;  // the ack has left already, or the clocks disagree
-                burstHoldUntil = halMillis() + (ackInUs + 999) / 1000 + backMs;
-                if (burstHoldUntil == 0) burstHoldUntil = 1;  // 0 means "nothing held"
-            }
+            uint32_t ackInUs = (halRadioTxEndUs() - halMicros()) & HAL_US_MASK;
+            if (ackInUs > 20000) ackInUs = 0;  // the ack has left already, or the clocks disagree
+            burstHoldUntil = halMillis() + (ackInUs + 999) / 1000 + ZERO_WAIT_HOLD_MS;
+            if (burstHoldUntil == 0) burstHoldUntil = 1;  // 0 means "nothing held"
             logBlockRequest(blockReq);
             return;
         }
@@ -1463,14 +1381,11 @@ static void processBlockRequest(const uint8_t *buffer) {
 
     memcpy(&requestedData, blockReq, sizeof(struct blockRequest));
 
-    const uint8_t hwType = knownHwType(rxRec);
     struct blockRequestAck *blockRequestAck =
         (struct blockRequestAck *)prepareNormalFrame(rxHeader->src, rxHeader->pan, PKT_BLOCK_REQUEST_ACK, sizeof(struct blockRequestAck));
-    const bool early = tagListensEarly(hwType);
-    blockRequestAck->pleaseWaitMs = cached ? (early ? PLEASE_WAIT_CACHED_EARLY_MS : PLEASE_WAIT_CACHED_MS)
-                                           : coming ? PLEASE_WAIT_COMING_MS : dataWaitMs;
-    burstMarginMs = early ? BURST_MARGIN_EARLY_MS : BURST_MARGIN_MS;
-    if (early) diag.earlyBursts++;
+    blockRequestAck->pleaseWaitMs = cached ? 0 : coming ? PLEASE_WAIT_COMING_MS : dataWaitMs;
+    burstMarginMs = cached ? ZERO_WAIT_HOLD_MS : BURST_MARGIN_MS;
+    if (cached) diag.zeroBursts++;
     const uint16_t pleaseWaitMs = blockRequestAck->pleaseWaitMs;
     addCRC(blockRequestAck, sizeof(struct blockRequestAck));
     halRadioTxReply(RADIO_REPLY_AT_US);
@@ -1480,8 +1395,7 @@ static void processBlockRequest(const uint8_t *buffer) {
     // The tag counts its wait from the end of this ack, about 2 ms from now
     uint32_t ackInUs = (halRadioTxEndUs() - halMicros()) & HAL_US_MASK;
     if (ackInUs > 20000) ackInUs = 0;  // the ack has left already, or the clocks disagree
-    const uint16_t tagListensInMs = tagListensAfterAckMs(hwType, pleaseWaitMs);
-    blockStartTimer = halMillis() + (ackInUs + 999) / 1000 + tagListensInMs + burstMarginMs;
+    blockStartTimer = halMillis() + (ackInUs + 999) / 1000 + pleaseWaitMs + burstMarginMs;
     if (blockStartTimer == 0) blockStartTimer = 1;  // 0 means "no burst due"
 
     // save the target for the block data
@@ -1540,7 +1454,6 @@ static void processAvailDataReq(const uint8_t *buffer, uint8_t kind) {
     diag.foSum += rx.freqOffset;
     logCheckinOffset(rxHeader->src);
 #endif
-    if (kind == V2_CHECKIN_FULL) rememberHwType(rxRec, rxHeader->src, availDataReq->hwType);
     if (availDataInfo->dataType != DATATYPE_NOUPDATE) diag.offered++;
     diag.replyUsSum += replyUs;
     if (replyUs > diag.replyUsMax) diag.replyUsMax = replyUs;
@@ -1594,16 +1507,16 @@ static void processTagReturnData(const uint8_t *buffer, uint8_t len) {
 
 // --- block bursts -------------------------------------------------------------------------------
 // The life of a burst: processBlockRequest() acks the request with a pleaseWaitMs and sets
-// blockStartTimer to the moment the tag's family starts listening (tagListensAfterAckMs). At that
-// moment apLoop() calls startBurst(), if the block is complete, which lays the frames out in passes
+// blockStartTimer to just after that wait (ZERO_WAIT_HOLD_MS, BURST_MARGIN_MS). At that moment apLoop() calls startBurst(), if the block is complete, which lays the frames out in passes
 // (every requested part once per pass). burstStep() then sends one frame per main-loop pass, waiting
 // between passes (burstPassDueMs) and for frames that are arriving, until the frames are out, the
 // window has closed, or the tag has moved on (burstStopFor). burstFinish() reports BLOCK_SERVED and
 // hands the radio to a tag waiting its turn (promoteQueued).
 
-// Sends one part, unless (yield) the receiver is busy with a frame, which the main loop then answers
-// first. The sequence number is only taken when the frame really goes.
-static bool sendPart(uint8_t partNo, bool yield) {
+// Sends one part, unless the receiver is busy with a frame (yieldRx), which the main loop then answers
+// first, or the channel is in use (yieldEnergy). The sequence number is only taken when the frame
+// really goes.
+static bool sendPart(uint8_t partNo, bool yieldRx, bool yieldEnergy) {
     const uint8_t keepSeq = seq;
     struct blockPart *blockPart =
         (struct blockPart *)prepareNormalFrame(dstMac, dstPan, PKT_BLOCK_PART, sizeof(struct blockPart) + BLOCK_PART_DATA_SIZE);
@@ -1611,13 +1524,15 @@ static bool sendPart(uint8_t partNo, bool yield) {
     blockPart->blockPart = partNo;
     cacheCopyPart(burstSlot, partNo, blockPart->data);
     addCRC(blockPart, sizeof(struct blockPart) + BLOCK_PART_DATA_SIZE);
-    if (halRadioTx(yield)) {
+    if (halRadioTx(yieldRx, yieldEnergy)) {
         diag.burstTxUs += BURST_FRAME_US;
         return true;
     }
     seq = keepSeq;
     return false;
 }
+
+static uint8_t channelBusyPct(void);
 
 static void startBurst(int slot, int32_t lateMs) {
     if (getBlockDataLength() == 0) requestedData.requestedParts[0] |= 0x01;  // invalid request, 0 parts
@@ -1649,24 +1564,20 @@ static void startBurst(int slot, int32_t lateMs) {
     }
     burstPos = 0;
     burstHoldUntil = 0;
-    burstLateMs = (int16_t)(lateMs + burstMarginMs);  // after the tag started listening for parts
+    burstLateMs = (int16_t)(lateMs + burstMarginMs);  // after the wait the tag was told
     burstPassLen = n;
     burstPassFrom = 0;
-    burstBudgetMs = (uint16_t)budgetMs;
     burstWindowEndMs = halMillis() + budgetMs;
     // A pass later than the request, so the record is looked for again: the store may have moved.
     const int32_t rec = recFind(dstMac);
-    burstWatchDone = tagLeavesWhenComplete(knownHwType(rec));
     const struct tagOffer *o = rec >= 0 && (recs[rec].flags & REC_OFFER) ? &offers[recs[rec].offer] : NULL;
     burstFinalBlock = o && o->dataVer == requestedData.ver && o->dataSize &&
                       requestedData.blockId == (o->dataSize - 1) / BLOCK_DATA_SIZE;
     burstDoneFromMs = 0;
     burstYield = BURST_YIELD_FREE;
-    {
-        const uint8_t passes = (uint8_t)((burstLen + n - 1) / n);
-        const uint32_t passMs = ((uint32_t)n * (BURST_FRAME_US + RADIO_BURST_GAP_US) + 999) / 1000;
-        burstSpread = !burstWatchDone && passes > 1 && passMs * passes < budgetMs;
-    }
+    burstYieldChargedUs = 0;
+    burstYieldToFlag = true;
+    burstYieldEnergy = channelBusyPct() < BURST_BUSY_HOLD_PCT;
     burstSlot = slot;
     cachePin(slot);
     cacheServed(slot);
@@ -1687,6 +1598,7 @@ static void burstFinish(void) {
     lastBurstBlock = requestedData.blockId;
     lastBurstLen = sent;
     memcpy(lastBurstParts, burstParts, sent);
+    airAcc.yieldMs = airAdd(airAcc.yieldMs, (burstYieldChargedUs + 500) / 1000);
     struct v2BlockServed bs;
     memcpy(bs.mac, dstMac, 8);
     bs.dataVer = requestedData.ver;
@@ -1700,15 +1612,15 @@ static void burstFinish(void) {
     const int32_t r = recFind(dstMac);
     if (r >= 0) {
         if (!(recs[r].flags & REC_AWAIT)) burstAwaiting++;
-        recs[r].flags = (uint8_t)((recs[r].flags & ~REC_AWAIT_EARLY) | REC_AWAIT |
-                                  (burstMarginMs == BURST_MARGIN_EARLY_MS ? REC_AWAIT_EARLY : 0));
+        recs[r].flags = (uint8_t)((recs[r].flags & ~REC_AWAIT_ZERO) | REC_AWAIT |
+                                  (burstMarginMs == ZERO_WAIT_HOLD_MS ? REC_AWAIT_ZERO : 0));
     }
     promoteQueued();  // the radio is free: a tag waiting its turn has it now
 }
 
 // Whether a tag answered the burst it was sent, from its next frame: a block request or XFC is an
-// answer; a check-in or ping means it gave up on the transfer. Counted apart for the early and safe
-// burst timing.
+// answer; a check-in or ping means it gave up on the transfer. Counted apart for bursts after a wait of
+// 0 and after any other wait.
 static void burstAnswerSeen(const uint8_t *src, uint8_t pktType) {
     if (!burstAwaiting) return;
     bool answered;
@@ -1729,10 +1641,10 @@ static void burstAnswerSeen(const uint8_t *src, uint8_t pktType) {
     const int32_t r = recFind(src);  // again: handling the frame may have moved the store
     if (r < 0 || !(recs[r].flags & REC_AWAIT)) return;
     if (!answered) {
-        if (recs[r].flags & REC_AWAIT_EARLY) diag.silentEarly++;
-        else diag.silentSafe++;
+        if (recs[r].flags & REC_AWAIT_ZERO) diag.silentZero++;
+        else diag.silentWaited++;
     }
-    recs[r].flags &= (uint8_t)~(REC_AWAIT | REC_AWAIT_EARLY);
+    recs[r].flags &= (uint8_t)~(REC_AWAIT | REC_AWAIT_ZERO);
     burstAwaiting--;
 }
 
@@ -1746,32 +1658,25 @@ static void burstStopFor(const uint8_t *mac) {
 
 // Start timing burstDoneWaitMs from the end of the frame now on the air
 static void burstDoneWatchFrom(void) {
-    if (!burstWatchDone || burstDoneFromMs) return;
+    if (burstDoneFromMs) return;
     uint32_t inUs = (halRadioTxEndUs() - halMicros()) & HAL_US_MASK;
     if (inUs > 20000) inUs = 0;  // the frame has left already, or the clocks disagree
     burstDoneFromMs = halMillis() + (inUs + 500) / 1000;
     if (!burstDoneFromMs) burstDoneFromMs = 1;
 }
 
-// When the pass starting at the current position may begin: the first at once; for a tag that leaves
-// when complete, burstDoneWaitMs after the last; for others, spread from the window's start to its end.
+// When the pass starting at the current position may begin: the first at once, the others
+// burstDoneWaitMs after the last.
 static uint32_t burstPassDueMs(uint32_t now) {
     const uint8_t pass = burstPos / burstPassLen;
     if (pass == 0) return now;
-    if (burstWatchDone) {
-        if (pass == 1) burstDoneWatchFrom();
-        // No wait when not one repeat would fit after it (a ZBS243 sends XFC 0.5-1.5 s after the last
-        // block, so in practice only the next-block wait pauses a burst)
-        const uint32_t wait = burstDoneWaitMs[burstFinalBlock];
-        const uint32_t slotMs = (BURST_FRAME_US + RADIO_BURST_GAP_US + 999) / 1000;
-        if ((int32_t)(now + wait + slotMs - burstWindowEndMs) > 0) return now;
-        return now + wait;
-    }
-    const uint8_t passes = (uint8_t)((burstLen + burstPassLen - 1) / burstPassLen);
-    const uint32_t passMs = ((uint32_t)burstPassLen * (BURST_FRAME_US + RADIO_BURST_GAP_US) + 999) / 1000;
-    if (passMs * passes >= burstBudgetMs) return now;  // no room to spread: back to back
-    // pass k starts k/(passes - 1) of the way through the slack, so the last pass ends with the window
-    return burstWindowEndMs - burstBudgetMs + (burstBudgetMs - passMs) * pass / (passes - 1);
+    if (pass == 1) burstDoneWatchFrom();
+    // No wait when not one repeat would fit after it (a ZBS243 sends XFC 0.5-1.5 s after the last
+    // block, so in practice only the next-block wait pauses a burst)
+    const uint32_t wait = burstDoneWaitMs[burstFinalBlock];
+    const uint32_t slotMs = (BURST_FRAME_US + RADIO_BURST_GAP_US + 999) / 1000;
+    if ((int32_t)(now + wait + slotMs - burstWindowEndMs) > 0) return now;
+    return now + wait;
 }
 
 // Sends the next part once the radio is free, the hold is over (burstHoldUntil), its pass is due, and
@@ -1794,24 +1699,38 @@ static void burstStep(void) {
         burstFinish();
         return;
     }
-    // Yield to an arriving frame, but not for longer than any frame lasts
-    if (burstYield == BURST_YIELD_HOLDING && ((halMicros() - burstYieldSinceUs) & HAL_US_MASK) > RADIO_MAX_FRAME_US) {
-        if ((uint8_t)halRadioRxFrames() != burstYieldRx) airAcc.yieldFrames = airAdd(airAcc.yieldFrames, 1);
-        burstYield = BURST_YIELD_OFF;
-        if (airAcc.yieldTimeouts != 0xFFFF) airAcc.yieldTimeouts++;
+    // Give way to a frame or to something else on the channel, within the budget
+    if (burstYield == BURST_YIELD_HOLDING) {
+        const uint8_t rx = (uint8_t)halRadioRxFrames();
+        const uint32_t nowUs = halMicros();
+        if (rx != burstYieldRx) {
+            // a good frame came of it (one that failed its CRC still held us): nothing to charge
+            airAcc.yieldFrames = airAdd(airAcc.yieldFrames, 1);
+            burstYieldRx = rx;
+            burstYieldSinceUs = nowUs;
+            burstFlagUpSinceUs = nowUs;
+        } else if (burstYieldChargedUs + ((nowUs - burstYieldSinceUs) & HAL_US_MASK) > BURST_YIELD_BUDGET_US) {
+            burstYieldChargedUs = BURST_YIELD_BUDGET_US;
+            burstYield = BURST_YIELD_OFF;
+        }
+        if (!halRadioRxArriving()) burstFlagUpSinceUs = nowUs;
+        else if (((nowUs - burstFlagUpSinceUs) & HAL_US_MASK) > RADIO_MAX_FRAME_US) burstYieldToFlag = false;
     }
-    if (!sendPart(burstParts[burstPos], burstYield != BURST_YIELD_OFF)) {
+    const bool yieldOn = burstYield != BURST_YIELD_OFF;
+    if (!sendPart(burstParts[burstPos], yieldOn && burstYieldToFlag, yieldOn && burstYieldEnergy)) {
         if (burstYield == BURST_YIELD_FREE) {
             burstYield = BURST_YIELD_HOLDING;
             burstYieldSinceUs = halMicros();
+            burstFlagUpSinceUs = burstYieldSinceUs;
             burstYieldRx = (uint8_t)halRadioRxFrames();
             if (airAcc.yields != 0xFFFF) airAcc.yields++;
         }
         return;
     }
     if (burstYield == BURST_YIELD_HOLDING) {
-        // the hold is over: was it a frame? (a good one - a frame that failed its CRC still held us)
+        // the hold is over: was it a frame?
         if ((uint8_t)halRadioRxFrames() != burstYieldRx) airAcc.yieldFrames = airAdd(airAcc.yieldFrames, 1);
+        else burstYieldChargedUs += (halMicros() - burstYieldSinceUs) & HAL_US_MASK;
         burstYield = BURST_YIELD_FREE;
     }
     burstPos++;
@@ -1849,9 +1768,8 @@ static void burstDoneWaitRoll(void) {
 static uint32_t radioBusyUntilMs(void) {
     const uint32_t now = halMillis();
     if (burstActive) {
-        if (burstSpread) return burstWindowEndMs;
         uint32_t end = now + ((uint32_t)(burstLen - burstPos) * BURST_SLOT_US + 999) / 1000;
-        if (burstWatchDone && burstPos < burstPassLen && burstPassLen < burstLen) end += burstDoneWaitMs[burstFinalBlock];
+        if (burstPos < burstPassLen && burstPassLen < burstLen) end += burstDoneWaitMs[burstFinalBlock];
         if (burstHoldUntil && (int32_t)(burstHoldUntil - now) > 0) end += burstHoldUntil - now;
         return (int32_t)(end - burstWindowEndMs) > 0 ? burstWindowEndMs : end;
     }
@@ -1860,33 +1778,24 @@ static uint32_t radioBusyUntilMs(void) {
     uint32_t frames = (uint32_t)n * burstCopies;
     if (frames > BURST_MAX_FRAMES) frames = BURST_MAX_FRAMES;
     if (frames < n) frames = n;
-    const bool watched = tagLeavesWhenComplete(knownHwType(recFind(dstMac)));
-    if (!watched && frames > n) return windowEnd;  // spread, if it has room; to the window's end either way
     uint32_t end = blockStartTimer + (frames * BURST_SLOT_US + 999) / 1000;
-    if (watched && frames > n) end += burstDoneWaitMs[0];
+    if (frames > n) end += burstDoneWaitMs[0];
     return (int32_t)(end - windowEnd) > 0 ? windowEnd : end;
 }
 
 // Acks a tag whose burst has to wait for another one, with a wait that has it start listening as the
 // radio is free, and puts it in the slot. Its block is asked of the S3 now.
 static void queueBlockRequest(const uint8_t *src, uint16_t pan, const struct blockRequest *br) {
-    const uint8_t hwType = knownHwType(recFind(src));  // a store scan: before the TX buffer is taken
-    const bool early = tagListensEarly(hwType);
     const bool cached = cacheComplete(cacheFind(br->ver, br->blockId));
     const bool again = queuedReq.startMs && memcmp(src, queuedReq.mac, 8) == 0 && queuedReq.req.ver == br->ver &&
                        queuedReq.req.blockId == br->blockId;
     const bool coming = !cached && ((br->ver == requestedData.ver && br->blockId == requestedData.blockId) ||
                                     (again && queuedReq.askedMs));
-    const uint8_t margin = early ? BURST_MARGIN_EARLY_MS : BURST_MARGIN_MS;
-    uint32_t pw = cached ? (early ? PLEASE_WAIT_CACHED_EARLY_MS : PLEASE_WAIT_CACHED_MS) : coming ? PLEASE_WAIT_COMING_MS : dataWaitMs;
-    // Lengthen the wait until the tag starts listening (tagListensAfterAckMs) after the burst in front
-    // of it; the ack ends about 3 ms from now. A few steps: the ZBS243's early start changes at 35 ms.
+    uint32_t pw = cached ? PLEASE_WAIT_QUEUED_MS : coming ? PLEASE_WAIT_COMING_MS : dataWaitMs;
+    // Lengthen the wait so that its burst starts after the one in front of it; the ack ends about 3 ms
+    // from now.
     const int32_t need = (int32_t)(radioBusyUntilMs() - (halMillis() + 3));
-    for (uint8_t i = 0; i < 4; i++) {
-        const int32_t listens = (int32_t)tagListensAfterAckMs(hwType, (uint16_t)pw) + margin;
-        if (listens >= need) break;
-        pw += (uint32_t)(need - listens);
-    }
+    if ((int32_t)pw + BURST_MARGIN_MS < need) pw = (uint32_t)(need - BURST_MARGIN_MS);
     if (pw > 0xFFFF) pw = 0xFFFF;
     struct blockRequestAck *ack =
         (struct blockRequestAck *)prepareNormalFrame(src, pan, PKT_BLOCK_REQUEST_ACK, sizeof(struct blockRequestAck));
@@ -1899,16 +1808,14 @@ static void queueBlockRequest(const uint8_t *src, uint16_t pan, const struct blo
     memcpy(&queuedReq.req, br, sizeof(struct blockRequest));
     memcpy(queuedReq.mac, src, 8);
     queuedReq.pan = pan;
-    queuedReq.marginMs = margin;
     queuedReq.askedMs = askedMs;
-    queuedReq.startMs = halMillis() + (ackInUs + 999) / 1000 + tagListensAfterAckMs(hwType, (uint16_t)pw) + margin;
+    queuedReq.startMs = halMillis() + (ackInUs + 999) / 1000 + pw + BURST_MARGIN_MS;
     if (!queuedReq.startMs) queuedReq.startMs = 1;
     if (!cached && !coming) {
         requestBlockData(src, recFind(src), br, (uint16_t)pw);  // the waiting tag's own record, for its offer
         queuedReq.askedMs = halMillis() ? halMillis() : 1;
     }
     diag.queued++;
-    if (early) diag.earlyBursts++;
 }
 
 // The radio is free: the waiting tag's burst becomes the one that is due, at the time its tag was told
@@ -1917,7 +1824,7 @@ static void promoteQueued(void) {
     memcpy(&requestedData, &queuedReq.req, sizeof(struct blockRequest));
     memcpy(dstMac, queuedReq.mac, 8);
     dstPan = queuedReq.pan;
-    burstMarginMs = queuedReq.marginMs;
+    burstMarginMs = BURST_MARGIN_MS;
     blockStartTimer = queuedReq.startMs;
     if (queuedReq.askedMs) nextBlockAttempt = queuedReq.askedMs;
     queuedReq.startMs = 0;
@@ -2029,12 +1936,10 @@ static void diagAddSigned(char *buf, size_t *n, size_t max, const char *name, in
     }
 }
 
-// How busy the channel is: the share of idle-channel RSSI samples above NF_BUSY_DBM. Idle 2.4 GHz noise
-// sits near -95 dBm and an 802.15.4 frame arrives between -40 and -85, so a fixed threshold separates
-// them. (Not a mean, a margin above the lowest reading, or a percentile: the distribution is bimodal,
-// and the receiver's own floor reads about -109 dBm.) Our own frames are excluded: halRadioIdleRssi()
-// refuses while the radio is busy, and the receiver reads high for NF_TX_RECOVER_US after we transmit.
-#define NF_BUSY_DBM (-80)
+// How busy the channel is: the share of idle-channel RSSI samples above RADIO_BUSY_DBM. (Not a mean, a
+// margin above the lowest reading, or a percentile: the distribution is bimodal, and the receiver's own
+// floor reads about -109 dBm.) Our own frames are excluded: halRadioIdleRssi() refuses while the radio
+// is busy, and the receiver reads high for NF_TX_RECOVER_US after we transmit.
 #define NF_TX_RECOVER_US 400
 
 // AP_DEBUG builds also keep the distribution, 16-bit counts per window (a bucket can reach 1500 at one
@@ -2058,8 +1963,8 @@ static void sampleNoise(void) {
     diag.nfHist[bucket]++;
 #endif
     diag.nfSamples++;
-    // Not derived from nfHist: it decides the burst size, and NF_BUSY_DBM is not a bucket edge
-    if (rssi > NF_BUSY_DBM) diag.nfBusy++;
+    // Not derived from nfHist: it decides the burst size, and RADIO_BUSY_DBM is not a bucket edge
+    if (rssi > RADIO_BUSY_DBM) diag.nfBusy++;
 }
 
 // Percent of samples that found something on the channel; 0 when nothing was sampled
@@ -2208,15 +2113,15 @@ static void diagReport(void) {
     diagAdd(buf, &n, sizeof(buf), "gap ", halRadioTakeReplyGapMaxUs());
     diagAdd(buf, &n, sizeof(buf), "late ", lateRequestsSkipped);
     // tags that went quiet after their burst (burstAnswerSeen), by its timing
-    diagAdd(buf, &n, sizeof(buf), "sile ", diag.silentEarly);
-    diagAdd(buf, &n, sizeof(buf), "sils ", diag.silentSafe);
+    diagAdd(buf, &n, sizeof(buf), "silz ", diag.silentZero);
+    diagAdd(buf, &n, sizeof(buf), "silw ", diag.silentWaited);
     buf[n] = 0;
     v2Log(LOG_INFO, buf);
     // bursts on air: what the tags asked for and what this radio put out
     n = 0;
     diagAdd(buf, &n, sizeof(buf), "xfer brq ", diag.blockReqs);
     diagAdd(buf, &n, sizeof(buf), "bst ", diag.bursts);
-    diagAdd(buf, &n, sizeof(buf), "ebst ", diag.earlyBursts);
+    diagAdd(buf, &n, sizeof(buf), "zbst ", diag.zeroBursts);
     diagAdd(buf, &n, sizeof(buf), "xfc ", diag.xfc);
     diagAdd(buf, &n, sizeof(buf), "rereq ", diag.rereqs);
     diagAdd(buf, &n, sizeof(buf), "rparts ", diag.rereqParts);
@@ -2307,15 +2212,16 @@ static void diagReport(void) {
         const bool hwDue = bootFactsLogged && sig != hwLastSig;
         const bool stkDue = bootFactsLogged && stkSig != stkLastSig;
         const bool otherDue = !bootFactsLogged || hwDue || stkDue;
-        const bool airDue = airAcc.burstMs || airAcc.yields || airAcc.yieldTimeouts;
+        const bool airDue = airAcc.burstMs || airAcc.yields || airAcc.yieldMs;
         if (airDue && !otherDue) {
-            // since the last air line: parts held for an arriving frame (yld), holds that ended in a
-            // frame (ylf) or ran out (yto); fh/fe since boot (see flagSample); other tags' frames (oth),
-            // burst ms (btx), estimated harm (hrm); burstDoneWaitMs (dn, dx). 98 characters at most.
+            // since the last air line: parts held while the channel was in use (yld), holds that ended
+            // in a frame (ylf), ms of the others (yms); fh/fe since boot (see flagSample); other tags'
+            // frames (oth), burst ms (btx), estimated harm (hrm); burstDoneWaitMs (dn, dx). 98 characters
+            // at most.
             n = 0;
             diagAdd(buf, &n, sizeof(buf), "air yld ", airAcc.yields);
             diagAdd(buf, &n, sizeof(buf), "ylf ", airAcc.yieldFrames);
-            diagAdd(buf, &n, sizeof(buf), "yto ", airAcc.yieldTimeouts);
+            diagAdd(buf, &n, sizeof(buf), "yms ", airAcc.yieldMs);
             diagAdd(buf, &n, sizeof(buf), "fh ", flagHigh);
             diagAdd(buf, &n, sizeof(buf), "fe ", flagFrameUs / 1000);
             diagAdd(buf, &n, sizeof(buf), "oth ", airAcc.others);

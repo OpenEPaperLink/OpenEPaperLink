@@ -90,7 +90,7 @@ Migration step 4: an open firmware for the TLSR8258 radio, `ARM_Tag_FW/OpenEPape
 - [x] #40 TLSR AP: block cache in all the SRAM the link leaves, shared with the tag store; blocks at their own length; eviction by where each transfer stands — `42b475a3`; ≈ 53 KB in a default build
 - [x] #41 TLSR AP: wait for an uncached block learned from the S3 instead of a fixed 140 ms (C2) — `42b475a3`
 - [x] #42 TLSR AP: replies started by the radio's state machine at a fixed 1220 µs (1700 µs for a PONG) — `42b475a3`
-- [x] #43 TLSR AP: burst start per tag family, bursts fill the tag's window with adaptive copies, the radio listens between parts (E4, R5) — `42b475a3`
+- [x] #43 TLSR AP: bursts fill the tag's window with adaptive copies, the radio listens between parts (E4, R5) — `42b475a3`
 - [x] #44 TLSR AP: a second tag's block request waits for the running burst instead of getting CANCEL_XFER — `42b475a3`
 - [x] #45 TLSR AP: the configured TX power is applied (C6/H2: #11) — `42b475a3`
 - [x] #46 TLSR AP: stacks sized at build time from a static call-graph analysis (`tools/stackdepth.py`) — `42b475a3`
@@ -98,8 +98,9 @@ Migration step 4: an open firmware for the TLSR8258 radio, `ARM_Tag_FW/OpenEPape
 
 Done when: tested with tag families other than ZBS243, and `firmware_TLSR.json` points at the open firmware.
 
-- [ ] #47 C6/H2: take over what the TLSR AP does differently — a waiting slot instead of CANCEL_XFER, window-sized bursts with adaptive copies, per-family burst start, the learned data wait, transfer-aware eviction, blocks at their own length ([comparison](radio-protocol-v2.md#the-tlsr8258-ap))
+- [ ] #47 C6/H2: take over what the TLSR AP does differently — a waiting slot instead of CANCEL_XFER, window-sized bursts with adaptive copies, a wait of 0 for cached blocks, the learned data wait, transfer-aware eviction, blocks at their own length ([comparison](radio-protocol-v2.md#the-tlsr8258-ap))
 - [ ] #48 S3: preload as many blocks as fit instead of all or nothing, and keep the `wantPreload()` reservation until its blocks are in (the next STATUS overwrites it)
+- [ ] #49 TLSR AP: confirm the wait of 0 for cached blocks on tags other than ZBS243 (an nRF52811 before 0x002D above all: the 3 ms hold is an estimate of its radio restart), and what the energy hold gains under real interference
 
 ## Independent
 

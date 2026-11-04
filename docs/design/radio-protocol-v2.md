@@ -156,10 +156,10 @@ The open TLSR8258 firmware (`ARM_Tag_FW/OpenEPaperLink_TLSR_AP`, version 0x0080)
 | | C6/H2 (0x0024) | TLSR AP (0x0080) |
 | --- | --- | --- |
 | Block cache | heap, fixed 4 KB slots, up to 64 blocks; LRU eviction | the SRAM the link leaves (≈ 53 KB), shared with the tag store; each block at its own length + 24 B; evicts by where each transfer stands, so the block a tag needs next goes last |
-| Wait for an uncached block | 140 ms | learned: the slowest S3 answer seen + 26 ms, at most 550 ms; it never falls |
-| Burst start | `pleaseWaitMs` + 5 ms | per tag family (`tagListensAfterAckMs()`): a ZBS243 25 ms early, an Opticon 40 ms late |
+| Wait for an uncached block | 140 ms | learned: the slowest S3 answer seen + 20 ms, at most 550 ms; it never falls |
+| Burst start | `pleaseWaitMs` + 5 ms | the same for every tag: from the cache `pleaseWaitMs` 0 and 3 ms after the ack, otherwise `pleaseWaitMs` + 5 ms |
 | Burst size | each part once, repeated up to twice the parts, ≤ 42 frames | fills the tag's 260 ms window (≤ 52 frames); copies start at 2 and adapt to re-requests and channel load |
-| During a burst | one frame per loop pass, the full list | a part waits for a frame that is arriving; passes are spread over the window; stops when the tag is done |
+| During a burst | one frame per loop pass, the full list | a part waits for a frame that is arriving (a receive flag up longer than a frame lasts is ignored for the rest of the burst), and for energy above -80 dBm (30 ms a burst at most, not on a channel busy ≥ 25 %); a pass waits for as long as tags have been seen to take to ask for their next block; stops when the tag is done |
 | Block request during another tag's burst | CANCEL_XFER for 1.2 s | acked with a wait that ends after the burst; only a third tag gets CANCEL_XFER |
 | Replies | sent when ready | started by the radio 1220 µs after the request ends (1700 µs for a PONG) |
 | TX power | not applied (#11) | applied |

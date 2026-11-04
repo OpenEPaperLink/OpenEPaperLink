@@ -598,7 +598,10 @@ uint8_t *halRadioTxFrame(void) {
 // wait delays no reply. With yieldToRx, a frame being received (is_rf_receiving_pkt(), 0x448 bit 5,
 // the test Telink's 802.15.4 MAC uses) or waiting in the ring takes precedence: sending would cut it
 // off, or push its reply ~4.3 ms past its due tick. The slot being read (rxHeld) is not waiting.
-bool halRadioTx(bool yieldToRx) {
+// yieldToEnergy reads the channel at the end of the gap, past the time the receiver reads high after
+// we transmit (NF_TX_RECOVER_US in ap.c), and catches what the radio cannot decode, such as WiFi. It
+// gets no reading while the receive flag is up (halRadioIdleRssi), so a stuck flag hides the channel.
+bool halRadioTx(bool yieldToRx, bool yieldToEnergy) {
     const uint32_t gapEnd = txEndTick + RADIO_BURST_GAP_US * sys_tick_per_us;
     const int32_t left = (int32_t)(gapEnd - clock_time());
     if (left > 0 && left <= (int32_t)(RADIO_BURST_GAP_US * sys_tick_per_us)) WaitUs((uint32_t)left / sys_tick_per_us);
@@ -606,6 +609,8 @@ bool halRadioTx(bool yieldToRx) {
         const int queued = (int)((rxHead + RX_SLOTS - rxTail) % RX_SLOTS) - (rxHeld ? 1 : 0);
         if (queued > 0 || is_rf_receiving_pkt()) return false;
     }
+    int8_t rssi;
+    if (yieldToEnergy && halRadioIdleRssi(&rssi) && rssi > RADIO_BUSY_DBM) return false;
     radioSend();
     return true;
 }

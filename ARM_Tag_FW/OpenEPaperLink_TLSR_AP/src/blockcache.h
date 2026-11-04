@@ -13,7 +13,7 @@
 // gone out to one (cacheServed), and evicts the block whose tag is least likely to ask for it next -
 // see cacheClaim.
 //
-// The blocks and the tag store (ap.c: allow-list, pending entries, hwTypes) share one arena,
+// The blocks and the tag store (ap.c: allow-list, pending entries) share one arena,
 // partitioned at run time. The store grows from the low end, the blocks are packed against the high
 // end, and when the store needs bytes the blocks hold, the cache gives way through its eviction
 // policy. The store never waits for room: an allow-list overflow costs the whole inventory lock until

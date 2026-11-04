@@ -82,11 +82,16 @@ void halRadioRxDone(void);  // the frame halRadioRx() returned goes back to the 
 // The TX buffer, once the last frame has left: packet[0] = MAC frame length + 2 (FCS), packet[1..] the
 // frame (HAL_RADIO_MAX_FRAME at most). After the send it may be read, not written, until the next call.
 uint8_t *halRadioTxFrame(void);
-// Sends the buffer as a burst frame RADIO_BURST_GAP_US after the last one. With yieldToRx, returns
-// false without sending if a frame is arriving or waiting; the next halRadioTxFrame() discards it.
-bool halRadioTx(bool yieldToRx);
+// Above this the channel is in use. An absolute level, not a learned one: the RSSI is in dBm, idle noise
+// sits near -95 and an 802.15.4 frame arrives between -40 and -85, while anything learned from the
+// readings is pulled up by what it is meant to detect.
+#define RADIO_BUSY_DBM (-80)
+// Sends the buffer as a burst frame RADIO_BURST_GAP_US after the last one. Returns false without sending
+// if, with yieldToRx, a frame is arriving or waiting, or, with yieldToEnergy, the channel is above
+// RADIO_BUSY_DBM; the next halRadioTxFrame() discards it.
+bool halRadioTx(bool yieldToRx, bool yieldToEnergy);
 bool halRadioTxBusy(void);
-// The receiver is in the middle of a frame (TLSR: 0x448 bit 5), the test halRadioTx() yields to
+// The receiver is in the middle of a frame (TLSR: 0x448 bit 5), a test halRadioTx() yields to
 bool halRadioRxArriving(void);
 // Sends the buffer as a reply to the frame halRadioRx() returned last, its preamble starting delayUs
 // after the end of that frame whatever the processing took ("reply timing" in ap.c)

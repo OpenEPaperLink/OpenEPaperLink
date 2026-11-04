@@ -12,8 +12,8 @@ protocol v2 support, as it does for the C6/H2 from 0x0023. An older S3 won't rec
 
 ## Status
 
-Beta. It runs on an OpenEPaperLink Nano TLSR serving ZBS243 tags. Other tag families are timed from a
-reading of their firmware, not from tests with this radio. `firmware_TLSR.json` still offers the
+Beta. It runs on an OpenEPaperLink Nano TLSR serving ZBS243 tags. Other tag families haven't been tried
+with this radio; what the code assumes about them comes from reading their firmware. `firmware_TLSR.json` still offers the
 closed-source image by default; the beta build is `binaries/TLSR/OEPL_TLSR_AP_0080_beta.bin`.
 
 ## Compared with the closed-source firmware
@@ -21,7 +21,7 @@ closed-source image by default; the beta build is `binaries/TLSR/OEPL_TLSR_AP_00
 | | closed-source (`0x007C`) | this firmware (`0x0080`) |
 | --- | --- | --- |
 | S3 link | ASCII protocol, 115200 baud | protocol v2 at 2 Mbaud: COBS frames, CRC16, sequence numbers, ACKs and retransmission |
-| Block data | fetched from the S3 for every request; the tag waits 550 ms | block cache in the radio, preloaded by the S3: a cached block costs the tag a 10-15 ms wait; otherwise the wait starts at 140 ms and rises if the S3 proves slower |
+| Block data | fetched from the S3 for every request; the tag waits 550 ms | block cache in the radio, preloaded by the S3: a cached block costs the tag no wait; otherwise the wait starts at 140 ms and rises if the S3 proves slower |
 | Cache size | none | all the SRAM the image leaves, shared with the tag store: about 53 KB of block data in a default build, never less than 7 full blocks |
 | Block burst | 42 frames, blocking | up to 260 ms, which fits the tag's listening window (about 52 frames); copies per part adapt to the channel; one frame per main-loop pass, so the S3 is served in between |
 | Radio TX | radio re-initialised and a 500 µs wait before every frame | radio stays initialised; replies started by the radio's state machine 1220 µs after the request |
@@ -34,7 +34,7 @@ closed-source image by default; the beta build is `binaries/TLSR/OEPL_TLSR_AP_00
 ## How it works
 
 - **One arena.** Everything the link leaves between `.bss` and the main stack is one arena, shared by
-  the block cache and the tag store (allow-list, pending entries, hwTypes). When the store needs room,
+  the block cache and the tag store (allow-list, pending entries). When the store needs room,
   the cache evicts the block the tags are least likely to ask for next. Nothing has a compile-time
   size: at boot the firmware derives the maxima from the arena and announces them (`cacheKb` in
   HELLO_REPLY; `ckb`, `tags`, `pend` and `ofr` on the `cfg` LOG line). The cache always keeps 7 full
@@ -43,20 +43,24 @@ closed-source image by default; the beta build is `binaries/TLSR/OEPL_TLSR_AP_00
   lock until the link restarts. A block costs its length plus 24 bytes (4120 for a full 4 KB block). A
   tag costs a 12-byte record plus a share of an 8-byte profile (tags whose MACs differ only in their
   serial bytes share one), plus a 16-byte offer while content waits for it.
-- **Bursts are timed per tag family.** A burst starts when the tag's family really listens, counted
-  from the moment the block request ack leaves the antenna: a ZBS243 listens 5 or 25 ms before its
-  wait ends, nRF52811 and other M3 tags when it ends, an Opticon 40 ms after. A tag whose hwType the
-  radio hasn't seen in a full check-in gets the safe timing.
+- **One burst timing for every tag.** How a tag spends a wait depends on its chip and on its firmware
+  version, so the radio doesn't try to know. A block in the cache gets a wait of 0, which every tag
+  answers by receiving straight away, and the burst follows 3 ms after the ack (an nRF52811 before
+  firmware 0x002D restarts its radio first). After any other wait the burst starts 5 ms after it ends.
 - **Bursts are sized to the window.** Every requested part goes out at least once, and parts are
   repeated as long as the tag's window allows. Copies per part start at 2 and move with what the radio
   measures: fewer when its bursts are estimated to cost other tags' requests more than the repeats
   save, more when tags come back for missed parts and the channel is less than 25 % busy. No signal,
   no change.
 - **Bursts listen.** A part that falls due while a frame is arriving waits for it, so that frame is
-  answered instead of cut off. A ZBS243 asks for the next block as soon as it has one, so after the
-  first pass the radio pauses to listen for that request, for as long as such tags have been seen to
-  take; other families get their passes spread over the window. A burst stops when its tag asks for
-  something else.
+  answered instead of cut off. It also waits while the channel reads above -80 dBm, for what the radio
+  can't decode, such as WiFi, so a clean channel costs nothing. Holds no frame comes of are limited to
+  30 ms a burst, and on a channel busy 25 % of the time or more the burst doesn't wait for energy at
+  all. A receive flag that stays up longer than a frame lasts is stuck, and is ignored for the rest of
+  the burst. A tag that leaves once it has the block asks for the next one at once, so after a pass the
+  radio pauses to listen for that request, for as long as tags have been seen to take; a tag that
+  listens out its whole window loses at most the repeats the pause pushes past its window. A burst
+  stops when its tag asks for something else.
 - **Replies are scheduled.** The radio stays initialised and switches from TX back to RX in the TX
   interrupt. A reply is started by the radio's own state machine at a fixed time after the request
   (1220 µs, 1700 µs for a PONG), however long the processing took. Register use follows the Telink
@@ -147,7 +151,7 @@ four lines below and at most one of the next four:
 | `boot` | once after start: PA and timing registers, applied power, reset reason, crystal registers |
 | `hw` | high-water marks of the UART ring, main-loop time, queues and pending entries, when one rises |
 | `stk` | stack high-water marks (main, `irq`), with a warning if one passes 3/4 of its size |
-| `air` | after bursts: holds for arriving frames, other tags heard, burst airtime, estimated cost to others, learned waits (`dn`, `dx`) |
+| `air` | after bursts: holds while the channel was in use (`yld`), those that ended in a frame (`ylf`), ms of the others (`yms`), other tags heard, burst airtime, estimated cost to others, learned waits (`dn`, `dx`) |
 
 Besides these: `cfg` when SET_CONFIG changes a setting (channel, power, lock, LED, and the derived
 maxima `ckb`, `tags`, `pend`, `ofr`, `prof`); `blk <n> parts ...` for every block request and

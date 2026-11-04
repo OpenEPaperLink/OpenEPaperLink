@@ -281,9 +281,13 @@ static void txSend(void) {
 static int rxArriving = 0;
 void simSetRxArriving(int on) { rxArriving = on; }
 bool halRadioRxArriving(void) { return rxArriving != 0; }
-bool halRadioTx(bool yieldToRx) {
+static int8_t idleRssi = -95;
+void simSetIdleRssi(int dbm) { idleRssi = (int8_t)dbm; }
+bool halRadioTx(bool yieldToRx, bool yieldToEnergy) {
     const int queued = (rxHead + RX_SLOTS - rxTail) % RX_SLOTS - (rxHeld ? 1 : 0);
     if (yieldToRx && (rxArriving || queued > 0)) return false;
+    int8_t rssi;
+    if (yieldToEnergy && halRadioIdleRssi(&rssi) && rssi > RADIO_BUSY_DBM) return false;
     txSend();
     return true;
 }
@@ -302,10 +306,9 @@ uint32_t halRadioTakeReplyGapMaxUs(void) { return 0; }
 // What the receiver reads on an idle channel. Settable so a test can feed a known distribution
 // through sampleNoise() and check the histogram against it: with one fixed value there is only ever
 // one bucket, which exercises neither the bucket arithmetic nor the rule that a bucket holding any
-// sample at all must not read zero.
-static int8_t idleRssi = -95;
-void simSetIdleRssi(int dbm) { idleRssi = (int8_t)dbm; }
+// sample at all must not read zero. As on the TLSR, there is no reading while the receive flag is up.
 bool halRadioIdleRssi(int8_t *dbm) {
+    if (rxArriving) return false;
     *dbm = idleRssi;
     return true;
 }

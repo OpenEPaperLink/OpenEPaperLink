@@ -124,7 +124,7 @@ def parse_normal(f):
 
 # --- fleets ------------------------------------------------------------------------------------
 # What a fleet's MACs look like decides what the radio's tag store costs: a record is mac[0], mac[2], mac[3] and a profile index, and the
-# profile is the other five bytes and the hwType. These are the fleets the tests that count bytes use.
+# profile is the other five bytes. These are the fleets the tests that count bytes use.
 # This installation's tags, printed mac[7] first as the S3 does (tag_db.cpp):
 SITE_MACS = ["0000021C5A6B341D", "0000032CA1B23E17", "00000335C3D43E1A", "0000BC9FE5F66580"]
 
@@ -564,13 +564,13 @@ def transfer_preloaded():
     assert struct.unpack_from("<QIBBH", adi, 1) == (ver, 6000, 0x20, 1, 0)
     ev = sim.pump_events()
     assert ev[0][0] == CHECKIN and struct.unpack_from("<Q", ev[0][3], 19)[0] == ver and ev[0][3][27] == 0x20
-    # block 0, all parts: cached, so 15 ms, the burst 5 ms after that
+    # block 0, all parts: cached, so a wait of 0, the burst 3 ms after that
     t0 = sim.time()
     sim.radio_in(block_request(tag, ver, 0))
     ack = parse_normal(sim.radio_out()[0])
-    assert ack["type"] == PKT_BLOCK_REQUEST_ACK and struct.unpack_from("<H", ack["payload"], 1)[0] == 15
-    sim.advance(19)
-    assert sim.radio_out() == [], "no burst before pleaseWaitMs + margin"
+    assert ack["type"] == PKT_BLOCK_REQUEST_ACK and struct.unpack_from("<H", ack["payload"], 1)[0] == 0
+    sim.advance(2)
+    assert sim.radio_out() == [], "no burst before the hold is over"
     sim.advance(2)
     sim.drain()
     parts = sim.radio_out()
@@ -582,21 +582,14 @@ def transfer_preloaded():
     ev = sim.pump_events()
     assert [e[0] for e in ev] == [BLOCK_SERVED], ev
     mac, bver, bid, preq, fsent, late = struct.unpack("<8sQBBBh", ev[0][3])
-    # late_ms is how long after the tag started listening the burst began: the 5 ms margin
-    assert (mac, bver, bid, preq, fsent) == (tag, ver, 0, 42, BURST_MAX_FRAMES) and 5 <= late <= 7, late
-    # block 1, a partial request of 3 parts: each twice - and, since this tag's family is unknown and
-    # so may listen out its whole window, the two passes are spread over that window rather than sent
-    # back to back, so a clump of loss cannot take out both copies of a part
+    # late_ms is how long after the tag's wait the burst began: the 3 ms hold
+    assert (mac, bver, bid, preq, fsent) == (tag, ver, 0, 42, BURST_MAX_FRAMES) and 3 <= late <= 5, late
+    # block 1, a partial request of 3 parts: each twice, back to back with no tag's answer to wait for
     sim.radio_in(block_request(tag, ver, 1, parts=[0, 5, 19], partial=True))
     assert parse_normal(sim.radio_out()[0])["type"] == PKT_BLOCK_REQUEST_ACK
-    sim.advance(25)
+    sim.advance(60)
     sim.drain()
-    first = check_burst(sim.radio_out(), tag, data, 1, [0, 5, 19])
-    assert first == [0, 5, 19], "the first pass goes out at once"
-    sim.advance(200)
-    assert sim.radio_out() == [], "the second pass waits for the end of the window"
-    sim.advance(80)
-    seen = first + check_burst(sim.radio_out(), tag, data, 1, [0, 5, 19])
+    seen = check_burst(sim.radio_out(), tag, data, 1, [0, 5, 19])
     assert sorted(seen) == [0, 0, 5, 5, 19, 19]
     check_schedule(seen, [0, 5, 19])
     sim.pump_events()
@@ -651,32 +644,17 @@ def transfer_data_needed():
 
 
 @test
-def early_burst_for_zbs243_tags():
-    """Each tag family spends pleaseWaitMs differently, so the burst has to start at a different time:
-
-    0x04 ZBS243   busy-waits with the radio on and listens 5 ms early -> wait 10, burst at 10-5+1
-    0x27 ZBS243   the last M2 hwType, same as any other M2            -> wait 10, burst at 10-5+1
-    0x07 Opticon  radio OFF until pleaseWaitMs + 40 ms              -> wait 15, burst at 15+40+5
-    0x33 nRF52811 sleeps the full wait, radio off                   -> wait 15, burst at 15+5
-    0x28 M3       the FIRST M3 hwType (resources/tagtypes/28.json,
-                  "M3 1.6\\" BWRY"): an nRF52811, so it sleeps too,
-                  although it sorts below the 0x2E this used to use -> wait 15, burst at 15+5
-    0x2D M3       the last of that range ("M3 12.2\\"")              -> wait 15, burst at 15+5
-    0x05 88MZ100  busy-waits the full wait, and shares its hwType
-                  with Solum M2, so it takes the safe side          -> wait 15, burst at 15+5
-    unknown       the safe side                                     -> wait 15, burst at 15+5
-    """
+def every_tag_gets_the_same_burst_timing():
+    """How a tag spends a wait depends on its chip and on its firmware version, and hwType says nothing
+    about the version, so the radio does not ask. Whatever a tag reports: from the cache a wait of 0 and
+    the burst 3 ms after the ack, and from the S3 the learned wait and the burst 5 ms after it."""
     sim = Sim()
     start_v2(sim)
     data = make_file(3000)
-    for tag, hw, want_wait, want_burst_ms, want_margin in ((bytes([0xA4] + [1] * 7), 0x04, 10, 6, 1),
-                                                           (bytes([0xA9] + [1] * 7), 0x27, 10, 6, 1),
-                                                           (bytes([0xA7] + [1] * 7), 0x07, 15, 60, 5),
-                                                           (bytes([0xA5] + [1] * 7), 0x33, 15, 20, 5),
-                                                           (bytes([0xAA] + [1] * 7), 0x28, 15, 20, 5),
-                                                           (bytes([0xAB] + [1] * 7), 0x2D, 15, 20, 5),
-                                                           (bytes([0xA8] + [1] * 7), 0x05, 15, 20, 5),
-                                                           (bytes([0xA6] + [1] * 7), None, 15, 20, 5)):
+    want_wait, want_burst_ms, want_margin = 0, 3, 3
+    for mac0, hw in ((0xA4, 0x04), (0xA9, 0x27), (0xA7, 0x07), (0xA5, 0x33), (0xAA, 0x28), (0xAB, 0x2D),
+                     (0xA8, 0x05), (0xA6, None)):
+        tag = bytes([mac0] + [1] * 7)
         ver = 0x700 + tag[0]
         sim.request(SET_PENDING, tag + struct.pack("<QIBBHHB", ver, len(data), 0x20, 0, 0, 10, 0), expect=ACK)
         send_block(sim, ver, data, 0)
@@ -695,8 +673,29 @@ def early_burst_for_zbs243_tags():
         sim.drain()
         check_burst(sim.radio_out(), tag, data, 0, range(42))
         ev = [e for e in sim.pump_events() if e[0] == BLOCK_SERVED]
-        # late_ms: how long after the tag started listening the burst began, so the margin
+        # late_ms: how long after the tag's wait the burst began: the hold
         assert ev and want_margin <= struct.unpack_from("<h", ev[0][3], 19)[0] <= want_margin + 1, ev
+    # and the block the S3 has to send: the same for a tag that once wrote a pw - 25 and one that sleeps it
+    for mac0, hw in ((0xAC, 0x04), (0xAD, 0x33)):
+        tag = bytes([mac0] + [1] * 7)
+        ver = 0x700 + mac0
+        sim.request(SET_PENDING, tag + struct.pack("<QIBBHHB", ver, len(data), 0x20, 0, 0, 10, 0), expect=ACK)
+        sim.radio_in(avail_data_req(tag, hw=hw))
+        sim.radio_out()
+        sim.pump_events()
+        sim.advance(1300)
+        sim.radio_out()
+        sim.radio_in(block_request(tag, ver, 0))
+        ack = parse_normal(sim.radio_out()[0])
+        assert struct.unpack_from("<H", ack["payload"], 1)[0] == 140, hw
+        send_block(sim, ver, data, 0)
+        sim.advance(140)
+        assert sim.radio_out() == [], hw
+        sim.advance(8)
+        sim.drain()
+        check_burst(sim.radio_out(), tag, data, 0, range(42))
+        ev = [e for e in sim.pump_events() if e[0] == BLOCK_SERVED]
+        assert ev and 5 <= struct.unpack_from("<h", ev[0][3], 19)[0] <= 6, ev
 
 
 @test
@@ -737,10 +736,8 @@ def download_wait_only_ever_grows():
     # an answer slower than promised raises it above what that block took
     assert uncached_wait(200) == 140
     raised = uncached_wait(5)
-    # and by exactly the margin that puts a ZBS243's early wake on the burst rather than before the
-    # block exists: it sleeps pleaseWaitMs - 25 and then switches its receiver on, so the wait has to
-    # clear the slowest answer seen by those 25 ms plus the burst's own 1 ms margin
-    assert 226 <= raised <= 227, raised
+    # by the margin over the slowest answer seen
+    assert 220 <= raised <= 221, raised
     # a block that never arrives backs it off further, and it stays in range
     before = raised
     after = uncached_wait(5, deliver=False)
@@ -873,6 +870,7 @@ def busy_with_other_tag_and_unknown_tag():
     sim.radio_in(block_request(a, 5, 0))
     sim.radio_out()
     sim.advance(5)
+    sim.radio_out()  # a's burst has started
     sim.radio_in(block_request(b, 6, 0))
     out = [parse_normal(f) for f in sim.radio_out()]
     assert out and out[0]["type"] == PKT_CANCEL_XFER and out[0]["dst"] == b
@@ -1097,7 +1095,7 @@ def cache_eviction_and_pin():
     assert struct.unpack_from("<H", parse_normal(sim.radio_out()[0])["payload"], 1)[0] == 140  # evicted
     sim.pump_events()
     sim.radio_in(block_request(tag, 0x55, 6))
-    assert struct.unpack_from("<H", parse_normal(sim.radio_out()[0])["payload"], 1)[0] == 15
+    assert struct.unpack_from("<H", parse_normal(sim.radio_out()[0])["payload"], 1)[0] == 0
     # chunks that do not fit a block are refused
     r = sim.request(DATA_CHUNK, struct.pack("<QII", 9, 100, 5000) + b"x" * 10, expect=NAK)
     assert r[3] == bytes([3])
@@ -1114,7 +1112,7 @@ def cache_eviction_and_pin():
     send_block(sim, 0x99, data, 0)  # nothing offers 0x99; the sixth slot
     send_block(sim, 0x77, data, 5)  # full, so one of the six has to go
     for b in range(6):
-        assert ask_block(sim, other, 0x77, b) == 15, b
+        assert ask_block(sim, other, 0x77, b) == 0, b
         sim.pump_events()
     # and the block nothing offered is the one that went, so it has to come from the S3 again
     assert ask_block(sim, other, 0x99, 0) >= 140
@@ -1122,7 +1120,7 @@ def cache_eviction_and_pin():
 
 
 def ask_block(sim, tag, ver, block):
-    """A whole-block request; returns the pleaseWaitMs the radio promised (15 cached, 140 from the S3)"""
+    """A whole-block request; returns the pleaseWaitMs the radio promised (0 cached, 140 from the S3)"""
     sim.radio_in(block_request(tag, ver, block))
     out = [parse_normal(f) for f in sim.radio_out()]
     assert out and out[0]["type"] == PKT_BLOCK_REQUEST_ACK, out
@@ -1133,13 +1131,16 @@ def run_block(sim, tag, ver, data, block):
     """One block of a transfer the whole way: the request, the block from the S3 when the cache does
     not have it, and the burst that takes it to the tag. Returns the promised pleaseWaitMs."""
     wait = ask_block(sim, tag, ver, block)
-    if wait != 15:
+    if wait != 0:
         ev = sim.pump_events()
         assert [e[0] for e in ev] == [DATA_NEEDED], ev
         send_block(sim, ver, data, block)
     sim.advance(wait + 10)
     sim.drain()
-    assert sim.radio_out(), "no burst for block %d" % block
+    frames = sim.radio_out()
+    sim.advance(20)  # the pause after the first pass, once a tag has been seen to ask for its next block
+    sim.drain()
+    assert frames + sim.radio_out(), "no burst for block %d" % block
     assert [e[0] for e in sim.pump_events() if e[0] != LOG] == [BLOCK_SERVED]
     return wait
 
@@ -1149,7 +1150,7 @@ def two_transfers_keep_their_own_blocks():
     """Two tags downloading at once do not both fit in the cache, so it has to evict. The block a tag
     has not asked for yet is the oldest of its image, so by age it was the first to go and the other
     tag's download took exactly the blocks that were about to be needed - each of them 140 ms of
-    radio-on time for the tag instead of 15. Blocks still to come now outlive blocks already
+    waiting for the tag instead of none. Blocks still to come now outlive blocks already
     delivered, whichever transfer they belong to."""
     sim = Sim()
     start_v2(sim)
@@ -1164,7 +1165,7 @@ def two_transfers_keep_their_own_blocks():
         send_block(sim, va, da, blk)
     st = struct.unpack("<IBBbBHHHIIHHHHB", sim.request(HEARTBEAT, expect=STATUS)[3])
     assert st[7] == 16, st
-    assert run_block(sim, a, va, da, 0) == 15
+    assert run_block(sim, a, va, da, 0) == 0
 
     # B downloads its whole image in between, a block at a time from the S3. Its last two blocks have
     # to take a slot from something: A's delivered block 0 first, then B's own delivered block 0.
@@ -1175,7 +1176,7 @@ def two_transfers_keep_their_own_blocks():
     # A comes back to a cache that still holds everything it has not had yet
     sim.advance(1300)
     for blk in (1, 2, 3):
-        assert run_block(sim, a, va, da, blk) == 15, blk
+        assert run_block(sim, a, va, da, blk) == 0, blk
     # and it was the blocks both tags were finished with that paid for B's download
     sim.advance(1300)
     assert ask_block(sim, a, va, 0) == 140
@@ -1211,6 +1212,7 @@ def evictions_and_cancel_reasons_are_reported():
     sim.radio_in(block_request(a, 0x55, 7))
     sim.radio_out()
     sim.advance(5)
+    sim.radio_out()  # a's burst has started
     sim.radio_in(block_request(b, 0x66, 0))  # a is being served: b waits its turn
     out = [parse_normal(f) for f in sim.radio_out()]
     assert out and out[0]["type"] == PKT_BLOCK_REQUEST_ACK and out[0]["dst"] == b, out
@@ -1821,7 +1823,7 @@ def repeated_request_during_burst_keeps_it_running():
         sim.advance(1300)
         sim.radio_in(block_request(tag, 4, 0, parts=[7, 9], partial=True))
         ack = parse_normal(sim.radio_out()[0])
-        assert ack["type"] == PKT_BLOCK_REQUEST_ACK and struct.unpack_from("<H", ack["payload"], 1)[0] != 0
+        assert ack["type"] == PKT_BLOCK_REQUEST_ACK
         sim.advance(400)
         check_burst(sim.radio_out(), tag, data, 0, [7, 9])
     finally:
@@ -1829,29 +1831,21 @@ def repeated_request_during_burst_keeps_it_running():
 
 
 @test
-def mid_burst_reack_waits_for_a_tag_whose_radio_is_off():
-    """The re-ack carries pleaseWaitMs 0 for every family, and the part that differs per family is the
-    burst, not the ack. ZBS243, Opticon, 88MZ100 and the TLSR tag all guard their wait with
-    "if (pleaseWaitMs)" and carry straight on receiving, so for them the burst must not pause at all.
-    The M3 families sleep through a zero wait regardless and then re-initialise the radio, so for them
-    - and for a tag whose family has never been seen - the burst holds its frames until that is over.
+def mid_burst_reack_holds_the_burst_for_every_tag():
+    """The re-ack carries pleaseWaitMs 0, and the burst holds its frames for 3 ms after it. An nRF52811
+    before firmware 0x002D sleeps through a zero wait regardless and restarts its radio, so the frames
+    it would miss are the ones it would come back for, at the cost of another receive window. Every
+    other tag carries straight on receiving, which costs it those 3 ms of silence.
 
-    Naming a non-zero wait instead is not the answer: anything an M3 could sleep through has to be at
-    least 10 ms to clear the ZBS243's "pleaseWaitMs - 5" and the TLSR tag's "- 10" underflow, and a
-    ZBS243 spends a wait below 35 ms busy-waiting with its receiver ON - 10 ms of radio to cure a
-    problem it does not have. The hold costs the listening families 3 ms of silence; the frames it
-    keeps back are the ones an M3 would have come back for, and coming back is another 300 ms receive
-    window."""
+    Naming a non-zero wait instead is not the answer: it would have to be at least 10 ms to clear the
+    "pleaseWaitMs - 5" and "- 10" underflows in tag firmware, and many tags spend a wait that short
+    busy-waiting with the receiver on."""
     sim = Sim()
     start_v2(sim)
     data = make_file(4096)
-    lib.simSetAirtime(4)  # so a family that is listening gets a part as soon as the ack is off the air
+    lib.simSetAirtime(4)  # so a burst not held sends a part as soon as the ack is off the air
     try:
-        #  hwType, how many parts may go out in the 5 ms after the re-ack
-        for mac0, hw, want_soon in ((0x30, 0x04, True),    # ZBS243: still listening, hold nothing
-                                    (0x31, 0x33, False),   # nRF52811: sleeps even for 0, then re-inits
-                                    (0x32, 0x28, False),   # the same, reporting an M3 type below 0x2E
-                                    (0x33, None, False)):  # never seen: the same safe side
+        for mac0, hw in ((0x30, 0x04), (0x31, 0x33), (0x32, 0x28), (0x33, None)):
             tag = bytes([mac0] + [8] * 7)
             ver = 0x800 + mac0
             sim.advance(1300)  # past the busy-with-another-tag window of the previous round
@@ -1878,8 +1872,8 @@ def mid_burst_reack_waits_for_a_tag_whose_radio_is_off():
             sim.advance(5)
             soon = sim.radio_out()
             got = [f for f in soon if parse_normal(f)["type"] == PKT_BLOCK_PART]
-            assert bool(got) == want_soon, (hw, len(got))
-            # held or not, the burst still finishes and every part still goes out as one burst
+            assert not got, (hw, len(got))
+            # the burst still finishes and every part still goes out as one burst
             sim.advance(400)
             sim.drain()
             frames += mid + soon + sim.radio_out()
@@ -2046,18 +2040,14 @@ def air_line(sim):
     raise AssertionError("no air line")
 
 
-def burst_setup(sim, mac0, blocks=1, hw=None):
-    """a tag with `blocks` blocks of data in the cache, optionally of a known family, ready to ask"""
+def burst_setup(sim, mac0, blocks=1):
+    """a tag with `blocks` blocks of data in the cache, ready to ask"""
     tag = bytes([mac0] + [8] * 7)
     ver = 0xA00 + mac0
     data = make_file(blocks * 4096)
     sim.request(SET_PENDING, tag + struct.pack("<QIBBHHB", ver, len(data), 0x20, 0, 0, 10, 0), expect=ACK)
     for b in range(blocks):
         send_block(sim, ver, data, b)
-    if hw is not None:
-        sim.radio_in(avail_data_req(tag, hw=hw))
-        sim.radio_out()
-        sim.pump_events()
     sim.advance(1300)  # past the busy-with-another-tag window
     sim.radio_out()
     return tag, ver, data
@@ -2083,7 +2073,7 @@ def a_burst_gives_way_to_a_frame_arriving_in_its_gap():
         other = bytes([0x38] + [8] * 7)
         sim.radio_in(block_request(tag, ver, 0))
         assert parse_normal(sim.radio_out()[0])["type"] == PKT_BLOCK_REQUEST_ACK
-        sim.advance(40)
+        sim.advance(23)
         frames = sim.radio_out()
         assert frames, "burst has started"
         lib.simSetRxArriving(1)  # another tag starts a frame in the gap
@@ -2100,7 +2090,7 @@ def a_burst_gives_way_to_a_frame_arriving_in_its_gap():
         assert [e[0] for e in sim.pump_events() if e[0] == BLOCK_SERVED] == [BLOCK_SERVED]
         air = air_line(sim)
         # one hold, and it was a frame: the evidence that a `yld` means a tag rather than a flag
-        assert air["yld"] == 1 and air["ylf"] == 1 and air["yto"] == 0 and air["oth"] >= 1, air
+        assert air["yld"] == 1 and air["ylf"] == 1 and air["yms"] == 0 and air["oth"] >= 1, air
     finally:
         lib.simSetRxArriving(0)
         lib.simSetAirtime(0)
@@ -2108,9 +2098,10 @@ def a_burst_gives_way_to_a_frame_arriving_in_its_gap():
 
 @test
 def a_receiving_flag_that_never_drops_does_not_stop_a_burst():
-    """A hold lasts at most as long as the longest frame 802.15.4 allows. A flag that stays up longer is
-    not a tag transmitting, so the part goes anyway - and the flag is not trusted again for the rest
-    of that burst, which would otherwise pay a frame's length of silence before every part."""
+    """A flag up for longer than the longest frame lasts, 4.3 ms, is not a tag transmitting, so the part
+    goes anyway - and the flag is not trusted again for the rest of that burst, which would otherwise
+    pay that silence before every part. It has done this on hardware: holding for the whole 30 ms budget
+    cost a tag seven times what the flag could possibly have been worth. The next burst trusts it again."""
     sim = Sim()
     start_v2(sim)
     sim.request(SET_CONFIG, struct.pack("<BBbBB", 0xFF, 0xFF, 0x7F, 1, 0), expect=ACK)
@@ -2125,11 +2116,210 @@ def a_receiving_flag_that_never_drops_does_not_stop_a_burst():
         air = air_line(sim)
         # no frame came of the hold, and the flag was seen up in the idle samples after the burst too:
         # a flag that is up while nothing is received is the signature of one that does not work
-        assert air["yld"] == 1 and air["ylf"] == 0 and air["yto"] == 1, air
+        assert air["yld"] == 1 and air["ylf"] == 0 and 4 <= air["yms"] <= 6, air
         # ... and in its 1 ms looks it was up far more often than any frame received accounts for
         assert air["fh"] >= 100 and air["fh"] > 10 * (air["fe"] + 1), air
+        # the next burst starts out trusting it
+        lib.simSetRxArriving(0)
+        sim.pump_events()
+        sim.advance(1300)
+        sim.radio_out()
+        sim.radio_in(block_request(tag, ver, 0))
+        sim.radio_out()
+        lib.simSetRxArriving(1)
+        sim.advance(10)  # the ack's 4 ms on air and the 3 ms after it, then 3 ms of holding
+        assert parts_of(sim.radio_out()) == [], "a flag up for 3 ms could still be a frame"
+        lib.simSetRxArriving(0)
+        sim.advance(400)
+        assert parts_of(sim.radio_out()), "and the burst was there to hold"
     finally:
         lib.simSetRxArriving(0)
+        lib.simSetAirtime(0)
+
+
+@test
+def a_stuck_flag_hides_the_channel_from_the_energy_check():
+    """The radio gives no RSSI reading while the flag is up, so energy can't be seen past a stuck flag:
+    the part goes after the flag's 4.3 ms, whatever is on the channel, and the budget plays no part."""
+    sim = Sim()
+    start_v2(sim)
+    try:
+        tag, ver, data = energy_burst(sim, 0x44)
+        lib.simSetRxArriving(1)
+        lib.simSetIdleRssi(-60)
+        sim.advance(15)  # the ack's 4 ms on air, the 3 ms after it, and the flag's 4.3 ms
+        assert parts_of(sim.radio_out()), "past the flag's limit the burst goes"
+        sim.advance(400)
+        sim.radio_out()
+        air = air_line(sim)
+        assert air["yld"] == 1 and 4 <= air["yms"] <= 6, air
+    finally:
+        lib.simSetRxArriving(0)
+        lib.simSetIdleRssi(-95)
+        lib.simSetAirtime(0)
+
+
+@test
+def a_frame_late_in_an_energy_hold_is_not_taken_for_a_stuck_flag():
+    """The flag's limit runs from when the flag came up, not from when the hold began: the frame that
+    follows noise on the channel is exactly the one the hold is there for."""
+    sim = Sim()
+    start_v2(sim)
+    try:
+        tag, ver, data = energy_burst(sim, 0x45)
+        lib.simSetIdleRssi(-60)
+        sim.advance(11)  # the burst started 3 ms in: well past a frame's length of holding by now
+        assert parts_of(sim.radio_out()) == []
+        lib.simSetIdleRssi(-95)
+        lib.simSetRxArriving(1)
+        sim.advance(4)
+        assert parts_of(sim.radio_out()) == [], "the frame is still arriving"
+        lib.simSetRxArriving(0)
+        sim.radio_in(avail_data_req(bytes([0x45, 1] + [8] * 6)))
+        frames = [f for f in sim.radio_out() if parse_normal(f)["type"] == PKT_BLOCK_PART]
+        sim.advance(400)
+        frames += sim.radio_out()
+        check_burst(parts_of(frames), tag, data, 0, range(42))
+        air = air_line(sim)
+        assert air["yld"] == 1 and air["ylf"] == 1 and air["yms"] == 0, air
+    finally:
+        lib.simSetRxArriving(0)
+        lib.simSetIdleRssi(-95)
+        lib.simSetAirtime(0)
+
+
+def energy_burst(sim, mac0):
+    """a tag ready to ask, on a channel that has been quiet long enough to read as quiet"""
+    sim.request(SET_CONFIG, struct.pack("<BBbBB", 0xFF, 0xFF, 0x7F, 1, 0), expect=ACK)
+    lib.simSetAirtime(4)
+    tag, ver, data = burst_setup(sim, mac0)
+    sim.pump_events()
+    sim.radio_in(block_request(tag, ver, 0))
+    sim.radio_out()
+    return tag, ver, data
+
+
+@test
+def a_clean_channel_holds_nothing():
+    """The whole point of listening rather than leaving a gap: with nothing on the channel the burst goes
+    exactly when it would have, and a tag pays nothing for the protection."""
+    sim = Sim()
+    start_v2(sim)
+    try:
+        tag, ver, data = energy_burst(sim, 0x40)
+        sim.advance(8)
+        frames = parts_of(sim.radio_out())
+        assert frames, "the burst has started, 3 ms after the ack"
+        sim.advance(400)
+        check_burst(frames + parts_of(sim.radio_out()), tag, data, 0, range(42))
+        air = air_line(sim)
+        assert air["yld"] == 0 and air["yms"] == 0, air
+    finally:
+        lib.simSetAirtime(0)
+
+
+@test
+def a_burst_waits_out_energy_it_cannot_decode():
+    """WiFi holds no frame the radio could lock onto, so the receive flag says nothing, but a part sent
+    into it is lost, and a tag that loses both copies of a part spends a whole further receive window.
+    The burst waits until the channel clears, and carries on with nothing lost."""
+    sim = Sim()
+    start_v2(sim)
+    try:
+        tag, ver, data = energy_burst(sim, 0x41)
+        lib.simSetIdleRssi(-60)
+        sim.advance(15)
+        assert parts_of(sim.radio_out()) == [], "nothing goes while the channel is in use"
+        lib.simSetIdleRssi(-95)
+        sim.advance(400)
+        check_burst(parts_of(sim.radio_out()), tag, data, 0, range(42))
+        assert [e[0] for e in sim.pump_events() if e[0] == BLOCK_SERVED] == [BLOCK_SERVED]
+        air = air_line(sim)
+        # from the moment the part fell due, a few ms after the request, until the channel cleared
+        assert air["yld"] == 1 and air["ylf"] == 0 and 6 <= air["yms"] <= 13, air
+    finally:
+        lib.simSetIdleRssi(-95)
+        lib.simSetAirtime(0)
+
+
+@test
+def energy_that_does_not_clear_costs_the_budget_once():
+    """A noise that stays is not going away for waiting, so a burst waits at most 30 ms for it and then
+    sends everything back to back, with no further holds: the tag is listening meanwhile, and that is
+    the most it can pay. A wrong threshold costs no more than this either."""
+    sim = Sim()
+    start_v2(sim)
+    try:
+        tag, ver, data = energy_burst(sim, 0x42)
+        lib.simSetIdleRssi(-60)
+        sim.advance(28)
+        assert parts_of(sim.radio_out()) == [], "still inside the budget"
+        sim.advance(12)
+        assert parts_of(sim.radio_out()), "the budget is gone, so the burst goes"
+        sim.advance(400)
+        sim.radio_out()
+        assert [e[0] for e in sim.pump_events() if e[0] == BLOCK_SERVED] == [BLOCK_SERVED]
+        air = air_line(sim)
+        assert air["yld"] == 1 and air["yms"] == 30, air
+    finally:
+        lib.simSetIdleRssi(-95)
+        lib.simSetAirtime(0)
+
+
+@test
+def real_frames_do_not_use_up_the_budget():
+    """A tag's frame is why the hold exists and is over within 4.3 ms, so a hold that a good frame came
+    of is free. If it were charged, a busy site would spend the budget on the frames it most wants to
+    hear, and go deaf to the rest of them for the rest of the burst."""
+    sim = Sim()
+    start_v2(sim)
+    try:
+        tag, ver, data = energy_burst(sim, 0x43)
+        sim.advance(8)
+        frames = sim.radio_out()
+        for i in range(12):  # 12 frames of 4 ms: more than the budget if any of it were charged
+            lib.simSetRxArriving(1)
+            sim.advance(4)
+            frames += sim.radio_out()
+            lib.simSetRxArriving(0)
+            sim.radio_in(avail_data_req(bytes([0x44, i] + [8] * 6)))
+            frames += [f for f in sim.radio_out() if parse_normal(f)["type"] == PKT_BLOCK_PART]
+            sim.advance(5)
+            frames += sim.radio_out()
+        sim.advance(400)
+        frames += sim.radio_out()
+        check_burst(parts_of(frames), tag, data, 0, range(42))
+        air = air_line(sim)
+        assert air["yld"] >= 6 and air["ylf"] == air["yld"] and air["yms"] == 0, air
+    finally:
+        lib.simSetRxArriving(0)
+        lib.simSetAirtime(0)
+
+
+@test
+def a_saturated_channel_is_not_waited_for():
+    """On a channel in use a quarter of the time or more, waiting will not clear it, and the burst would
+    only spend its budget every time. The radio already knows that (busy), so it does not try. It still
+    gives way to a frame arriving, which is over soon whatever the channel is doing."""
+    sim = Sim()
+    start_v2(sim)
+    sim.request(SET_CONFIG, struct.pack("<BBbBB", 0xFF, 0xFF, 0x7F, 1, 0), expect=ACK)
+    lib.simSetAirtime(4)
+    try:
+        tag, ver, data = burst_setup(sim, 0x45)
+        lib.simSetIdleRssi(-60)
+        sim.advance(1000)  # a sample every 10 ms, against the 1300 ms of quiet burst_setup left: 43 % busy
+        sim.pump_events()
+        sim.radio_in(block_request(tag, ver, 0))
+        sim.radio_out()
+        sim.advance(8)
+        assert parts_of(sim.radio_out()), "no wait"
+        sim.advance(400)
+        sim.radio_out()
+        air = air_line(sim)
+        assert air["yld"] == 0 and air["yms"] == 0, air
+    finally:
+        lib.simSetIdleRssi(-95)
         lib.simSetAirtime(0)
 
 
@@ -2145,7 +2335,7 @@ def a_tag_that_leaves_when_it_has_the_block_is_listened_for():
     sim.request(SET_CONFIG, struct.pack("<BBbBB", 0xFF, 0xFF, 0x7F, 1, 0), expect=ACK)
     lib.simSetAirtime(4)
     try:
-        tag, ver, data = burst_setup(sim, 0x3B, blocks=3, hw=0x04)
+        tag, ver, data = burst_setup(sim, 0x3B, blocks=3)
 
         def first_pass(block):
             """ask for a block and run until all 42 parts have gone out once"""
@@ -2249,9 +2439,6 @@ def a_one_block_image_learns_how_long_xfc_takes_and_does_not_wait_for_it():
     lib.simSetAirtime(4)
     try:
         tag = bytes([0x3D] + [8] * 7)
-        sim.radio_in(avail_data_req(tag, hw=0x04))
-        sim.radio_out()
-        sim.pump_events()
         parts = list(range(10))
         for ver in (0xB01, 0xB02):
             data = make_file(1000)
@@ -2320,9 +2507,9 @@ def a_tag_that_asks_during_another_burst_waits_its_turn_and_is_served():
         to_b = [tm for tm, f in seen if f["dst"] == b and f["type"] == PKT_BLOCK_PART]
         assert not any(f["type"] == PKT_CANCEL_XFER for _, f in seen)
         assert to_b and min(to_b) >= max(to_a), (max(to_a), min(to_b))  # one burst, then the other
-        # b, a family not seen yet, listens from the end of its wait, which counts from the end of the ack:
-        # its burst starts then, not later. (Here the ack is 4 ms of simulated air and may wait for the
-        # part on the air before it, and the burst goes BURST_MARGIN_MS after the tag starts listening.)
+        # b listens from the end of its wait, which counts from the end of the ack: its burst starts
+        # BURST_MARGIN_MS after that. (Here the ack is 4 ms of simulated air and may wait for the part on
+        # the air before it.)
         assert t_ack + pw <= min(to_b) <= t_ack + pw + 8 + 5 + 2, (t_ack, pw, min(to_b), max(to_a))
         check_burst([f["raw"] for _, f in seen if f["dst"] == a and f["type"] == PKT_BLOCK_PART], a, da, 0, range(42))
         check_burst([f["raw"] for _, f in seen if f["dst"] == b and f["type"] == PKT_BLOCK_PART], b, db, 0, range(42))
@@ -2353,7 +2540,7 @@ def a_tag_that_asks_just_after_a_burst_is_served_at_once():
         sim.radio_in(block_request(b, 0x2B, 0, parts=[0, 1, 2, 3, 4, 5], partial=True))
         ack = parse_normal(sim.radio_out()[0])
         assert ack["type"] == PKT_BLOCK_REQUEST_ACK and ack["dst"] == b, ack["type"]
-        assert struct.unpack_from("<H", ack["payload"], 1)[0] == 15, "the plain cached wait, nothing in front"
+        assert struct.unpack_from("<H", ack["payload"], 1)[0] == 0, "the plain cached wait, nothing in front"
     finally:
         lib.simSetAirtime(0)
 
@@ -2403,38 +2590,38 @@ def a_tag_that_goes_quiet_after_its_burst_is_counted_by_its_timing():
     """Whether a tag got its block is read from the next frame it sends, so nothing has to be timed out:
     XFC, a request for the next block, or one for the parts it missed are all answers. A check-in or
     a ping first means it gave up on the transfer and came back on its next cycle - seen nowhere else,
-    since no request round happened for `rereq` to count. On hardware ~9% of bursts did that, all of
-    them with the early timing a ZBS243 gets, so early (sile) and safe (sils) are counted apart."""
+    since no request round happened for `rereq` to count. Bursts after a wait of 0 (silz) and after any
+    other wait (silw) are counted apart."""
     sim = Sim()
     start_v2(sim)
     sim.request(SET_CONFIG, struct.pack("<BBbBB", 0xFF, 0xFF, 0x7F, 1, 0), expect=ACK)
     zbs, other, zbs2 = bytes([0x51] + [8] * 7), bytes([0x52] + [8] * 7), bytes([0x53] + [8] * 7)
-    for tag, hw in ((zbs, 0x04), (zbs2, 0x04)):
-        sim.radio_in(avail_data_req(tag, hw=hw))  # a full check-in: the radio knows these are ZBS243s
-        sim.radio_out()
-    sim.pump_events()
     vers = iter(range(0xC01, 0xC20))
 
-    def burst(tag):
+    def burst(tag, cached=True):
         ver = next(vers)
         sim.request(SET_PENDING, tag + struct.pack("<QIBBHHB", ver, 600, 0x20, 0, 0, 10, 0), expect=ACK)
-        send_block(sim, ver, make_file(600), 0)
+        if cached:
+            send_block(sim, ver, make_file(600), 0)
         sim.radio_in(block_request(tag, ver, 0, parts=[0, 1, 2], partial=True))
+        if not cached:
+            sim.pump_events()
+            send_block(sim, ver, make_file(600), 0)
         sim.advance(400)
         sim.radio_out()
         sim.pump_events()
         return ver
 
     burst(zbs)
-    sim.radio_in(avail_data_req(zbs))  # it checks in again instead of answering: silent, early
+    sim.radio_in(avail_data_req(zbs))  # it checks in again instead of answering: silent, wait of 0
     burst(other)
     sim.radio_in(normal(other, AP_MAC, PKT_XFER_COMPLETE))  # answered
-    burst(other)
-    sim.radio_in(bcast(other, PKT_PING))  # it lost the AP after this one: silent, safe
+    burst(other, cached=False)
+    sim.radio_in(bcast(other, PKT_PING))  # it lost the AP after this one: silent, after a wait
     ver = burst(zbs2)
     sim.radio_in(block_request(zbs2, ver, 0, parts=[1], partial=True))  # asked again for a part: answered
     sim.advance(400)
-    sim.radio_in(avail_data_req(zbs2))  # ... and that burst it did not answer either: silent, early
+    sim.radio_in(avail_data_req(zbs2))  # ... and that burst it did not answer either: silent, wait of 0
     sim.radio_out()
     sim.pump_events()
     sim.idle(16000)
@@ -2442,7 +2629,7 @@ def a_tag_that_goes_quiet_after_its_burst_is_counted_by_its_timing():
     ci = [l.split() for l in logs if l.startswith("ci ")]
     assert ci, logs
     f = ci[-1]
-    assert (f[f.index("sile") + 1], f[f.index("sils") + 1]) == ("2", "1"), ci[-1]
+    assert (f[f.index("silz") + 1], f[f.index("silw") + 1]) == ("2", "1"), ci[-1]
     assert len(" ".join(f)) < 98, f
 
 
@@ -2904,7 +3091,7 @@ def a_block_the_allow_list_takes_goes_through_the_eviction_policy():
     for b in range(5):
         send_block(sim, ver, data, b)
     assert full_blocks() == 5
-    assert run_block(sim, tag, ver, data, 0) == 15  # served, so the tag will not come back for it
+    assert run_block(sim, tag, ver, data, 0) == 0  # served, so the tag will not come back for it
     sim.advance(1300)
     # what the cache holds, on the line: five blocks, 20600 bytes of arena, 21 KB rounded up
     sim.idle(16000)
@@ -2917,7 +3104,7 @@ def a_block_the_allow_list_takes_goes_through_the_eviction_policy():
     # the blocks the tag has still to walk through are all there. Asked for back to back, with no
     # time passing, so no burst starts between them and the answers are the cache's alone.
     for b in (1, 2, 3, 4):
-        assert ask_block(sim, tag, ver, b) == 15, b
+        assert ask_block(sim, tag, ver, b) == 0, b
         sim.pump_events()
     # and the one it was finished with is what the list was given
     assert ask_block(sim, tag, ver, 0) == 140
@@ -2950,7 +3137,7 @@ def a_burst_survives_the_block_under_it_being_moved():
     for b in range(5):
         send_block(sim, ver, data, b)
     # block 4 went in last, so it is the lowest block, at the list's edge: the one in its way
-    assert ask_block(sim, tag, ver, 4) == 15
+    assert ask_block(sim, tag, ver, 4) == 0
     sim.pump_events()
     sim.advance(25)
     frames = sim.radio_out()
@@ -3019,7 +3206,7 @@ def the_sites_images_fit_four_times_as_many():
     assert lib.cacheRoomBytes() == 54984 - 288 and lib.cacheHeldBytes() == 54316 - 2452 + 2768
     assert lib.cacheFind(ctypes.c_uint64(0x8004), 0) >= 0 and lib.cacheFind(ctypes.c_uint64(0x8005), 0) < 0
     # block 30 was stored in the middle of the arena and has moved up since; the tag gets it whole
-    assert ask_block(sim, tag, 0x8000 + 30, 0) == 15
+    assert ask_block(sim, tag, 0x8000 + 30, 0) == 0
     sim.pump_events()
     sim.advance(25)
     sim.drain()
@@ -3072,7 +3259,7 @@ def the_cache_gives_up_what_the_room_needs_in_policy_order():
     # and it is still served whole, from where the compaction moved it
     tag = bytes([0x7F] + [5] * 7)
     sim.request(SET_PENDING, tag + struct.pack("<QIBBHHB", 0xA100, 267, 0x20, 0, 0, 10, 0), expect=ACK)
-    assert ask_block(sim, tag, 0xA100, 0) == 15
+    assert ask_block(sim, tag, 0xA100, 0) == 0
     sim.pump_events()
     sim.advance(25)
     sim.drain()
@@ -3101,11 +3288,11 @@ def a_short_block_moves_under_its_burst():
     # store's 288 leave, so 1288 free
     assert lib.cacheHeldBytes() == 23096 and lib.cacheRoomBytes() == 24384
     assert lib.cacheEvictions() == 0 and lib.cacheBlocks() == 10
-    assert run_block(sim, tag, ver, data, 0) == 15
+    assert run_block(sim, tag, ver, data, 0) == 0
     sim.advance(1300)
-    assert run_block(sim, tag, ver, data, 1) == 15
+    assert run_block(sim, tag, ver, data, 1) == 0
     sim.advance(1300)
-    assert ask_block(sim, tag, ver, 2) == 15
+    assert ask_block(sim, tag, ver, 2) == 0
     sim.pump_events()
     sim.advance(25)
     frames = sim.radio_out()
@@ -3190,9 +3377,9 @@ def a_block_whose_length_changes_is_started_again():
     assert lib.cacheBlocks() == 1 and lib.cacheHeldBytes() == block_cost(3000)  # 3024: the 4120 are free
     tag = bytes([0x7C] + [4] * 7)
     sim.request(SET_PENDING, tag + struct.pack("<QIBBHHB", ver, len(new), 0x20, 0, 0, 10, 0), expect=ACK)
-    assert ask_block(sim, tag, ver, 0) == 15
+    assert ask_block(sim, tag, ver, 0) == 0
     sim.pump_events()
-    sim.advance(25)
+    sim.advance(8)
     frames = sim.radio_out()
     assert frames, "the burst has started"
     # mid-burst the block is pinned: another length for it is refused, and the burst goes on
@@ -3230,7 +3417,7 @@ def the_whole_database_is_accepted_with_the_cache_full():
     # use throughout. Strangers, each a profile of its own at 20 bytes: the fleet the encoding cannot
     # share anything for, which is the one the guarantee is sized by, and it must still never be
     # refused. (The 4- and 8-byte allow-list took 2032 of them; the store's record carries the
-    # pending entry and the hwType too, which were 26 and 9 bytes more a tag elsewhere.)
+    # pending entry too, which was 26 bytes more a tag elsewhere.)
     allow_up_to(sim, 815, mac=stranger)
     assert full_blocks() == 2, "the floor, with the widest list the guarantee covers"
     assert lib.cacheEvictions() == 3, lib.cacheEvictions()
@@ -3245,7 +3432,7 @@ def the_whole_database_is_accepted_with_the_cache_full():
     for b in range(5):
         waits.append(ask_block(sim, tag, ver, b))
         sim.pump_events()
-    assert waits.count(15) == 2, waits
+    assert waits.count(0) == 2, waits
 
 
 @test_built_with("libap_debug.so")
@@ -3327,7 +3514,7 @@ def the_noise_histogram_reports_the_shape_of_the_channel():
     assert 1 <= busy <= 30, (busy, line)
 
 
-# --- the tag store: exactness, profiles, hwType, unowned records, content at scale -----------------
+# --- the tag store: exactness, profiles, unowned records, content at scale -------------------------
 def answered(sim, tag):
     """with the lock on: does a check-in of this tag get a reply?"""
     sim.advance(1300)
@@ -3356,27 +3543,8 @@ def pend_content(sim, tag, ver, size=4096, ttl=10):
     sim.request(SET_PENDING, tag + struct.pack("<QIBBHHB", ver, size, 0x20, 0, 0, ttl, 0), expect=ACK)
 
 
-def full_checkin(sim, tag, hw):
-    sim.radio_in(avail_data_req(tag, hw=hw))
-    sim.radio_out()
-    sim.pump_events()
-
-
-def cached_wait(sim, tag, ver):
-    """The pleaseWaitMs a tag is told for a block of its that is in the cache: 10 when the radio knows
-    the tag listens early (a ZBS243), 15 for any other family and for a tag whose type it does not
-    know - so it is what the radio believes about the tag's hwType, read off the air."""
-    sim.advance(1300)  # past the busy-with-another-tag window of the last one
-    sim.radio_out()
-    wait = ask_block(sim, tag, ver, 0)
-    sim.advance(400)
-    sim.drain()
-    sim.radio_out()
-    sim.pump_events()
-    return wait
-
-
-HW_ZBS243, HW_NRF52811 = 0x04, 0x33
+def idle_entry(sim, tag, ttl):
+    sim.request(SET_PENDING, tag + struct.pack("<QIBBHHB", 0, 0, 0, 0, 30, ttl, 0), expect=ACK)
 
 
 @test
@@ -3454,117 +3622,46 @@ def a_fleet_with_more_profiles_than_a_byte_holds_is_still_exact():
     sim.request(ALLOW_ADD, stranger(5), expect=ACK)  # into the profile slot that came free
     assert answered(sim, stranger(5)) and not answered(sim, stranger(261))
 
-    # and a stranger's own hwType, past the 256th profile, is what it reported
-    lock(sim, 0)
-    ver, data = 0x7200, make_file(4096)
-    send_block(sim, ver, data, 0)
-    for i in (270, 271):
-        pend_content(sim, stranger(i), ver)
-    full_checkin(sim, stranger(270), HW_ZBS243)
-    assert cached_wait(sim, stranger(270), ver) == 10
-    assert cached_wait(sim, stranger(271), ver) == 15
-
-
-@test
-def a_tag_reporting_another_type_than_its_family_gets_a_profile_of_its_own():
-    """hwType lives in the profile, because on this fleet it is a function of the family - which is
-    a fact about this fleet and not a rule, so a tag that reports another type moves to a profile of
-    its own and its family keeps the one it had. A tag that has not reported answers unknown,
-    whatever its family's type: the family never decides how early a burst goes."""
-    sim = Sim()
-    start_v2(sim)
-    fam = [printed(m) for m in ("0000032CA1B23E17", "0000032C17283E1A", "0000032C10203E33", "0000032C55663E44")]
-    a, b, c, d = fam
-    ver, data = 0x7300, make_file(4096)
-    send_block(sim, ver, data, 0)
-    for t in fam:
-        pend_content(sim, t, ver)
-    full_checkin(sim, a, HW_ZBS243)
-    full_checkin(sim, b, HW_NRF52811)  # the family's odd one out
-    full_checkin(sim, d, HW_ZBS243)
-    assert cached_wait(sim, a, ver) == 10
-    assert cached_wait(sim, b, ver) == 15, "an nRF52811 sleeps through its wait: no early burst"
-    assert cached_wait(sim, c, ver) == 15, "never reported: unknown, though its family is a ZBS243's"
-    assert cached_wait(sim, d, ver) == 10
-    sim.request(SET_CONFIG, struct.pack("<BBbBB", 20, 0xFF, 8, 1, 64), expect=ACK)
-    cfg = [l[3][1:].decode() for l in sim.pump_events() if l[0] == LOG and l[3][1:4] == b"cfg"]
-    assert cfg and cfg[0].endswith(" prof 2 "), cfg  # the family's, and b's
-    # and back: b reports its family's type after all, and is one of them again in effect
-    full_checkin(sim, b, HW_ZBS243)
-    assert cached_wait(sim, b, ver) == 10 and cached_wait(sim, a, ver) == 10
-
-
-@test
-def every_tag_keeps_its_hwtype_however_many_there_are():
-    """The table this replaced held 64 types, round robin, so on a site of more than 64 tags the
-    first tags' types were gone by the time they asked for a block - at 200 tags each entry lasted
-    ~38 s against a check-in every ~2 minutes - and early bursts silently stopped working on exactly
-    the sites that need them. In the store the type lives as long as the tag's record."""
-    sim = Sim()
-    start_v2(sim)
-    ver, data = 0x7400, make_file(4096)
-    send_block(sim, ver, data, 0)
-    tags = [site_mac(i) for i in range(100)]
-    allow_up_to(sim, 100, mac=site_mac)
-    for t in tags:
-        pend_content(sim, t, ver)
-        full_checkin(sim, t, HW_ZBS243)
-    assert cached_wait(sim, tags[0], ver) == 10, "the first tag heard, 99 check-ins of others later"
-    assert cached_wait(sim, tags[63], ver) == 10 and cached_wait(sim, tags[99], ver) == 10
-
 
 @test_built_with(SPLIT_LIB)
 def records_nobody_owns_are_the_first_given_up():
-    """A full check-in of a tag the store does not hold - not listed, nothing pending - leaves a record
-    that owns nothing, for its hwType: the S3's SET_PENDING usually follows the check-in, and then
-    finds the type there. Such a record takes a record the store has free when there is one, and it is
-    the first thing given up when room is needed.
+    """A pending entry that lapses leaves a record that owns nothing, unless the tag is listed. It is the
+    first thing given up when room is needed.
 
-    330 listed tags leave six records free in the 336 that fit beside five blocks; six tags heard take
-    them; six more listed tags take them back rather than the store growing into the cache."""
+    330 listed tags leave six records free in the 336 that fit beside five blocks; six idle entries take
+    them and lapse; six more listed tags take them back rather than the store growing into the cache."""
     sim = Sim()
     start_v2(sim)
     allow_up_to(sim, 330)
-    heard = [one_family(5000 + i) for i in range(6)]
-    for t in heard:
-        full_checkin(sim, t, HW_ZBS243)
+    for i in range(6):
+        idle_entry(sim, one_family(5000 + i), 1)
     assert full_blocks() == 5, "they cost nothing"
+    sim.idle(61000)  # their entries lapse; the records are still there
     allow_up_to(sim, 336, have=330)
     assert full_blocks() == 5, "the list took the unowned records, not a block"
     allow_up_to(sim, 337, have=336)
     assert full_blocks() == 4
 
-    ver, data = 0x7500, make_file(4096)
-    send_block(sim, ver, data, 0)
-    # a tag heard now, with records free again, keeps its type into the SET_PENDING that follows
-    late = one_family(6000)
-    full_checkin(sim, late, HW_ZBS243)
-    pend_content(sim, late, ver)
-    assert cached_wait(sim, late, ver) == 10
-    # the ones whose records were taken are unknown again, which is the safe side
-    pend_content(sim, heard[0], ver)
-    assert cached_wait(sim, heard[0], ver) == 15
-
 
 @test
 def a_record_nobody_owns_is_kept_for_one_housekeeping_round():
-    """...and it does not stay for ever: a record that owned nothing at one housekeeping round and
-    still owns nothing at the next goes, so tags heard once - a neighbour's, with the lock off - do
-    not hold room the cache could have."""
+    """...and it does not stay for ever: a record that owned nothing at one housekeeping round and still
+    owns nothing at the next goes, and the room goes back to the cache. Sixteen records fit in a granule,
+    so the seventeenth tag is what costs the store a second one."""
     sim = Sim()
     start_v2(sim)
-    sim.request(ALLOW_ADD, site_mac(0), expect=ACK)  # a listed tag, so the store has records to spare
-    y, z = site_mac(1), site_mac(2)
-    full_checkin(sim, z, HW_ZBS243)
-    sim.idle(61000)  # z's record is marked
-    full_checkin(sim, y, HW_ZBS243)
-    sim.idle(61000)  # z's record goes, y's is marked
-    ver, data = 0x7600, make_file(4096)
-    send_block(sim, ver, data, 0)
-    pend_content(sim, y, ver)
-    pend_content(sim, z, ver)
-    assert cached_wait(sim, y, ver) == 10, "kept: the SET_PENDING found the type its check-in left"
-    assert cached_wait(sim, z, ver) == 15, "given up after a whole round owning nothing"
+    sim.request(ALLOW_ADD, site_mac(0), expect=ACK)
+    small = lib.cacheRoomBytes()
+    for i in range(1, 17):
+        idle_entry(sim, site_mac(i), 1)
+    large = lib.cacheRoomBytes()
+    assert large < small
+    sim.idle(61000)  # their entries lapse
+    assert lib.cacheRoomBytes() == large
+    sim.idle(61000)  # they are marked
+    assert lib.cacheRoomBytes() == large, "kept for one round, for a SET_PENDING on its way"
+    sim.idle(61000)  # and given up
+    assert lib.cacheRoomBytes() == small, "given up after a whole round owning nothing"
 
 
 def site_asleep(sim, n):
