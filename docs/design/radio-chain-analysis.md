@@ -19,7 +19,7 @@ The S3 provides images and makes decisions; the radio co-processor runs the timi
 ```mermaid
 flowchart LR
     S3["<b>ESP32-S3</b><br/>WiFi and web UI<br/>Tag database<br/>Images in LittleFS<br/>Flashes the radio"]
-    R["<b>Radio co-processor</b><br/>ESP32-C6 or H2<br/>or TLSR8258 (binary only)<br/>Optional CC1101<br/>250 pending slots"]
+    R["<b>Radio co-processor</b><br/>ESP32-C6 or H2<br/>or TLSR8258<br/>Optional CC1101<br/>250 pending slots"]
     T["<b>Tags</b><br/>ZBS243<br/>nRF52811<br/>TLSR8258<br/>Windows of 2–6 ms"]
 
     S3 -- "UART, 115k–2 Mbaud<br/>SDA> CXD> SCP> NFO?<br/>RDY? HSPD >D> + block data" --> R
@@ -35,7 +35,7 @@ How the serial protocol works today:
 - **Payload:** a fixed-length binary struct with an 8-bit sum as the only check. No length field.
 - **Replies** (`ACK>`/`NOK>`/`NOQ>`) set a single global variable on the S3, without a sequence number.
 - **Block data:** `>D>` → `ACK>` → 4100 bytes XOR 0xAA → 32 padding bytes 0xF5.
-- **Speed:** starts at 115200 baud. The C6 switches to 2 Mbaud after `HSPD`; the TLSR stays at 115200.
+- **Speed:** starts at 115200 baud. The C6 switches to 2 Mbaud after `HSPD`; the closed-source TLSR AP stays at 115200 (the open one speaks protocol v2 at 2 Mbaud).
 
 ## Timing budget tag ↔ AP
 
@@ -120,7 +120,7 @@ The biggest brake is the polling main loop: it can lag ≈ 110 ms behind, while 
 
 ## TLSR8258 as AP
 
-The TLSR AP firmware is only available as a binary; its source has not been found. `ARM_Tag_FW/OpenEPaperLink_TLSR` is tag firmware, not AP firmware.
+The original TLSR AP firmware is only available as a binary; its source has not been found. `ARM_Tag_FW/OpenEPaperLink_TLSR` is tag firmware, not AP firmware. An open-source replacement with protocol v2 is in `ARM_Tag_FW/OpenEPaperLink_TLSR_AP` (version 0x0080).
 
 | Binary | Type | Version | Derived from strings |
 | --- | --- | --- | --- |
