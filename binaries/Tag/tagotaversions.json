@@ -157,27 +157,37 @@
     },
     "80": {
       "type": "chroma74y_ota",
-      "version": "0010",
-      "md5": "4baff1e9eba6949c26ea11dbbd105039",
+      "version": "0016",
+      "md5": "8a314656220a56274700f71a7d8f7149",
       "type_1": "chroma74r_ota",
-      "version_1": "0014",
-      "md5_1": "3c69d4414a1447b071f0628529a3e3c7"
+      "version_1": "0016",
+      "md5_1": "65d86d8019569518d3c2ca3291e7c546"
     },
     "82": {
       "type": "chroma29_ota",
-      "version": "0015",
-      "md5": "293bb70fc5d8c6e2174cbb9b76943e4b",
+      "version": "0016",
+      "md5": "0a7515cb280b2a50d41949ca2251c7d7",
       "type_1": "chroma29_8151_ota",
-      "version_1": "0013",
-      "md5_1": "b3dffd044829449998edc1c91d537004"
+      "version_1": "0016",
+      "md5_1": "27044bc3e15e30847e66449cec6d21cc"
     },
     "83": {
       "type": "chroma42_ota",
-      "version": "0010",
-      "md5": "bf4b7dad8acfab2f1504c4b57b8806db",
+      "version": "0016",
+      "md5": "4e2bf6411e53b3cf9316b3f60f126f2d",
       "type_1": "chroma42_8176_ota",
-      "version_1": "0011",
-      "md5_1": "aeb07164835e9d16485c63d9de61b603"
+      "version_1": "0016",
+      "md5_1": "7624a15e8d466ed81cf9ef424e6d1683"
+    },
+    "84": {
+      "type": "chroma60_ota",
+      "md5": "e1e389e8c83de3824e620132d08480bf",
+      "version": "0016"
+    },
+    "85": {
+      "type": "chroma21_ota",
+      "md5": "618503bc4ef7de53e009c02e778e48a3",
+      "version": "0016"
     }
   }
 ]
