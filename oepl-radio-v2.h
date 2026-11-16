@@ -260,6 +260,11 @@ struct v2Nak {
 
 #ifdef __cplusplus
 #define V2_STATIC_ASSERT static_assert
+#elif defined(__GNUC__) && (__GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 6))
+// GCC before 4.6 (the TLSR's tc32-elf-gcc is 4.5) has no _Static_assert: a negative array size fails instead
+#define V2_SA_CAT2(a, b) a##b
+#define V2_SA_CAT(a, b) V2_SA_CAT2(a, b)
+#define V2_STATIC_ASSERT(cond, msg) typedef char V2_SA_CAT(v2StaticAssert, __LINE__)[(cond) ? 1 : -1]
 #else
 #define V2_STATIC_ASSERT _Static_assert
 #endif
@@ -282,13 +287,49 @@ V2_STATIC_ASSERT(sizeof(struct v2TagReturnData) + 101 <= V2_MAX_PAYLOAD, "TAG_RE
 
 // --- framing ------------------------------------------------------------------------------------
 
-// CRC-16/CCITT-FALSE: poly 0x1021, init 0xFFFF, no reflection, no final xor
+// CRC-16/CCITT-FALSE: poly 0x1021, init 0xFFFF, no reflection, no final xor.
+// By table: one lookup per byte instead of eight shift/xor steps, with the same result. The bitwise
+// loop cost 117 instructions a byte on the TLSR (GCC 4.5 parked the polynomial in a high register),
+// 12 ms for a 4 KB block; the table costs 512 bytes of flash in each file that calls v2Crc16(), one
+// per firmware today.
+static const uint16_t v2Crc16Tab[256] = {
+    0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
+    0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF,
+    0x1231, 0x0210, 0x3273, 0x2252, 0x52B5, 0x4294, 0x72F7, 0x62D6,
+    0x9339, 0x8318, 0xB37B, 0xA35A, 0xD3BD, 0xC39C, 0xF3FF, 0xE3DE,
+    0x2462, 0x3443, 0x0420, 0x1401, 0x64E6, 0x74C7, 0x44A4, 0x5485,
+    0xA56A, 0xB54B, 0x8528, 0x9509, 0xE5EE, 0xF5CF, 0xC5AC, 0xD58D,
+    0x3653, 0x2672, 0x1611, 0x0630, 0x76D7, 0x66F6, 0x5695, 0x46B4,
+    0xB75B, 0xA77A, 0x9719, 0x8738, 0xF7DF, 0xE7FE, 0xD79D, 0xC7BC,
+    0x48C4, 0x58E5, 0x6886, 0x78A7, 0x0840, 0x1861, 0x2802, 0x3823,
+    0xC9CC, 0xD9ED, 0xE98E, 0xF9AF, 0x8948, 0x9969, 0xA90A, 0xB92B,
+    0x5AF5, 0x4AD4, 0x7AB7, 0x6A96, 0x1A71, 0x0A50, 0x3A33, 0x2A12,
+    0xDBFD, 0xCBDC, 0xFBBF, 0xEB9E, 0x9B79, 0x8B58, 0xBB3B, 0xAB1A,
+    0x6CA6, 0x7C87, 0x4CE4, 0x5CC5, 0x2C22, 0x3C03, 0x0C60, 0x1C41,
+    0xEDAE, 0xFD8F, 0xCDEC, 0xDDCD, 0xAD2A, 0xBD0B, 0x8D68, 0x9D49,
+    0x7E97, 0x6EB6, 0x5ED5, 0x4EF4, 0x3E13, 0x2E32, 0x1E51, 0x0E70,
+    0xFF9F, 0xEFBE, 0xDFDD, 0xCFFC, 0xBF1B, 0xAF3A, 0x9F59, 0x8F78,
+    0x9188, 0x81A9, 0xB1CA, 0xA1EB, 0xD10C, 0xC12D, 0xF14E, 0xE16F,
+    0x1080, 0x00A1, 0x30C2, 0x20E3, 0x5004, 0x4025, 0x7046, 0x6067,
+    0x83B9, 0x9398, 0xA3FB, 0xB3DA, 0xC33D, 0xD31C, 0xE37F, 0xF35E,
+    0x02B1, 0x1290, 0x22F3, 0x32D2, 0x4235, 0x5214, 0x6277, 0x7256,
+    0xB5EA, 0xA5CB, 0x95A8, 0x8589, 0xF56E, 0xE54F, 0xD52C, 0xC50D,
+    0x34E2, 0x24C3, 0x14A0, 0x0481, 0x7466, 0x6447, 0x5424, 0x4405,
+    0xA7DB, 0xB7FA, 0x8799, 0x97B8, 0xE75F, 0xF77E, 0xC71D, 0xD73C,
+    0x26D3, 0x36F2, 0x0691, 0x16B0, 0x6657, 0x7676, 0x4615, 0x5634,
+    0xD94C, 0xC96D, 0xF90E, 0xE92F, 0x99C8, 0x89E9, 0xB98A, 0xA9AB,
+    0x5844, 0x4865, 0x7806, 0x6827, 0x18C0, 0x08E1, 0x3882, 0x28A3,
+    0xCB7D, 0xDB5C, 0xEB3F, 0xFB1E, 0x8BF9, 0x9BD8, 0xABBB, 0xBB9A,
+    0x4A75, 0x5A54, 0x6A37, 0x7A16, 0x0AF1, 0x1AD0, 0x2AB3, 0x3A92,
+    0xFD2E, 0xED0F, 0xDD6C, 0xCD4D, 0xBDAA, 0xAD8B, 0x9DE8, 0x8DC9,
+    0x7C26, 0x6C07, 0x5C64, 0x4C45, 0x3CA2, 0x2C83, 0x1CE0, 0x0CC1,
+    0xEF1F, 0xFF3E, 0xCF5D, 0xDF7C, 0xAF9B, 0xBFBA, 0x8FD9, 0x9FF8,
+    0x6E17, 0x7E36, 0x4E55, 0x5E74, 0x2E93, 0x3EB2, 0x0ED1, 0x1EF0,
+};
+
 static inline uint16_t v2Crc16(const uint8_t* data, size_t len) {
     uint16_t crc = 0xFFFF;
-    for (size_t i = 0; i < len; i++) {
-        crc ^= (uint16_t)data[i] << 8;
-        for (uint8_t b = 0; b < 8; b++) crc = (crc & 0x8000) ? (uint16_t)((crc << 1) ^ 0x1021) : (uint16_t)(crc << 1);
-    }
+    for (size_t i = 0; i < len; i++) crc = (uint16_t)((crc << 8) ^ v2Crc16Tab[(uint8_t)((crc >> 8) ^ data[i])]);
     return crc;
 }
 
@@ -296,42 +337,59 @@ static inline uint16_t v2Crc16(const uint8_t* data, size_t len) {
 // length. The 0x00 delimiter is not included.
 static inline size_t v2CobsEncode(const uint8_t* src, size_t len, uint8_t* dst) {
     size_t out = 1, codePos = 0;
-    uint8_t code = 1;
+    unsigned code = 1;  // not uint8_t: GCC 4.5 then truncates inside the loop, two instructions a byte
     for (size_t i = 0; i < len; i++) {
         if (src[i] == 0) {
-            dst[codePos] = code;
+            dst[codePos] = (uint8_t)code;
             codePos = out++;
             code = 1;
         } else {
             dst[out++] = src[i];
             if (++code == 0xFF) {
-                dst[codePos] = code;
+                dst[codePos] = (uint8_t)code;
                 codePos = out++;
                 code = 1;
             }
         }
     }
-    dst[codePos] = code;
+    dst[codePos] = (uint8_t)code;
     return out;
 }
 
 // Decodes a COBS frame (without its 0x00 delimiter) into dst; returns the decoded length, or -1 if
 // the frame is malformed or does not fit in dstMax.
+//
+// The code byte says how long the run is, so both bounds are checked once per run; only the zero
+// check stays per byte. Pointers and unsigned counters keep the ends in registers: 9 instructions a
+// byte on the TLSR, against 22 for the plain version with indices and a uint8_t counter, which GCC
+// 4.5 reloaded and truncated every pass. It rejects exactly the frames the plain version did: a zero
+// inside a run, and a run past the end of the frame.
+//
+// dst may be src. A run's code byte is read before anything of the run is written, and the write
+// pointer never passes the read pointer, so decoding in place reads every byte before it is
+// overwritten. The TLSR AP decodes in place and does without a second frame buffer.
 static inline int v2CobsDecode(const uint8_t* src, size_t len, uint8_t* dst, size_t dstMax) {
-    size_t in = 0, out = 0;
-    while (in < len) {
-        const uint8_t code = src[in++];
+    const uint8_t* s = src;
+    const uint8_t* const sEnd = src + len;
+    uint8_t* d = dst;
+    size_t dstFree = dstMax;  // room left in dst
+    while (s < sEnd) {
+        const unsigned code = *s++;
         if (code == 0) return -1;
-        for (uint8_t i = 1; i < code; i++) {
-            if (in >= len || out >= dstMax || src[in] == 0) return -1;
-            dst[out++] = src[in++];
+        const unsigned run = code - 1u;          // data bytes carried by this run
+        const size_t left = (size_t)(sEnd - s);  // bytes of frame after the code byte
+        if (run > left) return -1;               // the run runs off the end of the frame
+        const unsigned zero = (code != 0xFF && run < left) ? 1u : 0u;
+        if (run + zero > dstFree) return -1;
+        dstFree -= run + zero;
+        for (unsigned i = run; i != 0; i--) {
+            const uint8_t b = *s++;
+            if (b == 0) return -1;  // a data byte of a run is never zero in a COBS frame
+            *d++ = b;
         }
-        if (code != 0xFF && in < len) {
-            if (out >= dstMax) return -1;
-            dst[out++] = 0;
-        }
+        if (zero) *d++ = 0;
     }
-    return (int)out;
+    return (int)(size_t)(d - dst);
 }
 
 // Builds a complete wire frame (COBS + 0x00) in wire (room for V2_MAX_FRAME_COBS + 1 bytes);

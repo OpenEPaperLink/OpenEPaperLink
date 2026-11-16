@@ -1,0 +1,232 @@
+/********************************************************************************************************
+ * @file    boot_8258_ap.link (boot_8258.link of tl_zigbee_sdk, for the OEPL TLSR AP: no retention
+ *          limit on .bss, both stacks sized from the code, and the SRAM between them the cache arena)
+ *
+ * @brief   This is the link file for B85
+ *
+ * @author  Driver & Zigbee Group
+ * @date    2021
+ *
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ *          All rights reserved.
+ *
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
+ *
+ *              http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
+ *
+ *******************************************************************************************************/
+
+/* to tell the linker the program begin from __start label in cstartup.s, thus do not treat it as a unused symbol */
+ENTRY(__start)
+
+SECTIONS
+{
+    /* The two stacks, sized at build time from the code. The makefile links twice: tools/stackdepth.py
+     * reads the first link's listing for the deepest paths from main() and from __irq, and the second
+     * link gets those bounds times 4/3 as --defsym __STACK_MIN__ and __IRQ_STACK__ (out/stack.defsym).
+     * Only .bss and the arena move between the two links, no code address, and the makefile checks
+     * the final image again. The defaults, 2048 and 512, apply to a link without the analysis (no
+     * Python). The raw bounds are kept as _stack_bound_ and _irq_stk_bound_ for nm; 0 without the
+     * analysis. */
+    _stack_min_     = DEFINED(__STACK_MIN__) ? __STACK_MIN__ : 2048;
+    _irq_stk_size_  = DEFINED(__IRQ_STACK__) ? __IRQ_STACK__ : 512;
+    _stack_bound_   = DEFINED(__STACK_BOUND__) ? __STACK_BOUND__ : 0;
+    _irq_stk_bound_ = DEFINED(__IRQ_STACK_BOUND__) ? __IRQ_STACK_BOUND__ : 0;
+
+    . = 0x0;
+    .vectors :
+    {
+    *(.vectors)
+    *(.vectors.*)	/* MUST as follows, when compile with -ffunction-sections -fdata-sections, session name may changed */
+    }
+    
+    . = (. * (1 - __BOOT_LOADER_IMAGE)) + (__FW_RAMCODE_SIZE_MAX * __BOOT_LOADER_IMAGE);
+    /* The SDK marks code as RAM code for chips that sleep and write flash; this one does neither, so
+     * three objects' RAM code is linked into .text instead (see FLASH_RESIDENT below), which gives
+     * .bss 768 bytes. pm.o: sleep code nothing calls, and the 32 kHz tick readers, called at boot from
+     * flash anyway. analog.o: in RAM only for sleep_start. adc.o: the supply check flash_mspi_write_ram
+     * makes during a page program or sector erase, while the flash cannot be read; no program or erase
+     * is in the image (asserted below). */
+    .ram_code :
+    {
+    *(EXCLUDE_FILE(*libdrivers_8258.a:pm.o *libdrivers_8258.a:analog.o *chip_8258/adc.o) .ram_code)
+    *(EXCLUDE_FILE(*libdrivers_8258.a:pm.o *libdrivers_8258.a:analog.o *chip_8258/adc.o) .ram_code.*)
+    }
+    
+    . = (((. + 15) / 16)*16);       /* must 16 byte align if use "AT" for ".text" */
+    PROVIDE(_rstored_ = . );
+    
+	PROVIDE(_ramcode_size_ = . );
+	PROVIDE(_ramcode_size_div_16_ = (. + 15 ) / 16);
+	PROVIDE(_ramcode_size_div_256_ = (. + 255) / 256);
+	PROVIDE(_ramcode_size_div_16_align_256_ = ( (. + 255) / 256) * 16);
+	PROVIDE(_ramcode_size_align_256_ = ( (. + 255) / 256) * 256);
+	
+	. = (_rstored_ + __FW_OFFSET);
+	.text :
+		AT(_rstored_)
+	    {
+	    /* FLASH_RESIDENT: the SDK RAM code this image runs from flash, see .ram_code above */
+	    *libdrivers_8258.a:pm.o(.ram_code .ram_code.*)
+	    *libdrivers_8258.a:analog.o(.ram_code .ram_code.*)
+	    *chip_8258/adc.o(.ram_code .ram_code.*)
+	    /* Every flash.c function that sends flash_mspi_write_ram an address, bracketed so that the
+	     * assert at the end can tell whether --gc-sections kept any (DEFINED cannot: it is true for a
+	     * collected symbol too). */
+	    _flash_addr_writes_start_ = .;
+	    *chip_8258/flash.o(.text.flash_erase_sector .text.flash_write_page .text.flash_write_otp .text.flash_erase_otp)
+	    _flash_addr_writes_end_ = .;
+	    *(.text)
+	    *(.text.*)
+	    }
+	.rodata :
+	    {
+	    *(.rodata)
+	    *(.rodata.*)
+	    }
+	
+	. = (((. + 3) / 4)*4);
+        PROVIDE(_dstored_ = .);						/*location in flash*/
+        PROVIDE(_dstored_bin_ = . - __FW_OFFSET);   /*location in bin*/
+        PROVIDE(_code_size_ = . - __FW_OFFSET); 
+          
+
+	
+	. = 0x840900 + _ramcode_size_align_256_;
+	    .data :
+	      AT ( _dstored_bin_ )
+	     {
+	. = (((. + 3) / 4)*4);
+	     PROVIDE(_start_data_ = . );
+	     *(.data);
+	     *(.data.*);
+	. = (((. + 3) / 4)*4);
+	     PROVIDE(_end_data_ = . );
+	     }
+	
+	    .bss :
+	    {
+	. = (((. + 3) / 4)*4);
+		PROVIDE(_start_bss_ = .);
+		/* The interrupt stack. cstartup_8258.S allocates it as `.lcomm irq_stk, IRQ_STK_SIZE` and
+		 * points the IRQ-mode SP at irq_stk + IRQ_STK_SIZE; the makefile assembles it with
+		 * -D__IRQ_STK_SIZE__=0, so irq_stk is a zero-sized label and the bytes are reserved here,
+		 * below it, at the size the link is given, which the two links can change without
+		 * rebuilding the object. irq_stk lands at _irq_stk_hi_, where the SP starts; the assert
+		 * below checks that nothing came between. _irq_stk_lo_ and _irq_stk_hi_ bracket it for
+		 * halIrqStackHigh() in hal_tlsr.c, which measures its high-water mark. */
+		. = ALIGN(16);
+		PROVIDE(_irq_stk_lo_ = .);
+		. += _irq_stk_size_;
+		_irq_stk_top_ = .;
+	    *cstartup_8258.o(.bss)
+		PROVIDE(_irq_stk_hi_ = .);
+	    *(.sbss)
+	    *(.sbss.*)
+	    *(.bss)
+	    *(.bss.*)
+	    }
+		PROVIDE(_end_bss_ = .);
+    
+     /* The AP never uses deep sleep with retention, so .bss may use all of the 64 KB SRAM */
+    
+     . = (((. + 3) / 4)*4);
+    PROVIDE(_custom_stored_ = _dstored_ + _end_data_ - _start_data_);
+    PROVIDE(_custom_stored_bin_ = _dstored_bin_ + _end_data_ - _start_data_);
+     
+    .custom_data :
+     AT ( _custom_stored_bin_ )
+    {
+		PROVIDE(_start_custom_data_ = .);
+		*(.custom_data);
+		*(.custom_data.*);
+		PROVIDE(_end_custom_data_ = .);
+    }
+    .custom_bss(NOLOAD) :
+    {
+		PROVIDE(_start_custom_bss_ = .);
+		*(.custom_bss);
+		*(.custom_bss.*);
+		PROVIDE(_end_custom_bss_ = .);
+    }
+    
+    .sdk_version :
+	 AT ( _custom_stored_bin_ + _end_custom_data_ - _start_custom_data_ )
+	{
+		KEEP(*(.sdk_version));
+	    KEEP(*(.sdk_version.*));
+	}
+    
+    PROVIDE(_bin_size_ = _code_size_ + _end_data_ - _start_data_ + _end_custom_data_ - _start_custom_data_ + SIZEOF(.sdk_version));
+    PROVIDE(_bin_size_div_16 = ( _bin_size_ + 15 ) / 16 );
+    PROVIDE(_ictag_start_ = 0x840000 + _ramcode_size_align_256_);
+    PROVIDE(_ictag_end_ = 0x840000 + _ramcode_size_align_256_ + 0x100);
+
+    /* ---------------------------------------------------------------------------------------------
+     * The SRAM budget: the stack top below and the stack sizes at the top of this script are the whole
+     * of it (see the "RAM" section of README.md). Everything between the end of the image's own RAM
+     * and the main stack's floor is the cache arena.
+     *
+     * The stack top is a fixed address, not the SDK's `roundup256(_end_bss_ + 4 KB)`, which moves in
+     * 256-byte steps, so that a few bytes of .bss growth could push the stack up by 256 and fail the
+     * link. With a fixed top, .bss growth costs exactly its own size and the assert below fires at the
+     * byte the budget is really exhausted.
+     *
+     * _sram_top_ is the highest stack top the SDK's own assert (`_stack_end_ < 0x850000`) allowed.
+     * ------------------------------------------------------------------------------------------ */
+    _sram_top_  = 0x84ff00;
+
+    PROVIDE(_stack_end_ = _sram_top_);
+
+    /* The cache arena (blockcache.c, through halArena in hal_tlsr.c): the block cache, the pending
+     * table and the allow-list share it, and the cache derives every maximum from its size at boot -
+     * the blocks, the list's room, the pending table's size, what HELLO_REPLY announces. 8-aligned,
+     * for the blocks' and the list's word pairs. Not a section: nothing is loaded or zeroed into it,
+     * and it holds cstartup's stack fill (0xFFFFFFFF over [_end_custom_bss_, _stack_end_)) at boot. */
+    _cache_arena_start_ = ALIGN(_end_custom_bss_ + SIZEOF(.sdk_version), 8);
+    _cache_arena_end_   = _sram_top_ - _stack_min_;
+    _cache_arena_size_  = _cache_arena_end_ - _cache_arena_start_;
+    /* For `tc32-elf-nm out/OEPL_TLSR_AP.elf`: the main stack's size (its floor exactly) and the bytes
+     * lost to the arena's 8-byte alignment. Added .bss comes out of _cache_arena_size_; the cfg LOG
+     * line's ckb/tags/pend show what that cost. */
+    _stack_size_   = _sram_top_ - _cache_arena_end_;
+    _bss_headroom_ = _cache_arena_start_ - (_end_custom_bss_ + SIZEOF(.sdk_version));
+    /* The least arena the firmware is built for, _cache_arena_need_, comes from blockcache.c, which
+     * works it out from its own constants: the cache's floor (7 full blocks at 4120 bytes each, their
+     * slots included) and the allow-list at its cap of 1024 in its widest encoding. */
+    /* .data starts at 0x840900 plus the RAM code rounded up to 256 (the 0x900 is the SDK's reserve,
+     * the instruction cache's tag first), so the bytes between the end of .ram_code and that boundary
+     * are SRAM nothing uses: _ramcode_tail_, in 16-byte steps, as _ramcode_size_ is rounded to 16
+     * above. */
+    _ramcode_tail_ = _ramcode_size_align_256_ - _ramcode_size_;
+    /* The link is refused when RAM code has just crossed a boundary: up to 64 bytes past it cost 256
+     * bytes of SRAM. Trim the RAM code (irq_handler is ours; the rest is the SDK's), or build with
+     * RAMCODE_SPILL_OK=1 to accept it. */
+    ASSERT(__RAMCODE_SPILL_OK__ || _ramcode_tail_ < 0xc0,
+           "RAM code ends just past a 256-byte boundary, which costs 256 bytes of SRAM: trim .ram_code (irq_handler), or RAMCODE_SPILL_OK=1 to accept it - see _ramcode_tail_ in boot_8258_ap.link.")
+
+    /* FLASH_RESIDENT moved adc.o's RAM code into .text, which is safe only while nothing programs or
+     * erases flash: flash_mspi_write_ram calls adc_get_result_with_fluct after sending such a command
+     * and before its address, when the flash is mid-command and cannot be fetched from. */
+    ASSERT(_flash_addr_writes_end_ == _flash_addr_writes_start_,
+           "A flash program or erase is linked, and adc.o's RAM code is in flash (FLASH_RESIDENT): take adc.o out of the EXCLUDE_FILE lists and the .text placement in boot_8258_ap.link. That costs 512 bytes of SRAM.")
+
+    ASSERT((_end_custom_bss_ + SIZEOF(.sdk_version) + _stack_min_) <= _sram_top_,
+           "Out of SRAM: .bss leaves less than the main stack's floor (_stack_min_), and nothing for the cache arena. Check _ramcode_tail_ - see the RAM section of README.md.")
+    /* The arena's end is the stack's floor and must stay 8-aligned (halArena, hal.h); the IRQ stack's
+     * top must be 8-aligned for the EABI, and 16 keeps cstartup's 16-aligned .bss from padding it. */
+    ASSERT(_stack_min_ % 8 == 0 && _irq_stk_size_ % 16 == 0 && _irq_stk_size_ > 0,
+           "Stack sizes: _stack_min_ must be a multiple of 8 and the IRQ stack a nonzero multiple of 16 (__STACK_MIN__, __IRQ_STACK__).")
+    ASSERT(_irq_stk_hi_ == _irq_stk_top_,
+           "The IRQ stack pointer is not at the top of the bytes reserved for it: assemble cstartup_8258.S with -D__IRQ_STK_SIZE__=0 (makefile), so that irq_stk is the label at the top of the reserve in .bss.")
+    ASSERT(_cache_arena_size_ >= _cache_arena_need_,
+           "Out of SRAM: the cache arena is smaller than the cache's floor and the allow-list's guaranteed room (_cache_arena_need_, from blockcache.c). Something in .bss grew by kilobytes; check _ramcode_tail_ - see the RAM section of README.md.")
+}

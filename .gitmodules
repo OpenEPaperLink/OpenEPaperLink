@@ -1,0 +1,4 @@
+[submodule "ARM_Tag_FW/OpenEPaperLink_TLSR/tc32_linux"]
+	path = ARM_Tag_FW/OpenEPaperLink_TLSR/tc32_linux
+	url = https://github.com/flyskywhy/tc32
+	branch = linux
