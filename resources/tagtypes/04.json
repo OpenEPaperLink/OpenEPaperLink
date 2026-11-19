@@ -1,5 +1,5 @@
 {
-	"version": 4,
+	"version": 5,
 	"name": "M2 2.6\"",
 	"width": 296,
 	"height": 152,
@@ -9,6 +9,11 @@
 		"white": [ 255, 255, 255 ],
 		"black": [ 0, 0, 0 ],
 		"red": [ 255, 0, 0 ]
+	},
+	"perceptual": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 51, 50, 56 ],
+		"red": [ 177, 53, 51 ]
 	},
 	"g5_compression": "29",
 	"shortlut": 2,
