@@ -7,6 +7,8 @@ You can use the following flasher-scripts to program various types of tags with 
 * 88MZ100-based tags
 * cc1110-based tags
 
+The 88MZ100 and CC2630 scripts further down also work with a plain 3.3 V USB-TTL adapter.
+
 This is the schematic for the flasher, including a pinout for the debug-header that is used by quite a few Solum tags. This flasher is also compatible with the OEPL-AP-Flasher jig/programming boards.
 ![image](https://github.com/jjwbruijn/OpenEPaperLink/assets/2544995/1fa5bef8-6624-4e53-9caa-aeaaf4dbdc55)
 
@@ -104,6 +106,42 @@ The Tag-Flasher is used in serial passthrough-mode in order to flash the 88MZ100
 python3 .\88MZ100-OEPL-Flasher.py COM31 write_flash '0130c8144117.bin'
 ```
 
+### 88MZ100-Flasher-robust.py (plain USB-TTL adapter, hand-held jig)
+
+A variant of `88MZ100-Serial-Flasher.py` for a plain 3.3 V USB-TTL adapter and a press-on/Dupont jig whose contacts tend to bounce. It uses the same protocol and the same `88mz100_second_stage_bootloader.bin`, but:
+
+* answers every boot prompt and only starts once the line has stayed quiet for 1.5 s (debounce),
+* restarts automatically after a communication error: just reconnect 3V3, no need to restart the script,
+* `read` writes to exactly the given file and refuses to start if it already exists (it never appends).
+
+Connect TXD, RXD and GND first and plug in the 3V3 wire last, when the script asks for it.
+
+```shell
+python3 88MZ100-Flasher-robust.py COM4 read backup.bin
+python3 88MZ100-Flasher-robust.py COM4 write_flash SOL_M2_75_full_0028.bin
+```
+
+## TI CC2630-based (cc2630-flash-robust.py / cc2630-read-robust.py)
+
+For tags like the Solum TG-GR7500C. These scripts talk to the TI ROM serial bootloader through a plain 3.3 V USB-TTL adapter and use the command layer of [cc2538-bsl](https://github.com/JelmerT/cc2538-bsl) by Jelmer Tiete. Install it with
+
+```shell
+pip install git+https://github.com/JelmerT/cc2538-bsl
+```
+
+or set `CC2538_BSL_PATH` to a checkout of it (a `cc2538-bsl` checkout next to the scripts is found as well).
+
+Wiring: adapter TXD → tag RXD, adapter RXD → tag TXD, GND → GND, 3V3 → BAT (connect last). Hold `TI_DN` on GND while power comes on to enter the bootloader (backdoor on DIO11 on the TG-GR7500C).
+
+* Both scripts keep sending the synch sequence while you connect power, so bouncing contacts don't matter.
+* `cc2630-read-robust.py` resumes at the same address after an error and never overwrites an existing file. It prints the CCFG `BL_CONFIG` at the end.
+* `cc2630-flash-robust.py` expects a full 128 KB image including CCFG. It refuses images whose CCFG disables the serial bootloader (you could only recover such a tag with JTAG). It bank-erases once, then writes sector by sector with a CRC check per sector and writes the CCFG sector last, and verifies a full-flash CRC at the end. After an error it waits for the bootloader again and redoes only the failed sector. An erased CC2630 always starts the ROM bootloader, so `TI_DN` is only needed for the first connection.
+
+```shell
+python3 cc2630-read-robust.py COM4 tg-gr7500c-original.bin
+python3 cc2630-flash-robust.py COM4 Tag_FW_CC2630_TG-GR7500C.bin
+```
+
 ## TI CC1110-based
 
 > [!IMPORTANT]
@@ -130,4 +168,5 @@ Much code was reused from ATC1441's various flashers
 * [ATC1441's ZBS-Flasher](https://github.com/atc1441/ZBS_Flasher)
 * [ATC1441's 88MZ100 Flasher](https://github.com/atc1441/88MZ100/tree/master/88MZ100_Flasher)
 * [ATC1441's ESP_CC_Flasher](https://github.com/atc1441/ESP_CC_Flasher)
+* [JelmerT's cc2538-bsl](https://github.com/JelmerT/cc2538-bsl) (used by the CC2630 scripts)
 
