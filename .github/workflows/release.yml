@@ -78,6 +78,8 @@ jobs:
           - env: BLE_ONLY_AP
           - env: ESP32_S3_16_8_4inch_AP
           - env: ESP32_S3_SIMPLE_AP
+          - env: ESP32_S3_32_16_OCTAL_AP
+            size: 32MB
           - env: ESP32_S3_H2_THREAD_BR
             size: 8MB
           - env: OpenEPaperLink_PoE_AP
