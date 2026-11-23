@@ -1,0 +1,87 @@
+{
+	"version": 2,
+	"name": "7.5\" BWR",
+	"width": 880,
+	"height": 528,
+	"rotatebuffer": 0,
+	"bpp": 2,
+	"colortable": {
+		"white": [ 255, 255, 255 ],
+		"black": [ 0, 0, 0 ],
+		"red": [ 255, 0, 0 ]
+	},
+	"shortlut": 0,
+	"zlib_compression": "27",
+	"options": [ "button", "led" ],
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 14, 16, 17, 18, 19, 20, 21, 26, 27 ],
+	"template": {
+		"1": {
+			"weekday": [ 440, 8, "Signika-SB.ttf", 90 ],
+			"month": [ 440, 390, "Signika-SB.ttf", 110 ],
+			"day": [ 440, 100, "Signika-SB.ttf", 270 ]
+		},
+		"2": {
+			"fonts": [ "Signika-SB.ttf", 420, 400, 340, 280, 220, 180 ],
+			"xy": [ 440, 280 ]
+		},
+		"4": {
+			"location": [ 24, 16, "fonts/calibrib48" ],
+			"wind": [ 300, 440, "fonts/calibrib48" ],
+			"temp": [ 24, 150, "fonts/calibrib160" ],
+			"icon": [ 850, 36, 200, 2 ],
+			"dir": [ 360, 420, 80 ],
+			"umbrella": [ 500, 420, 80 ]
+		},
+		"8": {
+			"location": [ 16, 4, "fonts/calibrib36" ],
+			"column": [ 7, 125 ],
+			"day": [ 62, 196, "fonts/calibrib28", 370, 430 ],
+			"rain": [ 62, 478 ],
+			"icon": [ 62, 300, 56 ],
+			"wind": [ 42, 230 ],
+			"line": [ 188, 516 ],
+			"currentwind": [ 520, 120, "fonts/calibrib36" ],
+			"temp": [ 16, 48, "fonts/calibrib100", 1 ],
+			"currenticon": [ 860, 16, 130, 2 ],
+			"dir": [ 580, 100, 64 ],
+			"umbrella": [ 680, 88, 48 ]
+		},
+		"9": {
+			"title": [ 12, 6, "Signika-SB.ttf", 40 ],
+			"items": 9,
+			"line": [ 16, 58, "calibrib16.vlw" ],
+			"desc": [ 6, 16, "REFSAN12.vlw", 1.15 ]
+		},
+		"10": {
+			"title": [ 440, 8, "Signika-SB.ttf", 40 ],
+			"pos": [ 440, 58 ]
+		},
+		"11": {
+			"rotate": 0,
+			"mode": 1,
+			"days": 7,
+			"gridparam": [ 6, 36, 52, "fonts/calibrib30", "calibrib16.vlw", 20 ]
+		},
+		"16": {
+			"location": [ 10, 6, "fonts/bahnschrift30" ],
+			"title": [ 680, 6, "fonts/bahnschrift30" ],
+			"cols": [ 10, 492, 36, "fonts/bahnschrift20" ],
+			"bars": [ 10, 458, 28 ]
+		},
+		"21": [
+			{ "text": [ 40, 36, "OpenEpaperLink AP", "fonts/calibrib60", 1, 0, 0 ] },
+			{ "text": [ 40, 150, "IP address:", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 340, 150, "{ap_ip}", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 40, 230, "Channel:", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 340, 230, "{ap_ch}", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 40, 310, "Tag count:", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 340, 310, "{ap_tagcount}", "fonts/calibrib42", 1, 0, 0 ] }
+		],
+		"27": {
+			"bars": [ 80, 780, 380, 42, 56 ],
+			"time": [ "fonts/bahnschrift20" ],
+			"yaxis": [ "fonts/bahnschrift20", 8, 8, 14 ],
+			"head": [ "fonts/calibrib40.vlw" ]
+		}
+	}
+}
