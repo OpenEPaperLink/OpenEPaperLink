@@ -53,12 +53,8 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["ap_type"] = apInfo.type;
     doc["ap_typename"] = apTypeName(apInfo.type);
     doc["channel"] = apInfo.channel;
-    {
-        extern uint32_t radioTxFrames;
-        extern uint32_t radioRxFrames;
-        doc["radio_tx"] = radioTxFrames;
-        doc["radio_rx"] = radioRxFrames;
-    }
+    doc["radio_tx"] = radioTxFrames;
+    doc["radio_rx"] = radioRxFrames;
     // The radio co-processor's own MAC. It reports it during the
     // handshake in V2_HELLO_REPLY and it has been sitting in apInfo.mac
     // ever since, but nothing ever published it. A tag sees it in every

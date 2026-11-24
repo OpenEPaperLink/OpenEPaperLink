@@ -30,6 +30,12 @@ struct APInfoS {
 
 extern struct APInfoS apInfo;
 
+/* Frames the radio has sent and received. Defined in serialap.cpp, which
+   every board compiles, and written by v2transport.cpp where it reads the
+   radio status - that file is not part of every build. */
+extern uint32_t radioTxFrames;
+extern uint32_t radioRxFrames;
+
 /* Readable name for an AP type byte, for logs that would otherwise print a
    bare number. The compile time SHORT_CHIP_NAME cannot do this job: a board
    that can carry either module has it fixed to one of them, so it says "C6"

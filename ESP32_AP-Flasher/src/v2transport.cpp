@@ -497,9 +497,6 @@ void V2Transport::syncAllowList() {
     }
 }
 
-uint32_t radioTxFrames = 0;
-uint32_t radioRxFrames = 0;
-
 void V2Transport::applyStatus(const uint8_t* payload, size_t len) {
     if (len < sizeof(struct v2Status)) return;
     struct v2Status st;

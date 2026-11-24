@@ -40,6 +40,15 @@ int16_t radioLock = -1;           // config.lock, the same
 volatile uint32_t lastAPActivity = 0;
 struct APInfoS apInfo;
 
+/* Frames the radio has sent and received, as it reports them in its
+   status. They live here and not in v2transport.cpp, which is where they
+   are written: Mini_AP and Nano_AP leave that file out of the build
+   (build_src_filter), and the sysinfo handler in ota.cpp reads them on
+   every board. Defining them there broke the link for those two boards.
+   On a board without the V2 link they stay zero, which is the truth. */
+uint32_t radioTxFrames = 0;
+uint32_t radioRxFrames = 0;
+
 const char *apTypeName(uint8_t type) {
     switch (type) {
 #ifdef HAS_H2
