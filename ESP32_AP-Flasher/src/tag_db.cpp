@@ -383,6 +383,7 @@ void initAPconfig() {
     }
     config.channel = APconfig["channel"].is<uint8_t>() ? APconfig["channel"] : 0;
     config.subghzchannel = APconfig["subghzchannel"].is<uint8_t>() ? APconfig["subghzchannel"] : 0;
+    config.subghzspeed = APconfig["subghzspeed"].is<uint8_t>() ? APconfig["subghzspeed"] : 0;
     if (APconfig["alias"]) strlcpy(config.alias, APconfig["alias"], sizeof(config.alias));
     config.led = APconfig["led"].is<uint8_t>() ? APconfig["led"] : 255;
     config.tft = APconfig["tft"].is<uint8_t>() ? APconfig["tft"] : 255;
@@ -428,6 +429,7 @@ void saveAPconfig() {
     JsonDocument APconfig;
     APconfig["channel"] = config.channel;
     APconfig["subghzchannel"] = config.subghzchannel;
+    APconfig["subghzspeed"] = config.subghzspeed;
     APconfig["alias"] = config.alias;
     APconfig["led"] = config.led;
     APconfig["tft"] = config.tft;

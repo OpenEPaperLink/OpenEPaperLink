@@ -33,7 +33,7 @@
 				</div>
 				<!-- /tabs -->
 				<div><span id="runstate"></div>
-				<div id="apstatebox"><span id="apstatecolor" style="font-size: 18px; vertical-align: bottom;" class="material-symbols-outlined">hourglass</span> <span id="apstate">loading</span></div>
+				<div id="apstatebox"><span id="apstatecolor" style="font-size: 18px; vertical-align: bottom;" class="material-symbols-outlined">hourglass</span> <span id="apstate">loading</span><span id="radiomac" style="margin-left: 8px; opacity: 0.7; font-family: monospace;"></span></div>
 				<div><a href="/edit" target="littlefs" class="filebutton material-symbols-outlined">folder_open</a>
 				</div>
 			</div>
@@ -311,6 +311,13 @@ options:
 						<option value="203">203 - 915.083 Mhz (US, etc)</option>
 						<option value="204">204 - 919.110 Mhz (US, etc)</option>
 						<option value="205">205 - 923.138 Mhz (US, etc)</option>
+					</select>
+				</p>
+				<p title="Sub-GHz data rate. 38.4 kbit/s lowers the symbol rate and the deviation for tags whose radio cannot demodulate 250 kbit/s. Channel grid, sync word, preamble, whitening and CRC are identical in both modes, but a tag has to be built for the rate set here: the two do not interoperate.">
+					<label for="apcfgsubgigspeed">SubGhz data rate</label>
+					<select id="apcfgsubgigspeed">
+						<option value="0" selected>250 kbit/s (default)</option>
+						<option value="1">38.4 kbit/s</option>
 					</select>
 				</p>
 				<p title="Enable Bluetooth (BLE) support. Only enable this if you have BLE capable tags. Changing this value requires a reboot to take effect.">

@@ -119,13 +119,18 @@ struct v2Hello {
 #define V2_LOCK_LOCKED 1
 #define V2_LOCK_LEARNING 2
 
+#define V2_SUBGHZ_SPEED_250K 0
+#define V2_SUBGHZ_SPEED_38K 1
 struct v2SetConfig {
     uint8_t channel;        // 11..26 (802.15.4); 0xFF = do not change
     uint8_t subghzChannel;  // 0xFF = do not change
     int8_t txPowerDbm;      // 0x7F = do not change
     uint8_t flags;          // V2_CFG_LOG_FRAMES, V2_CFG_LOCK_MASK
     uint8_t ledBrightness;  // activity LED: 0 = off, 255 = full
+    uint8_t subghzSpeed;    // V2_SUBGHZ_SPEED_*; 0xFF = do not change
 } __attribute__((packed));
+
+#define V2_SET_CONFIG_MIN_LEN 5
 
 #define V2_PENDING_DATA_FOLLOWS 0x01  // the S3 sends the data as DATA_CHUNKs right away
 
@@ -266,7 +271,7 @@ struct v2Nak {
 
 V2_STATIC_ASSERT(sizeof(struct v2Header) == 3, "header");
 V2_STATIC_ASSERT(sizeof(struct v2Hello) == 4, "HELLO");
-V2_STATIC_ASSERT(sizeof(struct v2SetConfig) == 5, "SET_CONFIG");
+V2_STATIC_ASSERT(sizeof(struct v2SetConfig) == 6, "SET_CONFIG");
 V2_STATIC_ASSERT(sizeof(struct v2SetPending) == 27, "SET_PENDING");
 V2_STATIC_ASSERT(sizeof(struct v2CancelPending) == 8, "CANCEL_PENDING");
 V2_STATIC_ASSERT(sizeof(struct v2DataChunk) + V2_CHUNK_MAX <= V2_MAX_PAYLOAD, "DATA_CHUNK");

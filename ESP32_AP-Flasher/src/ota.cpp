@@ -53,6 +53,27 @@ void handleSysinfoRequest(AsyncWebServerRequest* request) {
     doc["ap_type"] = apInfo.type;
     doc["ap_typename"] = apTypeName(apInfo.type);
     doc["channel"] = apInfo.channel;
+    {
+        extern uint32_t radioTxFrames;
+        extern uint32_t radioRxFrames;
+        doc["radio_tx"] = radioTxFrames;
+        doc["radio_rx"] = radioRxFrames;
+    }
+    // The radio co-processor's own MAC. It reports it during the
+    // handshake in V2_HELLO_REPLY and it has been sitting in apInfo.mac
+    // ever since, but nothing ever published it. A tag sees it in every
+    // reply from the AP and can show it, so it belongs here too, where
+    // the two can be compared.
+    //
+    // Byte order as used for tags: highest byte first, which is the
+    // reverse of the order on air.
+    {
+        char apmac[17];
+        for (int i = 0; i < 8; i++)
+            sprintf(apmac + i * 2, "%02X", apInfo.mac[7 - i]);
+        apmac[16] = 0;
+        doc["radio_mac"] = apmac;
+    }
     doc["heapsize"] = ESP.getHeapSize();
     doc["fssize"] = Storage.totalSpace();
     doc["resetreason"] = resetReasonName();

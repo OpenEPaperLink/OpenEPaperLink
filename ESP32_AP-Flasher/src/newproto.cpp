@@ -781,6 +781,17 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         taginfo->temperature = eadr->adr.temperature;
         taginfo->batteryMv = eadr->adr.batteryMv;
         taginfo->wakeupReason = eadr->adr.wakeupReason;
+        // A tag that has just booted no longer has its image - its
+        // screen shows whatever its firmware draws at startup, not the
+        // content. So send the content again instead of waiting for
+        // nextupdate to come due; with an unchanged configuration that
+        // would be hours or years away (contentmanager.cpp then sets
+        // 3216153600). This is what the note on resendCurrentImage is
+        // about: "or when the tag rebooted (#567)".
+        if (eadr->adr.wakeupReason == WAKEUP_REASON_FIRSTBOOT ||
+            eadr->adr.wakeupReason == WAKEUP_REASON_WDT_RESET) {
+            taginfo->nextupdate = 0;
+        }
         taginfo->capabilities = eadr->adr.capabilities;
         taginfo->currentChannel = eadr->adr.currentChannel;
         if (family == BLE_FAMILY_OPENDISPLAY) {
@@ -890,6 +901,11 @@ void setAPchannel() {
     if (curChannel.subghzchannel != config.subghzchannel) {
         curChannel.subghzchannel = config.subghzchannel;
         apInfo.SubGhzChannel = config.subghzchannel;
+        bSendRadioLayer = true;
+    }
+    static uint8_t lastSentSubghzSpeed = 0xFF;
+    if (lastSentSubghzSpeed != config.subghzspeed) {
+        lastSentSubghzSpeed = config.subghzspeed;
         bSendRadioLayer = true;
     }
 #endif

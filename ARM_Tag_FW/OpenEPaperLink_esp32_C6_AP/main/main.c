@@ -72,7 +72,13 @@ const struct {
 struct pendingData pendingDataArr[MAX_PENDING_MACS];
 
 // VERSION GOES HERE!
-uint16_t version = 0x0024;
+// 0x0025: upstream 0x0024 plus a selectable sub-GHz data rate - 250
+// kbit/s as before and 38.4 kbit/s, which is the rate an AX5043
+// receiver in an AX8052F143 can actually demodulate.
+//
+// build_radio.ps1 reads this number and writes it into the manifests of
+// all four published images, so it is the single place to raise.
+uint16_t version = 0x0025;
 
 #define RAW_PKT_PADDING 2
 
@@ -123,6 +129,7 @@ static int16_t burstLateMs = 0;
 
 #define NO_SUBGHZ_CHANNEL  255
 uint8_t curSubGhzChannel;
+uint8_t curSubGhzSpeed = V2_SUBGHZ_SPEED_250K;
 uint8_t curChannel = 25;
 uint8_t curPower   = 10;
 
@@ -422,7 +429,7 @@ static void fillHelloReply(struct v2Reply *reply) {
     memcpy(reply->data, &hr, sizeof(hr));
 }
 
-static void setConfig(const struct v2SetConfig *sc, struct v2Reply *reply) {
+static void setConfig(const struct v2SetConfig *sc, size_t len, struct v2Reply *reply) {
     if (sc->channel != V2_CFG_UNCHANGED_U8) {
         bool valid = false;
         for (uint8_t c = 0; c < sizeof(channelList); c++) {
@@ -434,6 +441,20 @@ static void setConfig(const struct v2SetConfig *sc, struct v2Reply *reply) {
         }
     }
 #ifdef CONFIG_OEPL_SUBGIG_SUPPORT
+    // Rate first, so that a message changing both channel and rate
+    // does not switch the receiver on twice.
+    if (len > V2_SET_CONFIG_MIN_LEN && sc->subghzSpeed != V2_CFG_UNCHANGED_U8 && sc->subghzSpeed != curSubGhzSpeed) {
+        if (sc->subghzSpeed > V2_SUBGHZ_SPEED_38K) {
+            nak(reply, V2_NAK_INVALID_PARAM);
+            return;
+        }
+        curSubGhzSpeed = sc->subghzSpeed;
+        if (curSubGhzSpeed == V2_SUBGHZ_SPEED_250K) {
+            SubGig_radioSetSpeed(SUBGIG_SPEED_250K);
+        } else {
+            SubGig_radioSetSpeed(SUBGIG_SPEED_38K);
+        }
+    }
     if (sc->subghzChannel != V2_CFG_UNCHANGED_U8 && curSubGhzChannel != NO_SUBGHZ_CHANNEL && curSubGhzChannel != sc->subghzChannel) {
         curSubGhzChannel = sc->subghzChannel;
         SubGig_radioSetChannel(sc->subghzChannel);
@@ -449,7 +470,7 @@ static void setConfig(const struct v2SetConfig *sc, struct v2Reply *reply) {
         radioSetTxPower(curPower);
     }
     lockMode = (sc->flags & V2_CFG_LOCK_MASK) >> V2_CFG_LOCK_SHIFT;
-    ESP_LOGI(TAG, "Set channel: %d power: %d lock: %d (%d tags allowed)", curChannel, curPower, lockMode, allowedCount);
+    ESP_LOGI(TAG, "Set channel: %d power: %d lock: %d (%d tags allowed) subghz: %d @ %s", curChannel, curPower, lockMode, allowedCount, curSubGhzChannel, curSubGhzSpeed == V2_SUBGHZ_SPEED_250K ? "250k" : "38k");
 }
 
 static void setPending(const struct v2SetPending *sp, struct v2Reply *reply) {
@@ -506,8 +527,11 @@ void v2HandleRequest(uint8_t type, const uint8_t *payload, size_t len, struct v2
             fillStatus(reply);
             break;
         case V2_SET_CONFIG:
-            if (len < sizeof(struct v2SetConfig)) nak(reply, V2_NAK_BAD_LENGTH);
-            else setConfig((const struct v2SetConfig *) payload, reply);
+            // Only require V2_SET_CONFIG_MIN_LEN: an S3 without the
+            // subghzSpeed field sends a shorter message, and it should
+            // keep working.
+            if (len < V2_SET_CONFIG_MIN_LEN) nak(reply, V2_NAK_BAD_LENGTH);
+            else setConfig((const struct v2SetConfig *) payload, len, reply);
             break;
         case V2_SET_PENDING:
             if (len < sizeof(struct v2SetPending)) nak(reply, V2_NAK_BAD_LENGTH);

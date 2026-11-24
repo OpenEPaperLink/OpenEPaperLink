@@ -19,7 +19,13 @@ typedef enum {
    SUBGIG_INVALID_CHANNEL,
 } SubGigErr;
 
+// Datenrate des SubGHz-Funks. Beide Betriebsarten unterscheiden sich nur in
+// Symbol rate and deviation; the channel spacing stays the same.
+#define SUBGIG_SPEED_250K           (0)
+#define SUBGIG_SPEED_38K            (1)
+
 typedef struct {
+   uint8_t Speed;        // SUBGIG_SPEED_*
    uint8_t Present:1;
    uint8_t Enabled:1;
    uint8_t FreqTest:1;
@@ -33,6 +39,8 @@ extern SubGigData gSubGigData;
 SubGigErr SubGig_radio_init(uint8_t ch);
 SubGigErr SubGig_radioTx(uint8_t *packet);
 SubGigErr SubGig_radioSetChannel(uint8_t ch);
+SubGigErr SubGig_radioSetSpeed(uint8_t Speed);
+uint8_t SubGig_radioGetSpeed(void);
 int8_t SubGig_commsRxUnencrypted(uint8_t *data);
 SubGigErr SubGig_FreqTest(bool b866Mhz,bool bStart);
 

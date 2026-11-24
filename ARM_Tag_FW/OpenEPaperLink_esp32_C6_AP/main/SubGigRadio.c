@@ -206,11 +206,108 @@ const RfSetting gDmitry915[] = {
    {0xff,0}   // end of table
 };
 
+// Data rate, the default. These are the values gDmitry915 already
+// carries, kept here as their own table so that selecting a rate is a
+// single write and never depends on which base configuration was
+// loaded last. With a 26 MHz crystal:
+//
+//   DRATE = (256 + DRATE_M) * 2^DRATE_E * 26e6 / 2^28
+//   DRATE_E 13, DRATE_M 59 -> 249,939 bit/s
+//
+//   MDMCFG4 0x1D   CHANBW_E 0, CHANBW_M 1 -> 650 kHz receive bandwidth
+//                  DRATE_E 13
+//   MDMCFG3 0x3B   DRATE_M 59
+//   DEVIATN 0x65   E 6, M 5 -> 165.039 kHz, modulation index 1.32
+//
+// Channel spacing (MDMCFG1/0, 335.632 kHz, 24 preamble bytes), the GFSK
+// and 30/32 sync-word settings in MDMCFG2 and the reset values for SYNC
+// and PKTCTRL0 all stay where the base configuration put them. A rate
+// change therefore leaves everything else untouched.
+const RfSetting g250kBit[] = {
+   {CC1101_MDMCFG4,0x1D},
+   {CC1101_MDMCFG3,0x3B},   // DRATE_M 59, same as gDmitry915
+   {CC1101_DEVIATN,0x65},
+   {0xff,0}   // end of table
+};
+
+// 38.4 kbit/s. Computed, not guessed:
+//
+//   DRATE = (256 + DRATE_M) * 2^DRATE_E * 26e6 / 2^28
+//   DRATE_E 10, DRATE_M 131 -> 38,383.5 bit/s
+//
+//   MDMCFG4 0x4A   CHANBW_E 1, CHANBW_M 0 -> 406 kHz receive bandwidth
+//                  DRATE_E 10
+//   MDMCFG3 0x83   DRATE_M 131
+//   DEVIATN 0x24   E 2, M 4 -> 26e6/2^17 * 12 * 2^2 = 9.521 kHz,
+//                  modulation index 0.496
+//
+// The receive bandwidth is deliberately left wide at 406 kHz even
+// though the signal only occupies 57 kHz: FOC_LIMIT is a quarter of
+// it, which gives 101 kHz of frequency tolerance. A narrower filter
+// would leave 25 kHz, or 29 ppm - too tight for a tag with an
+// untrimmed crystal.
+//
+// This is the rate at which an AX5043 inside an AX8052F143 has been
+// shown to demodulate this link, all the way through a complete image
+// transfer. The reason lies in the receiver baseband: at a quarter of
+// the symbol rate it may decimate by three, and only there does it
+// lock.
+const RfSetting g38kBit[] = {
+   {CC1101_MDMCFG4,0x4A},
+   {CC1101_MDMCFG3,0x83},
+   {CC1101_DEVIATN,0x24},
+   {0xff,0}   // end of table
+};
+
 SubGigData gSubGigData;
 
 int CheckSubGigState(void);
 void SubGig_CC1101_reset(void);
 void SubGig_CC1101_SetConfig(const RfSetting *pConfig);
+
+// Writes the register pairs of the currently selected rate. Called after
+// every base configuration load, because the rate is part of those
+// tables and would otherwise snap back to 250k.
+static void SubGig_applySpeed(void)
+{
+   const RfSetting *pCfg;
+
+   switch(gSubGigData.Speed) {
+      case SUBGIG_SPEED_38K:  pCfg = g38kBit;  break;
+      default:                pCfg = g250kBit; break;
+   }
+// Every rate table sets MDMCFG3 itself, so nothing else may be
+// reloaded here.
+//
+// This used to reload gDmitry915 so that switching back from 38k would
+// not leave the other table's DRATE_M in place. That was a mistake:
+// gDmitry915 starts with FREQ2/FREQ1/FREQ0 at 0x22/0xBB/0x13, that is
+// 903 MHz. Every rate change therefore retuned the radio to the 915
+// band, and the channel is only rewritten on a channel change - so the
+// AP was listening on the wrong frequency afterwards.
+   SubGig_CC1101_SetConfig(pCfg);
+}
+
+uint8_t SubGig_radioGetSpeed(void)
+{
+   return gSubGigData.Speed;
+}
+
+SubGigErr SubGig_radioSetSpeed(uint8_t Speed)
+{
+   if(Speed != SUBGIG_SPEED_250K && Speed != SUBGIG_SPEED_38K) {
+      return SUBGIG_INVALID_CHANNEL;
+   }
+   gSubGigData.Speed = Speed;
+   if(!gSubGigData.Present) {
+   // Remembering is enough; the rate is written during init.
+      return SUBGIG_ERR_NONE;
+   }
+   LOG("SubGhz rate %s\n",Speed == SUBGIG_SPEED_38K ? "38k" : "250k");
+   SubGig_applySpeed();
+   CC1101_setRxState();
+   return SUBGIG_ERR_NONE;
+}
 
 static void IRAM_ATTR gpio_isr_handler(void *arg)
 {
@@ -306,6 +403,7 @@ SubGigErr SubGig_radio_init(uint8_t ch)
       SubGig_CC1101_reset();
       CC1101_SetConfig(NULL);
       SubGig_CC1101_SetConfig(gDmitry915);
+      SubGig_applySpeed();
 #if 0
       CC1101_DumpRegs();
 #endif
@@ -383,6 +481,10 @@ SubGigErr SubGig_radioSetChannel(uint8_t ch)
          }
       }
       SubGig_CC1101_SetConfig(SetChannr);
+   // g864Mhz and g903Mhz only set FREQ2/1/0, so the rate survives them.
+   // Write it again anyway, so that a channel change always ends with the
+   // selected rate in place.
+      SubGig_applySpeed();
       CC1101_setRxState();
    } while(false);
 

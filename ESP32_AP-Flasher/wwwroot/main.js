@@ -72,6 +72,10 @@ window.addEventListener("loadConfig", function () {
 			}
 			if (data.savespace) {
 			}
+			if (data.radio_mac) {
+				$("#radiomac").innerHTML = data.radio_mac;
+				$("#radiomac").title = "Radio MAC";
+			}
 			if (data.apstate) {
 				$("#apstatecolor").innerHTML = apstate[data.apstate].icon;
 				$("#apstatecolor").style.color = apstate[data.apstate].color;
@@ -962,6 +966,7 @@ document.addEventListener("loadTab", function (event) {
 						$('#apcfgalias').value = data.alias;
 						$('#apcfgchid').value = data.channel;
 						$('#apcfgsubgigchid').value = data.subghzchannel;
+						$('#apcfgsubgigspeed').value = data.subghzspeed ?? 0;
 						$('#apcfgble').value = data.ble;
 						$("#apcfgledbrightness").value = data.led;
 						$("#apcfgtftbrightness").value = data.tft;
@@ -1001,6 +1006,7 @@ $('#apcfgsave').onclick = function () {
 	formData.append("alias", $('#apcfgalias').value);
 	formData.append("channel", $('#apcfgchid').value);
 	formData.append("subghzchannel", $('#apcfgsubgigchid').value);
+	formData.append("subghzspeed", $('#apcfgsubgigspeed').value);
 	formData.append('ble', $('#apcfgble').value);
 	formData.append('led', $('#apcfgledbrightness').value);
 	formData.append('tft', $('#apcfgtftbrightness').value);

@@ -691,6 +691,9 @@ void init_web() {
         if (request->hasParam("subghzchannel", true)) {
             config.subghzchannel = static_cast<uint8_t>(request->getParam("subghzchannel", true)->value().toInt());
         }
+        if (request->hasParam("subghzspeed", true)) {
+            config.subghzspeed = static_cast<uint8_t>(request->getParam("subghzspeed", true)->value().toInt());
+        }
         if (request->hasParam("led", true)) {
             config.led = static_cast<uint8_t>(request->getParam("led", true)->value().toInt());
             updateBrightnessFromConfig();
