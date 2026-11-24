@@ -1,0 +1,301 @@
+{
+ "version": 10,
+ "name": "13.3\" BWR",
+ "width": 960,
+ "height": 680,
+ "rotatebuffer": 0,
+ "bpp": 2,
+ "colortable": {
+  "white": [
+   255,
+   255,
+   255
+  ],
+  "black": [
+   0,
+   0,
+   0
+  ],
+  "red": [
+   255,
+   0,
+   0
+  ]
+ },
+ "shortlut": 0,
+ "zlib_compression": "27",
+ "options": [],
+ "contentids": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  7,
+  8,
+  9,
+  10,
+  11,
+  14,
+  17,
+  19,
+  20,
+  21,
+  22,
+  23
+ ],
+ "usetemplate": 1,
+ "template": {
+  "1": {
+   "weekday": [
+    480,
+    -5,
+    "Signika-SB.ttf",
+    160
+   ],
+   "month": [
+    480,
+    488,
+    "Signika-SB.ttf",
+    160
+   ],
+   "day": [
+    480,
+    110,
+    "Signika-SB.ttf",
+    380
+   ]
+  },
+  "2": {
+   "fonts": [
+    "Signika-SB.ttf",
+    504,
+    504,
+    476,
+    392,
+    322,
+    266
+   ],
+   "xy": [
+    480,
+    336
+   ]
+  },
+  "4": {
+   "location": [
+    24,
+    28,
+    "fonts/calibrib64"
+   ],
+   "icon": [
+    930,
+    24,
+    230,
+    2
+   ],
+   "temp": [
+    48,
+    244,
+    "fonts/calibrib160"
+   ],
+   "wind": [
+    140,
+    524
+   ],
+   "dir": [
+    320,
+    508
+   ],
+   "umbrella": [
+    510,
+    508
+   ]
+  },
+  "8": {
+   "location": [
+    25,
+    0,
+    "fonts/calibrib60"
+   ],
+   "column": [
+    7,
+    137
+   ],
+   "day": [
+    68,
+    245,
+    "fonts/calibrib42",
+    335,
+    540
+   ],
+   "rain": [
+    72,
+    618
+   ],
+   "icon": [
+    67,
+    390,
+    90
+   ],
+   "wind": [
+    45,
+    300
+   ],
+   "line": [
+    240,
+    680
+   ],
+   "currentwind": [
+    470,
+    130,
+    "fonts/calibrib60"
+   ],
+   "temp": [
+    25,
+    70,
+    "fonts/calibrib120",
+    1
+   ],
+   "currenticon": [
+    900,
+    0,
+    160,
+    2
+   ],
+   "dir": [
+    400,
+    100,
+    90
+   ],
+   "umbrella": [
+    390,
+    50,
+    60
+   ]
+  },
+  "9": {
+   "title": [
+    6,
+    0,
+    "Signika-SB.ttf",
+    32
+   ],
+   "items": 12,
+   "line": [
+    9,
+    40,
+    "calibrib16.vlw"
+   ],
+   "desc": [
+    2,
+    8,
+    "REFSAN12.vlw",
+    1.2
+   ]
+  },
+  "10": {
+   "title": [
+    480,
+    0,
+    "Signika-SB.ttf",
+    50
+   ],
+   "pos": [
+    480,
+    70
+   ]
+  },
+  "11": {
+   "rotate": 0,
+   "mode": 1,
+   "days": 7,
+   "gridparam": [
+    3,
+    25,
+    40,
+    "fonts/calibrib30",
+    "REFSAN12.vlw",
+    16
+   ]
+  },
+  "21": [
+   {
+    "text": [
+     44,
+     46,
+     "OpenEpaperLink AP",
+     "fonts/calibrib60",
+     1,
+     0,
+     0
+    ]
+   },
+   {
+    "text": [
+     44,
+     193,
+     "IP address:",
+     "fonts/calibrib42",
+     1,
+     0,
+     0
+    ]
+   },
+   {
+    "text": [
+     371,
+     193,
+     "{ap_ip}",
+     "fonts/calibrib42",
+     1,
+     0,
+     0
+    ]
+   },
+   {
+    "text": [
+     44,
+     296,
+     "Channel:",
+     "fonts/calibrib42",
+     1,
+     0,
+     0
+    ]
+   },
+   {
+    "text": [
+     371,
+     296,
+     "{ap_ch}",
+     "fonts/calibrib42",
+     1,
+     0,
+     0
+    ]
+   },
+   {
+    "text": [
+     44,
+     399,
+     "Tag count:",
+     "fonts/calibrib42",
+     1,
+     0,
+     0
+    ]
+   },
+   {
+    "text": [
+     371,
+     399,
+     "{ap_tagcount}",
+     "fonts/calibrib42",
+     1,
+     0,
+     0
+    ]
+   }
+  ]
+ }
+}
