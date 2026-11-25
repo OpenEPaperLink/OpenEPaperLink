@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"name": "11.6\" BWR",
 	"width": 960,
 	"height": 640,
@@ -13,6 +13,19 @@
 	"shortlut": 0,
 	"zlib_compression": "27",
 	"options": [ "button", "led" ],
-	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 14, 16, 17, 18, 19, 20, 26, 27 ],
-	"usetemplate": 55
+	"contentids": [ 22, 23, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 14, 16, 17, 18, 19, 20, 21, 26, 27, 29 ],
+	"usetemplate": 55,
+	"template": {
+		"21": [
+			{ "text": [ 48, 48, "OpenEPaperLink AP", "fonts/calibrib60", 1, 0, 0 ] },
+			{ "text": [ 48, 200, "IP address:", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 420, 200, "{ap_ip}", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 48, 290, "Channel:", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 420, 290, "{ap_ch}", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 48, 380, "Tags:", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 420, 380, "{ap_tagcount}", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 48, 470, "Updated:", "fonts/calibrib42", 1, 0, 0 ] },
+			{ "text": [ 420, 470, "{ap_date} {ap_time}", "fonts/calibrib42", 1, 0, 0 ] }
+		]
+	}
 }

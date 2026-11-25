@@ -1,18 +1,93 @@
 {
- "version": 2,
+ "version": 3,
  "name": "Chroma 7.4\"",
  "width": 640,
  "height": 384,
  "rotatebuffer": 0,
  "bpp": 2,
  "colortable": {
-  "white": [ 255, 255, 255 ],
-  "black": [ 0, 0, 0 ],
-  "red": [ 255, 0, 0 ]
+  "white": [
+   255,
+   255,
+   255
+  ],
+  "black": [
+   0,
+   0,
+   0
+  ],
+  "red": [
+   255,
+   0,
+   0
+  ]
  },
  "shortlut": 1,
- "options": [ ],
- "contentids": [ 22, 23, 1, 4, 5, 7, 8, 9, 10, 11, 17, 18, 19, 20, 27 ],
+ "options": [],
+ "contentids": [
+  22,
+  23,
+  1,
+  4,
+  5,
+  7,
+  8,
+  9,
+  10,
+  11,
+  17,
+  18,
+  19,
+  20,
+  27
+ ],
  "usetemplate": 5,
- "g5_compression": "16"
+ "g5_compression": "16",
+ "template": {
+  "4": {
+   "location": [
+    24,
+    -2,
+    "fonts/calibrib76"
+   ],
+   "temp": [
+    20,
+    104,
+    "fonts/calibrib155",
+    1
+   ],
+   "dir": [
+    66,
+    240,
+    124
+   ],
+   "wind": [
+    184,
+    286,
+    "fonts/calibrib70"
+   ],
+   "icon": [
+    624,
+    10,
+    240,
+    2
+   ],
+   "umbrella": [
+    600,
+    262,
+    96
+   ]
+  },
+  "10": {
+   "title": [
+    320,
+    2,
+    "fonts/calibrib42"
+   ],
+   "pos": [
+    320,
+    50
+   ]
+  }
+ }
 }
