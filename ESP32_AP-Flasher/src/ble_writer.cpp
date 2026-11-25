@@ -566,6 +566,15 @@ void BLETask(void* parameter) {
                                     BLE_new_notify = true;  // trigger the upload here
                                 } else {
                                     BLE_freeImageBuffer();
+                                    // Said out loud, because this is where the wait between a
+                                    // display asking for content and getting it is spent, and
+                                    // nothing above the serial port used to show it.
+                                    char buffer[96];
+                                    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X BLE connect failed, try %u",
+                                            BLE_curr_address[7], BLE_curr_address[6], BLE_curr_address[5], BLE_curr_address[4],
+                                            BLE_curr_address[3], BLE_curr_address[2], BLE_curr_address[1], BLE_curr_address[0],
+                                            BLE_get_attempts(BLE_curr_address));
+                                    wsLog((String)buffer);
                                     if (BLE_get_attempts(BLE_curr_address) >= 5) {  // 5 tries per display (BLE_connect() resets BLE_err_counter)
                                         BLE_reportFailed();
                                     }

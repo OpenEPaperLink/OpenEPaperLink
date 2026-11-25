@@ -683,6 +683,31 @@ void processXferTimeout(struct espXferComplete* xfc, bool local) {
     if (local) udpsync.netProcessXferTimeout(xfc);
 }
 
+// CRC-16/CCITT-FALSE: polynomial 0x1021, init 0xFFFF, no reflection, no final
+// xor. Byte for byte the same routine as crc16_ccitt() in the tag's drawing.c -
+// the two have to agree or comparing their results means nothing. The standard
+// check value for "123456789" is 0x29B1.
+static uint16_t crc16Ccitt(const uint8_t* p, const size_t len) {
+    uint16_t crc = 0xFFFF;
+    for (size_t i = 0; i < len; i++) {
+        crc ^= (uint16_t)p[i] << 8;
+        for (uint8_t b = 0; b < 8; b++)
+            crc = (crc & 0x8000) ? (uint16_t)((crc << 1) ^ 0x1021) : (uint16_t)(crc << 1);
+    }
+    return crc;
+}
+
+// How long after a transfer the tag is left alone before its reported CRC is
+// believed. It rebuilds its advertisement once a minute, so what it says lags
+// its own panel by up to that long, and a 10" needs tens of seconds to draw on
+// top of that. Acting sooner would resend an image while it is being drawn.
+#define IMG_CRC_SETTLE_SECONDS 180
+
+// What a tag reports while nothing transferred is on its panel: the CRC of the
+// eight zero bytes of dataVer 0. Named because it has to be told apart from a
+// real image's CRC that this AP simply has no record of.
+#define IMG_CRC_NO_IMAGE 0x313E
+
 void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP, CheckinVia via) {
     if (config.runStatus == RUNSTATUS_STOP) {
         return;
@@ -791,6 +816,22 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         if (eadr->adr.wakeupReason == WAKEUP_REASON_FIRSTBOOT ||
             eadr->adr.wakeupReason == WAKEUP_REASON_WDT_RESET) {
             taginfo->nextupdate = 0;
+            // And the check-in it was expected at is void, because the tag has
+            // forgotten it: a sleep this AP handed out before the reboot died
+            // with the reboot, and the tag is awake right now.
+            //
+            // Without this, nextupdate = 0 above is not enough to get the
+            // content drawn. contentRunner() also asks whether a check-in is
+            // coming soon - expectedNextCheckin < now + 300 - and that value is
+            // whatever the idle request promised, up to config.maxsleep
+            // minutes away (see the prepareIdleReq block in contentmanager).
+            // So a rebooted tag with its content already due stood still until
+            // that promise came within five minutes of falling due: minutes of
+            // nothing happening after the reboot had been recognised and
+            // logged. Over the radio it did not show, because a tag that
+            // reboots has no offer recorded and takes the branch above that
+            // raises this to now + 60 anyway.
+            taginfo->expectedNextCheckin = now + 60;
         }
         taginfo->capabilities = eadr->adr.capabilities;
         taginfo->currentChannel = eadr->adr.currentChannel;
@@ -800,6 +841,54 @@ void processDataReq(struct espAvailDataReq* eadr, bool local, IPAddress remoteIP
         } else {
             taginfo->hwType = eadr->adr.hwType;
             taginfo->tagSoftwareVersion = eadr->adr.tagSoftwareVersion;
+        }
+
+        // What the tag says is on its panel, against what this AP last sent it.
+        //
+        // A display can lose its image without this AP hearing about it: it
+        // reboots and draws its own start screen, or something else - the BLE
+        // upload page, an NFC tap - puts a different image on it. A tag on the
+        // radio reports that itself by checking in with a boot reason, which the
+        // block above acts on. A BLE display only advertises and is never asked,
+        // so comparing is the only way to notice. It sends a CRC-16 rather than
+        // the version itself because an advertisement that has to stay readable
+        // by a passive scan has no room for eight more bytes; this AP holds
+        // those same eight in md5[], where processXferComplete() copied them
+        // from the dataVer it offered, in the same byte order on both ends.
+        //
+        // The answer is the one the reboot case already gives: forget the md5,
+        // so drawNew() does not conclude the tag already has this image, and
+        // pull nextupdate forward so it goes out now instead of in hours.
+        if (bleTag && eadr->adr.reserved[2] == 1) {
+            const uint16_t reported = (uint16_t)(eadr->adr.reserved[0] | (eadr->adr.reserved[1] << 8));
+            const uint16_t expected = crc16Ccitt(taginfo->md5, sizeof(uint64_t));
+            taginfo->imgCrc = reported;
+            taginfo->imgCrcValid = 1;
+            // An empty panel and an AP that remembers no image are not two
+            // sides agreeing, they are two sides with nothing - and the
+            // arithmetic made it look like agreement: md5[] all zero gives
+            // expected == 0x313E, which is exactly what a tag with nothing on
+            // its glass reports. "The normal content pass puts the first image
+            // there" was the assumption, and it does not hold: a static image
+            // leaves nextupdate at 3216153600, so for a tag in that state
+            // nothing was ever going to redraw it again. Measured on a live
+            // tag that stood there empty with its content mode set.
+            const bool panelBlank = reported == IMG_CRC_NO_IMAGE;
+            bool apRemembersImage = false;
+            for (size_t i = 0; i < sizeof(taginfo->md5); i++)
+                if (taginfo->md5[i]) apRemembersImage = true;
+            // Only when this AP has content for the tag at all - a tag drawing
+            // its own clock is not a tag with a wrong image - and only when
+            // nothing is on its way already.
+            if ((reported != expected || (panelBlank && !apRemembersImage)) &&
+                taginfo->contentMode != 0 && taginfo->pendingCount == 0 &&
+                now - (time_t)taginfo->updateLast > IMG_CRC_SETTLE_SECONDS) {
+                logLineRateLimited(String("imgcrc") + hexmac,
+                                   String(hexmac) + " is not showing its content (crc " + String(reported, HEX) +
+                                       ", expected " + String(expected, HEX) + "), sending it again");
+                memset(taginfo->md5, 0, sizeof(taginfo->md5));
+                taginfo->nextupdate = 0;
+            }
         }
     }
     if (local) {

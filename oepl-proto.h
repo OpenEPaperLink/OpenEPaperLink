@@ -83,6 +83,17 @@ struct AvailDataReq {
     uint16_t tagSoftwareVersion;
     uint8_t currentChannel;
     uint8_t customMode;
+    // A tag on the radio leaves these at zero. The ESP32 AP fills the first
+    // three in for a BLE display whose advertisement carries the extended tail
+    // (CAPABILITY_ADV_EXTENDED), because the advertisement is parsed in the BLE
+    // host task, which has too little stack to look anything up, and this is
+    // the struct that task hands to processDataReq():
+    //
+    //   [0..1]  CRC-16/CCITT-FALSE over the 8 byte dataVer on the panel,
+    //           little endian first
+    //   [2]     1 when those two bytes are present, 0 when nothing said so
+    //
+    // Nothing is sent over the air in them, so the radio protocol is unchanged.
     uint8_t reserved[8];
 } __packed;
 

@@ -199,6 +199,7 @@ void fillNode(JsonObject& tag, const tagRecord* taginfo) {
     tag["ch"] = taginfo->currentChannel;
     tag["ver"] = taginfo->tagSoftwareVersion;
     tag["imgtype"] = taginfo->imageDataType;
+    tag["imgcrc"] = taginfo->imgCrcValid ? taginfo->imgCrc : -1;
 }
 
 void saveDB(const String& filename) {

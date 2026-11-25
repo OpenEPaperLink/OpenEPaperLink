@@ -114,6 +114,17 @@
 #define CAPABILITY_HAS_NFC 0x40
 #define CAPABILITY_NFC_WAKE 0x80
 #define CAPABILITY_IS_BLE 0x0100
+// A BLE display that appends two more fields to its advertisement: a CRC-16 of
+// the image version on its panel and a wake-up reason byte. It also answers a
+// connected client with the full 64 bit version.
+//
+// It sits above the byte the radio protocol uses on purpose. Both the radio's
+// own capabilities field and the one in the tag database are a uint8_t, and the
+// advertisement parser masks with 0xff, so every receiver in the field already
+// discards bit 8 and up. That makes this a flag a new receiver can test to know
+// the extra bytes are there, without having to guess from the length, and an
+// old one cannot trip over.
+#define CAPABILITY_ADV_EXTENDED 0x0200
 
 #define DATATYPE_NOUPDATE 0
 #define DATATYPE_IMG_BMP 2			// ** deprecated

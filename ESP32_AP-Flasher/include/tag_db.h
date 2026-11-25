@@ -17,7 +17,7 @@
 #define NO_SUBGHZ_CHANNEL  255
 class tagRecord {
    public:
-    tagRecord() : mac{0}, version(0), alias(""), lastseen(0), nextupdate(0), contentMode(0), pendingCount(0), md5{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false), lastHeardOnRadio(false), apIp(IPAddress(0, 0, 0, 0)), pendingIdle(0), rotate(0), lut(0), tagSoftwareVersion(0), currentChannel(0), dataType(0), imageDataType(0), filename(""), data(nullptr), len(0), invert(0), updateCount(0), updateLast(0) {}
+    tagRecord() : mac{0}, version(0), alias(""), lastseen(0), nextupdate(0), contentMode(0), pendingCount(0), md5{0}, expectedNextCheckin(0), modeConfigJson(""), LQI(0), RSSI(0), temperature(0), batteryMv(0), hwType(0), wakeupReason(0), capabilities(0), lastfullupdate(0), isExternal(false), lastHeardOnRadio(false), apIp(IPAddress(0, 0, 0, 0)), pendingIdle(0), rotate(0), lut(0), tagSoftwareVersion(0), imgCrc(0), imgCrcValid(0), currentChannel(0), dataType(0), imageDataType(0), filename(""), data(nullptr), len(0), invert(0), updateCount(0), updateLast(0) {}
 
     uint8_t mac[8];
     uint8_t version;
@@ -44,6 +44,12 @@ class tagRecord {
     uint8_t rotate;
     uint8_t lut;
     uint16_t tagSoftwareVersion;
+    // What the tag says is on its panel, and whether it says so at all.
+    // imgCrcValid stays 0 for every tag that does not report it, which is every
+    // tag on the radio and every BLE tag below firmware 134; imgCrc is a real
+    // CRC and 0 is one of its possible values, so it cannot carry "unknown".
+    uint16_t imgCrc;
+    uint8_t imgCrcValid;
     uint8_t currentChannel;
     uint8_t invert;
     uint32_t updateCount;

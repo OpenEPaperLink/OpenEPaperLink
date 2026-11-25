@@ -40,6 +40,73 @@ struct BleAdvDataStructV2 {
     int8_t temperature;
     uint8_t counter;
 } __packed;
+// Appended by tag firmware 134 and up, behind the v2 layout rather than behind a
+// version byte of its own: the switch below ends in "not supported, return
+// false", so a tag announcing version 3 would not lose a field on an AP that has
+// not been updated - it would disappear from it altogether. Everything above is
+// byte for byte v2, and CAPABILITY_ADV_EXTENDED says these are there.
+struct BleAdvDataStructV2Ext {
+    uint16_t img_crc;     // CRC-16/CCITT-FALSE over the 8 byte dataVer on the panel
+    uint8_t wake_reason;  // event counter : 4 | reason : 4, see bleWakeEvent()
+} __packed;
+
+// The wake-up reason byte of such a tag, turned into a one-shot event.
+//
+// The tag cannot be acknowledged over an advertisement - there is no reply to
+// one - so it leaves the reason standing until its next check-in clears it and
+// moves a counter for each new event instead. Keeping the last byte per tag and
+// reporting only a change makes that idempotent without a timeout: a tap is
+// handled once however many advertisements carry it, two presses of the same
+// button are still two events because the counter moved, and an event survives
+// until it is seen rather than expiring while this AP was busy. The same thing
+// odButtonEvent() does for an OpenDisplay's button bytes.
+//
+// The two halves of the byte are read differently, because they are different
+// kinds of thing. A counter is an edge: without a previous value there is
+// nothing to compare it against, so a tag seen for the first time reports no
+// event - after a restart of this AP every button in range would otherwise
+// look as if it had just been pressed. A reason code is a state the tag is in
+// ("I booted and nobody has served me since"), and that is worth acting on the
+// first time it is seen, which is exactly the case after a restart of this AP.
+//
+// A tag whose byte does not move is quiet either way. That costs one case: a
+// tag that reboots twice without being served in between advertises 0x08 both
+// times and the second reboot passes unreported - but the first one already
+// set nextupdate to 0, so the content is on its way regardless.
+//
+// Runs in the BLE host task - keep it to the map lookup.
+static uint8_t bleWakeEvent(const uint8_t mac[8], const uint8_t advByte) {
+    static std::map<uint64_t, uint8_t> lastSeen;
+    uint64_t key = 0;
+    for (int i = 0; i < 8; i++) key = (key << 8) | mac[i];
+    const auto it = lastSeen.find(key);
+    const bool known = it != lastSeen.end();
+    const bool same = known && it->second == advByte;
+    lastSeen[key] = advByte;
+    // Codes 0 to 6 are the values this protocol uses itself, so they pass
+    // straight through; the four the protocol numbers from 0xE0 up do not fit
+    // in a nibble and get one of their own. See wakeReasonAdvByte() in the tag.
+    const uint8_t code = advByte & 0x0F;
+    // 0x00 is a tag with nothing pending: the tag puts the counter back to
+    // zero along with the reason, so this is the whole byte and not just the
+    // low nibble of one.
+    if (code == 0 || same) return 0;
+    if (!known && code <= 6) return 0;
+    switch (code) {
+        case 7:
+            return WAKEUP_REASON_FAILED_OTA_FW;
+        case 8:
+            return WAKEUP_REASON_FIRSTBOOT;
+        case 9:
+            return WAKEUP_REASON_NETWORK_SCAN;
+        case 10:
+            return WAKEUP_REASON_WDT_RESET;
+        default:
+            // 0 means the tag has nothing to report, which a changed counter
+            // alone does not override: it reset the reason after a check-in.
+            return code <= 6 ? code : 0;
+    }
+}
 
 // OpenDisplay advertisement, after the company id: v1 (14 bytes) or the older format (11 bytes).
 // The display type isn't in it; that needs the config, read over a connection.
@@ -122,6 +189,8 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             struct espAvailDataReq theAdvData;
             memset((uint8_t*)&theAdvData, 0x00, sizeof(espAvailDataReq));
             uint8_t versionAdvData = manuData[2];
+            struct BleAdvDataStructV2Ext extAdvData;
+            bool haveExtAdvData = false;
 
             switch (versionAdvData) {
                 case 1: {
@@ -163,6 +232,13 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
                         theAdvData.adr.hwType = inAdvData.hw_type & 0xff;
                         theAdvData.adr.tagSoftwareVersion = inAdvData.fw_version;
                         theAdvData.adr.capabilities = inAdvData.capabilities & 0xff;
+                        // The full 16 bits here, not the byte stored above: the
+                        // flag for the extra fields lives in the high one.
+                        if ((inAdvData.capabilities & CAPABILITY_ADV_EXTENDED) &&
+                            manuDatalen >= (int)(sizeof(BleAdvDataStructV2) + sizeof(BleAdvDataStructV2Ext))) {
+                            memcpy(&extAdvData, manuData + sizeof(BleAdvDataStructV2), sizeof(BleAdvDataStructV2Ext));
+                            haveExtAdvData = true;
+                        }
                     } else {
                         printf("Version 2 data length incorrect!\r\n");
                         return false;
@@ -183,6 +259,18 @@ bool BLE_filter_add_device(BLEAdvertisedDevice advertisedDevice) {
             theAdvData.src[5] = macReversed[0];
             theAdvData.src[6] = manuData[0];  // We use this do find out what type of display we got for compression^^
             theAdvData.src[7] = manuData[1];
+            if (haveExtAdvData) {
+                // Handed on in the reserved bytes rather than compared here: the
+                // comparison needs the tag's record, and this runs in the BLE
+                // host task. See the note on AvailDataReq::reserved.
+                theAdvData.adr.reserved[0] = (uint8_t)(extAdvData.img_crc & 0xff);
+                theAdvData.adr.reserved[1] = (uint8_t)(extAdvData.img_crc >> 8);
+                theAdvData.adr.reserved[2] = 1;
+                // Set before the enqueue on purpose: BLE_enqueue_data_req()
+                // passes on one advertisement per tag per minute, except when
+                // there is a reason, which it sends through at once.
+                theAdvData.adr.wakeupReason = bleWakeEvent(theAdvData.src, extAdvData.wake_reason);
+            }
             BLE_enqueue_data_req(&theAdvData);
             return true;
         }
