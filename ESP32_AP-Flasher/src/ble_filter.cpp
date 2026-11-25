@@ -607,7 +607,18 @@ uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len, u
     return len_compressed;
 }
 
-uint32_t get_ATC_BLE_OEPL_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len, uint8_t* dataType, uint8_t* dataTypeArgument, uint16_t* nextCheckIn) {
+// How many bytes the item queued for this display will need, 0 when there is
+// none. The caller allocates by this instead of by one fixed size: a firmware
+// is larger than any image, and an image is a fraction of what a firmware
+// needs, so a single constant is either too small for the one or wasteful for
+// the other. It was too small - 135000 against a 160900 byte firmware.
+uint32_t get_ATC_BLE_OEPL_pending_len(uint8_t address[8]) {
+    PendingItem* queueItem = getQueueItem(address, 0);
+    if (queueItem == nullptr) return 0;
+    return queueItem->len;
+}
+
+uint32_t get_ATC_BLE_OEPL_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len, uint8_t* dataType, uint8_t* dataTypeArgument, uint16_t* nextCheckIn, uint64_t* dataVer) {
     uint32_t t = millis();
     PendingItem* queueItem = getQueueItem(address, 0);
     if (queueItem == nullptr) {
@@ -615,19 +626,37 @@ uint32_t get_ATC_BLE_OEPL_image(uint8_t address[8], uint8_t* buffer, uint32_t ma
         Serial.printf("blockrequest: couldn't find taginfo %02X%02X%02X%02X%02X%02X%02X%02X\r\n", address[7], address[6], address[5], address[4], address[3], address[2], address[1], address[0]);
         return 0;
     }
+    // Neither of these cancels the item any more. prepareCancelPending() empties
+    // the queue, and both causes are about this attempt rather than about the
+    // content: the file may appear, the memory may free up. Left queued, the
+    // writer's own attempt counter ends in a visible "xfer timeout" after five
+    // tries instead of a blue flash in the web UI and nothing else.
     if (!loadQueueItemData(queueItem)) {
-        Serial.print("No data for " + String(queueItem->filename) + ", canceling request\r\n");
-        prepareCancelPending(address);
+        char hexmac[17];
+        mac2hex(address, hexmac);
+        wsErr(String(hexmac) + " BLE: no data for " + String(queueItem->filename));
         return 0;
     }
+    // Not a size policy - that belongs to the display, which refuses what it
+    // cannot store - but the bound on the memcpy below. The caller sizes the
+    // buffer to this very item, so this only fires if those two ever disagree.
     if (queueItem->len > max_len) {
-        Serial.print("The upload is too big better cencel it\r\n");
-        prepareCancelPending(address);
+        char hexmac[17];
+        mac2hex(address, hexmac);
+        wsErr(String(hexmac) + " BLE: " + String(queueItem->len) + " bytes do not fit in a " +
+              String(max_len) + " byte buffer");
         return 0;
     }
     *dataType = queueItem->pendingdata.availdatainfo.dataType;
     *dataTypeArgument = queueItem->pendingdata.availdatainfo.dataTypeArgument;
     *nextCheckIn = queueItem->pendingdata.availdatainfo.nextCheckIn;
+    // The item's own version, rather than one computed again from the buffer.
+    // prepareDataAvail() took it as the md5 of the whole file; recomputing it in
+    // the writer went through MD5Builder::add(), whose length is a uint16_t, so
+    // a 160900 byte firmware was hashed over its first 29828 bytes and the
+    // AvailDataInfo carried a version that matched nothing. One source for it,
+    // and the delivery report can be checked against the item it belongs to.
+    *dataVer = queueItem->pendingdata.availdatainfo.dataVer;
     uint32_t len_compressed = queueItem->len;
     memcpy(buffer, queueItem->data, queueItem->len);
     Serial.print("Data is prepared Len: " + String(queueItem->len) + "\r\n");

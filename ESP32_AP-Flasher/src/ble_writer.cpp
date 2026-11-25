@@ -26,6 +26,13 @@
 // a display reports at most this often, unless a button was pressed
 #define BLE_CHECKIN_INTERVAL_MS 60000
 #define BUFFER_MAX_SIZE_COMPRESSING 135000
+// Internal RAM that has to stay free after a transfer buffer is taken. BLE and
+// WiFi allocate out of it continuously and cannot use PSRAM, so handing the last
+// of it to one upload takes the access point down instead of failing the upload.
+#define BLE_TRANSFER_INTERNAL_RESERVE (48 * 1024)
+// PSRAM that stays free beside it, for the image conversion's own sprite - the
+// same reserve the stored uploads keep, for the same reason.
+#define BLE_TRANSFER_PSRAM_RESERVE (512 * 1024)
 
 #define BLE_MAIN_STATE_IDLE 0
 #define BLE_MAIN_STATE_PREPARE 1
@@ -100,6 +107,11 @@ int BLE_upload_state = BLE_UPLOAD_STATE_INIT;
 #define BLE_CMD_ACK_FW_UPDATED 201
 
 struct AvailDataInfo BLEavaildatainfo = {0};
+// Whether the upload now running is a firmware update, and whether the block
+// being transferred is its last. Together they say when a firmware update is
+// finished - see ATC_BLE_OEPL_SendLastablePart() below.
+static bool BLE_upload_isFw = false;
+static bool BLE_upload_lastBlock = false;
 struct blockRequest BLEblkRequst = {0};
 
 bool BLE_connected = false;
@@ -147,8 +159,33 @@ uint32_t BLE_compressed_len = 0;
 uint8_t BLE_image_bpp = 0;
 uint8_t* BLE_image_buffer = nullptr;
 
+// A transfer buffer, or nullptr when this ESP cannot spare the room.
+//
+// There is deliberately no size limit here. Whether a display will take a
+// transfer is the display's own decision and it already makes it: the tag
+// refuses a firmware larger than its update area with BLE_CMD_ERR and an image
+// larger than an image slot with BLE_CMD_ERR_FILE_TOO_BIG. An access point that
+// second-guesses that needs a copy of the tag's flash map, and a wrong copy is
+// what cancelled every firmware update: 135000 bytes of buffer against a 160900
+// byte firmware, thrown away without a word.
+//
+// What is left is a memory question, and it is asked of the heap. PSRAM first,
+// because that is where a 200 kB buffer belongs and what these access points
+// have; internal RAM only when there is none, and then only while enough stays
+// free for the BLE and WiFi stacks, which cannot allocate anywhere else.
+// Failing here is safe: the caller logs it and leaves the item queued.
+static uint8_t* BLE_allocTransferBuffer(const uint32_t len) {
+    if (len == 0) return nullptr;
+    if (ESP.getPsramSize() > 0) {
+        if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) < len + BLE_TRANSFER_PSRAM_RESERVE) return nullptr;
+        return (uint8_t*)heap_caps_malloc(len, MALLOC_CAP_SPIRAM);
+    }
+    if (heap_caps_get_free_size(MALLOC_CAP_INTERNAL) < len + BLE_TRANSFER_INTERNAL_RESERVE) return nullptr;
+    return (uint8_t*)heap_caps_malloc(len, MALLOC_CAP_INTERNAL);
+}
+
 static void BLE_freeImageBuffer() {
-    free(BLE_image_buffer);
+    heap_caps_free(BLE_image_buffer);
     BLE_image_buffer = nullptr;
 }
 
@@ -380,8 +417,52 @@ void ATC_BLE_OEPL_SendPart(uint8_t indexBlockId, uint8_t indexPkt) {
     BLE_write(ctrlChar, tempPacketBuffer, sizeof(tempPacketBuffer), true);
 }
 
+// True when the item queued for BLE_curr_address is no longer the one this
+// upload was about.
+//
+// A report of either kind carries nothing but the MAC: processXferComplete()
+// dequeues whichever item is first in line for it, and processXferTimeout()
+// drops every item it has. That is fine as long as the item that was worked on
+// is still the item that is queued - and it is not, whenever newer content was
+// drawn in the meantime, because queueDataAvail() retires the old one on
+// purpose ("a new image replaces the images that are still queued for this
+// tag"). An upload that finishes a moment later then acknowledges content the
+// display has never seen, and the access point stores the old dataVer as its
+// md5, so the new content is never offered again.
+//
+// The radio side has offeredMatches() for exactly this. It cannot help here:
+// it reads offeredDataVer, which is filled from setAnnounced(), and a BLE
+// display is never announced to the radio - sendDataAvail() returns false for
+// one. So the BLE writer has to make the comparison itself.
+//
+// deliveredVer of 0 means "no dataVer of its own to compare", which is the
+// case for a command frame and for an OpenDisplay session; those report as
+// before.
+static bool BLE_itemWasReplaced(const uint64_t deliveredVer) {
+    if (deliveredVer == 0) return false;
+    const PendingItem* queued = getQueueItem(BLE_curr_address);
+    if (queued == nullptr) return false;
+    return queued->pendingdata.availdatainfo.dataVer != deliveredVer;
+}
+
+// Says so once, with the MAC, in the same shape as the progress lines.
+static void BLE_reportSuperseded(const char* what) {
+    char buffer[96];
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X BLE %s, newer content kept",
+            BLE_curr_address[7], BLE_curr_address[6], BLE_curr_address[5], BLE_curr_address[4],
+            BLE_curr_address[3], BLE_curr_address[2], BLE_curr_address[1], BLE_curr_address[0], what);
+    wsLog((String)buffer);
+}
+
 // The queued item for BLE_curr_address reached the display: clear it and count the update.
-static void BLE_reportDelivered() {
+static void BLE_reportDelivered(const uint64_t deliveredVer = 0) {
+    if (BLE_itemWasReplaced(deliveredVer)) {
+        // Not acknowledged: the newer item stays queued and is picked up on the
+        // next pending check, a second later.
+        BLE_reportSuperseded("upload finished for replaced data");
+        BLE_clear_attempts(BLE_curr_address);
+        return;
+    }
     struct espXferComplete reportStruct;
     memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
     processXferComplete(&reportStruct, true);
@@ -393,23 +474,71 @@ static void BLE_reportDelivered() {
 // then "the same as the current image" and never queued again, so a display the AP never reached
 // keeps its old image for good, while the web interface shows the new one. A timeout clears the
 // queue, logs that the transfer failed and leaves the hash of the image on the display alone.
-static void BLE_reportFailed() {
+static void BLE_reportFailed(const uint64_t deliveredVer = 0) {
+    if (BLE_itemWasReplaced(deliveredVer)) {
+        // Worse here than on the success path: processXferTimeout() calls
+        // dequeueAllItems(), so reporting a failure for an item that is already
+        // gone would throw away the newer content as well.
+        BLE_reportSuperseded("upload failed for replaced data");
+        BLE_clear_attempts(BLE_curr_address);
+        return;
+    }
     struct espXferComplete reportStruct;
     memcpy((uint8_t*)&reportStruct.src, BLE_curr_address, 8);
     processXferTimeout(&reportStruct, true);
     BLE_clear_attempts(BLE_curr_address);
 }
 
+static void BLE_endAtcUpload(bool delivered);
+
+// One part on its way, and for a firmware update the acknowledgement that goes
+// with the last of them.
+//
+// The access point acknowledges a firmware transfer itself rather than waiting
+// to be told. The display answers the last block with BLE_CMD_ACK_FW_UPDATED
+// and reboots 100 ms later (the DATATYPE_FW_UPDATE case in the tag's
+// app_bleCmdHandle.c), so that notify is lost about as often as it arrives and
+// the link goes down in either case - which is indistinguishable from an upload
+// that failed. Left to wait for it, the item stayed queued and the whole 160 kB
+// went out again, against a display that was already running it. Measured three
+// rounds in a row, and it does not stop by itself.
+//
+// This is the last moment there is anything to know: parts go out as
+// write-with-response, so when the write returns the display has taken the
+// packet at the ATT layer, and the display asks for blocks in order, so the
+// last block means every earlier one arrived.
+//
+// What it gives up: if the display were to find the last block's checksum
+// wrong, it would ask for that block again, and by then the item is gone. The
+// deep-sleep command is handled the same way a few lines down and for the same
+// reason - after some commands a display simply has nothing left to say.
+static void ATC_BLE_OEPL_SendLastablePart(uint8_t blockId, uint8_t part) {
+    ATC_BLE_OEPL_SendPart(blockId, part);
+    if (!BLE_upload_isFw || !BLE_upload_lastBlock) return;
+    if (part + 1 < BLE_max_block_parts) return;
+    char buffer[96];
+    sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X firmware sent in full, rebooting into it",
+            BLE_curr_address[7], BLE_curr_address[6], BLE_curr_address[5], BLE_curr_address[4],
+            BLE_curr_address[3], BLE_curr_address[2], BLE_curr_address[1], BLE_curr_address[0]);
+    wsLog((String)buffer);
+    BLE_endAtcUpload(true);
+}
+
 // Leave an ATC BLE OEPL image upload: free the buffer, drop the link and report what happened
 static void BLE_endAtcUpload(bool delivered) {
+    // Reported here, so a disconnect that follows must not report it again.
+    BLE_upload_isFw = false;
+    BLE_upload_lastBlock = false;
     BLE_freeImageBuffer();
     pClient->disconnect();
     ble_main_state = BLE_MAIN_STATE_IDLE;
     BLE_last_pending_check = millis();
+    // BLEavaildatainfo.dataVer is the md5 of the buffer that was actually sent,
+    // which is what the report has to be checked against.
     if (delivered) {
-        BLE_reportDelivered();
+        BLE_reportDelivered(BLEavaildatainfo.dataVer);
     } else {
-        BLE_reportFailed();
+        BLE_reportFailed(BLEavaildatainfo.dataVer);
     }
     BLE_err_counter = 0;
     BLE_max_block_parts = 0;
@@ -465,7 +594,32 @@ void BLETask(void* parameter) {
                 // upload states free the buffer on every other way out
                 if (BLE_image_buffer != nullptr) {
                     Serial.println("BLE upload ended by a disconnect");
+                    // A firmware update always ends exactly like this. The display
+                    // acknowledges the last block with BLE_CMD_ACK_FW_UPDATED and then
+                    // reboots 100 ms later (the DATATYPE_FW_UPDATE case in the tag's
+                    // app_bleCmdHandle.c), so the link goes down with that notify still
+                    // in flight and it is lost about as often as it arrives. A dropped
+                    // link reports nothing, so the item stayed queued and the whole
+                    // 160 kB went out again - against a display already running it.
+                    // Measured: three times over in a row.
+                    //
+                    // Having served the last block is the proof of delivery here. The
+                    // display asks for blocks in order, so the last request means all of
+                    // it arrived, and nothing after that can be heard from a display
+                    // that is busy becoming the firmware. The deep-sleep command is
+                    // treated the same way a few lines down, for the same reason.
+                    const bool fwDelivered = BLE_upload_isFw && BLE_upload_lastBlock;
                     BLE_freeImageBuffer();
+                    if (fwDelivered) {
+                        char buffer[96];
+                        sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X firmware delivered, rebooting into it",
+                                BLE_curr_address[7], BLE_curr_address[6], BLE_curr_address[5], BLE_curr_address[4],
+                                BLE_curr_address[3], BLE_curr_address[2], BLE_curr_address[1], BLE_curr_address[0]);
+                        wsLog((String)buffer);
+                        BLE_reportDelivered(BLEavaildatainfo.dataVer);
+                    }
+                    BLE_upload_isFw = false;
+                    BLE_upload_lastBlock = false;
                 }
                 BLE_scanRun();
                 if (millis() - BLE_last_pending_check >= INTERVAL_HANDLE_PENDING_MS) {
@@ -528,16 +682,35 @@ void BLETask(void* parameter) {
                                 BLE_last_pending_check = millis();
                                 break;  // handled this pending item, skip the image path
                             }
-                            // Here we create the compressed buffer
-                            BLE_image_buffer = (uint8_t*)malloc(BUFFER_MAX_SIZE_COMPRESSING);
+                            // Sized to the item that is waiting, not to one constant.
+                            // An ATC display is sent what is queued byte for byte - the
+                            // compression happened when the image was made - so the
+                            // buffer has to hold exactly that, and a firmware is bigger
+                            // than BUFFER_MAX_SIZE_COMPRESSING ever allowed for (135000
+                            // against 160900 bytes, which is what silently cancelled
+                            // every firmware update).
+                            //
+                            // Costs the firmware twice over while the upload runs: once
+                            // in the queue item, once here. That is the existing design -
+                            // get_ATC_BLE_OEPL_image() memcpy's from the one into the
+                            // other - and on an access point without PSRAM a firmware
+                            // update will fail on this allocation. It now says so in the
+                            // log rather than looking like a delivery.
+                            const uint32_t bufferLen = get_ATC_BLE_OEPL_pending_len(BLE_curr_address);
+                            BLE_image_buffer = BLE_allocTransferBuffer(bufferLen);
                             if (BLE_image_buffer == nullptr) {
+                                char hexmac[17];
+                                mac2hex(BLE_curr_address, hexmac);
+                                wsErr(String(hexmac) + " BLE: no memory for a " + String(bufferLen) +
+                                      " byte transfer, leaving it queued");
                                 Serial.println("BLE Could not create buffer!");
                                 BLE_compressed_len = 0;
                             } else {
                                 uint8_t dataType = 0x00;
                                 uint8_t dataTypeArgument = 0x00;
                                 uint16_t nextCheckin = 0x00;
-                                BLE_compressed_len = get_ATC_BLE_OEPL_image(BLE_curr_address, BLE_image_buffer, BUFFER_MAX_SIZE_COMPRESSING, &dataType, &dataTypeArgument, &nextCheckin);
+                                uint64_t itemDataVer = 0;
+                                BLE_compressed_len = get_ATC_BLE_OEPL_image(BLE_curr_address, BLE_image_buffer, bufferLen, &dataType, &dataTypeArgument, &nextCheckin, &itemDataVer);
                                 Serial.printf("BLE data Length: %i\r\n", BLE_compressed_len);
                                 // then we connect to BLE to send the compressed data
                                 if (BLE_compressed_len && BLE_connect(BLE_curr_address, BLE_TYPE_ATC_BLE_OEPL)) {
@@ -545,15 +718,15 @@ void BLETask(void* parameter) {
                                     BLE_curr_part = 0;
                                     memset(BLE_notify_buffer, 0x00, sizeof(BLE_notify_buffer));
 
-                                    uint8_t md5bytes[16];
-                                    MD5Builder md5;
-                                    md5.begin();
-                                    md5.add(BLE_image_buffer, BLE_compressed_len);
-                                    md5.calculate();
-                                    md5.getBytes(md5bytes);
-
                                     BLEavaildatainfo.dataType = dataType;
-                                    BLEavaildatainfo.dataVer = *((uint64_t*)md5bytes);
+                                    BLE_upload_isFw = dataType == DATATYPE_FW_UPDATE;
+                                    BLE_upload_lastBlock = false;
+                                    // The item's own version, not one computed again here: MD5Builder::add()
+                                    // takes a uint16_t length, so a 160900 byte firmware was hashed over its
+                                    // first 29828 bytes and the display was handed a version that matched
+                                    // nothing. The delivery could then never be recognised as the item it
+                                    // belonged to, and the whole firmware went out again, round after round.
+                                    BLEavaildatainfo.dataVer = itemDataVer;
                                     BLEavaildatainfo.dataSize = BLE_compressed_len;
                                     BLEavaildatainfo.dataTypeArgument = dataTypeArgument;
                                     BLEavaildatainfo.nextCheckIn = nextCheckin;
@@ -582,7 +755,9 @@ void BLETask(void* parameter) {
                             }
                         } else {  // This is a Gicisky display
                             // Here we create the compressed buffer
-                            BLE_image_buffer = (uint8_t*)malloc(BUFFER_MAX_SIZE_COMPRESSING);
+                            // A Gicisky frame is compressed in place here, so this one is
+                            // scratch space of an unknown size and keeps its constant.
+                            BLE_image_buffer = BLE_allocTransferBuffer(BUFFER_MAX_SIZE_COMPRESSING);
                             if (BLE_image_buffer == nullptr) {
                                 Serial.println("BLE Could not create buffer!");
                                 BLE_compressed_len = 0;
@@ -722,8 +897,11 @@ void BLETask(void* parameter) {
                                         ATC_BLE_OEPL_PrepareBlk(BLEblkRequst.blockId);
                                         BLE_reportProgress("block", BLEblkRequst.blockId);
                                         uint16_t totalBlocks = (BLE_compressed_len + BLOCK_DATA_SIZE_BLE - 1) / BLOCK_DATA_SIZE_BLE;
+                                        // The display asks for blocks in order, so being asked
+                                        // for the last one means every earlier one arrived.
+                                        BLE_upload_lastBlock = BLEblkRequst.blockId + 1 >= totalBlocks;
                                         wsSendUploadProgress(BLE_curr_address, BLEblkRequst.blockId + 1, totalBlocks);
-                                        ATC_BLE_OEPL_SendPart(BLEblkRequst.blockId, BLE_curr_part);
+                                        ATC_BLE_OEPL_SendLastablePart(BLEblkRequst.blockId, BLE_curr_part);
                                     }
                                     break;
                                 case BLE_CMD_ACK_BLKPRT:
@@ -731,7 +909,7 @@ void BLETask(void* parameter) {
                                     BLE_err_counter = 0;
                                 case BLE_CMD_ERR_BLKPRT:
                                     if (BLE_curr_part <= BLE_max_block_parts && BLE_err_counter++ < 15) {
-                                        ATC_BLE_OEPL_SendPart(BLEblkRequst.blockId, BLE_curr_part);
+                                        ATC_BLE_OEPL_SendLastablePart(BLEblkRequst.blockId, BLE_curr_part);
                                         break;
                                     }
                                     // too many errors on one block: the display didn't get the image
@@ -750,11 +928,24 @@ void BLETask(void* parameter) {
                 } else {
                     if (millis() - BLE_last_notify > 30000) {  // Something odd, better reset connection!
                         Serial.println("BLE err going back to IDLE");
+                        // The same thing the IDLE branch reads: a firmware update whose
+                        // last block was served and that then went quiet has arrived.
+                        const bool fwDelivered = BLE_upload_isFw && BLE_upload_lastBlock;
                         BLE_freeImageBuffer();
                         pClient->disconnect();
                         BLE_err_counter = 0;
                         ble_main_state = BLE_MAIN_STATE_IDLE;
                         BLE_last_pending_check = millis();
+                        if (fwDelivered) {
+                            char buffer[96];
+                            sprintf(buffer, "%02X%02X%02X%02X%02X%02X%02X%02X firmware delivered, rebooting into it",
+                                    BLE_curr_address[7], BLE_curr_address[6], BLE_curr_address[5], BLE_curr_address[4],
+                                    BLE_curr_address[3], BLE_curr_address[2], BLE_curr_address[1], BLE_curr_address[0]);
+                            wsLog((String)buffer);
+                            BLE_reportDelivered(BLEavaildatainfo.dataVer);
+                        }
+                        BLE_upload_isFw = false;
+                        BLE_upload_lastBlock = false;
                     }
                 }
                 break;

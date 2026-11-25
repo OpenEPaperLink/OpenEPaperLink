@@ -18,7 +18,7 @@ bool BLE_is_image_pending(uint8_t address[8]);
 void BLE_clear_attempts(uint8_t address[8]);
 uint32_t BLE_get_attempts(uint8_t address[8]);
 uint32_t compress_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len, uint8_t imageBpp);
-uint32_t get_ATC_BLE_OEPL_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len, uint8_t* dataType, uint8_t* dataTypeArgument, uint16_t* nextCheckIn);
+uint32_t get_ATC_BLE_OEPL_image(uint8_t address[8], uint8_t* buffer, uint32_t max_len, uint8_t* dataType, uint8_t* dataTypeArgument, uint16_t* nextCheckIn, uint64_t* dataVer);
 
 // If the next pending item for an ATC BLE OEPL tag is a command (DATATYPE_COMMAND_DATA)
 // rather than an image, this builds the ready-to-write BLE control frame for it and
@@ -27,5 +27,7 @@ uint32_t get_ATC_BLE_OEPL_image(uint8_t address[8], uint8_t* buffer, uint32_t ma
 // caller should just complete/clear it. isDeepsleep is set for a deep-sleep request so
 // the caller can mark the tag as sleeping once it is acknowledged.
 bool get_ATC_BLE_OEPL_command(uint8_t address[8], uint8_t* frame, uint8_t* frameLen, bool* isDeepsleep);
+// Bytes the queued item needs, 0 when nothing is queued for that display.
+uint32_t get_ATC_BLE_OEPL_pending_len(uint8_t address[8]);
 
 #endif
