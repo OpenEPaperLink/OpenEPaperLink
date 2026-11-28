@@ -558,6 +558,22 @@ void yellow_ap_display_loop(void) {
 
             {
                 TFTLock lock;
+#if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
+                /* The RGB panel is driven by Arduino_GFX (gfx), not by tft2: the
+                   TFT_eSPI driver defines (ILI9341) force tft2 to 240x320, so a
+                   sprite sized from tft2 read only part of the image and drew it
+                   with the wrong row length. Use the panel's own size. */
+                long dx = gfx->width();
+                long dy = gfx->height();
+                size_t bytes = (size_t)dx * dy * 2;
+                uint16_t* buf = (uint16_t*)ps_malloc(bytes);
+                if (buf) {
+                    file.readBytes((char*)buf, bytes);
+                    gfx->draw16bitRGBBitmap(0, 0, buf, dx, dy);
+                    free(buf);
+                }
+                file.close();
+#else
                 TFT_eSprite spr = TFT_eSprite(&tft2);
                 spr.setColorDepth(16);
                 if (tag->len == tft2.width() * tft2.height()) spr.setColorDepth(8);
@@ -565,16 +581,6 @@ void yellow_ap_display_loop(void) {
                 void* spriteData = spr.getPointer();
                 size_t bytesRead = file.readBytes((char*)spriteData, spr.width() * spr.height() * 2);
                 file.close();
-
-#if defined HAS_LILYGO_TPANEL || defined HAS_4inch_TPANEL
-                long dy = spr.height();
-                long dx = spr.width();
-
-                uint16_t* data = static_cast<uint16_t*>(const_cast<void*>(spriteData));
-
-                gfx->draw16bitRGBBitmap(0, 0, (uint16_t*)spriteData, dx, dy);
-                spr.deleteSprite();
-#else
                 spr.pushSprite(0, 0);
 #endif
 
